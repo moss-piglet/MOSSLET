@@ -199,8 +199,8 @@ const EntryColumnFlow = {
       footerDiv.className =
         "flex items-center justify-between pt-2 flex-shrink-0";
       footerDiv.innerHTML = `
-        <span class="text-xs font-serif italic text-slate-400 dark:text-slate-500" data-page-num></span>
-        <span class="text-xs text-emerald-500 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">Click to read →</span>
+        <span class="text-xs font-serif italic text-slate-400 dark:text-slate-500 page-num-container" data-page-num></span>
+        <span class="text-xs text-emerald-500 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity click-hint">Click to read →</span>
       `;
       clickableDiv.appendChild(footerDiv);
 

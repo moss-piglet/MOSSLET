@@ -452,269 +452,6 @@ defmodule MossletWeb.JournalLive.Book do
     """
   end
 
-  attr :current_scope, :map, required: true
-  attr :book, :map, required: true
-  attr :decrypted_title, :string, required: true
-  attr :decrypted_description, :string, default: nil
-  attr :decrypted_cover_image_url, :string, default: nil
-  attr :entries, :list, required: true
-  attr :flash, :map, required: true
-  attr :scroll_page, :integer, required: true
-  attr :scroll_total, :integer, required: true
-  attr :privacy_active, :boolean, required: true
-  attr :privacy_countdown, :integer, required: true
-  attr :privacy_needs_password, :boolean, required: true
-  attr :privacy_form, :map, required: true
-  attr :is_mobile, :boolean, required: true
-  attr :mobile_chars_per_page, :integer, required: true
-  attr :desktop_chars_per_page, :integer, required: true
-
-  defp css_reading_layout(assigns) do
-    decrypted_username =
-      decr(
-        assigns.current_scope.user.username,
-        assigns.current_scope.user,
-        assigns.current_scope.key
-      )
-
-    chars_per_page =
-      if assigns.is_mobile,
-        do: assigns.mobile_chars_per_page,
-        else: assigns.desktop_chars_per_page
-
-    page_segments = entries_to_page_segments(assigns.entries, chars_per_page)
-
-    spread_pairs =
-      page_segments
-      |> Enum.chunk_every(2, 2, [:empty])
-      |> Enum.with_index()
-
-    assigns =
-      assigns
-      |> assign(:decrypted_username, decrypted_username)
-      |> assign(:spread_pairs, spread_pairs)
-      |> assign(:total_content_pages, length(page_segments))
-
-    ~H"""
-    <div
-      id="css-book-reader"
-      class="fixed inset-0 bg-gradient-to-br from-amber-50/30 via-stone-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"
-      x-data="{ headerVisible: true, footerVisible: true, userInteracted: false, hideTimer: null, startHideTimer() { clearTimeout(this.hideTimer); this.hideTimer = setTimeout(() => { this.headerVisible = false; this.footerVisible = false; }, 2500); } }"
-      x-init="hideTimer = setTimeout(() => { if (!userInteracted) { headerVisible = false; footerVisible = false; } }, 3000);"
-    >
-      <header
-        class="fixed top-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/50 dark:border-slate-700/50 transition-all duration-300"
-        x-bind:class="headerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'"
-        @mouseenter="headerVisible = true; footerVisible = true; userInteracted = true; clearTimeout(hideTimer)"
-        @mouseleave="startHideTimer()"
-      >
-        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="flex items-center justify-between h-14">
-            <button
-              type="button"
-              phx-click="set_view_mode"
-              phx-value-mode="list"
-              aria-label="Exit Reading"
-              class="inline-flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
-            >
-              <.phx_icon name="hero-list-bullet" class="h-4 w-4" />
-              <span class="hidden sm:inline">Exit Reading</span>
-            </button>
-
-            <div class="flex items-center gap-2">
-              <div :if={@decrypted_cover_image_url} class="hidden sm:block">
-                <img src={@decrypted_cover_image_url} class="h-8 w-auto rounded shadow-sm" alt="" />
-              </div>
-              <div
-                :if={!@decrypted_cover_image_url}
-                class={[
-                  "hidden sm:flex h-8 w-6 rounded items-center justify-center",
-                  JournalHelpers.book_cover_gradient(@book.cover_color)
-                ]}
-              >
-                <.phx_icon name="hero-book-open" class="h-3.5 w-3.5 text-white/80" />
-              </div>
-              <h1 class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate max-w-[200px]">
-                {@decrypted_title}
-              </h1>
-            </div>
-
-            <div class="flex items-center gap-2">
-              <DesignSystem.privacy_button
-                active={@privacy_active}
-                countdown={@privacy_countdown}
-                on_click="activate_privacy"
-              />
-              <MossletWeb.Layouts.theme_toggle />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div
-        class="fixed top-0 left-0 right-0 h-8 z-50"
-        x-show="!headerVisible"
-        @mouseenter="headerVisible = true; footerVisible = true; cursorVisible = true; userInteracted = true"
-        @touchstart="headerVisible = true; footerVisible = true; cursorVisible = true; userInteracted = true"
-      >
-      </div>
-
-      <div
-        id="book-scroll-container"
-        class="book-reader-container opacity-0"
-        phx-hook="BookScrollReader"
-        data-initial-page={@current_page}
-      >
-        <div class="book-spread">
-          <.css_front_cover
-            book={@book}
-            decrypted_title={@decrypted_title}
-            decrypted_description={@decrypted_description}
-            decrypted_cover_image_url={@decrypted_cover_image_url}
-          />
-        </div>
-
-        <div :for={{pair, spread_idx} <- @spread_pairs} class="book-spread">
-          <%= case pair do %>
-            <% [left, right] when right != :empty -> %>
-              <.css_content_page
-                segment={left}
-                page_num={spread_idx * 2 + 1}
-                side="left"
-                book_id={@book.id}
-              />
-              <div class="book-spine hidden md:block" />
-              <.css_content_page
-                segment={right}
-                page_num={spread_idx * 2 + 2}
-                side="right"
-                book_id={@book.id}
-                class="hidden md:flex"
-              />
-            <% [left, :empty] -> %>
-              <.css_content_page
-                segment={left}
-                page_num={spread_idx * 2 + 1}
-                side="left"
-                book_id={@book.id}
-              />
-              <div class="book-spine hidden md:block" />
-              <div class="book-page bg-white/95 dark:bg-slate-800/95 hidden md:flex items-center justify-center">
-                <div class="text-center text-slate-400 dark:text-slate-500">
-                  <p class="text-sm italic">Turn the page...</p>
-                </div>
-              </div>
-            <% [single] -> %>
-              <.css_content_page
-                segment={single}
-                page_num={spread_idx * 2 + 1}
-                side="left"
-                book_id={@book.id}
-              />
-              <div class="book-spine hidden md:block" />
-              <div class="book-page bg-white/95 dark:bg-slate-800/95 hidden md:flex items-center justify-center">
-                <div class="text-center text-slate-400 dark:text-slate-500">
-                  <p class="text-sm italic">Turn the page...</p>
-                </div>
-              </div>
-            <% _ -> %>
-          <% end %>
-        </div>
-
-        <div class="book-spread">
-          <div class="book-page bg-white/95 dark:bg-slate-800/95 flex items-center justify-center">
-            <div class="text-center px-6">
-              <p class="text-3xl sm:text-4xl font-serif italic text-slate-700 dark:text-slate-300 mb-8">
-                The End
-              </p>
-              <div class="w-16 h-0.5 bg-slate-300 dark:bg-slate-600 rounded-full mx-auto mb-8" />
-              <p class="text-sm text-slate-500 dark:text-slate-400">
-                © <.local_time for={DateTime.utc_now()} format="yyyy" /> {@decrypted_username}
-              </p>
-            </div>
-          </div>
-          <div class="book-spine hidden md:block" />
-          <div class="book-page bg-gradient-to-br from-amber-50/50 via-stone-100 to-slate-200 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900 hidden md:flex items-center justify-center">
-            <p class="text-sm text-slate-400 dark:text-slate-500 italic">Back cover</p>
-          </div>
-        </div>
-      </div>
-
-      <footer
-        class="fixed bottom-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-200/50 dark:border-slate-700/50 transition-all duration-300"
-        x-bind:class="footerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-full pointer-events-none'"
-        @mouseenter="footerVisible = true; headerVisible = true; cursorVisible = true; userInteracted = true; clearTimeout(hideTimer)"
-        @mouseleave="startHideTimer()"
-      >
-        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="flex items-center justify-between h-16">
-            <div class="w-28">
-              <button
-                type="button"
-                id="book-prev-btn"
-                phx-update="ignore"
-                aria-label="Previous page"
-                class="opacity-0 inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
-              >
-                <.phx_icon name="hero-chevron-left" class="h-4 w-4" />
-                <span id="book-prev-label" class="hidden sm:inline"></span>
-              </button>
-            </div>
-
-            <div class="flex items-center gap-4">
-              <span
-                id="book-page-indicator"
-                phx-update="ignore"
-                class="text-xs text-slate-500 dark:text-slate-400 opacity-0"
-              >
-              </span>
-              <.link
-                navigate={~p"/app/journal/new?book_id=#{@book.id}&view=reading&page=#{@scroll_page}"}
-                aria-label="Add Entry"
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg shadow-sm hover:from-teal-600 hover:to-emerald-600 transition-all"
-              >
-                <.phx_icon name="hero-plus" class="h-3.5 w-3.5" />
-                <span class="hidden sm:inline">Add Entry</span>
-              </.link>
-            </div>
-
-            <div class="w-28 flex justify-end">
-              <button
-                type="button"
-                id="book-next-btn"
-                phx-update="ignore"
-                aria-label="Next page"
-                class="opacity-0 inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
-              >
-                <span id="book-next-label" class="hidden sm:inline"></span>
-                <.phx_icon name="hero-chevron-right" class="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </footer>
-
-      <div
-        class="fixed bottom-0 left-0 right-0 h-4 z-50"
-        x-show="!footerVisible"
-        @mouseenter="headerVisible = true; footerVisible = true; cursorVisible = true; userInteracted = true"
-        @touchstart="headerVisible = true; footerVisible = true; cursorVisible = true; userInteracted = true"
-      >
-      </div>
-    </div>
-
-    <DesignSystem.privacy_screen
-      active={@privacy_active}
-      countdown={@privacy_countdown}
-      needs_password={@privacy_needs_password}
-      on_activate="activate_privacy"
-      on_reveal="reveal_content"
-      on_password_submit="verify_privacy_password"
-      privacy_form={@privacy_form}
-    />
-    """
-  end
-
   attr :book, :map, required: true
   attr :decrypted_title, :string, required: true
   attr :decrypted_description, :string, default: nil
@@ -796,12 +533,14 @@ defmodule MossletWeb.JournalLive.Book do
     entry = assigns.segment.entry
     is_first = assigns.segment.is_first
     body_segment = assigns.segment.body_segment
+    is_odd = rem(assigns.page_num, 2) == 1
 
     assigns =
       assigns
       |> assign(:entry, entry)
       |> assign(:is_first, is_first)
       |> assign(:body_segment, body_segment)
+      |> assign(:is_odd, is_odd)
 
     ~H"""
     <div class={["book-page bg-white/95 dark:bg-slate-800/95", @class]}>
@@ -849,7 +588,10 @@ defmodule MossletWeb.JournalLive.Book do
             </div>
           </div>
           <div class="flex items-center justify-between pt-2 flex-shrink-0">
-            <span class="text-xs font-serif italic text-slate-400 dark:text-slate-500">
+            <span class={[
+              "text-xs font-serif italic text-slate-400 dark:text-slate-500",
+              if(@is_odd, do: "order-last", else: "order-first")
+            ]}>
               {@page_num}
             </span>
             <span class="text-xs text-emerald-500 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -975,6 +717,21 @@ defmodule MossletWeb.JournalLive.Book do
             decrypted_description={@decrypted_description}
             decrypted_cover_image_url={@decrypted_cover_image_url}
           />
+        </div>
+
+        <div
+          class="book-first-page-blank bg-white/95 dark:bg-slate-800/95 hidden md:flex items-center justify-center relative"
+          data-page-type="first-page-blank"
+        >
+          <div class="text-center px-8 max-w-md">
+            <p class="text-sm text-slate-500 dark:text-slate-400 font-light italic leading-relaxed">
+              {if @decrypted_description, do: @decrypted_description, else: "A journal"}
+            </p>
+            <p class="text-xs text-slate-400 dark:text-slate-500 mt-3">
+              ©
+              <.local_time for={@book.inserted_at} format="yyyy" /> {@decrypted_username}. All rights reserved.
+            </p>
+          </div>
         </div>
 
         <div
@@ -1152,9 +909,6 @@ defmodule MossletWeb.JournalLive.Book do
           The End
         </p>
         <div class="w-16 h-0.5 bg-slate-300 dark:bg-slate-600 rounded-full mx-auto mb-8" />
-        <p class="text-sm text-slate-500 dark:text-slate-400">
-          © <.local_time for={DateTime.utc_now()} format="yyyy" /> {@decrypted_username}
-        </p>
       </div>
     </div>
     """
@@ -1244,7 +998,7 @@ defmodule MossletWeb.JournalLive.Book do
         <div class="flex items-center justify-between pt-2 flex-shrink-0">
           <span class={[
             "text-sm font-serif italic text-slate-400 dark:text-slate-500",
-            if(@is_odd, do: "order-first", else: "order-last")
+            if(@is_odd, do: "order-last", else: "order-first")
           ]}>
             {@page_num}
           </span>
@@ -1289,9 +1043,6 @@ defmodule MossletWeb.JournalLive.Book do
               <h1 class="text-xl sm:text-2xl font-serif font-bold text-white drop-shadow-lg line-clamp-2">
                 {@decrypted_title}
               </h1>
-              <p class="text-sm text-white/80 font-light italic mt-1 drop-shadow">
-                {if @decrypted_description, do: @decrypted_description, else: "A journal"}
-              </p>
             </div>
           </div>
 
@@ -1309,13 +1060,9 @@ defmodule MossletWeb.JournalLive.Book do
               <div class="w-16 h-16 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/20 mb-5">
                 <.phx_icon name="hero-book-open" class="h-8 w-8 text-white/80" />
               </div>
-              <h1 class="text-lg sm:text-xl font-serif font-bold text-white drop-shadow-lg mb-2 line-clamp-3">
+              <h1 class="text-lg sm:text-xl font-serif font-bold text-white drop-shadow-lg line-clamp-3">
                 {@decrypted_title}
               </h1>
-              <div class="w-10 h-0.5 bg-white/40 rounded-full mb-2" />
-              <p class="text-xs text-white/70 font-light italic">
-                {if @decrypted_description, do: @decrypted_description, else: "A journal"}
-              </p>
             </div>
           </div>
         </div>
@@ -1338,41 +1085,6 @@ defmodule MossletWeb.JournalLive.Book do
       @class
     ]}>
       <div class="absolute inset-0 opacity-30 dark:opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-100 via-transparent to-transparent" />
-    </div>
-    """
-  end
-
-  attr :book, :map, required: true
-  attr :decrypted_title, :string, required: true
-  attr :decrypted_cover_image_url, :string, default: nil
-  attr :current_scope, :map, required: true
-  attr :class, :string, default: nil
-
-  defp immersive_copyright_page(assigns) do
-    decrypted_username =
-      decr(
-        assigns.current_scope.user.username,
-        assigns.current_scope.user,
-        assigns.current_scope.key
-      )
-
-    assigns = assign(assigns, :decrypted_username, decrypted_username)
-
-    ~H"""
-    <div class={[
-      "h-screen max-h-[1000px] flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-amber-50/30 via-stone-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800",
-      @class
-    ]}>
-      <div class="absolute inset-0 opacity-30 dark:opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-100 via-transparent to-transparent" />
-      <div class="relative z-10 text-center px-6 flex flex-col items-center">
-        <p class="text-3xl sm:text-4xl font-serif italic text-slate-700 dark:text-slate-300 mb-8">
-          The End
-        </p>
-        <div class="w-16 h-0.5 bg-slate-300 dark:bg-slate-600 rounded-full mb-8" />
-        <p class="text-sm text-slate-500 dark:text-slate-400">
-          © <.local_time for={DateTime.utc_now()} format="yyyy" /> {@decrypted_username}
-        </p>
-      </div>
     </div>
     """
   end

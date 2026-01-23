@@ -22,6 +22,10 @@ const BookScrollReader = {
     this.pendingNavigation = null;
     this.isAnimatingScroll = false;
     this.isSettling = false;
+    this.initialPositionDone = false;
+    this.targetInitialPage = parseInt(this.el.dataset.initialPage, 10) || 0;
+    this.targetEntryId = this.el.dataset.targetEntryId;
+    this.expectedEntryCount = parseInt(this.el.dataset.entryCount, 10) || 0;
 
     this.container.classList.add("no-scroll-snap");
 
@@ -82,64 +86,53 @@ const BookScrollReader = {
     }
 
     requestAnimationFrame(() => {
-      this.recalculatePages(() => {
-        const targetEntryId = this.el.dataset.targetEntryId;
-        const initialPage = parseInt(this.el.dataset.initialPage, 10) || 0;
-        
-        if (targetEntryId) {
-          this.scrollToPage(0, false);
-          requestAnimationFrame(() => {
-            this.container.classList.remove("opacity-0");
-            setTimeout(() => {
-              this.scrollToEntry(targetEntryId, true, () => {
-                this.container.classList.remove("no-scroll-snap");
-                this.updatePageInfo();
-              });
-            }, 400);
-          });
-        } else if (initialPage === 0) {
-          this.lastPushedPage = initialPage;
-          this.scrollToPage(0, false);
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              this.container.classList.remove("opacity-0");
-              this.container.classList.remove("no-scroll-snap");
-              this.updatePageInfo();
-            });
-          });
-        } else {
-          this.lastPushedPage = initialPage;
-          this.scrollToPage(0, false);
-
-          requestAnimationFrame(() => {
-            this.container.classList.remove("opacity-0");
-
-            setTimeout(() => {
-              const scrollPos =
-                this.pageOffsets[
-                  this.getScrollIndexForContentPage(initialPage)
-                ] || 0;
-              const distance = Math.abs(scrollPos - this.container.scrollLeft);
-              const containerWidth = this.container.clientWidth;
-              const baseDuration = 400;
-              const maxDuration = 1200;
-              const minDuration = 300;
-              const duration = Math.min(
-                maxDuration,
-                Math.max(
-                  minDuration,
-                  baseDuration + (distance / containerWidth) * 200
-                )
-              );
-              this.smoothScrollTo(scrollPos, duration, () => {
-                this.container.classList.remove("no-scroll-snap");
-                this.updatePageInfo();
-              });
-            }, 400);
-          });
-        }
-      });
+      this.recalculatePages();
     });
+  },
+
+  doInitialPosition() {
+    if (this.initialPositionDone) return;
+    
+    const mountedEntries = this.container.querySelectorAll('.book-entry-columns-container[data-mounted="true"]');
+    if (mountedEntries.length < this.expectedEntryCount) {
+      return;
+    }
+
+    this.initialPositionDone = true;
+    const initialPage = this.targetInitialPage;
+    const targetEntryId = this.targetEntryId;
+
+    if (targetEntryId) {
+      this.scrollToPage(0, false);
+      requestAnimationFrame(() => {
+        this.container.classList.remove("opacity-0");
+        setTimeout(() => {
+          this.scrollToEntry(targetEntryId, true, () => {
+            this.container.classList.remove("no-scroll-snap");
+            this.updatePageInfo();
+          });
+        }, 400);
+      });
+    } else if (initialPage <= 1) {
+      this.lastPushedPage = initialPage;
+      this.scrollToPage(initialPage, false);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          this.container.classList.remove("opacity-0");
+          this.container.classList.remove("no-scroll-snap");
+          this.updatePageInfo();
+        });
+      });
+    } else {
+      this.lastPushedPage = initialPage;
+      this.scrollToPage(initialPage, false);
+
+      requestAnimationFrame(() => {
+        this.container.classList.remove("opacity-0");
+        this.container.classList.remove("no-scroll-snap");
+        this.updatePageInfo();
+      });
+    }
   },
 
   updated() {
@@ -175,14 +168,16 @@ const BookScrollReader = {
       const contentBlankPage = this.container.querySelector(
         ".book-content-blank-page"
       );
+      const firstPageBlank = this.container.querySelector(
+        ".book-first-page-blank"
+      );
 
       const allPages = this.container.querySelectorAll(
-        ".book-column-page, .book-column-page-full, .book-end-page, .book-content-blank-page"
+        ".book-column-page, .book-column-page-full, .book-end-page, .book-content-blank-page, .book-first-page-blank"
       );
       this.pageElements = Array.from(allPages);
 
       let contentPageNum = 0;
-      let contentPageIndex = 0;
       this.pageElements.forEach((page, idx) => {
         const pageType = page.dataset.pageType;
         if (pageType === "content") {
@@ -191,12 +186,20 @@ const BookScrollReader = {
           if (pageNumEl) {
             pageNumEl.textContent = contentPageNum;
           }
-          if (contentPageIndex % 2 === 0) {
+          const isOdd = contentPageNum % 2 === 1;
+          page.dataset.isOdd = isOdd ? "true" : "false";
+          if (contentPageNum === 1) {
+            delete page.dataset.spreadStart;
+            page.dataset.isFirstPage = "true";
+          } else if (contentPageNum % 2 === 0) {
             page.dataset.spreadStart = "true";
+            delete page.dataset.isFirstPage;
           } else {
             delete page.dataset.spreadStart;
+            delete page.dataset.isFirstPage;
           }
-          contentPageIndex++;
+        } else if (pageType === "first-page-blank") {
+          page.dataset.spreadStart = "true";
         }
       });
 
@@ -213,6 +216,10 @@ const BookScrollReader = {
         this.pageOffsets.push(currentOffset);
         currentOffset += page.offsetWidth;
       });
+
+      if (!this.initialPositionDone) {
+        this.doInitialPosition();
+      }
 
       if (callback) {
         callback();
@@ -275,7 +282,13 @@ const BookScrollReader = {
   getCurrentContentPage() {
     const scrollIndex = this.getCurrentScrollIndex();
 
-    if (scrollIndex === 0) return 0;
+    if (scrollIndex === 0) {
+      const firstPage = this.pageElements[0];
+      if (firstPage && firstPage.dataset.pageType === "first-page-blank") {
+        return 1;
+      }
+      return 0;
+    }
 
     let contentPagesSeen = 0;
     for (let i = 0; i < scrollIndex && i < this.pageElements.length; i++) {
@@ -289,6 +302,8 @@ const BookScrollReader = {
     if (currentPage) {
       if (currentPage.dataset.pageType === "content") {
         return contentPagesSeen + 1;
+      } else if (currentPage.dataset.pageType === "first-page-blank") {
+        return 1;
       } else if (currentPage.dataset.pageType === "end") {
         return this.totalContentPages + 1;
       } else if (currentPage.dataset.pageType === "back-cover") {
@@ -304,6 +319,13 @@ const BookScrollReader = {
 
     if (contentPage === 0) {
       targetScrollIndex = 0;
+    } else if (contentPage === 1) {
+      for (let i = 0; i < this.pageElements.length; i++) {
+        if (this.pageElements[i]?.dataset.pageType === "first-page-blank") {
+          targetScrollIndex = i;
+          break;
+        }
+      }
     } else if (contentPage <= this.totalContentPages) {
       let contentPagesSeen = 0;
       for (let i = 0; i < this.pageElements.length; i++) {
@@ -372,8 +394,12 @@ const BookScrollReader = {
         }
       }
 
-      const isEvenPage = contentPageNum % 2 === 0;
-      if (isEvenPage && targetScrollIndex > 0) {
+      if (contentPageNum === 1 && targetScrollIndex > 0) {
+        const prevPage = this.pageElements[targetScrollIndex - 1];
+        if (prevPage && prevPage.classList.contains("book-first-page-blank")) {
+          targetScrollIndex = targetScrollIndex - 1;
+        }
+      } else if (contentPageNum > 1 && contentPageNum % 2 === 1 && targetScrollIndex > 0) {
         const prevPage = this.pageElements[targetScrollIndex - 1];
         if (prevPage && prevPage.dataset.pageType === "content") {
           targetScrollIndex = targetScrollIndex - 1;
@@ -518,7 +544,8 @@ const BookScrollReader = {
       const page = this.pageElements[i];
       if (
         page.classList.contains("book-column-page-full") ||
-        page.classList.contains("book-end-page")
+        page.classList.contains("book-end-page") ||
+        page.classList.contains("book-first-page-blank")
       ) {
         return i;
       }
@@ -541,7 +568,8 @@ const BookScrollReader = {
       const page = this.pageElements[i];
       if (
         page.classList.contains("book-column-page-full") ||
-        page.classList.contains("book-end-page")
+        page.classList.contains("book-end-page") ||
+        page.classList.contains("book-first-page-blank")
       ) {
         return i;
       }
@@ -659,7 +687,23 @@ const BookScrollReader = {
           if (currentPage === 0) {
             nextLabel.textContent = "Page 1";
           } else if (currentPage < total) {
-            nextLabel.textContent = `Page ${currentPage + 1}`;
+            let nextPage;
+            if (this.isMobile) {
+              nextPage = currentPage + 1;
+            } else {
+              if (currentPage === 1) {
+                nextPage = 2;
+              } else if (currentPage % 2 === 0) {
+                nextPage = Math.min(currentPage + 2, total + 1);
+              } else {
+                nextPage = currentPage + 1;
+              }
+            }
+            if (nextPage > total) {
+              nextLabel.textContent = "The End";
+            } else {
+              nextLabel.textContent = `Page ${nextPage}`;
+            }
           } else if (currentPage === total) {
             nextLabel.textContent = "The End";
           } else {
