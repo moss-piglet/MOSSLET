@@ -673,7 +673,7 @@ defmodule MossletWeb.Components.LandingPage do
               <MossletWeb.DesignSystem.liquid_button
                 navigate="/features#bluesky-interop"
                 variant="secondary"
-                color="sky"
+                color="blue"
                 icon="hero-arrow-right"
                 size="lg"
                 shimmer="page"
