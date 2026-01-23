@@ -324,9 +324,11 @@ defmodule MossletWeb.BlueskySettingsLive do
                   </div>
                 </div>
                 <div class="relative">
+                  <input type="hidden" name="sync[sync_enabled]" value="off" />
                   <input
                     type="checkbox"
                     name="sync[sync_enabled]"
+                    value="on"
                     checked={@sync_form[:sync_enabled].value}
                     class="sr-only peer"
                   />
@@ -363,9 +365,11 @@ defmodule MossletWeb.BlueskySettingsLive do
                 </p>
 
                 <label class="flex items-start gap-3 cursor-pointer group">
+                  <input type="hidden" name="sync[sync_posts_to_bsky]" value="off" />
                   <input
                     type="checkbox"
                     name="sync[sync_posts_to_bsky]"
+                    value="on"
                     checked={@sync_form[:sync_posts_to_bsky].value}
                     class="h-4 w-4 mt-0.5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500 transition-colors"
                   />
@@ -385,9 +389,11 @@ defmodule MossletWeb.BlueskySettingsLive do
                 </label>
 
                 <label class="flex items-start gap-3 cursor-pointer group">
+                  <input type="hidden" name="sync[sync_posts_from_bsky]" value="off" />
                   <input
                     type="checkbox"
                     name="sync[sync_posts_from_bsky]"
+                    value="on"
                     checked={@sync_form[:sync_posts_from_bsky].value}
                     class="h-4 w-4 mt-0.5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500 transition-colors"
                   />
@@ -446,9 +452,11 @@ defmodule MossletWeb.BlueskySettingsLive do
                 </div>
 
                 <label class="flex items-start gap-3 cursor-pointer group">
+                  <input type="hidden" name="sync[auto_delete_from_bsky]" value="off" />
                   <input
                     type="checkbox"
                     name="sync[auto_delete_from_bsky]"
+                    value="on"
                     checked={@sync_form[:auto_delete_from_bsky].value}
                     class="h-4 w-4 mt-0.5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500 transition-colors"
                   />
