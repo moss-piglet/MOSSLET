@@ -219,7 +219,12 @@ defmodule Mosslet.Bluesky.Client do
 
   @doc """
   Gets a user's profile.
+
+  **DEPRECATED**: This endpoint requires `app.bsky` OAuth scope which is not available
+  with the standard `atproto` scope. Use `describe_repo/3` instead for OAuth flows,
+  or use this only with app password authentication.
   """
+  @deprecated "Use describe_repo/3 for OAuth flows"
   @spec get_profile(String.t(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
   def get_profile(access_jwt, actor, opts \\ []) do
     pds_url = opts[:pds_url] || @default_pds
@@ -229,6 +234,10 @@ defmodule Mosslet.Bluesky.Client do
 
   @doc """
   Gets posts from a user's feed (their authored posts).
+
+  **DEPRECATED**: This endpoint requires `app.bsky` OAuth scope which is not available
+  with the standard `atproto` scope. Use `list_records/4` with collection "app.bsky.feed.post"
+  instead for OAuth flows, or use this only with app password authentication.
 
   ## Options
 
@@ -240,6 +249,7 @@ defmodule Mosslet.Bluesky.Client do
 
       {:ok, %{feed: posts, cursor: cursor}} = get_author_feed(jwt, "did:plc:...", limit: 25)
   """
+  @deprecated "Use list_records/4 with collection \"app.bsky.feed.post\" for OAuth flows"
   @spec get_author_feed(String.t(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
   def get_author_feed(access_jwt, actor, opts \\ []) do
     pds_url = opts[:pds_url] || @default_pds
@@ -452,6 +462,9 @@ defmodule Mosslet.Bluesky.Client do
   @doc """
   Gets a post thread (post with replies and parent context).
 
+  **DEPRECATED**: This endpoint requires `app.bsky` OAuth scope which is not available
+  with the standard `atproto` scope. Use this only with app password authentication.
+
   ## Options
 
     * `:depth` - How many levels of replies to fetch (default: 6, max: 1000)
@@ -461,6 +474,7 @@ defmodule Mosslet.Bluesky.Client do
 
       {:ok, %{thread: thread}} = get_post_thread(jwt, "at://did:plc:.../app.bsky.feed.post/...")
   """
+  @deprecated "Requires app.bsky OAuth scope - use only with app password auth"
   @spec get_post_thread(String.t(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
   def get_post_thread(access_jwt, uri, opts \\ []) do
     pds_url = opts[:pds_url] || @default_pds
@@ -476,10 +490,15 @@ defmodule Mosslet.Bluesky.Client do
   @doc """
   Gets multiple posts by their URIs.
 
+  **DEPRECATED**: This endpoint requires `app.bsky` OAuth scope which is not available
+  with the standard `atproto` scope. Use `get_record/5` for individual posts with OAuth,
+  or use this only with app password authentication.
+
   ## Examples
 
       {:ok, %{posts: posts}} = get_posts(jwt, ["at://...", "at://..."])
   """
+  @deprecated "Requires app.bsky OAuth scope - use get_record/5 or app password auth"
   @spec get_posts(String.t(), list(String.t()), keyword()) :: {:ok, map()} | {:error, term()}
   def get_posts(access_jwt, uris, opts \\ []) do
     pds_url = opts[:pds_url] || @default_pds
@@ -490,6 +509,9 @@ defmodule Mosslet.Bluesky.Client do
   @doc """
   Gets the user's home timeline feed.
 
+  **DEPRECATED**: This endpoint requires `app.bsky` OAuth scope which is not available
+  with the standard `atproto` scope. Use this only with app password authentication.
+
   ## Options
 
     * `:limit` - Number of posts (default: 50, max: 100)
@@ -499,6 +521,7 @@ defmodule Mosslet.Bluesky.Client do
 
       {:ok, %{feed: posts, cursor: cursor}} = get_timeline(jwt, limit: 25)
   """
+  @deprecated "Requires app.bsky OAuth scope - use only with app password auth"
   @spec get_timeline(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
   def get_timeline(access_jwt, opts \\ []) do
     pds_url = opts[:pds_url] || @default_pds
