@@ -21,7 +21,7 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"account_id" => account_id} = args}) do
-    account = Bluesky.get_account!(account_id) |> Mosslet.Repo.Local.preload(:user)
+    account = Bluesky.get_account!(account_id) |> Mosslet.Repo.preload(:user)
     limit = Map.get(args, "limit", 10)
 
     if account.sync_enabled && account.sync_posts_to_bsky do
@@ -34,7 +34,7 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
   end
 
   def perform(%Oban.Job{args: %{"post_id" => post_id, "account_id" => account_id}}) do
-    account = Bluesky.get_account!(account_id) |> Mosslet.Repo.Local.preload(:user)
+    account = Bluesky.get_account!(account_id) |> Mosslet.Repo.preload(:user)
 
     if account.sync_enabled && account.sync_posts_to_bsky do
       case Timeline.get_post_for_export(post_id) do

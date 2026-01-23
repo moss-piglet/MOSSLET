@@ -32,7 +32,7 @@ defmodule Mosslet.Bluesky.Workers.ImportSyncWorker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"account_id" => account_id} = args}) do
-    account = Bluesky.get_account!(account_id) |> Mosslet.Repo.Local.preload(:user)
+    account = Bluesky.get_account!(account_id) |> Mosslet.Repo.preload(:user)
     limit = Map.get(args, "limit", 50)
     full_sync = Map.get(args, "full_sync", false)
 

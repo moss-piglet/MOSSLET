@@ -8,7 +8,7 @@ defmodule Mosslet.Bluesky do
 
   import Ecto.Query, warn: false
 
-  alias Mosslet.Repo.Local, as: Repo
+  alias Mosslet.Repo
   alias Mosslet.Bluesky.Account
 
   @doc """
@@ -43,55 +43,67 @@ defmodule Mosslet.Bluesky do
   Creates a new Bluesky account connection for a user.
   """
   def create_account(user, attrs) do
-    %Account{user_id: user.id}
-    |> Account.create_changeset(attrs)
-    |> Repo.insert()
+    Repo.transaction_on_primary(fn ->
+      %Account{user_id: user.id}
+      |> Account.create_changeset(attrs)
+      |> Repo.insert!()
+    end)
   end
 
   @doc """
   Updates a Bluesky account.
   """
   def update_account(%Account{} = account, attrs) do
-    account
-    |> Account.changeset(attrs)
-    |> Repo.update()
+    Repo.transaction_on_primary(fn ->
+      account
+      |> Account.changeset(attrs)
+      |> Repo.update!()
+    end)
   end
 
   @doc """
   Updates sync settings for a Bluesky account.
   """
   def update_sync_settings(%Account{} = account, attrs) do
-    account
-    |> Account.sync_settings_changeset(attrs)
-    |> Repo.update()
+    Repo.transaction_on_primary(fn ->
+      account
+      |> Account.sync_settings_changeset(attrs)
+      |> Repo.update!()
+    end)
   end
 
   @doc """
   Refreshes the access and refresh tokens for a Bluesky account.
   """
   def refresh_tokens(%Account{} = account, attrs) do
-    account
-    |> Account.refresh_tokens_changeset(attrs)
-    |> Repo.update()
+    Repo.transaction_on_primary(fn ->
+      account
+      |> Account.refresh_tokens_changeset(attrs)
+      |> Repo.update!()
+    end)
   end
 
   @doc """
   Updates the sync cursor after a successful sync operation.
   """
   def update_sync_cursor(%Account{} = account, cursor) do
-    account
-    |> Account.sync_cursor_changeset(%{
-      last_synced_at: DateTime.utc_now(),
-      last_cursor: cursor
-    })
-    |> Repo.update()
+    Repo.transaction_on_primary(fn ->
+      account
+      |> Account.sync_cursor_changeset(%{
+        last_synced_at: DateTime.utc_now(),
+        last_cursor: cursor
+      })
+      |> Repo.update!()
+    end)
   end
 
   @doc """
   Disconnects/deletes a user's Bluesky account.
   """
   def delete_account(%Account{} = account) do
-    Repo.delete(account)
+    Repo.transaction_on_primary(fn ->
+      Repo.delete!(account)
+    end)
   end
 
   @doc """
