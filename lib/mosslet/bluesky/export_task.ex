@@ -357,12 +357,18 @@ defmodule Mosslet.Bluesky.ExportTask do
   defp build_images_embed(post, account, user, session_key, pds_url) do
     case decrypt_post_image_urls(post, user, session_key) do
       {:ok, urls} when urls != [] ->
+        alt_texts = decrypt_post_image_alt_texts(post, user, session_key)
+
         uploaded_images =
           urls
+          |> Enum.with_index()
           |> Enum.take(4)
-          |> Enum.map(&upload_image_to_bluesky(&1, account, pds_url))
-          |> Enum.filter(&match?({:ok, _}, &1))
-          |> Enum.map(fn {:ok, blob} -> %{"alt" => "", "image" => blob} end)
+          |> Enum.map(fn {url, index} ->
+            alt_text = Enum.at(alt_texts, index, "")
+            upload_image_to_bluesky(url, alt_text, account, pds_url)
+          end)
+          |> Enum.filter(&match?({:ok, _, _}, &1))
+          |> Enum.map(fn {:ok, blob, alt} -> %{"alt" => alt, "image" => blob} end)
 
         if Enum.empty?(uploaded_images) do
           nil
@@ -372,6 +378,27 @@ defmodule Mosslet.Bluesky.ExportTask do
 
       _ ->
         nil
+    end
+  end
+
+  defp decrypt_post_image_alt_texts(post, user, session_key) do
+    alt_texts = post.image_alt_texts || []
+
+    if is_list(alt_texts) && !Enum.empty?(alt_texts) do
+      case get_post_key_for_export(post, user, session_key) do
+        {:ok, post_key} ->
+          Enum.map(alt_texts, fn encrypted_alt ->
+            case Mosslet.Encrypted.Utils.decrypt(%{key: post_key, payload: encrypted_alt}) do
+              {:ok, alt} -> alt
+              _ -> ""
+            end
+          end)
+
+        _ ->
+          []
+      end
+    else
+      []
     end
   end
 
@@ -416,11 +443,11 @@ defmodule Mosslet.Bluesky.ExportTask do
     end
   end
 
-  defp upload_image_to_bluesky(image_url, account, pds_url) do
+  defp upload_image_to_bluesky(image_url, alt_text, account, pds_url) do
     with {:ok, image_data, content_type} <- download_image(image_url),
          {:ok, %{blob: blob}} <-
            Client.upload_blob(account.access_jwt, image_data, content_type, pds_url: pds_url) do
-      {:ok, blob}
+      {:ok, blob, alt_text}
     else
       error ->
         Logger.warning("[BlueskyExportTask] Failed to upload image: #{inspect(error)}")

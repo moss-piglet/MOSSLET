@@ -25,6 +25,11 @@ defmodule Mosslet.Timeline.Post do
       skip_default_validation: true,
       redact: true
 
+    field :image_alt_texts, Encrypted.StringList,
+      default: [],
+      skip_default_validation: true,
+      redact: true
+
     field :image_urls_updated_at, :naive_datetime
 
     field :favs_list, Encrypted.StringList,
@@ -161,6 +166,7 @@ defmodule Mosslet.Timeline.Post do
       :group_id,
       :user_group_id,
       :image_urls,
+      :image_alt_texts,
       :image_urls_updated_at,
       :url_preview,
       :url_preview_fetched_at,
@@ -223,6 +229,7 @@ defmodule Mosslet.Timeline.Post do
       :user_id,
       :visibility,
       :image_urls,
+      :image_alt_texts,
       :source,
       :external_uri,
       :external_cid,
@@ -257,6 +264,7 @@ defmodule Mosslet.Timeline.Post do
       :group_id,
       :user_group_id,
       :image_urls,
+      :image_alt_texts,
       :image_urls_updated_at,
       :url_preview,
       :url_preview_fetched_at,
@@ -697,16 +705,22 @@ defmodule Mosslet.Timeline.Post do
         if is_binary(post_key), do: maybe_encrypt_avatar_url(opts[:user], post_key)
 
       image_urls = get_field(changeset, :image_urls)
+      image_alt_texts = get_field(changeset, :image_alt_texts)
 
       e_image_urls =
         if image_urls && !Enum.empty?(image_urls) && post_key,
           do: encrypt_image_urls(image_urls, post_key)
+
+      e_image_alt_texts =
+        if image_alt_texts && !Enum.empty?(image_alt_texts) && post_key,
+          do: encrypt_image_urls(image_alt_texts, post_key)
 
       cond do
         visibility === :public ->
           changeset
           |> put_change(:avatar_url, e_avatar_url)
           |> put_change(:image_urls, e_image_urls)
+          |> put_change(:image_alt_texts, e_image_alt_texts)
           |> put_change(:body, Utils.encrypt(%{key: post_key, payload: body}))
           |> put_change(:username, Utils.encrypt(%{key: post_key, payload: username}))
           |> put_change(:user_post_map, %{temp_key: post_key})
@@ -719,6 +733,7 @@ defmodule Mosslet.Timeline.Post do
           changeset
           |> put_change(:avatar_url, e_avatar_url)
           |> put_change(:image_urls, e_image_urls)
+          |> put_change(:image_alt_texts, e_image_alt_texts)
           |> put_change(:body, Utils.encrypt(%{key: post_key, payload: body}))
           |> put_change(:username, Utils.encrypt(%{key: post_key, payload: username}))
           |> put_change(:user_post_map, %{temp_key: post_key})
@@ -731,6 +746,7 @@ defmodule Mosslet.Timeline.Post do
           changeset
           |> put_change(:avatar_url, e_avatar_url)
           |> put_change(:image_urls, e_image_urls)
+          |> put_change(:image_alt_texts, e_image_alt_texts)
           |> put_change(:body, Utils.encrypt(%{key: post_key, payload: body}))
           |> put_change(:username, Utils.encrypt(%{key: post_key, payload: username}))
           |> put_change(:user_post_map, %{temp_key: post_key})

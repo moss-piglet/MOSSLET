@@ -3839,6 +3839,17 @@ defmodule MossletWeb.DesignSystem do
 
   defp humanize_upload_error(error), do: "Upload error: #{error}"
 
+  # Helper function to humanize upload errors with additional argument
+  defp humanize_upload_error(:too_large, _max_size), do: "File is too large (max 10MB)"
+
+  defp humanize_upload_error(:too_many_files, max_entries),
+    do: "Too many files (max #{max_entries} photos)"
+
+  defp humanize_upload_error(:not_accepted, _rest),
+    do: "File type not supported (GIF, JPG, PNG, WEBP, HEIC/HEIF only)"
+
+  defp humanize_upload_error(error, _rest), do: "Upload error: #{error}"
+
   @doc """
   Liquid metal photo gallery component for timeline posts.
   Integrates with existing TrixContentPostHook and encrypted image system.
@@ -4025,7 +4036,7 @@ defmodule MossletWeb.DesignSystem do
             <%= if upload[:preview_data_url] do %>
               <img
                 src={upload.preview_data_url}
-                alt={"Completed upload preview #{upload.ref}"}
+                alt={upload[:alt_text] || "Completed upload preview #{upload.ref}"}
                 class="w-full h-24 object-cover transition-all duration-200 group-hover:scale-105"
               />
             <% else %>
@@ -4049,6 +4060,31 @@ defmodule MossletWeb.DesignSystem do
               data-tippy-content="Remove photo"
             >
               <.phx_icon name="hero-x-mark" class="h-3 w-3" />
+            </button>
+
+            <button
+              type="button"
+              id={"edit-alt-photo-#{upload.ref}"}
+              phx-click="open_alt_text_modal"
+              phx-value-ref={upload.ref}
+              aria-label="Edit alt text"
+              class={[
+                "absolute bottom-7 left-1 z-10 px-1.5 py-0.5 rounded text-[10px] font-bold",
+                "transition-all duration-200 hover:scale-105",
+                if(upload[:alt_text] && upload[:alt_text] != "",
+                  do: "bg-emerald-500 text-white",
+                  else: "bg-slate-800/80 text-white hover:bg-slate-700/90"
+                )
+              ]}
+              phx-hook="TippyHook"
+              data-tippy-content={
+                if(upload[:alt_text] && upload[:alt_text] != "",
+                  do: "Edit alt text: #{String.slice(upload[:alt_text] || "", 0..30)}...",
+                  else: "Add alt text for accessibility"
+                )
+              }
+            >
+              ALT
             </button>
 
             <div class="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1 text-xs text-white truncate">
@@ -4125,7 +4161,7 @@ defmodule MossletWeb.DesignSystem do
                 <.phx_icon name="hero-exclamation-triangle" class="h-5 w-5 text-white mx-auto mb-1" />
                 <div class="text-xs text-white font-medium">
                   <%= for error <- upload_errors(@uploads.photos, entry) do %>
-                    <div>{humanize_upload_error(error)}</div>
+                    <div>{humanize_upload_error(error, @uploads.max_entries)}</div>
                   <% end %>
                 </div>
               </div>
@@ -4145,7 +4181,7 @@ defmodule MossletWeb.DesignSystem do
           />
           <div class="text-sm text-red-700 dark:text-red-300">
             <%= for error <- upload_errors(@uploads.photos) do %>
-              <div>{humanize_upload_error(error)}</div>
+              <div>{humanize_upload_error(error, @uploads.max_entries)}</div>
             <% end %>
           </div>
         </div>
@@ -4213,6 +4249,115 @@ defmodule MossletWeb.DesignSystem do
   defp stage_label({:processing, _}), do: "Processing..."
   defp stage_label({:uploading, _}), do: "Uploading..."
   defp stage_label(_), do: "Processing..."
+
+  @doc """
+  Modal for editing image alt text with accessibility-focused design.
+  """
+  attr :show, :boolean, default: false
+  attr :upload, :map, default: nil
+  attr :alt_text, :string, default: ""
+  attr :on_close, JS, default: %JS{}
+  attr :id, :string, default: "alt-text-modal"
+
+  def liquid_alt_text_modal(assigns) do
+    ~H"""
+    <div
+      :if={@show && @upload}
+      id={@id}
+      class="fixed inset-0 z-[70] flex items-center justify-center p-4"
+      phx-window-keydown="close_alt_text_modal"
+      phx-key="Escape"
+    >
+      <div
+        class="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm"
+        phx-click="close_alt_text_modal"
+      >
+      </div>
+
+      <div class="relative w-full max-w-lg bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200/60 dark:border-slate-700/60 overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-br from-teal-50/30 via-emerald-50/20 to-cyan-50/30 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10">
+        </div>
+
+        <div class="relative p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <.phx_icon
+                name="hero-eye"
+                class="h-5 w-5 text-emerald-600 dark:text-emerald-400"
+              />
+              <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Image Description
+              </h2>
+            </div>
+            <button
+              type="button"
+              phx-click="close_alt_text_modal"
+              aria-label="Close"
+              class="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-all"
+            >
+              <.phx_icon name="hero-x-mark" class="h-5 w-5" />
+            </button>
+          </div>
+
+          <div class="mb-4">
+            <%= if @upload[:preview_data_url] do %>
+              <img
+                src={@upload.preview_data_url}
+                alt="Preview"
+                class="w-full h-40 object-contain rounded-lg bg-slate-100 dark:bg-slate-700/50"
+              />
+            <% else %>
+              <div class="w-full h-40 bg-slate-100 dark:bg-slate-700/50 rounded-lg flex items-center justify-center">
+                <.phx_icon name="hero-photo" class="h-12 w-12 text-slate-400" />
+              </div>
+            <% end %>
+          </div>
+
+          <form phx-submit="save_alt_text" class="space-y-4">
+            <input type="hidden" name="ref" value={@upload[:ref]} />
+
+            <div>
+              <label
+                for="alt-text-input"
+                class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
+              >
+                Describe this image for people who use screen readers
+              </label>
+              <textarea
+                id="alt-text-input"
+                name="alt_text"
+                rows="3"
+                maxlength="1000"
+                placeholder="Add a description of the image..."
+                class="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-400 resize-none transition-all"
+                phx-hook="AutoFocus"
+              ><%= @alt_text %></textarea>
+              <p class="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                Good descriptions are concise and describe key visual elements. Max 1000 characters.
+              </p>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                phx-click="close_alt_text_modal"
+                class="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all hover:scale-105 active:scale-95"
+              >
+                Save Description
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    """
+  end
 
   @doc """
   Liquid avatar upload component with detailed progress feedback.
@@ -4337,7 +4482,7 @@ defmodule MossletWeb.DesignSystem do
           <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
             <div class="flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
               <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4 flex-shrink-0" />
-              <span>{humanize_upload_error(err)}</span>
+              <span>{humanize_upload_error(err, @upload.max_entries)}</span>
             </div>
           </div>
         <% end %>
@@ -4589,7 +4734,7 @@ defmodule MossletWeb.DesignSystem do
           <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
             <div class="flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
               <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4 flex-shrink-0" />
-              <span>{humanize_upload_error(err)}</span>
+              <span>{humanize_upload_error(err, @upload.max_entries)}</span>
             </div>
           </div>
         <% end %>

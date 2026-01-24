@@ -192,6 +192,9 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:upload_stages, %{})
       |> assign(:completed_uploads, [])
       |> assign(:composer_trix_key, nil)
+      |> assign(:alt_text_modal_open, false)
+      |> assign(:alt_text_editing_upload, nil)
+      |> assign(:alt_text_editing_value, "")
       |> assign(:bluesky_sync_enabled, bluesky_sync_enabled?(current_user))
       |> stream(:posts, [])
       |> stream(:read_posts, [])
@@ -1780,6 +1783,49 @@ defmodule MossletWeb.TimelineLive.Index do
      |> assign(:completed_uploads, remaining)}
   end
 
+  def handle_event("open_alt_text_modal", %{"ref" => ref}, socket) do
+    ref_str = to_string(ref)
+
+    upload =
+      Enum.find(socket.assigns.completed_uploads, fn upload ->
+        to_string(upload.ref) == ref_str
+      end)
+
+    {:noreply,
+     socket
+     |> assign(:alt_text_modal_open, true)
+     |> assign(:alt_text_editing_upload, upload)
+     |> assign(:alt_text_editing_value, upload[:alt_text] || "")}
+  end
+
+  def handle_event("close_alt_text_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:alt_text_modal_open, false)
+     |> assign(:alt_text_editing_upload, nil)
+     |> assign(:alt_text_editing_value, "")}
+  end
+
+  def handle_event("save_alt_text", %{"ref" => ref, "alt_text" => alt_text}, socket) do
+    ref_str = to_string(ref)
+
+    updated_uploads =
+      Enum.map(socket.assigns.completed_uploads, fn upload ->
+        if to_string(upload.ref) == ref_str do
+          Map.put(upload, :alt_text, String.trim(alt_text))
+        else
+          upload
+        end
+      end)
+
+    {:noreply,
+     socket
+     |> assign(:completed_uploads, updated_uploads)
+     |> assign(:alt_text_modal_open, false)
+     |> assign(:alt_text_editing_upload, nil)
+     |> assign(:alt_text_editing_value, "")}
+  end
+
   def handle_event("remove_files", %{"flag" => flag}, socket) do
     socket =
       socket
@@ -2383,8 +2429,8 @@ defmodule MossletWeb.TimelineLive.Index do
           {:noreply, socket}
 
         {{:ok, :approved}, {:ok, :approved}} ->
-          # Process uploaded photos and get their URLs with trix_key
-          {uploaded_photo_urls, trix_key} =
+          # Process uploaded photos and get their URLs with alt texts and trix_key
+          {uploaded_photo_urls, uploaded_alt_texts, trix_key} =
             process_uploaded_photos(socket, current_user, key)
 
           any_ai_generated =
@@ -2395,6 +2441,7 @@ defmodule MossletWeb.TimelineLive.Index do
           post_params =
             post_params
             |> Map.put("image_urls", socket.assigns.image_urls ++ uploaded_photo_urls)
+            |> Map.put("image_alt_texts", uploaded_alt_texts)
             |> Map.put("image_urls_updated_at", NaiveDateTime.utc_now())
             |> Map.put("visibility", socket.assigns.selector)
             |> Map.put("user_id", current_user.id)
@@ -5499,12 +5546,12 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   # Helper function to process uploaded photos using Tigris.ex encryption
-  # Returns {upload_paths, trix_key} tuple for idiomatic Elixir/Phoenix
+  # Returns {upload_paths, alt_texts, trix_key} tuple for idiomatic Elixir/Phoenix
   defp process_uploaded_photos(socket, _current_user, _key) do
     completed_uploads = socket.assigns.completed_uploads
 
     if completed_uploads == [] do
-      {[], nil}
+      {[], [], nil}
     else
       trix_key = socket.assigns[:composer_trix_key]
 
@@ -5520,7 +5567,7 @@ defmodule MossletWeb.TimelineLive.Index do
                ) do
             {:ok, file_path} ->
               cleanup_temp_upload(upload.temp_path)
-              {file_path, actual_trix_key}
+              {file_path, upload[:alt_text] || "", actual_trix_key}
 
             {:error, reason} ->
               Logger.error("📷 PROCESS_UPLOADED_PHOTOS: Upload failed: #{inspect(reason)}")
@@ -5532,11 +5579,12 @@ defmodule MossletWeb.TimelineLive.Index do
 
       case successful_results do
         [] ->
-          {[], trix_key}
+          {[], [], trix_key}
 
-        [{_first_path, first_trix_key} | _] ->
-          paths = Enum.map(successful_results, fn {path, _key} -> path end)
-          {paths, first_trix_key}
+        [{_first_path, _first_alt, first_trix_key} | _] ->
+          paths = Enum.map(successful_results, fn {path, _alt, _key} -> path end)
+          alt_texts = Enum.map(successful_results, fn {_path, alt, _key} -> alt end)
+          {paths, alt_texts, first_trix_key}
       end
     end
   end
