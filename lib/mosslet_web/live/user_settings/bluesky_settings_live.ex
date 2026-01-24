@@ -23,7 +23,11 @@ defmodule MossletWeb.BlueskySettingsLive do
        show_export_modal: false,
        export_password_form: to_form(%{"password" => ""}, as: :export_password),
        export_error: nil,
-       dev_preview_mode: nil
+       show_delete_bluesky_modal: false,
+       delete_bluesky_password_form: to_form(%{"password" => ""}, as: :delete_bluesky_password),
+       delete_bluesky_error: nil,
+       dev_preview_mode: nil,
+       expanded_sections: MapSet.new()
      )}
   end
 
@@ -90,6 +94,13 @@ defmodule MossletWeb.BlueskySettingsLive do
         :if={@show_export_modal}
         export_password_form={@export_password_form}
         export_error={@export_error}
+      />
+
+      <.delete_bluesky_account_modal
+        :if={@show_delete_bluesky_modal}
+        delete_bluesky_password_form={@delete_bluesky_password_form}
+        delete_bluesky_error={@delete_bluesky_error}
+        account={@bluesky_account}
       />
     </.layout>
     """
@@ -191,6 +202,136 @@ defmodule MossletWeb.BlueskySettingsLive do
                       variant="secondary"
                       color="slate"
                       phx-click="close_export_modal"
+                    >
+                      Cancel
+                    </DesignSystem.liquid_button>
+                  </div>
+                </.form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  defp delete_bluesky_account_modal(assigns) do
+    ~H"""
+    <div
+      id="delete-bluesky-modal"
+      class="fixed inset-0 z-50 overflow-y-auto"
+      aria-labelledby="delete-bluesky-modal-title"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+        <div
+          class="fixed inset-0 bg-slate-900/50 dark:bg-slate-900/75 transition-opacity"
+          phx-click="close_delete_bluesky_modal"
+        >
+        </div>
+
+        <div class="relative transform overflow-hidden rounded-lg bg-white dark:bg-slate-800 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+          <div class="px-4 pb-4 pt-5 sm:p-6">
+            <div class="sm:flex sm:items-start">
+              <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-900/30 sm:mx-0 sm:h-10 sm:w-10">
+                <.phx_icon
+                  name="hero-exclamation-triangle"
+                  class="h-6 w-6 text-rose-600 dark:text-rose-400"
+                />
+              </div>
+              <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left flex-1">
+                <h3
+                  class="text-base font-semibold leading-6 text-slate-900 dark:text-slate-100"
+                  id="delete-bluesky-modal-title"
+                >
+                  Permanently Delete Bluesky Account
+                </h3>
+                <div class="mt-2">
+                  <p class="text-sm text-slate-500 dark:text-slate-400">
+                    This will permanently delete your Bluesky account
+                    <strong class="text-slate-700 dark:text-slate-300">
+                      @{@account && @account.handle}
+                    </strong>
+                    from Bluesky's servers. This action cannot be undone.
+                  </p>
+                  <div class="mt-3 p-3 bg-rose-50 dark:bg-rose-900/20 rounded-lg border border-rose-200 dark:border-rose-700">
+                    <div class="flex items-start gap-2">
+                      <.phx_icon
+                        name="hero-exclamation-triangle"
+                        class="h-5 w-5 text-rose-600 dark:text-rose-400 flex-shrink-0 mt-0.5"
+                      />
+                      <div class="text-xs text-rose-700 dark:text-rose-300 space-y-1">
+                        <p><strong>This will:</strong></p>
+                        <ul class="list-disc list-inside space-y-0.5">
+                          <li>Delete all your posts on Bluesky</li>
+                          <li>Delete your followers and following lists</li>
+                          <li>Delete your Bluesky profile permanently</li>
+                          <li>Make your handle available for others to claim</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="mt-3 p-3 bg-sky-50 dark:bg-sky-900/20 rounded-lg border border-sky-200 dark:border-sky-700">
+                    <div class="flex items-start gap-2">
+                      <.phx_icon
+                        name="hero-check-circle"
+                        class="h-5 w-5 text-sky-600 dark:text-sky-400 flex-shrink-0 mt-0.5"
+                      />
+                      <div class="text-xs text-sky-700 dark:text-sky-300">
+                        <strong>Your Mosslet account will remain intact.</strong>
+                        Any posts you've imported from Bluesky will stay on Mosslet.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <%= if @delete_bluesky_error do %>
+                  <div class="mt-3 p-3 bg-rose-50 dark:bg-rose-900/20 rounded-lg border border-rose-200 dark:border-rose-700">
+                    <p class="text-sm text-rose-600 dark:text-rose-400">
+                      <.phx_icon name="hero-exclamation-circle" class="h-4 w-4 inline" />
+                      {@delete_bluesky_error}
+                    </p>
+                  </div>
+                <% end %>
+
+                <.form
+                  id="delete-bluesky-password-form"
+                  for={@delete_bluesky_password_form}
+                  phx-submit="confirm_delete_bluesky_account"
+                  class="mt-4"
+                >
+                  <div>
+                    <label
+                      for="delete_bluesky_password_password"
+                      class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
+                    >
+                      Mosslet Password
+                    </label>
+                    <.phx_input
+                      field={@delete_bluesky_password_form[:password]}
+                      type="password"
+                      placeholder="Enter your password to confirm"
+                      class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                      autocomplete="current-password"
+                    />
+                  </div>
+
+                  <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
+                    <DesignSystem.liquid_button
+                      type="submit"
+                      variant="primary"
+                      color="rose"
+                      icon="hero-trash"
+                    >
+                      Delete Bluesky Account
+                    </DesignSystem.liquid_button>
+                    <DesignSystem.liquid_button
+                      type="button"
+                      variant="secondary"
+                      color="slate"
+                      phx-click="close_delete_bluesky_modal"
                     >
                       Cancel
                     </DesignSystem.liquid_button>
@@ -618,16 +759,43 @@ defmodule MossletWeb.BlueskySettingsLive do
           </p>
         </div>
 
-        <div class="border-t border-sky-200 dark:border-sky-700 pt-6">
-          <DesignSystem.liquid_button
-            variant="secondary"
-            color="rose"
-            icon="hero-link-slash"
-            phx-click="disconnect_account"
-            data-confirm="Are you sure you want to disconnect your Bluesky account? Your synced posts will remain on both platforms."
-          >
-            Disconnect Account
-          </DesignSystem.liquid_button>
+        <div class="border-t border-sky-200 dark:border-sky-700 pt-6 space-y-4">
+          <div>
+            <h3 class="text-sm font-medium text-slate-900 dark:text-slate-100 mb-3">
+              Account Management
+            </h3>
+            <div class="flex flex-wrap gap-3">
+              <DesignSystem.liquid_button
+                variant="secondary"
+                color="slate"
+                icon="hero-link-slash"
+                phx-click="disconnect_account"
+                data-confirm="Are you sure you want to disconnect your Bluesky account? Your synced posts will remain on both platforms."
+              >
+                Disconnect Account
+              </DesignSystem.liquid_button>
+            </div>
+            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+              Disconnecting removes the link between Mosslet and Bluesky. Your Bluesky account remains active.
+            </p>
+          </div>
+
+          <div class="pt-4 border-t border-rose-200 dark:border-rose-800/50">
+            <h3 class="text-sm font-medium text-rose-700 dark:text-rose-300 mb-2 flex items-center gap-2">
+              <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4" /> Danger Zone
+            </h3>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mb-3">
+              Permanently delete your Bluesky account. Your Mosslet account and imported posts will remain.
+            </p>
+            <DesignSystem.liquid_button
+              variant="secondary"
+              color="rose"
+              icon="hero-trash"
+              phx-click="show_delete_bluesky_modal"
+            >
+              Delete Bluesky Account
+            </DesignSystem.liquid_button>
+          </div>
         </div>
       </div>
     </DesignSystem.liquid_card>
@@ -831,6 +999,119 @@ defmodule MossletWeb.BlueskySettingsLive do
       end
     else
       {:noreply, assign(socket, export_error: "Invalid password. Please try again.")}
+    end
+  end
+
+  def handle_event("show_delete_bluesky_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(show_delete_bluesky_modal: true)
+     |> assign(delete_bluesky_error: nil)
+     |> assign(
+       delete_bluesky_password_form: to_form(%{"password" => ""}, as: :delete_bluesky_password)
+     )}
+  end
+
+  def handle_event("close_delete_bluesky_modal", _params, socket) do
+    {:noreply, assign(socket, show_delete_bluesky_modal: false, delete_bluesky_error: nil)}
+  end
+
+  def handle_event(
+        "confirm_delete_bluesky_account",
+        %{"delete_bluesky_password" => %{"password" => password}},
+        socket
+      ) do
+    user = socket.assigns.current_scope.user
+    account = socket.assigns.bluesky_account
+
+    if User.valid_password?(user, password) do
+      case delete_bluesky_account_on_pds(account) do
+        :ok ->
+          case Bluesky.delete_account(account) do
+            {:ok, _} ->
+              {:noreply,
+               socket
+               |> assign(
+                 show_delete_bluesky_modal: false,
+                 delete_bluesky_error: nil,
+                 bluesky_account: nil,
+                 sync_form: nil
+               )
+               |> put_flash(:success, "Your Bluesky account has been permanently deleted.")}
+
+            {:error, _} ->
+              {:noreply,
+               assign(socket,
+                 delete_bluesky_error:
+                   "Bluesky account deleted but failed to remove local connection. Please disconnect manually."
+               )}
+          end
+
+        {:error, :token_refresh_failed} ->
+          {:noreply,
+           assign(socket,
+             delete_bluesky_error:
+               "Session expired. Please disconnect and reconnect your Bluesky account first."
+           )}
+
+        {:error, reason} ->
+          {:noreply,
+           assign(socket,
+             delete_bluesky_error: "Failed to delete Bluesky account: #{inspect(reason)}"
+           )}
+      end
+    else
+      {:noreply, assign(socket, delete_bluesky_error: "Invalid password. Please try again.")}
+    end
+  end
+
+  defp delete_bluesky_account_on_pds(account) do
+    alias Mosslet.Bluesky.Client
+
+    pds_url = account.pds_url || "https://bsky.social"
+
+    case Client.delete_bluesky_account(account.access_jwt, account.did, pds_url: pds_url) do
+      :ok ->
+        :ok
+
+      {:error, {401, _}} ->
+        case refresh_and_retry_delete(account, pds_url) do
+          :ok -> :ok
+          error -> error
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp refresh_and_retry_delete(account, pds_url) do
+    alias Mosslet.Bluesky.Client
+
+    signing_key =
+      case account.signing_key do
+        nil -> nil
+        json -> Jason.decode!(json)
+      end
+
+    refresh_result =
+      if signing_key do
+        Client.refresh_oauth_session(account.refresh_jwt, signing_key, pds_url: pds_url)
+      else
+        Client.refresh_session(account.refresh_jwt, pds_url: pds_url)
+      end
+
+    case refresh_result do
+      {:ok, tokens} ->
+        new_access = tokens[:access_token] || tokens[:access_jwt]
+
+        case Client.delete_bluesky_account(new_access, account.did, pds_url: pds_url) do
+          :ok -> :ok
+          {:error, reason} -> {:error, reason}
+        end
+
+      {:error, _} ->
+        {:error, :token_refresh_failed}
     end
   end
 

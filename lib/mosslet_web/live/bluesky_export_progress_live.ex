@@ -54,6 +54,16 @@ defmodule MossletWeb.BlueskyExportProgressLive do
           </button>
         </div>
 
+        <%= if @progress.status == :started do %>
+          <div class="space-y-2">
+            <div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+              <.phx_icon name="hero-arrow-path" class="h-4 w-4 animate-spin" />
+              <span>Starting export...</span>
+            </div>
+            <.sync_steps current_step={:starting} />
+          </div>
+        <% end %>
+
         <%= if @progress.status == :exporting do %>
           <div class="space-y-2">
             <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400">
@@ -73,21 +83,38 @@ defmodule MossletWeb.BlueskyExportProgressLive do
             >
               {@progress.current_post}
             </p>
+            <.sync_steps current_step={:posts} />
           </div>
         <% end %>
 
-        <%= if @progress.status in [:syncing_likes, :syncing_bookmarks] do %>
-          <div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-            <.phx_icon name="hero-arrow-path" class="h-4 w-4 animate-spin" />
-            <span>{status_text(@progress.status)}...</span>
+        <%= if @progress.status == :syncing_likes do %>
+          <div class="space-y-2">
+            <div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+              <.phx_icon name="hero-arrow-path" class="h-4 w-4 animate-spin" />
+              <span>Syncing likes to Bluesky...</span>
+            </div>
+            <.sync_steps current_step={:likes} />
+          </div>
+        <% end %>
+
+        <%= if @progress.status == :syncing_bookmarks do %>
+          <div class="space-y-2">
+            <div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+              <.phx_icon name="hero-arrow-path" class="h-4 w-4 animate-spin" />
+              <span>Syncing bookmarks to Bluesky...</span>
+            </div>
+            <.sync_steps current_step={:bookmarks} />
           </div>
         <% end %>
 
         <%= if @progress.status == :completed do %>
-          <p class="text-sm text-emerald-600 dark:text-emerald-400">
-            <.phx_icon name="hero-check-circle" class="h-4 w-4 inline" />
-            {@progress.exported} posts exported successfully
-          </p>
+          <div class="space-y-2">
+            <p class="text-sm text-emerald-600 dark:text-emerald-400">
+              <.phx_icon name="hero-check-circle" class="h-4 w-4 inline" />
+              {@progress.exported} posts exported successfully
+            </p>
+            <.sync_steps current_step={:done} />
+          </div>
         <% end %>
 
         <%= if @progress.status == :failed do %>
@@ -95,16 +122,59 @@ defmodule MossletWeb.BlueskyExportProgressLive do
             <.phx_icon name="hero-exclamation-circle" class="h-4 w-4 inline" /> Export failed
           </p>
         <% end %>
-
-        <%= if @progress.status == :started do %>
-          <div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-            <.phx_icon name="hero-arrow-path" class="h-4 w-4 animate-spin" />
-            <span>Starting export...</span>
-          </div>
-        <% end %>
       </div>
     </div>
     """
+  end
+
+  defp sync_steps(assigns) do
+    ~H"""
+    <div class="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+      <div class="flex items-center gap-3 text-xs">
+        <.step_indicator step={:posts} current={@current_step} label="Posts" />
+        <.step_indicator step={:likes} current={@current_step} label="Likes" />
+        <.step_indicator step={:bookmarks} current={@current_step} label="Bookmarks" />
+      </div>
+    </div>
+    """
+  end
+
+  defp step_indicator(assigns) do
+    status = step_status(assigns.step, assigns.current_step)
+    assigns = assign(assigns, :status, status)
+
+    ~H"""
+    <div class="flex items-center gap-1">
+      <%= case @status do %>
+        <% :done -> %>
+          <.phx_icon name="hero-check-circle-solid" class="h-3.5 w-3.5 text-emerald-500" />
+        <% :active -> %>
+          <.phx_icon name="hero-arrow-path" class="h-3.5 w-3.5 text-emerald-500 animate-spin" />
+        <% :pending -> %>
+          <div class="h-3.5 w-3.5 rounded-full border border-slate-300 dark:border-slate-600"></div>
+      <% end %>
+      <span class={[
+        "text-slate-500 dark:text-slate-400",
+        @status == :active && "text-emerald-600 dark:text-emerald-400 font-medium"
+      ]}>
+        {@label}
+      </span>
+    </div>
+    """
+  end
+
+  defp step_status(step, current_step) do
+    steps_order = [:starting, :posts, :likes, :bookmarks, :done]
+    step_index = Enum.find_index(steps_order, &(&1 == step))
+    current_index = Enum.find_index(steps_order, &(&1 == current_step))
+
+    cond do
+      current_step == :done -> :done
+      step == current_step -> :active
+      step == :posts and current_step == :starting -> :active
+      step_index < current_index -> :done
+      true -> :pending
+    end
   end
 
   @impl true
