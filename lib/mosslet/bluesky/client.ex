@@ -1011,13 +1011,13 @@ defmodule Mosslet.Bluesky.Client do
       ~r/@([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?/
 
     Regex.scan(regex, text, return: :index)
-    |> Enum.map(fn [{start, length} | _] ->
-      handle = String.slice(text, start + 1, length - 1)
+    |> Enum.map(fn [{byte_start, byte_length} | _] ->
+      handle = :binary.part(text, byte_start + 1, byte_length - 1)
 
       case resolve_handle(handle) do
         {:ok, %{did: did}} ->
           %{
-            "index" => %{"byteStart" => start, "byteEnd" => start + length},
+            "index" => %{"byteStart" => byte_start, "byteEnd" => byte_start + byte_length},
             "features" => [
               %{
                 "$type" => "app.bsky.richtext.facet#mention",
@@ -1041,13 +1041,13 @@ defmodule Mosslet.Bluesky.Client do
     regex = ~r/https?:\/\/[^\s<>\[\]]+/
 
     Regex.scan(regex, text, return: :index)
-    |> Enum.map(fn [{start, length} | _] ->
-      raw_uri = String.slice(text, start, length)
+    |> Enum.map(fn [{byte_start, byte_length} | _] ->
+      raw_uri = :binary.part(text, byte_start, byte_length)
       uri = clean_uri(raw_uri)
-      actual_length = byte_size(uri)
+      actual_byte_length = byte_size(uri)
 
       %{
-        "index" => %{"byteStart" => start, "byteEnd" => start + actual_length},
+        "index" => %{"byteStart" => byte_start, "byteEnd" => byte_start + actual_byte_length},
         "features" => [
           %{
             "$type" => "app.bsky.richtext.facet#link",
@@ -1099,11 +1099,11 @@ defmodule Mosslet.Bluesky.Client do
     regex = ~r/#[a-zA-Z][a-zA-Z0-9_]*/
 
     Regex.scan(regex, text, return: :index)
-    |> Enum.map(fn [{start, length} | _] ->
-      tag = String.slice(text, start + 1, length - 1)
+    |> Enum.map(fn [{byte_start, byte_length} | _] ->
+      tag = :binary.part(text, byte_start + 1, byte_length - 1)
 
       %{
-        "index" => %{"byteStart" => start, "byteEnd" => start + length},
+        "index" => %{"byteStart" => byte_start, "byteEnd" => byte_start + byte_length},
         "features" => [
           %{
             "$type" => "app.bsky.richtext.facet#tag",

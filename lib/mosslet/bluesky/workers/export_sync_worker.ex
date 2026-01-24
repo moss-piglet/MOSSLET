@@ -196,12 +196,12 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
     end
   end
 
-  defp truncate_with_link(text, post_id) do
+  defp truncate_with_link(text, _post_id) do
     host = Application.get_env(:mosslet, :canonical_host) || "mosslet.com"
     scheme = if String.contains?(host, "localhost"), do: "http", else: "https"
-    post_url = "#{scheme}://#{host}/app/posts/#{post_id}"
+    url = "#{scheme}://#{host}/discover"
 
-    suffix = "\n\n📖 #{post_url}"
+    suffix = "\n\n📖 #{url}"
     suffix_graphemes = String.graphemes(suffix) |> length()
     available = @bluesky_max_graphemes - suffix_graphemes - 1
 
@@ -339,12 +339,12 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
     end
   end
 
-  defp truncate_reply_with_link(text, reply_id) do
+  defp truncate_reply_with_link(text, _reply_id) do
     host = Application.get_env(:mosslet, :canonical_host) || "mosslet.com"
     scheme = if String.contains?(host, "localhost"), do: "http", else: "https"
-    reply_url = "#{scheme}://#{host}/app/replies/#{reply_id}"
+    url = "#{scheme}://#{host}/discover"
 
-    suffix = "\n\n📖 #{reply_url}"
+    suffix = "\n\n📖 #{url}"
     suffix_graphemes = String.graphemes(suffix) |> length()
     available = @bluesky_max_graphemes - suffix_graphemes - 1
 
