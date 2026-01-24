@@ -76,6 +76,13 @@ defmodule MossletWeb.BlueskyExportProgressLive do
           </div>
         <% end %>
 
+        <%= if @progress.status in [:syncing_likes, :syncing_bookmarks] do %>
+          <div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+            <.phx_icon name="hero-arrow-path" class="h-4 w-4 animate-spin" />
+            <span>{status_text(@progress.status)}...</span>
+          </div>
+        <% end %>
+
         <%= if @progress.status == :completed do %>
           <p class="text-sm text-emerald-600 dark:text-emerald-400">
             <.phx_icon name="hero-check-circle" class="h-4 w-4 inline" />
@@ -117,6 +124,8 @@ defmodule MossletWeb.BlueskyExportProgressLive do
 
   defp status_text(:started), do: "Bluesky Export"
   defp status_text(:exporting), do: "Exporting to Bluesky"
+  defp status_text(:syncing_likes), do: "Syncing Likes"
+  defp status_text(:syncing_bookmarks), do: "Syncing Bookmarks"
   defp status_text(:completed), do: "Export Complete"
   defp status_text(:failed), do: "Export Failed"
 

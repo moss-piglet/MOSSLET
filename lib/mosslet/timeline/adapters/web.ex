@@ -2586,6 +2586,15 @@ defmodule Mosslet.Timeline.Adapters.Web do
   end
 
   @impl true
+  def get_post_by_external_uri(uri, bluesky_account_id) do
+    from(p in Post,
+      where: p.bluesky_account_id == ^bluesky_account_id,
+      where: p.external_uri == ^uri
+    )
+    |> Repo.one()
+  end
+
+  @impl true
   def create_bluesky_import_post(attrs, opts) do
     user = opts[:user]
     post_key = opts[:trix_key] || Mosslet.Encrypted.Utils.generate_key()
@@ -2662,6 +2671,72 @@ defmodule Mosslet.Timeline.Adapters.Web do
     |> case do
       {:ok, post} -> {:ok, post}
       {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @impl true
+  def get_reply_for_export(reply_id) do
+    from(r in Reply,
+      where: r.id == ^reply_id,
+      where: r.visibility == :public,
+      where: is_nil(r.source) or r.source == :mosslet,
+      preload: [:post, :parent_reply, :user]
+    )
+    |> Repo.one()
+  end
+
+  @impl true
+  def mark_reply_as_synced_to_bluesky(reply, uri, cid, reply_ref) do
+    Repo.transaction_on_primary(fn ->
+      reply
+      |> Ecto.Changeset.change(%{
+        external_uri: uri,
+        external_cid: cid,
+        external_reply_root_uri: reply_ref["root"]["uri"],
+        external_reply_root_cid: reply_ref["root"]["cid"],
+        external_reply_parent_uri: reply_ref["parent"]["uri"],
+        external_reply_parent_cid: reply_ref["parent"]["cid"]
+      })
+      |> Repo.update!()
+    end)
+    |> case do
+      {:ok, reply} -> {:ok, reply}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @impl true
+  def decrypt_reply_body(reply, user, key_type) do
+    reply = Repo.preload(reply, [:post])
+    post = Repo.preload(reply.post, [:user_posts])
+
+    user_post = Enum.find(post.user_posts, &(&1.user_id == user.id))
+
+    if user_post do
+      post_key =
+        case reply.visibility do
+          :public ->
+            Mosslet.Encrypted.Users.Utils.decrypt_public_item_key(user_post.key)
+
+          _ ->
+            case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(
+                   user_post.key,
+                   user,
+                   key_type
+                 ) do
+              {:ok, key} -> key
+              _ -> nil
+            end
+        end
+
+      if post_key do
+        decrypted = Mosslet.Encrypted.Utils.decrypt(%{key: post_key, payload: reply.body})
+        {:ok, decrypted}
+      else
+        {:error, :decryption_failed}
+      end
+    else
+      {:error, :no_user_post}
     end
   end
 end

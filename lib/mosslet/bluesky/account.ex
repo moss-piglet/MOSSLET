@@ -28,6 +28,7 @@ defmodule Mosslet.Bluesky.Account do
     field :sync_posts_to_bsky, :boolean, default: false
     field :sync_posts_from_bsky, :boolean, default: false
     field :auto_delete_from_bsky, :boolean, default: false
+    field :sync_likes, :boolean, default: false
 
     field :import_visibility, Ecto.Enum,
       values: [:public, :private, :connections],
@@ -35,6 +36,7 @@ defmodule Mosslet.Bluesky.Account do
 
     field :last_synced_at, :utc_datetime
     field :last_cursor, Encrypted.Binary, redact: true
+    field :last_likes_cursor, Encrypted.Binary, redact: true
 
     belongs_to :user, User
 
@@ -89,6 +91,7 @@ defmodule Mosslet.Bluesky.Account do
       :sync_posts_to_bsky,
       :sync_posts_from_bsky,
       :auto_delete_from_bsky,
+      :sync_likes,
       :import_visibility
     ])
   end
@@ -104,6 +107,12 @@ defmodule Mosslet.Bluesky.Account do
   def sync_cursor_changeset(account, attrs) do
     account
     |> cast(attrs, [:last_synced_at, :last_cursor])
+  end
+
+  @doc false
+  def sync_likes_cursor_changeset(account, attrs) do
+    account
+    |> cast(attrs, [:last_likes_cursor])
   end
 
   defp add_did_hash(changeset) do

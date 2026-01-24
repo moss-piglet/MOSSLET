@@ -33,6 +33,7 @@ defmodule Mosslet.Bluesky.ImportProcessor do
     post_key = Keyword.get(opts, :post_key)
 
     text = get_in(post_data, [:record, :text]) || ""
+    reply_ref = extract_reply_ref(post_data)
 
     with {:ok, _} <- moderate_text(text, visibility),
          {:ok, image_results} <- process_images(post_data, visibility, post_key) do
@@ -40,8 +41,24 @@ defmodule Mosslet.Bluesky.ImportProcessor do
        %{
          text: text,
          image_urls: Enum.map(image_results, & &1.url),
-         ai_generated: Enum.any?(image_results, & &1.ai_generated)
+         ai_generated: Enum.any?(image_results, & &1.ai_generated),
+         reply_ref: reply_ref
        }}
+    end
+  end
+
+  defp extract_reply_ref(post_data) do
+    case get_in(post_data, [:record, :reply]) do
+      %{root: root, parent: parent} ->
+        %{
+          root_uri: root[:uri],
+          root_cid: root[:cid],
+          parent_uri: parent[:uri],
+          parent_cid: parent[:cid]
+        }
+
+      _ ->
+        nil
     end
   end
 

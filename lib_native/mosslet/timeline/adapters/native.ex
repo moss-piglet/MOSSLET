@@ -1276,6 +1276,39 @@ defmodule Mosslet.Timeline.Adapters.Native do
     end
   end
 
+  @impl true
+  def get_reply_for_export(reply_id) do
+    token = get_token()
+
+    if Sync.online?() && token do
+      case Client.get_reply_for_export(token, reply_id) do
+        {:ok, %{reply: reply_data}} -> deserialize_reply(reply_data)
+        {:error, _reason} -> nil
+      end
+    else
+      nil
+    end
+  end
+
+  @impl true
+  def mark_reply_as_synced_to_bluesky(reply, uri, cid, reply_ref) do
+    token = get_token()
+
+    if Sync.online?() && token do
+      case Client.mark_reply_as_synced_to_bluesky(token, reply.id, uri, cid, reply_ref) do
+        {:ok, %{reply: reply_data}} -> {:ok, deserialize_reply(reply_data)}
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      {:error, "Offline - cannot mark reply as synced to Bluesky"}
+    end
+  end
+
+  @impl true
+  def decrypt_reply_body(_reply, _user, _key) do
+    {:error, "Not supported in native adapter - decryption happens on server"}
+  end
+
   # =============================================================================
   # Timeline Listing Functions (called by context after caching logic)
   # =============================================================================
@@ -1594,10 +1627,19 @@ defmodule Mosslet.Timeline.Adapters.Native do
     %Mosslet.Timeline.Post{
       id: data["id"],
       body: data["body"],
+      username: data["username"],
       visibility: parse_atom(data["visibility"]),
       user_id: data["user_id"],
       group_id: data["group_id"],
       image_urls: data["image_urls"],
+      source: parse_atom(data["source"]),
+      external_uri: data["external_uri"],
+      external_cid: data["external_cid"],
+      external_reply_root_uri: data["external_reply_root_uri"],
+      external_reply_root_cid: data["external_reply_root_cid"],
+      external_reply_parent_uri: data["external_reply_parent_uri"],
+      external_reply_parent_cid: data["external_reply_parent_cid"],
+      bluesky_account_id: data["bluesky_account_id"],
       inserted_at: parse_datetime(data["inserted_at"]),
       updated_at: parse_datetime(data["updated_at"])
     }
@@ -1609,9 +1651,19 @@ defmodule Mosslet.Timeline.Adapters.Native do
     %Mosslet.Timeline.Reply{
       id: data["id"],
       body: data["body"],
+      username: data["username"],
+      visibility: parse_atom(data["visibility"]),
       user_id: data["user_id"],
       post_id: data["post_id"],
       parent_reply_id: data["parent_reply_id"],
+      source: parse_atom(data["source"]),
+      external_uri: data["external_uri"],
+      external_cid: data["external_cid"],
+      external_reply_root_uri: data["external_reply_root_uri"],
+      external_reply_root_cid: data["external_reply_root_cid"],
+      external_reply_parent_uri: data["external_reply_parent_uri"],
+      external_reply_parent_cid: data["external_reply_parent_cid"],
+      bluesky_account_id: data["bluesky_account_id"],
       inserted_at: parse_datetime(data["inserted_at"]),
       updated_at: parse_datetime(data["updated_at"])
     }

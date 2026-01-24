@@ -35,6 +35,16 @@ defmodule Mosslet.Timeline.Reply do
     belongs_to :parent_reply, __MODULE__, foreign_key: :parent_reply_id
     has_many :child_replies, __MODULE__, foreign_key: :parent_reply_id
 
+    belongs_to :bluesky_account, Mosslet.Bluesky.Account
+
+    field :source, Ecto.Enum, values: [:mosslet, :bluesky], default: :mosslet
+    field :external_uri, Encrypted.Binary, redact: true
+    field :external_cid, Encrypted.Binary, redact: true
+    field :external_reply_root_uri, Encrypted.Binary, redact: true
+    field :external_reply_root_cid, Encrypted.Binary, redact: true
+    field :external_reply_parent_uri, Encrypted.Binary, redact: true
+    field :external_reply_parent_cid, Encrypted.Binary, redact: true
+
     timestamps()
   end
 
@@ -52,7 +62,15 @@ defmodule Mosslet.Timeline.Reply do
       :favs_list,
       :favs_count,
       :parent_reply_id,
-      :thread_depth
+      :thread_depth,
+      :source,
+      :external_uri,
+      :external_cid,
+      :external_reply_root_uri,
+      :external_reply_root_cid,
+      :external_reply_parent_uri,
+      :external_reply_parent_cid,
+      :bluesky_account_id
     ])
     |> cast_assoc(:post)
     |> cast_assoc(:user)

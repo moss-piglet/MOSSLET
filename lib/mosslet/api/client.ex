@@ -1436,4 +1436,40 @@ defmodule Mosslet.API.Client do
   end
 
   defp atomize_keys(value), do: value
+
+  # Bluesky sync operations
+  def create_bluesky_import_post(token, attrs, opts) do
+    request(:post, "/api/bluesky/import-post", %{attrs: attrs, opts: opts}, auth: token)
+  end
+
+  def get_unexported_public_posts(token, user_id, limit) do
+    request(:get, "/api/bluesky/unexported-posts", %{user_id: user_id, limit: limit}, auth: token)
+  end
+
+  def get_post_for_export(token, post_id) do
+    request(:get, "/api/bluesky/export-post/#{post_id}", %{}, auth: token)
+  end
+
+  def mark_post_as_synced_to_bluesky(token, post_id, uri, cid) do
+    request(:post, "/api/bluesky/mark-post-synced", %{post_id: post_id, uri: uri, cid: cid},
+      auth: token
+    )
+  end
+
+  def clear_bluesky_sync_info(token, post_id) do
+    request(:post, "/api/bluesky/clear-sync-info", %{post_id: post_id}, auth: token)
+  end
+
+  def get_reply_for_export(token, reply_id) do
+    request(:get, "/api/bluesky/export-reply/#{reply_id}", %{}, auth: token)
+  end
+
+  def mark_reply_as_synced_to_bluesky(token, reply_id, uri, cid, reply_ref) do
+    request(
+      :post,
+      "/api/bluesky/mark-reply-synced",
+      %{reply_id: reply_id, uri: uri, cid: cid, reply_ref: reply_ref},
+      auth: token
+    )
+  end
 end

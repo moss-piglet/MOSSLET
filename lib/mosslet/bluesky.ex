@@ -98,6 +98,17 @@ defmodule Mosslet.Bluesky do
   end
 
   @doc """
+  Updates the likes sync cursor after a successful likes sync operation.
+  """
+  def update_likes_cursor(%Account{} = account, cursor) do
+    Repo.transaction_on_primary(fn ->
+      account
+      |> Account.sync_likes_cursor_changeset(%{last_likes_cursor: cursor})
+      |> Repo.update!()
+    end)
+  end
+
+  @doc """
   Disconnects/deletes a user's Bluesky account.
   """
   def delete_account(%Account{} = account) do

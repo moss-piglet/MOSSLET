@@ -151,18 +151,20 @@ defmodule Mosslet.Bluesky.Workers.ImportSyncWorker do
 
     case ImportProcessor.process_post(post_data, visibility: :public, post_key: post_key) do
       {:ok, processed} ->
-        attrs = %{
-          "body" => processed.text,
-          "username" => account.handle,
-          "user_id" => user.id,
-          "visibility" => "public",
-          "source" => "bluesky",
-          "external_uri" => uri,
-          "external_cid" => cid,
-          "bluesky_account_id" => account.id,
-          "image_urls" => processed.image_urls,
-          "ai_generated" => processed.ai_generated
-        }
+        attrs =
+          %{
+            "body" => processed.text,
+            "username" => account.handle,
+            "user_id" => user.id,
+            "visibility" => "public",
+            "source" => "bluesky",
+            "external_uri" => uri,
+            "external_cid" => cid,
+            "bluesky_account_id" => account.id,
+            "image_urls" => processed.image_urls,
+            "ai_generated" => processed.ai_generated
+          }
+          |> maybe_add_reply_refs(processed.reply_ref)
 
         opts = [
           user: user,
@@ -247,5 +249,15 @@ defmodule Mosslet.Bluesky.Workers.ImportSyncWorker do
     |> Enum.each(fn account ->
       enqueue_import(account.id)
     end)
+  end
+
+  defp maybe_add_reply_refs(attrs, nil), do: attrs
+
+  defp maybe_add_reply_refs(attrs, reply_ref) do
+    attrs
+    |> Map.put("external_reply_root_uri", reply_ref.root_uri)
+    |> Map.put("external_reply_root_cid", reply_ref.root_cid)
+    |> Map.put("external_reply_parent_uri", reply_ref.parent_uri)
+    |> Map.put("external_reply_parent_cid", reply_ref.parent_cid)
   end
 end

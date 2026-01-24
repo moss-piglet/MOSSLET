@@ -375,6 +375,14 @@ defmodule MossletWeb.Router do
     delete "/devices/token", DeviceController, :unregister_token
     get "/devices/tokens", DeviceController, :list_tokens
     post "/devices/test-push", DeviceController, :test_push
+
+    # Bluesky sync operations
+    get "/bluesky/unexported-posts", BlueskyController, :unexported_posts
+    get "/bluesky/export-post/:id", BlueskyController, :export_post
+    post "/bluesky/mark-post-synced", BlueskyController, :mark_post_synced
+    post "/bluesky/clear-sync-info", BlueskyController, :clear_sync_info
+    get "/bluesky/export-reply/:id", BlueskyController, :export_reply
+    post "/bluesky/mark-reply-synced", BlueskyController, :mark_reply_synced
   end
 
   ## Authentication routes

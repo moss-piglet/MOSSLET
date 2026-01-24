@@ -625,7 +625,79 @@ defmodule Mosslet.Bluesky.Client do
       record: record
     }
 
-    request(:post, pds_url, "/xrpc/com.atproto.repo.createRecord", body, auth: access_jwt)
+    request_opts =
+      [auth: access_jwt]
+      |> maybe_merge_opt(:dpop_proof, opts[:dpop_proof])
+      |> maybe_merge_opt(:signing_key, opts[:signing_key])
+
+    request(:post, pds_url, "/xrpc/com.atproto.repo.createRecord", body, request_opts)
+  end
+
+  @doc """
+  Deletes a like from a post.
+
+  ## Examples
+
+      :ok = delete_like(jwt, did, "rkey123")
+  """
+  @spec delete_like(String.t(), String.t(), String.t(), keyword()) :: :ok | {:error, term()}
+  def delete_like(access_jwt, repo, rkey, opts \\ []) do
+    pds_url = opts[:pds_url] || @default_pds
+
+    body = %{
+      repo: repo,
+      collection: "app.bsky.feed.like",
+      rkey: rkey
+    }
+
+    request_opts =
+      [auth: access_jwt]
+      |> maybe_merge_opt(:dpop_proof, opts[:dpop_proof])
+      |> maybe_merge_opt(:signing_key, opts[:signing_key])
+
+    case request(:post, pds_url, "/xrpc/com.atproto.repo.deleteRecord", body, request_opts) do
+      {:ok, _} -> :ok
+      {:error, _} = error -> error
+    end
+  end
+
+  @doc """
+  Lists the user's likes from their repository.
+
+  ## Options
+
+    * `:limit` - Number of records (default: 50, max: 100)
+    * `:cursor` - Pagination cursor
+
+  ## Examples
+
+      {:ok, %{records: likes, cursor: cursor}} = list_likes(jwt, did)
+  """
+  @spec list_likes(String.t(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def list_likes(access_jwt, repo, opts \\ []) do
+    list_records(access_jwt, repo, "app.bsky.feed.like", opts)
+  end
+
+  @doc """
+  Finds a user's like record for a specific post URI.
+
+  Returns the like record if found, nil otherwise.
+  """
+  @spec find_like_for_post(String.t(), String.t(), String.t(), keyword()) ::
+          {:ok, map() | nil} | {:error, term()}
+  def find_like_for_post(access_jwt, repo, subject_uri, opts \\ []) do
+    case list_likes(access_jwt, repo, Keyword.put(opts, :limit, 100)) do
+      {:ok, %{records: records}} ->
+        like =
+          Enum.find(records, fn record ->
+            get_in(record, [:value, :subject, :uri]) == subject_uri
+          end)
+
+        {:ok, like}
+
+      {:error, _} = error ->
+        error
+    end
   end
 
   @doc """
@@ -653,6 +725,144 @@ defmodule Mosslet.Bluesky.Client do
     }
 
     request(:post, pds_url, "/xrpc/com.atproto.repo.createRecord", body, auth: access_jwt)
+  end
+
+  @doc """
+  Gets the user's actor preferences including saved posts.
+
+  ## Examples
+
+      {:ok, %{preferences: prefs}} = get_preferences(jwt)
+  """
+  @spec get_preferences(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def get_preferences(access_jwt, opts \\ []) do
+    pds_url = opts[:pds_url] || @default_pds
+
+    request_opts =
+      [auth: access_jwt]
+      |> maybe_merge_opt(:dpop_proof, opts[:dpop_proof])
+      |> maybe_merge_opt(:signing_key, opts[:signing_key])
+
+    request(:get, pds_url, "/xrpc/app.bsky.actor.getPreferences", %{}, request_opts)
+  end
+
+  @doc """
+  Updates the user's actor preferences.
+
+  ## Examples
+
+      {:ok, _} = put_preferences(jwt, preferences)
+  """
+  @spec put_preferences(String.t(), list(map()), keyword()) :: {:ok, map()} | {:error, term()}
+  def put_preferences(access_jwt, preferences, opts \\ []) do
+    pds_url = opts[:pds_url] || @default_pds
+
+    body = %{preferences: preferences}
+
+    request_opts =
+      [auth: access_jwt]
+      |> maybe_merge_opt(:dpop_proof, opts[:dpop_proof])
+      |> maybe_merge_opt(:signing_key, opts[:signing_key])
+
+    request(:post, pds_url, "/xrpc/app.bsky.actor.putPreferences", body, request_opts)
+  end
+
+  @doc """
+  Gets the user's saved/bookmarked post URIs from their preferences.
+
+  Returns a list of AT URIs for saved posts.
+  """
+  @spec get_saved_post_uris(String.t(), keyword()) :: {:ok, list(String.t())} | {:error, term()}
+  def get_saved_post_uris(access_jwt, opts \\ []) do
+    case get_preferences(access_jwt, opts) do
+      {:ok, %{preferences: preferences}} ->
+        saved_uris =
+          preferences
+          |> Enum.find_value([], fn pref ->
+            case pref do
+              %{:"$type" => "app.bsky.actor.defs#savedFeedsPrefV2", :items => items} ->
+                items
+                |> Enum.filter(&(&1[:type] == "post"))
+                |> Enum.map(& &1[:value])
+
+              _ ->
+                nil
+            end
+          end)
+
+        {:ok, saved_uris || []}
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
+  @doc """
+  Saves a post to the user's bookmarks/saved posts.
+
+  This updates the user's preferences to include the post URI.
+  """
+  @spec save_post(String.t(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def save_post(access_jwt, post_uri, opts \\ []) do
+    with {:ok, %{preferences: current_prefs}} <- get_preferences(access_jwt, opts) do
+      updated_prefs = add_saved_post_to_preferences(current_prefs, post_uri)
+      put_preferences(access_jwt, updated_prefs, opts)
+    end
+  end
+
+  @doc """
+  Removes a post from the user's bookmarks/saved posts.
+
+  This updates the user's preferences to remove the post URI.
+  """
+  @spec unsave_post(String.t(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def unsave_post(access_jwt, post_uri, opts \\ []) do
+    with {:ok, %{preferences: current_prefs}} <- get_preferences(access_jwt, opts) do
+      updated_prefs = remove_saved_post_from_preferences(current_prefs, post_uri)
+      put_preferences(access_jwt, updated_prefs, opts)
+    end
+  end
+
+  defp add_saved_post_to_preferences(preferences, post_uri) do
+    pref_type = "app.bsky.actor.defs#savedFeedsPrefV2"
+
+    case Enum.find_index(preferences, &(Map.get(&1, :"$type") == pref_type)) do
+      nil ->
+        new_pref = %{
+          "$type" => pref_type,
+          "items" => [%{"type" => "post", "value" => post_uri, "pinned" => false}]
+        }
+
+        preferences ++ [new_pref]
+
+      index ->
+        existing = Enum.at(preferences, index)
+        items = Map.get(existing, :items, [])
+
+        unless Enum.any?(items, &(&1[:value] == post_uri && &1[:type] == "post")) do
+          new_item = %{"type" => "post", "value" => post_uri, "pinned" => false}
+          updated = Map.put(existing, :items, items ++ [new_item])
+          List.replace_at(preferences, index, updated)
+        else
+          preferences
+        end
+    end
+  end
+
+  defp remove_saved_post_from_preferences(preferences, post_uri) do
+    pref_type = "app.bsky.actor.defs#savedFeedsPrefV2"
+
+    case Enum.find_index(preferences, &(Map.get(&1, :"$type") == pref_type)) do
+      nil ->
+        preferences
+
+      index ->
+        existing = Enum.at(preferences, index)
+        items = Map.get(existing, :items, [])
+        filtered = Enum.reject(items, &(&1[:value] == post_uri && &1[:type] == "post"))
+        updated = Map.put(existing, :items, filtered)
+        List.replace_at(preferences, index, updated)
+    end
   end
 
   @doc """

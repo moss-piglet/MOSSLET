@@ -1,6 +1,6 @@
 defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
   @moduledoc """
-  Oban worker for exporting public Mosslet posts to Bluesky.
+  Oban worker for exporting public Mosslet posts and replies to Bluesky.
 
   This worker syncs a user's public Mosslet posts to their connected
   Bluesky account, allowing them to maintain a presence on the open
@@ -10,6 +10,8 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
   - visibility: :public
   - source: :mosslet (not already from Bluesky)
   - Not already synced to Bluesky
+
+  Replies to Bluesky posts are also exported with proper reply threading.
   """
   use Oban.Worker, queue: :bluesky_sync, max_attempts: 3
 
@@ -51,6 +53,23 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
 
         post ->
           export_single_post(post, account)
+      end
+    else
+      :ok
+    end
+  end
+
+  def perform(%Oban.Job{args: %{"reply_id" => reply_id, "account_id" => account_id}}) do
+    account = Bluesky.get_account!(account_id) |> Mosslet.Repo.preload(:user)
+
+    if account.sync_enabled && account.sync_posts_to_bsky do
+      case Timeline.get_reply_for_export(reply_id) do
+        nil ->
+          Logger.warning("[BlueskyExport] Reply #{reply_id} not found or not exportable")
+          :ok
+
+        reply ->
+          export_single_reply(reply, account)
       end
     else
       :ok
@@ -225,6 +244,151 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
       {:error, reason} ->
         Logger.error("[BlueskyExport] Failed to export post #{post.id}: #{inspect(reason)}")
         {:error, reason}
+    end
+  end
+
+  defp export_single_reply(reply, account) do
+    reply = Mosslet.Repo.preload(reply, [:post, :parent_reply])
+    decrypted_body = decrypt_reply_body(reply, account.user)
+    signing_key = parse_signing_key(account.signing_key)
+
+    Logger.info(
+      "[BlueskyExport] Attempting reply export for @#{account.handle}, reply_id: #{reply.id}"
+    )
+
+    {export_text, facets} = prepare_reply_for_export(decrypted_body, reply.id)
+
+    pds_url = account.pds_url || "https://bsky.social"
+
+    reply_ref = build_reply_reference(reply)
+
+    if reply_ref do
+      opts =
+        [
+          facets: facets,
+          pds_url: pds_url,
+          reply: reply_ref
+        ]
+        |> maybe_add_dpop_proof(account, signing_key)
+
+      case Client.create_post(account.access_jwt, account.did, export_text, opts) do
+        {:ok, %{uri: uri, cid: cid}} ->
+          Timeline.mark_reply_as_synced_to_bluesky(reply, uri, cid, reply_ref)
+          Logger.debug("[BlueskyExport] Exported reply #{reply.id} -> #{uri}")
+          :ok
+
+        {:error, {status, %{error: "ExpiredToken"}}} when status in [400, 401] ->
+          Logger.warning("[BlueskyExport] Auth expired for reply, will retry")
+          handle_reply_token_refresh_and_retry(reply, account, signing_key)
+
+        {:error, {401, _}} ->
+          Logger.warning("[BlueskyExport] Auth expired for reply, will retry")
+          handle_reply_token_refresh_and_retry(reply, account, signing_key)
+
+        {:error, reason} ->
+          Logger.error("[BlueskyExport] Failed to export reply #{reply.id}: #{inspect(reason)}")
+          {:error, reason}
+      end
+    else
+      Logger.warning(
+        "[BlueskyExport] Cannot export reply #{reply.id} - parent post has no Bluesky URI"
+      )
+
+      {:error, :no_parent_uri}
+    end
+  end
+
+  defp build_reply_reference(reply) do
+    post = reply.post
+    parent_reply = reply.parent_reply
+
+    root_uri = post.external_uri
+    root_cid = post.external_cid
+
+    {parent_uri, parent_cid} =
+      if parent_reply && parent_reply.external_uri do
+        {parent_reply.external_uri, parent_reply.external_cid}
+      else
+        {root_uri, root_cid}
+      end
+
+    if root_uri && root_cid && parent_uri && parent_cid do
+      %{
+        "root" => %{"uri" => root_uri, "cid" => root_cid},
+        "parent" => %{"uri" => parent_uri, "cid" => parent_cid}
+      }
+    else
+      nil
+    end
+  end
+
+  defp decrypt_reply_body(reply, user) do
+    case Timeline.decrypt_reply_body(reply, user, :server_key) do
+      {:ok, body} -> body
+      _ -> reply.body
+    end
+  end
+
+  defp prepare_reply_for_export(text, reply_id) do
+    grapheme_count = String.graphemes(text) |> length()
+
+    if grapheme_count <= @bluesky_max_graphemes do
+      Client.parse_facets(text)
+    else
+      truncate_reply_with_link(text, reply_id)
+    end
+  end
+
+  defp truncate_reply_with_link(text, reply_id) do
+    host = Application.get_env(:mosslet, :canonical_host) || "mosslet.com"
+    scheme = if String.contains?(host, "localhost"), do: "http", else: "https"
+    reply_url = "#{scheme}://#{host}/app/replies/#{reply_id}"
+
+    suffix = "\n\n📖 #{reply_url}"
+    suffix_graphemes = String.graphemes(suffix) |> length()
+    available = @bluesky_max_graphemes - suffix_graphemes - 1
+
+    truncated =
+      text
+      |> String.graphemes()
+      |> Enum.take(available)
+      |> Enum.join()
+      |> String.trim_trailing()
+
+    final_text = truncated <> "…" <> suffix
+
+    {_text, facets} = Client.parse_facets(final_text)
+    {final_text, facets}
+  end
+
+  defp handle_reply_token_refresh_and_retry(reply, account, signing_key) do
+    result =
+      if signing_key do
+        Client.refresh_oauth_session(account.refresh_jwt, signing_key,
+          pds_url: account.pds_url || "https://bsky.social"
+        )
+      else
+        Client.refresh_session(account.refresh_jwt,
+          pds_url: account.pds_url || "https://bsky.social"
+        )
+      end
+
+    case result do
+      {:ok, tokens} ->
+        {:ok, updated_account} =
+          Bluesky.refresh_tokens(account, %{
+            access_jwt: tokens.access_token || tokens.access_jwt,
+            refresh_jwt: tokens.refresh_token || tokens.refresh_jwt
+          })
+
+        export_single_reply(reply, updated_account)
+
+      {:error, reason} ->
+        Logger.error(
+          "[BlueskyExport] Token refresh failed for reply @#{account.handle}: #{inspect(reason)}"
+        )
+
+        {:error, :token_refresh_failed}
     end
   end
 
@@ -476,6 +640,15 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
   def enqueue_single_post_export(post_id, account_id) do
     %{
       "post_id" => post_id,
+      "account_id" => account_id
+    }
+    |> __MODULE__.new()
+    |> Oban.insert()
+  end
+
+  def enqueue_single_reply_export(reply_id, account_id) do
+    %{
+      "reply_id" => reply_id,
       "account_id" => account_id
     }
     |> __MODULE__.new()

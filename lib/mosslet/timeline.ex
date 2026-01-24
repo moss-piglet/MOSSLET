@@ -4411,6 +4411,14 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
+  Gets a post by its external URI (e.g., Bluesky AT URI).
+  Returns nil if not found.
+  """
+  def get_post_by_external_uri(uri, bluesky_account_id) do
+    adapter().get_post_by_external_uri(uri, bluesky_account_id)
+  end
+
+  @doc """
   Creates a post imported from Bluesky.
   Uses the bluesky_import_changeset to properly set source and external references.
   """
@@ -4475,5 +4483,27 @@ defmodule Mosslet.Timeline do
     else
       {:error, :no_user_post}
     end
+  end
+
+  @doc """
+  Gets a reply for export to Bluesky.
+  Only returns public replies that haven't been synced yet.
+  """
+  def get_reply_for_export(reply_id) do
+    adapter().get_reply_for_export(reply_id)
+  end
+
+  @doc """
+  Marks a reply as synced to Bluesky with its URI, CID, and reply references.
+  """
+  def mark_reply_as_synced_to_bluesky(reply, uri, cid, reply_ref) do
+    adapter().mark_reply_as_synced_to_bluesky(reply, uri, cid, reply_ref)
+  end
+
+  @doc """
+  Decrypts a reply body for export to Bluesky.
+  """
+  def decrypt_reply_body(reply, user, key) do
+    adapter().decrypt_reply_body(reply, user, key)
   end
 end

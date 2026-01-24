@@ -364,6 +364,8 @@ defmodule Mosslet.Timeline.Adapter do
 
   @callback post_exists_by_external_uri?(uri :: String.t(), bluesky_account_id :: String.t()) ::
               boolean()
+  @callback get_post_by_external_uri(uri :: String.t(), bluesky_account_id :: String.t()) ::
+              Post.t() | nil
   @callback create_bluesky_import_post(attrs :: map(), opts :: keyword()) ::
               {:ok, Post.t()} | {:error, Ecto.Changeset.t()}
   @callback get_unexported_public_posts(user_id :: String.t(), limit :: non_neg_integer()) ::
@@ -377,4 +379,15 @@ defmodule Mosslet.Timeline.Adapter do
               {:ok, Post.t()} | {:error, Ecto.Changeset.t()}
   @callback clear_bluesky_sync_info(post :: Post.t()) ::
               {:ok, Post.t()} | {:error, Ecto.Changeset.t()}
+
+  @callback get_reply_for_export(reply_id :: String.t()) :: Reply.t() | nil
+  @callback mark_reply_as_synced_to_bluesky(
+              reply :: Reply.t(),
+              uri :: String.t(),
+              cid :: String.t(),
+              reply_ref :: map()
+            ) ::
+              {:ok, Reply.t()} | {:error, Ecto.Changeset.t()}
+  @callback decrypt_reply_body(reply :: Reply.t(), user :: User.t(), key :: atom()) ::
+              {:ok, String.t()} | {:error, term()}
 end

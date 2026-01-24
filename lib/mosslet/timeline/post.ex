@@ -136,6 +136,10 @@ defmodule Mosslet.Timeline.Post do
     field :source, Ecto.Enum, values: [:mosslet, :bluesky], default: :mosslet
     field :external_uri, Encrypted.Binary, redact: true
     field :external_cid, Encrypted.Binary, redact: true
+    field :external_reply_root_uri, Encrypted.Binary, redact: true
+    field :external_reply_root_cid, Encrypted.Binary, redact: true
+    field :external_reply_parent_uri, Encrypted.Binary, redact: true
+    field :external_reply_parent_cid, Encrypted.Binary, redact: true
 
     timestamps()
   end
@@ -182,7 +186,11 @@ defmodule Mosslet.Timeline.Post do
       :source,
       :external_uri,
       :external_cid,
-      :bluesky_account_id
+      :bluesky_account_id,
+      :external_reply_root_uri,
+      :external_reply_root_cid,
+      :external_reply_parent_uri,
+      :external_reply_parent_cid
     ])
     |> validate_required([:body, :username, :user_id])
     |> validate_length(:body, max: 10_000)
@@ -219,7 +227,11 @@ defmodule Mosslet.Timeline.Post do
       :external_uri,
       :external_cid,
       :bluesky_account_id,
-      :ai_generated
+      :ai_generated,
+      :external_reply_root_uri,
+      :external_reply_root_cid,
+      :external_reply_parent_uri,
+      :external_reply_parent_cid
     ])
     |> validate_required([:body, :username, :user_id, :external_uri, :bluesky_account_id])
     |> put_change(:source, :bluesky)

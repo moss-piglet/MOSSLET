@@ -18,6 +18,12 @@ defmodule Mosslet.Bluesky.ImportTask do
   - Images: AI detection, private/public moderation, WebP conversion
   - Text: Public moderation for public visibility posts
 
+  ## Likes and Bookmarks Sync
+
+  When `sync_likes` is enabled on the account:
+  - Imports the user's likes from Bluesky and adds them to Mosslet's favs
+  - Imports the user's saved posts from Bluesky and creates bookmarks in Mosslet
+
   ## Usage
 
       # Start an import (typically from BlueskySettingsLive)
@@ -29,7 +35,7 @@ defmodule Mosslet.Bluesky.ImportTask do
   ## PubSub Events
 
       {:bluesky_import_progress, %{
-        status: :started | :importing | :completed | :failed,
+        status: :started | :importing | :syncing_likes | :syncing_bookmarks | :completed | :failed,
         imported: integer(),
         total: integer(),
         skipped: integer(),
@@ -74,23 +80,143 @@ defmodule Mosslet.Bluesky.ImportTask do
 
     cursor = if full_sync, do: nil, else: account.last_cursor
 
-    case fetch_and_import(account, user, session_key, cursor, limit, %{imported: 0, skipped: 0}) do
-      {:ok, stats} ->
-        broadcast_progress(user.id, %{
-          status: :completed,
-          imported: stats.imported,
-          total: stats.imported + stats.skipped,
-          skipped: stats.skipped
-        })
+    with {:ok, stats} <-
+           fetch_and_import(account, user, session_key, cursor, limit, %{imported: 0, skipped: 0}),
+         {:ok, account} <- maybe_sync_likes(account, user, session_key),
+         {:ok, _account} <- maybe_sync_bookmarks(account, user, session_key) do
+      broadcast_progress(user.id, %{
+        status: :completed,
+        imported: stats.imported,
+        total: stats.imported + stats.skipped,
+        skipped: stats.skipped
+      })
 
-        Logger.info(
-          "[BlueskyImportTask] Completed import for @#{account.handle}: #{stats.imported} imported, #{stats.skipped} skipped"
-        )
-
+      Logger.info(
+        "[BlueskyImportTask] Completed import for @#{account.handle}: #{stats.imported} imported, #{stats.skipped} skipped"
+      )
+    else
       {:error, reason} ->
         broadcast_progress(user.id, %{status: :failed, error: inspect(reason)})
         Logger.error("[BlueskyImportTask] Failed for @#{account.handle}: #{inspect(reason)}")
     end
+  end
+
+  defp maybe_sync_likes(account, user, session_key) do
+    if account.sync_likes do
+      broadcast_progress(user.id, %{status: :syncing_likes, imported: 0, total: 0, skipped: 0})
+      sync_likes_from_bluesky(account, user, session_key)
+    else
+      {:ok, account}
+    end
+  end
+
+  defp maybe_sync_bookmarks(account, user, session_key) do
+    if account.sync_likes do
+      broadcast_progress(user.id, %{status: :syncing_bookmarks, imported: 0, total: 0, skipped: 0})
+
+      sync_bookmarks_from_bluesky(account, user, session_key)
+    else
+      {:ok, account}
+    end
+  end
+
+  defp sync_likes_from_bluesky(account, user, session_key) do
+    signing_key = parse_signing_key(account.signing_key)
+
+    opts = [
+      limit: 100,
+      pds_url: account.pds_url || "https://bsky.social",
+      dpop_proof: build_dpop_proof(account, "GET", "list_records"),
+      signing_key: signing_key
+    ]
+
+    case Client.list_likes(account.access_jwt, account.did, opts) do
+      {:ok, %{records: like_records}} ->
+        sync_likes_batch(like_records, account, user, session_key)
+
+        Logger.info(
+          "[BlueskyImportTask] Synced #{length(like_records)} likes for @#{account.handle}"
+        )
+
+        {:ok, account}
+
+      {:error, reason} ->
+        Logger.warning("[BlueskyImportTask] Failed to fetch likes: #{inspect(reason)}")
+        {:ok, account}
+    end
+  end
+
+  defp sync_likes_batch(like_records, account, user, session_key) do
+    Enum.each(like_records, fn like_record ->
+      subject_uri = get_in(like_record, [:value, :subject, :uri])
+
+      if subject_uri do
+        case Timeline.get_post_by_external_uri(subject_uri, account.id) do
+          nil ->
+            :skip
+
+          post ->
+            post = Mosslet.Repo.preload(post, [:user_posts])
+            current_favs = post.favs_list || []
+
+            unless user.id in current_favs do
+              new_favs = [user.id | current_favs]
+
+              Timeline.update_post_fav(post, %{favs_list: new_favs, favs_count: length(new_favs)},
+                user: user,
+                key: session_key
+              )
+
+              Logger.debug("[BlueskyImportTask] Added like to post #{post.id}")
+            end
+        end
+      end
+    end)
+  end
+
+  defp sync_bookmarks_from_bluesky(account, user, _session_key) do
+    signing_key = parse_signing_key(account.signing_key)
+
+    opts = [
+      pds_url: account.pds_url || "https://bsky.social",
+      dpop_proof: build_dpop_proof(account, "GET", "app.bsky.actor.getPreferences"),
+      signing_key: signing_key
+    ]
+
+    case Client.get_saved_post_uris(account.access_jwt, opts) do
+      {:ok, saved_uris} ->
+        sync_bookmarks_batch(saved_uris, account, user)
+
+        Logger.info(
+          "[BlueskyImportTask] Synced #{length(saved_uris)} saved posts for @#{account.handle}"
+        )
+
+        {:ok, account}
+
+      {:error, reason} ->
+        Logger.warning("[BlueskyImportTask] Failed to fetch saved posts: #{inspect(reason)}")
+        {:ok, account}
+    end
+  end
+
+  defp sync_bookmarks_batch(saved_uris, account, user) do
+    Enum.each(saved_uris, fn uri ->
+      case Timeline.get_post_by_external_uri(uri, account.id) do
+        nil ->
+          :skip
+
+        post ->
+          unless Timeline.bookmarked?(user, post) do
+            case Timeline.create_bookmark(user, post, %{}) do
+              {:ok, _bookmark} ->
+                Logger.debug("[BlueskyImportTask] Created bookmark for post #{post.id}")
+
+              {:error, _reason} ->
+                :skip
+            end
+          end
+      end
+    end)
   end
 
   defp fetch_and_import(account, user, session_key, cursor, limit, stats) do
