@@ -94,7 +94,8 @@ const TrixContentPostHook = {
           reply.image_urls.length > 0
         ) {
           this.show_loading_state();
-          this.decrypt_images(reply.image_urls, postId, userId);
+          const altTexts = reply.image_alt_texts || [];
+          this.decrypt_images(reply.image_urls, postId, userId, altTexts);
         } else {
           console.error("Failed to get image URLs for post", postId, reply);
           this.show_error_state();
@@ -147,7 +148,7 @@ const TrixContentPostHook = {
     return container;
   },
 
-  decrypt_images(imageUrls, postId, userId) {
+  decrypt_images(imageUrls, postId, userId, altTexts = []) {
     this.pushEvent(
       "decrypt_post_images",
       { sources: imageUrls, post_id: postId },
@@ -161,7 +162,8 @@ const TrixContentPostHook = {
             reply.decrypted_binaries,
             postId,
             userId,
-            reply.can_download || false
+            reply.can_download || false,
+            altTexts
           );
         } else {
           this.show_error_state();
@@ -174,7 +176,8 @@ const TrixContentPostHook = {
     decryptedBinaries,
     postId,
     userId,
-    canDownload = false
+    canDownload = false,
+    altTexts = []
   ) {
     const container = this.el.querySelector(".grid");
     if (container) {
@@ -249,7 +252,8 @@ const TrixContentPostHook = {
 
         const img = document.createElement("img");
         img.src = imageBinary;
-        img.alt = `Photo ${index + 1}`;
+        const altText = altTexts[index];
+        img.alt = altText && altText.trim() ? altText : `Photo ${index + 1}`;
         img.className =
           "w-full aspect-square object-cover transition-transform duration-500 group-hover:scale-110";
         img.style.opacity = "0";

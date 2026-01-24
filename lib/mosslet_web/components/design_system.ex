@@ -12161,6 +12161,7 @@ defmodule MossletWeb.DesignSystem do
   attr :id, :string, required: true
   attr :show, :boolean, default: false
   attr :images, :list, default: []
+  attr :image_alt_texts, :list, default: []
   attr :current_index, :integer, default: 0
   attr :can_download, :boolean, default: false
   attr :on_cancel, JS, default: %JS{}
@@ -12168,7 +12169,18 @@ defmodule MossletWeb.DesignSystem do
 
   def liquid_image_modal(assigns) do
     images_json = Jason.encode!(assigns.images || [])
-    assigns = assign(assigns, :images_json, images_json)
+
+    current_alt =
+      case Enum.at(assigns.image_alt_texts || [], assigns.current_index) do
+        nil -> "Image #{assigns.current_index + 1}"
+        "" -> "Image #{assigns.current_index + 1}"
+        alt -> alt
+      end
+
+    assigns =
+      assigns
+      |> assign(:images_json, images_json)
+      |> assign(:current_alt, current_alt)
 
     ~H"""
     <.portal :if={@show} id={"#{@id}-portal"} target="body">
@@ -12286,7 +12298,7 @@ defmodule MossletWeb.DesignSystem do
                 <img
                   :if={Enum.at(@images, @current_index)}
                   src={Enum.at(@images, @current_index)}
-                  alt={"Timeline image #{@current_index + 1}"}
+                  alt={@current_alt}
                   class="max-w-full max-h-full w-auto h-auto object-contain"
                   loading="lazy"
                   style="max-height: calc(95vh - 200px); max-width: calc(100vw);"

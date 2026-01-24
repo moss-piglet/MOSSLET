@@ -125,6 +125,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:image_urls, [])
       |> assign(:show_image_modal, false)
       |> assign(:current_images, [])
+      |> assign(:current_image_alt_texts, [])
       |> assign(:current_image_index, 0)
       |> assign(:current_post_for_images, nil)
       |> assign(:can_download_images, false)
@@ -1878,21 +1879,30 @@ defmodule MossletWeb.TimelineLive.Index do
 
     case Timeline.get_post(post_id) do
       %Post{} = post ->
-        # Get the encrypted image URLs and decrypt them to get actual S3 paths for decrypt_post_images
         case post.image_urls do
           [_ | _] = urls ->
             post_key = get_post_key(post, current_user)
 
-            # Decrypt each URL to get the actual S3 file path for the decrypt_post_images handler
             decrypted_urls =
               Enum.map(urls, fn encrypted_url ->
                 decr_item(encrypted_url, current_user, post_key, key, post, "body")
               end)
 
-            {:reply, %{response: "success", image_urls: decrypted_urls}, socket}
+            decrypted_alt_texts =
+              (post.image_alt_texts || [])
+              |> Enum.map(fn alt_text ->
+                decr_item(alt_text, current_user, post_key, key, post, "body")
+              end)
+
+            {:reply,
+             %{
+               response: "success",
+               image_urls: decrypted_urls,
+               image_alt_texts: decrypted_alt_texts
+             }, socket}
 
           _ ->
-            {:reply, %{response: "success", image_urls: []}, socket}
+            {:reply, %{response: "success", image_urls: [], image_alt_texts: []}, socket}
         end
 
       nil ->
@@ -3904,16 +3914,24 @@ defmodule MossletWeb.TimelineLive.Index do
         socket
       ) do
     current_user = socket.assigns.current_user
+    key = socket.assigns.key
 
     case Timeline.get_post(post_id) do
       %Post{} = post ->
-        # Check if user can download images
         can_download = check_download_permission(post, current_user)
+        post_key = get_post_key(post, current_user)
+
+        decrypted_alt_texts =
+          (post.image_alt_texts || [])
+          |> Enum.map(fn alt_text ->
+            decr_item(alt_text, current_user, post_key, key, post, "body")
+          end)
 
         {:noreply,
          socket
          |> assign(:show_image_modal, true)
          |> assign(:current_images, images)
+         |> assign(:current_image_alt_texts, decrypted_alt_texts)
          |> assign(:current_image_index, image_index)
          |> assign(:current_post_for_images, post)
          |> assign(:can_download_images, can_download)}
@@ -3929,10 +3947,8 @@ defmodule MossletWeb.TimelineLive.Index do
 
     case Timeline.get_post(post_id) do
       %Post{} = post ->
-        # Check if user can see this post and download images
         can_download = check_download_permission(post, current_user)
 
-        # Get decrypted image URLs
         case post.image_urls do
           [_ | _] = urls ->
             post_key = get_post_key(post, current_user)
@@ -3943,10 +3959,17 @@ defmodule MossletWeb.TimelineLive.Index do
               end)
               |> Enum.filter(&(!is_nil(&1)))
 
+            decrypted_alt_texts =
+              (post.image_alt_texts || [])
+              |> Enum.map(fn alt_text ->
+                decr_item(alt_text, current_user, post_key, key, post, "body")
+              end)
+
             {:noreply,
              socket
              |> assign(:show_image_modal, true)
              |> assign(:current_images, decrypted_urls)
+             |> assign(:current_image_alt_texts, decrypted_alt_texts)
              |> assign(:current_image_index, 0)
              |> assign(:current_post_for_images, post)
              |> assign(:can_download_images, can_download)}
@@ -3965,6 +3988,7 @@ defmodule MossletWeb.TimelineLive.Index do
      socket
      |> assign(:show_image_modal, false)
      |> assign(:current_images, [])
+     |> assign(:current_image_alt_texts, [])
      |> assign(:current_image_index, 0)
      |> assign(:current_post_for_images, nil)
      |> assign(:can_download_images, false)
