@@ -4073,7 +4073,7 @@ defmodule MossletWeb.DesignSystem do
                 "transition-all duration-200 hover:scale-105",
                 if(upload[:alt_text] && upload[:alt_text] != "",
                   do: "bg-emerald-500 text-white",
-                  else: "bg-slate-800/80 text-white hover:bg-slate-700/90"
+                  else: "bg-slate-800 text-white hover:bg-slate-700"
                 )
               ]}
               phx-hook="TippyHook"
