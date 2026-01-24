@@ -15,6 +15,7 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
 
   alias Mosslet.Bluesky
   alias Mosslet.Bluesky.Client
+  alias Mosslet.Extensions.URLPreviewServer
   alias Mosslet.Timeline
 
   require Logger
@@ -98,11 +99,15 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
 
     {export_text, facets} = prepare_post_for_export(decrypted_body, post.id)
 
+    pds_url = account.pds_url || "https://bsky.social"
+    embed = build_external_embed(export_text, account, signing_key, pds_url)
+
     opts =
       [
         facets: facets,
-        pds_url: account.pds_url || "https://bsky.social"
+        pds_url: pds_url
       ]
+      |> maybe_put_embed(embed)
       |> maybe_add_dpop_proof(account, signing_key)
 
     case Client.create_post(account.access_jwt, account.did, export_text, opts) do
@@ -200,11 +205,15 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
 
     {export_text, facets} = prepare_post_for_export(decrypted_body, post.id)
 
+    pds_url = account.pds_url || "https://bsky.social"
+    embed = build_external_embed(export_text, account, signing_key, pds_url)
+
     opts =
       [
         facets: facets,
-        pds_url: account.pds_url || "https://bsky.social"
+        pds_url: pds_url
       ]
+      |> maybe_put_embed(embed)
       |> maybe_add_dpop_proof(account, signing_key)
 
     case Client.create_post(account.access_jwt, account.did, export_text, opts) do
@@ -273,6 +282,185 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
         )
 
         {:error, :token_refresh_failed}
+    end
+  end
+
+  defp maybe_put_embed(opts, nil), do: opts
+  defp maybe_put_embed(opts, embed), do: Keyword.put(opts, :embed, embed)
+
+  defp build_external_embed(text, account, signing_key, pds_url) do
+    case extract_first_url(text) do
+      nil ->
+        nil
+
+      url ->
+        case fetch_url_metadata(url) do
+          {:ok, metadata} ->
+            build_embed_with_metadata(metadata, account, signing_key, pds_url)
+
+          {:error, reason} ->
+            Logger.debug("[BlueskyExport] Failed to fetch URL metadata: #{inspect(reason)}")
+            nil
+        end
+    end
+  end
+
+  defp extract_first_url(text) do
+    regex = ~r/https?:\/\/[^\s<>\[\]]+/
+
+    case Regex.run(regex, text) do
+      [url | _] -> clean_url(url)
+      _ -> nil
+    end
+  end
+
+  defp clean_url(url) do
+    url
+    |> String.trim_trailing(".")
+    |> String.trim_trailing(",")
+    |> String.trim_trailing(";")
+    |> String.trim_trailing(":")
+    |> String.trim_trailing("!")
+    |> String.trim_trailing("?")
+    |> String.trim_trailing(")")
+  end
+
+  defp fetch_url_metadata(url) do
+    case URLPreviewServer.fetch(url) do
+      {:ok, preview} ->
+        {:ok,
+         %{
+           url: preview["url"] || url,
+           title: preview["title"] || "",
+           description: preview["description"] || "",
+           image_url: preview["original_image_url"] || get_image_url_from_preview(preview)
+         }}
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
+  defp get_image_url_from_preview(%{"image" => image}) when is_binary(image) do
+    if String.starts_with?(image, "data:") do
+      nil
+    else
+      image
+    end
+  end
+
+  defp get_image_url_from_preview(_), do: nil
+
+  defp build_embed_with_metadata(metadata, account, signing_key, pds_url) do
+    thumb = maybe_upload_thumb(metadata.image_url, account, signing_key, pds_url)
+
+    external = %{
+      "uri" => metadata.url,
+      "title" => String.slice(metadata.title || "", 0, 300),
+      "description" => String.slice(metadata.description || "", 0, 1000)
+    }
+
+    external =
+      if thumb do
+        Map.put(external, "thumb", thumb)
+      else
+        external
+      end
+
+    %{
+      "$type" => "app.bsky.embed.external",
+      "external" => external
+    }
+  end
+
+  defp maybe_upload_thumb(nil, _account, _signing_key, _pds_url), do: nil
+  defp maybe_upload_thumb("", _account, _signing_key, _pds_url), do: nil
+
+  defp maybe_upload_thumb(image_url, account, signing_key, pds_url) do
+    case fetch_and_resize_image(image_url) do
+      {:ok, image_data, content_type} ->
+        upload_opts =
+          [pds_url: pds_url]
+          |> maybe_add_dpop_proof_for_upload(account, signing_key, pds_url)
+
+        case Client.upload_blob(account.access_jwt, image_data, content_type, upload_opts) do
+          {:ok, %{blob: blob}} ->
+            blob
+
+          {:error, reason} ->
+            Logger.debug("[BlueskyExport] Failed to upload thumb: #{inspect(reason)}")
+            nil
+        end
+
+      {:error, reason} ->
+        Logger.debug("[BlueskyExport] Failed to fetch/resize image: #{inspect(reason)}")
+        nil
+    end
+  end
+
+  defp fetch_and_resize_image(url) do
+    case Req.get(url,
+           max_redirects: 5,
+           receive_timeout: 15_000,
+           headers: [
+             {"user-agent",
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"},
+             {"accept", "image/*"}
+           ]
+         ) do
+      {:ok, %{status: 200, body: body}} when is_binary(body) ->
+        resize_image_for_bluesky(body)
+
+      {:ok, %{status: status}} ->
+        {:error, {:http_error, status}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @max_thumb_size 976_560
+
+  defp resize_image_for_bluesky(image_data) do
+    case Image.from_binary(image_data) do
+      {:ok, image} ->
+        {:ok, resized} =
+          Image.thumbnail(image, "800x800",
+            resize: :down,
+            crop: :none
+          )
+
+        case Image.write(resized, :memory, suffix: ".jpeg", quality: 85) do
+          {:ok, jpeg_data} ->
+            if byte_size(jpeg_data) <= @max_thumb_size do
+              {:ok, jpeg_data, "image/jpeg"}
+            else
+              {:ok, compressed} =
+                Image.write(resized, :memory, suffix: ".jpeg", quality: 60)
+
+              {:ok, compressed, "image/jpeg"}
+            end
+
+          error ->
+            error
+        end
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
+  defp maybe_add_dpop_proof_for_upload(opts, _account, nil, _pds_url), do: opts
+
+  defp maybe_add_dpop_proof_for_upload(opts, account, signing_key, pds_url) do
+    public_key = derive_public_key(signing_key)
+    url = "#{pds_url}/xrpc/com.atproto.repo.uploadBlob"
+
+    case Mosslet.Bluesky.OAuth.create_dpop_proof(signing_key, public_key, "POST", url,
+           access_token: account.access_jwt
+         ) do
+      {:ok, proof} -> Keyword.merge(opts, dpop_proof: proof, signing_key: signing_key)
+      _ -> opts
     end
   end
 

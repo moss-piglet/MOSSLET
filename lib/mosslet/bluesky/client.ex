@@ -558,7 +558,12 @@ defmodule Mosslet.Bluesky.Client do
       rkey: rkey
     }
 
-    case request(:post, pds_url, "/xrpc/com.atproto.repo.deleteRecord", body, auth: access_jwt) do
+    request_opts =
+      [auth: access_jwt]
+      |> maybe_merge_opt(:dpop_proof, opts[:dpop_proof])
+      |> maybe_merge_opt(:signing_key, opts[:signing_key])
+
+    case request(:post, pds_url, "/xrpc/com.atproto.repo.deleteRecord", body, request_opts) do
       {:ok, _} -> :ok
       {:error, _} = error -> error
     end
@@ -584,11 +589,16 @@ defmodule Mosslet.Bluesky.Client do
   def upload_blob(access_jwt, data, content_type, opts \\ []) do
     pds_url = opts[:pds_url] || @default_pds
 
-    request(:post, pds_url, "/xrpc/com.atproto.repo.uploadBlob", data,
-      auth: access_jwt,
-      content_type: content_type,
-      raw_body: true
-    )
+    request_opts =
+      [
+        auth: access_jwt,
+        content_type: content_type,
+        raw_body: true
+      ]
+      |> maybe_merge_opt(:dpop_proof, opts[:dpop_proof])
+      |> maybe_merge_opt(:signing_key, opts[:signing_key])
+
+    request(:post, pds_url, "/xrpc/com.atproto.repo.uploadBlob", data, request_opts)
   end
 
   @doc """
