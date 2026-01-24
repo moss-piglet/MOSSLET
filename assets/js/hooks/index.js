@@ -48,6 +48,7 @@ import UnsavedChanges from "./unsaved-changes";
 import SortableUploadsHook from "./sortable-uploads-hook";
 import SortableBooksHook from "./sortable-books-hook";
 import ImageResizeUploadHook from "./image-resize-upload-hook";
+import ImageCropHook from "./image-crop-hook";
 import JournalDragDropHook from "./journal-drag-drop-hook";
 import WordCounter from "./word-counter";
 import SubmitOnEnter from "./submit-on-enter";
@@ -107,6 +108,7 @@ export default {
   SortableUploadsHook,
   SortableBooksHook,
   ImageResizeUploadHook,
+  ImageCropHook,
   JournalDragDropHook,
   WordCounter,
   SubmitOnEnter,

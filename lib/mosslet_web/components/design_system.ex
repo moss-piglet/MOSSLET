@@ -4062,30 +4062,61 @@ defmodule MossletWeb.DesignSystem do
               <.phx_icon name="hero-x-mark" class="h-3 w-3" />
             </button>
 
-            <button
-              type="button"
-              id={"edit-alt-photo-#{upload.ref}"}
-              phx-click="open_alt_text_modal"
-              phx-value-ref={upload.ref}
-              aria-label="Edit alt text"
-              class={[
-                "absolute bottom-7 left-1 z-10 px-1.5 py-0.5 rounded text-[10px] font-bold",
-                "transition-all duration-200 hover:scale-105",
-                if(upload[:alt_text] && upload[:alt_text] != "",
-                  do: "bg-emerald-500 text-white",
-                  else: "bg-slate-800 text-white hover:bg-slate-700"
-                )
-              ]}
-              phx-hook="TippyHook"
-              data-tippy-content={
-                if(upload[:alt_text] && upload[:alt_text] != "",
-                  do: "Edit alt text: #{String.slice(upload[:alt_text] || "", 0..30)}...",
-                  else: "Add alt text for accessibility"
-                )
-              }
-            >
-              ALT
-            </button>
+            <div class="absolute bottom-7 left-1 right-1 z-10 flex items-center justify-between">
+              <button
+                type="button"
+                id={"edit-alt-photo-#{upload.ref}"}
+                phx-click="open_alt_text_modal"
+                phx-value-ref={upload.ref}
+                aria-label="Edit alt text"
+                class={[
+                  "px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-0.5",
+                  "transition-all duration-200 hover:scale-105",
+                  if(upload[:alt_text] && upload[:alt_text] != "",
+                    do: "bg-emerald-500 text-white",
+                    else: "bg-slate-800 text-white hover:bg-slate-700"
+                  )
+                ]}
+                phx-hook="TippyHook"
+                data-tippy-content={
+                  if(upload[:alt_text] && upload[:alt_text] != "",
+                    do: "Edit alt text: #{String.slice(upload[:alt_text] || "", 0..30)}...",
+                    else: "Add alt text for accessibility"
+                  )
+                }
+              >
+                <.phx_icon
+                  :if={!(upload[:alt_text] && upload[:alt_text] != "")}
+                  name="hero-plus"
+                  class="h-2.5 w-2.5"
+                /> ALT
+              </button>
+
+              <button
+                type="button"
+                id={"edit-image-#{upload.ref}"}
+                phx-click="open_image_edit_modal"
+                phx-value-ref={upload.ref}
+                aria-label="Edit image"
+                class={[
+                  "w-6 h-5 rounded flex items-center justify-center",
+                  "transition-all duration-200 hover:scale-105",
+                  if(upload[:crop] && upload[:crop] != %{},
+                    do: "bg-sky-500 text-white",
+                    else: "bg-slate-800 text-white hover:bg-slate-700"
+                  )
+                ]}
+                phx-hook="TippyHook"
+                data-tippy-content={
+                  if(upload[:crop] && upload[:crop] != %{},
+                    do: "Edit crop",
+                    else: "Crop image"
+                  )
+                }
+              >
+                <.phx_icon name="hero-pencil" class="h-3 w-3" />
+              </button>
+            </div>
 
             <div class="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1 text-xs text-white truncate">
               {upload.client_name}
@@ -4161,7 +4192,7 @@ defmodule MossletWeb.DesignSystem do
                 <.phx_icon name="hero-exclamation-triangle" class="h-5 w-5 text-white mx-auto mb-1" />
                 <div class="text-xs text-white font-medium">
                   <%= for error <- upload_errors(@uploads.photos, entry) do %>
-                    <div>{humanize_upload_error(error, @uploads.max_entries)}</div>
+                    <div>{humanize_upload_error(error, @uploads.photos.max_entries)}</div>
                   <% end %>
                 </div>
               </div>
@@ -4181,7 +4212,7 @@ defmodule MossletWeb.DesignSystem do
           />
           <div class="text-sm text-red-700 dark:text-red-300">
             <%= for error <- upload_errors(@uploads.photos) do %>
-              <div>{humanize_upload_error(error, @uploads.max_entries)}</div>
+              <div>{humanize_upload_error(error, @uploads.photos.max_entries)}</div>
             <% end %>
           </div>
         </div>
@@ -4353,6 +4384,123 @@ defmodule MossletWeb.DesignSystem do
               </button>
             </div>
           </form>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Modal for editing image with crop functionality.
+  Allows users to drag a rectangle to select crop area like Bluesky.
+  """
+  attr :show, :boolean, default: false
+  attr :upload, :map, default: nil
+  attr :crop, :map, default: %{}
+  attr :on_close, JS, default: %JS{}
+  attr :id, :string, default: "image-edit-modal"
+
+  def liquid_image_edit_modal(assigns) do
+    ~H"""
+    <div
+      :if={@show && @upload}
+      id={@id}
+      class="fixed inset-0 z-[70] flex items-center justify-center p-4"
+      phx-window-keydown="close_image_edit_modal"
+      phx-key="Escape"
+    >
+      <div
+        class="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm"
+        phx-click="close_image_edit_modal"
+      >
+      </div>
+
+      <div class="relative w-full max-w-2xl bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200/60 dark:border-slate-700/60 overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-br from-sky-50/30 via-slate-50/20 to-indigo-50/30 dark:from-sky-900/10 dark:via-slate-900/5 dark:to-indigo-900/10">
+        </div>
+
+        <div class="relative p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <.phx_icon
+                name="hero-pencil-square"
+                class="h-5 w-5 text-sky-600 dark:text-sky-400"
+              />
+              <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Edit Image
+              </h2>
+            </div>
+            <button
+              type="button"
+              phx-click="close_image_edit_modal"
+              aria-label="Close"
+              class="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-all"
+            >
+              <.phx_icon name="hero-x-mark" class="h-5 w-5" />
+            </button>
+          </div>
+
+          <div class="mb-4">
+            <div
+              id={"crop-container-#{@upload[:ref]}"}
+              class="relative bg-slate-100 dark:bg-slate-700/50 rounded-lg overflow-hidden select-none"
+              phx-hook="ImageCropHook"
+              data-ref={@upload[:ref]}
+              data-crop={Jason.encode!(@crop || %{})}
+            >
+              <%= if @upload[:original_preview_data_url] || @upload[:preview_data_url] do %>
+                <img
+                  id={"crop-image-#{@upload[:ref]}"}
+                  src={@upload[:original_preview_data_url] || @upload.preview_data_url}
+                  alt="Preview"
+                  class="w-full max-h-[60vh] object-contain pointer-events-none"
+                  draggable="false"
+                />
+                <div
+                  id={"crop-overlay-#{@upload[:ref]}"}
+                  class="absolute inset-0 pointer-events-none"
+                >
+                </div>
+              <% else %>
+                <div class="w-full h-60 flex items-center justify-center">
+                  <.phx_icon name="hero-photo" class="h-12 w-12 text-slate-400" />
+                </div>
+              <% end %>
+            </div>
+          </div>
+
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">
+            Drag to select the area you want to keep. Leave empty for full image.
+          </p>
+
+          <div class="flex items-center justify-between pt-2">
+            <button
+              type="button"
+              id={"reset-crop-#{@upload[:ref]}"}
+              phx-click="reset_crop"
+              phx-value-ref={@upload[:ref]}
+              class="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-all flex items-center gap-2"
+            >
+              <.phx_icon name="hero-arrow-path" class="h-4 w-4" /> Reset
+            </button>
+
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                phx-click="close_image_edit_modal"
+                class="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                id={"save-crop-#{@upload[:ref]}"}
+                class="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-600 hover:to-indigo-600 shadow-lg shadow-sky-500/25 hover:shadow-sky-500/40 transition-all hover:scale-105 active:scale-95"
+              >
+                Done
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

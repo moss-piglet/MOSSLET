@@ -196,6 +196,9 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:alt_text_modal_open, false)
       |> assign(:alt_text_editing_upload, nil)
       |> assign(:alt_text_editing_value, "")
+      |> assign(:image_edit_modal_open, false)
+      |> assign(:image_edit_upload, nil)
+      |> assign(:image_edit_crop, %{})
       |> assign(:bluesky_sync_enabled, bluesky_sync_enabled?(current_user))
       |> stream(:posts, [])
       |> stream(:read_posts, [])
@@ -1825,6 +1828,105 @@ defmodule MossletWeb.TimelineLive.Index do
      |> assign(:alt_text_modal_open, false)
      |> assign(:alt_text_editing_upload, nil)
      |> assign(:alt_text_editing_value, "")}
+  end
+
+  def handle_event("open_image_edit_modal", %{"ref" => ref}, socket) do
+    ref_str = to_string(ref)
+
+    upload =
+      Enum.find(socket.assigns.completed_uploads, fn upload ->
+        to_string(upload.ref) == ref_str
+      end)
+
+    {:noreply,
+     socket
+     |> assign(:image_edit_modal_open, true)
+     |> assign(:image_edit_upload, upload)
+     |> assign(:image_edit_crop, upload[:crop] || %{})}
+  end
+
+  def handle_event("close_image_edit_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:image_edit_modal_open, false)
+     |> assign(:image_edit_upload, nil)
+     |> assign(:image_edit_crop, %{})}
+  end
+
+  def handle_event("save_image_crop", %{"ref" => ref, "crop" => crop}, socket) do
+    ref_str = to_string(ref)
+
+    crop_map =
+      case crop do
+        %{"x" => x, "y" => y, "width" => w, "height" => h} ->
+          %{x: x, y: y, width: w, height: h}
+
+        _ ->
+          %{}
+      end
+
+    updated_uploads =
+      Enum.map(socket.assigns.completed_uploads, fn upload ->
+        if to_string(upload.ref) == ref_str do
+          upload =
+            if is_nil(upload[:original_preview_data_url]) do
+              Map.put(upload, :original_preview_data_url, upload.preview_data_url)
+            else
+              upload
+            end
+
+          upload = Map.put(upload, :crop, crop_map)
+
+          if crop_map != %{} do
+            case generate_cropped_preview(upload.temp_path, crop_map) do
+              {:ok, cropped_preview} -> Map.put(upload, :preview_data_url, cropped_preview)
+              _ -> upload
+            end
+          else
+            Map.put(
+              upload,
+              :preview_data_url,
+              upload[:original_preview_data_url] || upload.preview_data_url
+            )
+          end
+        else
+          upload
+        end
+      end)
+
+    {:noreply,
+     socket
+     |> assign(:completed_uploads, updated_uploads)
+     |> assign(:image_edit_modal_open, false)
+     |> assign(:image_edit_upload, nil)
+     |> assign(:image_edit_crop, %{})}
+  end
+
+  def handle_event("reset_crop", %{"ref" => ref}, socket) do
+    ref_str = to_string(ref)
+
+    updated_uploads =
+      Enum.map(socket.assigns.completed_uploads, fn upload ->
+        if to_string(upload.ref) == ref_str do
+          upload = Map.delete(upload, :crop)
+
+          if upload[:original_preview_data_url] do
+            Map.put(upload, :preview_data_url, upload.original_preview_data_url)
+          else
+            upload
+          end
+        else
+          upload
+        end
+      end)
+
+    upload = Enum.find(updated_uploads, fn u -> to_string(u.ref) == ref_str end)
+
+    {:noreply,
+     socket
+     |> assign(:completed_uploads, updated_uploads)
+     |> assign(:image_edit_upload, upload)
+     |> assign(:image_edit_crop, %{})}
   end
 
   def handle_event("remove_files", %{"flag" => flag}, socket) do
@@ -5584,6 +5686,7 @@ defmodule MossletWeb.TimelineLive.Index do
           actual_trix_key = trix_key || upload.trix_key
 
           binary = File.read!(upload.temp_path)
+          binary = maybe_apply_crop(binary, upload[:crop])
 
           case Mosslet.FileUploads.ImageUploadWriter.upload_to_storage(
                  binary,
@@ -6949,4 +7052,123 @@ defmodule MossletWeb.TimelineLive.Index do
       _ -> false
     end
   end
+
+  defp maybe_apply_crop(binary, nil), do: binary
+  defp maybe_apply_crop(binary, crop) when crop == %{}, do: binary
+
+  defp maybe_apply_crop(binary, %{x: x, y: y, width: w, height: h}) do
+    case Image.from_binary(binary, pages: :all) do
+      {:ok, image} ->
+        is_animated = Image.pages(image) > 1
+        {img_width, img_height, _} = Image.shape(image)
+
+        crop_x = round(x * img_width)
+        crop_y = round(y * img_height)
+        crop_w = round(w * img_width)
+        crop_h = round(h * img_height)
+
+        crop_w = min(crop_w, img_width - crop_x)
+        crop_h = min(crop_h, img_height - crop_y)
+
+        crop_result =
+          if is_animated do
+            Image.map_join_pages(image, fn page ->
+              Image.crop(page, crop_x, crop_y, crop_w, crop_h)
+            end)
+          else
+            Image.crop(image, crop_x, crop_y, crop_w, crop_h)
+          end
+
+        case crop_result do
+          {:ok, cropped} ->
+            write_opts =
+              if is_animated,
+                do: [suffix: ".webp", webp: [quality: 85, minimize_file_size: true]],
+                else: [suffix: ".webp", webp: [quality: 85]]
+
+            case Image.write(cropped, :memory, write_opts) do
+              {:ok, cropped_binary} -> cropped_binary
+              _ -> binary
+            end
+
+          _ ->
+            binary
+        end
+
+      _ ->
+        binary
+    end
+  end
+
+  defp maybe_apply_crop(binary, _), do: binary
+
+  defp generate_cropped_preview(temp_path, %{x: x, y: y, width: w, height: h}) do
+    case File.read(temp_path) do
+      {:ok, binary} ->
+        case Image.from_binary(binary, pages: :all) do
+          {:ok, image} ->
+            is_animated = Image.pages(image) > 1
+            {img_width, img_height, _} = Image.shape(image)
+
+            crop_x = round(x * img_width)
+            crop_y = round(y * img_height)
+            crop_w = round(w * img_width)
+            crop_h = round(h * img_height)
+
+            crop_w = min(crop_w, img_width - crop_x)
+            crop_h = min(crop_h, img_height - crop_y)
+
+            crop_result =
+              if is_animated do
+                Image.map_join_pages(image, fn page ->
+                  Image.crop(page, crop_x, crop_y, crop_w, crop_h)
+                end)
+              else
+                Image.crop(image, crop_x, crop_y, crop_w, crop_h)
+              end
+
+            case crop_result do
+              {:ok, cropped} ->
+                thumb_result =
+                  if is_animated do
+                    Image.map_join_pages(cropped, fn page ->
+                      Image.thumbnail(page, "400x400", crop: :attention)
+                    end)
+                  else
+                    Image.thumbnail(cropped, "400x400", crop: :attention)
+                  end
+
+                case thumb_result do
+                  {:ok, thumb} ->
+                    write_opts =
+                      if is_animated,
+                        do: [suffix: ".webp", webp: [quality: 75, minimize_file_size: true]],
+                        else: [suffix: ".webp", webp: [quality: 75]]
+
+                    case Image.write(thumb, :memory, write_opts) do
+                      {:ok, thumb_binary} ->
+                        {:ok, "data:image/webp;base64,#{Base.encode64(thumb_binary)}"}
+
+                      _ ->
+                        {:error, :write_failed}
+                    end
+
+                  _ ->
+                    {:error, :thumbnail_failed}
+                end
+
+              _ ->
+                {:error, :crop_failed}
+            end
+
+          _ ->
+            {:error, :image_load_failed}
+        end
+
+      _ ->
+        {:error, :file_read_failed}
+    end
+  end
+
+  defp generate_cropped_preview(_temp_path, _crop), do: {:error, :invalid_crop}
 end

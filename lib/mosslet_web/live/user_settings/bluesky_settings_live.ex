@@ -876,10 +876,6 @@ defmodule MossletWeb.BlueskySettingsLive do
                 </li>
                 <li class="flex items-center gap-2">
                   <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
-                  Image attachments
-                </li>
-                <li class="flex items-center gap-2">
-                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
                   Link preview cards
                 </li>
                 <li class="flex items-center gap-2">
@@ -889,6 +885,10 @@ defmodule MossletWeb.BlueskySettingsLive do
                 <li class="flex items-center gap-2">
                   <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
                   Likes & bookmarks import
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                  Post deletion
                 </li>
                 <li class="flex items-center gap-2">
                   <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
@@ -904,6 +904,21 @@ defmodule MossletWeb.BlueskySettingsLive do
                 <li class="flex items-center gap-2">
                   <span class="h-1.5 w-1.5 rounded-full bg-sky-500 flex-shrink-0"></span>
                   Reply export (replies to imported Bluesky posts)
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 class="text-xs font-semibold uppercase tracking-wide text-purple-600 dark:text-purple-400 mb-2 flex items-center gap-1.5">
+                <.phx_icon name="hero-clock" class="h-4 w-4" /> Pending Support
+              </h4>
+              <ul class="space-y-1.5 text-sm text-slate-600 dark:text-slate-400">
+                <li class="flex items-center gap-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-purple-500 flex-shrink-0"></span>
+                  Content warning sync
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-purple-500 flex-shrink-0"></span>
+                  Image attachments
                 </li>
               </ul>
             </div>
