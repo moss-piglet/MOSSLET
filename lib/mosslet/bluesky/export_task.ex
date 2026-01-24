@@ -319,14 +319,15 @@ defmodule Mosslet.Bluesky.ExportTask do
     case decrypt_post_body(post, user, session_key) do
       {:ok, decrypted_body} ->
         {_text, facets} = Client.parse_facets(decrypted_body)
+        pds_url = account.pds_url || "https://bsky.social"
 
-        case Client.create_post(
-               account.access_jwt,
-               account.did,
-               decrypted_body,
-               facets: facets,
-               pds_url: account.pds_url || "https://bsky.social"
-             ) do
+        embed = build_images_embed(post, account, user, session_key, pds_url)
+
+        opts =
+          [facets: facets, pds_url: pds_url]
+          |> maybe_add_embed(embed)
+
+        case Client.create_post(account.access_jwt, account.did, decrypted_body, opts) do
           {:ok, %{uri: uri, cid: cid}} ->
             Timeline.mark_post_as_synced_to_bluesky(post, uri, cid)
             Logger.debug("[BlueskyExportTask] Exported post #{post.id} -> #{uri}")
@@ -348,6 +349,118 @@ defmodule Mosslet.Bluesky.ExportTask do
         Logger.error("[BlueskyExportTask] Failed to decrypt post #{post.id}: #{inspect(reason)}")
         {:error, :decrypt_failed}
     end
+  end
+
+  defp maybe_add_embed(opts, nil), do: opts
+  defp maybe_add_embed(opts, embed), do: Keyword.put(opts, :embed, embed)
+
+  defp build_images_embed(post, account, user, session_key, pds_url) do
+    case decrypt_post_image_urls(post, user, session_key) do
+      {:ok, urls} when urls != [] ->
+        uploaded_images =
+          urls
+          |> Enum.take(4)
+          |> Enum.map(&upload_image_to_bluesky(&1, account, pds_url))
+          |> Enum.filter(&match?({:ok, _}, &1))
+          |> Enum.map(fn {:ok, blob} -> %{"alt" => "", "image" => blob} end)
+
+        if Enum.empty?(uploaded_images) do
+          nil
+        else
+          %{"$type" => "app.bsky.embed.images", "images" => uploaded_images}
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp decrypt_post_image_urls(post, user, session_key) do
+    image_urls = post.image_urls || []
+
+    if is_list(image_urls) && !Enum.empty?(image_urls) do
+      case get_post_key_for_export(post, user, session_key) do
+        {:ok, post_key} ->
+          decrypted =
+            Enum.map(image_urls, fn encrypted_url ->
+              case Mosslet.Encrypted.Utils.decrypt(%{key: post_key, payload: encrypted_url}) do
+                {:ok, url} -> url
+                _ -> nil
+              end
+            end)
+            |> Enum.filter(&is_binary/1)
+
+          {:ok, decrypted}
+
+        _ ->
+          {:ok, []}
+      end
+    else
+      {:ok, []}
+    end
+  end
+
+  defp get_post_key_for_export(post, user, key) do
+    user_post = Enum.find(post.user_posts, &(&1.user_id == user.id))
+
+    if user_post do
+      case post.visibility do
+        :public ->
+          {:ok, Mosslet.Encrypted.Users.Utils.decrypt_public_item_key(user_post.key)}
+
+        _ ->
+          Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(user_post.key, user, key)
+      end
+    else
+      {:error, :no_user_post}
+    end
+  end
+
+  defp upload_image_to_bluesky(image_url, account, pds_url) do
+    with {:ok, image_data, content_type} <- download_image(image_url),
+         {:ok, %{blob: blob}} <-
+           Client.upload_blob(account.access_jwt, image_data, content_type, pds_url: pds_url) do
+      {:ok, blob}
+    else
+      error ->
+        Logger.warning("[BlueskyExportTask] Failed to upload image: #{inspect(error)}")
+        error
+    end
+  end
+
+  defp download_image(url) do
+    case Req.get(url, decode_body: false) do
+      {:ok, %{status: 200, body: body, headers: headers}} ->
+        content_type = get_content_type(headers)
+        {:ok, body, content_type}
+
+      {:ok, %{status: status}} ->
+        {:error, {:download_failed, status}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp get_content_type(headers) when is_map(headers) do
+    case Map.get(headers, "content-type") do
+      [ct | _] -> parse_content_type(ct)
+      ct when is_binary(ct) -> parse_content_type(ct)
+      _ -> "image/jpeg"
+    end
+  end
+
+  defp get_content_type(headers) when is_list(headers) do
+    case List.keyfind(headers, "content-type", 0) do
+      {_, ct} -> parse_content_type(ct)
+      nil -> "image/jpeg"
+    end
+  end
+
+  defp get_content_type(_), do: "image/jpeg"
+
+  defp parse_content_type(ct) when is_binary(ct) do
+    ct |> String.split(";") |> List.first() |> String.trim()
   end
 
   defp decrypt_post_body(post, user, session_key) do

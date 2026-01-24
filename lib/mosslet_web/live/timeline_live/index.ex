@@ -198,7 +198,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:timeline_data, AsyncResult.loading())
       |> allow_upload(:photos,
         accept: ~w(.gif .jpg .jpeg .png .webp .heic .heif),
-        max_entries: 10,
+        max_entries: 4,
         max_file_size: 10_000_000,
         auto_upload: true,
         progress: &handle_upload_progress/3,
