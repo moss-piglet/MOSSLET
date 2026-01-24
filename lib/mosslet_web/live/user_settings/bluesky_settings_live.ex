@@ -81,6 +81,7 @@ defmodule MossletWeb.BlueskySettingsLive do
             <.connected_account_card
               account={preview_account(@bluesky_account, @dev_preview_mode)}
               sync_form={preview_sync_form(@sync_form, @dev_preview_mode)}
+              expanded_sections={@expanded_sections}
             />
           <% else %>
             <.connect_with_oauth_card />
@@ -103,6 +104,77 @@ defmodule MossletWeb.BlueskySettingsLive do
         account={@bluesky_account}
       />
     </.layout>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :title, :string, required: true
+  attr :icon, :string, required: true
+  attr :expanded, :boolean, default: false
+  attr :section, :atom, required: true
+  attr :variant, :string, default: "default"
+  slot :inner_block, required: true
+
+  defp collapsible_section(assigns) do
+    ~H"""
+    <div class={[
+      "border-t pt-4",
+      if(@variant == "danger",
+        do: "border-rose-200 dark:border-rose-800/50",
+        else: "border-sky-200 dark:border-sky-700"
+      )
+    ]}>
+      <button
+        type="button"
+        phx-click="toggle_section"
+        phx-value-section={@section}
+        class="w-full flex items-center justify-between group"
+      >
+        <h3 class={[
+          "text-sm font-medium flex items-center gap-2",
+          if(@variant == "danger",
+            do: "text-rose-700 dark:text-rose-300",
+            else: "text-slate-900 dark:text-slate-100"
+          )
+        ]}>
+          <.phx_icon
+            name={@icon}
+            class={[
+              "h-4 w-4",
+              if(@variant == "danger",
+                do: "text-rose-500 dark:text-rose-400",
+                else: "text-sky-500 dark:text-sky-400"
+              )
+            ]}
+          />
+          {@title}
+        </h3>
+        <.phx_icon
+          name="hero-chevron-down"
+          class={[
+            "h-4 w-4 transition-transform duration-200",
+            if(@expanded, do: "rotate-180"),
+            if(@variant == "danger",
+              do: "text-rose-400 dark:text-rose-500",
+              else:
+                "text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300"
+            )
+          ]}
+        />
+      </button>
+      <div
+        id={@id}
+        class={[
+          "transition-all duration-200 ease-in-out",
+          if(@expanded,
+            do: "max-h-[32rem] overflow-y-auto opacity-100 mt-4",
+            else: "max-h-0 overflow-hidden opacity-0"
+          )
+        ]}
+      >
+        {render_slot(@inner_block)}
+      </div>
+    </div>
     """
   end
 
@@ -721,10 +793,13 @@ defmodule MossletWeb.BlueskySettingsLive do
           </.form>
         </div>
 
-        <div class="border-t border-sky-200 dark:border-sky-700 pt-6">
-          <h3 class="text-sm font-medium text-slate-900 dark:text-slate-100 mb-4">
-            Manual Sync
-          </h3>
+        <.collapsible_section
+          id="manual-sync"
+          title="Manual Sync"
+          icon="hero-arrow-path"
+          expanded={MapSet.member?(@expanded_sections, :manual_sync)}
+          section={:manual_sync}
+        >
           <div class="flex flex-wrap gap-3">
             <DesignSystem.liquid_button
               variant="secondary"
@@ -754,49 +829,137 @@ defmodule MossletWeb.BlueskySettingsLive do
               Export All Posts
             </DesignSystem.liquid_button>
           </div>
-          <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+          <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
             Use these buttons to trigger an immediate sync, even if automatic sync options are disabled.
           </p>
-        </div>
+        </.collapsible_section>
 
-        <div class="border-t border-sky-200 dark:border-sky-700 pt-6 space-y-4">
-          <div>
-            <h3 class="text-sm font-medium text-slate-900 dark:text-slate-100 mb-3">
-              Account Management
-            </h3>
-            <div class="flex flex-wrap gap-3">
-              <DesignSystem.liquid_button
-                variant="secondary"
-                color="slate"
-                icon="hero-link-slash"
-                phx-click="disconnect_account"
-                data-confirm="Are you sure you want to disconnect your Bluesky account? Your synced posts will remain on both platforms."
-              >
-                Disconnect Account
-              </DesignSystem.liquid_button>
-            </div>
-            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-              Disconnecting removes the link between Mosslet and Bluesky. Your Bluesky account remains active.
-            </p>
-          </div>
-
-          <div class="pt-4 border-t border-rose-200 dark:border-rose-800/50">
-            <h3 class="text-sm font-medium text-rose-700 dark:text-rose-300 mb-2 flex items-center gap-2">
-              <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4" /> Danger Zone
-            </h3>
-            <p class="text-xs text-slate-600 dark:text-slate-400 mb-3">
-              Permanently delete your Bluesky account. Your Mosslet account and imported posts will remain.
-            </p>
+        <.collapsible_section
+          id="account-management"
+          title="Account Management"
+          icon="hero-cog-6-tooth"
+          expanded={MapSet.member?(@expanded_sections, :account_management)}
+          section={:account_management}
+        >
+          <div class="flex flex-wrap gap-3">
             <DesignSystem.liquid_button
               variant="secondary"
-              color="rose"
-              icon="hero-trash"
-              phx-click="show_delete_bluesky_modal"
+              color="slate"
+              icon="hero-link-slash"
+              phx-click="disconnect_account"
+              data-confirm="Are you sure you want to disconnect your Bluesky account? Your synced posts will remain on both platforms."
             >
-              Delete Bluesky Account
+              Disconnect Account
             </DesignSystem.liquid_button>
           </div>
-        </div>
+          <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
+            Disconnecting removes the link between Mosslet and Bluesky. Your Bluesky account remains active.
+          </p>
+        </.collapsible_section>
+
+        <.collapsible_section
+          id="feature-coverage"
+          title="Feature Coverage"
+          icon="hero-clipboard-document-check"
+          expanded={MapSet.member?(@expanded_sections, :feature_coverage)}
+          section={:feature_coverage}
+        >
+          <div class="space-y-4">
+            <div>
+              <h4 class="text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400 mb-2 flex items-center gap-1.5">
+                <.phx_icon name="hero-check-circle" class="h-4 w-4" /> Supported
+              </h4>
+              <ul class="space-y-1.5 text-sm text-slate-600 dark:text-slate-400">
+                <li class="flex items-center gap-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                  Text posts import & export
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                  Image attachments
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                  Link preview cards
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                  Hashtags & mentions
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                  Likes & bookmarks import
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                  Account deletion
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 class="text-xs font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-400 mb-2 flex items-center gap-1.5">
+                <.phx_icon name="hero-wrench-screwdriver" class="h-4 w-4" /> Partial Support
+              </h4>
+              <ul class="space-y-1.5 text-sm text-slate-600 dark:text-slate-400">
+                <li class="flex items-center gap-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-sky-500 flex-shrink-0"></span>
+                  Inline URL links (preview works, link styling pending)
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 class="text-xs font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400 mb-2 flex items-center gap-1.5">
+                <.phx_icon name="hero-light-bulb" class="h-4 w-4" /> Considering
+              </h4>
+              <ul class="space-y-1.5 text-sm text-slate-600 dark:text-slate-400">
+                <li class="flex items-center gap-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>
+                  Quote posts
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>
+                  Reply threads
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>
+                  Video attachments
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>
+                  Followers & following import
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0"></span> Reposts
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>
+                  List management
+                </li>
+              </ul>
+            </div>
+          </div>
+        </.collapsible_section>
+
+        <.collapsible_section
+          id="danger-zone"
+          title="Danger Zone"
+          icon="hero-exclamation-triangle"
+          expanded={MapSet.member?(@expanded_sections, :danger_zone)}
+          section={:danger_zone}
+          variant="danger"
+        >
+          <p class="text-xs text-slate-600 dark:text-slate-400 mb-3">
+            Permanently delete your Bluesky account. Your Mosslet account and imported posts will remain.
+          </p>
+          <DesignSystem.liquid_button
+            variant="secondary"
+            color="rose"
+            icon="hero-trash"
+            phx-click="show_delete_bluesky_modal"
+          >
+            Delete Bluesky Account
+          </DesignSystem.liquid_button>
+        </.collapsible_section>
       </div>
     </DesignSystem.liquid_card>
     """
@@ -857,6 +1020,20 @@ defmodule MossletWeb.BlueskySettingsLive do
   end
 
   @impl true
+  def handle_event("toggle_section", %{"section" => section}, socket) do
+    section_atom = String.to_existing_atom(section)
+    expanded = socket.assigns.expanded_sections
+
+    expanded =
+      if MapSet.member?(expanded, section_atom) do
+        MapSet.delete(expanded, section_atom)
+      else
+        MapSet.put(expanded, section_atom)
+      end
+
+    {:noreply, assign(socket, expanded_sections: expanded)}
+  end
+
   def handle_event("set_dev_preview", %{"mode" => mode}, socket) do
     dev_preview_mode =
       case mode do
