@@ -794,16 +794,27 @@ defmodule Mosslet.Bluesky.Client do
     |> Enum.map(fn [{start, length} | _] ->
       handle = String.slice(text, start + 1, length - 1)
 
-      %{
-        "index" => %{"byteStart" => start, "byteEnd" => start + length},
-        "features" => [
+      case resolve_handle(handle) do
+        {:ok, %{did: did}} ->
           %{
-            "$type" => "app.bsky.richtext.facet#mention",
-            "did" => handle
+            "index" => %{"byteStart" => start, "byteEnd" => start + length},
+            "features" => [
+              %{
+                "$type" => "app.bsky.richtext.facet#mention",
+                "did" => did
+              }
+            ]
           }
-        ]
-      }
+
+        {:error, _} ->
+          Logger.warning(
+            "[BlueskyClient] Could not resolve handle @#{handle} to DID, skipping mention facet"
+          )
+
+          nil
+      end
     end)
+    |> Enum.reject(&is_nil/1)
   end
 
   defp extract_link_facets(text) do
