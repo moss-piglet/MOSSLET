@@ -903,7 +903,7 @@ defmodule MossletWeb.BlueskySettingsLive do
               <ul class="space-y-1.5 text-sm text-slate-600 dark:text-slate-400">
                 <li class="flex items-center gap-2">
                   <span class="h-1.5 w-1.5 rounded-full bg-sky-500 flex-shrink-0"></span>
-                  Inline URL links (preview works, link styling pending)
+                  Reply export (replies to imported Bluesky posts)
                 </li>
               </ul>
             </div>
@@ -918,7 +918,7 @@ defmodule MossletWeb.BlueskySettingsLive do
                 </li>
                 <li class="flex items-center gap-2">
                   <span class="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>
-                  Reply threads
+                  Reply thread import
                 </li>
                 <li class="flex items-center gap-2">
                   <span class="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>

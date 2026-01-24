@@ -2535,6 +2535,7 @@ defmodule Mosslet.Timeline do
         update_post_last_reply_at(reply.post)
 
         maybe_queue_reply_notification(reply, user, opts[:key])
+        maybe_enqueue_bluesky_reply_export(reply, user)
 
         {:ok, conn, reply}
         |> broadcast_reply(:reply_created)
@@ -2570,6 +2571,25 @@ defmodule Mosslet.Timeline do
         nil ->
           :ok
       end
+    end
+  end
+
+  defp maybe_enqueue_bluesky_reply_export(reply, user) do
+    post = reply.post
+
+    if post.external_uri && post.external_cid do
+      case Mosslet.Bluesky.get_account_for_user(user) do
+        %{export_enabled: true} = account ->
+          Mosslet.Bluesky.Workers.ExportSyncWorker.enqueue_single_reply_export(
+            reply.id,
+            account.id
+          )
+
+        _ ->
+          :ok
+      end
+    else
+      :ok
     end
   end
 
