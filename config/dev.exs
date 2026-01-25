@@ -38,7 +38,9 @@ config :mosslet, MossletWeb.Endpoint,
       ~r"lib/mosslet_web/(?:controllers|live|components|router)/?.*\.(ex|heex)$"
     ]
   ],
-  secret_key_base: System.get_env("SECRET_KEY_BASE"),
+  secret_key_base:
+    System.get_env("SECRET_KEY_BASE") ||
+      "dev_only_secret_key_base_that_is_at_least_64_bytes_long_for_dev_environment_only",
   watchers: [
     esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]},
     tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]}

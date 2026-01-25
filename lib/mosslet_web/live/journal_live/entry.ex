@@ -36,22 +36,31 @@ defmodule MossletWeb.JournalLive.Entry do
         privacy_active={@privacy_active}
         privacy_countdown={@privacy_countdown}
       >
-        <div class="max-w-2xl mx-auto" x-bind:class="cursorVisible && 'group'">
-          <div class="space-y-6">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-3">
-                <div class="flex items-center gap-2">
-                  <time class="text-sm text-slate-500 dark:text-slate-400">
+        <div
+          class="max-w-2xl mx-auto"
+          x-data="{ actionsVisible: false }"
+          x-bind:class="cursorVisible && 'group'"
+          @click="actionsVisible = !actionsVisible"
+        >
+          <div class="space-y-6 sm:space-y-8">
+            <div class="space-y-3">
+              <div class="flex items-start justify-between gap-4">
+                <div class="space-y-2">
+                  <time class="block text-sm font-medium text-slate-600 dark:text-slate-300">
                     {format_date(@entry.entry_date)}
                   </time>
-                  <span :if={@decrypted_mood} class="text-sm text-slate-500 dark:text-slate-400">
+                  <span
+                    :if={@decrypted_mood}
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-full"
+                  >
                     {mood_emoji(@decrypted_mood)} {@decrypted_mood}
                   </span>
                 </div>
                 <button
                   phx-click="toggle_favorite"
+                  @click.stop
                   class={[
-                    "text-xl transition-colors",
+                    "text-xl transition-colors shrink-0 p-1 -m-1",
                     if(@entry.is_favorite,
                       do: "text-amber-500",
                       else: "text-slate-300 dark:text-slate-600 hover:text-amber-400"
@@ -61,17 +70,25 @@ defmodule MossletWeb.JournalLive.Entry do
                   {if @entry.is_favorite, do: "★", else: "☆"}
                 </button>
               </div>
-              <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div
+                class={[
+                  "flex items-center gap-2 opacity-0 hover-device:group-hover:opacity-100",
+                  "max-h-0 overflow-hidden transition-all duration-300 ease-out"
+                ]}
+                x-bind:class="(actionsVisible && cursorVisible) && 'opacity-100 !max-h-12 pt-2'"
+              >
                 <.link
                   navigate={~p"/app/journal/#{@entry.id}/edit"}
-                  class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
+                  @click.stop
+                  class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                 >
                   <.phx_icon name="hero-pencil" class="h-4 w-4" /> Edit
                 </.link>
                 <.link
                   phx-click="delete"
+                  @click.stop
                   data-confirm="Are you sure you want to delete this entry?"
-                  class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
+                  class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                 >
                   <.phx_icon name="hero-trash" class="h-4 w-4" /> Delete
                 </.link>

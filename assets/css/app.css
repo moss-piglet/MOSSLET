@@ -19,6 +19,9 @@
 /* Touch hover variant for mobile - mirrors group-hover behavior */
 @custom-variant touch-hover (.touch-hover &);
 
+/* Hover device variant - only applies on devices with hover capability (mouse/trackpad) */
+@custom-variant hover-device (@media (hover: hover) { & });
+
 @source "../js/**/*.js";
 @source "../../lib/mosslet_web.ex";
 @source "../../lib/mosslet_web/*.*ex";
