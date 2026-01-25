@@ -37,11 +37,14 @@ primary_region = "ewr"
     hard_limit = 500
     soft_limit = 400
 
-[[http_service.checks]]
-  interval = "10s"
-  timeout = "5s"
-  grace_period = "30s"
-  path = "/health"
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "120s"
+    method = "GET"
+    path = "/health"
+    headers = { X-Forwarded-Proto = "https" }
+
 
 [[vm]]
   memory = "2gb"

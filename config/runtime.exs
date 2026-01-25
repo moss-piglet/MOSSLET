@@ -147,7 +147,7 @@ if config_env() == :prod do
     featurizer: {:hf, "Falconsai/nsfw_image_detection"},
     featurizer_options: [module: Bumblebee.Vision.VitFeaturizer],
     name: Image.Classification.Server,
-    autostart: true
+    autostart: false
 
   config :bumblebee,
     offline: System.get_env("BUMBLEBEE_OFFLINE", "false") == "true"
