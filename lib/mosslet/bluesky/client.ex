@@ -993,11 +993,12 @@ defmodule Mosslet.Bluesky.Client do
         {:ok, _record} ->
           {:ok, true}
 
-        {:error, {400, %{"error" => "RecordNotFound"}}} ->
+        {:error, {400, %{error: "RecordNotFound"}}} ->
           {:ok, false}
 
-        {:error, {400, %{"message" => message}}} when is_binary(message) ->
-          if String.contains?(message, "Could not find record") do
+        {:error, {400, %{message: message}}} when is_binary(message) ->
+          if String.contains?(message, "Could not find record") or
+               String.contains?(message, "Could not locate record") do
             {:ok, false}
           else
             {:error, {:bad_request, message}}
@@ -1205,6 +1206,9 @@ defmodule Mosslet.Bluesky.Client do
        %Req.Response{status: status, headers: resp_headers, body: %{"error" => "use_dpop_nonce"}}}
       when status in [400, 401] and not retried_nonce ->
         handle_dpop_nonce_retry(method, pds_url, path, body_or_params, opts, resp_headers)
+
+      {:ok, %Req.Response{status: status, body: %{"error" => "RecordNotFound"} = body}} ->
+        {:error, {status, atomize_keys(body)}}
 
       {:ok, %Req.Response{status: status, body: body}} ->
         error = atomize_keys(body)

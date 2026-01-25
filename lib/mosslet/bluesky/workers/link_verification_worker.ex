@@ -96,7 +96,7 @@ defmodule Mosslet.Bluesky.Workers.LinkVerificationWorker do
         :exists
 
       {:error, reason} ->
-        Logger.warning("[BlueskyLinkVerify] Failed to check post #{post.id}: #{inspect(reason)}")
+        Logger.info("[BlueskyLinkVerify] Failed to check post #{post.id}: #{inspect(reason)}")
         :error
     end
   end
