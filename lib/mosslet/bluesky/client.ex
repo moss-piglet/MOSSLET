@@ -975,6 +975,43 @@ defmodule Mosslet.Bluesky.Client do
   def extract_did(_), do: nil
 
   @doc """
+  Checks if a post exists on Bluesky by its AT URI.
+
+  Returns `{:ok, true}` if the post exists, `{:ok, false}` if it was deleted,
+  or `{:error, reason}` for other failures.
+
+  ## Examples
+
+      {:ok, true} = post_exists?(jwt, "at://did:plc:abc123/app.bsky.feed.post/rkey123")
+      {:ok, false} = post_exists?(jwt, "at://did:plc:abc123/app.bsky.feed.post/deleted-rkey")
+  """
+  @spec post_exists?(String.t(), String.t(), keyword()) :: {:ok, boolean()} | {:error, term()}
+  def post_exists?(access_jwt, at_uri, opts \\ []) do
+    with did when not is_nil(did) <- extract_did(at_uri),
+         rkey when not is_nil(rkey) <- extract_rkey(at_uri) do
+      case get_record(access_jwt, did, "app.bsky.feed.post", rkey, opts) do
+        {:ok, _record} ->
+          {:ok, true}
+
+        {:error, {400, %{"error" => "RecordNotFound"}}} ->
+          {:ok, false}
+
+        {:error, {400, %{"message" => message}}} when is_binary(message) ->
+          if String.contains?(message, "Could not find record") do
+            {:ok, false}
+          else
+            {:error, {:bad_request, message}}
+          end
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    else
+      nil -> {:error, :invalid_at_uri}
+    end
+  end
+
+  @doc """
   Builds an AT URI from components.
 
   ## Examples
@@ -985,6 +1022,25 @@ defmodule Mosslet.Bluesky.Client do
   def build_at_uri(did, collection, rkey) do
     "at://#{did}/#{collection}/#{rkey}"
   end
+
+  @doc """
+  Converts an AT URI to a Bluesky web URL.
+
+  ## Examples
+
+      "https://bsky.app/profile/did:plc:abc123/post/3jui7kd2zoq2s" = at_uri_to_web_url("at://did:plc:abc123/app.bsky.feed.post/3jui7kd2zoq2s")
+  """
+  @spec at_uri_to_web_url(String.t()) :: String.t() | nil
+  def at_uri_to_web_url(at_uri) when is_binary(at_uri) do
+    with did when not is_nil(did) <- extract_did(at_uri),
+         rkey when not is_nil(rkey) <- extract_rkey(at_uri) do
+      "https://bsky.app/profile/#{did}/post/#{rkey}"
+    else
+      _ -> nil
+    end
+  end
+
+  def at_uri_to_web_url(_), do: nil
 
   @doc """
   Parses rich text and extracts facets for mentions, links, and hashtags.

@@ -864,6 +864,7 @@ defmodule MossletWeb.PublicLive.PublicTimeline do
                       url_preview_fetched_at={item.post.url_preview_fetched_at}
                       external_uri={item.post.external_uri}
                       source={item.post.source}
+                      bluesky_link_verified={item.post.bluesky_link_verified}
                       stats={%{replies: item.reply_count, likes: item.post.favs_count || 0}}
                     />
                   </div>

@@ -2652,7 +2652,11 @@ defmodule Mosslet.Timeline.Adapters.Web do
   def mark_post_as_synced_to_bluesky(post, uri, cid) do
     Repo.transaction_on_primary(fn ->
       post
-      |> Ecto.Changeset.change(%{external_uri: uri, external_cid: cid})
+      |> Ecto.Changeset.change(%{
+        external_uri: uri,
+        external_cid: cid,
+        bluesky_link_verified: true
+      })
       |> Repo.update!()
     end)
     |> case do
@@ -2666,6 +2670,32 @@ defmodule Mosslet.Timeline.Adapters.Web do
     Repo.transaction_on_primary(fn ->
       post
       |> Ecto.Changeset.change(%{external_uri: nil, external_cid: nil})
+      |> Repo.update!()
+    end)
+    |> case do
+      {:ok, post} -> {:ok, post}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @impl true
+  def mark_bluesky_link_unverified(post) do
+    Repo.transaction_on_primary(fn ->
+      post
+      |> Ecto.Changeset.change(%{bluesky_link_verified: false})
+      |> Repo.update!()
+    end)
+    |> case do
+      {:ok, post} -> {:ok, post}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @impl true
+  def mark_bluesky_link_verified(post) do
+    Repo.transaction_on_primary(fn ->
+      post
+      |> Ecto.Changeset.change(%{bluesky_link_verified: true})
       |> Repo.update!()
     end)
     |> case do
@@ -2695,7 +2725,8 @@ defmodule Mosslet.Timeline.Adapters.Web do
         external_reply_root_uri: reply_ref["root"]["uri"],
         external_reply_root_cid: reply_ref["root"]["cid"],
         external_reply_parent_uri: reply_ref["parent"]["uri"],
-        external_reply_parent_cid: reply_ref["parent"]["cid"]
+        external_reply_parent_cid: reply_ref["parent"]["cid"],
+        bluesky_link_verified: true
       })
       |> Repo.update!()
     end)

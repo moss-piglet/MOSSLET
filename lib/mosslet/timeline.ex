@@ -4477,6 +4477,21 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
+  Marks a post's Bluesky link as unverified (deleted from Bluesky).
+  Keeps the external_uri intact but hides the badge in the UI.
+  """
+  def mark_bluesky_link_unverified(post) do
+    adapter().mark_bluesky_link_unverified(post)
+  end
+
+  @doc """
+  Marks a post's Bluesky link as verified (exists on Bluesky).
+  """
+  def mark_bluesky_link_verified(post) do
+    adapter().mark_bluesky_link_verified(post)
+  end
+
+  @doc """
   Decrypts a post body for export to Bluesky.
   """
   def decrypt_post_body(post, user, key) do

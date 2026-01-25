@@ -1452,7 +1452,10 @@ defmodule MossletWeb.PostLive.Components do
       <span class="text-sm">🦋</span>
     </span>
     <span
-      :if={@post.source == :mosslet && @post.external_uri && my_post?(@post, @current_user)}
+      :if={
+        @post.source == :mosslet && @post.external_uri && @post.bluesky_link_verified != false &&
+          my_post?(@post, @current_user)
+      }
       id={"bluesky-synced-badge-#{@post.id}"}
       class="inline-flex items-center gap-1 rounded-md bg-sky-50 dark:bg-sky-950 px-2 py-1 text-xs font-light text-sky-700 dark:text-sky-300 ring-1 ring-inset ring-sky-400/30 dark:ring-sky-400/20"
       data-tippy-content="Synced to Bluesky"

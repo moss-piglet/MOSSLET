@@ -64,12 +64,17 @@ defmodule Mosslet.Bluesky.ExportTask do
 
   defp run_export(account, user, session_key, opts) do
     batch_size = Keyword.get(opts, :batch_size, 20)
+    force_resync = Keyword.get(opts, :force_resync, false)
+    public_only = Keyword.get(opts, :public_only, false)
 
     broadcast_progress(user.id, %{status: :started, exported: 0, total: 0})
 
-    with {:ok, exported_count} <- fetch_and_export(account, user, session_key, batch_size, 0, 0),
-         {:ok, account} <- maybe_sync_likes_to_bluesky(account, user, session_key),
-         {:ok, _account} <- maybe_sync_bookmarks_to_bluesky(account, user, session_key) do
+    with :ok <- maybe_clear_deleted_posts(account, user, force_resync, public_only),
+         {:ok, exported_count} <-
+           fetch_and_export(account, user, session_key, batch_size, 0, 0, public_only),
+         {:ok, account} <- maybe_sync_likes_to_bluesky(account, user, session_key, public_only),
+         {:ok, _account} <-
+           maybe_sync_bookmarks_to_bluesky(account, user, session_key, public_only) do
       broadcast_progress(user.id, %{
         status: :completed,
         exported: exported_count,
@@ -86,8 +91,8 @@ defmodule Mosslet.Bluesky.ExportTask do
     end
   end
 
-  defp maybe_sync_likes_to_bluesky(account, user, session_key) do
-    if account.sync_likes do
+  defp maybe_sync_likes_to_bluesky(account, user, session_key, public_only) do
+    if account.sync_likes and not public_only do
       broadcast_progress(user.id, %{status: :syncing_likes, exported: 0, total: 0})
       sync_likes_to_bluesky(account, user, session_key)
     else
@@ -95,8 +100,76 @@ defmodule Mosslet.Bluesky.ExportTask do
     end
   end
 
-  defp maybe_sync_bookmarks_to_bluesky(account, user, _session_key) do
-    if account.sync_likes do
+  defp maybe_clear_deleted_posts(_account, _user, false, _public_only), do: :ok
+
+  defp maybe_clear_deleted_posts(account, user, true, public_only) do
+    broadcast_progress(user.id, %{status: :checking_deleted, exported: 0, total: 0})
+
+    signing_key = parse_signing_key(account.signing_key)
+    exported_posts = get_exported_posts(user.id, public_only)
+    total = length(exported_posts)
+
+    Logger.info("[BlueskyExportTask] Checking #{total} posts for deletion on Bluesky")
+
+    cleared_count =
+      exported_posts
+      |> Enum.with_index(1)
+      |> Enum.reduce(0, fn {post, index}, cleared ->
+        broadcast_progress(user.id, %{
+          status: :checking_deleted,
+          exported: index,
+          total: total
+        })
+
+        opts = build_request_opts(account, signing_key)
+
+        case Client.post_exists?(account.access_jwt, post.external_uri, opts) do
+          {:ok, false} ->
+            Logger.info(
+              "[BlueskyExportTask] Post #{post.id} deleted from Bluesky, clearing sync info"
+            )
+
+            Timeline.clear_bluesky_sync_info(post)
+            cleared + 1
+
+          {:ok, true} ->
+            cleared
+
+          {:error, reason} ->
+            Logger.warning(
+              "[BlueskyExportTask] Failed to check post #{post.id}: #{inspect(reason)}"
+            )
+
+            cleared
+        end
+      end)
+
+    Logger.info("[BlueskyExportTask] Cleared sync info for #{cleared_count} deleted posts")
+    :ok
+  end
+
+  defp get_exported_posts(user_id, public_only) do
+    import Ecto.Query
+
+    query =
+      Mosslet.Timeline.Post
+      |> where([p], p.user_id == ^user_id)
+      |> where([p], p.source == :mosslet)
+      |> where([p], not is_nil(p.external_uri))
+      |> order_by([p], asc: p.inserted_at)
+
+    query =
+      if public_only do
+        where(query, [p], p.visibility == :public)
+      else
+        query
+      end
+
+    Mosslet.Repo.all(query)
+  end
+
+  defp maybe_sync_bookmarks_to_bluesky(account, user, _session_key, public_only) do
+    if account.sync_likes and not public_only do
       broadcast_progress(user.id, %{status: :syncing_bookmarks, exported: 0, total: 0})
       sync_bookmarks_to_bluesky(account, user)
     else
@@ -180,8 +253,8 @@ defmodule Mosslet.Bluesky.ExportTask do
     |> where([p], p.source == :bluesky)
     |> where([p], not is_nil(p.external_uri))
     |> where([p], not is_nil(p.external_cid))
-    |> Mosslet.Repo.Local.all()
-    |> Mosslet.Repo.Local.preload([:user_posts])
+    |> Mosslet.Repo.all()
+    |> Mosslet.Repo.preload([:user_posts])
     |> Enum.filter(fn post ->
       favs_list = decrypt_favs_list(post, user, session_key)
       user.id in (favs_list || [])
@@ -197,7 +270,7 @@ defmodule Mosslet.Bluesky.ExportTask do
     |> where([b, p], p.source == :bluesky)
     |> where([b, p], not is_nil(p.external_uri))
     |> select([b, p], p)
-    |> Mosslet.Repo.Local.all()
+    |> Mosslet.Repo.all()
   end
 
   defp decrypt_favs_list(post, user, session_key) do
@@ -251,8 +324,16 @@ defmodule Mosslet.Bluesky.ExportTask do
     end
   end
 
-  defp fetch_and_export(account, user, session_key, batch_size, offset, total_exported) do
-    posts = get_unexported_posts(user.id, batch_size, offset)
+  defp fetch_and_export(
+         account,
+         user,
+         session_key,
+         batch_size,
+         offset,
+         total_exported,
+         public_only
+       ) do
+    posts = get_unexported_posts(user.id, batch_size, offset, public_only)
 
     if Enum.empty?(posts) do
       {:ok, total_exported}
@@ -271,25 +352,43 @@ defmodule Mosslet.Bluesky.ExportTask do
       new_total = total_exported + exported_count
 
       if continue? && exported_count > 0 do
-        fetch_and_export(account, user, session_key, batch_size, offset + batch_size, new_total)
+        fetch_and_export(
+          account,
+          user,
+          session_key,
+          batch_size,
+          offset + batch_size,
+          new_total,
+          public_only
+        )
       else
         {:ok, new_total}
       end
     end
   end
 
-  defp get_unexported_posts(user_id, limit, offset) do
+  defp get_unexported_posts(user_id, limit, offset, public_only) do
     import Ecto.Query
 
-    Mosslet.Timeline.Post
-    |> where([p], p.user_id == ^user_id)
-    |> where([p], p.source == :mosslet)
-    |> where([p], is_nil(p.external_uri))
-    |> order_by([p], asc: p.inserted_at)
-    |> limit(^limit)
-    |> offset(^offset)
-    |> Mosslet.Repo.Local.all()
-    |> Mosslet.Repo.Local.preload([:user_posts])
+    query =
+      Mosslet.Timeline.Post
+      |> where([p], p.user_id == ^user_id)
+      |> where([p], p.source == :mosslet)
+      |> where([p], is_nil(p.external_uri))
+      |> order_by([p], asc: p.inserted_at)
+      |> limit(^limit)
+      |> offset(^offset)
+
+    query =
+      if public_only do
+        where(query, [p], p.visibility == :public)
+      else
+        query
+      end
+
+    query
+    |> Mosslet.Repo.all()
+    |> Mosslet.Repo.preload([:user_posts])
   end
 
   defp export_batch(posts, account, user, session_key, current_total, total_in_batch) do

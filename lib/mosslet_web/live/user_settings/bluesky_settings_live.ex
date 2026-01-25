@@ -21,7 +21,8 @@ defmodule MossletWeb.BlueskySettingsLive do
        bluesky_account: bluesky_account,
        sync_form: build_sync_form(bluesky_account),
        show_export_modal: false,
-       export_password_form: to_form(%{"password" => ""}, as: :export_password),
+       export_password_form:
+         to_form(%{"password" => "", "force_resync" => "false"}, as: :export_password),
        export_error: nil,
        show_delete_bluesky_modal: false,
        delete_bluesky_password_form: to_form(%{"password" => ""}, as: :delete_bluesky_password),
@@ -258,6 +259,24 @@ defmodule MossletWeb.BlueskySettingsLive do
                       class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-sky-500 focus:border-transparent"
                       autocomplete="current-password"
                     />
+                  </div>
+
+                  <div class="mt-4">
+                    <label class="flex items-start gap-3 cursor-pointer">
+                      <.phx_input
+                        field={@export_password_form[:force_resync]}
+                        type="checkbox"
+                        class="mt-0.5 h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500"
+                      />
+                      <div>
+                        <span class="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          Force Resync
+                        </span>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                          Re-export posts that were deleted from Bluesky. This will check each previously exported post and clear sync info for any that no longer exist.
+                        </p>
+                      </div>
+                    </label>
                   </div>
 
                   <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
@@ -832,6 +851,26 @@ defmodule MossletWeb.BlueskySettingsLive do
           <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
             Use these buttons to trigger an immediate sync, even if automatic sync options are disabled.
           </p>
+
+          <div class="mt-4 pt-4 border-t border-sky-100 dark:border-sky-800">
+            <p class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3">
+              Maintenance
+            </p>
+            <div class="flex flex-wrap gap-3">
+              <DesignSystem.liquid_button
+                variant="secondary"
+                color="slate"
+                icon="hero-shield-check"
+                phx-click="verify_bluesky_links"
+                disabled={!@sync_form[:sync_enabled].value}
+              >
+                Verify Bluesky Links
+              </DesignSystem.liquid_button>
+            </div>
+            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+              Checks if your synced posts still exist on Bluesky. Removes the Bluesky badge from posts that have been deleted there.
+            </p>
+          </div>
         </.collapsible_section>
 
         <.collapsible_section
@@ -1157,12 +1196,32 @@ defmodule MossletWeb.BlueskySettingsLive do
     end
   end
 
+  def handle_event("verify_bluesky_links", _params, socket) do
+    account = socket.assigns.bluesky_account
+
+    case Bluesky.Workers.LinkVerificationWorker.enqueue_verification(account.id) do
+      {:ok, _job} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :info,
+           "Verification started. Checking if your synced posts still exist on Bluesky..."
+         )}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to start verification. Please try again.")}
+    end
+  end
+
   def handle_event("show_export_all_modal", _params, socket) do
     {:noreply,
      socket
      |> assign(show_export_modal: true)
      |> assign(export_error: nil)
-     |> assign(export_password_form: to_form(%{"password" => ""}, as: :export_password))}
+     |> assign(
+       export_password_form:
+         to_form(%{"password" => "", "force_resync" => "false"}, as: :export_password)
+     )}
   end
 
   def handle_event("close_export_modal", _params, socket) do
@@ -1171,15 +1230,16 @@ defmodule MossletWeb.BlueskySettingsLive do
 
   def handle_event(
         "confirm_export_all",
-        %{"export_password" => %{"password" => password}},
+        %{"export_password" => %{"password" => password} = params},
         socket
       ) do
     user = socket.assigns.current_scope.user
     account = socket.assigns.bluesky_account
     key = socket.assigns.current_scope.key
+    force_resync = params["force_resync"] == "true"
 
     if User.valid_password?(user, password) do
-      case ExportTask.start(account, user, key) do
+      case ExportTask.start(account, user, key, force_resync: force_resync) do
         {:ok, _pid} ->
           {:noreply,
            socket

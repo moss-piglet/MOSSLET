@@ -379,6 +379,10 @@ defmodule Mosslet.Timeline.Adapter do
               {:ok, Post.t()} | {:error, Ecto.Changeset.t()}
   @callback clear_bluesky_sync_info(post :: Post.t()) ::
               {:ok, Post.t()} | {:error, Ecto.Changeset.t()}
+  @callback mark_bluesky_link_unverified(post :: Post.t()) ::
+              {:ok, Post.t()} | {:error, Ecto.Changeset.t()}
+  @callback mark_bluesky_link_verified(post :: Post.t()) ::
+              {:ok, Post.t()} | {:error, Ecto.Changeset.t()}
 
   @callback get_reply_for_export(reply_id :: String.t()) :: Reply.t() | nil
   @callback mark_reply_as_synced_to_bluesky(

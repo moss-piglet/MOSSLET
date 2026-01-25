@@ -145,6 +145,7 @@ defmodule Mosslet.Timeline.Post do
     field :external_reply_root_cid, Encrypted.Binary, redact: true
     field :external_reply_parent_uri, Encrypted.Binary, redact: true
     field :external_reply_parent_cid, Encrypted.Binary, redact: true
+    field :bluesky_link_verified, :boolean, default: true
 
     timestamps()
   end

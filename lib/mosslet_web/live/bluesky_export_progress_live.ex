@@ -64,6 +64,23 @@ defmodule MossletWeb.BlueskyExportProgressLive do
           </div>
         <% end %>
 
+        <%= if @progress.status == :checking_deleted do %>
+          <div class="space-y-2">
+            <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400">
+              <span>Checking for deleted posts...</span>
+              <span>{@progress.exported} / {@progress.total}</span>
+            </div>
+            <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
+              <div
+                class="bg-gradient-to-r from-amber-400 to-orange-500 h-1.5 rounded-full transition-all duration-300"
+                style={"width: #{progress_percent(@progress)}%"}
+              >
+              </div>
+            </div>
+            <.sync_steps current_step={:checking} />
+          </div>
+        <% end %>
+
         <%= if @progress.status == :exporting do %>
           <div class="space-y-2">
             <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400">
@@ -164,14 +181,14 @@ defmodule MossletWeb.BlueskyExportProgressLive do
   end
 
   defp step_status(step, current_step) do
-    steps_order = [:starting, :posts, :likes, :bookmarks, :done]
+    steps_order = [:starting, :checking, :posts, :likes, :bookmarks, :done]
     step_index = Enum.find_index(steps_order, &(&1 == step))
     current_index = Enum.find_index(steps_order, &(&1 == current_step))
 
     cond do
       current_step == :done -> :done
       step == current_step -> :active
-      step == :posts and current_step == :starting -> :active
+      step == :posts and current_step in [:starting, :checking] -> :active
       step_index < current_index -> :done
       true -> :pending
     end
@@ -193,6 +210,7 @@ defmodule MossletWeb.BlueskyExportProgressLive do
   end
 
   defp status_text(:started), do: "Bluesky Export"
+  defp status_text(:checking_deleted), do: "Checking Deleted Posts"
   defp status_text(:exporting), do: "Exporting to Bluesky"
   defp status_text(:syncing_likes), do: "Syncing Likes"
   defp status_text(:syncing_bookmarks), do: "Syncing Bookmarks"
