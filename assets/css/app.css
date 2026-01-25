@@ -22,6 +22,15 @@
 /* Hover device variant - only applies on devices with hover capability (mouse/trackpad) */
 @custom-variant hover-device (@media (hover: hover) { & });
 
+/* Group hover on hover-capable devices only */
+@custom-variant hover-device-group-hover (@media (hover: hover) { .group:hover & });
+
+/* Hide elements when cursor is hidden in immersive reader */
+.cursor-hidden .hide-when-cursor-hidden {
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
 @source "../js/**/*.js";
 @source "../../lib/mosslet_web.ex";
 @source "../../lib/mosslet_web/*.*ex";

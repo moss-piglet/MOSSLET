@@ -72,26 +72,28 @@ defmodule MossletWeb.JournalLive.Entry do
               </div>
               <div
                 class={[
-                  "flex items-center gap-2 opacity-0 hover-device:group-hover:opacity-100",
+                  "flex items-center gap-2 opacity-0 group-hover:opacity-100",
                   "max-h-0 overflow-hidden transition-all duration-300 ease-out"
                 ]}
-                x-bind:class="(actionsVisible && cursorVisible) && 'opacity-100 !max-h-12 pt-2'"
+                x-bind:class="(actionsVisible && cursorVisible) && '!opacity-100 !max-h-12 pt-2'"
               >
-                <.link
-                  navigate={~p"/app/journal/#{@entry.id}/edit"}
-                  @click.stop
-                  class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                >
-                  <.phx_icon name="hero-pencil" class="h-4 w-4" /> Edit
-                </.link>
-                <.link
-                  phx-click="delete"
-                  @click.stop
-                  data-confirm="Are you sure you want to delete this entry?"
-                  class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                >
-                  <.phx_icon name="hero-trash" class="h-4 w-4" /> Delete
-                </.link>
+                <span x-on:click.stop>
+                  <.link
+                    navigate={~p"/app/journal/#{@entry.id}/edit"}
+                    class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                  >
+                    <.phx_icon name="hero-pencil" class="h-4 w-4" /> Edit
+                  </.link>
+                </span>
+                <span x-on:click.stop>
+                  <.link
+                    phx-click="delete"
+                    data-confirm="Are you sure you want to delete this entry?"
+                    class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                  >
+                    <.phx_icon name="hero-trash" class="h-4 w-4" /> Delete
+                  </.link>
+                </span>
               </div>
             </div>
 

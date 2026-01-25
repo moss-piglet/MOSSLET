@@ -9,6 +9,7 @@ import ComposerEmojiPicker from "./composer-emoji-picker";
 import CSSBookBackCoverClick from "./css-book-back-cover-click";
 import CSSBookCoverClick from "./css-book-cover-click";
 import DeepLinkHook from "./deep-link-hook";
+import DeleteReadingEntry from "./delete-reading-entry";
 import EntryColumnFlow from "./entry-column-flow";
 import GroupMessageEmojiPicker from "./group-message-emoji-picker";
 import HideCursorOnIdle from "./hide-cursor-on-idle";
@@ -68,6 +69,7 @@ export default {
   CSSBookBackCoverClick,
   CSSBookCoverClick,
   DeepLinkHook,
+  DeleteReadingEntry,
   EntryColumnFlow,
   GroupMessageEmojiPicker,
   HideCursorOnIdle,

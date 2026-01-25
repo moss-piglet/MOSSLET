@@ -250,6 +250,8 @@ defmodule MossletWeb.JournalLive.Book do
           <div
             :for={entry <- @entries}
             class="group bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600 transition-colors cursor-pointer"
+            x-data="{ actionsVisible: false }"
+            @click="actionsVisible = !actionsVisible"
             phx-click={
               JS.navigate(
                 ~p"/app/journal/#{entry.id}?scope=book&book_id=#{@book.id}&view=#{@view_mode}"
@@ -289,8 +291,9 @@ defmodule MossletWeb.JournalLive.Book do
                   phx-value-id={entry.id}
                   data-confirm="Are you sure you want to delete this entry?"
                   class="p-1.5 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30"
+                  x-bind:class="actionsVisible && '!opacity-100'"
                   title="Delete entry"
-                  onclick="event.stopPropagation()"
+                  @click.stop
                 >
                   <.phx_icon name="hero-trash" class="h-4 w-4" />
                 </button>
@@ -545,6 +548,8 @@ defmodule MossletWeb.JournalLive.Book do
       <div class="book-page-inner">
         <div
           class="cursor-pointer group h-full flex flex-col"
+          x-data="{ actionsVisible: false }"
+          @click="actionsVisible = !actionsVisible"
           phx-click={
             JS.navigate(~p"/app/journal/#{@entry.id}?scope=book&book_id=#{@book_id}&view=reading")
           }
@@ -592,7 +597,10 @@ defmodule MossletWeb.JournalLive.Book do
             ]}>
               {@page_num}
             </span>
-            <span class="text-xs text-emerald-500 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">
+            <span
+              class="text-xs text-emerald-500 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity"
+              x-bind:class="actionsVisible && '!opacity-100'"
+            >
               Click to read →
             </span>
           </div>
@@ -855,6 +863,9 @@ defmodule MossletWeb.JournalLive.Book do
       class="book-entry-columns-container"
       data-entry-id={@entry.id}
       phx-hook="EntryColumnFlow"
+      x-data="{ actionsVisible: false }"
+      x-bind:class="cursorVisible && 'group'"
+      @click="actionsVisible = !actionsVisible"
     >
       <div class="book-entry-header" data-header="true">
         <div class="flex items-start justify-between mb-4">
@@ -877,6 +888,17 @@ defmodule MossletWeb.JournalLive.Book do
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
             <span :if={@entry.is_favorite} class="text-amber-500 text-xl" title="Favorite">★</span>
+            <button
+              type="button"
+              id={"delete-reading-entry-#{@entry.id}"}
+              data-entry-id={@entry.id}
+              data-confirm-message="Are you sure you want to rip this page from your journal? This will delete the entry."
+              class="hide-when-cursor-hidden p-2 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30"
+              title="Delete entry"
+              @click.stop
+            >
+              <.phx_icon name="hero-trash" class="h-5 w-5" />
+            </button>
           </div>
         </div>
       </div>
@@ -1012,10 +1034,11 @@ defmodule MossletWeb.JournalLive.Book do
     ~H"""
     <div
       class={[
-        "h-screen max-h-[1000px] bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm p-6 sm:p-10 md:p-12 cursor-pointer transition-all duration-200 hover:bg-white dark:hover:bg-slate-800 flex flex-col overflow-hidden relative",
+        "h-screen max-h-[1000px] bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm p-6 sm:p-10 md:p-12 cursor-pointer transition-all duration-200 hover:bg-white dark:hover:bg-slate-800 flex flex-col overflow-hidden relative group",
         @class
       ]}
-      x-bind:class="cursorVisible && 'group'"
+      x-data="{ actionsVisible: false }"
+      @click="actionsVisible = !actionsVisible"
       phx-click={
         JS.navigate(
           ~p"/app/journal/#{@entry.id}?scope=book&book_id=#{@book_id}&view=reading&page=#{@page_spread}"
@@ -1048,9 +1071,10 @@ defmodule MossletWeb.JournalLive.Book do
               phx-click="delete_entry"
               phx-value-id={@entry.id}
               data-confirm="Are you sure you want to rip this page from your journal? This will delete the page."
-              class="p-2 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30"
+              class="p-2 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30"
+              x-bind:class="cursorVisible ? (actionsVisible ? '!opacity-100' : 'opacity-0 group-hover:opacity-100') : 'opacity-0'"
               title="Delete entry"
-              onclick="event.stopPropagation()"
+              @click.stop
             >
               <.phx_icon name="hero-trash" class="h-5 w-5" />
             </button>
@@ -1076,7 +1100,10 @@ defmodule MossletWeb.JournalLive.Book do
           ]}>
             {@page_num}
           </span>
-          <span class="text-sm text-emerald-500 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">
+          <span
+            class="text-sm text-emerald-500 dark:text-emerald-400 transition-opacity"
+            x-bind:class="cursorVisible ? (actionsVisible ? '!opacity-100' : 'opacity-0 group-hover:opacity-100') : 'opacity-0'"
+          >
             Click to go to entry →
           </span>
         </div>
@@ -1946,6 +1973,34 @@ defmodule MossletWeb.JournalLive.Book do
   end
 
   @impl true
+  def handle_event("delete_reading_entry", %{"id" => entry_id}, socket) do
+    user = socket.assigns.current_scope.user
+    book = socket.assigns.book
+
+    entry = Enum.find(socket.assigns.entries, &(&1.id == entry_id))
+
+    if entry do
+      case Journal.delete_journal_entry(entry, user) do
+        {:ok, _} ->
+          updated_entries = Enum.reject(socket.assigns.entries, &(&1.id == entry_id))
+          updated_book = %{book | entry_count: max(0, book.entry_count - 1)}
+
+          {:noreply,
+           socket
+           |> assign(:entries, updated_entries)
+           |> assign(:book, updated_book)
+           |> push_event("entry_deleted", %{entry_id: entry_id})
+           |> put_flash(:info, "Page ripped from journal")}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Could not delete entry")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Entry not found")}
+    end
+  end
+
+  @impl true
   def handle_event("restore-body-scroll", _params, socket) do
     {:noreply, socket}
   end
@@ -2353,6 +2408,8 @@ defmodule MossletWeb.JournalLive.Book do
       <div
         :for={{entry, idx} <- Enum.with_index(@entries)}
         class="group bg-white dark:bg-slate-800/95 rounded-xl p-5 border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-lg cursor-pointer transition-all duration-200 relative"
+        x-data="{ actionsVisible: false }"
+        @click="actionsVisible = !actionsVisible"
         phx-click={
           JS.navigate(~p"/app/journal/#{entry.id}?scope=book&book_id=#{@book_id}&view=#{@view_mode}")
         }
@@ -2372,19 +2429,23 @@ defmodule MossletWeb.JournalLive.Book do
                 </span>
               </div>
             </div>
-            <div class="flex items-center gap-1.5 flex-shrink-0">
+            <div
+              class="flex items-center gap-1.5 flex-shrink-0 transition-opacity duration-300 opacity-0 group-hover:opacity-100"
+              x-bind:class="actionsVisible && '!opacity-100'"
+            >
               <span :if={entry.is_favorite} class="text-amber-500 text-sm" title="Favorite">★</span>
-              <.link
-                id={"open-reading-#{entry.id}"}
-                navigate={~p"/app/journal/books/#{@book_id}?view=reading&entry=#{entry.id}"}
-                phx-hook="TippyHook"
-                data-tippy-content="Open in reading view"
-                aria-label="Open in reading view"
-                class="p-1.5 text-slate-400 hover:text-emerald-500 dark:text-slate-500 dark:hover:text-emerald-400 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-                onclick="event.stopPropagation()"
-              >
-                <.phx_icon name="hero-book-open" class="h-4 w-4" />
-              </.link>
+              <span x-on:click.stop>
+                <.link
+                  id={"open-reading-#{entry.id}"}
+                  navigate={~p"/app/journal/books/#{@book_id}?view=reading&entry=#{entry.id}"}
+                  phx-hook="TippyHook"
+                  data-tippy-content="Open in reading view"
+                  aria-label="Open in reading view"
+                  class="p-1.5 text-slate-400 hover:text-emerald-500 dark:text-slate-500 dark:hover:text-emerald-400 transition-all rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                >
+                  <.phx_icon name="hero-book-open" class="h-4 w-4" />
+                </.link>
+              </span>
               <button
                 type="button"
                 id={"delete-entry-#{entry.id}"}
@@ -2393,9 +2454,9 @@ defmodule MossletWeb.JournalLive.Book do
                 phx-hook="TippyHook"
                 data-tippy-content="Delete entry"
                 data-confirm="Are you sure you want to delete this entry?"
-                class="p-1.5 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30"
+                class="p-1.5 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30"
                 aria-label="Delete entry"
-                onclick="event.stopPropagation()"
+                @click.stop
               >
                 <.phx_icon name="hero-trash" class="h-4 w-4" />
               </button>
@@ -2411,7 +2472,10 @@ defmodule MossletWeb.JournalLive.Book do
 
           <div class="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
             <span class="text-xs text-slate-600 dark:text-slate-400">Page {idx + 1}</span>
-            <span class="text-xs text-emerald-500 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">
+            <span
+              class="text-xs text-emerald-500 dark:text-emerald-400 transition-opacity duration-300 opacity-0 group-hover:opacity-100"
+              x-bind:class="actionsVisible && '!opacity-100'"
+            >
               Read →
             </span>
           </div>
@@ -2532,6 +2596,8 @@ defmodule MossletWeb.JournalLive.Book do
           else: "rounded-r-xl md:rounded-l-none rounded-xl md:rounded-xl"
         )
       ]}
+      x-data="{ actionsVisible: false }"
+      @click="actionsVisible = !actionsVisible"
       phx-click={
         JS.navigate(
           ~p"/app/journal/#{@entry.id}?scope=book&book_id=#{@book_id}&view=#{@view_mode}&page=#{@page_spread}"
@@ -2565,7 +2631,10 @@ defmodule MossletWeb.JournalLive.Book do
 
         <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
           <span class="text-xs text-slate-400 dark:text-slate-500">Page {@page_num}</span>
-          <span class="text-xs text-emerald-500 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">
+          <span
+            class="text-xs text-emerald-500 dark:text-emerald-400 transition-opacity duration-300 opacity-0 group-hover:opacity-100"
+            x-bind:class="actionsVisible && '!opacity-100'"
+          >
             Click to read →
           </span>
         </div>

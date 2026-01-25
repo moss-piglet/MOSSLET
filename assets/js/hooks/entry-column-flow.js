@@ -1,6 +1,12 @@
 const EntryColumnFlow = {
+  stripIds(html) {
+    const div = document.createElement("div");
+    div.innerHTML = html;
+    div.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
+    return div.innerHTML;
+  },
+
   mounted() {
-    console.log("[EntryColumnFlow] mounted", this.el.id);
     this.el.__liveHook = this;
     this.el.dataset.mounted = "true";
     this.lastWidth = window.innerWidth;
@@ -15,12 +21,23 @@ const EntryColumnFlow = {
       }
     });
     this.resizeObserver.observe(this.el);
+
+    this.handleEvent("entry_deleted", ({ entry_id }) => {
+      const wrapper = document.getElementById(`entry-flow-${entry_id}`);
+      if (wrapper) {
+        wrapper.style.transition = "opacity 0.3s ease-out, transform 0.3s ease-out";
+        wrapper.style.opacity = "0";
+        wrapper.style.transform = "translateX(-20px)";
+        setTimeout(() => {
+          wrapper.remove();
+        }, 300);
+      }
+    });
   },
 
   updated() {},
 
   destroyed() {
-    console.log("[EntryColumnFlow] destroyed", this.el?.id);
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
     }
@@ -30,21 +47,12 @@ const EntryColumnFlow = {
       const pages = wrapper.querySelectorAll(
         '.book-column-page[data-entry-id="' + entryId + '"]'
       );
-      console.log(
-        "[EntryColumnFlow] Removing",
-        pages.length,
-        "pages for",
-        entryId
-      );
+
       pages.forEach((p) => p.remove());
     }
   },
 
   measureAndCreatePages() {
-    console.log(
-      "[EntryColumnFlow] measureAndCreatePages called, pagesCreated:",
-      this.pagesCreated
-    );
     if (this.pagesCreated) return;
 
     const container = this.el;
@@ -105,7 +113,7 @@ const EntryColumnFlow = {
 
     if (totalHeight <= contentHeight) {
       pages.push({
-        headerHtml: header ? header.outerHTML : "",
+        headerHtml: header ? this.stripIds(header.outerHTML) : "",
         bodyHtml: fullHtml,
         isFirst: true,
         isLast: true,
@@ -129,7 +137,7 @@ const EntryColumnFlow = {
         if (usedHtml.trim().length === 0) break;
 
         pages.push({
-          headerHtml: isFirst && header ? header.outerHTML : "",
+          headerHtml: isFirst && header ? this.stripIds(header.outerHTML) : "",
           bodyHtml: usedHtml,
           isFirst: isFirst,
           isLast: leftoverHtml.trim().length === 0,
@@ -145,13 +153,6 @@ const EntryColumnFlow = {
     const title = header
       ? header.querySelector("h2")?.textContent || "Untitled"
       : "Untitled";
-
-    console.log(
-      "[EntryColumnFlow] Creating",
-      pages.length,
-      "pages for",
-      entryId
-    );
 
     pages.forEach((page, idx) => {
       const pageDiv = document.createElement("div");
@@ -179,6 +180,23 @@ const EntryColumnFlow = {
         headerDiv.className = "flex-shrink-0";
         headerDiv.innerHTML = page.headerHtml;
         clickableDiv.appendChild(headerDiv);
+
+        const deleteBtn = headerDiv.querySelector('button[title="Delete entry"]');
+        if (deleteBtn) {
+          const confirmMessage = deleteBtn.dataset.confirmMessage || "Are you sure you want to delete this entry?";
+          deleteBtn.setAttribute("data-confirm", confirmMessage);
+          deleteBtn.setAttribute("data-confirm-action", "Delete");
+          deleteBtn.setAttribute("data-entry-id", entryId);
+          deleteBtn.addEventListener("click", (e) => {
+            if (deleteBtn.hasAttribute("data-confirm")) {
+              e.stopPropagation();
+              return;
+            }
+            e.preventDefault();
+            e.stopPropagation();
+            this.pushEvent("delete_reading_entry", { id: entryId });
+          });
+        }
       } else if (!page.isFirst) {
         const contDiv = document.createElement("div");
         contDiv.className = "flex items-center gap-2 mb-3 flex-shrink-0";
@@ -211,12 +229,6 @@ const EntryColumnFlow = {
 
     this.pagesCreated = true;
     wrapper.dataset.pageCount = pages.length;
-
-    console.log(
-      "[EntryColumnFlow] Pages created. Wrapper now has",
-      wrapper.children.length,
-      "children"
-    );
 
     const scrollContainer = document.getElementById("book-scroll-container");
     if (scrollContainer && scrollContainer.__bookScrollReader) {
