@@ -54,7 +54,7 @@ defmodule MossletWeb.BlueskySettingsLive do
           />
           <p class="text-sm text-amber-800 dark:text-amber-200">
             <span class="font-semibold">Under Construction</span>
-            — Bluesky integration is actively being developed. Some features may be incomplete, not work, or change. Reach out to us anytime at support@mosslet.com. We're excited to support comprehensive interoperability! 🦋
+            — Bluesky integration is actively being developed. Some features may be incomplete, not work, or change. Reach out to us anytime at support@mosslet.com. We're excited for comprehensive interoperability! 🦋
           </p>
         </div>
 

@@ -8,6 +8,14 @@ defmodule MossletWeb.FeedController do
 
   @blog_entries [
     %{
+      id: "14",
+      date: "January 25, 2026",
+      title: "MOSSLET Now Connects With Bluesky",
+      preview:
+        "We've been quietly working on something we're really excited about: MOSSLET now connects with Bluesky! You can import your posts, export your content, and sync your likes and bookmarks between both platforms. Why does this matter? Because we believe you should be able to move freely between the services you use without being locked in.",
+      path: "/blog/articles/14"
+    },
+    %{
       id: "13",
       date: "January 15, 2026",
       title: "How We Built Privacy-First AI (And Why It Matters)",

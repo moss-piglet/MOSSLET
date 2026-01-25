@@ -373,6 +373,15 @@ defmodule MossletWeb.PublicLive.About do
             </div>
             <div class="mx-auto mt-16 grid max-w-2xl auto-rows-fr grid-cols-1 gap-8 sm:mt-20 lg:mx-0 lg:max-w-none lg:grid-cols-3">
               <.article_preview
+                id="blogPostMNCWBSKY"
+                img_source={~p"/images/blog/jan_25_2026_bsky.jpg"}
+                date="January 25, 2026"
+                title="MOSSLET Now Connects With Bluesky"
+                author_mark?={true}
+                author_isabella?={false}
+                link={~p"/blog/articles/14"}
+              />
+              <.article_preview
                 id="blogPostHWBPFAI"
                 img_source={~p"/images/blog/jan_15_2026_hwbpfai.jpg"}
                 date="January 07, 2026"

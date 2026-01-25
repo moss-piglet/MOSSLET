@@ -29,6 +29,13 @@ defmodule MossletWeb.PublicLive.Blog.Index do
             <%!-- Blog entries --%>
             <div class="space-y-8">
               <.blog_entry
+                id="blog_14"
+                date="January 25, 2026"
+                title="MOSSLET Now Connects With Bluesky"
+                preview="We've been quietly working on something we're really excited about: MOSSLET now connects with Bluesky! You can import your posts, export your content, and sync your likes and bookmarks between both platforms."
+                link={~p"/blog/articles/14"}
+              />
+              <.blog_entry
                 id="blog_13"
                 date="January 15, 2026"
                 title="How We Built Privacy-First AI (And Why It Matters)"
