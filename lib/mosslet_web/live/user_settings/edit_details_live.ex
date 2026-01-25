@@ -75,6 +75,9 @@ defmodule MossletWeb.EditDetailsLive do
                       ),
                     else: nil
                 }
+                alt_text={@avatar_alt_text}
+                crop={@avatar_crop}
+                preview_data_url={@avatar_preview_data_url}
               />
 
               <div class="flex flex-col sm:flex-row gap-3">
@@ -195,6 +198,32 @@ defmodule MossletWeb.EditDetailsLive do
           </DesignSystem.liquid_card>
         </div>
       </DesignSystem.liquid_container>
+
+      <DesignSystem.liquid_alt_text_modal
+        show={@avatar_alt_text_modal_open}
+        upload={
+          build_avatar_upload_map(
+            List.first(@uploads.avatar.entries),
+            @avatar_alt_text,
+            @avatar_preview_data_url
+          )
+        }
+        alt_text={@avatar_alt_text || ""}
+        id="avatar-alt-text-modal"
+      />
+
+      <DesignSystem.liquid_image_edit_modal
+        show={@avatar_edit_modal_open}
+        upload={
+          build_avatar_upload_map(
+            List.first(@uploads.avatar.entries),
+            @avatar_alt_text,
+            @avatar_preview_data_url
+          )
+        }
+        crop={@avatar_crop || %{}}
+        id="avatar-image-edit-modal"
+      />
     </.layout>
     """
   end
@@ -218,6 +247,14 @@ defmodule MossletWeb.EditDetailsLive do
       })
       |> assign(:name_change_valid?, false)
       |> assign(:username_change_valid?, false)
+      |> assign(:avatar_alt_text, nil)
+      |> assign(:avatar_crop, nil)
+      |> assign(:avatar_preview_data_url, nil)
+      |> assign(:avatar_original_preview_data_url, nil)
+      |> assign(:avatar_temp_path, nil)
+      |> assign(:avatar_alt_text_modal_open, false)
+      |> assign(:avatar_edit_modal_open, false)
+      |> assign(:avatar_editing_ref, nil)
       |> assign(
         :current_username,
         decr(
@@ -235,9 +272,17 @@ defmodule MossletWeb.EditDetailsLive do
       |> assign_username_form(current_user)
       |> allow_upload(:avatar,
         accept: ~w(.jpg .jpeg .png .webp .heic .heif),
-        auto_upload: false,
+        auto_upload: true,
         max_entries: 1,
-        progress: &handle_progress/3
+        progress: &handle_progress/3,
+        writer: fn _name, entry, _socket ->
+          {Mosslet.FileUploads.AvatarUploadWriter,
+           %{
+             lv_pid: self(),
+             entry_ref: entry.ref,
+             expected_size: entry.client_size
+           }}
+        end
       )
 
     {:ok, socket}
@@ -245,125 +290,36 @@ defmodule MossletWeb.EditDetailsLive do
 
   defp handle_progress(:avatar, entry, socket) do
     if entry.done? do
-      process_avatar_upload(socket)
+      {:noreply, socket}
     else
       {:noreply, socket}
     end
   end
 
-  defp process_avatar_upload(socket) do
-    lv_pid = self()
-    user = socket.assigns.current_scope.user
-    key = socket.assigns.current_scope.key
-    avatars_bucket = Encrypted.Session.avatars_bucket()
+  @impl true
+  def handle_info({:avatar_upload_progress, _ref, stage, percent}, socket) do
+    {:noreply, assign(socket, :avatar_upload_stage, {stage, percent})}
+  end
 
-    socket = assign(socket, :avatar_upload_stage, {:receiving, 10})
+  @impl true
+  def handle_info(
+        {:avatar_upload_ready, _ref, %{temp_path: temp_path, preview_data_url: preview}},
+        socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:avatar_temp_path, temp_path)
+     |> assign(:avatar_preview_data_url, preview)
+     |> assign(:avatar_original_preview_data_url, preview)
+     |> assign(:avatar_upload_stage, nil)}
+  end
 
-    avatar_url_tuple_list =
-      consume_uploaded_entries(
-        socket,
-        :avatar,
-        fn meta, entry ->
-          case meta do
-            %{error: error} ->
-              send(lv_pid, {:avatar_upload_stage, {:error, error}})
-              {:postpone, {:error, error}}
-
-            %{path: path} ->
-              send(lv_pid, {:avatar_upload_stage, {:receiving, 30}})
-              mime_type = ExMarcel.MimeType.for({:path, path})
-
-              cond do
-                mime_type in [
-                  "image/jpeg",
-                  "image/jpg",
-                  "image/png",
-                  "image/webp",
-                  "image/heic",
-                  "image/heif"
-                ] ->
-                  send(lv_pid, {:avatar_upload_stage, {:converting, 40}})
-
-                  with {:ok, image} <- load_image_for_avatar(path, mime_type),
-                       {:ok, image} <- autorotate_image(image),
-                       _ <- send(lv_pid, {:avatar_upload_stage, {:checking, 50}}),
-                       {:ok, safe_image} <- check_for_safety(image),
-                       _ <- send(lv_pid, {:avatar_upload_stage, {:resizing, 60}}),
-                       {:ok, vix_image} <-
-                         Image.avatar(safe_image,
-                           crop: :attention,
-                           shape: :square,
-                           size: 360
-                         ),
-                       {:ok, blob} <-
-                         Image.write(vix_image, :memory,
-                           suffix: ".webp",
-                           minimize_file_size: true
-                         ),
-                       _ <- send(lv_pid, {:avatar_upload_stage, {:encrypting, 75}}),
-                       {:ok, e_blob} <- @upload_provider.prepare_encrypted_blob(blob, user, key),
-                       {:ok, file_path} <-
-                         @upload_provider.prepare_file_path(entry, user.connection.id),
-                       _ <- send(lv_pid, {:avatar_upload_stage, {:uploading, 85}}) do
-                    @upload_provider.make_aws_requests(
-                      entry,
-                      avatars_bucket,
-                      file_path,
-                      e_blob,
-                      user,
-                      key
-                    )
-                  else
-                    {:nsfw, message} ->
-                      send(lv_pid, {:avatar_upload_stage, {:error, message}})
-                      {:postpone, {:nsfw, message}}
-
-                    {:error, message} ->
-                      send(lv_pid, {:avatar_upload_stage, {:error, message}})
-                      {:postpone, {:error, message}}
-                  end
-
-                true ->
-                  send(lv_pid, {:avatar_upload_stage, {:error, "Incorrect file type."}})
-                  {:postpone, :error}
-              end
-          end
-        end
-      )
-
-    case avatar_url_tuple_list do
-      [nsfw: message] ->
-        {:noreply,
-         socket
-         |> assign(:avatar_upload_stage, {:error, message})
-         |> put_flash(:warning, message)}
-
-      [error: message] ->
-        {:noreply,
-         socket
-         |> assign(:avatar_upload_stage, {:error, message})
-         |> put_flash(:warning, message)}
-
-      [:error] ->
-        {:noreply,
-         socket
-         |> assign(:avatar_upload_stage, {:error, "Incorrect file type."})
-         |> put_flash(:warning, "Incorrect file type.")}
-
-      [{_entry, file_path, e_blob}] ->
-        user_params = %{avatar_url: file_path}
-        send(lv_pid, {:avatar_upload_complete, {:ok, {e_blob, user_params}}})
-        {:noreply, assign(socket, :avatar_upload_stage, {:uploading, 95})}
-
-      _rest ->
-        error_msg =
-          "There was an error trying to upload your image, please try a different image."
-
-        {:noreply,
-         socket
-         |> assign(:avatar_upload_stage, {:error, error_msg})
-         |> put_flash(:warning, error_msg)}
-    end
+  @impl true
+  def handle_info({:avatar_upload_error, _ref, reason}, socket) do
+    {:noreply,
+     socket
+     |> assign(:avatar_upload_stage, {:error, reason})
+     |> put_flash(:warning, to_string(reason))}
   end
 
   @impl true
@@ -469,10 +425,116 @@ defmodule MossletWeb.EditDetailsLive do
 
   @impl true
   def handle_event("cancel-upload", %{"ref" => ref}, socket) do
+    if socket.assigns.avatar_temp_path do
+      Mosslet.FileUploads.TempStorage.cleanup(socket.assigns.avatar_temp_path)
+    end
+
     {:noreply,
      socket
      |> cancel_upload(:avatar, ref)
-     |> assign(:avatar_upload_stage, nil)}
+     |> assign(:avatar_upload_stage, nil)
+     |> assign(:avatar_alt_text, nil)
+     |> assign(:avatar_crop, nil)
+     |> assign(:avatar_preview_data_url, nil)
+     |> assign(:avatar_original_preview_data_url, nil)
+     |> assign(:avatar_temp_path, nil)}
+  end
+
+  @impl true
+  def handle_event("clear_avatar_preview", _params, socket) do
+    if socket.assigns.avatar_temp_path do
+      Mosslet.FileUploads.TempStorage.cleanup(socket.assigns.avatar_temp_path)
+    end
+
+    {:noreply,
+     socket
+     |> assign(:avatar_upload_stage, nil)
+     |> assign(:avatar_alt_text, nil)
+     |> assign(:avatar_crop, nil)
+     |> assign(:avatar_preview_data_url, nil)
+     |> assign(:avatar_original_preview_data_url, nil)
+     |> assign(:avatar_temp_path, nil)}
+  end
+
+  @impl true
+  def handle_event("open_avatar_alt_text_modal", %{"ref" => ref}, socket) do
+    {:noreply,
+     socket
+     |> assign(:avatar_alt_text_modal_open, true)
+     |> assign(:avatar_editing_ref, ref)}
+  end
+
+  @impl true
+  def handle_event("close_alt_text_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:avatar_alt_text_modal_open, false)
+     |> assign(:avatar_editing_ref, nil)}
+  end
+
+  @impl true
+  def handle_event("save_alt_text", %{"alt_text" => alt_text}, socket) do
+    {:noreply,
+     socket
+     |> assign(:avatar_alt_text, String.trim(alt_text))
+     |> assign(:avatar_alt_text_modal_open, false)
+     |> assign(:avatar_editing_ref, nil)}
+  end
+
+  @impl true
+  def handle_event("open_avatar_edit_modal", %{"ref" => ref}, socket) do
+    {:noreply,
+     socket
+     |> assign(:avatar_edit_modal_open, true)
+     |> assign(:avatar_editing_ref, ref)}
+  end
+
+  @impl true
+  def handle_event("close_image_edit_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:avatar_edit_modal_open, false)
+     |> assign(:avatar_editing_ref, nil)}
+  end
+
+  @impl true
+  def handle_event("reset_crop", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:avatar_crop, nil)
+     |> assign(:avatar_preview_data_url, socket.assigns[:avatar_original_preview_data_url])}
+  end
+
+  @impl true
+  def handle_event("save_image_crop", %{"crop" => crop}, socket) do
+    crop_map =
+      case crop do
+        %{"x" => x, "y" => y, "width" => w, "height" => h} ->
+          %{x: x, y: y, width: w, height: h}
+
+        _ ->
+          %{}
+      end
+
+    socket =
+      if crop_map != %{} && socket.assigns.avatar_temp_path do
+        case generate_cropped_preview(socket.assigns.avatar_temp_path, crop_map) do
+          {:ok, cropped_preview} ->
+            socket
+            |> assign(:avatar_crop, crop_map)
+            |> assign(:avatar_preview_data_url, cropped_preview)
+
+          _ ->
+            assign(socket, :avatar_crop, crop_map)
+        end
+      else
+        assign(socket, :avatar_crop, crop_map)
+      end
+
+    {:noreply,
+     socket
+     |> assign(:avatar_edit_modal_open, false)
+     |> assign(:avatar_editing_ref, nil)}
   end
 
   @impl true
@@ -482,117 +544,15 @@ defmodule MossletWeb.EditDetailsLive do
 
   @impl true
   def handle_event("update_avatar", _user_params, socket) do
-    lv_pid = self()
-    user = socket.assigns.current_scope.user
-    key = socket.assigns.current_scope.key
-    avatars_bucket = Encrypted.Session.avatars_bucket()
+    temp_path = socket.assigns.avatar_temp_path
+    crop = socket.assigns.avatar_crop
 
-    socket = assign(socket, :avatar_upload_stage, {:receiving, 10})
-
-    avatar_url_tuple_list =
-      consume_uploaded_entries(
-        socket,
-        :avatar,
-        fn meta, entry ->
-          case meta do
-            %{error: error} ->
-              send(lv_pid, {:avatar_upload_stage, {:error, error}})
-              {:postpone, {:error, error}}
-
-            %{path: path} ->
-              send(lv_pid, {:avatar_upload_stage, {:receiving, 30}})
-              mime_type = ExMarcel.MimeType.for({:path, path})
-
-              cond do
-                mime_type in [
-                  "image/jpeg",
-                  "image/jpg",
-                  "image/png",
-                  "image/webp",
-                  "image/heic",
-                  "image/heif"
-                ] ->
-                  send(lv_pid, {:avatar_upload_stage, {:converting, 40}})
-
-                  with {:ok, image} <- load_image_for_avatar(path, mime_type),
-                       {:ok, image} <- autorotate_image(image),
-                       _ <- send(lv_pid, {:avatar_upload_stage, {:checking, 50}}),
-                       {:ok, safe_image} <- check_for_safety(image),
-                       _ <- send(lv_pid, {:avatar_upload_stage, {:resizing, 60}}),
-                       {:ok, vix_image} <-
-                         Image.avatar(safe_image,
-                           crop: :attention,
-                           shape: :square,
-                           size: 360
-                         ),
-                       {:ok, blob} <-
-                         Image.write(vix_image, :memory,
-                           suffix: ".webp",
-                           minimize_file_size: true
-                         ),
-                       _ <- send(lv_pid, {:avatar_upload_stage, {:encrypting, 75}}),
-                       {:ok, e_blob} <- @upload_provider.prepare_encrypted_blob(blob, user, key),
-                       {:ok, file_path} <-
-                         @upload_provider.prepare_file_path(entry, user.connection.id),
-                       _ <- send(lv_pid, {:avatar_upload_stage, {:uploading, 85}}) do
-                    @upload_provider.make_aws_requests(
-                      entry,
-                      avatars_bucket,
-                      file_path,
-                      e_blob,
-                      user,
-                      key
-                    )
-                  else
-                    {:nsfw, message} ->
-                      send(lv_pid, {:avatar_upload_stage, {:error, message}})
-                      {:postpone, {:nsfw, message}}
-
-                    {:error, message} ->
-                      send(lv_pid, {:avatar_upload_stage, {:error, message}})
-                      {:postpone, {:error, message}}
-                  end
-
-                true ->
-                  send(lv_pid, {:avatar_upload_stage, {:error, "Incorrect file type."}})
-                  {:postpone, :error}
-              end
-          end
-        end
-      )
-
-    case avatar_url_tuple_list do
-      [nsfw: message] ->
-        {:noreply,
-         socket
-         |> assign(:avatar_upload_stage, {:error, message})
-         |> put_flash(:warning, message)}
-
-      [error: message] ->
-        {:noreply,
-         socket
-         |> assign(:avatar_upload_stage, {:error, message})
-         |> put_flash(:warning, message)}
-
-      [:error] ->
-        {:noreply,
-         socket
-         |> assign(:avatar_upload_stage, {:error, "Incorrect file type."})
-         |> put_flash(:warning, "Incorrect file type.")}
-
-      [{_entry, file_path, e_blob}] ->
-        user_params = %{avatar_url: file_path}
-        send(lv_pid, {:avatar_upload_complete, {:ok, {e_blob, user_params}}})
-        {:noreply, assign(socket, :avatar_upload_stage, {:uploading, 95})}
-
-      _rest ->
-        error_msg =
-          "There was an error trying to upload your image, please try a different image."
-
-        {:noreply,
-         socket
-         |> assign(:avatar_upload_stage, {:error, error_msg})
-         |> put_flash(:warning, error_msg)}
+    if is_nil(temp_path) do
+      {:noreply,
+       socket
+       |> put_flash(:warning, "No image selected. Please choose an image first.")}
+    else
+      process_and_upload_avatar(socket, temp_path, crop)
     end
   end
 
@@ -736,95 +696,80 @@ defmodule MossletWeb.EditDetailsLive do
     end
   end
 
-  defp load_image_for_avatar(path, mime_type) when mime_type in ["image/heic", "image/heif"] do
-    binary = File.read!(path)
+  defp process_and_upload_avatar(socket, temp_path, crop) do
+    lv_pid = self()
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+    avatars_bucket = Encrypted.Session.avatars_bucket()
 
-    with {:ok, {heic_image, _metadata}} <- Vix.Vips.Operation.heifload_buffer(binary),
-         {:ok, materialized} <- materialize_heic(heic_image) do
-      {:ok, materialized}
-    else
-      {:error, _reason} ->
-        load_heic_with_sips(path)
-    end
-  end
+    socket = assign(socket, :avatar_upload_stage, {:receiving, 10})
 
-  defp load_image_for_avatar(path, _mime_type) do
-    case Image.open(path) do
-      {:ok, image} -> {:ok, image}
-      {:error, reason} -> {:error, "Failed to load image: #{inspect(reason)}"}
-    end
-  end
-
-  defp materialize_heic(image) do
-    case Image.to_colorspace(image, :srgb) do
-      {:ok, srgb_image} ->
-        case Image.write(srgb_image, :memory, suffix: ".png") do
-          {:ok, png_binary} -> Image.from_binary(png_binary)
-          {:error, _} -> fallback_heic_materialization(srgb_image)
-        end
-
-      {:error, _} ->
-        fallback_heic_materialization(image)
-    end
-  end
-
-  defp fallback_heic_materialization(image) do
-    case Image.write(image, :memory, suffix: ".png") do
-      {:ok, png_binary} ->
-        Image.from_binary(png_binary)
-
-      {:error, _} ->
-        case Image.write(image, :memory, suffix: ".jpg") do
-          {:ok, jpg_binary} -> Image.from_binary(jpg_binary)
-          {:error, reason} -> {:error, "Failed to materialize HEIC image: #{inspect(reason)}"}
-        end
-    end
-  end
-
-  defp load_heic_with_sips(path) do
-    tmp_png = Path.join(System.tmp_dir!(), "heic_#{:erlang.unique_integer([:positive])}.png")
-
-    result =
-      case :os.type() do
-        {:unix, :darwin} ->
-          case System.cmd("sips", ["-s", "format", "png", path, "--out", tmp_png],
-                 stderr_to_stdout: true
+    Task.start(fn ->
+      result =
+        with {:ok, image} <- Image.open(temp_path),
+             send(lv_pid, {:avatar_upload_stage, {:converting, 30}}),
+             {:ok, image} <- maybe_apply_crop(image, crop),
+             send(lv_pid, {:avatar_upload_stage, {:checking, 50}}),
+             {:ok, safe_image} <- check_for_safety(image),
+             send(lv_pid, {:avatar_upload_stage, {:resizing, 60}}),
+             {:ok, vix_image} <-
+               Image.avatar(safe_image,
+                 crop: :attention,
+                 shape: :square,
+                 size: 360
+               ),
+             {:ok, blob} <-
+               Image.write(vix_image, :memory,
+                 suffix: ".webp",
+                 minimize_file_size: true
+               ),
+             send(lv_pid, {:avatar_upload_stage, {:encrypting, 75}}),
+             {:ok, e_blob} <- @upload_provider.prepare_encrypted_blob(blob, user, key),
+             {:ok, file_path} <-
+               @upload_provider.prepare_file_path_for_avatar(user.connection.id),
+             send(lv_pid, {:avatar_upload_stage, {:uploading, 85}}),
+             {:ok, _} <-
+               @upload_provider.upload_avatar(
+                 avatars_bucket,
+                 file_path,
+                 e_blob,
+                 user,
+                 key
                ) do
-            {_output, 0} ->
-              png_binary = File.read!(tmp_png)
-              Image.from_binary(png_binary)
+          Mosslet.FileUploads.TempStorage.cleanup(temp_path)
+          {:ok, file_path, e_blob}
+        else
+          {:nsfw, message} ->
+            {:error, message}
 
-            {_output, _code} ->
-              {:error, "HEIC/HEIF files are not supported. Please convert to JPEG or PNG."}
-          end
+          {:error, message} ->
+            {:error, message}
+        end
 
-        {:unix, _linux} ->
-          case System.cmd("heif-convert", [path, tmp_png], stderr_to_stdout: true) do
-            {_output, 0} ->
-              png_binary = File.read!(tmp_png)
-              Image.from_binary(png_binary)
+      case result do
+        {:ok, file_path, e_blob} ->
+          avatar_alt_text = socket.assigns.avatar_alt_text
+          encrypted_alt_text = maybe_encrypt_avatar_alt_text(avatar_alt_text, user, key)
+          user_params = %{avatar_url: file_path, avatar_alt_text: encrypted_alt_text}
+          send(lv_pid, {:avatar_upload_complete, {:ok, {e_blob, user_params}}})
 
-            {_output, _code} ->
-              {:error, "HEIC/HEIF files are not supported. Please convert to JPEG or PNG."}
-          end
-
-        _ ->
-          {:error, "HEIC/HEIF files are not supported on this platform."}
+        {:error, message} ->
+          send(lv_pid, {:avatar_upload_complete, {:error, message}})
       end
+    end)
 
-    File.rm(tmp_png)
-    result
+    {:noreply, socket}
+  end
+
+  defp maybe_apply_crop(image, nil), do: {:ok, image}
+  defp maybe_apply_crop(image, crop) when crop == %{}, do: {:ok, image}
+
+  defp maybe_apply_crop(image, %{x: x, y: y, width: w, height: h}) do
+    Image.crop(image, x, y, w, h)
   end
 
   defp check_for_safety(image_binary) do
     Mosslet.AI.Images.check_for_safety(image_binary)
-  end
-
-  defp autorotate_image(image) do
-    case Image.autorotate(image) do
-      {:ok, {rotated_image, _flags}} -> {:ok, rotated_image}
-      {:error, reason} -> {:error, "Failed to autorotate: #{inspect(reason)}"}
-    end
   end
 
   defp assign_avatar_form(socket, user) do
@@ -837,5 +782,36 @@ defmodule MossletWeb.EditDetailsLive do
 
   defp assign_username_form(socket, user) do
     assign(socket, username_form: to_form(Accounts.change_user_username(user)))
+  end
+
+  defp build_avatar_upload_map(nil, _alt_text, _preview_url), do: nil
+
+  defp build_avatar_upload_map(entry, alt_text, preview_url) do
+    %{
+      ref: entry.ref,
+      alt_text: alt_text,
+      preview_data_url: preview_url,
+      entry: entry
+    }
+  end
+
+  defp generate_cropped_preview(nil, _crop), do: {:error, :no_path}
+
+  defp generate_cropped_preview(path, %{x: x, y: y, width: w, height: h}) do
+    with {:ok, image} <- Image.open(path),
+         {:ok, cropped} <- Image.crop(image, x, y, w, h),
+         {:ok, binary} <- Image.write(cropped, :memory, suffix: ".jpg", quality: 90) do
+      {:ok, "data:image/jpeg;base64,#{Base.encode64(binary)}"}
+    end
+  end
+
+  defp generate_cropped_preview(_path, _crop), do: {:error, :invalid_crop}
+
+  defp maybe_encrypt_avatar_alt_text(nil, _user, _key), do: nil
+  defp maybe_encrypt_avatar_alt_text("", _user, _key), do: nil
+
+  defp maybe_encrypt_avatar_alt_text(alt_text, user, key) do
+    {:ok, d_conn_key} = Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key)
+    Encrypted.Utils.encrypt(%{key: d_conn_key, payload: alt_text})
   end
 end

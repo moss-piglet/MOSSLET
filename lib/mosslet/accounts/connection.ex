@@ -20,6 +20,7 @@ defmodule Mosslet.Accounts.Connection do
     field :username_hash, Encrypted.HMAC, redact: true
     field :avatar_url, Encrypted.Binary, redact: true
     field :avatar_url_hash, Encrypted.HMAC, redact: true
+    field :avatar_alt_text, Encrypted.Binary, redact: true
 
     # Status fields - shared with connections (encrypted with conn_key)
     field :status, Ecto.Enum, values: [:offline, :calm, :active, :busy, :away], default: :offline
@@ -108,6 +109,7 @@ defmodule Mosslet.Accounts.Connection do
         default: :waves
 
       field :custom_banner_url, Encrypted.Binary
+      field :custom_banner_alt_text, Encrypted.Binary
 
       field :opts_map, :map, virtual: true
       field :temp_username, :string, virtual: true
@@ -161,6 +163,7 @@ defmodule Mosslet.Accounts.Connection do
       :visibility,
       :banner_image,
       :custom_banner_url,
+      :custom_banner_alt_text,
       :profile_key,
       :opts_map,
       :temp_username
@@ -215,7 +218,7 @@ defmodule Mosslet.Accounts.Connection do
 
   def update_avatar_changeset(conn, attrs \\ %{}, opts \\ []) do
     conn
-    |> cast(attrs, [:avatar_url, :avatar_url_hash])
+    |> cast(attrs, [:avatar_url, :avatar_url_hash, :avatar_alt_text])
     |> add_avatar_hash(opts)
   end
 

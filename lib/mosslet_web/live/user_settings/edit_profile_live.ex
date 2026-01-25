@@ -25,6 +25,14 @@ defmodule MossletWeb.EditProfileLive do
         banner_upload_stage: nil
       })
       |> assign(:banner_image, banner_image)
+      |> assign(:banner_alt_text, nil)
+      |> assign(:banner_crop, nil)
+      |> assign(:banner_preview_data_url, nil)
+      |> assign(:banner_original_preview_data_url, nil)
+      |> assign(:banner_temp_path, nil)
+      |> assign(:banner_alt_text_modal_open, false)
+      |> assign(:banner_edit_modal_open, false)
+      |> assign(:banner_editing_ref, nil)
       |> assign_profile_about(current_user, socket.assigns.key)
       |> assign_profile_alternate_email(current_user, socket.assigns.key)
       |> assign_profile_website_url(current_user, socket.assigns.key)
@@ -34,7 +42,15 @@ defmodule MossletWeb.EditProfileLive do
         accept: ~w(.jpg .jpeg .png .webp .heic .heif),
         auto_upload: true,
         max_entries: 1,
-        max_file_size: 10_000_000
+        max_file_size: 10_000_000,
+        writer: fn _name, entry, _socket ->
+          {Mosslet.FileUploads.BannerUploadWriter,
+           %{
+             lv_pid: self(),
+             entry_ref: entry.ref,
+             expected_size: entry.client_size
+           }}
+        end
       )
       |> maybe_load_custom_banner_async(current_user, banner_image, profile)
 
@@ -389,6 +405,9 @@ defmodule MossletWeb.EditProfileLive do
                               ),
                             else: nil
                         }
+                        alt_text={@banner_alt_text}
+                        crop={@banner_crop}
+                        preview_data_url={@banner_preview_data_url}
                       />
                       <div
                         :if={
@@ -613,6 +632,32 @@ defmodule MossletWeb.EditProfileLive do
           </DesignSystem.liquid_card>
         </div>
       </DesignSystem.liquid_container>
+
+      <DesignSystem.liquid_alt_text_modal
+        show={@banner_alt_text_modal_open}
+        upload={
+          build_banner_upload_map(
+            List.first(@uploads.banner.entries),
+            @banner_alt_text,
+            @banner_preview_data_url
+          )
+        }
+        alt_text={@banner_alt_text || ""}
+        id="banner-alt-text-modal"
+      />
+
+      <DesignSystem.liquid_image_edit_modal
+        show={@banner_edit_modal_open}
+        upload={
+          build_banner_upload_map(
+            List.first(@uploads.banner.entries),
+            @banner_alt_text,
+            @banner_preview_data_url
+          )
+        }
+        crop={@banner_crop || %{}}
+        id="banner-image-edit-modal"
+      />
     </.layout>
     """
   end
@@ -877,7 +922,78 @@ defmodule MossletWeb.EditProfileLive do
     {:noreply,
      socket
      |> cancel_upload(:banner, ref)
-     |> assign(:banner_upload_stage, nil)}
+     |> assign(:banner_upload_stage, nil)
+     |> assign(:banner_alt_text, nil)
+     |> assign(:banner_crop, nil)
+     |> assign(:banner_preview_data_url, nil)
+     |> assign(:banner_temp_path, nil)}
+  end
+
+  def handle_event("open_banner_alt_text_modal", %{"ref" => ref}, socket) do
+    {:noreply,
+     socket
+     |> assign(:banner_alt_text_modal_open, true)
+     |> assign(:banner_editing_ref, ref)}
+  end
+
+  def handle_event("close_alt_text_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:banner_alt_text_modal_open, false)
+     |> assign(:banner_editing_ref, nil)}
+  end
+
+  def handle_event("save_alt_text", %{"alt_text" => alt_text}, socket) do
+    {:noreply,
+     socket
+     |> assign(:banner_alt_text, String.trim(alt_text))
+     |> assign(:banner_alt_text_modal_open, false)
+     |> assign(:banner_editing_ref, nil)}
+  end
+
+  def handle_event("open_banner_edit_modal", %{"ref" => ref}, socket) do
+    {:noreply,
+     socket
+     |> assign(:banner_edit_modal_open, true)
+     |> assign(:banner_editing_ref, ref)}
+  end
+
+  def handle_event("close_image_edit_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:banner_edit_modal_open, false)
+     |> assign(:banner_editing_ref, nil)}
+  end
+
+  def handle_event("save_image_crop", %{"crop" => crop}, socket) do
+    crop_map =
+      case crop do
+        %{"x" => x, "y" => y, "width" => w, "height" => h} ->
+          %{x: x, y: y, width: w, height: h}
+
+        _ ->
+          %{}
+      end
+
+    socket =
+      if crop_map != %{} && socket.assigns.banner_temp_path do
+        case generate_cropped_preview(socket.assigns.banner_temp_path, crop_map) do
+          {:ok, cropped_preview} ->
+            socket
+            |> assign(:banner_crop, crop_map)
+            |> assign(:banner_preview_data_url, cropped_preview)
+
+          _ ->
+            assign(socket, :banner_crop, crop_map)
+        end
+      else
+        assign(socket, :banner_crop, crop_map)
+      end
+
+    {:noreply,
+     socket
+     |> assign(:banner_edit_modal_open, false)
+     |> assign(:banner_editing_ref, nil)}
   end
 
   def handle_event("upload_banner", _params, socket) do
@@ -932,11 +1048,37 @@ defmodule MossletWeb.EditProfileLive do
     end
   end
 
+  def handle_info({:banner_upload_progress, _ref, stage, percent}, socket) do
+    {:noreply, assign(socket, :banner_upload_stage, {stage, percent})}
+  end
+
+  def handle_info(
+        {:banner_upload_ready, _ref, %{temp_path: temp_path, preview_data_url: preview}},
+        socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:banner_temp_path, temp_path)
+     |> assign(:banner_preview_data_url, preview)
+     |> assign(:banner_original_preview_data_url, preview)
+     |> assign(:banner_upload_stage, nil)}
+  end
+
+  def handle_info({:banner_upload_error, _ref, reason}, socket) do
+    {:noreply,
+     socket
+     |> assign(:banner_upload_stage, {:error, reason})
+     |> put_flash(:warning, to_string(reason))}
+  end
+
   def handle_info({:banner_upload_stage, stage}, socket) do
     {:noreply, assign(socket, :banner_upload_stage, stage)}
   end
 
-  def handle_info({:banner_upload_complete, {:ok, {e_blob, file_path}}}, socket) do
+  def handle_info(
+        {:banner_upload_complete, {:ok, {e_blob, file_path, encrypted_alt_text}}},
+        socket
+      ) do
     user = socket.assigns.current_scope.user
     key = socket.assigns.current_scope.key
     profile = Map.get(user.connection, :profile)
@@ -961,6 +1103,7 @@ defmodule MossletWeb.EditProfileLive do
         %{
           "profile" => %{
             "custom_banner_url" => encrypted_file_path,
+            "custom_banner_alt_text" => encrypted_alt_text,
             "banner_image" => "custom"
           }
         }
@@ -1002,110 +1145,84 @@ defmodule MossletWeb.EditProfileLive do
   end
 
   defp do_upload_banner(socket) do
+    temp_path = socket.assigns.banner_temp_path
+    crop = socket.assigns.banner_crop
+
+    if is_nil(temp_path) do
+      {:noreply,
+       socket
+       |> put_flash(:warning, "No image selected. Please choose an image first.")}
+    else
+      process_and_upload_banner(socket, temp_path, crop)
+    end
+  end
+
+  defp process_and_upload_banner(socket, temp_path, crop) do
     lv_pid = self()
     user = socket.assigns.current_scope.user
     key = socket.assigns.current_scope.key
     banners_bucket = Encrypted.Session.banners_bucket()
+    entry = List.first(socket.assigns.uploads.banner.entries)
 
     socket = assign(socket, :banner_upload_stage, {:receiving, 10})
 
-    banner_url_tuple_list =
-      consume_uploaded_entries(
-        socket,
-        :banner,
-        fn meta, entry ->
-          case meta do
-            %{error: error} ->
-              send(lv_pid, {:banner_upload_stage, {:error, error}})
-              {:postpone, {:error, error}}
+    Task.start(fn ->
+      result =
+        with {:ok, image} <- Image.open(temp_path),
+             send(lv_pid, {:banner_upload_stage, {:converting, 30}}),
+             {:ok, image} <- maybe_apply_crop(image, crop),
+             send(lv_pid, {:banner_upload_stage, {:checking, 50}}),
+             {:ok, safe_image} <- check_for_safety(image),
+             send(lv_pid, {:banner_upload_stage, {:resizing, 60}}),
+             {:ok, resized_image} <- resize_banner_image(safe_image),
+             {:ok, blob} <-
+               Image.write(resized_image, :memory,
+                 suffix: ".webp",
+                 minimize_file_size: true
+               ),
+             send(lv_pid, {:banner_upload_stage, {:encrypting, 75}}),
+             {:ok, e_blob} <- @upload_provider.prepare_encrypted_blob(blob, user, key),
+             {:ok, file_path} <-
+               @upload_provider.prepare_banner_file_path(entry, user.connection.id),
+             send(lv_pid, {:banner_upload_stage, {:uploading, 85}}),
+             {:ok, _} <-
+               @upload_provider.make_banner_aws_requests(
+                 entry,
+                 banners_bucket,
+                 file_path,
+                 e_blob,
+                 user,
+                 key
+               ) do
+          Mosslet.FileUploads.TempStorage.cleanup(temp_path)
+          {:ok, file_path, e_blob}
+        else
+          {:nsfw, message} ->
+            {:error, message}
 
-            %{path: path} ->
-              send(lv_pid, {:banner_upload_stage, {:receiving, 30}})
-              mime_type = ExMarcel.MimeType.for({:path, path})
-
-              if mime_type in [
-                   "image/jpeg",
-                   "image/jpg",
-                   "image/png",
-                   "image/webp",
-                   "image/heic",
-                   "image/heif"
-                 ] do
-                send(lv_pid, {:banner_upload_stage, {:converting, 40}})
-
-                with {:ok, image} <- load_image_for_banner(path, mime_type),
-                     {:ok, image} <- autorotate_image(image),
-                     _ <- send(lv_pid, {:banner_upload_stage, {:checking, 50}}),
-                     {:ok, safe_image} <- check_for_safety(image),
-                     _ <- send(lv_pid, {:banner_upload_stage, {:resizing, 60}}),
-                     {:ok, resized_image} <- resize_banner_image(safe_image),
-                     {:ok, blob} <-
-                       Image.write(resized_image, :memory,
-                         suffix: ".webp",
-                         minimize_file_size: true
-                       ),
-                     _ <- send(lv_pid, {:banner_upload_stage, {:encrypting, 75}}),
-                     {:ok, e_blob} <- @upload_provider.prepare_encrypted_blob(blob, user, key),
-                     {:ok, file_path} <-
-                       @upload_provider.prepare_banner_file_path(entry, user.connection.id),
-                     _ <- send(lv_pid, {:banner_upload_stage, {:uploading, 85}}) do
-                  @upload_provider.make_banner_aws_requests(
-                    entry,
-                    banners_bucket,
-                    file_path,
-                    e_blob,
-                    user,
-                    key
-                  )
-                else
-                  {:nsfw, message} ->
-                    send(lv_pid, {:banner_upload_stage, {:error, message}})
-                    {:postpone, {:nsfw, message}}
-
-                  {:error, message} ->
-                    send(lv_pid, {:banner_upload_stage, {:error, message}})
-                    {:postpone, {:error, message}}
-                end
-              else
-                send(lv_pid, {:banner_upload_stage, {:error, "Incorrect file type."}})
-                {:postpone, :error}
-              end
-          end
+          {:error, message} ->
+            {:error, message}
         end
-      )
 
-    case banner_url_tuple_list do
-      [nsfw: message] ->
-        {:noreply,
-         socket
-         |> assign(:banner_upload_stage, {:error, message})
-         |> put_flash(:warning, message)}
+      case result do
+        {:ok, file_path, e_blob} ->
+          banner_alt_text = socket.assigns.banner_alt_text
+          encrypted_alt_text = maybe_encrypt_banner_alt_text(banner_alt_text, user, key)
+          send(lv_pid, {:banner_upload_complete, {:ok, {e_blob, file_path, encrypted_alt_text}}})
 
-      [error: message] ->
-        {:noreply,
-         socket
-         |> assign(:banner_upload_stage, {:error, message})
-         |> put_flash(:warning, message)}
+        {:error, message} ->
+          send(lv_pid, {:banner_upload_complete, {:error, message}})
+      end
+    end)
 
-      [:error] ->
-        {:noreply,
-         socket
-         |> assign(:banner_upload_stage, {:error, "Incorrect file type."})
-         |> put_flash(:warning, "Incorrect file type.")}
+    {:noreply, socket}
+  end
 
-      [{_entry, file_path, e_blob}] ->
-        send(lv_pid, {:banner_upload_complete, {:ok, {e_blob, file_path}}})
-        {:noreply, assign(socket, :banner_upload_stage, {:uploading, 95})}
+  defp maybe_apply_crop(image, nil), do: {:ok, image}
+  defp maybe_apply_crop(image, crop) when crop == %{}, do: {:ok, image}
 
-      _rest ->
-        error_msg =
-          "There was an error trying to upload your banner, please try a different image."
-
-        {:noreply,
-         socket
-         |> assign(:banner_upload_stage, {:error, error_msg})
-         |> put_flash(:warning, error_msg)}
-    end
+  defp maybe_apply_crop(image, %{x: x, y: y, width: w, height: h}) do
+    Image.crop(image, x, y, w, h)
   end
 
   defp maybe_decrypt_profile_about(user, key) do
@@ -1254,95 +1371,8 @@ defmodule MossletWeb.EditProfileLive do
     end
   end
 
-  defp load_image_for_banner(path, mime_type) when mime_type in ["image/heic", "image/heif"] do
-    binary = File.read!(path)
-
-    with {:ok, {heic_image, _metadata}} <- Vix.Vips.Operation.heifload_buffer(binary),
-         {:ok, materialized} <- materialize_heic(heic_image) do
-      {:ok, materialized}
-    else
-      {:error, _reason} ->
-        load_heic_with_sips(path)
-    end
-  end
-
-  defp load_image_for_banner(path, _mime_type) do
-    case Image.open(path) do
-      {:ok, image} -> {:ok, image}
-      {:error, reason} -> {:error, "Failed to load image: #{inspect(reason)}"}
-    end
-  end
-
-  defp materialize_heic(image) do
-    case Image.to_colorspace(image, :srgb) do
-      {:ok, srgb_image} ->
-        case Image.write(srgb_image, :memory, suffix: ".png") do
-          {:ok, png_binary} -> Image.from_binary(png_binary)
-          {:error, _} -> fallback_heic_materialization(srgb_image)
-        end
-
-      {:error, _} ->
-        fallback_heic_materialization(image)
-    end
-  end
-
-  defp fallback_heic_materialization(image) do
-    case Image.write(image, :memory, suffix: ".png") do
-      {:ok, png_binary} ->
-        Image.from_binary(png_binary)
-
-      {:error, _} ->
-        case Image.write(image, :memory, suffix: ".jpg") do
-          {:ok, jpg_binary} -> Image.from_binary(jpg_binary)
-          {:error, reason} -> {:error, "Failed to materialize HEIC image: #{inspect(reason)}"}
-        end
-    end
-  end
-
-  defp load_heic_with_sips(path) do
-    tmp_png = Path.join(System.tmp_dir!(), "heic_#{:erlang.unique_integer([:positive])}.png")
-
-    result =
-      case :os.type() do
-        {:unix, :darwin} ->
-          case System.cmd("sips", ["-s", "format", "png", path, "--out", tmp_png],
-                 stderr_to_stdout: true
-               ) do
-            {_output, 0} ->
-              png_binary = File.read!(tmp_png)
-              Image.from_binary(png_binary)
-
-            {_output, _code} ->
-              {:error, "HEIC/HEIF files are not supported. Please convert to JPEG or PNG."}
-          end
-
-        {:unix, _linux} ->
-          case System.cmd("heif-convert", [path, tmp_png], stderr_to_stdout: true) do
-            {_output, 0} ->
-              png_binary = File.read!(tmp_png)
-              Image.from_binary(png_binary)
-
-            {_output, _code} ->
-              {:error, "HEIC/HEIF files are not supported. Please convert to JPEG or PNG."}
-          end
-
-        _ ->
-          {:error, "HEIC/HEIF files are not supported on this platform."}
-      end
-
-    File.rm(tmp_png)
-    result
-  end
-
   defp check_for_safety(image_binary) do
     Mosslet.AI.Images.check_for_safety(image_binary)
-  end
-
-  defp autorotate_image(image) do
-    case Image.autorotate(image) do
-      {:ok, {rotated_image, _flags}} -> {:ok, rotated_image}
-      {:error, reason} -> {:error, "Failed to autorotate: #{inspect(reason)}"}
-    end
   end
 
   defp resize_banner_image(image) do
@@ -1382,5 +1412,36 @@ defmodule MossletWeb.EditProfileLive do
         {:banner_deleted, user.connection.id}
       )
     end
+  end
+
+  defp build_banner_upload_map(nil, _alt_text, _preview_url), do: nil
+
+  defp build_banner_upload_map(entry, alt_text, preview_url) do
+    %{
+      ref: entry.ref,
+      alt_text: alt_text,
+      preview_data_url: preview_url,
+      entry: entry
+    }
+  end
+
+  defp generate_cropped_preview(nil, _crop), do: {:error, :no_path}
+
+  defp generate_cropped_preview(path, %{x: x, y: y, width: w, height: h}) do
+    with {:ok, image} <- Image.open(path),
+         {:ok, cropped} <- Image.crop(image, x, y, w, h),
+         {:ok, binary} <- Image.write(cropped, :memory, suffix: ".jpg", quality: 90) do
+      {:ok, "data:image/jpeg;base64,#{Base.encode64(binary)}"}
+    end
+  end
+
+  defp generate_cropped_preview(_path, _crop), do: {:error, :invalid_crop}
+
+  defp maybe_encrypt_banner_alt_text(nil, _user, _key), do: nil
+  defp maybe_encrypt_banner_alt_text("", _user, _key), do: nil
+
+  defp maybe_encrypt_banner_alt_text(alt_text, user, key) do
+    {:ok, d_conn_key} = Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key)
+    Encrypted.Utils.encrypt(%{key: d_conn_key, payload: alt_text})
   end
 end

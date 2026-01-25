@@ -18,6 +18,11 @@ defmodule Mosslet.FileUploads.Storj do
     {:ok, "uploads/user/#{connection_id}/avatars/#{filename(entry)}"}
   end
 
+  def prepare_file_path_for_avatar(connection_id) do
+    uuid = Ecto.UUID.generate()
+    {:ok, "uploads/user/#{connection_id}/avatars/#{uuid}.webp"}
+  end
+
   def prepare_banner_file_path(entry, connection_id) do
     {:ok, "uploads/user/#{connection_id}/banners/#{filename(entry)}"}
   end
@@ -48,6 +53,16 @@ defmodule Mosslet.FileUploads.Storj do
     else
       _rest ->
         ex_aws_put_request(banners_bucket, file_path, e_blob)
+    end
+  end
+
+  def upload_avatar(avatars_bucket, file_path, e_blob, user, key) do
+    with {:ok, _resp} <- maybe_delete_old_avatar(avatars_bucket, user, key),
+         {:ok, _resp} <- ex_aws_put_request(avatars_bucket, file_path, e_blob) do
+      {:ok, file_path}
+    else
+      _rest ->
+        ex_aws_put_request(avatars_bucket, file_path, e_blob)
     end
   end
 

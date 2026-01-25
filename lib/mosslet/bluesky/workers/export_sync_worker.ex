@@ -594,7 +594,7 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
             crop: :none
           )
 
-        case Image.write(resized, :memory, suffix: ".jpeg", quality: 85) do
+        case Image.write(resized, :memory, suffix: ".jpeg", quality: 90) do
           {:ok, jpeg_data} ->
             if byte_size(jpeg_data) <= @max_thumb_size do
               {:ok, jpeg_data, "image/jpeg"}

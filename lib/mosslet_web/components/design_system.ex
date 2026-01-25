@@ -4331,16 +4331,22 @@ defmodule MossletWeb.DesignSystem do
           </div>
 
           <div class="mb-4">
-            <%= if @upload[:preview_data_url] do %>
-              <img
-                src={@upload.preview_data_url}
-                alt="Preview"
-                class="w-full h-40 object-contain rounded-lg bg-slate-100 dark:bg-slate-700/50"
-              />
-            <% else %>
-              <div class="w-full h-40 bg-slate-100 dark:bg-slate-700/50 rounded-lg flex items-center justify-center">
-                <.phx_icon name="hero-photo" class="h-12 w-12 text-slate-400" />
-              </div>
+            <%= cond do %>
+              <% @upload[:preview_data_url] -> %>
+                <img
+                  src={@upload.preview_data_url}
+                  alt="Preview"
+                  class="w-full h-40 object-contain rounded-lg bg-slate-100 dark:bg-slate-700/50"
+                />
+              <% @upload[:entry] -> %>
+                <.live_img_preview
+                  entry={@upload.entry}
+                  class="w-full h-40 object-contain rounded-lg bg-slate-100 dark:bg-slate-700/50"
+                />
+              <% true -> %>
+                <div class="w-full h-40 bg-slate-100 dark:bg-slate-700/50 rounded-lg flex items-center justify-center">
+                  <.phx_icon name="hero-photo" class="h-12 w-12 text-slate-400" />
+                </div>
             <% end %>
           </div>
 
@@ -4352,7 +4358,7 @@ defmodule MossletWeb.DesignSystem do
                 for="alt-text-input"
                 class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
               >
-                Describe this image for people who use screen readers
+                Alt text describes images for people who use readers, and helps provide context to everyone.
               </label>
               <textarea
                 id="alt-text-input"
@@ -4448,23 +4454,35 @@ defmodule MossletWeb.DesignSystem do
               data-ref={@upload[:ref]}
               data-crop={Jason.encode!(@crop || %{})}
             >
-              <%= if @upload[:original_preview_data_url] || @upload[:preview_data_url] do %>
-                <img
-                  id={"crop-image-#{@upload[:ref]}"}
-                  src={@upload[:original_preview_data_url] || @upload.preview_data_url}
-                  alt="Preview"
-                  class="w-full max-h-[60vh] object-contain pointer-events-none"
-                  draggable="false"
-                />
-                <div
-                  id={"crop-overlay-#{@upload[:ref]}"}
-                  class="absolute inset-0 pointer-events-none"
-                >
-                </div>
-              <% else %>
-                <div class="w-full h-60 flex items-center justify-center">
-                  <.phx_icon name="hero-photo" class="h-12 w-12 text-slate-400" />
-                </div>
+              <%= cond do %>
+                <% @upload[:original_preview_data_url] || @upload[:preview_data_url] -> %>
+                  <img
+                    id={"crop-image-#{@upload[:ref]}"}
+                    src={@upload[:original_preview_data_url] || @upload.preview_data_url}
+                    alt="Preview"
+                    class="w-full max-h-[60vh] object-contain pointer-events-none"
+                    draggable="false"
+                  />
+                  <div
+                    id={"crop-overlay-#{@upload[:ref]}"}
+                    class="absolute inset-0 pointer-events-none"
+                  >
+                  </div>
+                <% @upload[:entry] -> %>
+                  <.live_img_preview
+                    entry={@upload.entry}
+                    id={"crop-image-#{@upload[:ref]}"}
+                    class="w-full max-h-[60vh] object-contain pointer-events-none"
+                  />
+                  <div
+                    id={"crop-overlay-#{@upload[:ref]}"}
+                    class="absolute inset-0 pointer-events-none"
+                  >
+                  </div>
+                <% true -> %>
+                  <div class="w-full h-60 flex items-center justify-center">
+                    <.phx_icon name="hero-photo" class="h-12 w-12 text-slate-400" />
+                  </div>
               <% end %>
             </div>
           </div>
@@ -4519,6 +4537,9 @@ defmodule MossletWeb.DesignSystem do
   attr :url, :string, default: nil
   attr :on_delete, :string, default: nil
   attr :class, :any, default: nil
+  attr :alt_text, :string, default: nil
+  attr :crop, :map, default: nil
+  attr :preview_data_url, :string, default: nil
 
   def liquid_avatar_upload(assigns) do
     ~H"""
@@ -4551,23 +4572,131 @@ defmodule MossletWeb.DesignSystem do
             </button>
           </div>
 
-          <%= if Enum.any?(@upload.entries) do %>
+          <%= if Enum.any?(@upload.entries) || @preview_data_url do %>
             <div class="flex items-center gap-3 shrink-0">
               <.phx_icon
                 name="hero-arrow-right"
                 class="h-5 w-5 text-slate-400 dark:text-slate-500 shrink-0"
               />
-              <%= for entry <- @upload.entries do %>
+              <%= if Enum.any?(@upload.entries) do %>
+                <%= for entry <- @upload.entries do %>
+                  <div class="relative shrink-0">
+                    <div
+                      id={"phx-preview-#{entry.ref}"}
+                      class={[
+                        "w-20 h-20 rounded-xl overflow-hidden",
+                        "border-2 transition-all duration-300",
+                        avatar_upload_border_class(@upload_stage)
+                      ]}
+                    >
+                      <%= if @preview_data_url do %>
+                        <img
+                          src={@preview_data_url}
+                          class="w-full h-full object-cover"
+                          alt={@alt_text || "Avatar preview"}
+                        />
+                      <% else %>
+                        <.live_img_preview
+                          entry={entry}
+                          class="w-full h-full object-cover"
+                          alt={@alt_text || "Avatar preview"}
+                        />
+                      <% end %>
+                    </div>
+                    <div
+                      :if={is_processing?(@upload_stage)}
+                      class="absolute inset-0 rounded-xl bg-black/50 flex items-center justify-center"
+                    >
+                      <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin">
+                      </div>
+                    </div>
+                    <button
+                      :if={!is_processing?(@upload_stage)}
+                      type="button"
+                      id={"cancel-avatar-upload-#{entry.ref}"}
+                      phx-click="cancel-upload"
+                      phx-value-ref={entry.ref}
+                      class="absolute -top-1 -right-1 w-6 h-6 bg-slate-700/80 hover:bg-slate-700 text-white rounded-full flex items-center justify-center shadow-md transition-all duration-200 hover:scale-110"
+                      phx-hook="TippyHook"
+                      data-tippy-content="Cancel"
+                      aria-label="Cancel upload"
+                    >
+                      <.phx_icon name="hero-x-mark" class="h-3 w-3" />
+                    </button>
+                    <div
+                      :if={!is_processing?(@upload_stage)}
+                      class="absolute bottom-1 left-1 right-1 z-10 flex items-center justify-between"
+                    >
+                      <button
+                        type="button"
+                        id={"edit-alt-avatar-#{entry.ref}"}
+                        phx-click="open_avatar_alt_text_modal"
+                        phx-value-ref={entry.ref}
+                        aria-label="Edit alt text"
+                        class={[
+                          "px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-0.5",
+                          "transition-all duration-200 hover:scale-105",
+                          if(@alt_text && @alt_text != "",
+                            do: "bg-emerald-500 text-white",
+                            else: "bg-slate-800 text-white hover:bg-slate-700"
+                          )
+                        ]}
+                        phx-hook="TippyHook"
+                        data-tippy-content={
+                          if(@alt_text && @alt_text != "",
+                            do: "Edit alt text: #{String.slice(@alt_text || "", 0..30)}...",
+                            else: "Add alt text for accessibility"
+                          )
+                        }
+                      >
+                        <.phx_icon
+                          :if={!(@alt_text && @alt_text != "")}
+                          name="hero-plus"
+                          class="h-2.5 w-2.5"
+                        /> ALT
+                      </button>
+
+                      <button
+                        type="button"
+                        id={"edit-avatar-#{entry.ref}"}
+                        phx-click="open_avatar_edit_modal"
+                        phx-value-ref={entry.ref}
+                        aria-label="Edit image"
+                        class={[
+                          "w-6 h-5 rounded flex items-center justify-center",
+                          "transition-all duration-200 hover:scale-105",
+                          if(@crop && @crop != %{},
+                            do: "bg-sky-500 text-white",
+                            else: "bg-slate-800 text-white hover:bg-slate-700"
+                          )
+                        ]}
+                        phx-hook="TippyHook"
+                        data-tippy-content={
+                          if(@crop && @crop != %{},
+                            do: "Edit crop",
+                            else: "Crop image"
+                          )
+                        }
+                      >
+                        <.phx_icon name="hero-pencil" class="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                <% end %>
+              <% else %>
                 <div class="relative shrink-0">
-                  <div class={[
-                    "w-20 h-20 rounded-xl overflow-hidden",
-                    "border-2 transition-all duration-300",
-                    avatar_upload_border_class(@upload_stage)
-                  ]}>
-                    <.live_img_preview
-                      entry={entry}
+                  <div
+                    id="phx-preview-standalone"
+                    class={[
+                      "w-20 h-20 rounded-xl overflow-hidden",
+                      "border-2 transition-all duration-300",
+                      avatar_upload_border_class(@upload_stage)
+                    ]}
+                  >
+                    <img
+                      src={@preview_data_url}
                       class="w-full h-full object-cover"
-                      alt="Avatar preview"
+                      alt={@alt_text || "Avatar preview"}
                     />
                   </div>
                   <div
@@ -4580,13 +4709,12 @@ defmodule MossletWeb.DesignSystem do
                   <button
                     :if={!is_processing?(@upload_stage)}
                     type="button"
-                    id={"cancel-avatar-upload-#{entry.ref}"}
-                    phx-click="cancel-upload"
-                    phx-value-ref={entry.ref}
+                    id="cancel-avatar-upload-standalone"
+                    phx-click="clear_avatar_preview"
                     class="absolute -top-1 -right-1 w-6 h-6 bg-slate-700/80 hover:bg-slate-700 text-white rounded-full flex items-center justify-center shadow-md transition-all duration-200 hover:scale-110"
                     phx-hook="TippyHook"
                     data-tippy-content="Cancel"
-                    aria-label="Cancel upload"
+                    aria-label="Cancel"
                   >
                     <.phx_icon name="hero-x-mark" class="h-3 w-3" />
                   </button>
@@ -4737,6 +4865,9 @@ defmodule MossletWeb.DesignSystem do
   attr :url, :string, default: nil
   attr :on_delete, :string, default: nil
   attr :class, :any, default: nil
+  attr :alt_text, :string, default: nil
+  attr :crop, :map, default: nil
+  attr :preview_data_url, :string, default: nil
 
   def liquid_banner_upload(assigns) do
     ~H"""
@@ -4815,13 +4946,24 @@ defmodule MossletWeb.DesignSystem do
           <div class="space-y-3">
             <p class="text-sm font-medium text-slate-700 dark:text-slate-300">Preview</p>
             <%= for entry <- @upload.entries do %>
-              <div class="relative rounded-xl overflow-hidden border-2 border-purple-400 dark:border-purple-500">
+              <div
+                id={"phx-preview-banner-#{entry.ref}"}
+                class="relative rounded-xl overflow-hidden border-2 border-purple-400 dark:border-purple-500"
+              >
                 <div class="relative aspect-[3/1]">
-                  <.live_img_preview
-                    entry={entry}
-                    class="w-full h-full object-cover"
-                    alt="Banner preview"
-                  />
+                  <%= if @preview_data_url do %>
+                    <img
+                      src={@preview_data_url}
+                      class="w-full h-full object-cover"
+                      alt={@alt_text || "Banner preview"}
+                    />
+                  <% else %>
+                    <.live_img_preview
+                      entry={entry}
+                      class="w-full h-full object-cover"
+                      alt={@alt_text || "Banner preview"}
+                    />
+                  <% end %>
                   <div
                     :if={is_processing?(@upload_stage)}
                     class="absolute inset-0 bg-black/50 flex items-center justify-center"
@@ -4842,6 +4984,64 @@ defmodule MossletWeb.DesignSystem do
                   >
                     <.phx_icon name="hero-x-mark" class="h-4 w-4" />
                   </button>
+                  <div
+                    :if={!is_processing?(@upload_stage)}
+                    class="absolute bottom-3 left-3 right-3 z-10 flex items-center justify-between"
+                  >
+                    <button
+                      type="button"
+                      id={"edit-alt-banner-#{entry.ref}"}
+                      phx-click="open_banner_alt_text_modal"
+                      phx-value-ref={entry.ref}
+                      aria-label="Edit alt text"
+                      class={[
+                        "px-2 py-1 rounded text-xs font-bold flex items-center gap-1",
+                        "transition-all duration-200 hover:scale-105",
+                        if(@alt_text && @alt_text != "",
+                          do: "bg-emerald-500 text-white",
+                          else: "bg-slate-800 text-white hover:bg-slate-700"
+                        )
+                      ]}
+                      phx-hook="TippyHook"
+                      data-tippy-content={
+                        if(@alt_text && @alt_text != "",
+                          do: "Edit alt text: #{String.slice(@alt_text || "", 0..30)}...",
+                          else: "Add alt text for accessibility"
+                        )
+                      }
+                    >
+                      <.phx_icon
+                        :if={!(@alt_text && @alt_text != "")}
+                        name="hero-plus"
+                        class="h-3 w-3"
+                      /> ALT
+                    </button>
+
+                    <button
+                      type="button"
+                      id={"edit-banner-#{entry.ref}"}
+                      phx-click="open_banner_edit_modal"
+                      phx-value-ref={entry.ref}
+                      aria-label="Edit image"
+                      class={[
+                        "w-8 h-6 rounded flex items-center justify-center",
+                        "transition-all duration-200 hover:scale-105",
+                        if(@crop && @crop != %{},
+                          do: "bg-sky-500 text-white",
+                          else: "bg-slate-800 text-white hover:bg-slate-700"
+                        )
+                      ]}
+                      phx-hook="TippyHook"
+                      data-tippy-content={
+                        if(@crop && @crop != %{},
+                          do: "Edit crop",
+                          else: "Crop image"
+                        )
+                      }
+                    >
+                      <.phx_icon name="hero-pencil" class="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             <% end %>

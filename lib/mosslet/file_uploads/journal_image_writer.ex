@@ -225,7 +225,7 @@ defmodule Mosslet.FileUploads.JournalImageWriter do
   end
 
   defp to_jpeg_binary(image) do
-    case Image.write(image, :memory, suffix: ".jpg", quality: 85, strip_metadata: true) do
+    case Image.write(image, :memory, suffix: ".jpg", quality: 90, strip_metadata: true) do
       {:ok, binary} -> {:ok, binary}
       {:error, reason} -> {:error, "Failed to convert to JPEG: #{inspect(reason)}"}
     end

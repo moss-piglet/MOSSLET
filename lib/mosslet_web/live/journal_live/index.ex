@@ -2196,7 +2196,7 @@ defmodule MossletWeb.JournalLive.Index do
                  {:ok, blob} <-
                    Image.write(resized_image, :memory,
                      suffix: ".webp",
-                     quality: 85
+                     quality: 90
                    ),
                  _ <- send(lv_pid, {:cover_upload_stage, {:encrypting, 75}}),
                  {:ok, e_blob} <- prepare_encrypted_cover_blob(blob, user, key),

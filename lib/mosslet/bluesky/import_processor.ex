@@ -220,7 +220,7 @@ defmodule Mosslet.Bluesky.ImportProcessor do
          {:ok, stripped} <- Image.remove_metadata(rotated),
          {:ok, resized} <- resize_if_needed(stripped),
          {:ok, srgb} <- {:ok, Image.to_colorspace!(resized, :srgb)},
-         {:ok, binary} <- Image.write(srgb, :memory, suffix: ".webp", webp: [quality: 85]) do
+         {:ok, binary} <- Image.write(srgb, :memory, suffix: ".webp", webp: [quality: 90]) do
       {:ok, binary}
     end
   end
@@ -228,7 +228,7 @@ defmodule Mosslet.Bluesky.ImportProcessor do
   defp process_animated(image) do
     with {:ok, resized} <- resize_animated_if_needed(image),
          {:ok, binary} <-
-           Image.write(resized, :memory, suffix: ".webp", webp: [quality: 85]) do
+           Image.write(resized, :memory, suffix: ".webp", webp: [quality: 90]) do
       {:ok, binary}
     end
   end

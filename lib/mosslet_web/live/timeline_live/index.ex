@@ -6631,9 +6631,9 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   defp write_upload_to_temp_file(binary, entry_ref) do
-    temp_dir = Path.join(System.tmp_dir!(), "mosslet_uploads")
-    File.mkdir_p!(temp_dir)
-    temp_path = Path.join(temp_dir, "#{entry_ref}.webp")
+    temp_path =
+      Mosslet.FileUploads.TempStorage.temp_path("timeline_uploads", entry_ref) <> ".webp"
+
     File.write!(temp_path, binary)
     temp_path
   end
@@ -7083,8 +7083,8 @@ defmodule MossletWeb.TimelineLive.Index do
           {:ok, cropped} ->
             write_opts =
               if is_animated,
-                do: [suffix: ".webp", webp: [quality: 85, minimize_file_size: true]],
-                else: [suffix: ".webp", webp: [quality: 85]]
+                do: [suffix: ".webp", webp: [quality: 90, minimize_file_size: true]],
+                else: [suffix: ".webp", webp: [quality: 90]]
 
             case Image.write(cropped, :memory, write_opts) do
               {:ok, cropped_binary} -> cropped_binary

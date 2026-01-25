@@ -75,7 +75,7 @@ defmodule Mosslet.FileUploads.TempStorage do
     base = base_dir()
     cutoff = System.os_time(:second) - @max_file_age_seconds
 
-    subdirs = ["journal_ocr", "image_processing"]
+    subdirs = ["journal_ocr", "image_processing", "avatar_uploads", "timeline_uploads"]
 
     Enum.each(subdirs, fn subdir ->
       dir = Path.join(base, subdir)
