@@ -40,7 +40,7 @@ primary_region = "ewr"
   [[http_service.checks]]
     interval = "15s"
     timeout = "5s"
-    grace_period = "120s"
+    grace_period = "30s"
     method = "GET"
     path = "/health"
     headers = { X-Forwarded-Proto = "https" }

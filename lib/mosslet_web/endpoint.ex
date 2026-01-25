@@ -89,6 +89,9 @@ defmodule MossletWeb.Endpoint do
     request_host = get_request_host(conn)
 
     cond do
+      conn.request_path in ["/health", "/api/health"] ->
+        conn
+
       is_nil(canonical) or canonical == "" ->
         conn
 
