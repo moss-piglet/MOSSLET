@@ -74,6 +74,11 @@ defmodule MossletWeb.Router do
     get "/public/posts/:post_id/images/:index", PublicPostImageController, :show
   end
 
+  scope "/", MossletWeb do
+    get "/health", HealthController, :index
+    get "/api/health", HealthController, :index
+  end
+
   scope "/.well-known", MossletWeb do
     pipe_through :api
 
