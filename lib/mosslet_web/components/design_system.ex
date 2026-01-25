@@ -2801,10 +2801,17 @@ defmodule MossletWeb.DesignSystem do
     default: true,
     doc: "Whether to show the status indicator (based on privacy settings)"
 
+  attr :alt_text, :string,
+    default: nil,
+    doc: "Custom alt text for the avatar image (e.g., decrypted avatar_alt_text)"
+
   attr :rest, :global
 
   def liquid_avatar(assigns) do
-    assigns = assign(assigns, :avatar_url, assigns.src || "/images/logo.svg")
+    assigns =
+      assigns
+      |> assign(:avatar_url, assigns.src || "/images/logo.svg")
+      |> assign(:computed_alt, assigns.alt_text || "#{assigns.name} avatar")
 
     ~H"""
     <div
@@ -2852,7 +2859,7 @@ defmodule MossletWeb.DesignSystem do
         <%!-- Avatar image --%>
         <img
           src={@avatar_url}
-          alt={"#{@name} avatar"}
+          alt={@computed_alt}
           class="relative w-full h-full object-cover"
           loading="lazy"
         />
@@ -4305,8 +4312,8 @@ defmodule MossletWeb.DesignSystem do
       >
       </div>
 
-      <div class="relative w-full max-w-lg bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200/60 dark:border-slate-700/60 overflow-hidden">
-        <div class="absolute inset-0 bg-gradient-to-br from-teal-50/30 via-emerald-50/20 to-cyan-50/30 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10">
+      <div class="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200/60 dark:border-slate-700/60">
+        <div class="absolute inset-0 bg-gradient-to-br from-teal-50/30 via-emerald-50/20 to-cyan-50/30 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10 pointer-events-none">
         </div>
 
         <div class="relative p-6">
@@ -4336,12 +4343,12 @@ defmodule MossletWeb.DesignSystem do
                 <img
                   src={@upload.preview_data_url}
                   alt="Preview"
-                  class="w-full h-40 object-contain rounded-lg bg-slate-100 dark:bg-slate-700/50"
+                  class="w-full max-h-40 object-contain rounded-lg bg-slate-100 dark:bg-slate-700/50"
                 />
               <% @upload[:entry] -> %>
                 <.live_img_preview
                   entry={@upload.entry}
-                  class="w-full h-40 object-contain rounded-lg bg-slate-100 dark:bg-slate-700/50"
+                  class="w-full max-h-40 object-contain rounded-lg bg-slate-100 dark:bg-slate-700/50"
                 />
               <% true -> %>
                 <div class="w-full h-40 bg-slate-100 dark:bg-slate-700/50 rounded-lg flex items-center justify-center">
@@ -4421,8 +4428,8 @@ defmodule MossletWeb.DesignSystem do
       >
       </div>
 
-      <div class="relative w-full max-w-2xl bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200/60 dark:border-slate-700/60 overflow-hidden">
-        <div class="absolute inset-0 bg-gradient-to-br from-sky-50/30 via-slate-50/20 to-indigo-50/30 dark:from-sky-900/10 dark:via-slate-900/5 dark:to-indigo-900/10">
+      <div class="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200/60 dark:border-slate-700/60">
+        <div class="absolute inset-0 bg-gradient-to-br from-sky-50/30 via-slate-50/20 to-indigo-50/30 dark:from-sky-900/10 dark:via-slate-900/5 dark:to-indigo-900/10 pointer-events-none">
         </div>
 
         <div class="relative p-6">
