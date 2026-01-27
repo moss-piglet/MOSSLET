@@ -26,6 +26,14 @@ defmodule Mosslet.Billing.Subscriptions do
     |> Repo.first()
   end
 
+  def get_payment_required_subscription_by_customer_id(customer_id) do
+    Subscription
+    |> by_customer_id(customer_id)
+    |> by_status(["past_due", "incomplete"])
+    |> order_by_period_desc()
+    |> Repo.first()
+  end
+
   def active_count(customer_id) do
     Subscription
     |> by_customer_id(customer_id)

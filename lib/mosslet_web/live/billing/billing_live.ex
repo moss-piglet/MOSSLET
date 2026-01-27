@@ -268,6 +268,40 @@ defmodule MossletWeb.BillingLive do
   end
 
   @impl true
+  def handle_event("update_payment_method", _params, socket) do
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+    customer = Repo.preload(user, :customer).customer
+
+    provider_customer_id =
+      maybe_decrypt_user_data(customer.provider_customer_id, user, key)
+
+    return_path = billing_path(socket.assigns.source, socket.assigns)
+    return_url = MossletWeb.Endpoint.url() <> return_path
+
+    case billing_provider().create_portal_session(%{
+           customer: provider_customer_id,
+           return_url: return_url,
+           flow_data: %{
+             type: "payment_method_update"
+           }
+         }) do
+      {:ok, session} ->
+        {:noreply, redirect(socket, external: session.url)}
+
+      {:error, _reason} ->
+        socket =
+          socket
+          |> put_flash(
+            :error,
+            gettext("Something went wrong. Please try again or contact support.")
+          )
+
+        {:noreply, socket}
+    end
+  end
+
+  @impl true
   def handle_event("load_more_invoices", _params, socket) do
     subscription = socket.assigns.subscription_async.result
     current_invoices = socket.assigns.invoices_async.result
@@ -736,6 +770,16 @@ defmodule MossletWeb.BillingLive do
             variant="secondary"
           >
             {gettext("View Plans")}
+          </DesignSystem.liquid_button>
+
+          <DesignSystem.liquid_button
+            :if={@subscription.status in ["active"] && !@cancellation_pending}
+            phx-click="update_payment_method"
+            color="blue"
+            icon="hero-credit-card"
+            variant="secondary"
+          >
+            {gettext("Update Payment Method")}
           </DesignSystem.liquid_button>
 
           <DesignSystem.liquid_button

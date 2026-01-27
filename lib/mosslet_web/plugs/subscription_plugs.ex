@@ -69,10 +69,18 @@ defmodule MossletWeb.SubscriptionPlugs do
         assign(conn, :subscription, subscription)
 
       _ ->
-        conn
-        |> put_flash(:error, gettext("You must have a paid membership to access this page."))
-        |> redirect(to: redirect_to)
-        |> halt()
+        case Subscriptions.get_payment_required_subscription_by_customer_id(customer.id) do
+          %Subscription{} ->
+            conn
+            |> redirect(to: ~p"/app/trial-expired")
+            |> halt()
+
+          _ ->
+            conn
+            |> put_flash(:error, gettext("You must have a paid membership to access this page."))
+            |> redirect(to: redirect_to)
+            |> halt()
+        end
     end
   end
 

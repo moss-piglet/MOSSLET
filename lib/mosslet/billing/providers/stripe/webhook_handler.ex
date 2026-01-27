@@ -95,5 +95,19 @@ defmodule Mosslet.Billing.Providers.Stripe.WebhookHandler do
     :ok
   end
 
+  @impl true
+  def handle_event(%Stripe.Event{
+        type: "payment_method.attached",
+        data: %{object: payment_method}
+      }) do
+    Logger.info(
+      "Payment method #{payment_method.id} attached to customer #{payment_method.customer}"
+    )
+
+    %{provider_customer_id: payment_method.customer, payment_method_id: payment_method.id}
+    |> Mosslet.Billing.Providers.Stripe.Workers.RetryPastDueInvoiceWorker.new()
+    |> Oban.insert()
+  end
+
   def handle_event(_), do: :ok
 end
