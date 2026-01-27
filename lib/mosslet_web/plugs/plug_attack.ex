@@ -22,7 +22,7 @@ defmodule MossletWeb.Plugs.PlugAttack do
   end
 
   rule "throttle register page GETs", conn do
-    if conn.method == "GET" and conn.path_info == ["auth", "register"] do
+    if conn.method == "GET" and conn.path_info == ["auth", "register"] and conn.remote_ip do
       throttle("register:" <> hash_ip(@alg, convert_ip(conn.remote_ip)),
         period: @minute,
         limit: 20,

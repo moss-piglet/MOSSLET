@@ -94,9 +94,9 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.CreateCheckoutSession do
     }
 
     if mode == "subscription" && trial_period_days && trial_period_days > 0 do
-      Map.put(base_options, :subscription_data, %{
-        trial_period_days: trial_period_days
-      })
+      base_options
+      |> Map.put(:subscription_data, %{trial_period_days: trial_period_days})
+      |> Map.put(:payment_method_collection, "if_required")
     else
       base_options
     end
