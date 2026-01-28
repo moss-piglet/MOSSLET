@@ -533,6 +533,22 @@ defmodule MossletWeb.UserRegistrationLive do
             </.link>
           </div>
         </div>
+
+        <%!-- Trust badge --%>
+        <div class="mt-6 flex justify-center">
+          <a
+            target="_blank"
+            href="https://betalist.com/startups/mosslet?utm_campaign=badge-mosslet&amp;utm_medium=badge&amp;utm_source=badge-featured"
+            class="group inline-block transition-all duration-300 hover:scale-105 opacity-60 hover:opacity-100"
+          >
+            <img
+              alt="Featured on BetaList"
+              width="117"
+              height="40"
+              src="https://betalist.com/badges/featured?id=145320&amp;theme=color"
+            />
+          </a>
+        </div>
       </div>
     </.mosslet_auth_layout>
     """

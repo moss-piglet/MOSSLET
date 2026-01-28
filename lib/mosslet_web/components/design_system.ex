@@ -519,19 +519,34 @@ defmodule MossletWeb.DesignSystem do
             <p class="text-xs text-slate-500 dark:text-slate-500 mt-1">
               A Public Benefit company. All rights reserved.
             </p>
-            <.link
-              href="https://climate.stripe.com/0YsHsR"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="inline-flex items-center gap-2 mt-3 text-xs text-slate-500 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200 group"
-            >
-              <span>1% of purchases contributed to Stripe Climate</span>
-              <img
-                src={~p"/images/landing_page/Stripe Climate Badge.svg"}
-                class="h-4 w-4 transition-transform duration-200 group-hover:scale-110"
-                alt="Stripe Climate"
-              />
-            </.link>
+            <div class="flex items-center justify-center lg:justify-end gap-4 mt-3">
+              <.link
+                href="https://climate.stripe.com/0YsHsR"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200 group"
+              >
+                <span>1% of purchases contributed to Stripe Climate</span>
+                <img
+                  src={~p"/images/landing_page/Stripe Climate Badge.svg"}
+                  class="h-4 w-4 transition-transform duration-200 group-hover:scale-110"
+                  alt="Stripe Climate"
+                />
+              </.link>
+              <a
+                target="_blank"
+                href="https://betalist.com/startups/mosslet?utm_campaign=badge-mosslet&amp;utm_medium=badge&amp;utm_source=badge-featured"
+                class="group inline-block transition-all duration-300 hover:scale-105 opacity-70 hover:opacity-100"
+              >
+                <img
+                  alt="Featured on BetaList"
+                  width="78"
+                  height="27"
+                  style="width: 78px; height: 27px"
+                  src="https://betalist.com/badges/featured?id=145320&amp;theme=color"
+                />
+              </a>
+            </div>
           </div>
         </div>
       </div>

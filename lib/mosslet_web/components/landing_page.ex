@@ -175,27 +175,20 @@ defmodule MossletWeb.Components.LandingPage do
                 >
                   Sign in
                 </MossletWeb.DesignSystem.liquid_button>
-                <%!--
-                <.button
-                  id="mosslet-demo-video"
-                  link_type="a"
-                  to="https://www.loom.com/share/f41b37f6c5424dad876847f70298aee9?sid=a73c020a-bb60-4fe6-b49b-947fadee1e21"
-                  variant="outline"
-                  class="!rounded-full"
+              </div>
+              <div class="mt-8 flex justify-center">
+                <a
                   target="_blank"
-                  rel="_noopener"
-                  phx-hook="TippyHook"
-                  data-tippy-content="Watch a quick 10 minute demo"
+                  href="https://betalist.com/startups/mosslet?utm_campaign=badge-mosslet&amp;utm_medium=badge&amp;utm_source=badge-featured"
+                  class="group inline-block transition-all duration-300 hover:scale-105 opacity-80 hover:opacity-100"
                 >
-                  <svg
-                    aria-hidden="true"
-                    class="h-3 w-3 flex-none fill-emerald-600 group-active:fill-current"
-                  >
-                    <path d="m9.997 6.91-7.583 3.447A1 1 0 0 1 1 9.447V2.553a1 1 0 0 1 1.414-.91L9.997 5.09c.782.355.782 1.465 0 1.82Z" />
-                  </svg>
-                  <span class="ml-3">Watch video</span>
-                </.button>
-                --%>
+                  <img
+                    alt="MOSSLET - Private sharing with friends and an encrypted, private journal | BetaList"
+                    width="156"
+                    height="54"
+                    src="https://betalist.com/badges/featured?id=145320&amp;theme=color"
+                  />
+                </a>
               </div>
             </div>
           </div>
