@@ -34,7 +34,8 @@ defmodule MossletWeb.DesignSystem do
       decr_item: 6,
       show_avatar?: 1,
       maybe_get_avatar_src: 4,
-      get_uconn_for_shared_item: 2
+      get_uconn_for_shared_item: 2,
+      soft_like_text: 2
     ]
 
   # Import StatusHelpers for consistent status message handling
@@ -6773,6 +6774,7 @@ defmodule MossletWeb.DesignSystem do
               }
               icon={if @liked, do: "hero-heart-solid", else: "hero-heart"}
               count={Map.get(@stats, :likes, 0)}
+              soft_text={soft_like_text(Map.get(@stats, :likes, 0), @liked)}
               label={if @liked, do: "Unlike", else: "Like"}
               color="rose"
               active={@liked}
@@ -7121,6 +7123,7 @@ defmodule MossletWeb.DesignSystem do
   attr :icon, :string, required: true
   attr :active_icon, :string, default: nil
   attr :count, :integer, default: 0
+  attr :soft_text, :string, default: nil, doc: "If set, displays this text instead of the count"
   attr :notification_count, :integer, default: 0
   attr :label, :string, required: true
   attr :active, :boolean, default: false
@@ -7145,9 +7148,9 @@ defmodule MossletWeb.DesignSystem do
     <button
       id={@id}
       class={[
-        "group/action relative flex items-center gap-2 px-3 py-2 rounded-xl",
+        "group/action relative flex items-center gap-1.5 sm:gap-2 px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl",
         "transition-all duration-200 ease-out active:scale-95",
-        "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2",
+        "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-1 sm:focus:ring-offset-2",
         "phx-click-loading:opacity-60 phx-click-loading:cursor-wait phx-click-loading:pointer-events-none",
         timeline_action_classes(@active, @color),
         @class
@@ -7156,7 +7159,7 @@ defmodule MossletWeb.DesignSystem do
       {@rest}
     >
       <div class={[
-        "absolute inset-0 opacity-0 transition-all duration-300 ease-out rounded-xl",
+        "absolute inset-0 opacity-0 transition-all duration-300 ease-out rounded-lg sm:rounded-xl",
         "group-hover/action:opacity-100",
         "[.reply-expanded_&]:opacity-100",
         timeline_action_bg_classes(@color)
@@ -7183,7 +7186,7 @@ defmodule MossletWeb.DesignSystem do
           name={@icon}
           id={@icon_id}
           class={[
-            "h-4 w-4 transition-all duration-200 ease-out group-hover/action:scale-110",
+            "h-3.5 w-3.5 sm:h-4 sm:w-4 transition-all duration-200 ease-out group-hover/action:scale-110",
             "phx-click-loading:hidden",
             @has_active_icon && "[.reply-expanded_&]:hidden"
           ]}
@@ -7194,14 +7197,14 @@ defmodule MossletWeb.DesignSystem do
           name={@active_icon}
           id={"#{@icon_id}-active"}
           class={[
-            "h-4 w-4 transition-all duration-200 ease-out scale-110",
+            "h-3.5 w-3.5 sm:h-4 sm:w-4 transition-all duration-200 ease-out scale-110",
             "phx-click-loading:hidden",
             "hidden [.reply-expanded_&]:block"
           ]}
         />
         <%!-- Loading spinner --%>
         <svg
-          class="hidden phx-click-loading:block h-4 w-4 animate-spin"
+          class="hidden phx-click-loading:block h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
@@ -7217,13 +7220,21 @@ defmodule MossletWeb.DesignSystem do
         </svg>
 
         <span
-          :if={@count > 0 || (@color == "rose" && (@post_id || @reply_id)) || @repost_post_id}
-          class="text-sm font-medium"
+          :if={
+            @soft_text || @count > 0 || (@color == "rose" && (@post_id || @reply_id)) ||
+              @repost_post_id
+          }
+          id={if @color == "rose" && @post_id, do: "fav-text-#{@post_id}", else: nil}
+          class="text-xs sm:text-sm font-medium"
           data-post-fav-count={if @color == "rose" && @post_id, do: @post_id, else: nil}
           data-reply-fav-count={if @color == "rose" && @reply_id, do: @reply_id, else: nil}
           data-post-repost-count={@repost_post_id}
         >
-          {if @count > 0, do: @count, else: ""}
+          {cond do
+            @soft_text -> @soft_text
+            @count > 0 -> @count
+            true -> ""
+          end}
         </span>
       </div>
       <span class="sr-only">{@label}</span>
@@ -9467,7 +9478,9 @@ defmodule MossletWeb.DesignSystem do
                       do: "hero-heart-solid",
                       else: "hero-heart"
                   }
-                  count={@reply.favs_count}
+                  soft_text={
+                    soft_like_text(@reply.favs_count, @current_scope.user.id in @reply.favs_list)
+                  }
                   label={if @current_scope.user.id in @reply.favs_list, do: "Unlike", else: "Love"}
                   color="rose"
                   active={@current_scope.user.id in @reply.favs_list}
@@ -14191,9 +14204,9 @@ defmodule MossletWeb.DesignSystem do
                 <.phx_icon name="hero-chat-bubble-oval-left" class="h-4 w-4" />
                 <span>{Map.get(@stats, :replies, 0)}</span>
               </div>
-              <div class="flex items-center gap-1.5 text-sm">
+              <div :if={Map.get(@stats, :likes, 0) > 0} class="flex items-center gap-1.5 text-sm">
                 <.phx_icon name="hero-heart" class="h-4 w-4" />
-                <span>{Map.get(@stats, :likes, 0)}</span>
+                <span>{soft_like_text(Map.get(@stats, :likes, 0), false)}</span>
               </div>
             </div>
           </div>

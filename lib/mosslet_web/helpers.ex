@@ -2750,4 +2750,157 @@ defmodule MossletWeb.Helpers do
 
     "#{base_classes} #{color_classes}"
   end
+
+  @doc """
+  Returns whether the current user has liked a post.
+  Properly handles decryption of the favs_list for encrypted posts.
+  """
+  def get_post_liked_status(post, current_user, key) do
+    if is_nil(key) do
+      false
+    else
+      decrypted_favs = decrypt_post_favs_list(post, current_user, key)
+      current_user.id in decrypted_favs
+    end
+  end
+
+  @doc """
+  Decrypts the favs_list for a post based on its visibility.
+  Returns a list of decrypted user IDs.
+  """
+  def decrypt_post_favs_list(post, user, key) do
+    case post.favs_list do
+      nil ->
+        []
+
+      [] ->
+        []
+
+      list when is_list(list) ->
+        encrypted_post_key =
+          case post.visibility do
+            :public -> get_post_key(post)
+            _ -> get_post_key(post, user)
+          end
+
+        if is_nil(encrypted_post_key) do
+          []
+        else
+          case post.visibility do
+            :public ->
+              case Encrypted.Users.Utils.decrypt_public_item_key(encrypted_post_key) do
+                decrypted_post_key when is_binary(decrypted_post_key) ->
+                  Enum.map(list, fn user_id ->
+                    case Encrypted.Utils.decrypt(%{key: decrypted_post_key, payload: user_id}) do
+                      {:ok, decrypted_id} -> decrypted_id
+                      _ -> user_id
+                    end
+                  end)
+                  |> Enum.reject(&is_nil/1)
+
+                _ ->
+                  []
+              end
+
+            _ ->
+              case Encrypted.Users.Utils.decrypt_user_attrs_key(encrypted_post_key, user, key) do
+                {:ok, decrypted_post_key} ->
+                  Enum.map(list, fn user_id ->
+                    case Encrypted.Utils.decrypt(%{key: decrypted_post_key, payload: user_id}) do
+                      {:ok, decrypted_id} -> decrypted_id
+                      _ -> user_id
+                    end
+                  end)
+                  |> Enum.reject(&is_nil/1)
+
+                _ ->
+                  []
+              end
+          end
+        end
+    end
+  end
+
+  @doc """
+  Returns whether the current user has liked a reply.
+  Properly handles decryption of the favs_list for encrypted replies.
+  """
+  def get_reply_liked_status(reply, post, current_user, key) do
+    if is_nil(key) do
+      false
+    else
+      decrypted_favs = decrypt_reply_favs_list(reply, post, current_user, key)
+      current_user.id in decrypted_favs
+    end
+  end
+
+  @doc """
+  Decrypts the favs_list for a reply based on its parent post's visibility.
+  Returns a list of decrypted user IDs.
+  """
+  def decrypt_reply_favs_list(reply, post, user, key) do
+    case reply.favs_list do
+      nil ->
+        []
+
+      [] ->
+        []
+
+      list when is_list(list) ->
+        encrypted_post_key =
+          case post.visibility do
+            :public -> get_post_key(post)
+            _ -> get_post_key(post, user)
+          end
+
+        if is_nil(encrypted_post_key) do
+          []
+        else
+          case post.visibility do
+            :public ->
+              case Encrypted.Users.Utils.decrypt_public_item_key(encrypted_post_key) do
+                decrypted_post_key when is_binary(decrypted_post_key) ->
+                  Enum.map(list, fn user_id ->
+                    case Encrypted.Utils.decrypt(%{key: decrypted_post_key, payload: user_id}) do
+                      {:ok, decrypted_id} -> decrypted_id
+                      _ -> user_id
+                    end
+                  end)
+                  |> Enum.reject(&is_nil/1)
+
+                _ ->
+                  []
+              end
+
+            _ ->
+              case Encrypted.Users.Utils.decrypt_user_attrs_key(encrypted_post_key, user, key) do
+                {:ok, decrypted_post_key} ->
+                  Enum.map(list, fn user_id ->
+                    case Encrypted.Utils.decrypt(%{key: decrypted_post_key, payload: user_id}) do
+                      {:ok, decrypted_id} -> decrypted_id
+                      _ -> user_id
+                    end
+                  end)
+                  |> Enum.reject(&is_nil/1)
+
+                _ ->
+                  []
+              end
+          end
+        end
+    end
+  end
+
+  @doc """
+  Returns soft, affirming text for displaying likes.
+  Shows warm human messaging instead of quantified counts.
+
+  - If the user has liked it: "You appreciate this"
+  - If others have liked it: "People appreciate this"
+  - If no likes: nil
+  """
+  def soft_like_text(0, _liked), do: nil
+  def soft_like_text(_count, true), do: "You appreciate this"
+  def soft_like_text(_count, false), do: "People appreciate this"
+  def soft_like_text(count), do: soft_like_text(count, false)
 end

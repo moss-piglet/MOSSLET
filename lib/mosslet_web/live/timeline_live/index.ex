@@ -848,15 +848,20 @@ defmodule MossletWeb.TimelineLive.Index do
     current_user = socket.assigns.current_user
     current_tab = socket.assigns.active_tab || "home"
     content_filters = socket.assigns.content_filters
+    key = socket.assigns.key
 
     should_show_post = post_matches_current_tab?(post, current_tab, current_user)
     passes_content_filters = post_passes_content_filters?(post, content_filters)
 
     if should_show_post and passes_content_filters do
+      decrypted_favs = decrypt_post_favs_list(post, current_user, key)
+      is_liked = current_user && current_user.id in decrypted_favs
+
       {:noreply,
        push_event(socket, "update_post_fav_count", %{
          post_id: post.id,
-         favs_count: post.favs_count
+         favs_count: post.favs_count,
+         is_liked: is_liked
        })}
     else
       {:noreply, socket}
@@ -872,10 +877,13 @@ defmodule MossletWeb.TimelineLive.Index do
     passes_content_filters = post_passes_content_filters?(post, content_filters)
 
     if should_show_post and passes_content_filters do
+      is_liked = current_user && current_user.id in reply.favs_list
+
       {:noreply,
        push_event(socket, "update_reply_fav_count", %{
          reply_id: reply.id,
-         favs_count: reply.favs_count
+         favs_count: reply.favs_count,
+         is_liked: is_liked
        })}
     else
       {:noreply, socket}
@@ -3134,92 +3142,8 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  def handle_event("fav", %{"id" => id}, socket) do
-    post = Timeline.get_post!(id)
-    current_user = socket.assigns.current_user
-    key = socket.assigns.key
-
-    # Decrypt in LiveView, pass plaintext to context
-    decrypted_favs = decrypt_post_favs_list(post, current_user, key)
-
-    if current_user.id not in decrypted_favs do
-      {:ok, post} = Timeline.inc_favs(post)
-
-      updated_favs = [current_user.id | decrypted_favs]
-
-      # Get the existing post_key for encryption
-      encrypted_post_key = get_post_key(post, current_user)
-
-      case Timeline.update_post_fav(post, %{favs_list: updated_favs},
-             user: current_user,
-             key: key,
-             post_key: encrypted_post_key
-           ) do
-        {:ok, updated_post} ->
-          Accounts.track_user_activity(current_user, :interaction)
-
-          socket =
-            socket
-            |> push_event("update_post_fav_count", %{
-              post_id: updated_post.id,
-              favs_count: updated_post.favs_count,
-              is_liked: true
-            })
-            |> put_flash(:success, "You loved this post!")
-
-          {:noreply, socket}
-
-        {:error, _changeset} ->
-          {:noreply, put_flash(socket, :error, "Operation failed. Please try again.")}
-      end
-    else
-      {:noreply, socket}
-    end
-  end
-
-  def handle_event("unfav", %{"id" => id}, socket) do
-    post = Timeline.get_post!(id)
-    current_user = socket.assigns.current_user
-    key = socket.assigns.key
-
-    # Decrypt in LiveView, pass plaintext to context
-    decrypted_favs = decrypt_post_favs_list(post, current_user, key)
-
-    if current_user.id in decrypted_favs do
-      {:ok, post} = Timeline.decr_favs(post)
-
-      # Remove current user from the decrypted list
-      updated_favs = List.delete(decrypted_favs, current_user.id)
-
-      # Get the existing post_key for encryption
-      encrypted_post_key = get_post_key(post, current_user)
-
-      case Timeline.update_post_fav(post, %{favs_list: updated_favs},
-             user: current_user,
-             key: key,
-             post_key: encrypted_post_key
-           ) do
-        {:ok, updated_post} ->
-          Accounts.track_user_activity(current_user, :interaction)
-
-          socket =
-            socket
-            |> push_event("update_post_fav_count", %{
-              post_id: updated_post.id,
-              favs_count: updated_post.favs_count,
-              is_liked: false
-            })
-            |> put_flash(:success, "You removed love from this post.")
-
-          {:noreply, socket}
-
-        {:error, _changeset} ->
-          {:noreply, put_flash(socket, :error, "Failed to remove love. Please try again.")}
-      end
-    else
-      {:noreply, socket}
-    end
-  end
+  def handle_event("fav", %{"id" => id}, socket), do: do_toggle_fav(id, socket)
+  def handle_event("unfav", %{"id" => id}, socket), do: do_toggle_fav(id, socket)
 
   def handle_event("fav_reply", %{"id" => id}, socket) do
     reply = Timeline.get_reply!(id)
@@ -4493,6 +4417,71 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, assign(socket, url_preview: nil, url_preview_loading: false)}
   end
 
+  defp do_toggle_fav(id, socket) do
+    post = Timeline.get_post!(id)
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+
+    decrypted_favs = decrypt_post_favs_list(post, current_user, key)
+    is_currently_liked = current_user.id in decrypted_favs
+
+    if is_currently_liked do
+      {:ok, post} = Timeline.decr_favs(post)
+
+      updated_favs = List.delete(decrypted_favs, current_user.id)
+      encrypted_post_key = get_post_key(post, current_user)
+
+      case Timeline.update_post_fav(post, %{favs_list: updated_favs},
+             user: current_user,
+             key: key,
+             post_key: encrypted_post_key
+           ) do
+        {:ok, updated_post} ->
+          Accounts.track_user_activity(current_user, :interaction)
+
+          socket =
+            socket
+            |> push_event("update_post_fav_count", %{
+              post_id: updated_post.id,
+              favs_count: updated_post.favs_count,
+              is_liked: false
+            })
+
+          {:noreply, socket}
+
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Failed to remove love. Please try again.")}
+      end
+    else
+      {:ok, post} = Timeline.inc_favs(post)
+
+      updated_favs = [current_user.id | decrypted_favs]
+      encrypted_post_key = get_post_key(post, current_user)
+
+      case Timeline.update_post_fav(post, %{favs_list: updated_favs},
+             user: current_user,
+             key: key,
+             post_key: encrypted_post_key
+           ) do
+        {:ok, updated_post} ->
+          Accounts.track_user_activity(current_user, :interaction)
+
+          socket =
+            socket
+            |> push_event("update_post_fav_count", %{
+              post_id: updated_post.id,
+              favs_count: updated_post.favs_count,
+              is_liked: true
+            })
+
+          {:noreply, socket}
+
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Operation failed. Please try again.")}
+      end
+    end
+  end
+
   defp create_post_and_respond(socket, post_params, current_user, key, trix_key) do
     case Timeline.create_post(post_params, user: current_user, key: key, trix_key: trix_key) do
       {:ok, post} ->
@@ -5601,17 +5590,6 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  # Helper function to check if the current user has liked a post
-  defp get_post_liked_status(post, current_user, key) do
-    # If we don't have a key, we can't decrypt, so assume not liked
-    if is_nil(key) do
-      false
-    else
-      decrypted_favs = decrypt_post_favs_list(post, current_user, key)
-      current_user.id in decrypted_favs
-    end
-  end
-
   # Helper function to check if a post is unread by the current user
   defp get_post_unread_status(post, current_user) do
     cond do
@@ -5762,94 +5740,6 @@ defmodule MossletWeb.TimelineLive.Index do
             {:cont, {:ok, :approved}}
         end
       end)
-    end
-  end
-
-  # Helper functions for mixed encrypted/plaintext data during transition
-  # Helper function to decrypt favs_list using the same pattern as UserTimelinePreference
-  # Handles both encrypted and plaintext user IDs with idiomatic Elixir pattern matching
-  defp decrypt_post_favs_list(post, user, key) do
-    case post.favs_list do
-      nil ->
-        []
-
-      [] ->
-        []
-
-      list when is_list(list) ->
-        # Handle different visibility types for public vs private posts
-        encrypted_post_key =
-          case post.visibility do
-            # Public posts use server key
-            :public -> get_post_key(post)
-            # Private/connections posts use user key
-            _ -> get_post_key(post, user)
-          end
-
-        if is_nil(encrypted_post_key) do
-          # Can't decrypt without the key, return empty list
-          []
-        else
-          case post.visibility do
-            :public ->
-              # FIXED: For public posts, decrypt the post_key first, then use that to decrypt the favs
-              # This matches how Post.favs_changeset encrypts the data with the decrypted post_key
-              case Mosslet.Encrypted.Users.Utils.decrypt_public_item_key(encrypted_post_key) do
-                decrypted_post_key when is_binary(decrypted_post_key) ->
-                  # Now decrypt each user_id in the list using the raw post_key
-                  Enum.map(list, fn user_id ->
-                    # Try to decrypt first (assume encrypted), fallback to plaintext
-                    case Mosslet.Encrypted.Utils.decrypt(%{
-                           key: decrypted_post_key,
-                           payload: user_id
-                         }) do
-                      {:ok, decrypted_id} ->
-                        decrypted_id
-
-                      _ ->
-                        # Decryption failed, assume it's already plaintext (legacy data)
-                        user_id
-                    end
-                  end)
-                  |> Enum.reject(&is_nil/1)
-
-                _ ->
-                  # Could not decrypt the post_key, return empty list
-                  []
-              end
-
-            _ ->
-              # For private/connections posts, decrypt the post_key first
-              case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(
-                     encrypted_post_key,
-                     user,
-                     key
-                   ) do
-                {:ok, decrypted_post_key} ->
-                  # Now decrypt each user_id in the list
-                  Enum.map(list, fn user_id ->
-                    # Try to decrypt first (assume encrypted), fallback to plaintext
-                    case Mosslet.Encrypted.Utils.decrypt(%{
-                           key: decrypted_post_key,
-                           payload: user_id
-                         }) do
-                      {:ok, decrypted_id} ->
-                        decrypted_id
-
-                      _ ->
-                        # Decryption failed, assume it's already plaintext (legacy data)
-                        user_id
-                    end
-                  end)
-                  # Remove any nil values
-                  |> Enum.reject(&is_nil/1)
-
-                _ ->
-                  # Could not decrypt the post_key, return empty list
-                  []
-              end
-          end
-        end
     end
   end
 

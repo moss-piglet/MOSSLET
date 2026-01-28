@@ -230,8 +230,11 @@ window.addEventListener("phx:animate-new-replies", (event) => {
 // Add event listener for scroll to top
 document.addEventListener("phx:scroll-to-top", (event) => {
   const mainEl = document.querySelector("main");
-  const scrollTarget = mainEl && mainEl.scrollHeight > mainEl.clientHeight ? mainEl : null;
-  const startPosition = scrollTarget ? scrollTarget.scrollTop : window.pageYOffset;
+  const scrollTarget =
+    mainEl && mainEl.scrollHeight > mainEl.clientHeight ? mainEl : null;
+  const startPosition = scrollTarget
+    ? scrollTarget.scrollTop
+    : window.pageYOffset;
   const targetPosition = 0;
   const distance = targetPosition - startPosition;
   const duration = Math.min(1200, Math.max(800, Math.abs(distance) * 2));
@@ -399,13 +402,27 @@ window.addEventListener("phx:show-el", (e) =>
   document.getElementById(e.detail.id).removeAttribute("style")
 );
 
+function softLikeText(count, isLiked) {
+  if (count === 0) {
+    return "";
+  } else if (count >= 1) {
+    if (isLiked) {
+      return "You appreciate this";
+    } else {
+      return "People appreciate this";
+    }
+  } else {
+    return "";
+  }
+}
+
 window.addEventListener("phx:update_post_fav_count", (event) => {
   const { post_id, favs_count, is_liked } = event.detail;
   const countElements = document.querySelectorAll(
     `[data-post-fav-count="${post_id}"]`
   );
   countElements.forEach((el) => {
-    el.textContent = favs_count > 0 ? favs_count : "";
+    el.textContent = softLikeText(favs_count, is_liked);
   });
 
   if (is_liked !== undefined) {
@@ -422,7 +439,6 @@ window.addEventListener("phx:update_post_fav_count", (event) => {
 
       if (is_liked) {
         button.id = `hero-heart-solid-button-${post_id}`;
-        button.setAttribute("phx-click", "unfav");
         button.setAttribute("data-tippy-content", "Remove love");
         button.classList.remove(
           "text-slate-500",
@@ -443,7 +459,6 @@ window.addEventListener("phx:update_post_fav_count", (event) => {
         }
       } else {
         button.id = `hero-heart-button-${post_id}`;
-        button.setAttribute("phx-click", "fav");
         button.setAttribute("data-tippy-content", "Show love");
         button.classList.remove(
           "text-rose-600",
@@ -580,7 +595,7 @@ window.addEventListener("phx:update_reply_fav_count", (event) => {
     `[data-reply-fav-count="${reply_id}"]`
   );
   countElements.forEach((el) => {
-    el.textContent = favs_count > 0 ? favs_count : "";
+    el.textContent = softLikeText(favs_count, is_liked);
   });
 
   if (is_liked !== undefined) {

@@ -798,10 +798,13 @@ defmodule MossletWeb.UserHomeLive do
       in_read_posts? = Enum.any?(cached_read_posts, &(&1.id == post.id))
 
       if in_profile_posts? or in_read_posts? do
+        is_liked = current_user && current_user.id in reply.favs_list
+
         {:noreply,
          push_event(socket, "update_reply_fav_count", %{
            reply_id: reply.id,
-           favs_count: reply.favs_count
+           favs_count: reply.favs_count,
+           is_liked: is_liked
          })}
       else
         {:noreply, socket}
@@ -1126,14 +1129,22 @@ defmodule MossletWeb.UserHomeLive do
   def handle_event("fav", %{"id" => id}, socket) do
     post = Timeline.get_post!(id)
     current_user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
 
-    if current_user.id not in post.favs_list do
+    decrypted_favs = decrypt_post_favs_list(post, current_user, key)
+    is_currently_liked = current_user.id in decrypted_favs
+
+    if not is_currently_liked do
       {:ok, post} = Timeline.inc_favs(post)
+      updated_favs = [current_user.id | decrypted_favs]
+      encrypted_post_key = get_post_key(post, current_user)
 
       case Timeline.update_post_fav(
              post,
-             %{favs_list: List.insert_at(post.favs_list, 0, current_user.id)},
-             user: current_user
+             %{favs_list: updated_favs},
+             user: current_user,
+             key: key,
+             post_key: encrypted_post_key
            ) do
         {:ok, _post} ->
           {:noreply, socket}
@@ -1149,14 +1160,22 @@ defmodule MossletWeb.UserHomeLive do
   def handle_event("unfav", %{"id" => id}, socket) do
     post = Timeline.get_post!(id)
     current_user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
 
-    if current_user.id in post.favs_list do
+    decrypted_favs = decrypt_post_favs_list(post, current_user, key)
+    is_currently_liked = current_user.id in decrypted_favs
+
+    if is_currently_liked do
       {:ok, post} = Timeline.decr_favs(post)
+      updated_favs = List.delete(decrypted_favs, current_user.id)
+      encrypted_post_key = get_post_key(post, current_user)
 
       case Timeline.update_post_fav(
              post,
-             %{favs_list: List.delete(post.favs_list, current_user.id)},
-             user: current_user
+             %{favs_list: updated_favs},
+             user: current_user,
+             key: key,
+             post_key: encrypted_post_key
            ) do
         {:ok, _post} ->
           {:noreply, socket}
@@ -2704,7 +2723,7 @@ defmodule MossletWeb.UserHomeLive do
                       current_scope={@current_scope}
                       is_repost={post.repost || false}
                       share_note={nil}
-                      liked={@current_scope.user.id in (post.favs_list || [])}
+                      liked={get_post_liked_status(post, @current_scope.user, @current_scope.key)}
                       bookmarked={get_post_bookmarked_status(post, @current_scope.user)}
                       can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
                       can_reply?={can_reply?(post, @current_scope.user)}
@@ -2849,7 +2868,7 @@ defmodule MossletWeb.UserHomeLive do
                       current_scope={@current_scope}
                       is_repost={post.repost || false}
                       share_note={nil}
-                      liked={@current_scope.user.id in (post.favs_list || [])}
+                      liked={get_post_liked_status(post, @current_scope.user, @current_scope.key)}
                       bookmarked={get_post_bookmarked_status(post, @current_scope.user)}
                       can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
                       can_reply?={can_reply?(post, @current_scope.user)}
@@ -3389,7 +3408,7 @@ defmodule MossletWeb.UserHomeLive do
                       current_scope={@current_scope}
                       is_repost={post.repost || false}
                       share_note={nil}
-                      liked={@current_scope.user.id in (post.favs_list || [])}
+                      liked={get_post_liked_status(post, @current_scope.user, @current_scope.key)}
                       bookmarked={get_post_bookmarked_status(post, @current_scope.user)}
                       can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
                       can_reply?={can_reply?(post, @current_scope.user)}
@@ -3479,7 +3498,7 @@ defmodule MossletWeb.UserHomeLive do
                       current_scope={@current_scope}
                       is_repost={post.repost || false}
                       share_note={nil}
-                      liked={@current_scope.user.id in (post.favs_list || [])}
+                      liked={get_post_liked_status(post, @current_scope.user, @current_scope.key)}
                       bookmarked={get_post_bookmarked_status(post, @current_scope.user)}
                       can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
                       can_reply?={can_reply?(post, @current_scope.user)}
@@ -4040,7 +4059,7 @@ defmodule MossletWeb.UserHomeLive do
                       current_scope={@current_scope}
                       is_repost={post.repost || false}
                       share_note={nil}
-                      liked={@current_scope.user.id in (post.favs_list || [])}
+                      liked={get_post_liked_status(post, @current_scope.user, @current_scope.key)}
                       bookmarked={get_post_bookmarked_status(post, @current_scope.user)}
                       can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
                       can_reply?={can_reply?(post, @current_scope.user)}
@@ -4185,7 +4204,7 @@ defmodule MossletWeb.UserHomeLive do
                       current_scope={@current_scope}
                       is_repost={post.repost || false}
                       share_note={nil}
-                      liked={@current_scope.user.id in (post.favs_list || [])}
+                      liked={get_post_liked_status(post, @current_scope.user, @current_scope.key)}
                       bookmarked={get_post_bookmarked_status(post, @current_scope.user)}
                       can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
                       can_reply?={can_reply?(post, @current_scope.user)}
