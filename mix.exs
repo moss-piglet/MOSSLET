@@ -176,7 +176,6 @@ defmodule Mosslet.MixProject do
       {:phoenix_swoosh, "~> 1.0"},
       {:plug_attack, "~> 0.4.3"},
       {:plug_canonical_host, "~> 2.0"},
-      {:plug_cowboy, "~> 2.5"},
       {:postgrex, ">= 0.0.0"},
       {:premailex, "~> 0.3.0"},
       {:query_builder, "~> 1.0"},
