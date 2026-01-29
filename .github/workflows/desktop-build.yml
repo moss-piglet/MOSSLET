@@ -26,7 +26,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: brew install wxwidgets create-dmg libsodium
+        run: |
+          brew install wxwidgets create-dmg libsodium
+          echo "C_INCLUDE_PATH=$(brew --prefix libsodium)/include" >> $GITHUB_ENV
+          echo "LIBRARY_PATH=$(brew --prefix libsodium)/lib" >> $GITHUB_ENV
 
       - name: Setup Erlang/Elixir
         uses: erlef/setup-beam@v1
@@ -147,13 +150,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install libsodium
-        shell: bash
-        run: |
-          curl -L https://download.libsodium.org/libsodium/releases/libsodium-1.0.20-stable-msvc.zip -o libsodium.zip
-          unzip libsodium.zip -d libsodium
-          echo "C_INCLUDE_PATH=$PWD/libsodium/libsodium/include" >> $GITHUB_ENV
-          echo "LIBRARY_PATH=$PWD/libsodium/libsodium/x64/Release/v143/static" >> $GITHUB_ENV
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            base-devel
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-libsodium
 
       - name: Setup Erlang/Elixir
         uses: erlef/setup-beam@v1
@@ -170,13 +175,13 @@ jobs:
           key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
 
       - name: Install dependencies
-        shell: bash
+        shell: msys2 {0}
         run: |
           mix deps.get --only prod
           mix assets.deploy
 
       - name: Build release
-        shell: bash
+        shell: msys2 {0}
         run: mix release desktop --overwrite
 
       - name: Package Windows app
