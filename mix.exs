@@ -137,8 +137,6 @@ defmodule Mosslet.MixProject do
       {:flop, "~> 0.20"},
       {:fly_postgres, "~> 0.3.2"},
       {:friendlyid, "~> 0.2.0"},
-      {:gen_smtp, "~> 1.2"},
-      {:ranch, "~> 2.2", override: true},
       {:gettext, "~> 0.20"},
       {:hackney, "~> 1.18"},
       {:hashids, "~> 2.0"},
