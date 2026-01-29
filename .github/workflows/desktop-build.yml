@@ -48,6 +48,7 @@ jobs:
       - name: Install Elixir dependencies
         run: |
           mix deps.get --only prod
+          mix deps.clean postgrex --build
           mix deps.compile
           mix assets.deploy
 
@@ -129,6 +130,7 @@ jobs:
       - name: Install Elixir dependencies
         run: |
           mix deps.get --only prod
+          mix deps.clean postgrex --build
           mix deps.compile
           mix assets.deploy
 

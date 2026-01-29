@@ -76,6 +76,7 @@ jobs:
 
       - name: Compile
         run: |
+          MIX_TARGET=native MIX_ENV=prod mix deps.clean postgrex --build
           MIX_TARGET=native MIX_ENV=prod mix compile
 
       - name: Build assets
