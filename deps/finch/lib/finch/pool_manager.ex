@@ -4,6 +4,7 @@ defmodule Finch.PoolManager do
 
   @mint_tls_opts [
     :cacertfile,
+    :cacerts,
     :ciphers,
     :depth,
     :eccs,
@@ -28,6 +29,14 @@ defmodule Finch.PoolManager do
 
   @impl true
   def init(config) do
+    if config.default_pool_config.start_pool_metrics? do
+      :ets.new(default_shp_table(config.registry_name), [
+        :set,
+        :public,
+        :named_table
+      ])
+    end
+
     Enum.each(config.pools, fn {shp, _} ->
       do_start_pools(shp, config)
     end)
@@ -83,6 +92,7 @@ defmodule Finch.PoolManager do
     pool_config = pool_config(config, shp)
 
     if pool_config.start_pool_metrics? do
+      maybe_track_default_shp(config, shp)
       put_pool_count(config, shp, pool_config.count)
     end
 
@@ -102,6 +112,46 @@ defmodule Finch.PoolManager do
 
   def get_pool_count(finch_name, shp),
     do: :persistent_term.get({__MODULE__, :pool_count, finch_name, shp}, nil)
+
+  defp maybe_track_default_shp(%{pools: pools, registry_name: name}, shp) do
+    if Map.has_key?(pools, shp),
+      do: :ok,
+      else: add_default_shp(name, shp)
+  end
+
+  defp default_shp_table(name), do: :"#{name}.default_shp_table"
+
+  defp add_default_shp(name, shp) do
+    true =
+      name
+      |> default_shp_table()
+      |> :ets.insert({shp})
+
+    :ok
+  end
+
+  def get_default_shps(name) do
+    tname = default_shp_table(name)
+
+    if :ets.whereis(tname) == :undefined do
+      []
+    else
+      tname
+      |> :ets.tab2list()
+      |> Enum.map(fn {shp} -> shp end)
+    end
+  end
+
+  def maybe_remove_default_shp(name, shp) do
+    tname = default_shp_table(name)
+
+    if :ets.whereis(tname) == :undefined do
+      :ok
+    else
+      true = :ets.delete(tname, shp)
+      :ok
+    end
+  end
 
   defp pool_config(%{pools: config, default_pool_config: default}, shp) do
     config

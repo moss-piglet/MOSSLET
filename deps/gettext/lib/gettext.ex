@@ -30,7 +30,7 @@ defmodule Gettext do
   means they only contain message IDs, and not actual translated strings. POT files have
   entries like this:
 
-      #: lib/myapp_web/live/hello_live.html.heex:2
+      #: lib/my_app_web/live/hello_live.html.heex:2
       #, elixir-autogen, elixir-format
       msgid "Hello world"
       msgstr ""
@@ -40,7 +40,7 @@ defmodule Gettext do
   Entries in PO files contain translations for their specific locale. For example,
   in a PO file for Italian, the entry above would look like this:
 
-      #: lib/myapp_web/live/hello_live.html.heex:2
+      #: lib/my_app_web/live/hello_live.html.heex:2
       #, elixir-autogen, elixir-format
       msgid "Hello world"
       msgstr "Ciao mondo"
@@ -591,7 +591,6 @@ defmodule Gettext do
 
   """
 
-  require Gettext.Macros
   alias Gettext.MissingBindingsError
 
   @type locale :: binary
@@ -636,19 +635,25 @@ defmodule Gettext do
 
       _other ->
         # TODO: remove this once we stop supporting the old way of defining backends.
+        otp_app = Keyword.get(opts, :otp_app, :my_app)
+
         IO.warn(
           """
-          defining a Gettext backend by calling
+          Defining a Gettext backend by calling:
 
-              use Gettext, otp_app: ...
+              use Gettext, otp_app: #{inspect(otp_app)}
 
           is deprecated. To define a backend, call:
 
-              use Gettext.Backend, otp_app: :my_app
+              use Gettext.Backend, otp_app: #{inspect(otp_app)}
 
-          Then, instead of importing your backend, call this in your module:
+          Then, replace importing your backend:
 
-              use Gettext, backend: MyApp.Gettext
+              import #{inspect(__CALLER__.module)}
+
+          with calling this in your module:
+
+              use Gettext, backend: #{inspect(__CALLER__.module)}
           """,
           Macro.Env.stacktrace(__CALLER__)
         )
@@ -694,13 +699,19 @@ defmodule Gettext do
   end
 
   @doc """
-  Sets the global Gettext locale for the current process.
+  Sets the **global** Gettext locale for the current process.
 
   The locale is stored in the process dictionary. `locale` must be a string; if
   it's not, an `ArgumentError` exception is raised.
 
   The return value is the previous value of the current
   process's locale.
+
+  > #### Unknown Locales {: .warning}
+  >
+  > Since this function sets the *global* locale, it cannot check whether that
+  > local is supported against a particular backend. For that, use `put_locale/2`
+  > or `put_locale!/2`.
 
   ## Examples
 
@@ -757,6 +768,19 @@ defmodule Gettext do
       Gettext.get_locale(MyApp.Gettext)
       #=> "pt_BR"
 
+  The current process's locale will change even if the passed `locale` is not
+  supported. If you think this can cause an issue consider using `known_locales/1`
+  to handle unsupported locales:
+
+      # Handle unsupported locales based on your requirements
+      defp handle_locale(locale, true, backend), do: {:ok, Process.put(backend, locale)}
+      defp handle_locale(_locale, false, backend), do: {:error, :unsupported_locale}
+
+      # In your main function
+      is_in_allowed_locale = locale in known_locales(backend)
+      handle_locale(locale, is_in_allowed_locale, backend)
+
+  Alternatively, use `put_locale!/2` which raises if the locale is not supported.
   """
   @doc section: :locale
   @spec put_locale(backend, locale) :: locale | nil
@@ -764,6 +788,33 @@ defmodule Gettext do
 
   def put_locale(_backend, locale),
     do: raise(ArgumentError, "put_locale/2 only accepts binary locales, got: #{inspect(locale)}")
+
+  @doc """
+  Like `put_locale/2`, but it raises an error if the passed locale doesn't exist in the known locales.
+
+    ## Examples
+
+      Gettext.put_locale(MyApp.Gettext, "pt_BR")
+      #=> nil
+      Gettext.get_locale(MyApp.Gettext)
+      #=> "pt_BR"
+
+  """
+  @doc section: :locale
+  @doc since: "1.0.0"
+  @spec put_locale!(backend, locale) :: locale | nil
+  def put_locale!(backend, locale) when is_binary(locale) do
+    cond do
+      not is_binary(locale) ->
+        raise ArgumentError, "put_locale/2 only accepts binary locales, got: #{inspect(locale)}"
+
+      locale in known_locales(backend) ->
+        put_locale(backend, locale)
+
+      true ->
+        raise ArgumentError, "put_locale!/2 only support known locales, got: #{inspect(locale)}"
+    end
+  end
 
   @doc """
   Returns the message of the given string with a given context in the given domain.

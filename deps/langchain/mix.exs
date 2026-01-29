@@ -2,16 +2,17 @@ defmodule LangChain.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/brainlid/langchain"
-  @version "0.3.3"
+  @version "0.5.0"
 
   def project do
     [
       app: :langchain,
       version: @version,
-      elixir: "~> 1.16",
+      elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
       test_options: [docs: true],
       start_permanent: Mix.env() == :prod,
+      aliases: aliases(),
       deps: deps(),
       package: package(),
       docs: &docs/0,
@@ -30,6 +31,12 @@ defmodule LangChain.MixProject do
     ]
   end
 
+  def cli do
+    [
+      preferred_envs: [precommit: :test]
+    ]
+  end
+
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
@@ -37,13 +44,25 @@ defmodule LangChain.MixProject do
   defp deps do
     [
       {:ecto, "~> 3.10 or ~> 3.11"},
-      {:gettext, "~> 0.20"},
+      {:gettext, "~> 0.26.2 or ~> 1.0.0"},
       {:req, ">= 0.5.2"},
       {:nimble_parsec, "~> 1.4", optional: true},
       {:abacus, "~> 2.1.0", optional: true},
       {:nx, ">= 0.7.0", optional: true},
-      {:ex_doc, "~> 0.34", only: :dev, runtime: false},
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false},
       {:mimic, "~> 1.8", only: :test}
+    ]
+  end
+
+  # Aliases are shortcuts or tasks specific to the current project.
+  # For example, before performing a commit, run the following checks:
+  #
+  #     $ mix precommit
+  #
+  # See the documentation for `Mix` for more info on aliases.
+  defp aliases do
+    [
+      precommit: ["compile --warning-as-errors", "deps.unlock --unused", "format", "test"]
     ]
   end
 
@@ -63,6 +82,7 @@ defmodule LangChain.MixProject do
       groups_for_modules: [
         "Chat Models": [
           LangChain.ChatModels.ChatOpenAI,
+          LangChain.ChatModels.ChatOpenAIResponses,
           LangChain.ChatModels.ChatAnthropic,
           LangChain.ChatModels.ChatBumblebee,
           LangChain.ChatModels.ChatGoogleAI,
@@ -70,6 +90,8 @@ defmodule LangChain.MixProject do
           LangChain.ChatModels.ChatMistralAI,
           LangChain.ChatModels.ChatOllamaAI,
           LangChain.ChatModels.ChatPerplexity,
+          LangChain.ChatModels.ChatGrok,
+          LangChain.ChatModels.ChatDeepSeek,
           LangChain.ChatModels.ChatModel
         ],
         Chains: [
@@ -112,7 +134,12 @@ defmodule LangChain.MixProject do
           LangChain.TextSplitter.LanguageSeparators
         ],
         Tools: [
-          LangChain.Tools.Calculator
+          LangChain.Tools.Calculator,
+          LangChain.Tools.DeepResearch,
+          LangChain.Tools.DeepResearchClient,
+          LangChain.Tools.DeepResearch.ResearchRequest,
+          LangChain.Tools.DeepResearch.ResearchStatus,
+          LangChain.Tools.DeepResearch.ResearchResult
         ],
         Utils: [
           LangChain.Utils,
@@ -122,7 +149,9 @@ defmodule LangChain.MixProject do
           LangChain.Config,
           LangChain.Gettext
         ]
-      ]
+      ],
+      before_closing_head_tag: &before_closing_head_tag/1,
+      before_closing_body_tag: &before_closing_body_tag/1
     ]
   end
 
@@ -146,4 +175,47 @@ defmodule LangChain.MixProject do
       links: %{"GitHub" => @source_url}
     ]
   end
+
+  defp before_closing_head_tag(:html) do
+    """
+    <!-- HTML injected at the end of the <head> element -->
+    """
+  end
+
+  defp before_closing_head_tag(:epub), do: ""
+
+  defp before_closing_body_tag(:html) do
+    """
+    <script defer src="https://cdn.jsdelivr.net/npm/mermaid@10.2.3/dist/mermaid.min.js"></script>
+    <script>
+      let initialized = false;
+
+      window.addEventListener("exdoc:loaded", () => {
+        if (!initialized) {
+          mermaid.initialize({
+            startOnLoad: false,
+            theme: document.body.className.includes("dark") ? "dark" : "default"
+          });
+          initialized = true;
+        }
+
+        let id = 0;
+        for (const codeEl of document.querySelectorAll("pre code.mermaid")) {
+          const preEl = codeEl.parentElement;
+          const graphDefinition = codeEl.textContent;
+          const graphEl = document.createElement("div");
+          const graphId = "mermaid-graph-" + id++;
+          mermaid.render(graphId, graphDefinition).then(({svg, bindFunctions}) => {
+            graphEl.innerHTML = svg;
+            bindFunctions?.(graphEl);
+            preEl.insertAdjacentElement("afterend", graphEl);
+            preEl.remove();
+          });
+        }
+      });
+    </script>
+    """
+  end
+
+  defp before_closing_body_tag(:epub), do: ""
 end

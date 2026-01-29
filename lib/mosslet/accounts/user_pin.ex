@@ -91,7 +91,7 @@ defmodule Mosslet.Accounts.UserPin do
 
   defp validation_status(%__MODULE__{} = user_pin, pin, allowed_attempts) do
     expired? =
-      Timex.diff(DateTime.utc_now(), user_pin.inserted_at, :minutes) >= @pin_validity_in_minutes
+      DateTime.diff(DateTime.utc_now(), user_pin.inserted_at, :minute) >= @pin_validity_in_minutes
 
     hashed_pin = get_hashed_pin(pin)
 

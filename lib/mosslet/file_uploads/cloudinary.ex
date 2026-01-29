@@ -141,7 +141,7 @@ defmodule Mosslet.FileUploads.Cloudinary do
   @spec current_time :: String.t()
   defp current_time do
     DateTime.utc_now()
-    |> Timex.to_unix()
+    |> DateTime.to_unix()
     |> round()
     |> Integer.to_string()
   end

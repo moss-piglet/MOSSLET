@@ -22,11 +22,10 @@ defmodule MossletWeb.Helpers do
   ## AWS (s3)
 
   def url_expired?(updated_at) do
-    duration = Timex.Duration.from_seconds(@url_expires_in)
-    expiration_time = Timex.shift(updated_at, seconds: duration.seconds)
-    offset_time = Timex.shift(expiration_time, seconds: -200)
+    expiration_time = DateTime.add(updated_at, @url_expires_in, :second)
+    offset_time = DateTime.add(expiration_time, -200, :second)
 
-    Timex.before?(offset_time, Timex.now())
+    DateTime.before?(offset_time, DateTime.utc_now())
   end
 
   def preview_url_expired?(url_preview_fetched_at) do
