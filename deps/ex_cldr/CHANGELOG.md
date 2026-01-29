@@ -2,6 +2,44 @@
 
 **Note that `ex_cldr` version 2.39.0 and later are supported on Elixir 1.12 and later only.**
 
+## Cldr v2.46.0
+
+This is the changelog for Cldr v2.46.0 released on January 20th, 2026.  For older changelogs please consult the release tag on [GitHub](https://github.com/elixir-cldr/cldr/tags)
+
+### Enhancements
+
+* Adds an exception `Cldr.InvalidCurrencyCode` to allow differentiation between invalid and unknown currency codes. This is primarily to support between currency validation in [ex_money](https://github.com/kipcole9/money).
+
+## Cldr v2.45.2
+
+This is the changelog for Cldr v2.45.2 released on January 19th, 2026.  For older changelogs please consult the release tag on [GitHub](https://github.com/elixir-cldr/cldr/tags)
+
+### Changes
+
+* Changes the default locale match distance from `50` to `54`. This means that a desired locale will match with a suported locale if the language matches - even if both the script and territory do not match. This matching algorithm is used when matching a requested locale to a known CLDR locale and a known Gettext locale. This change is very unlikely to affect the majority of users.
+
+## Cldr v2.45.1
+
+This is the changelog for Cldr v2.45.1 released on January 18th, 2026.  For older changelogs please consult the release tag on [GitHub](https://github.com/elixir-cldr/cldr/tags)
+
+### Bug Fixes
+
+* Fix `Cldr.Locale.cldr_locale_name/1` to pass through the backend to `Cldr.Locale.Match.best_match/2`.
+
+## Cldr v2.45.0
+
+This is the changelog for Cldr v2.45.0 released on January 18th, 2026.  For older changelogs please consult the release tag on [GitHub](https://github.com/elixir-cldr/cldr/tags)
+
+### Bug Fixes
+
+* Fix unsed `require` to remove warnings on Elixir 1.20.
+
+### Enhancements
+
+* Updates to [CLDR 48.1](https://cldr.unicode.org/downloads/cldr-48#481-changes) data.
+
+* Improves matching the desired locale name to an configured CLDR locale name by using `Cldr.Locale.Match.best_match/2` function. This better formalises the matching process and is compliant with the [CLDR locale matching specification](https://unicode.org/reports/tr35/tr35.html#LanguageMatching). The matching process is slower than the previous mechanism but more accurate and compliant (there is room for future performance optimization).  Configurations with a small number of locales should see no performance difference however raising an issue is encouraged if performance characteristics appear materially worse.
+
 ## Cldr v2.44.1
 
 This is the changelog for Cldr v2.44.1 released on November 13th, 2025.  For older changelogs please consult the release tag on [GitHub](https://github.com/elixir-cldr/cldr/tags)

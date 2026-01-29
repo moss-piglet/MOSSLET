@@ -69,7 +69,7 @@ jobs:
       - name: Get version
         id: version
         run: |
-          VERSION=$(grep '@version' mix.exs | sed 's/.*"\(.*\)".*/\1/')
+          VERSION=$(grep '@version "' mix.exs | head -1 | sed 's/.*"\(.*\)".*/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Install dependencies

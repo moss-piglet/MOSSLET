@@ -1,7 +1,7 @@
 defmodule Cldr.Mixfile do
   use Mix.Project
 
-  @version "2.44.1"
+  @version "2.46.0"
 
   def project do
     [
@@ -52,9 +52,15 @@ defmodule Cldr.Mixfile do
   end
 
   def application do
-    [
-      extra_applications: [:logger, :inets, :ssl]
-    ]
+    if Mix.env() == :dev do
+      [
+        extra_applications: [:logger, :inets, :ssl, :observer, :wx]
+      ]
+    else
+      [
+        extra_applications: [:logger, :inets, :ssl]
+      ]
+    end
   end
 
   defp deps do

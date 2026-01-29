@@ -2,9 +2,6 @@ defmodule Cldr.Currency.Backend do
   @moduledoc false
 
   def define_currency_module(config) do
-    require Cldr
-    require Cldr.Currency
-
     module = inspect(__MODULE__)
     backend = config.backend
     config = Macro.escape(config)
@@ -14,6 +11,8 @@ defmodule Cldr.Currency.Backend do
         unless Cldr.Config.include_module_docs?(config.generate_docs) do
           @moduledoc false
         end
+
+        alias Cldr.Currency
 
         @doc """
         Returns a `Currency` struct created from the arguments.
@@ -71,8 +70,8 @@ defmodule Cldr.Currency.Backend do
             {:error, {Cldr.CurrencyAlreadyDefined, "Currency :XAE is already defined."}}
 
         """
-        @spec new(Cldr.Currency.code(), map() | Keyword.t()) ::
-                {:ok, Cldr.Currency.t()} | {:error, {module(), String.t()}}
+        @spec new(Currency.currency_code(), map() | Keyword.t()) ::
+                {:ok, Currency.t()} | {:error, {module(), String.t()}}
 
         def new(currency, options \\ [])
 
@@ -137,7 +136,7 @@ defmodule Cldr.Currency.Backend do
             iex> #{inspect(__MODULE__)}.known_currency_codes()
 
         """
-        @spec known_currency_codes() :: [Cldr.Currency.code(), ...]
+        @spec known_currency_codes() :: [Currency.currency_code(), ...]
         def known_currency_codes do
           Cldr.Currency.known_currency_codes()
         end
@@ -169,7 +168,7 @@ defmodule Cldr.Currency.Backend do
             false
 
         """
-        @spec known_currency_code?(Cldr.Currency.code()) :: boolean
+        @spec known_currency_code?(Currency.currency_code()) :: boolean
         def known_currency_code?(currency_code) do
           Cldr.Currency.known_currency_code?(currency_code)
         end
@@ -197,8 +196,8 @@ defmodule Cldr.Currency.Backend do
             {:error, {Cldr.UnknownCurrencyError, "The currency \\"GGG\\" is invalid"}}
 
         """
-        @spec known_currency_code(Cldr.Currency.code()) ::
-                {:ok, Cldr.Currency.code()} | {:error, {module, String.t()}}
+        @spec known_currency_code(Currency.currency_code()) ::
+                {:ok, Currency.currency_code()} | {:error, {module, String.t()}}
 
         def known_currency_code(currency_code) do
           Cldr.Currency.known_currency_code(currency_code)
@@ -296,8 +295,8 @@ defmodule Cldr.Currency.Backend do
             }}
 
         """
-        @spec currency_for_code(Cldr.Currency.code() | Cldr.Currency.t(), Keyword.t()) ::
-                {:ok, Cldr.Currency.t()} | {:error, {module(), String.t()}}
+        @spec currency_for_code(Currency.currency_code() | Currency.t(), Keyword.t()) ::
+                {:ok, Currency.t()} | {:error, {module(), String.t()}}
 
         def currency_for_code(
               currency_or_currency_code,
@@ -360,8 +359,8 @@ defmodule Cldr.Currency.Backend do
         """
         @doc since: "2.14.0"
 
-        @spec currency_for_code!(Cldr.Currency.code() | Cldr.Currency.t(), Keyword.t()) ::
-                Cldr.Currency.t() | no_return()
+        @spec currency_for_code!(Currency.currency_code() | Currency.t(), Keyword.t()) ::
+                Currency.t() | no_return()
 
         def currency_for_code!(
               currency_or_currency_code,
@@ -610,7 +609,7 @@ defmodule Cldr.Currency.Backend do
         @doc since: "2.15.0"
 
         @spec current_territory_currencies() :: %{
-                Cldr.Locale.territory_code() => Cldr.Currency.code()
+                Cldr.Locale.territory_code() => Currency.currency_code()
               }
         def current_territory_currencies do
           Cldr.Currency.current_territory_currencies()

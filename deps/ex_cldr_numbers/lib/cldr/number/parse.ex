@@ -364,7 +364,7 @@ defmodule Cldr.Number.Parser do
 
   """
   @spec resolve_currencies([String.t(), ...], Keyword.t()) ::
-          list(Cldr.Currency.code() | String.t())
+          list(Cldr.Currency.currency_code() | String.t())
 
   def resolve_currencies(list, options \\ []) when is_list(list) and is_list(options) do
     resolve(list, &resolve_currency/2, options)
@@ -580,8 +580,8 @@ defmodule Cldr.Number.Parser do
 
   """
   @spec resolve_currency(String.t(), Keyword.t()) ::
-          Cldr.Currency.code()
-          | list(Cldr.Currency.code() | String.t())
+          Cldr.Currency.currency_code()
+          | list(Cldr.Currency.currency_code() | String.t())
           | {:error, {module(), String.t()}}
 
   def resolve_currency(string, options \\ []) when is_binary(string) do
@@ -881,7 +881,7 @@ defmodule Cldr.Number.Parser do
           ["", search]
         else
           match_length = match_length + :erlang.byte_size(whitespace)
-          <<_::binary-size(match_length), remainder::binary>> = search
+          <<_::binary-size(^match_length), remainder::binary>> = search
           [code, remainder]
         end
     end
@@ -905,7 +905,7 @@ defmodule Cldr.Number.Parser do
           [search, ""]
         else
           match = :erlang.byte_size(trimmed) - match_length
-          <<remainder::binary-size(match), _rest::binary>> = search
+          <<remainder::binary-size(^match), _rest::binary>> = search
           [remainder, code]
         end
     end

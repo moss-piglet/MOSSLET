@@ -259,8 +259,6 @@ defmodule Cldr.Http do
   end
 
   def get_with_headers({url, headers}, options) when is_binary(url) and is_list(headers) and is_list(options) do
-    require Logger
-
     hostname = String.to_charlist(URI.parse(url).host)
     url = String.to_charlist(url)
     http_options = http_opts(hostname, options)
@@ -311,14 +309,6 @@ defmodule Cldr.Http do
 
         {:error, :nxdomain}
 
-      {:error, {other}} ->
-        Logger.bare_log(
-          :error,
-          "Failed to download #{inspect url}. Error #{inspect other}"
-        )
-
-        {:error, other}
-
       {:error, :timeout} ->
         Logger.bare_log(
           :error,
@@ -326,6 +316,14 @@ defmodule Cldr.Http do
           "Request exceeded #{http_options[:timeout]}ms."
         )
         {:error, :timeout}
+
+      {:error, other} ->
+        Logger.bare_log(
+          :error,
+          "Failed to download #{inspect url}. Error #{inspect other}"
+        )
+
+        {:error, other}
     end
   end
 
@@ -352,7 +350,7 @@ defmodule Cldr.Http do
     "/etc/ssl/cert.pem"
   ]
 
-  defp dynamic_certificate_locations do
+  def dynamic_certificate_locations do
     [
       # Configured cacertfile
       Application.get_env(:ex_cldr, :cacertfile),
@@ -366,16 +364,18 @@ defmodule Cldr.Http do
     |> Enum.reject(&is_nil/1)
   end
 
+  @doc """
+  Return the possible locations of a certificate file.
+  """
   def certificate_locations() do
     dynamic_certificate_locations() ++ @static_certificate_locations
   end
 
   @doc false
-  defp certificate_store do
+  def certificate_store do
     certificate_locations()
     |> Enum.find(&File.exists?/1)
-    |> raise_if_no_cacertfile!
-    |> :erlang.binary_to_list()
+    |> raise_if_no_cacertfile!()
   end
 
   defp raise_if_no_cacertfile!(nil) do
