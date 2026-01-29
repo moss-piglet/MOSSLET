@@ -82,10 +82,10 @@ jobs:
         uses: actions/cache@v4
         id: cache-deps
         with:
-          path: deps
-          key: deps-v2-${{ runner.os }}-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            deps-v2-${{ runner.os }}-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-
+          path: |
+            deps
+            _build
+          key: deps-v3-${{ runner.os }}-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-${{ hashFiles('**/mix.lock') }}
 
       # Install dependencies
       - name: Get dependencies
@@ -97,7 +97,6 @@ jobs:
       # Compile dependencies
       - name: Compile dependencies
         run: |
-          mix deps.clean ex_cldr --build
           mix deps.compile
 
       # Compile project
