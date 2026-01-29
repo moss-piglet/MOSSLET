@@ -6717,6 +6717,7 @@ defmodule MossletWeb.DesignSystem do
               id={"share-button-#{@post.id}"}
               icon_id={"share-icon-#{@post.id}"}
               count={Map.get(@stats, :shares, 0)}
+              soft_text="People are sharing"
               label="Share"
               color="emerald"
               repost_post_id={@post.id}
@@ -6733,6 +6734,7 @@ defmodule MossletWeb.DesignSystem do
               id={"share-button-disabled-#{@post.id}"}
               icon_id={"share-icon-disabled-#{@post.id}"}
               count={Map.get(@stats, :shares, 0)}
+              soft_text="People are sharing"
               label="Share"
               color="emerald"
               repost_post_id={@post.id}
@@ -6746,10 +6748,11 @@ defmodule MossletWeb.DesignSystem do
             />
             <.liquid_timeline_action
               :if={!@can_repost && @post.user_id != @current_scope.user.id}
-              icon="hero-paper-airplane"
+              icon="hero-paper-airplane-solid"
               id={"share-button-disabled-#{@post.id}"}
               icon_id={"share-icon-disabled-#{@post.id}"}
               count={Map.get(@stats, :shares, 0)}
+              soft_text="You shared"
               label="Share"
               color="emerald"
               repost_post_id={@post.id}

@@ -2900,7 +2900,7 @@ defmodule MossletWeb.Helpers do
   - If no likes: nil
   """
   def soft_like_text(0, _liked), do: nil
-  def soft_like_text(_count, true), do: "You appreciate this"
-  def soft_like_text(_count, false), do: "People appreciate this"
+  def soft_like_text(_count, true), do: "You appreciate"
+  def soft_like_text(_count, false), do: "People appreciate"
   def soft_like_text(count), do: soft_like_text(count, false)
 end

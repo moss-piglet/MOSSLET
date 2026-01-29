@@ -407,9 +407,9 @@ function softLikeText(count, isLiked) {
     return "";
   } else if (count >= 1) {
     if (isLiked) {
-      return "You appreciate this";
+      return "You appreciate";
     } else {
-      return "People appreciate this";
+      return "People appreciate";
     }
   } else {
     return "";
