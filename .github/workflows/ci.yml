@@ -85,7 +85,7 @@ jobs:
           path: |
             deps
             _build
-          key: deps-v4-${{ runner.os }}-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-${{ hashFiles('**/mix.lock') }}
+          key: deps-v5-${{ runner.os }}-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-${{ hashFiles('**/mix.lock') }}
 
       # Install dependencies
       - name: Get dependencies

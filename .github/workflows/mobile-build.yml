@@ -60,7 +60,7 @@ jobs:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-v4-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-mix-v5-${{ hashFiles('**/mix.lock') }}
 
       - name: Get version
         id: version

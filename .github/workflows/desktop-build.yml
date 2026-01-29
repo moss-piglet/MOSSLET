@@ -43,7 +43,7 @@ jobs:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-deps-v4-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-deps-v5-${{ hashFiles('**/mix.lock') }}
 
       - name: Install Elixir dependencies
         run: |
@@ -124,7 +124,7 @@ jobs:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-deps-v4-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-deps-v5-${{ hashFiles('**/mix.lock') }}
 
       - name: Install Elixir dependencies
         run: |
@@ -174,7 +174,7 @@ jobs:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-deps-v4-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-deps-v5-${{ hashFiles('**/mix.lock') }}
 
       - name: Install Elixir dependencies
         shell: msys2 {0}
