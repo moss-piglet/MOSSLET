@@ -3,19 +3,19 @@ name: Desktop Build
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
     inputs:
       platforms:
-        description: 'Platforms to build (comma-separated: macos,linux,windows)'
-        default: 'macos,linux,windows'
+        description: "Platforms to build (comma-separated: macos,linux,windows)"
+        default: "macos,linux,windows"
       release:
-        description: 'Create GitHub release'
+        description: "Create GitHub release"
         type: boolean
         default: false
 
 env:
-  MOSSLET_NATIVE: 'true'
+  MOSSLET_NATIVE: "true"
   MIX_ENV: prod
 
 jobs:
@@ -34,8 +34,8 @@ jobs:
       - name: Setup Erlang/Elixir
         uses: erlef/setup-beam@v1
         with:
-          otp-version: '28'
-          elixir-version: '1.19'
+          otp-version: "28"
+          elixir-version: "1.19"
 
       - name: Cache deps
         uses: actions/cache@v4
@@ -115,8 +115,8 @@ jobs:
       - name: Setup Erlang/Elixir
         uses: erlef/setup-beam@v1
         with:
-          otp-version: '28'
-          elixir-version: '1.19'
+          otp-version: "28"
+          elixir-version: "1.19"
 
       - name: Cache deps
         uses: actions/cache@v4
@@ -165,20 +165,21 @@ jobs:
       - name: Setup Erlang/Elixir
         uses: erlef/setup-beam@v1
         with:
-          otp-version: '28'
-          elixir-version: '1.19'
+          otp-version: "28"
+          elixir-version: "1.19"
 
       - name: Cache deps
         uses: actions/cache@v4
         with:
-          path: deps
-          key: ${{ runner.os }}-deps-v2-${{ hashFiles('**/mix.lock') }}
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-deps-v3-${{ hashFiles('**/mix.lock') }}
 
       - name: Install Elixir dependencies
         shell: msys2 {0}
         run: |
           mix deps.get --only prod
-          mix deps.compile --skip-umbrella-children ex_cldr --force
           mix deps.compile
           mix assets.deploy
 

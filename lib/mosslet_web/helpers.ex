@@ -264,15 +264,15 @@ defmodule MossletWeb.Helpers do
 
   ## Numbers
 
-  def number_to_string(number) do
-    case Mosslet.Cldr.Number.to_string(number) do
-      {:ok, string} ->
-        string
-
-      _rest ->
-        nil
-    end
+  def number_to_string(number) when is_integer(number) do
+    Number.Delimit.number_to_delimited(number)
   end
+
+  def number_to_string(number) when is_float(number) do
+    Number.Delimit.number_to_delimited(number)
+  end
+
+  def number_to_string(number), do: to_string(number)
 
   ## Conversations
 
