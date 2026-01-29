@@ -165,6 +165,7 @@ defmodule Mosslet.MixProject do
       {:nx, "~> 0.9"},
       {:oban, "~> 2.17"},
       {:oban_web, "~> 2.11"},
+      {:password, "~> 1.1"},
       {:oban_met, "~> 1.0"},
       {:petal_components, "~> 3.0"},
       {:phoenix, "~> 1.8"},

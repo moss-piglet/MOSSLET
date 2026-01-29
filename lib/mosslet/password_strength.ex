@@ -4,7 +4,7 @@ defmodule Mosslet.PasswordStrength do
   Detects common passwords, keyboard patterns, sequences, repeats, and l33tspeak.
   """
 
-  @common_passwords MapSet.new(~w(
+  @basic_common_passwords MapSet.new(~w(
     password 123456 12345678 qwerty abc123 monkey 1234567 letmein trustno1
     dragon baseball iloveyou master sunshine ashley fuckme 123123 654321
     michael shadow 123456789 password1 password123 password12 admin admin123
@@ -140,17 +140,23 @@ defmodule Mosslet.PasswordStrength do
   end
 
   defp exact_common_password_match(password) do
-    if MapSet.member?(@common_passwords, password) do
+    if common_password?(password) do
       {10, :common_password}
     else
       {:infinity, nil}
     end
   end
 
+  defp common_password?(password) do
+    MapSet.member?(@basic_common_passwords, password) ||
+      Password.Policy.CommonPasswords.validate(password, []) ==
+        {:error, Password.Policy.CommonPasswords}
+  end
+
   defp common_password_variation_match(password) do
     base = extract_base_password(password)
 
-    if MapSet.member?(@common_passwords, base) do
+    if common_password?(base) do
       suffix_guesses = calculate_suffix_guesses(password, base)
       {100 * suffix_guesses, :common_variation}
     else
@@ -434,12 +440,12 @@ defmodule Mosslet.PasswordStrength do
     decoded = decode_l33tspeak(password)
 
     if decoded != password do
-      if MapSet.member?(@common_passwords, decoded) do
+      if common_password?(decoded) do
         {1_000, :l33tspeak}
       else
         base = extract_base_password(decoded)
 
-        if MapSet.member?(@common_passwords, base) do
+        if common_password?(base) do
           {10_000, :l33tspeak_variation}
         else
           {:infinity, nil}
@@ -506,7 +512,7 @@ defmodule Mosslet.PasswordStrength do
     word_lower = String.downcase(word)
 
     cond do
-      MapSet.member?(@common_passwords, word_lower) -> 10
+      common_password?(word_lower) -> 10
       MapSet.member?(@common_words, word_lower) -> 5_000
       String.length(word) <= 4 -> :math.pow(26, String.length(word))
       true -> :math.pow(26, String.length(word)) / 10
