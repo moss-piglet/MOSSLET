@@ -92,10 +92,10 @@ jobs:
           mix local.hex --force
           mix deps.get
 
-      # Compile dependencies
+      # Compile dependencies (limit parallelism to avoid race conditions)
       - name: Compile dependencies
         env:
-          ERL_COMPILER_OPTIONS: deterministic
+          ELIXIR_ERL_OPTIONS: "+S 1:1"
         run: |
           mix deps.compile
 

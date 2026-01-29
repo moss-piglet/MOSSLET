@@ -45,7 +45,7 @@ jobs:
 
       - name: Install Elixir dependencies
         env:
-          ERL_COMPILER_OPTIONS: deterministic
+          ELIXIR_ERL_OPTIONS: "+S 1:1"
         run: |
           mix deps.get --only prod
           mix deps.compile
@@ -126,7 +126,7 @@ jobs:
 
       - name: Install Elixir dependencies
         env:
-          ERL_COMPILER_OPTIONS: deterministic
+          ELIXIR_ERL_OPTIONS: "+S 1:1"
         run: |
           mix deps.get --only prod
           mix deps.compile
