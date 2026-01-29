@@ -46,7 +46,7 @@ jobs:
       - name: Install Elixir dependencies
         run: |
           mix deps.get --only prod
-          mix deps.compile --skip-umbrella-children ex_cldr --force
+          mix deps.clean ex_cldr --build
           mix deps.compile
           mix assets.deploy
 
@@ -126,7 +126,7 @@ jobs:
       - name: Install Elixir dependencies
         run: |
           mix deps.get --only prod
-          mix deps.compile --skip-umbrella-children ex_cldr --force
+          mix deps.clean ex_cldr --build
           mix deps.compile
           mix assets.deploy
 

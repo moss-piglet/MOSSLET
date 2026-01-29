@@ -80,7 +80,7 @@ jobs:
 
       - name: Compile
         run: |
-          MIX_TARGET=native MIX_ENV=prod mix deps.compile --skip-umbrella-children ex_cldr --force
+          MIX_TARGET=native MIX_ENV=prod mix deps.clean ex_cldr --build
           MIX_TARGET=native MIX_ENV=prod mix compile
 
       - name: Build assets
