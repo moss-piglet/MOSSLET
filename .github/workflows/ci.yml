@@ -96,7 +96,9 @@ jobs:
 
       # Compile dependencies
       - name: Compile dependencies
-        run: mix deps.compile
+        run: |
+          mix deps.compile --skip-umbrella-children ex_cldr --force
+          mix deps.compile
 
       # Compile project
       - name: Compile project

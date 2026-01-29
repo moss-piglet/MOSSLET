@@ -79,7 +79,9 @@ jobs:
           MIX_TARGET=native mix deps.get
 
       - name: Compile
-        run: MIX_TARGET=native MIX_ENV=prod mix compile
+        run: |
+          MIX_TARGET=native MIX_ENV=prod mix deps.compile --skip-umbrella-children ex_cldr --force
+          MIX_TARGET=native MIX_ENV=prod mix compile
 
       - name: Build assets
         run: |
