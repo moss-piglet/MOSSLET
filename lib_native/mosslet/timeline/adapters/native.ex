@@ -1193,16 +1193,73 @@ defmodule Mosslet.Timeline.Adapters.Native do
   # =============================================================================
 
   @impl true
-  def post_exists_by_external_uri?(_uri, _bluesky_account_id) do
+  def post_exists_by_external_uri?(uri, bluesky_account_id) do
     token = get_token()
 
     if Sync.online?() && token do
-      case Client.post_exists_by_external_uri?(token, _uri, _bluesky_account_id) do
+      case Client.post_exists_by_external_uri?(token, uri, bluesky_account_id) do
         {:ok, %{exists: exists}} -> exists
         {:error, _reason} -> false
       end
     else
       false
+    end
+  end
+
+  @impl true
+  def get_post_by_external_uri(uri, bluesky_account_id) do
+    token = get_token()
+
+    if Sync.online?() && token do
+      case Client.get_post_by_external_uri(token, uri, bluesky_account_id) do
+        {:ok, %{post: post_data}} when not is_nil(post_data) -> deserialize_post(post_data)
+        {:ok, %{post: nil}} -> nil
+        {:error, _reason} -> nil
+      end
+    else
+      nil
+    end
+  end
+
+  @impl true
+  def mark_bluesky_link_verified(post) do
+    token = get_token()
+
+    if Sync.online?() && token do
+      case Client.mark_bluesky_link_verified(token, post.id) do
+        {:ok, %{post: post_data}} -> {:ok, deserialize_post(post_data)}
+        {:error, reason} -> {:error, Ecto.Changeset.change(post) |> Ecto.Changeset.add_error(:base, "#{reason}")}
+      end
+    else
+      {:error, Ecto.Changeset.change(post) |> Ecto.Changeset.add_error(:base, "Offline - operation requires network")}
+    end
+  end
+
+  @impl true
+  def mark_bluesky_link_unverified(post) do
+    token = get_token()
+
+    if Sync.online?() && token do
+      case Client.mark_bluesky_link_unverified(token, post.id) do
+        {:ok, %{post: post_data}} -> {:ok, deserialize_post(post_data)}
+        {:error, reason} -> {:error, Ecto.Changeset.change(post) |> Ecto.Changeset.add_error(:base, "#{reason}")}
+      end
+    else
+      {:error, Ecto.Changeset.change(post) |> Ecto.Changeset.add_error(:base, "Offline - operation requires network")}
+    end
+  end
+
+  @impl true
+  def remove_shared_user_and_add_to_removed(post, user_to_remove, user_removing) do
+    token = get_token()
+
+    if Sync.online?() && token do
+      case Client.remove_shared_user_from_post(token, post.id, user_to_remove.id, user_removing.id) do
+        {:ok, %{post: post_data}} -> {:ok, deserialize_post(post_data)}
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      {:error, "Offline - operation requires network"}
     end
   end
 

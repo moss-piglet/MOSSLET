@@ -312,6 +312,66 @@ defmodule Mosslet.GroupMessages.Adapters.Native do
 
   defp parse_naive_datetime(dt), do: dt
 
+  @impl true
+  def get_next_message_after(message) do
+    if Sync.online?() do
+      with {:ok, token} <- NativeSession.get_token(),\
+           {:ok, %{"message" => message_data}} <-
+             Client.get_next_group_message_after(token, message.id) do
+        if message_data do
+          cache_message(message_data)
+          deserialize_message(message_data)
+        else
+          nil
+        end
+      else
+        _ -> nil
+      end
+    else
+      nil
+    end
+  end
+
+  @impl true
+  def get_previous_message_before(message) do
+    if Sync.online?() do
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{"message" => message_data}} <-
+             Client.get_previous_group_message_before(token, message.id) do
+        if message_data do
+          cache_message(message_data)
+          deserialize_message(message_data)
+        else
+          nil
+        end
+      else
+        _ -> nil
+      end
+    else
+      nil
+    end
+  end
+
+  @impl true
+  def get_last_message_for_group(group_id) do
+    if Sync.online?() do
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{"message" => message_data}} <-
+             Client.get_last_group_message(token, group_id) do
+        if message_data do
+          cache_message(message_data)
+          deserialize_message(message_data)
+        else
+          nil
+        end
+      else
+        _ -> nil
+      end
+    else
+      nil
+    end
+  end
+
   defp build_changeset_errors(errors) when is_map(errors) do
     Enum.reduce(errors, Ecto.Changeset.change(%GroupMessage{}), fn {field, messages}, changeset ->
       field_atom = if is_binary(field), do: String.to_existing_atom(field), else: field

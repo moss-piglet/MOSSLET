@@ -42,7 +42,7 @@ if Code.ensure_loaded?(Desktop.Window) do
 
     defp base_url do
       {:ok, {_ip, port}} = MossletWeb.Endpoint.server_info(:http)
-      "http://localhost:#{port}"
+      "http://localhost:#{port}/users/log-in"
     end
 
     defp icon_path do

@@ -60,18 +60,14 @@ defmodule Mosslet.MixProject do
   end
 
   defp desktop_deps do
-    cond do
-      native_build?() ->
-        [
-          {:desktop, github: "elixir-desktop/desktop"},
-          {:ecto_sqlite3, "~> 0.22.0"}
-        ]
-
-      Mix.env() == :test ->
-        [{:desktop, github: "elixir-desktop/desktop"}]
-
-      true ->
-        []
+    if native_build?() do
+      [
+        {:desktop, github: "elixir-desktop/desktop"},
+        {:ecto_sqlite3, "~> 0.22.0"},
+        {:igniter, "~> 0.7", runtime: false}
+      ]
+    else
+      []
     end
   end
 

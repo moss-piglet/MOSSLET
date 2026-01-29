@@ -263,6 +263,7 @@ if System.get_env("MOSSLET_NATIVE") == "true" do
 
   config :mosslet, Mosslet.Repo.SQLite,
     database: Mosslet.Platform.Config.sqlite_database_path(),
+    priv: "priv/repo_sqlite",
     pool_size: 5,
     journal_mode: :wal,
     cache_size: -64_000,

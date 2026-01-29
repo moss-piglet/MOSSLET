@@ -1472,4 +1472,71 @@ defmodule Mosslet.API.Client do
       auth: token
     )
   end
+
+  # Missing API endpoints for native adapters
+
+  # GroupMessages
+  def get_next_group_message_after(token, message_id) do
+    request(:get, "/api/group-messages/#{message_id}/next", %{}, auth: token)
+  end
+
+  def get_previous_group_message_before(token, message_id) do
+    request(:get, "/api/group-messages/#{message_id}/previous", %{}, auth: token)
+  end
+
+  def get_last_group_message(token, group_id) do
+    request(:get, "/api/groups/#{group_id}/messages/last", %{}, auth: token)
+  end
+
+  # Journal
+  def update_journal_book_positions(token, params) do
+    request(:put, "/api/journal/books/positions", params, auth: token)
+  end
+
+  def update_journal_privacy(token, enabled) do
+    request(:put, "/api/users/journal-privacy", %{enabled: enabled}, auth: token)
+  end
+
+  # Accounts
+  def delete_all_journals(token, user_id) do
+    request(:delete, "/api/users/#{user_id}/journals", %{}, auth: token)
+  end
+
+  def update_mood_insights_enabled(token, enabled) do
+    request(:put, "/api/users/mood-insights", %{enabled: enabled}, auth: token)
+  end
+
+  def update_user_mention_email_received_at(token, timestamp) do
+    request(:put, "/api/users/mention-email-received-at", %{timestamp: timestamp}, auth: token)
+  end
+
+  # Timeline / Bluesky
+  def post_exists_by_external_uri?(token, uri, bluesky_account_id) do
+    request(
+      :get,
+      "/api/posts/exists-by-external-uri",
+      %{uri: uri, bluesky_account_id: bluesky_account_id}, auth: token)
+  end
+
+  def get_post_by_external_uri(token, uri, bluesky_account_id) do
+    request(
+      :get,
+      "/api/posts/by-external-uri",
+      %{uri: uri, bluesky_account_id: bluesky_account_id}, auth: token)
+  end
+
+  def mark_bluesky_link_verified(token, post_id) do
+    request(:post, "/api/posts/#{post_id}/bluesky-link/verify", %{}, auth: token)
+  end
+
+  def mark_bluesky_link_unverified(token, post_id) do
+    request(:post, "/api/posts/#{post_id}/bluesky-link/unverify", %{}, auth: token)
+  end
+
+  def remove_shared_user_from_post(token, post_id, user_to_remove_id, user_removing_id) do
+    request(
+      :post,
+      "/api/posts/#{post_id}/remove-shared-user",
+      %{user_to_remove_id: user_to_remove_id, user_removing_id: user_removing_id}, auth: token)
+  end
 end

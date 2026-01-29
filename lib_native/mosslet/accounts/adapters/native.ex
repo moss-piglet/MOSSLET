@@ -2211,6 +2211,54 @@ defmodule Mosslet.Accounts.Adapters.Native do
     end
   end
 
+  @impl true
+  def delete_all_journals(user_id) do
+    if Sync.online?() do
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, _} <- Client.delete_all_journals(token, user_id) do
+        {:ok, :deleted}
+      else
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      {:error, "Offline - journal deletion requires network"}
+    end
+  end
+
+  @impl true
+  def update_mood_insights_enabled(user, enabled) when is_boolean(enabled) do
+    if Sync.online?() do
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data}} <-
+             Client.update_mood_insights_enabled(token, enabled) do
+        cache_user(user_data)
+        {:ok, deserialize_user(user_data)}
+      else
+        {:error, {_status, error}} -> {:error, Ecto.Changeset.change(user) |> Ecto.Changeset.add_error(:base, "#{error}")}
+        {:error, reason} -> {:error, Ecto.Changeset.change(user) |> Ecto.Changeset.add_error(:base, "#{reason}")}
+      end
+    else
+      {:error, Ecto.Changeset.change(user) |> Ecto.Changeset.add_error(:base, "Offline - update requires network")}
+    end
+  end
+
+  @impl true
+  def update_user_mention_email_received_at(user, timestamp) do
+    if Sync.online?() do
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data}} <-
+             Client.update_user_mention_email_received_at(token, timestamp) do
+        cache_user(user_data)
+        {:ok, deserialize_user(user_data)}
+      else
+        {:error, {_status, error}} -> {:error, Ecto.Changeset.change(user) |> Ecto.Changeset.add_error(:base, "#{error}")}
+        {:error, reason} -> {:error, Ecto.Changeset.change(user) |> Ecto.Changeset.add_error(:base, "#{reason}")}
+      end
+    else
+      {:error, Ecto.Changeset.change(user) |> Ecto.Changeset.add_error(:base, "Offline - update requires network")}
+    end
+  end
+
   defp deserialize_memory(data) when is_map(data) do
     struct(Mosslet.Memories.Memory, atomize_keys(data))
   rescue

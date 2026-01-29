@@ -134,6 +134,14 @@ defmodule Mosslet.Journal.Adapters.Native do
     end
   end
 
+  @impl true
+  def update_book_positions(_user, positions) do
+    case Client.update_journal_book_positions(get_token(), %{positions: positions}) do
+      {:ok, _} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
   # =====================
   # Entry Functions
   # =====================
