@@ -98,7 +98,6 @@ jobs:
       - name: Compile dependencies
         run: |
           mix deps.compile
-          mix deps.compile postgrex --force
 
       # Compile project
       - name: Compile project

@@ -119,10 +119,10 @@ defmodule Postgrex do
     * `:idle_interval` - Ping connections after a period of inactivity in milliseconds.
       Defaults to 1000ms;
 
-    * `:ssl` - Enables SSL. Set to:
-       - false (default): no SSL.
-       - true: enable SSL with secure defaults, including peer certificate verification and hostname checking.
-       - keyword list of `t::ssl.tls_client_option()/0` values: enable SSL and merge your options on top of secure defaults.
+    * `:ssl` - Enables SSL. Setting it to `true` enables SSL without server certificate verification,
+      which emits a warning. Instead, prefer to set it to a keyword list, with either
+      `:cacerts` or `:cacertfile` set to a CA trust store, to enable server certificate
+      verification. Defaults to `false`;
 
     * `:socket_options` - Options to be given to the underlying socket
       (applies to both TCP and UNIX sockets);
@@ -200,11 +200,11 @@ defmodule Postgrex do
 
   ## PgBouncer
 
-  PgBouncer versions 1.21.0 and later support named prepared statements. If you are using an
-  older version of PgBouncer with transaction or statement pooling, named prepared queries
-  cannot be used because the bouncer may route requests from the same Postgrex connection
-  to different PostgreSQL backend processes and discards named queries after the transaction closes.
-  To force unnamed prepared queries in such older versions, set the `:prepare` option to `:unnamed`.
+  When using PgBouncer with transaction or statement pooling named prepared
+  queries can not be used because the bouncer may route requests from
+  the same postgrex connection to different PostgreSQL backend processes
+  and discards named queries after the transactions closes.
+  To force unnamed prepared queries set the `:prepare` option to `:unnamed`.
 
   ## Handling failover
 
