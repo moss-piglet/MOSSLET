@@ -61,4 +61,4 @@ priv/static/images/about/.DS_Store
 
 # dialyzer plt files to ignore
 /priv/plts/*.plt
-/priv/plts/*.plt.hash
+/priv/plts/*.plt.hash.envrc

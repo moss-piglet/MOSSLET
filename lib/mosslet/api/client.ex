@@ -1515,14 +1515,18 @@ defmodule Mosslet.API.Client do
     request(
       :get,
       "/api/posts/exists-by-external-uri",
-      %{uri: uri, bluesky_account_id: bluesky_account_id}, auth: token)
+      %{uri: uri, bluesky_account_id: bluesky_account_id},
+      auth: token
+    )
   end
 
   def get_post_by_external_uri(token, uri, bluesky_account_id) do
     request(
       :get,
       "/api/posts/by-external-uri",
-      %{uri: uri, bluesky_account_id: bluesky_account_id}, auth: token)
+      %{uri: uri, bluesky_account_id: bluesky_account_id},
+      auth: token
+    )
   end
 
   def mark_bluesky_link_verified(token, post_id) do
@@ -1537,6 +1541,8 @@ defmodule Mosslet.API.Client do
     request(
       :post,
       "/api/posts/#{post_id}/remove-shared-user",
-      %{user_to_remove_id: user_to_remove_id, user_removing_id: user_removing_id}, auth: token)
+      %{user_to_remove_id: user_to_remove_id, user_removing_id: user_removing_id},
+      auth: token
+    )
   end
 end

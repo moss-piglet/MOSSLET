@@ -37,8 +37,32 @@ defmodule Mosslet.MixProject do
         ],
         strip_beams: [keep: ["Docs"]],
         cookie: "mosslet_mobile_#{@version}"
+      ],
+      desktop: [
+        include_executables_for: [:unix, :windows],
+        applications: [
+          runtime_tools: :permanent,
+          mosslet: :permanent,
+          wx: :permanent
+        ],
+        strip_beams: [keep: ["Docs"]],
+        cookie: "mosslet_desktop_#{@version}",
+        steps: [:assemble, &copy_desktop_assets/1]
       ]
     ]
+  end
+
+  defp copy_desktop_assets(release) do
+    priv_path = Path.join(release.path, "lib/mosslet-#{@version}/priv")
+    icons_src = Path.join(File.cwd!(), "priv/static/images")
+    icons_dest = Path.join(priv_path, "static/images")
+    File.mkdir_p!(icons_dest)
+
+    if File.exists?(Path.join(icons_src, "icon.png")) do
+      File.cp!(Path.join(icons_src, "icon.png"), Path.join(icons_dest, "icon.png"))
+    end
+
+    release
   end
 
   def application do
