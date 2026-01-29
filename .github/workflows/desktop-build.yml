@@ -20,7 +20,7 @@ env:
 
 jobs:
   build-macos:
-    runs-on: macos-latest
+    runs-on: macos-14
     if: contains(github.event.inputs.platforms || 'macos,linux,windows', 'macos')
     steps:
       - uses: actions/checkout@v4
@@ -31,8 +31,8 @@ jobs:
       - name: Setup Erlang/Elixir
         uses: erlef/setup-beam@v1
         with:
-          otp-version: '27.0'
-          elixir-version: '1.17'
+          otp-version: '28'
+          elixir-version: '1.19'
 
       - name: Cache deps
         uses: actions/cache@v4
@@ -92,7 +92,7 @@ jobs:
             _build/desktop/*.zip
 
   build-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: contains(github.event.inputs.platforms || 'macos,linux,windows', 'linux')
     steps:
       - uses: actions/checkout@v4
@@ -100,7 +100,7 @@ jobs:
       - name: Install wxWidgets
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwxgtk3.0-gtk3-dev libwxgtk-webview3.0-gtk3-dev
+          sudo apt-get install -y libwxgtk3.2-dev libwxgtk-webview3.2-dev
 
       - name: Install appimagetool
         run: |
@@ -111,8 +111,8 @@ jobs:
       - name: Setup Erlang/Elixir
         uses: erlef/setup-beam@v1
         with:
-          otp-version: '27.0'
-          elixir-version: '1.17'
+          otp-version: '28'
+          elixir-version: '1.19'
 
       - name: Cache deps
         uses: actions/cache@v4
@@ -142,7 +142,7 @@ jobs:
             _build/desktop/*.tar.gz
 
   build-windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
     if: contains(github.event.inputs.platforms || 'macos,linux,windows', 'windows')
     steps:
       - uses: actions/checkout@v4
@@ -150,8 +150,8 @@ jobs:
       - name: Setup Erlang/Elixir
         uses: erlef/setup-beam@v1
         with:
-          otp-version: '27.0'
-          elixir-version: '1.17'
+          otp-version: '28'
+          elixir-version: '1.19'
 
       - name: Cache deps
         uses: actions/cache@v4
