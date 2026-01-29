@@ -203,8 +203,7 @@ defmodule Mosslet.MixProject do
       {:ueberauth_google, "~> 0.10"},
       {:ueberauth_github, "~> 0.7"},
       {:wallaby, "~> 0.30", runtime: false, only: :test},
-      {:yaml_elixir, "~> 2.9.0"},
-      {:zxcvbn, "~> 0.3.0"}
+      {:yaml_elixir, "~> 2.9.0"}
     ]
   end
 

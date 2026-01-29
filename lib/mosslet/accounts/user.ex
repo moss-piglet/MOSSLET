@@ -3,7 +3,7 @@ defmodule Mosslet.Accounts.User do
   use Ecto.Schema
   import Ecto.Changeset
 
-  import ZXCVBN
+  alias Mosslet.PasswordStrength
 
   import Mosslet.Encrypted.Users.Utils
 
@@ -991,7 +991,7 @@ defmodule Mosslet.Accounts.User do
 
     if password != nil do
       password_strength =
-        zxcvbn(password, [
+        PasswordStrength.check(password, [
           get_change(changeset, :name),
           get_change(changeset, :username),
           get_change(changeset, :email)

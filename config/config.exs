@@ -393,9 +393,6 @@ config :email_checker,
   smtp_retries: 2,
   timeout_milliseconds: :infinity
 
-config :zxcvbn,
-  message_formatter: Mosslet.ZXCVBNMessageFormatter
-
 config :flop, repo: Mosslet.Repo.Local
 
 # Import environment specific config. This must remain at the bottom

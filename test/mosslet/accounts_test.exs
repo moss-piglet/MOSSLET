@@ -449,7 +449,7 @@ defmodule Mosslet.AccountsTest do
       assert %{
                password: [
                  "try putting an extra word, number, or dash",
-                 "may be cracked in less than a second to 1 hour",
+                 "may be cracked in less than a second to 2 hours",
                  "should be at least 12 character(s)"
                ],
                password_confirmation: ["does not match password"]
@@ -699,7 +699,7 @@ defmodule Mosslet.AccountsTest do
       assert %{
                password: [
                  "try putting an extra word, number, or dash",
-                 "may be cracked in less than a second to 1 hour",
+                 "may be cracked in less than a second to 2 hours",
                  "should be at least 12 character(s)"
                ],
                password_confirmation: ["does not match password"]
