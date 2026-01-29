@@ -198,7 +198,7 @@ jobs:
           retention-days: 30
 
       - name: Upload to TestFlight
-        if: (github.event.inputs.build_type == 'release' || github.event_name == 'push') && secrets.APP_STORE_CONNECT_API_KEY_ID != ''
+        if: (github.event.inputs.build_type == 'release' || github.event_name == 'push') && env.APP_STORE_CONNECT_API_KEY_ID != ''
         env:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
@@ -310,7 +310,9 @@ jobs:
           retention-days: 30
 
       - name: Upload to Play Store
-        if: (github.event.inputs.build_type == 'release' || github.event_name == 'push') && secrets.PLAY_SERVICE_ACCOUNT_JSON != ''
+        if: (github.event.inputs.build_type == 'release' || github.event_name == 'push') && env.PLAY_SERVICE_ACCOUNT_JSON != ''
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}

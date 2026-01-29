@@ -82,12 +82,10 @@ jobs:
         uses: actions/cache@v4
         id: cache-deps
         with:
-          path: |
-            deps
-            _build
-          key: deps-${{ runner.os }}-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-${{ hashFiles('**/mix.lock') }}
+          path: deps
+          key: deps-v2-${{ runner.os }}-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
-            deps-${{ runner.os }}-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-
+            deps-v2-${{ runner.os }}-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-
 
       # Install dependencies
       - name: Get dependencies
@@ -98,8 +96,11 @@ jobs:
 
       # Compile dependencies
       - name: Compile dependencies
-        if: steps.cache-deps.outputs.cache-hit != 'true'
         run: mix deps.compile
+
+      # Compile project
+      - name: Compile project
+        run: mix compile --warnings-as-errors
 
       # Check formatting
       - name: Check Formatting
