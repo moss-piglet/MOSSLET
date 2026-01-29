@@ -46,9 +46,10 @@ jobs:
           key: ${{ runner.os }}-deps-v5-${{ hashFiles('**/mix.lock') }}
 
       - name: Install Elixir dependencies
+        env:
+          ERL_COMPILER_OPTIONS: deterministic
         run: |
           mix deps.get --only prod
-          mix deps.clean postgrex --build
           mix deps.compile
           mix assets.deploy
 
@@ -128,9 +129,10 @@ jobs:
           key: ${{ runner.os }}-deps-v5-${{ hashFiles('**/mix.lock') }}
 
       - name: Install Elixir dependencies
+        env:
+          ERL_COMPILER_OPTIONS: deterministic
         run: |
           mix deps.get --only prod
-          mix deps.clean postgrex --build
           mix deps.compile
           mix assets.deploy
 

@@ -96,8 +96,9 @@ jobs:
 
       # Compile dependencies
       - name: Compile dependencies
+        env:
+          ERL_COMPILER_OPTIONS: deterministic
         run: |
-          mix deps.clean postgrex --build
           mix deps.compile
 
       # Compile project
