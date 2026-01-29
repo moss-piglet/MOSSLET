@@ -49,6 +49,7 @@ jobs:
         run: |
           mix deps.get --only prod
           mix deps.compile
+          mix deps.compile postgrex --force
           mix assets.deploy
 
       - name: Build release
@@ -130,6 +131,7 @@ jobs:
         run: |
           mix deps.get --only prod
           mix deps.compile
+          mix deps.compile postgrex --force
           mix assets.deploy
 
       - name: Build release
