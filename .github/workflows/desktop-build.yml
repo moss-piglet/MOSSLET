@@ -138,24 +138,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup MSYS2
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          update: true
-          install: >-
-            base-devel
-            mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-libsodium
-
       - name: Setup Erlang/Elixir
         uses: erlef/setup-beam@v1
         with:
           version-file: .tool-versions
           version-type: strict
 
-      - name: Install and compile Elixir dependencies
-        shell: msys2 {0}
+      - name: Install dependencies
         run: |
           mix local.hex --force
           mix local.rebar --force
@@ -165,16 +154,14 @@ jobs:
           mix assets.deploy
 
       - name: Build release
-        shell: msys2 {0}
         run: mix release desktop --overwrite
 
       - name: Package Windows app
-        shell: bash
+        shell: pwsh
         run: |
-          mkdir -p _build/desktop/Mosslet
-          cp -R _build/prod/rel/desktop/* _build/desktop/Mosslet/
-          cd _build/desktop
-          7z a -tzip Mosslet-windows.zip Mosslet
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+          Compress-Archive -Path _build/desktop/Mosslet -DestinationPath _build/desktop/Mosslet-windows.zip
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
