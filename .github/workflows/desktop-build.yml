@@ -41,13 +41,17 @@ jobs:
         uses: actions/cache@v4
         with:
           path: deps
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-deps-otp28-elixir1.19-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-otp28-elixir1.19-
 
       - name: Cache build
         uses: actions/cache@v4
         with:
           path: _build
-          key: ${{ runner.os }}-build-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-build-otp28-elixir1.19-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-otp28-elixir1.19-
 
       - name: Install dependencies
         run: |
@@ -126,13 +130,17 @@ jobs:
         uses: actions/cache@v4
         with:
           path: deps
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-deps-otp28-elixir1.19-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-otp28-elixir1.19-
 
       - name: Cache build
         uses: actions/cache@v4
         with:
           path: _build
-          key: ${{ runner.os }}-build-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-build-otp28-elixir1.19-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-otp28-elixir1.19-
 
       - name: Install dependencies
         run: |
@@ -180,16 +188,15 @@ jobs:
         uses: actions/cache@v4
         with:
           path: deps
-          key: ${{ runner.os }}-deps-v7-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-deps-otp28-elixir1.19-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-otp28-elixir1.19-
 
       - name: Install and compile Elixir dependencies
         shell: msys2 {0}
         run: |
-          mix deps.clean req postgrex --build
-          mix deps.get req
-          mix deps.get postgrex
-          mix deps.compile req --force
-          mix deps.compile postgrex --force
+          mix local.hex --force
+          mix local.rebar --force
           mix deps.get --only prod
           mix deps.compile
           mix assets.deploy
