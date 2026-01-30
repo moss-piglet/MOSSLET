@@ -233,9 +233,7 @@ defmodule Req.Response do
   end
 
   @doc """
-  Returns the `retry-after` header delay value in seconds.
-
-  Returns `nil` if the header is not found or the computed number of seconds is negative.
+  Returns the `retry-after` header delay value or nil if not found.
   """
   @spec get_retry_after(t()) :: integer() | nil
   def get_retry_after(response) do
@@ -251,19 +249,13 @@ defmodule Req.Response do
   defp retry_delay_in_ms(delay_value) do
     case Integer.parse(delay_value) do
       {seconds, ""} ->
-        if seconds >= 0 do
-          :timer.seconds(seconds)
-        end
+        :timer.seconds(seconds)
 
       :error ->
-        milliseconds =
-          delay_value
-          |> Req.Utils.parse_http_date!()
-          |> DateTime.diff(DateTime.utc_now(), :millisecond)
-
-        if milliseconds >= 0 do
-          milliseconds
-        end
+        delay_value
+        |> Req.Utils.parse_http_date!()
+        |> DateTime.diff(DateTime.utc_now(), :millisecond)
+        |> max(0)
     end
   end
 end
