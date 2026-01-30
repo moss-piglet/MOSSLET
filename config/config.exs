@@ -166,11 +166,6 @@ config :mosslet, Oban,
   ],
   peer: Oban.Peers.Global
 
-# Configures cldr
-config :ex_cldr,
-  default_locale: "en",
-  default_backend: Mosslet.Cldr
-
 # Configures exaws
 config :ex_aws,
   json_codec: Jason,

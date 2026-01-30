@@ -6718,7 +6718,7 @@ defmodule MossletWeb.DesignSystem do
               id={"share-button-#{@post.id}"}
               icon_id={"share-icon-#{@post.id}"}
               count={Map.get(@stats, :shares, 0)}
-              soft_text="People are sharing"
+              soft_text={if Map.get(@stats, :shares, 0) > 0, do: "People are sharing"}
               label="Share"
               color="emerald"
               repost_post_id={@post.id}
@@ -6735,7 +6735,7 @@ defmodule MossletWeb.DesignSystem do
               id={"share-button-disabled-#{@post.id}"}
               icon_id={"share-icon-disabled-#{@post.id}"}
               count={Map.get(@stats, :shares, 0)}
-              soft_text="People are sharing"
+              soft_text={if Map.get(@stats, :shares, 0) > 0, do: "People are sharing"}
               label="Share"
               color="emerald"
               repost_post_id={@post.id}
