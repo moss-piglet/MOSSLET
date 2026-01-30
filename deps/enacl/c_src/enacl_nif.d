@@ -1,8 +1,65 @@
-c_src/enacl_nif.o: c_src/enacl_nif.c \
-  /Users/mark/.asdf/installs/erlang/27.3.4/erts-15.2.7/include/erl_nif.h \
-  /Users/mark/.asdf/installs/erlang/27.3.4/erts-15.2.7/include/erl_drv_nif.h \
-  /Users/mark/.asdf/installs/erlang/27.3.4/erts-15.2.7/include/erl_int_sizes_config.h \
-  /Users/mark/.asdf/installs/erlang/27.3.4/erts-15.2.7/include/erl_nif_api_funcs.h \
+c_src/enacl_nif.o: c_src/enacl_nif.c /usr/local/include/sodium.h \
+  /usr/local/include/sodium/version.h /usr/local/include/sodium/export.h \
+  /usr/local/include/sodium/core.h \
+  /usr/local/include/sodium/crypto_aead_aes256gcm.h \
+  /usr/local/include/sodium/crypto_aead_chacha20poly1305.h \
+  /usr/local/include/sodium/crypto_aead_xchacha20poly1305.h \
+  /usr/local/include/sodium/crypto_auth.h \
+  /usr/local/include/sodium/crypto_auth_hmacsha512256.h \
+  /usr/local/include/sodium/crypto_auth_hmacsha512.h \
+  /usr/local/include/sodium/crypto_hash_sha512.h \
+  /usr/local/include/sodium/crypto_auth_hmacsha256.h \
+  /usr/local/include/sodium/crypto_hash_sha256.h \
+  /usr/local/include/sodium/crypto_box.h \
+  /usr/local/include/sodium/crypto_box_curve25519xsalsa20poly1305.h \
+  /usr/local/include/sodium/crypto_stream_xsalsa20.h \
+  /usr/local/include/sodium/crypto_core_hsalsa20.h \
+  /usr/local/include/sodium/crypto_core_hchacha20.h \
+  /usr/local/include/sodium/crypto_core_salsa20.h \
+  /usr/local/include/sodium/crypto_core_salsa2012.h \
+  /usr/local/include/sodium/crypto_core_salsa208.h \
+  /usr/local/include/sodium/crypto_generichash.h \
+  /usr/local/include/sodium/crypto_generichash_blake2b.h \
+  /usr/local/include/sodium/crypto_hash.h \
+  /usr/local/include/sodium/crypto_kdf.h \
+  /usr/local/include/sodium/crypto_kdf_blake2b.h \
+  /usr/local/include/sodium/crypto_kx.h \
+  /usr/local/include/sodium/crypto_onetimeauth.h \
+  /usr/local/include/sodium/crypto_onetimeauth_poly1305.h \
+  /usr/local/include/sodium/crypto_pwhash.h \
+  /usr/local/include/sodium/crypto_pwhash_argon2i.h \
+  /usr/local/include/sodium/crypto_pwhash_argon2id.h \
+  /usr/local/include/sodium/crypto_scalarmult.h \
+  /usr/local/include/sodium/crypto_scalarmult_curve25519.h \
+  /usr/local/include/sodium/crypto_secretbox.h \
+  /usr/local/include/sodium/crypto_secretbox_xsalsa20poly1305.h \
+  /usr/local/include/sodium/crypto_secretstream_xchacha20poly1305.h \
+  /usr/local/include/sodium/crypto_stream_chacha20.h \
+  /usr/local/include/sodium/crypto_shorthash.h \
+  /usr/local/include/sodium/crypto_shorthash_siphash24.h \
+  /usr/local/include/sodium/crypto_sign.h \
+  /usr/local/include/sodium/crypto_sign_ed25519.h \
+  /usr/local/include/sodium/crypto_stream.h \
+  /usr/local/include/sodium/crypto_stream_salsa20.h \
+  /usr/local/include/sodium/crypto_verify_16.h \
+  /usr/local/include/sodium/crypto_verify_32.h \
+  /usr/local/include/sodium/crypto_verify_64.h \
+  /usr/local/include/sodium/randombytes.h \
+  /usr/local/include/sodium/randombytes_salsa20_random.h \
+  /usr/local/include/sodium/randombytes_sysrandom.h \
+  /usr/local/include/sodium/runtime.h /usr/local/include/sodium/utils.h \
+  /usr/local/include/sodium/crypto_box_curve25519xchacha20poly1305.h \
+  /usr/local/include/sodium/crypto_stream_xchacha20.h \
+  /usr/local/include/sodium/crypto_core_ed25519.h \
+  /usr/local/include/sodium/crypto_scalarmult_ed25519.h \
+  /usr/local/include/sodium/crypto_secretbox_xchacha20poly1305.h \
+  /usr/local/include/sodium/crypto_pwhash_scryptsalsa208sha256.h \
+  /usr/local/include/sodium/crypto_stream_salsa2012.h \
+  /usr/local/include/sodium/crypto_stream_salsa208.h \
+  /Users/mark/.asdf/installs/erlang/28.3/erts-16.2/include/erl_nif.h \
+  /Users/mark/.asdf/installs/erlang/28.3/erts-16.2/include/erl_drv_nif.h \
+  /Users/mark/.asdf/installs/erlang/28.3/erts-16.2/include/erl_int_sizes_config.h \
+  /Users/mark/.asdf/installs/erlang/28.3/erts-16.2/include/erl_nif_api_funcs.h \
   c_src/aead.h c_src/enacl.h c_src/enacl_ext.h c_src/generichash.h \
   c_src/hash.h c_src/kdf.h c_src/kx.h c_src/public.h c_src/pwhash.h \
   c_src/randombytes.h c_src/secret.h c_src/secretstream.h c_src/sign.h
