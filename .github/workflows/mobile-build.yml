@@ -58,7 +58,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: deps
-          key: ${{ runner.os }}-mix-v7-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+
+      - name: Cache build
+        uses: actions/cache@v4
+        with:
+          path: _build
+          key: ${{ runner.os }}-build-${{ hashFiles('**/mix.lock') }}
 
       - name: Get version
         id: version
@@ -66,15 +72,10 @@ jobs:
           VERSION=$(grep '@version "' mix.exs | head -1 | sed 's/.*"\(.*\)".*/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Install and compile dependencies
+      - name: Install dependencies
         run: |
           mix local.hex --force
           mix local.rebar --force
-          MIX_TARGET=native MIX_ENV=prod mix deps.clean req postgrex --build
-          MIX_TARGET=native mix deps.get req
-          MIX_TARGET=native mix deps.get postgrex
-          MIX_TARGET=native MIX_ENV=prod mix deps.compile req --force
-          MIX_TARGET=native MIX_ENV=prod mix deps.compile postgrex --force
           MIX_TARGET=native mix deps.get
           MIX_TARGET=native MIX_ENV=prod mix compile
 

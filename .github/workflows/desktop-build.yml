@@ -41,15 +41,16 @@ jobs:
         uses: actions/cache@v4
         with:
           path: deps
-          key: ${{ runner.os }}-deps-v7-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/mix.lock') }}
 
-      - name: Install and compile Elixir dependencies
+      - name: Cache build
+        uses: actions/cache@v4
+        with:
+          path: _build
+          key: ${{ runner.os }}-build-${{ hashFiles('**/mix.lock') }}
+
+      - name: Install dependencies
         run: |
-          mix deps.clean req postgrex --build
-          mix deps.get req
-          mix deps.get postgrex
-          mix deps.compile req --force
-          mix deps.compile postgrex --force
           mix deps.get --only prod
           mix deps.compile
           mix assets.deploy
@@ -125,15 +126,16 @@ jobs:
         uses: actions/cache@v4
         with:
           path: deps
-          key: ${{ runner.os }}-deps-v7-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/mix.lock') }}
 
-      - name: Install and compile Elixir dependencies
+      - name: Cache build
+        uses: actions/cache@v4
+        with:
+          path: _build
+          key: ${{ runner.os }}-build-${{ hashFiles('**/mix.lock') }}
+
+      - name: Install dependencies
         run: |
-          mix deps.clean req postgrex --build
-          mix deps.get req
-          mix deps.get postgrex
-          mix deps.compile req --force
-          mix deps.compile postgrex --force
           mix deps.get --only prod
           mix deps.compile
           mix assets.deploy
