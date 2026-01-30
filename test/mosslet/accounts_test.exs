@@ -300,9 +300,14 @@ defmodule Mosslet.AccountsTest do
   describe "update_user_email/4" do
     setup do
       user = user_fixture(%{email: @valid_email})
-      user = %{user | confirmed_at: NaiveDateTime.add(user.confirmed_at, -60, :second)}
-      Mosslet.Repo.update!(Ecto.Changeset.change(user, confirmed_at: user.confirmed_at))
-      user = Mosslet.Repo.get!(Mosslet.Accounts.User, user.id)
+
+      Mosslet.Repo.update!(
+        Ecto.Changeset.change(user,
+          confirmed_at: NaiveDateTime.add(user.confirmed_at, -60, :second)
+        )
+      )
+
+      user = Mosslet.Accounts.get_user_with_preloads(user.id)
       email = unique_user_email()
 
       token =
