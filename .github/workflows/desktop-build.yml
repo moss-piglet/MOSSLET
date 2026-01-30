@@ -62,9 +62,30 @@ jobs:
           security unlock-keychain -p actions build.keychain
           security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions build.keychain
-          codesign --deep --force --verify --verbose \
-            --sign "Developer ID Application" \
-            _build/desktop/Mosslet.app
+          
+          APP_PATH="_build/desktop/Mosslet.app"
+          SIGN_IDENTITY="Developer ID Application"
+          
+          # Find and sign all binaries, dylibs, and frameworks inside the app
+          find "$APP_PATH" -type f \( -name "*.dylib" -o -name "*.so" -o -perm +111 \) | while read -r file; do
+            if file "$file" | grep -q "Mach-O"; then
+              echo "Signing: $file"
+              codesign --force --timestamp --options runtime \
+                --sign "$SIGN_IDENTITY" "$file" || true
+            fi
+          done
+          
+          # Sign the main app bundle last
+          codesign --force --timestamp --options runtime --deep \
+            --sign "$SIGN_IDENTITY" "$APP_PATH"
+          
+          # Verify
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          
+          # Re-create ZIP with signed app
+          cd _build/desktop
+          rm -f Mosslet-*-macos.zip
+          zip -r "Mosslet-$(grep '@version' ../../mix.exs | head -1 | sed 's/.*\"\(.*\)\".*/\1/')-macos.zip" Mosslet.app
 
       - name: Notarize (if secrets available)
         if: env.APPLE_ID != ''
@@ -148,6 +169,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          path-type: inherit
+          install: >-
+            base-devel
+            mingw-w64-x86_64-toolchain
+
       - name: Setup Erlang/Elixir
         uses: erlef/setup-beam@v1
         with:
@@ -155,6 +186,7 @@ jobs:
           version-type: strict
 
       - name: Install dependencies
+        shell: msys2 {0}
         run: |
           mix local.hex --force
           mix local.rebar --force
@@ -164,6 +196,7 @@ jobs:
           mix assets.deploy
 
       - name: Build release
+        shell: msys2 {0}
         run: mix release desktop --overwrite
 
       - name: Package Windows app
