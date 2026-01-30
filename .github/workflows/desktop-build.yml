@@ -32,10 +32,10 @@ jobs:
           echo "LIBRARY_PATH=$(brew --prefix libsodium)/lib" >> $GITHUB_ENV
 
       - name: Setup Erlang/Elixir
-        uses: erlef/setup-beam@v1
+        uses: erlef/setup-beam@v3
         with:
-          otp-version: "28"
-          elixir-version: "1.19"
+          version-file: .tool-versions
+          version-type: strict
 
       - name: Install dependencies
         run: |
@@ -105,10 +105,10 @@ jobs:
           sudo mv appimagetool-x86_64.AppImage /usr/local/bin/appimagetool
 
       - name: Setup Erlang/Elixir
-        uses: erlef/setup-beam@v1
+        uses: erlef/setup-beam@v3
         with:
-          otp-version: "28"
-          elixir-version: "1.19"
+          version-file: .tool-versions
+          version-type: strict
 
       - name: Install dependencies
         run: |
@@ -147,10 +147,10 @@ jobs:
             mingw-w64-x86_64-libsodium
 
       - name: Setup Erlang/Elixir
-        uses: erlef/setup-beam@v1
+        uses: erlef/setup-beam@v3
         with:
-          otp-version: "28"
-          elixir-version: "1.19"
+          version-file: .tool-versions
+          version-type: strict
 
       - name: Install and compile Elixir dependencies
         shell: msys2 {0}
