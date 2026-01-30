@@ -90,12 +90,12 @@ jobs:
         run: |
           mix local.rebar --force
           mix local.hex --force
+          mix deps.clean req postgrex --build
           mix deps.get
 
       # Compile dependencies
       - name: Compile dependencies
         run: |
-          mix deps.clean req postgrex --build
           mix deps.compile req --force
           mix deps.compile postgrex --force
           mix deps.compile

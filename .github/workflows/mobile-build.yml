@@ -3,31 +3,31 @@ name: Mobile Build
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
     inputs:
       platform:
-        description: 'Platform to build'
+        description: "Platform to build"
         required: true
-        default: 'all'
+        default: "all"
         type: choice
         options:
           - ios
           - android
           - all
       build_type:
-        description: 'Build type'
+        description: "Build type"
         required: true
-        default: 'debug'
+        default: "debug"
         type: choice
         options:
           - debug
           - release
 
 env:
-  ELIXIR_VERSION: '1.19.5'
-  OTP_VERSION: '28'
-  NODE_VERSION: '20'
+  ELIXIR_VERSION: "1.19.5"
+  OTP_VERSION: "28"
+  NODE_VERSION: "20"
 
 jobs:
   build-elixir-release:
@@ -70,11 +70,11 @@ jobs:
         run: |
           mix local.hex --force
           mix local.rebar --force
+          MIX_TARGET=native MIX_ENV=prod mix deps.clean req postgrex --build
           MIX_TARGET=native mix deps.get
 
       - name: Compile
         run: |
-          MIX_TARGET=native MIX_ENV=prod mix deps.clean req postgrex --build
           MIX_TARGET=native MIX_ENV=prod mix deps.compile req --force
           MIX_TARGET=native MIX_ENV=prod mix deps.compile postgrex --force
           MIX_TARGET=native MIX_ENV=prod mix compile
@@ -144,18 +144,18 @@ jobs:
           CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
           PROFILE_PATH=$RUNNER_TEMP/profile.mobileprovision
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-          
+
           echo -n "$APPLE_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
           echo -n "$APPLE_PROVISIONING_PROFILE_BASE64" | base64 --decode -o $PROFILE_PATH
-          
+
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          
+
           security import $CERTIFICATE_PATH -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security list-keychain -d user -s $KEYCHAIN_PATH
-          
+
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PROFILE_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
 
@@ -180,7 +180,7 @@ jobs:
             -destination 'generic/platform=iOS' \
             -archivePath $RUNNER_TEMP/Mosslet.xcarchive \
             clean archive
-          
+
           xcodebuild -exportArchive \
             -archivePath $RUNNER_TEMP/Mosslet.xcarchive \
             -exportOptionsPlist ExportOptions.plist \
@@ -204,7 +204,7 @@ jobs:
         run: |
           API_KEY_PATH=$RUNNER_TEMP/api_key.p8
           echo -n "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 --decode -o $API_KEY_PATH
-          
+
           xcrun altool --upload-app \
             --file $RUNNER_TEMP/export/Mosslet.ipa \
             --type ios \
@@ -229,8 +229,8 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          java-version: "17"
+          distribution: "temurin"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
