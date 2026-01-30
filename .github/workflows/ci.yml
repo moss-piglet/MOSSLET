@@ -92,11 +92,12 @@ jobs:
           mix local.hex --force
           mix deps.get
 
-      # Compile dependencies (limit parallelism to avoid race conditions)
+      # Compile dependencies
       - name: Compile dependencies
-        env:
-          ELIXIR_ERL_OPTIONS: "+S 1:1"
         run: |
+          mix deps.clean req postgrex --build
+          mix deps.compile req --force
+          mix deps.compile postgrex --force
           mix deps.compile
 
       # Compile project

@@ -44,10 +44,11 @@ jobs:
           key: ${{ runner.os }}-deps-v6-${{ hashFiles('**/mix.lock') }}
 
       - name: Install Elixir dependencies
-        env:
-          ELIXIR_ERL_OPTIONS: "+S 1:1"
         run: |
           mix deps.get --only prod
+          mix deps.clean req postgrex --build
+          mix deps.compile req --force
+          mix deps.compile postgrex --force
           mix deps.compile
           mix assets.deploy
 
@@ -125,10 +126,11 @@ jobs:
           key: ${{ runner.os }}-deps-v6-${{ hashFiles('**/mix.lock') }}
 
       - name: Install Elixir dependencies
-        env:
-          ELIXIR_ERL_OPTIONS: "+S 1:1"
         run: |
           mix deps.get --only prod
+          mix deps.clean req postgrex --build
+          mix deps.compile req --force
+          mix deps.compile postgrex --force
           mix deps.compile
           mix assets.deploy
 

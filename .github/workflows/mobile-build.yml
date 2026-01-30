@@ -73,9 +73,10 @@ jobs:
           MIX_TARGET=native mix deps.get
 
       - name: Compile
-        env:
-          ELIXIR_ERL_OPTIONS: "+S 1:1"
         run: |
+          MIX_TARGET=native MIX_ENV=prod mix deps.clean req postgrex --build
+          MIX_TARGET=native MIX_ENV=prod mix deps.compile req --force
+          MIX_TARGET=native MIX_ENV=prod mix deps.compile postgrex --force
           MIX_TARGET=native MIX_ENV=prod mix compile
 
       - name: Build assets
