@@ -40,6 +40,7 @@ jobs:
       - name: Install dependencies
         run: |
           mix deps.get --only prod
+          mix deps.compile ecto --force
           mix deps.clean oban
           mix deps.get oban
           mix deps.compile oban --force

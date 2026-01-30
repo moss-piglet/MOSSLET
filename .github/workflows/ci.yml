@@ -85,6 +85,7 @@ jobs:
 
       - name: Clean and compile Oban
         run: |
+          mix deps.compile ecto --force
           mix deps.clean oban
           mix deps.get oban
           mix deps.compile oban --force
