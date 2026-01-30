@@ -32,13 +32,14 @@ jobs:
           echo "LIBRARY_PATH=$(brew --prefix libsodium)/lib" >> $GITHUB_ENV
 
       - name: Setup Erlang/Elixir
-        uses: erlef/setup-beam@v1.17.3
+        uses: erlef/setup-beam@v1
         with:
           version-file: .tool-versions
           version-type: strict
 
       - name: Install dependencies
         run: |
+          mix deps.clean --all
           mix deps.get --only prod
           mix deps.compile
           mix assets.deploy
@@ -105,13 +106,14 @@ jobs:
           sudo mv appimagetool-x86_64.AppImage /usr/local/bin/appimagetool
 
       - name: Setup Erlang/Elixir
-        uses: erlef/setup-beam@v1.17.3
+        uses: erlef/setup-beam@v1
         with:
           version-file: .tool-versions
           version-type: strict
 
       - name: Install dependencies
         run: |
+          mix deps.clean --all
           mix deps.get --only prod
           mix deps.compile
           mix assets.deploy
@@ -147,7 +149,7 @@ jobs:
             mingw-w64-x86_64-libsodium
 
       - name: Setup Erlang/Elixir
-        uses: erlef/setup-beam@v1.17.3
+        uses: erlef/setup-beam@v1
         with:
           version-file: .tool-versions
           version-type: strict
@@ -157,6 +159,7 @@ jobs:
         run: |
           mix local.hex --force
           mix local.rebar --force
+          mix deps.clean --all
           mix deps.get --only prod
           mix deps.compile
           mix assets.deploy

@@ -58,7 +58,7 @@ jobs:
 
       # Setup Erlang and Elixir
       - name: Set up Erlang and Elixir
-        uses: erlef/setup-beam@v1.17.3
+        uses: erlef/setup-beam@v1
         id: setup-beam
         with:
           version-file: .tool-versions
@@ -81,6 +81,7 @@ jobs:
         run: |
           mix local.rebar --force
           mix local.hex --force
+          mix deps.clean --all
           mix deps.get
 
       # Compile project
