@@ -58,7 +58,7 @@ jobs:
 
       # Setup Erlang and Elixir
       - name: Set up Erlang and Elixir
-        uses: erlef/setup-beam@v3
+        uses: erlef/setup-beam@v1.17.3
         id: setup-beam
         with:
           version-file: .tool-versions
