@@ -180,7 +180,7 @@ defmodule Mosslet.MixProject do
       {:premailex, "~> 0.3.0"},
       {:query_builder, "~> 1.0"},
       {:remote_ip, "~> 1.0"},
-      {:req, "~> 0.5.0 and < 0.5.17"},
+      {:req, "~> 0.5.0"},
       {:req_llm, "~> 1.2"},
       {:safeurl, "~> 1.0"},
       {:sentry, "~> 8.0"},
