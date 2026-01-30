@@ -43,12 +43,14 @@ jobs:
           path: deps
           key: ${{ runner.os }}-deps-v6-${{ hashFiles('**/mix.lock') }}
 
-      - name: Install Elixir dependencies
+      - name: Install and compile Elixir dependencies
         run: |
           mix deps.clean req postgrex --build
-          mix deps.get --only prod
+          mix deps.get req
+          mix deps.get postgrex
           mix deps.compile req --force
           mix deps.compile postgrex --force
+          mix deps.get --only prod
           mix deps.compile
           mix assets.deploy
 
@@ -125,12 +127,14 @@ jobs:
           path: deps
           key: ${{ runner.os }}-deps-v6-${{ hashFiles('**/mix.lock') }}
 
-      - name: Install Elixir dependencies
+      - name: Install and compile Elixir dependencies
         run: |
           mix deps.clean req postgrex --build
-          mix deps.get --only prod
+          mix deps.get req
+          mix deps.get postgrex
           mix deps.compile req --force
           mix deps.compile postgrex --force
+          mix deps.get --only prod
           mix deps.compile
           mix assets.deploy
 
@@ -176,13 +180,15 @@ jobs:
           path: deps
           key: ${{ runner.os }}-deps-v6-${{ hashFiles('**/mix.lock') }}
 
-      - name: Install Elixir dependencies
+      - name: Install and compile Elixir dependencies
         shell: msys2 {0}
         run: |
           mix deps.clean req postgrex --build
-          mix deps.get --only prod
+          mix deps.get req
+          mix deps.get postgrex
           mix deps.compile req --force
           mix deps.compile postgrex --force
+          mix deps.get --only prod
           mix deps.compile
           mix assets.deploy
 

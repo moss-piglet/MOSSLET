@@ -86,18 +86,16 @@ jobs:
           key: deps-v6-${{ runner.os }}-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-${{ hashFiles('**/mix.lock') }}
 
       # Install dependencies
-      - name: Get dependencies
+      - name: Get and compile dependencies
         run: |
           mix local.rebar --force
           mix local.hex --force
           mix deps.clean req postgrex --build
-          mix deps.get
-
-      # Compile dependencies
-      - name: Compile dependencies
-        run: |
+          mix deps.get req
+          mix deps.get postgrex
           mix deps.compile req --force
           mix deps.compile postgrex --force
+          mix deps.get
           mix deps.compile
 
       # Compile project

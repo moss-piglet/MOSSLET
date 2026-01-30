@@ -66,17 +66,16 @@ jobs:
           VERSION=$(grep '@version "' mix.exs | head -1 | sed 's/.*"\(.*\)".*/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Install dependencies
+      - name: Install and compile dependencies
         run: |
           mix local.hex --force
           mix local.rebar --force
           MIX_TARGET=native MIX_ENV=prod mix deps.clean req postgrex --build
-          MIX_TARGET=native mix deps.get
-
-      - name: Compile
-        run: |
+          MIX_TARGET=native mix deps.get req
+          MIX_TARGET=native mix deps.get postgrex
           MIX_TARGET=native MIX_ENV=prod mix deps.compile req --force
           MIX_TARGET=native MIX_ENV=prod mix deps.compile postgrex --force
+          MIX_TARGET=native mix deps.get
           MIX_TARGET=native MIX_ENV=prod mix compile
 
       - name: Build assets
