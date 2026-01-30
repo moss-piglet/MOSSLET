@@ -83,13 +83,6 @@ jobs:
           mix local.hex --force
           mix deps.get
 
-      - name: Clean and compile Oban
-        run: |
-          mix deps.compile ecto --force
-          mix deps.clean oban
-          mix deps.get oban
-          mix deps.compile oban --force
-
       # Compile project
       - name: Compile project
         run: mix compile --warnings-as-errors

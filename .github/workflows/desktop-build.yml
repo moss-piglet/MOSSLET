@@ -40,10 +40,6 @@ jobs:
       - name: Install dependencies
         run: |
           mix deps.get --only prod
-          mix deps.compile ecto --force
-          mix deps.clean oban
-          mix deps.get oban
-          mix deps.compile oban --force
           mix deps.compile
           mix assets.deploy
 
@@ -117,9 +113,6 @@ jobs:
       - name: Install dependencies
         run: |
           mix deps.get --only prod
-          mix deps.clean oban
-          mix deps.get oban
-          mix deps.compile oban --force
           mix deps.compile
           mix assets.deploy
 
@@ -165,9 +158,6 @@ jobs:
           mix local.hex --force
           mix local.rebar --force
           mix deps.get --only prod
-          mix deps.clean oban
-          mix deps.get oban
-          mix deps.compile oban --force
           mix deps.compile
           mix assets.deploy
 

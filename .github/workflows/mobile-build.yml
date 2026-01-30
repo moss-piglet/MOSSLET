@@ -65,10 +65,6 @@ jobs:
           mix local.hex --force
           mix local.rebar --force
           MIX_TARGET=native mix deps.get
-          MIX_TARGET=native MIX_ENV=prod mix deps.compile ecto --force
-          mix deps.clean oban
-          MIX_TARGET=native mix deps.get oban
-          MIX_TARGET=native MIX_ENV=prod mix deps.compile oban --force
           MIX_TARGET=native MIX_ENV=prod mix compile
 
       - name: Build assets
