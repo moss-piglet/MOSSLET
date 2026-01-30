@@ -83,7 +83,7 @@ jobs:
         id: cache-deps
         with:
           path: deps
-          key: deps-v6-${{ runner.os }}-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-${{ hashFiles('**/mix.lock') }}
+          key: deps-v7-${{ runner.os }}-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-${{ hashFiles('**/mix.lock') }}
 
       # Install dependencies
       - name: Get and compile dependencies

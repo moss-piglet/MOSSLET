@@ -58,7 +58,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: deps
-          key: ${{ runner.os }}-mix-v6-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-mix-v7-${{ hashFiles('**/mix.lock') }}
 
       - name: Get version
         id: version

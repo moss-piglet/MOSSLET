@@ -41,7 +41,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: deps
-          key: ${{ runner.os }}-deps-v6-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-deps-v7-${{ hashFiles('**/mix.lock') }}
 
       - name: Install and compile Elixir dependencies
         run: |
@@ -125,7 +125,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: deps
-          key: ${{ runner.os }}-deps-v6-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-deps-v7-${{ hashFiles('**/mix.lock') }}
 
       - name: Install and compile Elixir dependencies
         run: |
@@ -178,7 +178,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: deps
-          key: ${{ runner.os }}-deps-v6-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-deps-v7-${{ hashFiles('**/mix.lock') }}
 
       - name: Install and compile Elixir dependencies
         shell: msys2 {0}
