@@ -267,6 +267,38 @@ When `:debug_heex_annotations` is enabled, LiveView will now annotate the beginn
 
 To enable this, a new callback called `annotate_slot/4` was added. Custom implementations of `Phoenix.LiveView.TagEngine` must implement it accordingly.
 
+## v1.1.22 (2026-01-28)
+
+### Bug fixes
+
+* Fix live component container patch throwing a JavaScript error when container is locked ([#4088](https://github.com/phoenixframework/phoenix_live_view/issues/4088))
+
+## v1.1.21 (2026-01-27)
+
+### Bug fixes
+
+* Fix stream reset and deletes not working if stream is teleported using `Phoenix.Component.portal/1` ([#4121](https://github.com/phoenixframework/phoenix_live_view/issues/4121))
+
+### Enhancements
+
+* Mark LiveView template code as generated to prevent warnings on Elixir 1.20
+* Allow unused function warnings for function components to be emitted
+* Add `Phoenix.LiveView.TagEngine.compile/2` as an official entrypoint for compiling templates in favor of relying on the `EEx.Engine` behaviour
+
+## v1.1.20 (2026-01-14)
+
+### Bug fixes
+
+* Fix `redirect` in `handle_params` for client-initiated patches causing a JS exception ([#4094](https://github.com/phoenixframework/phoenix_live_view/pull/4094))
+* Fix events initiated from elements teleported outside of a LiveComponent being sent to the LiveView instead of the LiveComponent ([#4101](https://github.com/phoenixframework/phoenix_live_view/issues/4101))
+* Ensure `HooksOptions` accepts non-default typed hooks ([#4099](https://github.com/phoenixframework/phoenix_live_view/pull/4099))
+* Prevent portal content from disappearing in rare cases ([#4095](https://github.com/phoenixframework/phoenix_live_view/pull/4095))
+* Fix `<form>` submission to a controller from inside a portal not working ([#4107](https://github.com/phoenixframework/phoenix_live_view/issues/4107))
+* Prevent JS crash when debouncing inputs attached to a form with the `form="..."` attribute ([#4102](https://github.com/phoenixframework/phoenix_live_view/issues/4102))
+* Fix `UploadClient` (from LiveViewTest) crashing when receiving a `:socket_close` message ([#4079](https://github.com/phoenixframework/phoenix_live_view/issues/4079))
+* Allow `live_file_input` to update attributes ([#4078](https://github.com/phoenixframework/phoenix_live_view/issues/4078))
+* Fix invalid HTML when setting LiveView `:container` option to `:body` ([#3932](https://github.com/phoenixframework/phoenix_live_view/issues/3932))
+
 ## v1.1.19 (2025-12-12)
 
 ### Bug fixes

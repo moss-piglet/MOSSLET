@@ -181,7 +181,7 @@ defmodule Mosslet.MixProject do
       {:query_builder, "~> 1.0"},
       {:remote_ip, "~> 1.0"},
       {:req, "~> 0.5.0"},
-      {:req_llm, "~> 1.2"},
+      {:req_llm, "~> 1.3"},
       {:safeurl, "~> 1.0"},
       {:sentry, "~> 8.0"},
       {:sizeable, "~> 1.0"},
