@@ -37,12 +37,6 @@ jobs:
           otp-version: "28"
           elixir-version: "1.19"
 
-      - name: Cache deps
-        uses: actions/cache@v4
-        with:
-          path: deps
-          key: ${{ runner.os }}-deps-otp28-elixir1.19-${{ hashFiles('**/mix.lock') }}
-
       - name: Install dependencies
         run: |
           mix deps.get --only prod
@@ -116,12 +110,6 @@ jobs:
           otp-version: "28"
           elixir-version: "1.19"
 
-      - name: Cache deps
-        uses: actions/cache@v4
-        with:
-          path: deps
-          key: ${{ runner.os }}-deps-otp28-elixir1.19-${{ hashFiles('**/mix.lock') }}
-
       - name: Install dependencies
         run: |
           mix deps.get --only prod
@@ -163,12 +151,6 @@ jobs:
         with:
           otp-version: "28"
           elixir-version: "1.19"
-
-      - name: Cache deps
-        uses: actions/cache@v4
-        with:
-          path: deps
-          key: ${{ runner.os }}-deps-otp28-elixir1.19-${{ hashFiles('**/mix.lock') }}
 
       - name: Install and compile Elixir dependencies
         shell: msys2 {0}

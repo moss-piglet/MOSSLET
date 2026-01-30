@@ -77,12 +77,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libsodium-dev
 
-      - name: Cache deps
-        uses: actions/cache@v4
-        with:
-          path: deps
-          key: deps-${{ runner.os }}-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-${{ hashFiles('**/mix.lock') }}
-
       - name: Install dependencies
         run: |
           mix local.rebar --force
