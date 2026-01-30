@@ -42,16 +42,6 @@ jobs:
         with:
           path: deps
           key: ${{ runner.os }}-deps-otp28-elixir1.19-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-deps-otp28-elixir1.19-
-
-      - name: Cache build
-        uses: actions/cache@v4
-        with:
-          path: _build
-          key: ${{ runner.os }}-build-otp28-elixir1.19-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-otp28-elixir1.19-
 
       - name: Install dependencies
         run: |
@@ -131,16 +121,6 @@ jobs:
         with:
           path: deps
           key: ${{ runner.os }}-deps-otp28-elixir1.19-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-deps-otp28-elixir1.19-
-
-      - name: Cache build
-        uses: actions/cache@v4
-        with:
-          path: _build
-          key: ${{ runner.os }}-build-otp28-elixir1.19-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-otp28-elixir1.19-
 
       - name: Install dependencies
         run: |
@@ -189,8 +169,6 @@ jobs:
         with:
           path: deps
           key: ${{ runner.os }}-deps-otp28-elixir1.19-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-deps-otp28-elixir1.19-
 
       - name: Install and compile Elixir dependencies
         shell: msys2 {0}
