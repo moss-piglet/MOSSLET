@@ -97,7 +97,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwxgtk3.2-dev libwxgtk-webview3.2-dev libsodium-dev
+          sudo apt-get install -y libwxgtk3.2-dev libwxgtk-webview3.2-dev libsodium-dev libfuse2
 
       - name: Install appimagetool
         run: |

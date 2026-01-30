@@ -108,7 +108,7 @@ jobs:
           MIX_ENV: test
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-        run: mix test
+        run: MIX_ENV=test mix test
 
       - name: Cache plt files
         uses: actions/cache@v4
