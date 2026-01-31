@@ -7,7 +7,6 @@ defmodule MossletWeb.TimelineLiveTest do
   import Mosslet.UserConnectionFixtures
 
   alias Mosslet.Accounts
-  alias Mosslet.Timeline
   alias MossletWeb.Presence
 
   @provider_customer_id "cus_#{Faker.Util.format("%3b%1d%2b%2d%4b%1d%1b")}"
@@ -22,7 +21,7 @@ defmodule MossletWeb.TimelineLiveTest do
     setup [:create_user_with_connection]
 
     test "renders timeline page with posts", %{conn: conn, user: user, key: key} do
-      {:ok, lv, html} =
+      {:ok, lv, _html} =
         conn
         |> log_in_user(user, key)
         |> live(~p"/app/timeline")
@@ -62,11 +61,11 @@ defmodule MossletWeb.TimelineLiveTest do
       conn: conn,
       user: user,
       key: key,
-      friend: friend,
-      friend_key: friend_key
+      friend: _friend,
+      friend_key: _friend_key
     } do
       # Create posts for different scenarios
-      user_post =
+      _user_post =
         post_fixture(%{visibility: "connections", body: "User's post"}, user: user, key: key)
 
       {:ok, lv, _html} =
@@ -112,6 +111,9 @@ defmodule MossletWeb.TimelineLiveTest do
       # Wait for async timeline data to load
       render_async(lv)
 
+      # Expand the composer (collapsed by default)
+      lv |> element("#compose-fab-button-true") |> render_click()
+
       # Verify post creation form exists
       assert has_element?(lv, "#timeline-composer")
     end
@@ -124,6 +126,9 @@ defmodule MossletWeb.TimelineLiveTest do
 
       # Wait for async timeline data to load
       render_async(lv)
+
+      # Expand the composer (collapsed by default)
+      lv |> element("#compose-fab-button-true") |> render_click()
 
       # Verify basic form functionality
       assert has_element?(lv, "#timeline-composer")
@@ -159,7 +164,7 @@ defmodule MossletWeb.TimelineLiveTest do
   describe "Post Interactions" do
     setup [:create_user_with_connection_and_posts]
 
-    test "can interact with posts", %{conn: conn, user: user, key: key, friend_post: friend_post} do
+    test "can interact with posts", %{conn: conn, user: user, key: key, friend_post: _friend_post} do
       {:ok, lv, _html} =
         conn
         |> log_in_user(user, key)
@@ -172,7 +177,7 @@ defmodule MossletWeb.TimelineLiveTest do
       assert render(lv) =~ "Timeline"
     end
 
-    test "can bookmark a post", %{conn: conn, user: user, key: key, friend_post: friend_post} do
+    test "can bookmark a post", %{conn: conn, user: user, key: key, friend_post: _friend_post} do
       {:ok, lv, _html} =
         conn
         |> log_in_user(user, key)
@@ -185,7 +190,7 @@ defmodule MossletWeb.TimelineLiveTest do
       assert render(lv) =~ "Timeline"
     end
 
-    test "can reply to a post", %{conn: conn, user: user, key: key, friend_post: friend_post} do
+    test "can reply to a post", %{conn: conn, user: user, key: key, friend_post: _friend_post} do
       {:ok, lv, _html} =
         conn
         |> log_in_user(user, key)
@@ -198,7 +203,7 @@ defmodule MossletWeb.TimelineLiveTest do
       assert render(lv) =~ "Timeline"
     end
 
-    test "can delete own post", %{conn: conn, user: user, key: key, user_post: user_post} do
+    test "can delete own post", %{conn: conn, user: user, key: key, user_post: _user_post} do
       {:ok, lv, _html} =
         conn
         |> log_in_user(user, key)
@@ -262,8 +267,8 @@ defmodule MossletWeb.TimelineLiveTest do
       conn: conn,
       user: user,
       key: key,
-      friend: friend,
-      friend_key: friend_key
+      friend: _friend,
+      friend_key: _friend_key
     } do
       {:ok, lv, _html} =
         conn
@@ -522,11 +527,5 @@ defmodule MossletWeb.TimelineLiveTest do
     |> Plug.Test.init_test_session(%{})
     |> Plug.Conn.put_session(:user_token, Accounts.generate_user_session_token(user))
     |> Plug.Conn.put_session(:key, key)
-  end
-
-  defp all_elements(lv, selector) do
-    lv
-    |> render()
-    |> Floki.find(selector)
   end
 end

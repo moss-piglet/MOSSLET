@@ -4,8 +4,8 @@ defmodule Mosslet.AccountsFixtures do
   entities via the `Mosslet.Accounts` context.
   """
 
-  def unique_user_email, do: Faker.Internet.email()
-  def unique_username, do: Faker.Internet.user_name()
+  def unique_user_email, do: "user#{System.unique_integer([:positive])}@example.com"
+  def unique_username, do: "testuser#{System.unique_integer([:positive])}"
   def valid_user_password, do: "hello world hello world!"
 
   def valid_user_attributes(attrs \\ %{}) do

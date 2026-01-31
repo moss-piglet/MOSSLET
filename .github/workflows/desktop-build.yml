@@ -197,6 +197,9 @@ jobs:
           # Patch argon2_elixir Makefile for Windows - add -shared flag
           sed -i 's/\$(CC) \$(CFLAGS)/$(CC) -shared $(CFLAGS)/g' deps/argon2_elixir/Makefile
           
+          # Patch enacl pwhash.c for Windows 64-bit type mismatch (size_t vs unsigned long)
+          sed -i 's/size_t r = 0;/unsigned long r = 0;/g' deps/enacl/c_src/pwhash.c
+          
           mix deps.compile
           mix assets.deploy
 
