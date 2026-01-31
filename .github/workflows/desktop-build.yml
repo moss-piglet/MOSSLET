@@ -188,6 +188,11 @@ jobs:
 
       - name: Install dependencies
         shell: msys2 {0}
+        env:
+          C_INCLUDE_PATH: /mingw64/include
+          LIBRARY_PATH: /mingw64/lib
+          LDFLAGS: -L/mingw64/lib
+          CFLAGS: -I/mingw64/include
         run: |
           mix local.hex --force
           mix local.rebar --force
