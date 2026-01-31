@@ -187,37 +187,98 @@ jobs:
           version-type: strict
 
       - name: Install dependencies
-        shell: msys2 {0}
+        shell: pwsh
         env:
-          C_INCLUDE_PATH: /mingw64/include
-          LIBRARY_PATH: /mingw64/lib
-          LDFLAGS: -L/mingw64/lib
-          CFLAGS: -I/mingw64/include
+          CC: gcc
+          MAKE: make
+          CFLAGS: -IC:/msys64/mingw64/include
+          LDFLAGS: -LC:/msys64/mingw64/lib
+          C_INCLUDE_PATH: C:/msys64/mingw64/include
+          LIBRARY_PATH: C:/msys64/mingw64/lib
+          SODIUM_LIB_DIR: C:/msys64/mingw64/lib
+          SODIUM_INCLUDE_DIR: C:/msys64/mingw64/include
+          ERL_COMPILER_OPTIONS: "[deterministic]"
         run: |
+          $env:PATH = "C:\msys64\mingw64\bin;C:\msys64\usr\bin;$env:PATH"
+          
           mix local.hex --force
           mix local.rebar --force
           mix deps.clean --all
           mix deps.get --only prod
           
           # Patch argon2_elixir Makefile for Windows - add -shared flag
-          sed -i 's/\$(CC) \$(CFLAGS)/$(CC) -shared $(CFLAGS)/g' deps/argon2_elixir/Makefile
+          (Get-Content deps/argon2_elixir/Makefile) -replace '\$\(CC\) \$\(CFLAGS\)', '$(CC) -shared $(CFLAGS)' | Set-Content deps/argon2_elixir/Makefile
           
-          # Patch enacl pwhash.c for Windows 64-bit type mismatch (size_t vs unsigned long)
-          sed -i 's/size_t r;/unsigned long r;/g' deps/enacl/c_src/pwhash.c
+          # Patch enacl pwhash.c for Windows 64-bit type mismatch
+          (Get-Content deps/enacl/c_src/pwhash.c) -replace 'size_t r;', 'unsigned long r;' | Set-Content deps/enacl/c_src/pwhash.c
+          
+          # Patch enacl rebar.config to add proper linker flags for Windows
+          $rebarContent = Get-Content deps/enacl/rebar.config -Raw
+          if ($rebarContent -notmatch 'win32') {
+            $patch = @'
+          
+          {port_env, [
+            {"win32", "CFLAGS", "$CFLAGS -IC:/msys64/mingw64/include"},
+            {"win32", "LDFLAGS", "$LDFLAGS -LC:/msys64/mingw64/lib -lsodium"}
+          ]}.
+          '@
+            Add-Content -Path deps/enacl/rebar.config -Value $patch
+          }
           
           mix deps.compile
           mix assets.deploy
 
       - name: Build release
-        shell: msys2 {0}
-        run: mix release desktop --overwrite
+        shell: pwsh
+        env:
+          CC: gcc
+          MAKE: make
+          CFLAGS: -IC:/msys64/mingw64/include
+          LDFLAGS: -LC:/msys64/mingw64/lib
+          C_INCLUDE_PATH: C:/msys64/mingw64/include
+          LIBRARY_PATH: C:/msys64/mingw64/lib
+        run: |
+          $env:PATH = "C:\msys64\mingw64\bin;C:\msys64\usr\bin;$env:PATH"
+          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
           Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
-          Compress-Archive -Path _build/desktop/Mosslet -DestinationPath _build/desktop/Mosslet-windows.zip
+          
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+          
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+          
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+          
+          Remove-Item $certPath
+
+      - name: Create Windows ZIP
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          Compress-Archive -Path _build/desktop/Mosslet -DestinationPath "_build/desktop/Mosslet-$version-windows.zip"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
