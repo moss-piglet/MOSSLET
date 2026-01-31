@@ -186,59 +186,70 @@ jobs:
           version-file: .tool-versions
           version-type: strict
 
-      - name: Install dependencies
+      - name: Add MSYS2 to PATH
         shell: pwsh
-        env:
-          CC: gcc
-          MAKE: make
-          CFLAGS: -IC:/msys64/mingw64/include
-          LDFLAGS: -LC:/msys64/mingw64/lib
-          C_INCLUDE_PATH: C:/msys64/mingw64/include
-          LIBRARY_PATH: C:/msys64/mingw64/lib
-          SODIUM_LIB_DIR: C:/msys64/mingw64/lib
-          SODIUM_INCLUDE_DIR: C:/msys64/mingw64/include
-          ERL_COMPILER_OPTIONS: "[deterministic]"
         run: |
-          $env:PATH = "C:\msys64\mingw64\bin;C:\msys64\usr\bin;$env:PATH"
+          echo "C:\msys64\mingw64\bin" >> $env:GITHUB_PATH
+          echo "C:\msys64\usr\bin" >> $env:GITHUB_PATH
+
+      - name: Install dependencies
+        shell: cmd
+        run: |
+          set CC=gcc
+          set MAKE=make
+          set "CFLAGS=-IC:/msys64/mingw64/include"
+          set "LDFLAGS=-LC:/msys64/mingw64/lib"
+          set "C_INCLUDE_PATH=C:/msys64/mingw64/include"
+          set "LIBRARY_PATH=C:/msys64/mingw64/lib"
           
           mix local.hex --force
           mix local.rebar --force
           mix deps.clean --all
           mix deps.get --only prod
-          
+
+      - name: Patch dependencies for Windows
+        shell: pwsh
+        run: |
           # Patch argon2_elixir Makefile for Windows - add -shared flag
           (Get-Content deps/argon2_elixir/Makefile) -replace '\$\(CC\) \$\(CFLAGS\)', '$(CC) -shared $(CFLAGS)' | Set-Content deps/argon2_elixir/Makefile
           
           # Patch enacl pwhash.c for Windows 64-bit type mismatch
           (Get-Content deps/enacl/c_src/pwhash.c) -replace 'size_t r;', 'unsigned long r;' | Set-Content deps/enacl/c_src/pwhash.c
           
-          # Patch enacl rebar.config to add proper linker flags for Windows
-          $rebarContent = Get-Content deps/enacl/rebar.config -Raw
-          if ($rebarContent -notmatch 'win32') {
-            $patch = @'
+          # Patch enacl rebar.config to add proper compile/linker flags for Windows
+          $rebarPath = "deps/enacl/rebar.config"
+          $content = Get-Content $rebarPath -Raw
           
-          {port_env, [
-            {"win32", "CFLAGS", "$CFLAGS -IC:/msys64/mingw64/include"},
-            {"win32", "LDFLAGS", "$LDFLAGS -LC:/msys64/mingw64/lib -lsodium"}
-          ]}.
-          '@
-            Add-Content -Path deps/enacl/rebar.config -Value $patch
-          }
+          # Add port_env for Windows with absolute paths
+          $portEnv = @'
+
+{port_env, [
+  {"CFLAGS", "$CFLAGS -I/c/msys64/mingw64/include -IC:/msys64/mingw64/include"},
+  {"LDFLAGS", "$LDFLAGS -L/c/msys64/mingw64/lib -LC:/msys64/mingw64/lib -lsodium"}
+]}.
+'@
+          Add-Content -Path $rebarPath -Value $portEnv
+
+      - name: Compile dependencies
+        shell: cmd
+        run: |
+          set CC=gcc
+          set MAKE=make
+          set "CFLAGS=-IC:/msys64/mingw64/include"
+          set "LDFLAGS=-LC:/msys64/mingw64/lib -lsodium"
+          set "C_INCLUDE_PATH=C:/msys64/mingw64/include"
+          set "LIBRARY_PATH=C:/msys64/mingw64/lib"
           
           mix deps.compile
           mix assets.deploy
 
       - name: Build release
-        shell: pwsh
-        env:
-          CC: gcc
-          MAKE: make
-          CFLAGS: -IC:/msys64/mingw64/include
-          LDFLAGS: -LC:/msys64/mingw64/lib
-          C_INCLUDE_PATH: C:/msys64/mingw64/include
-          LIBRARY_PATH: C:/msys64/mingw64/lib
+        shell: cmd
         run: |
-          $env:PATH = "C:\msys64\mingw64\bin;C:\msys64\usr\bin;$env:PATH"
+          set CC=gcc
+          set "C_INCLUDE_PATH=C:/msys64/mingw64/include"
+          set "LIBRARY_PATH=C:/msys64/mingw64/lib"
+          
           mix release desktop --overwrite
 
       - name: Package Windows app
