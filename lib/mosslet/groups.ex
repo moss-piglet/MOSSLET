@@ -882,6 +882,8 @@ defmodule Mosslet.Groups do
     member_broadcast({:ok, group}, event, target_user_id)
   end
 
+  defp broadcast({:error, _changeset} = error, _event), do: error
+
   defp member_broadcast({:ok, group}, event, target_user_id \\ nil) do
     message = if target_user_id, do: {group, target_user_id}, else: group
 

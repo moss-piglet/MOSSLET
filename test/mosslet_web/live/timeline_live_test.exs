@@ -113,7 +113,7 @@ defmodule MossletWeb.TimelineLiveTest do
       render_async(lv)
 
       # Verify post creation form exists
-      assert has_element?(lv, "form")
+      assert has_element?(lv, "#timeline-composer")
     end
 
     test "validates post creation", %{conn: conn, user: user, key: key} do
@@ -126,7 +126,7 @@ defmodule MossletWeb.TimelineLiveTest do
       render_async(lv)
 
       # Verify basic form functionality
-      assert has_element?(lv, "form")
+      assert has_element?(lv, "#timeline-composer")
     end
 
     test "can create post with privacy controls", %{conn: conn, user: user, key: key} do

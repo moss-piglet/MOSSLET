@@ -178,6 +178,7 @@ jobs:
           install: >-
             base-devel
             mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-libsodium
 
       - name: Setup Erlang/Elixir
         uses: erlef/setup-beam@v1

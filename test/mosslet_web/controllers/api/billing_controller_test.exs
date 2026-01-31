@@ -6,17 +6,26 @@ defmodule MossletWeb.API.BillingControllerTest do
   alias Mosslet.Billing.Customers
   alias Mosslet.Billing.Subscriptions
 
+  @password "hello world hello world!"
+
   setup %{conn: conn} do
-    user = user_fixture()
-    session_key = "test_session_key"
-    {:ok, token} = Mosslet.API.Token.generate(user, session_key)
+    user = user_fixture(%{password: @password})
+    key = get_key(user, @password)
+    {:ok, token} = Mosslet.API.Token.generate(user, key)
 
     conn =
       conn
       |> put_req_header("accept", "application/json")
       |> put_req_header("authorization", "Bearer #{token}")
 
-    {:ok, conn: conn, user: user}
+    {:ok, conn: conn, user: user, key: key}
+  end
+
+  defp get_key(user, password) do
+    case Mosslet.Accounts.User.valid_key_hash?(user, password) do
+      {:ok, key} -> key
+      _ -> raise "Failed to get session key"
+    end
   end
 
   describe "GET /api/billing/subscription" do
@@ -30,18 +39,22 @@ defmodule MossletWeb.API.BillingControllerTest do
              }
     end
 
-    test "returns subscription when user has active subscription", %{conn: conn, user: user} do
+    test "returns subscription when user has active subscription", %{
+      conn: conn,
+      user: user,
+      key: key
+    } do
       {:ok, customer} =
         Customers.create_customer_for_source(
           :user,
           user.id,
           %{
-            email: user.email,
+            email: Mosslet.Encrypted.Users.Utils.decrypt_user_data(user.email, user, key),
             provider: "stripe",
             provider_customer_id: "cus_test_123"
           },
           user,
-          "test_session_key"
+          key
         )
 
       {:ok, subscription} =
