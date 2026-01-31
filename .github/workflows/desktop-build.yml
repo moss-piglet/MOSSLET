@@ -62,10 +62,10 @@ jobs:
           security unlock-keychain -p actions build.keychain
           security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions build.keychain
-          
+
           APP_PATH="_build/desktop/Mosslet.app"
           SIGN_IDENTITY="Developer ID Application"
-          
+
           # Find and sign all binaries, dylibs, and frameworks inside the app
           find "$APP_PATH" -type f \( -name "*.dylib" -o -name "*.so" -o -perm +111 \) | while read -r file; do
             if file "$file" | grep -q "Mach-O"; then
@@ -74,14 +74,14 @@ jobs:
                 --sign "$SIGN_IDENTITY" "$file" || true
             fi
           done
-          
+
           # Sign the main app bundle last
           codesign --force --timestamp --options runtime --deep \
             --sign "$SIGN_IDENTITY" "$APP_PATH"
-          
+
           # Verify
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
-          
+
           # Re-create ZIP with signed app
           cd _build/desktop
           rm -f Mosslet-*-macos.zip
@@ -192,18 +192,15 @@ jobs:
           echo "C:\msys64\mingw64\bin" >> $env:GITHUB_PATH
           echo "C:\msys64\usr\bin" >> $env:GITHUB_PATH
 
-      - name: Install dependencies
+      - name: Setup mix
         shell: cmd
         run: |
-          set CC=gcc
-          set MAKE=make
-          set "CFLAGS=-IC:/msys64/mingw64/include"
-          set "LDFLAGS=-LC:/msys64/mingw64/lib"
-          set "C_INCLUDE_PATH=C:/msys64/mingw64/include"
-          set "LIBRARY_PATH=C:/msys64/mingw64/lib"
-          
           mix local.hex --force
           mix local.rebar --force
+
+      - name: Get dependencies
+        shell: cmd
+        run: |
           mix deps.clean --all
           mix deps.get --only prod
 
@@ -215,7 +212,7 @@ jobs:
           $portEnv = "`n{port_env, [`n  {`"CFLAGS`", `"`$CFLAGS -I/c/msys64/mingw64/include -IC:/msys64/mingw64/include`"}`n  {`"LDFLAGS`", `"`$LDFLAGS -L/c/msys64/mingw64/lib -LC:/msys64/mingw64/lib -lsodium`"}`n]}.`n"
           Add-Content -Path deps/enacl/rebar.config -Value $portEnv
 
-      - name: Compile dependencies
+      - name: Compile and build release
         shell: cmd
         run: |
           set CC=gcc
@@ -224,17 +221,9 @@ jobs:
           set "LDFLAGS=-LC:/msys64/mingw64/lib -lsodium"
           set "C_INCLUDE_PATH=C:/msys64/mingw64/include"
           set "LIBRARY_PATH=C:/msys64/mingw64/lib"
-          
+
           mix deps.compile
           mix assets.deploy
-
-      - name: Build release
-        shell: cmd
-        run: |
-          set CC=gcc
-          set "C_INCLUDE_PATH=C:/msys64/mingw64/include"
-          set "LIBRARY_PATH=C:/msys64/mingw64/lib"
-          
           mix release desktop --overwrite
 
       - name: Package Windows app
@@ -242,7 +231,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
           Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
-          
+
           # Copy required DLLs
           Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
           Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
@@ -259,15 +248,15 @@ jobs:
           $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
           $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
           [IO.File]::WriteAllBytes($certPath, $certBytes)
-          
+
           $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
-          
+
           # Sign all .exe and .dll files in the release
           Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
             Write-Host "Signing: $($_.FullName)"
             & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
           }
-          
+
           Remove-Item $certPath
 
       - name: Create Windows ZIP
