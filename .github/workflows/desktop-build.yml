@@ -210,25 +210,10 @@ jobs:
       - name: Patch dependencies for Windows
         shell: pwsh
         run: |
-          # Patch argon2_elixir Makefile for Windows - add -shared flag
           (Get-Content deps/argon2_elixir/Makefile) -replace '\$\(CC\) \$\(CFLAGS\)', '$(CC) -shared $(CFLAGS)' | Set-Content deps/argon2_elixir/Makefile
-          
-          # Patch enacl pwhash.c for Windows 64-bit type mismatch
           (Get-Content deps/enacl/c_src/pwhash.c) -replace 'size_t r;', 'unsigned long r;' | Set-Content deps/enacl/c_src/pwhash.c
-          
-          # Patch enacl rebar.config to add proper compile/linker flags for Windows
-          $rebarPath = "deps/enacl/rebar.config"
-          $content = Get-Content $rebarPath -Raw
-          
-          # Add port_env for Windows with absolute paths
-          $portEnv = @'
-
-{port_env, [
-  {"CFLAGS", "$CFLAGS -I/c/msys64/mingw64/include -IC:/msys64/mingw64/include"},
-  {"LDFLAGS", "$LDFLAGS -L/c/msys64/mingw64/lib -LC:/msys64/mingw64/lib -lsodium"}
-]}.
-'@
-          Add-Content -Path $rebarPath -Value $portEnv
+          $portEnv = "`n{port_env, [`n  {`"CFLAGS`", `"`$CFLAGS -I/c/msys64/mingw64/include -IC:/msys64/mingw64/include`"}`n  {`"LDFLAGS`", `"`$LDFLAGS -L/c/msys64/mingw64/lib -LC:/msys64/mingw64/lib -lsodium`"}`n]}.`n"
+          Add-Content -Path deps/enacl/rebar.config -Value $portEnv
 
       - name: Compile dependencies
         shell: cmd
