@@ -188,6 +188,16 @@ jobs:
           echo "C:\msys64\mingw64\bin" >> $env:GITHUB_PATH
           echo "C:\msys64\usr\bin" >> $env:GITHUB_PATH
 
+      - name: Set build environment variables
+        shell: pwsh
+        run: |
+          echo "CC=gcc" >> $env:GITHUB_ENV
+          echo "MAKE=make" >> $env:GITHUB_ENV
+          echo "CFLAGS=-IC:/msys64/mingw64/include" >> $env:GITHUB_ENV
+          echo "LDFLAGS=-LC:/msys64/mingw64/lib -lsodium" >> $env:GITHUB_ENV
+          echo "C_INCLUDE_PATH=C:/msys64/mingw64/include" >> $env:GITHUB_ENV
+          echo "LIBRARY_PATH=C:/msys64/mingw64/lib" >> $env:GITHUB_ENV
+
       - name: Setup mix
         shell: cmd
         run: |
@@ -235,13 +245,6 @@ jobs:
       - name: Compile and build release
         shell: cmd
         run: |
-          set CC=gcc
-          set MAKE=make
-          set "CFLAGS=-IC:/msys64/mingw64/include"
-          set "LDFLAGS=-LC:/msys64/mingw64/lib -lsodium"
-          set "C_INCLUDE_PATH=C:/msys64/mingw64/include"
-          set "LIBRARY_PATH=C:/msys64/mingw64/lib"
-
           mix deps.compile
           mix assets.deploy
           mix release desktop --overwrite
