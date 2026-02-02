@@ -201,16 +201,40 @@ jobs:
       - name: Get dependencies
         shell: cmd
         run: |
-          mix deps.clean --all
           mix deps.get --only prod
+
+      - name: Debug - List deps
+        shell: pwsh
+        run: |
+          Write-Host "Listing deps directory:"
+          if (Test-Path deps) {
+            Get-ChildItem deps | Select-Object Name
+          } else {
+            Write-Host "deps directory does not exist!"
+          }
 
       - name: Patch dependencies for Windows
         shell: pwsh
         run: |
-          (Get-Content deps/argon2_elixir/Makefile) -replace '\$\(CC\) \$\(CFLAGS\)', '$(CC) -shared $(CFLAGS)' | Set-Content deps/argon2_elixir/Makefile
-          (Get-Content deps/enacl/c_src/pwhash.c) -replace 'size_t r;', 'unsigned long r;' | Set-Content deps/enacl/c_src/pwhash.c
-          $portEnv = "`n{port_env, [`n  {`"CFLAGS`", `"`$CFLAGS -I/c/msys64/mingw64/include -IC:/msys64/mingw64/include`"}`n  {`"LDFLAGS`", `"`$LDFLAGS -L/c/msys64/mingw64/lib -LC:/msys64/mingw64/lib -lsodium`"}`n]}.`n"
-          Add-Content -Path deps/enacl/rebar.config -Value $portEnv
+          if (Test-Path deps/argon2_elixir/Makefile) {
+            (Get-Content deps/argon2_elixir/Makefile) -replace '\$\(CC\) \$\(CFLAGS\)', '$(CC) -shared $(CFLAGS)' | Set-Content deps/argon2_elixir/Makefile
+            Write-Host "Patched argon2_elixir Makefile"
+          } else {
+            Write-Host "argon2_elixir Makefile not found, skipping patch"
+          }
+          if (Test-Path deps/enacl/c_src/pwhash.c) {
+            (Get-Content deps/enacl/c_src/pwhash.c) -replace 'size_t r;', 'unsigned long r;' | Set-Content deps/enacl/c_src/pwhash.c
+            Write-Host "Patched enacl pwhash.c"
+          } else {
+            Write-Host "enacl pwhash.c not found, skipping patch"
+          }
+          if (Test-Path deps/enacl/rebar.config) {
+            $portEnv = "`n{port_env, [`n  {`"CFLAGS`", `"`$CFLAGS -I/c/msys64/mingw64/include -IC:/msys64/mingw64/include`"}`n  {`"LDFLAGS`", `"`$LDFLAGS -L/c/msys64/mingw64/lib -LC:/msys64/mingw64/lib -lsodium`"}`n]}.`n"
+            Add-Content -Path deps/enacl/rebar.config -Value $portEnv
+            Write-Host "Patched enacl rebar.config"
+          } else {
+            Write-Host "enacl rebar.config not found, skipping patch"
+          }
 
       - name: Compile and build release
         shell: cmd
