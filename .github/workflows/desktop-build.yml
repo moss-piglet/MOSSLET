@@ -31,6 +31,22 @@ jobs:
           echo "C_INCLUDE_PATH=$(brew --prefix libsodium)/include" >> $GITHUB_ENV
           echo "LIBRARY_PATH=$(brew --prefix libsodium)/lib" >> $GITHUB_ENV
 
+      - name: Create macOS icon (icns)
+        run: |
+          mkdir -p icon.iconset
+          sips -z 16 16     priv/static/images/icon.png --out icon.iconset/icon_16x16.png
+          sips -z 32 32     priv/static/images/icon.png --out icon.iconset/icon_16x16@2x.png
+          sips -z 32 32     priv/static/images/icon.png --out icon.iconset/icon_32x32.png
+          sips -z 64 64     priv/static/images/icon.png --out icon.iconset/icon_32x32@2x.png
+          sips -z 128 128   priv/static/images/icon.png --out icon.iconset/icon_128x128.png
+          sips -z 256 256   priv/static/images/icon.png --out icon.iconset/icon_128x128@2x.png
+          sips -z 256 256   priv/static/images/icon.png --out icon.iconset/icon_256x256.png
+          sips -z 512 512   priv/static/images/icon.png --out icon.iconset/icon_256x256@2x.png
+          sips -z 512 512   priv/static/images/icon.png --out icon.iconset/icon_512x512.png
+          sips -z 1024 1024 priv/static/images/icon.png --out icon.iconset/icon_512x512@2x.png
+          iconutil -c icns icon.iconset -o priv/static/images/icon.icns
+          rm -rf icon.iconset
+
       - name: Setup Erlang/Elixir
         uses: erlef/setup-beam@v1
         with:
@@ -51,11 +67,14 @@ jobs:
         run: ./scripts/build_desktop.sh macos
 
       - name: Code sign (if secrets available)
-        if: env.APPLE_CERTIFICATE != ''
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
+          if [ -z "$APPLE_CERTIFICATE" ]; then
+            echo "APPLE_CERTIFICATE not set, skipping code signing"
+            exit 0
+          fi
           echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
           security create-keychain -p actions build.keychain
           security default-keychain -s build.keychain
@@ -82,19 +101,23 @@ jobs:
           # Verify
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
-          # Re-create ZIP with signed app
-          cd _build/desktop
-          rm -f Mosslet-*-macos.zip
-          zip -r "Mosslet-$(grep '@version' ../../mix.exs | head -1 | sed 's/.*\"\(.*\)\".*/\1/')-macos.zip" Mosslet.app
-
       - name: Notarize (if secrets available)
-        if: env.APPLE_ID != ''
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          SUBMIT_OUTPUT=$(xcrun notarytool submit _build/desktop/Mosslet-*-macos.zip \
+          if [ -z "$APPLE_ID" ]; then
+            echo "APPLE_ID not set, skipping notarization"
+            exit 0
+          fi
+          
+          # Create a ZIP for notarization
+          cd _build/desktop
+          VERSION=$(grep '@version' ../../mix.exs | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          zip -r "Mosslet-${VERSION}-macos-notarize.zip" Mosslet.app
+          
+          SUBMIT_OUTPUT=$(xcrun notarytool submit "Mosslet-${VERSION}-macos-notarize.zip" \
             --apple-id "$APPLE_ID" \
             --team-id "$APPLE_TEAM_ID" \
             --password "$APPLE_APP_PASSWORD" \
@@ -109,7 +132,25 @@ jobs:
               --password "$APPLE_APP_PASSWORD"
             exit 1
           fi
-          xcrun stapler staple _build/desktop/Mosslet.app
+          
+          cd ..
+          xcrun stapler staple desktop/Mosslet.app
+          rm desktop/Mosslet-*-notarize.zip
+
+      - name: Create DMG after signing/notarization
+        run: |
+          cd _build/desktop
+          VERSION=$(grep '@version' ../../mix.exs | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          rm -f "Mosslet-${VERSION}-macos.dmg"
+          create-dmg \
+            --volname "MOSSLET $VERSION" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "Mosslet.app" 150 190 \
+            --app-drop-link 450 185 \
+            "Mosslet-${VERSION}-macos.dmg" \
+            "Mosslet.app" || true
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -361,7 +402,6 @@ jobs:
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
       - name: Upload to Tigris
-        if: env.RELEASES_BUCKET != ''
         env:
           RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -369,17 +409,23 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           AWS_HOST: ${{ secrets.AWS_HOST }}
         run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
           VERSION=${{ steps.version.outputs.version }}
           for file in artifacts/mosslet-*/*; do
             if [ -f "$file" ]; then
               FILENAME=$(basename "$file")
-              echo "Uploading $FILENAME..."
+              echo "Uploading $FILENAME to v$VERSION/..."
               curl -X PUT \
                 -H "Content-Type: application/octet-stream" \
                 --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
                 --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
                 --upload-file "$file" \
+                --fail \
                 "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
             fi
           done
 
