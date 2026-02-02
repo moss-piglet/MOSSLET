@@ -229,7 +229,7 @@ jobs:
             Write-Host "enacl pwhash.c not found, skipping patch"
           }
           if (Test-Path deps/enacl/rebar.config) {
-            $portEnv = "`n{port_env, [`n  {`"CFLAGS`", `"`$CFLAGS -I/c/msys64/mingw64/include -IC:/msys64/mingw64/include`"}`n  {`"LDFLAGS`", `"`$LDFLAGS -L/c/msys64/mingw64/lib -LC:/msys64/mingw64/lib -lsodium`"}`n]}.`n"
+            $portEnv = "`n{port_env, [`n  {`"CFLAGS`", `"`$CFLAGS -I/c/msys64/mingw64/include -IC:/msys64/mingw64/include`"},`n  {`"LDFLAGS`", `"`$LDFLAGS -L/c/msys64/mingw64/lib -LC:/msys64/mingw64/lib -lsodium`"}`n]}.`n"
             Add-Content -Path deps/enacl/rebar.config -Value $portEnv
             Write-Host "Patched enacl rebar.config"
           } else {
