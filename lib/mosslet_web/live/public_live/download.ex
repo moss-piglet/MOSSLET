@@ -87,29 +87,20 @@ defmodule MossletWeb.PublicLive.Download do
                   All Platforms
                 </h2>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <.platform_card
                     platform="macos"
                     icon="hero-computer-desktop"
                     title="macOS"
                     subtitle="Intel & Apple Silicon"
                     version={@version}
-                    formats={[
-                      %{label: "DMG Installer", ext: "dmg", size: "~85 MB"},
-                      %{label: "ZIP Archive", ext: "zip", size: "~80 MB"}
-                    ]}
+                    formats={[%{label: "Download DMG", ext: "dmg", size: "~85 MB"}]}
                   />
 
-                  <.platform_card
-                    platform="windows"
+                  <.platform_card_coming_soon
                     icon="hero-window"
                     title="Windows"
                     subtitle="Windows 10+"
-                    version={@version}
-                    formats={[
-                      %{label: "Installer", ext: "exe", size: "~90 MB"},
-                      %{label: "Portable ZIP", ext: "zip", size: "~85 MB"}
-                    ]}
                   />
 
                   <.platform_card
@@ -118,10 +109,7 @@ defmodule MossletWeb.PublicLive.Download do
                     title="Linux"
                     subtitle="x86_64"
                     version={@version}
-                    formats={[
-                      %{label: "AppImage", ext: "AppImage", size: "~95 MB"},
-                      %{label: "Tarball", ext: "tar.gz", size: "~90 MB"}
-                    ]}
+                    formats={[%{label: "Download AppImage", ext: "AppImage", size: "~95 MB"}]}
                   />
                 </div>
               </div>
@@ -253,15 +241,16 @@ defmodule MossletWeb.PublicLive.Download do
 
   defp primary_download_button(%{platform: "windows"} = assigns) do
     ~H"""
-    <.liquid_button
-      href={download_url("windows", @version, "exe")}
-      color="teal"
-      variant="primary"
-      icon="hero-arrow-down-tray"
-      size="lg"
-    >
-      Download for Windows
-    </.liquid_button>
+    <div class="flex flex-col items-center gap-2">
+      <.liquid_button color="slate" variant="secondary" icon="hero-clock" size="lg" disabled>
+        Windows Coming Soon
+      </.liquid_button>
+      <span class="text-sm text-slate-500 dark:text-slate-400">
+        Use the
+        <.link navigate="/auth/register" class="text-teal-600 hover:underline">web version</.link>
+        for now
+      </span>
+    </div>
     """
   end
 
@@ -290,6 +279,32 @@ defmodule MossletWeb.PublicLive.Download do
     >
       Use Web Version
     </.liquid_button>
+    """
+  end
+
+  attr :icon, :string, required: true
+  attr :title, :string, required: true
+  attr :subtitle, :string, required: true
+
+  defp platform_card_coming_soon(assigns) do
+    ~H"""
+    <div class="rounded-xl bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700 p-6 opacity-60">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700">
+          <.phx_icon name={@icon} class="h-6 w-6 text-slate-600 dark:text-slate-300" />
+        </div>
+        <div>
+          <h3 class="font-semibold text-slate-900 dark:text-white">{@title}</h3>
+          <p class="text-sm text-slate-500 dark:text-slate-400">{@subtitle}</p>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-center p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20">
+        <span class="inline-flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-300">
+          <.phx_icon name="hero-clock" class="h-4 w-4" /> Coming Soon
+        </span>
+      </div>
+    </div>
     """
   end
 
@@ -358,20 +373,11 @@ defmodule MossletWeb.PublicLive.Download do
       {"macos", "dmg"} ->
         "#{base}/v#{version}/Mosslet-#{version}-macos.dmg"
 
-      {"macos", "zip"} ->
-        "#{base}/v#{version}/Mosslet-#{version}-macos.zip"
-
       {"windows", "exe"} ->
         "#{base}/v#{version}/Mosslet-#{version}-windows-setup.exe"
 
-      {"windows", "zip"} ->
-        "#{base}/v#{version}/Mosslet-#{version}-windows.zip"
-
       {"linux", "AppImage"} ->
         "#{base}/v#{version}/Mosslet-#{version}-x86_64.AppImage"
-
-      {"linux", "tar.gz"} ->
-        "#{base}/v#{version}/Mosslet-#{version}-linux-x86_64.tar.gz"
 
       _ ->
         "#"

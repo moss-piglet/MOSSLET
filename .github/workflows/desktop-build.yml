@@ -115,9 +115,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mosslet-macos
-          path: |
-            _build/desktop/*.dmg
-            _build/desktop/*.zip
+          path: _build/desktop/*.dmg
 
   build-linux:
     runs-on: ubuntu-24.04
@@ -159,9 +157,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mosslet-linux
-          path: |
-            _build/desktop/*.AppImage
-            _build/desktop/*.tar.gz
+          path: _build/desktop/*.AppImage
 
   build-windows:
     runs-on: windows-2022
@@ -283,17 +279,64 @@ jobs:
 
           Remove-Item $certPath
 
-      - name: Create Windows ZIP
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
         shell: pwsh
         run: |
           $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
-          Compress-Archive -Path _build/desktop/Mosslet -DestinationPath "_build/desktop/Mosslet-$version-windows.zip"
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: mosslet-windows
-          path: _build/desktop/*.zip
+          path: _build/desktop/*-setup.exe
 
   release:
     needs: [build-macos, build-linux, build-windows]
