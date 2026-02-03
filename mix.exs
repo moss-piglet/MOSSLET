@@ -80,7 +80,7 @@ defmodule Mosslet.MixProject do
   end
 
   defp deps do
-    shared_deps() ++ desktop_deps() ++ windows_deps()
+    shared_deps() ++ desktop_deps() ++ platform_deps()
   end
 
   defp desktop_deps do
@@ -103,8 +103,12 @@ defmodule Mosslet.MixProject do
     if windows_build?() do
       [{:torchx, "~> 0.10"}]
     else
-      []
+      [{:exla, "~> 0.10"}]
     end
+  end
+
+  defp platform_deps do
+    windows_deps()
   end
 
   defp windows_build? do
@@ -138,7 +142,6 @@ defmodule Mosslet.MixProject do
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
       {:ex_aws, "~> 2.4"},
       {:ex_aws_s3, "~> 2.4"},
-      {:exla, "~> 0.10"},
       {:expletive, "~> 0.1.5"},
       {:exvcr, "~> 0.15", only: :test},
       {:ex_marcel, "~> 0.1.0"},

@@ -70,7 +70,7 @@ defmodule Mosslet.DelayedServing do
       backend_module = tensor.data.__struct__
 
       cond do
-        backend_module == EXLA.Backend ->
+        Code.ensure_loaded?(EXLA.Backend) and backend_module == Module.concat([EXLA, Backend]) ->
           case tensor do
             %Nx.Tensor{data: %{buffer: %{client_name: :cuda}}} -> true
             _ -> false
