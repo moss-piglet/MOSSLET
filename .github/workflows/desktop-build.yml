@@ -589,16 +589,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -897,16 +887,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -1205,16 +1185,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -1513,16 +1483,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -1821,16 +1781,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -2129,16 +2079,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -2437,16 +2377,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -2745,16 +2675,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -3053,16 +2973,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -3361,16 +3271,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -3669,16 +3569,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -3977,16 +3867,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -4285,16 +4165,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -4593,16 +4463,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -4901,16 +4761,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
