@@ -278,16 +278,23 @@ jobs:
           
           if (Test-Path deps/enacl/rebar.config) {
             $content = Get-Content deps/enacl/rebar.config -Raw
-            $content = $content -replace '\{"win32",\s*"CFLAGS"[^}]+\}', '{"win32", "CFLAGS", "$CFLAGS -fPIC -O3 -std=c99 -IC:/msys64/mingw64/include"}'
-            $content = $content -replace '\{"win32",\s*"LDFLAGS"[^}]+\}', '{"win32", "LDFLAGS", "$LDFLAGS -shared -LC:/msys64/mingw64/lib -lsodium"}'
-            $newEntries = "`n    {`"CFLAGS`", `"`$CFLAGS -IC:/msys64/mingw64/include`"},`n    {`"LDFLAGS`", `"`$LDFLAGS -LC:/msys64/mingw64/lib -lsodium`"}`n]}."
-            $content = $content -replace '\]\}\.(\\s*)$', $newEntries
+            $newPortEnv = '{port_env, [
+    {"CFLAGS", "$CFLAGS -fPIC -O3 -IC:/msys64/mingw64/include"},
+    {"LDFLAGS", "$LDFLAGS -LC:/msys64/mingw64/lib -lsodium"}
+]}.'
+            $content = $content -replace '\{port_env,[\s\S]*?\]\}\.', $newPortEnv
             Set-Content deps/enacl/rebar.config $content
+            Write-Host "Patched enacl rebar.config:"
+            Get-Content deps/enacl/rebar.config
           }
 
       - name: Compile and build release
-        shell: cmd
+        shell: msys2 {0}
         run: |
+          export CFLAGS="-IC:/msys64/mingw64/include"
+          export LDFLAGS="-LC:/msys64/mingw64/lib -lsodium"
+          export C_INCLUDE_PATH="C:/msys64/mingw64/include"
+          export LIBRARY_PATH="C:/msys64/mingw64/lib"
           mix deps.compile
           mix assets.deploy
           mix release desktop --overwrite
