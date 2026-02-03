@@ -251,6 +251,7 @@ jobs:
       - name: Get dependencies
         shell: cmd
         run: |
+          mix deps.clean --all
           mix deps.get --only prod
 
       - name: Debug - List deps
