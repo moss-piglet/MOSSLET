@@ -278,10 +278,7 @@ jobs:
           
           if (Test-Path deps/enacl/rebar.config) {
             $content = Get-Content deps/enacl/rebar.config -Raw
-            $newPortEnv = '{port_env, [
-    {"CFLAGS", "$CFLAGS -fPIC -O3 -IC:/msys64/mingw64/include"},
-    {"LDFLAGS", "$LDFLAGS -LC:/msys64/mingw64/lib -lsodium"}
-]}.'
+            $newPortEnv = "{port_env, [{`"CFLAGS`", `"`$CFLAGS -fPIC -O3 -IC:/msys64/mingw64/include`"}, {`"LDFLAGS`", `"`$LDFLAGS -LC:/msys64/mingw64/lib -lsodium`"}]}."
             $content = $content -replace '\{port_env,[\s\S]*?\]\}\.', $newPortEnv
             Set-Content deps/enacl/rebar.config $content
             Write-Host "Patched enacl rebar.config:"
