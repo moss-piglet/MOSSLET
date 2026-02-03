@@ -286,7 +286,4533 @@ jobs:
     {"LDFLAGS", "$LDFLAGS -LC:/msys64/mingw64/lib -lsodium"}
 ]}.
 '@
-            $content = $content -replace '\]\}\.(\s*)
+            $content = $content -replace '\]\}\.(\s*)$', $newEntries
+            Set-Content deps/enacl/rebar.config $content
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+            Write-Host "Patched enacl rebar.config for MinGW"
+            Write-Host "--- rebar.config port_env ---"
+            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
+          } else {
+            Write-Host "enacl rebar.config not found, skipping patch"
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+            Write-Host "Patched enacl rebar.config for MinGW"
+            Write-Host "--- rebar.config port_env ---"
+            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
+          } else {
+            Write-Host "enacl rebar.config not found, skipping patch"
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+            Write-Host "Patched enacl rebar.config for MinGW"
+            Write-Host "--- rebar.config port_env ---"
+            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
+          } else {
+            Write-Host "enacl rebar.config not found, skipping patch"
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+            Write-Host "Patched enacl rebar.config for MinGW"
+            Write-Host "--- rebar.config port_env ---"
+            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
+          } else {
+            Write-Host "enacl rebar.config not found, skipping patch"
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+            Write-Host "Patched enacl rebar.config for MinGW"
+            Write-Host "--- rebar.config port_env ---"
+            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
+          } else {
+            Write-Host "enacl rebar.config not found, skipping patch"
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+            Write-Host "Patched enacl rebar.config for MinGW"
+            Write-Host "--- rebar.config port_env ---"
+            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
+          } else {
+            Write-Host "enacl rebar.config not found, skipping patch"
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+            Write-Host "Patched enacl rebar.config for MinGW"
+            Write-Host "--- rebar.config port_env ---"
+            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
+          } else {
+            Write-Host "enacl rebar.config not found, skipping patch"
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+            Write-Host "Patched enacl rebar.config for MinGW"
+            Write-Host "--- rebar.config port_env ---"
+            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
+          } else {
+            Write-Host "enacl rebar.config not found, skipping patch"
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+            Write-Host "Patched enacl rebar.config for MinGW"
+            Write-Host "--- rebar.config port_env ---"
+            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
+          } else {
+            Write-Host "enacl rebar.config not found, skipping patch"
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+            Write-Host "Patched enacl rebar.config for MinGW"
+            Write-Host "--- rebar.config port_env ---"
+            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
+          } else {
+            Write-Host "enacl rebar.config not found, skipping patch"
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+            Write-Host "Patched enacl rebar.config for MinGW"
+            Write-Host "--- rebar.config port_env ---"
+            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
+          } else {
+            Write-Host "enacl rebar.config not found, skipping patch"
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+            Write-Host "Patched enacl rebar.config for MinGW"
+            Write-Host "--- rebar.config port_env ---"
+            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
+          } else {
+            Write-Host "enacl rebar.config not found, skipping patch"
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+            Write-Host "Patched enacl rebar.config for MinGW"
+            Write-Host "--- rebar.config port_env ---"
+            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
+          } else {
+            Write-Host "enacl rebar.config not found, skipping patch"
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+            Write-Host "Patched enacl rebar.config for MinGW"
+            Write-Host "--- rebar.config port_env ---"
+            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
+          } else {
+            Write-Host "enacl rebar.config not found, skipping patch"
+          }
+
+      - name: Compile and build release
+        shell: cmd
+        run: |
+          mix deps.compile
+          mix assets.deploy
+          mix release desktop --overwrite
+
+      - name: Package Windows app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _build/desktop/Mosslet
+          Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
+
+          # Copy required DLLs
+          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+      - name: Code sign Windows (if secrets available)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+
+          # Sign all .exe and .dll files in the release
+          Get-ChildItem -Path _build/desktop/Mosslet -Include *.exe,*.dll -Recurse | ForEach-Object {
+            Write-Host "Signing: $($_.FullName)"
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+
+          Remove-Item $certPath
+
+      - name: Convert PNG to ICO for installer
+        shell: pwsh
+        run: |
+          choco install imagemagick -y
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          magick convert priv/static/images/icon.png -define icon:auto-resize=256,128,64,48,32,16 priv/static/images/icon.ico
+
+      - name: Create launcher batch file
+        shell: pwsh
+        run: |
+          $batContent = @"
+          @echo off
+          cd /d "%~dp0"
+          start "" bin\desktop.bat start
+          "@
+          $batContent | Out-File -FilePath "_build/desktop/Mosslet/Mosslet.bat" -Encoding ASCII
+
+      - name: Create Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
+          
+          $issContent = @"
+          [Setup]
+          AppName=MOSSLET
+          AppVersion=$version
+          AppPublisher=MOSSLET
+          AppPublisherURL=https://mosslet.com
+          DefaultDirName={autopf}\MOSSLET
+          DefaultGroupName=MOSSLET
+          OutputDir=_build\desktop
+          OutputBaseFilename=Mosslet-$version-windows-setup
+          Compression=lzma2
+          SolidCompression=yes
+          PrivilegesRequired=lowest
+          SetupIconFile=priv\static\images\icon.ico
+          UninstallDisplayIcon={app}\bin\erl.exe
+
+          [Files]
+          Source: "_build\desktop\Mosslet\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+          Name: "{autodesktop}\MOSSLET"; Filename: "{app}\Mosslet.bat"
+
+          [Run]
+          Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
+          "@
+          
+          $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-windows
+          path: _build/desktop/*-setup.exe
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to Tigris
+        env:
+          RELEASES_BUCKET: ${{ secrets.RELEASES_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+        run: |
+          if [ -z "$RELEASES_BUCKET" ]; then
+            echo "RELEASES_BUCKET secret not set, skipping Tigris upload"
+            exit 0
+          fi
+          VERSION=${{ steps.version.outputs.version }}
+          for file in artifacts/mosslet-*/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading $FILENAME to v$VERSION/..."
+              curl -X PUT \
+                -H "Content-Type: application/octet-stream" \
+                --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+                --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                --upload-file "$file" \
+                --fail \
+                "https://$RELEASES_BUCKET.$AWS_HOST/v$VERSION/$FILENAME"
+              echo "Uploaded $FILENAME"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/mosslet-macos/*
+            artifacts/mosslet-linux/*
+            artifacts/mosslet-windows/*
+, $newEntries
+            Set-Content deps/enacl/rebar.config $content
+          }
+
+      - name: Compile and build release
         shell: cmd
         run: |
           mix deps.compile
