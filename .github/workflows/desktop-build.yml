@@ -440,21 +440,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-            Write-Host "Patched enacl rebar.config for MinGW"
-            Write-Host "--- rebar.config port_env ---"
-            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
-          } else {
-            Write-Host "enacl rebar.config not found, skipping patch"
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -763,21 +748,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-            Write-Host "Patched enacl rebar.config for MinGW"
-            Write-Host "--- rebar.config port_env ---"
-            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
-          } else {
-            Write-Host "enacl rebar.config not found, skipping patch"
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -1086,21 +1056,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-            Write-Host "Patched enacl rebar.config for MinGW"
-            Write-Host "--- rebar.config port_env ---"
-            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
-          } else {
-            Write-Host "enacl rebar.config not found, skipping patch"
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -1409,21 +1364,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-            Write-Host "Patched enacl rebar.config for MinGW"
-            Write-Host "--- rebar.config port_env ---"
-            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
-          } else {
-            Write-Host "enacl rebar.config not found, skipping patch"
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -1732,21 +1672,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-            Write-Host "Patched enacl rebar.config for MinGW"
-            Write-Host "--- rebar.config port_env ---"
-            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
-          } else {
-            Write-Host "enacl rebar.config not found, skipping patch"
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -2055,21 +1980,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-            Write-Host "Patched enacl rebar.config for MinGW"
-            Write-Host "--- rebar.config port_env ---"
-            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
-          } else {
-            Write-Host "enacl rebar.config not found, skipping patch"
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -2378,21 +2288,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-            Write-Host "Patched enacl rebar.config for MinGW"
-            Write-Host "--- rebar.config port_env ---"
-            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
-          } else {
-            Write-Host "enacl rebar.config not found, skipping patch"
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -2701,21 +2596,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-            Write-Host "Patched enacl rebar.config for MinGW"
-            Write-Host "--- rebar.config port_env ---"
-            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
-          } else {
-            Write-Host "enacl rebar.config not found, skipping patch"
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -3024,21 +2904,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-            Write-Host "Patched enacl rebar.config for MinGW"
-            Write-Host "--- rebar.config port_env ---"
-            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
-          } else {
-            Write-Host "enacl rebar.config not found, skipping patch"
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -3347,21 +3212,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-            Write-Host "Patched enacl rebar.config for MinGW"
-            Write-Host "--- rebar.config port_env ---"
-            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
-          } else {
-            Write-Host "enacl rebar.config not found, skipping patch"
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -3670,21 +3520,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-            Write-Host "Patched enacl rebar.config for MinGW"
-            Write-Host "--- rebar.config port_env ---"
-            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
-          } else {
-            Write-Host "enacl rebar.config not found, skipping patch"
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -3993,21 +3828,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-            Write-Host "Patched enacl rebar.config for MinGW"
-            Write-Host "--- rebar.config port_env ---"
-            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
-          } else {
-            Write-Host "enacl rebar.config not found, skipping patch"
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -4316,21 +4136,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-            Write-Host "Patched enacl rebar.config for MinGW"
-            Write-Host "--- rebar.config port_env ---"
-            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
-          } else {
-            Write-Host "enacl rebar.config not found, skipping patch"
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -4639,21 +4444,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-            Write-Host "Patched enacl rebar.config for MinGW"
-            Write-Host "--- rebar.config port_env ---"
-            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
-          } else {
-            Write-Host "enacl rebar.config not found, skipping patch"
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -4962,21 +4752,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-            Write-Host "Patched enacl rebar.config for MinGW"
-            Write-Host "--- rebar.config port_env ---"
-            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
-          } else {
-            Write-Host "enacl rebar.config not found, skipping patch"
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
@@ -5285,21 +5060,6 @@ jobs:
             artifacts/mosslet-macos/*
             artifacts/mosslet-linux/*
             artifacts/mosslet-windows/*
-, $newEntries
-            Set-Content deps/enacl/rebar.config $content
-            Write-Host "Patched enacl rebar.config for MinGW"
-            Write-Host "--- rebar.config port_env ---"
-            Get-Content deps/enacl/rebar.config | Select-String -Pattern "port_env|win32|CFLAGS|LDFLAGS" -Context 0,0
-          } else {
-            Write-Host "enacl rebar.config not found, skipping patch"
-          }
-
-      - name: Compile and build release
-        shell: cmd
-        run: |
-          mix deps.compile
-          mix assets.deploy
-          mix release desktop --overwrite
 
       - name: Package Windows app
         shell: pwsh
