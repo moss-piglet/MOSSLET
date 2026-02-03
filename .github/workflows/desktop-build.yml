@@ -219,6 +219,7 @@ jobs:
             mingw-w64-x86_64-toolchain
             mingw-w64-x86_64-libsodium
             mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-libvips
 
       - name: Setup Erlang/Elixir
         uses: erlef/setup-beam@v1
@@ -241,6 +242,8 @@ jobs:
           echo "LDFLAGS=-LC:/msys64/mingw64/lib -lsodium" >> $env:GITHUB_ENV
           echo "C_INCLUDE_PATH=C:/msys64/mingw64/include" >> $env:GITHUB_ENV
           echo "LIBRARY_PATH=C:/msys64/mingw64/lib" >> $env:GITHUB_ENV
+          echo "VIX_COMPILATION_MODE=PLATFORM_PROVIDED_LIBVIPS" >> $env:GITHUB_ENV
+          echo "PKG_CONFIG_PATH=C:/msys64/mingw64/lib/pkgconfig" >> $env:GITHUB_ENV
 
       - name: Install dependencies and build release
         shell: msys2 {0}
@@ -249,6 +252,8 @@ jobs:
           export LDFLAGS="-LC:/msys64/mingw64/lib -lsodium"
           export C_INCLUDE_PATH="C:/msys64/mingw64/include"
           export LIBRARY_PATH="C:/msys64/mingw64/lib"
+          export VIX_COMPILATION_MODE="PLATFORM_PROVIDED_LIBVIPS"
+          export PKG_CONFIG_PATH="C:/msys64/mingw64/lib/pkgconfig"
 
           mix local.hex --force
           mix local.rebar --force
@@ -285,6 +290,24 @@ jobs:
           Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
           Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
           Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+          # Copy libvips and its dependencies
+          Copy-Item C:/msys64/mingw64/bin/libvips*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libglib*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgobject*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libintl*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libiconv*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libexpat*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libffi*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libpcre*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/zlib*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libjpeg*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libpng*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libtiff*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libwebp*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libheif*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgio*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+          Copy-Item C:/msys64/mingw64/bin/libgmodule*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
 
       - name: Code sign Windows (if secrets available)
         if: env.WINDOWS_CERTIFICATE != ''
