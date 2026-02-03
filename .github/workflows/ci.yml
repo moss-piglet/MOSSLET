@@ -124,6 +124,14 @@ jobs:
       # - name: Dialyzer static analysis
       #  run: mix dialyzer --format github
 
-      # Clean outdated dependencies
+      # Clean outdated dependencies (torchx is a Windows-only conditional dep)
       - name: Check unused dependencies
-        run: mix deps.unlock --check-unused
+        run: |
+          OUTPUT=$(mix deps.unlock --check-unused 2>&1) || {
+            if echo "$OUTPUT" | grep -q "torchx" && ! echo "$OUTPUT" | grep -v torchx | grep -q "^\s*\*"; then
+              echo "Only torchx is unused (expected - Windows-only dep)"
+              exit 0
+            fi
+            echo "$OUTPUT"
+            exit 1
+          }
