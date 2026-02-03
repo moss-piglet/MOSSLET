@@ -111,12 +111,12 @@ jobs:
             echo "APPLE_ID not set, skipping notarization"
             exit 0
           fi
-          
+
           # Create a ZIP for notarization
           cd _build/desktop
           VERSION=$(grep '@version' ../../mix.exs | head -1 | sed 's/.*"\(.*\)".*/\1/')
           zip -r "Mosslet-${VERSION}-macos-notarize.zip" Mosslet.app
-          
+
           SUBMIT_OUTPUT=$(xcrun notarytool submit "Mosslet-${VERSION}-macos-notarize.zip" \
             --apple-id "$APPLE_ID" \
             --team-id "$APPLE_TEAM_ID" \
@@ -132,7 +132,7 @@ jobs:
               --password "$APPLE_APP_PASSWORD"
             exit 1
           fi
-          
+
           cd ..
           xcrun stapler staple desktop/Mosslet.app
           rm desktop/Mosslet-*-notarize.zip
@@ -242,60 +242,34 @@ jobs:
           echo "C_INCLUDE_PATH=C:/msys64/mingw64/include" >> $env:GITHUB_ENV
           echo "LIBRARY_PATH=C:/msys64/mingw64/lib" >> $env:GITHUB_ENV
 
-      - name: Setup mix
-        shell: cmd
-        run: |
-          mix local.hex --force
-          mix local.rebar --force
-
-      - name: Get dependencies
-        shell: cmd
-        run: |
-          mix deps.clean --all
-          mix deps.get --only prod
-
-      - name: Debug - List deps
-        shell: pwsh
-        run: |
-          Write-Host "Listing deps directory:"
-          if (Test-Path deps) {
-            Get-ChildItem deps | Select-Object Name
-          } else {
-            Write-Host "deps directory does not exist!"
-          }
-
-      - name: Patch dependencies for Windows
-        shell: pwsh
-        run: |
-          if (Test-Path deps/argon2_elixir/Makefile) {
-            (Get-Content deps/argon2_elixir/Makefile) -replace '\$\(CC\) \$\(CFLAGS\)', '$(CC) -shared $(CFLAGS)' | Set-Content deps/argon2_elixir/Makefile
-            Write-Host "Patched argon2_elixir Makefile"
-          } else {
-            Write-Host "argon2_elixir Makefile not found, skipping patch"
-          }
-          if (Test-Path deps/enacl/c_src/pwhash.c) {
-            (Get-Content deps/enacl/c_src/pwhash.c) -replace 'size_t r;', 'unsigned long r;' | Set-Content deps/enacl/c_src/pwhash.c
-            Write-Host "Patched enacl pwhash.c"
-          } else {
-            Write-Host "enacl pwhash.c not found, skipping patch"
-          }
-          
-          if (Test-Path deps/enacl/rebar.config) {
-            $content = Get-Content deps/enacl/rebar.config -Raw
-            $newPortEnv = "{port_env, [{`"CFLAGS`", `"`$CFLAGS -fPIC -O3 -IC:/msys64/mingw64/include`"}, {`"LDFLAGS`", `"`$LDFLAGS -LC:/msys64/mingw64/lib -lsodium`"}]}."
-            $content = $content -replace '\{port_env,[\s\S]*?\]\}\.', $newPortEnv
-            Set-Content deps/enacl/rebar.config $content
-            Write-Host "Patched enacl rebar.config:"
-            Get-Content deps/enacl/rebar.config
-          }
-
-      - name: Compile and build release
+      - name: Install dependencies and build release
         shell: msys2 {0}
         run: |
           export CFLAGS="-IC:/msys64/mingw64/include"
           export LDFLAGS="-LC:/msys64/mingw64/lib -lsodium"
           export C_INCLUDE_PATH="C:/msys64/mingw64/include"
           export LIBRARY_PATH="C:/msys64/mingw64/lib"
+
+          mix local.hex --force
+          mix local.rebar --force
+          mix deps.clean --all
+          mix deps.get --only prod
+
+          if [ -f deps/argon2_elixir/Makefile ]; then
+            sed -i 's/\$(CC) \$(CFLAGS)/$(CC) -shared $(CFLAGS)/g' deps/argon2_elixir/Makefile
+            echo "Patched argon2_elixir Makefile"
+          fi
+
+          if [ -f deps/enacl/c_src/pwhash.c ]; then
+            sed -i 's/size_t r;/unsigned long r;/g' deps/enacl/c_src/pwhash.c
+            echo "Patched enacl pwhash.c"
+          fi
+
+          if [ -f deps/enacl/rebar.config ]; then
+            echo '{port_env, [{"CFLAGS", "$CFLAGS -fPIC -O3 -IC:/msys64/mingw64/include"}, {"LDFLAGS", "$LDFLAGS -LC:/msys64/mingw64/lib -lsodium"}]}.' > deps/enacl/rebar.config
+            echo "Patched enacl rebar.config"
+          fi
+
           mix deps.compile
           mix assets.deploy
           mix release desktop --overwrite
@@ -354,7 +328,7 @@ jobs:
         shell: pwsh
         run: |
           $version = (Select-String -Path mix.exs -Pattern '@version "(.+)"').Matches.Groups[1].Value
-          
+
           $issContent = @"
           [Setup]
           AppName=MOSSLET
@@ -381,9 +355,9 @@ jobs:
           [Run]
           Filename: "{app}\Mosslet.bat"; Description: "Launch MOSSLET"; Flags: nowait postinstall skipifsilent
           "@
-          
+
           $issContent | Out-File -FilePath "mosslet.iss" -Encoding UTF8
-          
+
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" mosslet.iss
 
       - name: Upload artifacts
