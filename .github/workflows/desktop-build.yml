@@ -280,12 +280,12 @@ jobs:
             $content = Get-Content deps/enacl/rebar.config -Raw
             $content = $content -replace '\{"win32",\s*"CFLAGS"[^}]+\}', '{"win32", "CFLAGS", "$CFLAGS -fPIC -O3 -std=c99 -IC:/msys64/mingw64/include"}'
             $content = $content -replace '\{"win32",\s*"LDFLAGS"[^}]+\}', '{"win32", "LDFLAGS", "$LDFLAGS -shared -LC:/msys64/mingw64/lib -lsodium"}'
-            $newEntries = @'
+            $newEntries = @"
 
-    {"CFLAGS", "$CFLAGS -IC:/msys64/mingw64/include"},
-    {"LDFLAGS", "$LDFLAGS -LC:/msys64/mingw64/lib -lsodium"}
+    {`"CFLAGS`", `"`$CFLAGS -IC:/msys64/mingw64/include`"},
+    {`"LDFLAGS`", `"`$LDFLAGS -LC:/msys64/mingw64/lib -lsodium`"}
 ]}.
-'@
+"@
             $content = $content -replace '\]\}\.(\s*)$', $newEntries
             Set-Content deps/enacl/rebar.config $content
           }
