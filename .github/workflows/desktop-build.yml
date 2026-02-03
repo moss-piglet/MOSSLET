@@ -260,6 +260,10 @@ jobs:
           mix deps.clean --all
           mix deps.get --only prod
 
+          # Patch vix NIF code for Windows compatibility
+          chmod +x scripts/vix_windows_patch.sh
+          ./scripts/vix_windows_patch.sh
+
           if [ -f deps/argon2_elixir/Makefile ]; then
             sed -i 's/\$(CC) \$(CFLAGS)/$(CC) -shared $(CFLAGS)/g' deps/argon2_elixir/Makefile
             echo "Patched argon2_elixir Makefile"
