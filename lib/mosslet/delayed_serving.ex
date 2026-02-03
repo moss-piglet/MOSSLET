@@ -66,16 +66,23 @@ defmodule Mosslet.DelayedServing do
   @spec has_gpu_access? :: boolean()
   def has_gpu_access?() do
     try do
-      case Nx.tensor(0) do
-        # :host == CPU
-        %Nx.Tensor{data: %EXLA.Backend{buffer: %EXLA.DeviceBuffer{client_name: :host}}} ->
-          false
+      tensor = Nx.tensor(0)
+      backend_module = tensor.data.__struct__
 
-        # :cuda == GPU
-        %Nx.Tensor{data: %EXLA.Backend{buffer: %EXLA.DeviceBuffer{client_name: :cuda}}} ->
-          true
+      cond do
+        backend_module == EXLA.Backend ->
+          case tensor do
+            %Nx.Tensor{data: %{buffer: %{client_name: :cuda}}} -> true
+            _ -> false
+          end
 
-        _other ->
+        Code.ensure_loaded?(Torchx) and backend_module == Module.concat([Torchx, Backend]) ->
+          case apply(Torchx, :device, [tensor]) do
+            {:cuda, _} -> true
+            _ -> false
+          end
+
+        true ->
           false
       end
     rescue

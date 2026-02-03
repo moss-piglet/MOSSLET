@@ -203,6 +203,8 @@ jobs:
   build-windows:
     runs-on: windows-2022
     if: contains(github.event.inputs.platforms || 'macos,linux,windows', 'windows')
+    env:
+      MOSSLET_WINDOWS: "true"
     steps:
       - uses: actions/checkout@v4
 
@@ -216,6 +218,7 @@ jobs:
             base-devel
             mingw-w64-x86_64-toolchain
             mingw-w64-x86_64-libsodium
+            mingw-w64-x86_64-cmake
 
       - name: Setup Erlang/Elixir
         uses: erlef/setup-beam@v1

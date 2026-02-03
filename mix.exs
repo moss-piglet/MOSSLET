@@ -80,7 +80,7 @@ defmodule Mosslet.MixProject do
   end
 
   defp deps do
-    shared_deps() ++ desktop_deps()
+    shared_deps() ++ desktop_deps() ++ windows_deps()
   end
 
   defp desktop_deps do
@@ -97,6 +97,18 @@ defmodule Mosslet.MixProject do
 
   defp native_build? do
     System.get_env("MOSSLET_NATIVE") == "true"
+  end
+
+  defp windows_deps do
+    if windows_build?() do
+      [{:torchx, "~> 0.10"}]
+    else
+      []
+    end
+  end
+
+  defp windows_build? do
+    System.get_env("MOSSLET_WINDOWS") == "true"
   end
 
   defp shared_deps do

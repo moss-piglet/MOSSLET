@@ -206,8 +206,9 @@ config :langchain,
   openai_key: System.get_env("OPENAI_KEY"),
   openai_org_id: System.get_env("OPENAI_ORG_ID")
 
-# Configure Nx
-config :nx, :default_backend, {EXLA.Backend, client: :host}
+# Configure Nx - backend is set at runtime based on OS
+# EXLA for macOS/Linux, Torchx for Windows
+# See Mosslet.AI.Backend module
 
 # Configure Bumblebee (build-time default, overridden in runtime.exs)
 config :bumblebee, offline: false

@@ -6,6 +6,8 @@ defmodule Mosslet.Application do
 
   @impl true
   def start(_type, _args) do
+    Nx.default_backend(Mosslet.AI.Backend.default_backend())
+
     flame_parent = FLAME.Parent.get()
 
     if Mosslet.Platform.native?() and Code.ensure_loaded?(Desktop) do

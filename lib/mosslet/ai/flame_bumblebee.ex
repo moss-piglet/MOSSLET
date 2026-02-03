@@ -80,7 +80,7 @@ defmodule Mosslet.AI.FlameBumblebee do
       Bumblebee.Vision.image_classification(model_info, featurizer,
         top_k: 1,
         compile: [batch_size: 1],
-        defn_options: [compiler: EXLA]
+        defn_options: Mosslet.AI.Backend.defn_options()
       )
 
     case Nx.Serving.run(serving, tensor) do

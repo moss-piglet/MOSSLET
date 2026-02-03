@@ -34,7 +34,7 @@ defmodule Mosslet.AI.NsfwImageDetection do
     Bumblebee.Vision.image_classification(model_info, featurizer,
       top_k: 1,
       compile: [batch_size: 4],
-      defn_options: [compiler: EXLA]
+      defn_options: Mosslet.AI.Backend.defn_options()
     )
 
     # {:ok, model_info} = Bumblebee.load_model(nsfw)

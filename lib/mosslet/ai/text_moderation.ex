@@ -28,7 +28,7 @@ defmodule Mosslet.AI.TextModeration do
 
     Bumblebee.Text.text_classification(model_info, tokenizer,
       compile: [batch_size: 4, sequence_length: 256],
-      defn_options: [compiler: EXLA],
+      defn_options: Mosslet.AI.Backend.defn_options(),
       top_k: nil
     )
   end

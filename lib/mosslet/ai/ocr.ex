@@ -37,7 +37,7 @@ defmodule Mosslet.AI.OCR do
 
     Bumblebee.Vision.image_to_text(model_info, featurizer, tokenizer, generation_config,
       compile: [batch_size: 1],
-      defn_options: [compiler: EXLA]
+      defn_options: Mosslet.AI.Backend.defn_options()
     )
   end
 end

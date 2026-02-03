@@ -34,7 +34,7 @@ defmodule Mosslet.AI.TextGeneration do
 
     Bumblebee.Text.generation(model_info, tokenizer, generation_config,
       compile: [batch_size: 1, sequence_length: 512],
-      defn_options: [compiler: EXLA],
+      defn_options: Mosslet.AI.Backend.defn_options(),
       stream: false
     )
   end
