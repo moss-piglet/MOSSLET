@@ -205,6 +205,7 @@ jobs:
     if: contains(github.event.inputs.platforms || 'macos,linux,windows', 'windows')
     env:
       MOSSLET_WINDOWS: "true"
+      XLA_BUILD: "false"
     steps:
       - uses: actions/checkout@v4
 
@@ -254,6 +255,7 @@ jobs:
           export LIBRARY_PATH="C:/msys64/mingw64/lib"
           export VIX_COMPILATION_MODE="PLATFORM_PROVIDED_LIBVIPS"
           export PKG_CONFIG_PATH="C:/msys64/mingw64/lib/pkgconfig"
+          export XLA_BUILD="false"
 
           mix local.hex --force
           mix local.rebar --force

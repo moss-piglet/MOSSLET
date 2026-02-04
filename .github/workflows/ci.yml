@@ -128,7 +128,8 @@ jobs:
       - name: Check unused dependencies
         run: |
           OUTPUT=$(mix deps.unlock --check-unused 2>&1) || {
-            if echo "$OUTPUT" | grep -q "torchx" && ! echo "$OUTPUT" | grep -v torchx | grep -q "^\s*\*"; then
+            UNUSED_DEPS=$(echo "$OUTPUT" | grep '^\s*\* :' | sed 's/.*:\([a-z_]*\).*/\1/')
+            if [ "$UNUSED_DEPS" = "torchx" ]; then
               echo "Only torchx is unused (expected - Windows-only dep)"
               exit 0
             fi

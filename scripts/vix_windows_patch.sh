@@ -275,6 +275,9 @@ exit:
 }
 
 static bool select_write(ErlNifEnv *env, int *fd) {
+#ifdef _WIN32
+  return true;
+#else
   int ret;
 
   ret = enif_select(env, *fd, ERL_NIF_SELECT_WRITE, fd, NULL, ATOM_UNDEFINED);
@@ -285,6 +288,7 @@ static bool select_write(ErlNifEnv *env, int *fd) {
   }
 
   return true;
+#endif
 }
 
 ERL_NIF_TERM nif_write(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
@@ -341,6 +345,9 @@ exit:
 }
 
 static bool select_read(ErlNifEnv *env, int *fd) {
+#ifdef _WIN32
+  return true;
+#else
   int ret;
 
   ret = enif_select(env, *fd, ERL_NIF_SELECT_READ, fd, NULL, ATOM_UNDEFINED);
@@ -351,6 +358,7 @@ static bool select_read(ErlNifEnv *env, int *fd) {
   }
 
   return true;
+#endif
 }
 
 ERL_NIF_TERM nif_read(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
@@ -408,6 +416,9 @@ exit:
 }
 
 static bool cancel_select(ErlNifEnv *env, int *fd) {
+#ifdef _WIN32
+  return true;
+#else
   int ret;
 
   if (*fd != VIX_FD_CLOSED) {
@@ -422,6 +433,7 @@ static bool cancel_select(ErlNifEnv *env, int *fd) {
   }
 
   return true;
+#endif
 }
 
 static void fd_rt_dtor(ErlNifEnv *env, void *obj) {
@@ -430,9 +442,15 @@ static void fd_rt_dtor(ErlNifEnv *env, void *obj) {
   close_fd(fd);
 }
 
+#ifdef _WIN32
+static void fd_rt_stop(ErlNifEnv *env, void *obj, ErlNifEvent event, int is_direct_call) {
+  debug("fd_rt_stop called");
+}
+#else
 static void fd_rt_stop(ErlNifEnv *env, void *obj, int fd, int is_direct_call) {
   debug("fd_rt_stop called %d", fd);
 }
+#endif
 
 static void fd_rt_down(ErlNifEnv *env, void *obj, ErlNifPid *pid,
                        ErlNifMonitor *monitor) {
