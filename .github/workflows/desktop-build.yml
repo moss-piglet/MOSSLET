@@ -249,6 +249,7 @@ jobs:
       - name: Install dependencies and build release
         shell: msys2 {0}
         run: |
+          export PATH="/mingw64/bin:$PATH"
           export CFLAGS="-IC:/msys64/mingw64/include"
           export LDFLAGS="-LC:/msys64/mingw64/lib -lsodium"
           export C_INCLUDE_PATH="C:/msys64/mingw64/include"
