@@ -442,15 +442,13 @@ static void fd_rt_dtor(ErlNifEnv *env, void *obj) {
   close_fd(fd);
 }
 
-#ifdef _WIN32
 static void fd_rt_stop(ErlNifEnv *env, void *obj, ErlNifEvent event, int is_direct_call) {
+#ifdef _WIN32
   debug("fd_rt_stop called");
-}
 #else
-static void fd_rt_stop(ErlNifEnv *env, void *obj, int fd, int is_direct_call) {
-  debug("fd_rt_stop called %d", fd);
-}
+  debug("fd_rt_stop called %d", (int)(intptr_t)event);
 #endif
+}
 
 static void fd_rt_down(ErlNifEnv *env, void *obj, ErlNifPid *pid,
                        ErlNifMonitor *monitor) {
