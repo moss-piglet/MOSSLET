@@ -296,10 +296,7 @@ jobs:
           mix deps.compile --except vix
 
           echo "First pass: Build vix NIF (Elixir compile will fail)..."
-          set +e
-          mix deps.compile vix 2>&1
-          echo "First pass exit code: $?"
-          set -e
+          (mix deps.compile vix 2>&1) || echo "First pass failed as expected"
 
           echo "Setting up DLLs for Windows..."
           VIX_PRIV_DIR="_build/prod/lib/vix/priv"
