@@ -305,10 +305,10 @@ jobs:
           echo "Total DLLs copied: $(ls "$VIX_PRIV_DIR/"*.dll 2>/dev/null | wc -l)"
 
           echo "Second pass: Compile vix Elixir code with DLLs in place..."
-          export PATH="$(pwd)/$VIX_PRIV_DIR:$PATH"
+          VIX_PRIV_WIN="D:/a/MOSSLET/MOSSLET/_build/prod/lib/vix/priv"
+          export PATH="$VIX_PRIV_WIN:$PATH"
           mix deps.compile vix --force
 
-          export PATH="$(pwd)/$VIX_PRIV_DIR:$PATH"
           mix compile
 
           mix assets.deploy
