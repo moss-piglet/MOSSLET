@@ -277,6 +277,9 @@ jobs:
           chmod +x scripts/vix_windows_patch.sh
           ./scripts/vix_windows_patch.sh
 
+          echo "Patching vix Makefile to output .dll on Windows..."
+          sed -i 's/VIX = \$(PREFIX)\/vix\.so/VIX = $(PREFIX)\/vix.dll/' deps/vix/c_src/Makefile
+
           if [ -f deps/argon2_elixir/Makefile ]; then
             sed -i 's/\$(CC) \$(CFLAGS)/$(CC) -shared $(CFLAGS)/g' deps/argon2_elixir/Makefile
             echo "Patched argon2_elixir Makefile"
@@ -308,9 +311,8 @@ jobs:
           echo "Building and compiling vix (NIF + Elixir)..."
           mix deps.compile vix
 
-          echo "Copying vix.so to vix.dll for Windows..."
-          cp "$VIX_PRIV_DIR/vix.so" "$VIX_PRIV_DIR/vix.dll" 2>/dev/null || true
-          ls -la "$VIX_PRIV_DIR/vix."* 2>/dev/null || true
+          echo "Verifying vix NIF built correctly..."
+          ls -la "$VIX_PRIV_DIR/vix."* 2>/dev/null || echo "vix NIF files not found"
 
           mix assets.deploy
           mix release desktop --overwrite
