@@ -265,59 +265,61 @@ jobs:
           export PKG_CONFIG_PATH="C:/msys64/mingw64/lib/pkgconfig"
           export XLA_BUILD="false"
 
+          # verify libvips is installed
           echo "Verifying libvips installation..."
           pkg-config --libs --cflags vips
-          ls -la /mingw64/bin/libvips*.dll || echo "No libvips DLLs found"
+          ls -la /mingw64/bin/libvips*.dll || echo "No libvips DLLs found in /mingw64/bin"
 
+          # Ensure build directories exist
+          VIX_PRIV_DIR="_build/prod/lib/vix/priv"
+          mkdir -p "$VIX_PRIV_DIR"
+          echo "VIX_PRIV_DIR=$VIX_PRIV_DIR"
+
+          # Copy required libvips DLLs and common dependencies into the vix priv directory
+          # Copy a conservative set of likely required DLLs. Add or remove patterns as needed.
+          echo "Copying libvips and dependency DLLs from /mingw64/bin to $VIX_PRIV_DIR..."
+          for pattern in libvips*.dll libglib*.dll libgobject*.dll libintl*.dll libiconv*.dll libexpat*.dll libffi*.dll libpcre*.dll zlib1.dll libjpeg*.dll libpng*.dll libtiff*.dll libwebp*.dll libheif*.dll libgmodule*.dll; do
+            for dll in /mingw64/bin/$pattern; do
+              [ -f "$dll" ] && cp -n "$dll" "$VIX_PRIV_DIR/" 2>/dev/null || true
+            done
+          done
+
+          # Also copy all .dll as a fallback (optional; can be narrowed down to reduce noise)
+          # for dll in /mingw64/bin/*.dll; do cp -n "$dll" "$VIX_PRIV_DIR/" 2>/dev/null || true; done
+                
+          echo "Copied DLLs into $VIX_PRIV_DIR:"
+          ls -la "$VIX_PRIV_DIR" | sed -n '1,200p' || true
+
+          # Prepend the priv dir to PATH so the Windows loader can find dependencies when loading the NIF
+          export PATH="$PWD/$VIX_PRIV_DIR:$PATH"
+          echo "PATH now starts with: $(echo $PATH | cut -d: -f1-3)"
+
+          # Build Elixir tools and deps
           mix local.hex --force
           mix local.rebar --force
           mix deps.clean --all
           mix deps.get --only prod
 
-          chmod +x scripts/vix_windows_patch.sh
-          ./scripts/vix_windows_patch.sh
-
-          if [ -f deps/argon2_elixir/Makefile ]; then
-            sed -i 's/\$(CC) \$(CFLAGS)/$(CC) -shared $(CFLAGS)/g' deps/argon2_elixir/Makefile
-            echo "Patched argon2_elixir Makefile"
-          fi
-
-          if [ -f deps/enacl/c_src/pwhash.c ]; then
-            sed -i 's/size_t r;/unsigned long r;/g' deps/enacl/c_src/pwhash.c
-            echo "Patched enacl pwhash.c"
-          fi
-
-          if [ -f deps/enacl/rebar.config ]; then
-            echo "{port_env, [{\"CFLAGS\", \"\$CFLAGS -fPIC -O3 -I$C_INCLUDE_PATH\"}, {\"LDFLAGS\", \"\$LDFLAGS -L$LIBRARY_PATH -lsodium\"}]}." > deps/enacl/rebar.config
-            echo "Patched enacl rebar.config"
-          fi
-
+          # Compile everything except vix first
           echo "Compiling all deps except vix..."
           mix deps.compile --except vix
 
-          echo "First pass: Build vix NIF (Elixir compile will fail)..."
+          # First pass: attempt to build the vix NIF (allow non-zero exit)
+          echo "First pass: Build vix NIF (Elixir compile may fail) ..."
           set +e
-          mix deps.compile vix 2>&1
+          mix deps.compile vix 2>&1 | tee vix_first_pass.log
           echo "First pass exit code: $?"
           set -e
 
-          echo "Setting up DLLs for Windows..."
-          VIX_PRIV_DIR="_build/prod/lib/vix/priv"
-          echo "VIX_PRIV_DIR=$VIX_PRIV_DIR"
-          ls -la "$VIX_PRIV_DIR/" || echo "priv dir not found"
-          
-          echo "Copying DLLs from /mingw64/bin to vix priv..."
-          for dll in /mingw64/bin/*.dll; do
-            cp "$dll" "$VIX_PRIV_DIR/" 2>/dev/null || true
-          done
-          echo "Total DLLs copied: $(ls "$VIX_PRIV_DIR/"*.dll 2>/dev/null | wc -l)"
+          # If the vix build produced vix.so, copy/rename to vix.dll for Windows
+          if [ -f "$VIX_PRIV_DIR/vix.so" ]; then
+            echo "Renaming vix.so -> vix.dll"
+            cp "$VIX_PRIV_DIR/vix.so" "$VIX_PRIV_DIR/vix.dll" || true
+          fi
 
-          echo "Copying vix.so to vix.dll for Windows..."
-          cp "$VIX_PRIV_DIR/vix.so" "$VIX_PRIV_DIR/vix.dll"
-          ls -la "$VIX_PRIV_DIR/vix."*
-
-          echo "Second pass: Compile vix Elixir code (NIF can now load)..."
-          mix deps.compile vix --force
+          # Second pass: force compile the vix Elixir code (should be able to load NIF now)
+          echo "Second pass: Compile vix Elixir code (NIF should load)..."
+          mix deps.compile vix --force --verbose
 
           mix assets.deploy
           mix release desktop --overwrite
