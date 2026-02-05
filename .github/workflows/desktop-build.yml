@@ -288,31 +288,26 @@ jobs:
             echo "Patched enacl rebar.config"
           fi
 
-          echo "Building vix NIF C code first..."
-          VIX_PRIV_DIR="_build/prod/lib/vix/priv"
-          mkdir -p "$VIX_PRIV_DIR"
-          
-          ERTS_INCLUDE_DIR="$(erl -noshell -eval 'io:format("~s/erts-~s/include", [code:root_dir(), erlang:system_info(version)])' -s init stop)"
-          ERL_INTERFACE_INCLUDE_DIR="$(erl -noshell -eval 'io:format("~s", [code:lib_dir(erl_interface, include)])' -s init stop)"
-          ERL_INTERFACE_LIB_DIR="$(erl -noshell -eval 'io:format("~s", [code:lib_dir(erl_interface, lib)])' -s init stop)"
-          export ERTS_INCLUDE_DIR ERL_INTERFACE_INCLUDE_DIR ERL_INTERFACE_LIB_DIR
-          
-          cd deps/vix/c_src
-          make MIX_APP_PATH="../../../_build/prod/lib/vix"
-          cd ../../..
+          echo "Compiling all deps except vix..."
+          mix deps.compile --except vix
 
-          echo "Copying ALL required DLLs to vix priv directory..."
+          echo "First pass: Build vix NIF (Elixir compile will fail)..."
+          mix deps.compile vix 2>&1 || true
+
+          echo "Setting up DLLs for Windows..."
+          VIX_PRIV_DIR="_build/prod/lib/vix/priv"
+          
           for dll in /mingw64/bin/*.dll; do
             cp "$dll" "$VIX_PRIV_DIR/" 2>/dev/null || true
           done
           echo "Total DLLs copied: $(ls "$VIX_PRIV_DIR/"*.dll 2>/dev/null | wc -l)"
 
-          echo "Renaming vix.so to vix.dll for Windows..."
+          echo "Copying vix.so to vix.dll for Windows..."
           cp "$VIX_PRIV_DIR/vix.so" "$VIX_PRIV_DIR/vix.dll"
-          ls -la "$VIX_PRIV_DIR/"
+          ls -la "$VIX_PRIV_DIR/vix."*
 
-          echo "Now compiling all deps including vix Elixir code..."
-          mix deps.compile
+          echo "Second pass: Compile vix Elixir code (NIF can now load)..."
+          mix deps.compile vix --force
 
           mix assets.deploy
           mix release desktop --overwrite
