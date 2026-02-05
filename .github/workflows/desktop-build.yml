@@ -293,29 +293,19 @@ jobs:
           chmod +x scripts/vix_windows_patch.sh
           ./scripts/vix_windows_patch.sh
 
-          echo "Building vix NIF only (C code)..."
-          make -C deps/vix compile
+          echo "First pass: Build vix NIF (expect Elixir compile to fail)..."
+          mix deps.compile vix 2>&1 || true
 
-          echo "Copying libvips DLLs to vix priv directory before Elixir compilation..."
+          echo "Copying ALL required DLLs to vix priv directory..."
           VIX_PRIV_DIR="_build/prod/lib/vix/priv"
-          mkdir -p "$VIX_PRIV_DIR"
-          cp /mingw64/bin/libvips*.dll "$VIX_PRIV_DIR/" 2>/dev/null || true
-          cp /mingw64/bin/libglib*.dll "$VIX_PRIV_DIR/" 2>/dev/null || true
-          cp /mingw64/bin/libgobject*.dll "$VIX_PRIV_DIR/" 2>/dev/null || true
-          cp /mingw64/bin/libintl*.dll "$VIX_PRIV_DIR/" 2>/dev/null || true
-          cp /mingw64/bin/libiconv*.dll "$VIX_PRIV_DIR/" 2>/dev/null || true
-          cp /mingw64/bin/libexpat*.dll "$VIX_PRIV_DIR/" 2>/dev/null || true
-          cp /mingw64/bin/libffi*.dll "$VIX_PRIV_DIR/" 2>/dev/null || true
-          cp /mingw64/bin/libpcre*.dll "$VIX_PRIV_DIR/" 2>/dev/null || true
-          cp /mingw64/bin/zlib*.dll "$VIX_PRIV_DIR/" 2>/dev/null || true
-          cp /mingw64/bin/libgcc*.dll "$VIX_PRIV_DIR/" 2>/dev/null || true
-          cp /mingw64/bin/libwinpthread*.dll "$VIX_PRIV_DIR/" 2>/dev/null || true
-          cp /mingw64/bin/libstdc++*.dll "$VIX_PRIV_DIR/" 2>/dev/null || true
-          echo "DLLs copied to $VIX_PRIV_DIR"
-          ls "$VIX_PRIV_DIR/"*.dll 2>/dev/null | wc -l
 
-          echo "Now compiling vix Elixir code..."
-          mix deps.compile vix
+          for dll in /mingw64/bin/*.dll; do
+            cp "$dll" "$VIX_PRIV_DIR/" 2>/dev/null || true
+          done
+          echo "Total DLLs copied: $(ls "$VIX_PRIV_DIR/"*.dll 2>/dev/null | wc -l)"
+
+          echo "Second pass: Compile vix Elixir code with DLLs in place..."
+          mix deps.compile vix --force
 
           mix compile
 
