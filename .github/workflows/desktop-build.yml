@@ -288,17 +288,14 @@ jobs:
             echo "Patched enacl rebar.config"
           fi
 
-          mix deps.compile --except vix
-
-          chmod +x scripts/vix_windows_patch.sh
-          ./scripts/vix_windows_patch.sh
-
-          echo "First pass: Build vix NIF (expect Elixir compile to fail)..."
-          mix deps.compile vix 2>&1 || true
+          echo "Building vix NIF C code first..."
+          VIX_PRIV_DIR="_build/prod/lib/vix/priv"
+          mkdir -p "$VIX_PRIV_DIR"
+          cd deps/vix/c_src
+          make MIX_APP_PATH="../../../_build/prod/lib/vix"
+          cd ../../..
 
           echo "Copying ALL required DLLs to vix priv directory..."
-          VIX_PRIV_DIR="_build/prod/lib/vix/priv"
-
           for dll in /mingw64/bin/*.dll; do
             cp "$dll" "$VIX_PRIV_DIR/" 2>/dev/null || true
           done
@@ -306,11 +303,10 @@ jobs:
 
           echo "Renaming vix.so to vix.dll for Windows..."
           cp "$VIX_PRIV_DIR/vix.so" "$VIX_PRIV_DIR/vix.dll"
+          ls -la "$VIX_PRIV_DIR/"
 
-          echo "Second pass: Compile vix Elixir code with DLLs in place..."
-          mix deps.compile vix --force
-
-          mix compile
+          echo "Now compiling all deps including vix Elixir code..."
+          mix deps.compile
 
           mix assets.deploy
           mix release desktop --overwrite
