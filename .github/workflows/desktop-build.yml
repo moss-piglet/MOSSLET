@@ -210,6 +210,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup MSYS2
+        id: msys2
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
@@ -232,20 +233,23 @@ jobs:
       - name: Add MSYS2 to PATH
         shell: pwsh
         run: |
-          echo "C:\msys64\mingw64\bin" >> $env:GITHUB_PATH
-          echo "C:\msys64\usr\bin" >> $env:GITHUB_PATH
+          $msys2Path = "${{ steps.msys2.outputs.msys2-location }}"
+          echo "$msys2Path\mingw64\bin" >> $env:GITHUB_PATH
+          echo "$msys2Path\usr\bin" >> $env:GITHUB_PATH
+          echo "MSYS2_ROOT=$msys2Path" >> $env:GITHUB_ENV
 
       - name: Set build environment variables
         shell: pwsh
         run: |
+          $msys2 = $env:MSYS2_ROOT
           echo "CC=gcc" >> $env:GITHUB_ENV
           echo "MAKE=make" >> $env:GITHUB_ENV
-          echo "CFLAGS=-IC:/msys64/mingw64/include" >> $env:GITHUB_ENV
-          echo "LDFLAGS=-LC:/msys64/mingw64/lib -lsodium" >> $env:GITHUB_ENV
-          echo "C_INCLUDE_PATH=C:/msys64/mingw64/include" >> $env:GITHUB_ENV
-          echo "LIBRARY_PATH=C:/msys64/mingw64/lib" >> $env:GITHUB_ENV
+          echo "CFLAGS=-I$msys2/mingw64/include" >> $env:GITHUB_ENV
+          echo "LDFLAGS=-L$msys2/mingw64/lib -lsodium" >> $env:GITHUB_ENV
+          echo "C_INCLUDE_PATH=$msys2/mingw64/include" >> $env:GITHUB_ENV
+          echo "LIBRARY_PATH=$msys2/mingw64/lib" >> $env:GITHUB_ENV
           echo "VIX_COMPILATION_MODE=PLATFORM_PROVIDED_LIBVIPS" >> $env:GITHUB_ENV
-          echo "PKG_CONFIG_PATH=C:/msys64/mingw64/lib/pkgconfig" >> $env:GITHUB_ENV
+          echo "PKG_CONFIG_PATH=$msys2/mingw64/lib/pkgconfig" >> $env:GITHUB_ENV
 
       - name: Install dependencies and build release
         shell: msys2 {0}
@@ -284,7 +288,7 @@ jobs:
           fi
 
           if [ -f deps/enacl/rebar.config ]; then
-            echo '{port_env, [{"CFLAGS", "$CFLAGS -fPIC -O3 -IC:/msys64/mingw64/include"}, {"LDFLAGS", "$LDFLAGS -LC:/msys64/mingw64/lib -lsodium"}]}.' > deps/enacl/rebar.config
+            echo "{port_env, [{\"CFLAGS\", \"\$CFLAGS -fPIC -O3 -I$C_INCLUDE_PATH\"}, {\"LDFLAGS\", \"\$LDFLAGS -L$LIBRARY_PATH -lsodium\"}]}." > deps/enacl/rebar.config
             echo "Patched enacl rebar.config"
           fi
 
