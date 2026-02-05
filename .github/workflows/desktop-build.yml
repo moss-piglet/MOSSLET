@@ -296,11 +296,17 @@ jobs:
           mix deps.compile --except vix
 
           echo "First pass: Build vix NIF (Elixir compile will fail)..."
-          mix deps.compile vix 2>&1 || true
+          set +e
+          mix deps.compile vix 2>&1
+          echo "First pass exit code: $?"
+          set -e
 
           echo "Setting up DLLs for Windows..."
           VIX_PRIV_DIR="_build/prod/lib/vix/priv"
+          echo "VIX_PRIV_DIR=$VIX_PRIV_DIR"
+          ls -la "$VIX_PRIV_DIR/" || echo "priv dir not found"
           
+          echo "Copying DLLs from /mingw64/bin to vix priv..."
           for dll in /mingw64/bin/*.dll; do
             cp "$dll" "$VIX_PRIV_DIR/" 2>/dev/null || true
           done
