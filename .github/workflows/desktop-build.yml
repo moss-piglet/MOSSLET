@@ -223,6 +223,12 @@ jobs:
             mingw-w64-x86_64-libsodium
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-libvips
+            mingw-w64-x86_64-ninja
+
+      - name: Setup Visual Studio Build Tools
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
 
       - name: Setup Erlang/Elixir
         uses: erlef/setup-beam@v1
@@ -295,8 +301,8 @@ jobs:
             echo "Patched enacl rebar.config"
           fi
 
-          echo "Compiling all deps except vix..."
-          mix deps.compile --except vix
+          echo "Compiling all deps except vix and torchx..."
+          mix deps.compile --except vix --except torchx
 
           echo "Setting up vix priv directory and DLLs before NIF build..."
           VIX_PRIV_DIR="_build/prod/lib/vix/priv"
@@ -313,6 +319,22 @@ jobs:
 
           echo "Verifying vix NIF built correctly..."
           ls -la "$VIX_PRIV_DIR/vix."* 2>/dev/null || echo "vix NIF files not found"
+
+      - name: Compile torchx with MSVC
+        shell: pwsh
+        run: |
+          $env:CMAKE_GENERATOR = "Visual Studio 17 2022"
+          mix deps.compile torchx --force
+
+      - name: Build release
+        shell: msys2 {0}
+        env:
+          PATH: /mingw64/bin:/usr/bin:${{ env.PATH }}
+        run: |
+          export PATH="/mingw64/bin:$PATH"
+          export VIX_COMPILATION_MODE="PLATFORM_PROVIDED_LIBVIPS"
+          export PKG_CONFIG_PATH="C:/msys64/mingw64/lib/pkgconfig"
+          export XLA_BUILD="false"
 
           mix assets.deploy
           mix release desktop --overwrite
@@ -346,6 +368,13 @@ jobs:
           Copy-Item C:/msys64/mingw64/bin/libheif*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
           Copy-Item C:/msys64/mingw64/bin/libgio*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
           Copy-Item C:/msys64/mingw64/bin/libgmodule*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+
+          # Copy libtorch DLLs for torchx
+          $libtorchDir = "deps/torchx/cache/libtorch-2.8.0-cpu/lib"
+          if (Test-Path $libtorchDir) {
+            Copy-Item "$libtorchDir/*.dll" _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
+            Write-Host "Copied libtorch DLLs from $libtorchDir"
+          }
 
       - name: Code sign Windows (if secrets available)
         if: env.WINDOWS_CERTIFICATE != ''
