@@ -323,7 +323,15 @@ jobs:
       - name: Compile torchx with MSVC
         shell: pwsh
         run: |
+          # Remove MSYS2/MinGW from PATH so CMake finds MSVC cl.exe instead of gcc
+          $filteredPath = ($env:Path -split ';' | Where-Object { $_ -notmatch 'msys64' }) -join ';'
+          $env:Path = $filteredPath
+
           $env:CMAKE_GENERATOR = "Visual Studio 17 2022"
+          $env:CMAKE_GENERATOR_PLATFORM = "x64"
+          $env:CC = "cl"
+          $env:CXX = "cl"
+
           mix deps.compile torchx --force
 
       - name: Build release
