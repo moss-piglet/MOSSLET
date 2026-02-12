@@ -192,6 +192,7 @@ defmodule Mosslet.MixProject do
       {:plug_attack, "~> 0.4.3"},
       {:plug_canonical_host, "~> 2.0"},
       {:postgrex, ">= 0.0.0"},
+      {:prawn_ex, "~> 0.1.0"},
       {:premailex, "~> 0.3.0"},
       {:query_builder, "~> 1.0"},
       {:remote_ip, "~> 1.0"},

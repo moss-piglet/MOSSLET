@@ -58,6 +58,7 @@ import PushNotificationHook from "./push-notification-hook";
 import BackgroundSyncHook from "./background-sync-hook";
 import PlatformDetector from "./platform-detector";
 import PostExpandHook from "./post-expand-hook";
+import FileDownloadHook from "./file-download-hook";
 
 export default {
   AutoResize,
@@ -120,4 +121,5 @@ export default {
   BackgroundSyncHook,
   PlatformDetector,
   PostExpandHook,
+  FileDownloadHook,
 };

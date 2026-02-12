@@ -3,14 +3,21 @@ defmodule MossletWeb.ManageDataLive do
   use MossletWeb, :live_view
 
   alias Mosslet.Accounts
+  alias Mosslet.Journal
   alias MossletWeb.DesignSystem
 
   def mount(_params, _session, socket) do
+    entry_count = Journal.count_entries(socket.assigns.current_scope.user)
+
     {:ok,
      assign(socket,
        page_title: "Settings",
        current_password: nil,
        legacy_expanded: false,
+       export_format: "txt",
+       exporting: false,
+       export_error: nil,
+       journal_entry_count: entry_count,
        form: to_form(Accounts.change_user_delete_data(socket.assigns.current_scope.user))
      )}
   end
@@ -100,6 +107,205 @@ defmodule MossletWeb.ManageDataLive do
         </div>
 
         <div class="space-y-8 max-w-3xl">
+          <%!-- Export Journal Card --%>
+          <DesignSystem.liquid_card class="bg-gradient-to-br from-indigo-50/50 to-violet-50/30 dark:from-indigo-900/20 dark:to-violet-900/10">
+            <:title>
+              <div class="flex items-center gap-3">
+                <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-indigo-100 via-violet-50 to-indigo-100 dark:from-indigo-900/30 dark:via-violet-900/25 dark:to-indigo-900/30">
+                  <.phx_icon
+                    name="hero-arrow-down-tray"
+                    class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
+                  />
+                </div>
+                <span class="text-indigo-800 dark:text-indigo-200">Export Journal</span>
+              </div>
+            </:title>
+
+            <div class="space-y-5">
+              <p class="text-indigo-700 dark:text-indigo-300 leading-relaxed">
+                Download a copy of all your journal books and entries. Your encrypted entries will be decrypted and exported in the format you choose.
+              </p>
+
+              <div class="flex items-center gap-3 text-sm text-indigo-600 dark:text-indigo-400">
+                <.phx_icon name="hero-pencil-square" class="h-4 w-4 flex-shrink-0" />
+                <span>
+                  {@journal_entry_count} {if @journal_entry_count == 1, do: "entry", else: "entries"} available to export
+                </span>
+              </div>
+
+              <div
+                id="journal-export-download"
+                phx-hook="FileDownloadHook"
+                phx-update="ignore"
+                class="hidden"
+              >
+              </div>
+
+              <form id="export-journal-form" phx-submit="export_journal" class="space-y-4">
+                <div>
+                  <label
+                    for="export-format"
+                    class="block text-sm font-medium text-indigo-800 dark:text-indigo-200 mb-2"
+                  >
+                    Export Format
+                  </label>
+                  <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <label
+                      :for={
+                        {value, label, icon, desc} <- [
+                          {"txt", "Plain Text", "hero-document-text", ".txt file"},
+                          {"csv", "Spreadsheet", "hero-table-cells", ".csv file"},
+                          {"markdown", "Markdown", "hero-code-bracket", ".md file"},
+                          {"pdf", "PDF", "hero-document", ".pdf file"}
+                        ]
+                      }
+                      class={[
+                        "relative flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 cursor-pointer transition-all duration-200",
+                        if(@export_format == value,
+                          do:
+                            "border-indigo-500 dark:border-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 shadow-md shadow-indigo-500/10",
+                          else:
+                            "border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10"
+                        )
+                      ]}
+                    >
+                      <input
+                        type="radio"
+                        name="format"
+                        value={value}
+                        checked={@export_format == value}
+                        phx-click="select_export_format"
+                        phx-value-format={value}
+                        class="sr-only"
+                      />
+                      <.phx_icon
+                        name={icon}
+                        class={[
+                          "h-5 w-5",
+                          if(@export_format == value,
+                            do: "text-indigo-600 dark:text-indigo-400",
+                            else: "text-slate-400 dark:text-slate-500"
+                          )
+                        ]}
+                      />
+                      <span class={[
+                        "text-sm font-medium",
+                        if(@export_format == value,
+                          do: "text-indigo-700 dark:text-indigo-300",
+                          else: "text-slate-600 dark:text-slate-400"
+                        )
+                      ]}>
+                        {label}
+                      </span>
+                      <span class={[
+                        "text-xs",
+                        if(@export_format == value,
+                          do: "text-indigo-600 dark:text-indigo-400",
+                          else: "text-slate-500 dark:text-slate-400"
+                        )
+                      ]}>
+                        {desc}
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="space-y-2">
+                  <label
+                    for="export-password"
+                    class="block text-sm font-medium text-indigo-800 dark:text-indigo-200"
+                  >
+                    Confirm Password
+                  </label>
+                  <p class="text-xs text-indigo-600/80 dark:text-indigo-400/80">
+                    Your password is required to decrypt and export your journal entries.
+                  </p>
+                  <div class="group relative">
+                    <input
+                      type="password"
+                      id="export-password"
+                      name="export_password"
+                      required
+                      autocomplete="current-password"
+                      class={[
+                        "relative block w-full rounded-xl px-4 py-2.5 pr-12 text-slate-900 dark:text-slate-100",
+                        "bg-white dark:bg-slate-900 placeholder:text-slate-400 dark:placeholder:text-slate-500",
+                        "border-2 border-slate-200 dark:border-slate-700",
+                        "hover:border-indigo-300 dark:hover:border-indigo-600",
+                        "focus:border-indigo-500 dark:focus:border-indigo-400",
+                        "focus:outline-none focus:ring-0",
+                        "transition-all duration-200 ease-out",
+                        "text-sm shadow-sm focus:shadow-lg focus:shadow-indigo-500/10"
+                      ]}
+                      placeholder="Enter your password"
+                    />
+                    <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+                      <button
+                        type="button"
+                        id="eye-export-password"
+                        aria-label="Show password"
+                        class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
+                        phx-click={
+                          JS.set_attribute({"type", "text"}, to: "#export-password")
+                          |> JS.remove_class("hidden", to: "#eye-slash-export-password")
+                          |> JS.add_class("hidden", to: "#eye-export-password")
+                        }
+                      >
+                        <.phx_icon
+                          name="hero-eye"
+                          class="h-4 w-4 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                        />
+                      </button>
+                      <button
+                        type="button"
+                        id="eye-slash-export-password"
+                        aria-label="Hide password"
+                        class="hidden p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
+                        phx-click={
+                          JS.set_attribute({"type", "password"}, to: "#export-password")
+                          |> JS.add_class("hidden", to: "#eye-slash-export-password")
+                          |> JS.remove_class("hidden", to: "#eye-export-password")
+                        }
+                      >
+                        <.phx_icon
+                          name="hero-eye-slash"
+                          class="h-4 w-4 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                        />
+                      </button>
+                    </div>
+                  </div>
+                  <%= if @export_error do %>
+                    <p class="text-sm text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                      <.phx_icon name="hero-exclamation-circle" class="h-4 w-4 flex-shrink-0" />
+                      {@export_error}
+                    </p>
+                  <% end %>
+                </div>
+
+                <div class="flex items-center justify-between pt-2">
+                  <div class="flex items-start gap-2 text-xs text-indigo-600/80 dark:text-indigo-400/80">
+                    <.phx_icon name="hero-lock-closed" class="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                    <span>Entries are decrypted locally for export only</span>
+                  </div>
+
+                  <DesignSystem.liquid_button
+                    type="submit"
+                    color="indigo"
+                    icon="hero-arrow-down-tray"
+                    disabled={@exporting || @journal_entry_count == 0}
+                    phx-disable-with="Exporting..."
+                  >
+                    <%= if @exporting do %>
+                      Exporting...
+                    <% else %>
+                      Export Journal
+                    <% end %>
+                  </DesignSystem.liquid_button>
+                </div>
+              </form>
+            </div>
+          </DesignSystem.liquid_card>
+
           <%!-- Fresh Start Card --%>
           <DesignSystem.liquid_card class="bg-gradient-to-br from-amber-50/50 to-orange-50/30 dark:from-amber-900/20 dark:to-orange-900/10">
             <:title>
@@ -580,6 +786,39 @@ defmodule MossletWeb.ManageDataLive do
       </DesignSystem.liquid_container>
     </.layout>
     """
+  end
+
+  def handle_event("select_export_format", %{"format" => format}, socket)
+      when format in ~w(csv txt pdf markdown) do
+    {:noreply, assign(socket, export_format: format)}
+  end
+
+  def handle_event("export_journal", %{"format" => format, "export_password" => password}, socket)
+      when format in ~w(csv txt pdf markdown) do
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    if Mosslet.Accounts.User.valid_password?(user, password) do
+      {:ok, data, filename, mime_type} =
+        Journal.Export.export(user, key, String.to_existing_atom(format))
+
+      encoded = Base.encode64(data)
+
+      {:noreply,
+       socket
+       |> assign(export_error: nil)
+       |> push_event("download-export", %{
+         data: encoded,
+         filename: filename,
+         mime_type: mime_type
+       })}
+    else
+      {:noreply, assign(socket, export_error: "Incorrect password. Please try again.")}
+    end
+  end
+
+  def handle_event("export_journal", _params, socket) do
+    {:noreply, assign(socket, export_error: "Password is required to export.")}
   end
 
   def handle_event("validate_password", params, socket) do
