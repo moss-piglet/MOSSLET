@@ -60,7 +60,7 @@ defmodule MossletWeb.JournalLive.Entry do
                   phx-click="toggle_favorite"
                   @click.stop
                   class={[
-                    "text-xl transition-colors shrink-0 p-1 -m-1",
+                    "text-xl transition-colors shrink-0 p-1 -m-1 print-hidden",
                     if(@entry.is_favorite,
                       do: "text-amber-500",
                       else: "text-slate-300 dark:text-slate-600 hover:text-amber-400"
@@ -72,7 +72,7 @@ defmodule MossletWeb.JournalLive.Entry do
               </div>
               <div
                 class={[
-                  "flex items-center gap-2 opacity-0 group-hover:opacity-100",
+                  "flex items-center gap-2 opacity-0 group-hover:opacity-100 print-hidden",
                   "max-h-0 overflow-hidden transition-all duration-300 ease-out"
                 ]}
                 x-bind:class="(actionsVisible && cursorVisible) && '!opacity-100 !max-h-12 pt-2'"
@@ -84,6 +84,15 @@ defmodule MossletWeb.JournalLive.Entry do
                   >
                     <.phx_icon name="hero-pencil" class="h-4 w-4" /> Edit
                   </.link>
+                </span>
+                <span x-on:click.stop>
+                  <button
+                    type="button"
+                    @click="window.print()"
+                    class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                  >
+                    <.phx_icon name="hero-printer" class="h-4 w-4" /> Print
+                  </button>
                 </span>
                 <span x-on:click.stop>
                   <.link
@@ -114,7 +123,7 @@ defmodule MossletWeb.JournalLive.Entry do
               {format_decrypted_content(@decrypted_body)}
             </div>
 
-            <div class="pt-4 border-t border-slate-200 dark:border-slate-700 text-sm text-slate-500 dark:text-slate-400">
+            <div class="pt-4 border-t border-slate-200 dark:border-slate-700 text-sm text-slate-500 dark:text-slate-400 print-hidden">
               {@entry.word_count} words
             </div>
           </div>

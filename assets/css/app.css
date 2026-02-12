@@ -2547,5 +2547,125 @@ pre.athl {
 [data-theme="dark"] .variable-builtin { color: #f38ba8; }
 [data-theme="dark"] .variable-member { color: #b4befe; }
 [data-theme="dark"] .variable-parameter { color: #eba0ac; }
+
+/* ============================================
+   Print Styles – Journal Entry
+   ============================================ */
+@media print {
+  html, body {
+    background: none !important;
+    background-color: white !important;
+    color: #1e293b !important;
+    font-size: 12pt;
+    line-height: 1.6;
+  }
+
+  header,
+  footer,
+  nav,
+  #modern-sidebar,
+  #connection-status,
+  #flash-group,
+  .print-hidden {
+    display: none !important;
+  }
+
+  #reader-layout {
+    background: none !important;
+    background-color: white !important;
+    min-height: auto !important;
+  }
+
+  #reader-layout > header,
+  #reader-layout > footer,
+  #reader-layout > div[x-show] {
+    display: none !important;
+  }
+
+  #reader-layout main {
+    padding: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  #reader-layout main > div {
+    padding: 0.5cm 0 !important;
+    max-width: 100% !important;
+  }
+
+  .max-w-2xl {
+    max-width: 100% !important;
+  }
+
+  h1 {
+    color: #0f172a !important;
+    font-size: 18pt !important;
+  }
+
+  time {
+    color: #475569 !important;
+  }
+
+  .prose {
+    max-width: 100% !important;
+    font-size: 12pt !important;
+    line-height: 1.7 !important;
+    color: #334155 !important;
+  }
+
+  .prose p {
+    color: #334155 !important;
+    margin-bottom: 0.75em !important;
+    orphans: 3;
+    widows: 3;
+  }
+
+  .prose h1, .prose h2, .prose h3, .prose h4 {
+    color: #0f172a !important;
+    page-break-after: avoid;
+  }
+
+  .prose blockquote {
+    border-left: 3px solid #94a3b8 !important;
+    color: #475569 !important;
+    padding-left: 1em !important;
+  }
+
+  .prose pre, .prose code {
+    border: 1px solid #e2e8f0 !important;
+    background: #f8fafc !important;
+    font-size: 10pt !important;
+    page-break-inside: avoid;
+  }
+
+  .prose img {
+    max-width: 100% !important;
+    page-break-inside: avoid;
+  }
+
+  .prose hr {
+    border-color: #cbd5e1 !important;
+  }
+
+  .bg-slate-100,
+  .bg-gradient-to-br,
+  .dark\:bg-slate-800,
+  [class*="from-slate"],
+  [class*="via-stone"],
+  [class*="to-slate"] {
+    background: none !important;
+    background-color: white !important;
+  }
+
+  .rounded-full {
+    background: none !important;
+    background-color: #f1f5f9 !important;
+  }
+
+  @page {
+    margin: 2cm 2.5cm;
+    size: auto;
+  }
+}
 [data-theme="dark"] .variable-parameter-bash { color: #a6e3a1; }
 [data-theme="dark"] .variable-parameter-builtin { color: #f5c2e7; }
