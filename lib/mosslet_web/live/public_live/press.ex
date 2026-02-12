@@ -205,7 +205,11 @@ defmodule MossletWeb.PublicLive.Press do
               </h2>
               <div class="mt-8 space-y-4 text-base/7 text-slate-700 dark:text-slate-300">
                 <p>
-                  MOSSLET is solo-developed by Mark, with Isabella (pre-K teacher by day, product advisor and chief journal enthusiast by night) shaping the product through ideas and feedback. Mark, John, and Ryan co-founded <strong class="text-slate-900 dark:text-slate-100">Moss Piglet Corporation</strong>, a family-run public benefit corporation focused on privacy-first, ethical software design. MOSSLET is our flagship service.
+                  MOSSLET is solo-developed by Mark, with Isabella (pre-K teacher by day, product advisor and chief journal enthusiast by night) shaping the product through ideas and feedback. Mark, John, and Ryan co-founded <strong class="text-slate-900 dark:text-slate-100"><a
+                      href="https://mosspiglet.dev"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >Moss Piglet Corporation</a></strong>, a family-run public benefit corporation focused on privacy-first, ethical software design. MOSSLET is our flagship service.
                 </p>
                 <p>
                   John (Mark's dad) serves as advisor and backer — he built and designed GIS systems for NASA and the City of Palo Alto. Ryan (Mark's cousin), a veteran, advises on operations and corporate strategy. Day-to-day development, design, and operations are handled entirely by Mark.
