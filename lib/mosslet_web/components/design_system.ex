@@ -152,7 +152,7 @@ defmodule MossletWeb.DesignSystem do
   attr :href, :string, default: nil
   attr :navigate, :string, default: nil
   attr :patch, :string, default: nil
-  attr :rest, :global, include: ~w(phx-click phx-submit data-tippy-content phx-hook id)
+  attr :rest, :global, include: ~w(phx-click phx-submit data-tippy-content phx-hook id rel target)
   slot :inner_block, required: true
 
   def liquid_button(assigns) do
@@ -406,6 +406,7 @@ defmodule MossletWeb.DesignSystem do
               <ul class="space-y-2">
                 <.footer_link href="/about" label="About" />
                 <.footer_link href="/blog" label="Blog" />
+                <.footer_link href="/press" label="Press" />
                 <.footer_link href="/updates" label="Updates" />
               </ul>
             </div>

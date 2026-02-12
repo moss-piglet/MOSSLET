@@ -1091,7 +1091,7 @@ trix-editor {
 
 /* Hide click hints when mouse is not actively being used */
 #immersive-reader:not(.mouse-active) .click-hint {
-  display: none !important;
+  visibility: hidden !important;
 }
 
 

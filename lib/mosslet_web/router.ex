@@ -122,6 +122,7 @@ defmodule MossletWeb.Router do
       live "/support", PublicLive.Support, :support
       live "/features", PublicLive.Features, :features
       live "/pricing", PublicLive.Pricing, :pricing
+      live "/press", PublicLive.Press, :press
       live "/privacy", PublicLive.Privacy, :privacy
       live "/terms", PublicLive.Terms, :terms
       live "/updates", PublicLive.Updates, :updates

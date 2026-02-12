@@ -887,6 +887,23 @@ defmodule MossletWeb.PublicLive.Features do
                   />
                 </div>
               </div>
+
+              <div class="relative mt-8 mx-auto max-w-5xl">
+                <div class="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
+                  <div class="absolute inset-0 bg-gradient-to-tr from-violet-500/5 via-transparent to-purple-500/5 dark:from-violet-500/10 dark:to-purple-500/10">
+                  </div>
+                  <img
+                    src={~p"/images/screenshots/journal_immersive_reading_light.png"}
+                    alt="MOSSLET journal immersive reader for distraction-free reading"
+                    class="relative w-full h-auto dark:hidden"
+                  />
+                  <img
+                    src={~p"/images/screenshots/journal_immersive_reading_dark.png"}
+                    alt="MOSSLET journal immersive reader for distraction-free reading"
+                    class="relative w-full h-auto hidden dark:block"
+                  />
+                </div>
+              </div>
             </div>
           </.liquid_container>
 
