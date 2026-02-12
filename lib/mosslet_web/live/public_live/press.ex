@@ -389,6 +389,12 @@ defmodule MossletWeb.PublicLive.Press do
      |> assign(:page_title, "Press & Media")
      |> assign_new(:meta_description, fn ->
        "Press and media resources for MOSSLET — the privacy-first social network with an encrypted journal. Find key facts, security details, and contact information for press inquiries."
-     end)}
+     end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/press_og.png")
+     |> assign(:og_image_type, "image/png")
+     |> assign(
+       :og_image_alt,
+       "MOSSLET Press & Media — key facts, privacy and security details, and contact information for the privacy-first social network with an encrypted journal"
+     )}
   end
 end
