@@ -73,10 +73,39 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.17.0"
-                  date="January 2026"
+                  version="0.17.1"
+                  date="February 2026"
                   tag="Latest"
                   tag_color="emerald"
+                >
+                  <:title>Journal Print & Secure Export 🖨️</:title>
+                  <:description>
+                    Keep your real-life journal and digital journal in sync — beautiful print layouts for your entries, plus password-protected exports in multiple formats from data management.
+                  </:description>
+                  <:items>
+                    <.changelog_item icon="hero-printer" color="emerald">
+                      Beautiful print layouts — print your journal entries with clean, elegant formatting designed for paper
+                    </.changelog_item>
+                    <.changelog_item icon="hero-arrow-up-tray" color="teal">
+                      Upload handwritten entries — snap a photo of your paper journal to digitize and encrypt it alongside your digital entries
+                    </.changelog_item>
+                    <.changelog_item icon="hero-lock-closed" color="purple">
+                      Password-protected export — your journal data requires password confirmation before any export, keeping your private thoughts safe
+                    </.changelog_item>
+                    <.changelog_item icon="hero-document-text" color="blue">
+                      Multiple export formats — download your entire journal as TXT, CSV, Markdown, or PDF from data management
+                    </.changelog_item>
+                    <.changelog_item icon="hero-arrows-right-left" color="cyan">
+                      Digital–physical sync — seamlessly bridge your paper and digital journaling practice
+                    </.changelog_item>
+                  </:items>
+                </.changelog_entry>
+
+                <.changelog_entry
+                  version="0.17.0"
+                  date="January 2026"
+                  tag="Feature"
+                  tag_color="blue"
                 >
                   <:title>Journal Pages & Bluesky Interop 🦋</:title>
                   <:description>
