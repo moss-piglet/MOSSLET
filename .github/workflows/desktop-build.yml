@@ -328,13 +328,46 @@ jobs:
           CC: cl
           CXX: cl
         run: |
-          # Remove MSYS2/MinGW from PATH so CMake finds MSVC cl.exe instead of gcc
-          $filteredPath = ($env:Path -split ';' | Where-Object { $_ -notmatch 'msys64' }) -join ';'
+          # Remove MSYS2/MinGW from PATH entirely so native Windows cmake + MSVC are used.
+          # MSYS2's cmake only supports Ninja/Unix Makefiles and ignores the VS generator.
+          $filteredPath = ($env:Path -split ';' | Where-Object { $_ -notmatch 'msys64' -and $_ -notmatch 'mingw' }) -join ';'
           $env:Path = $filteredPath
 
-          # Verify we're using the right tools
-          Write-Host "CMAKE: $(Get-Command cmake -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)"
-          Write-Host "CL: $(Get-Command cl -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)"
+          # Clear GCC-related env vars set by earlier steps via GITHUB_ENV
+          $env:MAKE = $null
+          $env:CFLAGS = $null
+          $env:LDFLAGS = $null
+          $env:C_INCLUDE_PATH = $null
+          $env:LIBRARY_PATH = $null
+
+          # Ensure native Windows cmake is on PATH (pre-installed on windows-2022 runners)
+          $nativeCmake = "C:\Program Files\CMake\bin"
+          if (Test-Path $nativeCmake) {
+            $env:Path = "$nativeCmake;$env:Path"
+          }
+
+          # Also check for cmake bundled with Visual Studio
+          $vsCmake = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
+          if (-not (Get-Command cmake -ErrorAction SilentlyContinue) -and (Test-Path $vsCmake)) {
+            $env:Path = "$vsCmake;$env:Path"
+          }
+
+          Write-Host "CMAKE: $((Get-Command cmake -ErrorAction SilentlyContinue)?.Source)"
+          Write-Host "CL: $((Get-Command cl -ErrorAction SilentlyContinue)?.Source)"
+          Write-Host "CC: $env:CC"
+          Write-Host "CXX: $env:CXX"
+          Write-Host "CMAKE_GENERATOR: $env:CMAKE_GENERATOR"
+
+          # Verify cmake is NOT the MSYS2 one
+          $cmakeExe = (Get-Command cmake -ErrorAction SilentlyContinue)?.Source
+          if ($cmakeExe -match 'msys64|mingw') {
+            Write-Host "ERROR: Still using MSYS2 cmake at $cmakeExe"
+            exit 1
+          }
+          if (-not $cmakeExe) {
+            Write-Host "ERROR: cmake not found on PATH"
+            exit 1
+          }
 
           # Clean stale cmake cache that may have been configured with Ninja/GCC
           $cmakeBuildDir = "_build/prod/lib/torchx/cmake"
