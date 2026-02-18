@@ -305,7 +305,7 @@ jobs:
           ALL_DEPS=$(mix deps 2>/dev/null | grep '^\*' | awk '{print $2}')
           FILTERED_DEPS=""
           for dep in $ALL_DEPS; do
-            if [ "$dep" != "vix" ] && [ "$dep" != "torchx" ]; then
+            if [ "$dep" != "vix" ] && [ "$dep" != "torchx" ] && [ "$dep" != "image" ]; then
               FILTERED_DEPS="$FILTERED_DEPS $dep"
             fi
           done
@@ -327,6 +327,9 @@ jobs:
 
           echo "Verifying vix NIF built correctly..."
           ls -la "$VIX_PRIV_DIR/vix."* 2>/dev/null || echo "vix NIF files not found"
+
+          echo "Compiling image (depends on vix)..."
+          mix deps.compile image
 
       - name: Compile torchx with MSVC
         shell: pwsh
