@@ -129,13 +129,16 @@ function isUrbanWord(word) {
 function getDefinition(word) {
   if (!dictionaryCache) return null;
   const lowerWord = word.toLowerCase();
-  if (!dictionaryCache.has(lowerWord)) return null;
+  const lookupWord = (!dictionaryCache.has(lowerWord) && lowerWord.endsWith("'s") && lowerWord.length > 2)
+    ? lowerWord.slice(0, -2)
+    : lowerWord;
+  if (!dictionaryCache.has(lookupWord)) return null;
   
-  if (urbanCache && urbanCache[lowerWord]) {
-    return { defs: urbanCache[lowerWord], source: "urban" };
+  if (urbanCache && urbanCache[lookupWord]) {
+    return { defs: urbanCache[lookupWord], source: "urban" };
   }
-  if (definitionsCache && definitionsCache[lowerWord]) {
-    return { defs: definitionsCache[lowerWord], source: "standard" };
+  if (definitionsCache && definitionsCache[lookupWord]) {
+    return { defs: definitionsCache[lookupWord], source: "standard" };
   }
   return null;
 }
@@ -217,7 +220,15 @@ function findSpellingSuggestions(word, maxSuggestions = 3) {
   if (!dictionaryArrayCache || !word) return [];
   
   const lowerWord = word.toLowerCase();
-  const wordLen = lowerWord.length;
+  let baseWord = lowerWord;
+  let possessiveSuffix = "";
+  
+  if (lowerWord.endsWith("'s") && lowerWord.length > 2) {
+    baseWord = lowerWord.slice(0, -2);
+    possessiveSuffix = "'s";
+  }
+  
+  const wordLen = baseWord.length;
   const candidates = [];
   
   for (const dictWord of dictionaryArrayCache) {
@@ -225,11 +236,11 @@ function findSpellingSuggestions(word, maxSuggestions = 3) {
     if (dictWord.length < 2) continue;
     if (isUrbanWord(dictWord)) continue;
     
-    const distance = damerauLevenshtein(lowerWord, dictWord);
+    const distance = damerauLevenshtein(baseWord, dictWord);
     
     if (distance <= 2 && distance > 0) {
-      const score = computeSimilarityScore(lowerWord, dictWord);
-      candidates.push({ word: dictWord, distance, score });
+      const score = computeSimilarityScore(baseWord, dictWord);
+      candidates.push({ word: dictWord + possessiveSuffix, distance, score });
     }
   }
   
@@ -781,20 +792,83 @@ const AutoResize = {
     if (/^[A-Z]+$/.test(word) && word.length <= 4) return false;
     
     const isCapitalized = /^[A-Z][a-z]*$/.test(word);
+    const known = this.isKnownWord(lowerWord);
     
-    if (isCapitalized && this.dictionary.has(lowerWord)) {
-      const isAtSentenceStart = this.isAtSentenceStart(textBefore);
-      if (isAtSentenceStart) return false;
-      return false;
+    if (isCapitalized && known) return false;
+    
+    if (isCapitalized && !known) {
+      return this.isAtSentenceStart(textBefore);
     }
     
-    if (isCapitalized && !this.dictionary.has(lowerWord)) {
-      const isAtSentenceStart = this.isAtSentenceStart(textBefore);
-      if (isAtSentenceStart) return true;
-      return false;
+    return !known;
+  },
+
+  isKnownWord(lowerWord) {
+    if (this.dictionary.has(lowerWord)) return true;
+    if (lowerWord.endsWith("'s") && lowerWord.length > 2) {
+      return this.dictionary.has(lowerWord.slice(0, -2));
     }
-    
-    return !this.dictionary.has(lowerWord);
+    return this.isKnownStemmed(lowerWord);
+  },
+
+  isKnownStemmed(word) {
+    if (word.length < 4) return false;
+
+    if (word.endsWith("ies") && word.length > 4) {
+      if (this.dictionary.has(word.slice(0, -3) + "y")) return true;
+    }
+
+    if (word.endsWith("ves") && word.length > 4) {
+      if (this.dictionary.has(word.slice(0, -3) + "f")) return true;
+      if (this.dictionary.has(word.slice(0, -3) + "fe")) return true;
+    }
+
+    if (word.endsWith("es") && word.length > 3) {
+      if (this.dictionary.has(word.slice(0, -2))) return true;
+      if (this.dictionary.has(word.slice(0, -1))) return true;
+    }
+
+    if (word.endsWith("s") && !word.endsWith("ss")) {
+      if (this.dictionary.has(word.slice(0, -1))) return true;
+    }
+
+    if (word.endsWith("ing") && word.length > 5) {
+      const stem = word.slice(0, -3);
+      if (this.dictionary.has(stem)) return true;
+      if (this.dictionary.has(stem + "e")) return true;
+      if (stem.length > 1 && stem[stem.length - 1] === stem[stem.length - 2]) {
+        if (this.dictionary.has(stem.slice(0, -1))) return true;
+      }
+    }
+
+    if (word.endsWith("ed") && word.length > 4) {
+      const stem = word.slice(0, -2);
+      if (this.dictionary.has(stem)) return true;
+      if (this.dictionary.has(stem + "e")) return true;
+      if (stem.length > 1 && stem[stem.length - 1] === stem[stem.length - 2]) {
+        if (this.dictionary.has(stem.slice(0, -1))) return true;
+      }
+    }
+
+    if (word.endsWith("er") && word.length > 4) {
+      const stem = word.slice(0, -2);
+      if (this.dictionary.has(stem)) return true;
+      if (this.dictionary.has(stem + "e")) return true;
+    }
+
+    if (word.endsWith("est") && word.length > 5) {
+      const stem = word.slice(0, -3);
+      if (this.dictionary.has(stem)) return true;
+      if (this.dictionary.has(stem + "e")) return true;
+    }
+
+    if (word.endsWith("ly") && word.length > 4) {
+      const stem = word.slice(0, -2);
+      if (this.dictionary.has(stem)) return true;
+      if (stem.endsWith("i") && this.dictionary.has(stem.slice(0, -1) + "y")) return true;
+    }
+
+    return false;
   },
 
   isAtSentenceStart(textBefore) {
