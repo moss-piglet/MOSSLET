@@ -64,7 +64,7 @@ jobs:
         run: mix release desktop --overwrite
 
       - name: Package macOS app
-        run: ./scripts/build_desktop.sh macos
+        run: PACKAGE_ONLY=true ./scripts/build_desktop.sh macos
 
       - name: Code sign (if secrets available)
         env:
@@ -192,7 +192,7 @@ jobs:
         run: mix release desktop --overwrite
 
       - name: Package Linux app
-        run: ./scripts/build_desktop.sh linux
+        run: PACKAGE_ONLY=true ./scripts/build_desktop.sh linux
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

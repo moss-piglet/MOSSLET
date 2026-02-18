@@ -26,6 +26,7 @@ detect_platform() {
 
 PLATFORM="${1:-$(detect_platform)}"
 BUILD_TYPE="${2:-release}"
+PACKAGE_ONLY="${PACKAGE_ONLY:-false}"
 
 log_info "Building MOSSLET Desktop v$VERSION for $PLATFORM ($BUILD_TYPE)"
 
@@ -251,7 +252,12 @@ EOF
 
 main() {
     check_dependencies
-    build_release
+    
+    if [ "$PACKAGE_ONLY" != "true" ]; then
+        build_release
+    else
+        log_info "Skipping build (PACKAGE_ONLY=true), using existing release"
+    fi
     
     case "$PLATFORM" in
         macos)   package_macos ;;
