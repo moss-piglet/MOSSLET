@@ -302,7 +302,15 @@ jobs:
           fi
 
           echo "Compiling all deps except vix and torchx..."
-          mix deps.compile --except vix --except torchx
+          ALL_DEPS=$(mix deps 2>/dev/null | grep '^\*' | awk '{print $2}')
+          FILTERED_DEPS=""
+          for dep in $ALL_DEPS; do
+            if [ "$dep" != "vix" ] && [ "$dep" != "torchx" ]; then
+              FILTERED_DEPS="$FILTERED_DEPS $dep"
+            fi
+          done
+          echo "Deps to compile:$FILTERED_DEPS"
+          mix deps.compile $FILTERED_DEPS
 
           echo "Setting up vix priv directory and DLLs before NIF build..."
           VIX_PRIV_DIR="_build/prod/lib/vix/priv"
