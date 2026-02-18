@@ -522,6 +522,7 @@ jobs:
   release:
     needs: [build-macos, build-linux, build-windows]
     runs-on: ubuntu-latest
+    environment: CI/CD
     if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release == 'true'
     steps:
       - uses: actions/checkout@v4
