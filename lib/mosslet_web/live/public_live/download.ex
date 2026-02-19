@@ -7,7 +7,7 @@ defmodule MossletWeb.PublicLive.Download do
 
   import MossletWeb.DesignSystem
 
-  @version "0.17.0"
+  @version "0.17.2"
 
   defp base_download_url do
     bucket = System.get_env("RELEASES_BUCKET", "mosslet-releases")
