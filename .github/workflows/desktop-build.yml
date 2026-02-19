@@ -84,18 +84,21 @@ jobs:
 
           APP_PATH="_build/desktop/Mosslet.app"
           SIGN_IDENTITY="Developer ID Application"
+          ENTITLEMENTS="native/macos/entitlements.plist"
 
           # Find and sign all binaries, dylibs, and frameworks inside the app
           find "$APP_PATH" -type f \( -name "*.dylib" -o -name "*.so" -o -perm +111 \) | while read -r file; do
             if file "$file" | grep -q "Mach-O"; then
               echo "Signing: $file"
               codesign --force --timestamp --options runtime \
+                --entitlements "$ENTITLEMENTS" \
                 --sign "$SIGN_IDENTITY" "$file" || true
             fi
           done
 
           # Sign the main app bundle last
-          codesign --force --timestamp --options runtime --deep \
+          codesign --force --timestamp --options runtime \
+            --entitlements "$ENTITLEMENTS" \
             --sign "$SIGN_IDENTITY" "$APP_PATH"
 
           # Verify
