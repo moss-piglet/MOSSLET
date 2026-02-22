@@ -67,10 +67,17 @@ defmodule MossletWeb.UserAuth do
 
     params = Map.put(params, "user_return_to", user_return_to)
 
+    if Mosslet.Platform.native?() do
+      log_in_user_native(conn, user, params)
+    else
+      log_in_user_web(conn, user, params)
+    end
+  end
+
+  defp log_in_user_web(conn, user, params) do
     conn = put_user_into_session(conn, user, params)
     Accounts.UserPin.purge_pins(user)
 
-    # If the user has set up 2FA then we need to redirect to the 2FA page for them to enter their code.
     if Accounts.two_factor_auth_enabled?(user) do
       conn
       |> put_session(:user_totp_pending, true)
@@ -79,6 +86,33 @@ defmodule MossletWeb.UserAuth do
     else
       redirect_user_after_login_with_remember_me(conn, user, params)
     end
+  end
+
+  defp log_in_user_native(conn, user, params) do
+    token = Accounts.generate_user_session_token(user)
+
+    key =
+      case Mosslet.Session.Native.get_session_key() do
+        {:ok, session_key} ->
+          session_key
+
+        _ ->
+          case Accounts.User.valid_key_hash?(user, params["password"]) do
+            {:ok, key} -> key
+            {:error, _} -> nil
+            false -> nil
+          end
+      end
+
+    conn =
+      conn
+      |> renew_session()
+      |> put_session(:user_token, token)
+      |> put_session(:user_return_to, params["user_return_to"])
+      |> put_token_in_session(token)
+      |> put_key_in_session(key)
+
+    redirect_user_after_login_with_remember_me(conn, user, params)
   end
 
   @doc "This is what makes a user 'signed in'. Future requests will have user_token in the session and we fetch the current_user based off this. This also puts the user key into their session as well (the session is encrypted)."
@@ -91,6 +125,9 @@ defmodule MossletWeb.UserAuth do
           key
 
         {:error, _} ->
+          nil
+
+        false ->
           nil
       end
 
@@ -149,11 +186,20 @@ defmodule MossletWeb.UserAuth do
   #     end
   #
   defp renew_session(conn) do
+    desktop_user = get_session(conn, :user)
+
     delete_csrf_token()
 
-    conn
-    |> configure_session(renew: true)
-    |> clear_session()
+    conn =
+      conn
+      |> configure_session(renew: true)
+      |> clear_session()
+
+    if desktop_user do
+      put_session(conn, :user, desktop_user)
+    else
+      conn
+    end
   end
 
   @doc """
@@ -186,16 +232,24 @@ defmodule MossletWeb.UserAuth do
   Deletes the user's session and forces all live views to reconnect (logging them out fully)
   """
   def log_out_another_user(user) do
-    users_tokens = user |> Accounts.UserToken.user_and_contexts_query(["session"]) |> Repo.all()
-    disconnect_user_tokens(users_tokens, true)
+    if Mosslet.Platform.native?() do
+      :ok
+    else
+      users_tokens = user |> Accounts.UserToken.user_and_contexts_query(["session"]) |> Repo.all()
+      disconnect_user_tokens(users_tokens, true)
+    end
   end
 
   @doc """
   Forces all live views to reconnect for a user. Useful if their permissions have changed (eg. no longer an org member).
   """
   def disconnect_user_liveviews(user) do
-    users_tokens = user |> Accounts.UserToken.user_and_contexts_query(["session"]) |> Repo.all()
-    disconnect_user_tokens(users_tokens)
+    if Mosslet.Platform.native?() do
+      :ok
+    else
+      users_tokens = user |> Accounts.UserToken.user_and_contexts_query(["session"]) |> Repo.all()
+      disconnect_user_tokens(users_tokens)
+    end
   end
 
   defp disconnect_user_tokens(users_tokens, delete_too? \\ false) do

@@ -320,6 +320,7 @@ defmodule MossletWeb.API.AuthController do
 
     response = %{
       token: token,
+      session_key: encode_binary(session_key),
       user: serialize_user(user, session_key)
     }
 
@@ -351,6 +352,16 @@ defmodule MossletWeb.API.AuthController do
       with {:ok, user} <- Accounts.register_user(changeset, c_attrs),
            {:ok, session_key} <- User.valid_key_hash?(user, user_params["password"]),
            {:ok, token} <- Token.generate(user, session_key) do
+        email = user_params["email"]
+
+        if email do
+          Accounts.deliver_user_confirmation_instructions(
+            user,
+            email,
+            &(MossletWeb.Endpoint.url() <> "/auth/confirm/#{&1}")
+          )
+        end
+
         response = %{
           token: token,
           user: serialize_user(user, session_key)
@@ -522,11 +533,28 @@ defmodule MossletWeb.API.AuthController do
       id: user.id,
       email_hash: encode_binary(user.email_hash),
       username_hash: encode_binary(user.username_hash),
+      name_hash: encode_binary(user.name_hash),
+      avatar_url_hash: encode_binary(user.avatar_url_hash),
       key_pair: encode_key_pair(user.key_pair),
       key_hash: encode_binary(user.key_hash),
       conn_key: encode_binary(user.conn_key),
-      is_confirmed: not is_nil(user.confirmed_at),
-      is_onboarded: user.is_onboarded?,
+      user_key: encode_binary(user.user_key),
+      "is_admin?": user.is_admin?,
+      "is_suspended?": user.is_suspended?,
+      "is_deleted?": user.is_deleted?,
+      "is_onboarded?": user.is_onboarded?,
+      "is_forgot_pwd?": user.is_forgot_pwd?,
+      confirmed_at: user.confirmed_at,
+      ai_tokens: user.ai_tokens,
+      ai_tokens_used: user.ai_tokens_used,
+      visibility: user.visibility,
+      calm_notifications: user.calm_notifications,
+      email_notifications: user.email_notifications,
+      journal_privacy_enabled: user.journal_privacy_enabled,
+      mood_insights_enabled: user.mood_insights_enabled,
+      status: user.status,
+      auto_status: user.auto_status,
+      show_online_presence: user.show_online_presence,
       inserted_at: user.inserted_at,
       updated_at: user.updated_at
     }

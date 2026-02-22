@@ -32,14 +32,18 @@ defmodule Mosslet.Accounts.Adapters.Native do
   def get_user_by_email_and_password(email, password)
       when is_binary(email) and is_binary(password) do
     case Client.login(email, password) do
-      {:ok, %{"token" => token, "user" => user_data}} ->
+      {:ok, %{"token" => token, "user" => user_data} = resp} ->
+        session_key = decode_base64(resp["session_key"])
         NativeSession.store_session(user_data["id"], token, user_data)
+        NativeSession.store_session_key(session_key)
         cache_user(user_data)
         deserialize_user(user_data)
 
-      {:ok, %{token: token, user: user_data}} ->
+      {:ok, %{token: token, user: user_data} = resp} ->
+        session_key = decode_base64(resp[:session_key])
         user_id = user_data[:id] || user_data["id"]
         NativeSession.store_session(user_id, token, user_data)
+        NativeSession.store_session_key(session_key)
         cache_user(user_data)
         deserialize_user(user_data)
 
@@ -358,6 +362,8 @@ defmodule Mosslet.Accounts.Adapters.Native do
     end
   end
 
+  @base64_fields ~w(email_hash username_hash name_hash avatar_url_hash key_hash conn_key user_key)a
+
   defp deserialize_user(data) when is_binary(data) do
     case Jason.decode(data) do
       {:ok, map} -> deserialize_user(map)
@@ -366,12 +372,91 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   defp deserialize_user(data) when is_map(data) do
-    struct(User, atomize_keys(data))
+    attrs =
+      data
+      |> atomize_keys()
+      |> decode_base64_fields(@base64_fields)
+      |> decode_key_pair_field()
+      |> parse_datetime_fields([:confirmed_at, :last_signed_in_datetime, :status_updated_at,
+                                 :last_activity_at, :last_post_at])
+      |> parse_utc_datetime_fields([:trial_ends_at, :last_email_notification_received_at,
+                                     :last_reply_notification_received_at,
+                                     :last_mention_email_received_at,
+                                     :last_replies_seen_at,
+                                     :journal_privacy_activated_at])
+      |> parse_enum_field(:visibility, [:public, :private, :connections])
+      |> parse_enum_field(:status, [:offline, :calm, :active, :busy, :away])
+
+    struct(User, attrs)
   rescue
     _ -> nil
   end
 
   defp deserialize_user(_), do: nil
+
+  defp decode_base64_fields(map, fields) do
+    Enum.reduce(fields, map, fn field, acc ->
+      case Map.get(acc, field) do
+        val when is_binary(val) ->
+          case Base.decode64(val) do
+            {:ok, decoded} -> Map.put(acc, field, decoded)
+            :error -> acc
+          end
+        _ -> acc
+      end
+    end)
+  end
+
+  defp decode_key_pair_field(map) do
+    case Map.get(map, :key_pair) do
+      kp when is_map(kp) ->
+        decoded = Map.new(kp, fn {k, v} ->
+          val = if is_binary(v), do: (case Base.decode64(v) do {:ok, d} -> d; :error -> v end), else: v
+          {k, val}
+        end)
+        Map.put(map, :key_pair, decoded)
+      _ -> map
+    end
+  end
+
+  defp parse_datetime_fields(map, fields) do
+    Enum.reduce(fields, map, fn field, acc ->
+      case Map.get(acc, field) do
+        val when is_binary(val) ->
+          case NaiveDateTime.from_iso8601(val) do
+            {:ok, dt} -> Map.put(acc, field, dt)
+            _ -> acc
+          end
+        _ -> acc
+      end
+    end)
+  end
+
+  defp parse_utc_datetime_fields(map, fields) do
+    Enum.reduce(fields, map, fn field, acc ->
+      case Map.get(acc, field) do
+        val when is_binary(val) ->
+          case DateTime.from_iso8601(val) do
+            {:ok, dt, _} -> Map.put(acc, field, dt)
+            _ -> acc
+          end
+        _ -> acc
+      end
+    end)
+  end
+
+  defp parse_enum_field(map, field, valid_values) do
+    case Map.get(map, field) do
+      val when is_binary(val) ->
+        atom_val = String.to_existing_atom(val)
+        if atom_val in valid_values, do: Map.put(map, field, atom_val), else: map
+      val when is_atom(val) and not is_nil(val) ->
+        if val in valid_values, do: map, else: map
+      _ -> map
+    end
+  rescue
+    _ -> map
+  end
 
   defp deserialize_connection(data) when is_binary(data) do
     case Jason.decode(data) do
@@ -429,6 +514,14 @@ defmodule Mosslet.Accounts.Adapters.Native do
 
   defp encode_binary(nil), do: nil
   defp encode_binary(data) when is_binary(data), do: Base.encode64(data)
+
+  defp decode_base64(nil), do: nil
+  defp decode_base64(data) when is_binary(data) do
+    case Base.decode64(data) do
+      {:ok, decoded} -> decoded
+      :error -> data
+    end
+  end
 
   defp serialize_profile(nil), do: nil
 

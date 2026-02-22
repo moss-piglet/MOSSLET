@@ -162,7 +162,8 @@ defmodule Mosslet.Platform do
   end
 
   defp desktop_mode? do
-    System.get_env("MOSSLET_NATIVE") == "true"
+    System.get_env("MOSSLET_NATIVE") == "true" or
+      Application.get_env(:mosslet, :env) == :desktop
   end
 
   defp desktop_available? do

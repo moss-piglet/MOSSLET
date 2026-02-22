@@ -157,12 +157,16 @@ defmodule MossletWeb.UserForgotPasswordLive do
   end
 
   def handle_event("send_email", %{"user" => %{"email" => email}}, socket) do
-    if user = Accounts.get_user_by_email(email) do
-      Accounts.deliver_user_reset_password_instructions(
-        user,
-        email,
-        &url(~p"/auth/reset-password/#{&1}")
-      )
+    if Mosslet.Platform.native?() do
+      Mosslet.API.Client.request_password_reset(email)
+    else
+      if user = Accounts.get_user_by_email(email) do
+        Accounts.deliver_user_reset_password_instructions(
+          user,
+          email,
+          &url(~p"/auth/reset-password/#{&1}")
+        )
+      end
     end
 
     info =

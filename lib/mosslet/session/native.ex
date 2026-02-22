@@ -54,6 +54,27 @@ defmodule Mosslet.Session.Native do
   end
 
   @doc """
+  Stores the session key (encryption key derived from user's password).
+  """
+  def store_session_key(nil), do: :ok
+
+  def store_session_key(session_key) do
+    GenServer.call(__MODULE__, {:store_session_key, session_key})
+  end
+
+  @doc """
+  Gets the current session key.
+  """
+  def get_session_key do
+    case :ets.lookup(@table_name, :session_key) do
+      [{:session_key, key}] -> {:ok, key}
+      [] -> {:error, :no_session_key}
+    end
+  rescue
+    ArgumentError -> {:error, :no_session}
+  end
+
+  @doc """
   Gets the current JWT token.
   """
   def get_token do
@@ -125,6 +146,12 @@ defmodule Mosslet.Session.Native do
   @impl true
   def handle_call({:store_token, token}, _from, state) do
     :ets.insert(@table_name, {:token, token})
+    {:reply, :ok, state}
+  end
+
+  @impl true
+  def handle_call({:store_session_key, session_key}, _from, state) do
+    :ets.insert(@table_name, {:session_key, session_key})
     {:reply, :ok, state}
   end
 

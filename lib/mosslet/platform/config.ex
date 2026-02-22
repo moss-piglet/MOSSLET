@@ -150,7 +150,8 @@ defmodule Mosslet.Platform.Config do
 
   defp native_children do
     [
-      Mosslet.Repo.SQLite
+      Mosslet.Repo.SQLite,
+      {PlugAttack.Storage.Ets, name: MossletWeb.PlugAttack.Storage, clean_period: 3_600_000}
     ]
   end
 

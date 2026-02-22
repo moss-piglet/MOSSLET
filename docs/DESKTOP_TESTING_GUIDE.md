@@ -27,6 +27,7 @@ This guide walks you through manually testing the Mosslet desktop app before rel
 ```bash
 # Set environment variable and run
 MOSSLET_NATIVE=true iex -S mix
+MIX_ENV=dev_desktop MOSSLET_NATIVE=true MOSSLET_API_BASE_URL=http://localhost:4000 iex -S mix
 
 # If encountering issues with above command try:
 MOSSLET_NATIVE=true mix compile --force && MOSSLET_NATIVE=true iex -S mix

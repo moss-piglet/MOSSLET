@@ -20,6 +20,27 @@ if System.get_env("PHX_SERVER") do
   config :mosslet, MossletWeb.Endpoint, server: true
 end
 
+if config_env() == :dev do
+  config :mosslet,
+    server_public_key: System.get_env("SERVER_PUBLIC_KEY"),
+    server_private_key: System.get_env("SERVER_PRIVATE_KEY"),
+    canonical_host: System.get_env("PHX_HOST", "localhost"),
+    plug_attack_ip_secret:
+      System.get_env("PLUG_ATTACK_IP_SECRET") || Mosslet.Platform.Config.generate_secret()
+
+  config :langchain,
+    openai_key: System.get_env("OPENAI_KEY"),
+    openai_org_id: System.get_env("OPENAI_ORG_ID")
+
+  config :sentry,
+    dsn: System.get_env("SENTRY_DSN"),
+    environment_name: System.get_env("RELEASE_LEVEL") || "development"
+
+  config :stripity_stripe,
+    api_key: System.get_env("STRIPE_API_KEY"),
+    signing_secret: System.get_env("STRIPE_WEBHOOK_SECRET")
+end
+
 if config_env() == :prod do
   config :flame, :backend, FLAME.FlyBackend
 
@@ -141,6 +162,10 @@ if config_env() == :prod do
     openai_key: System.get_env("OPENAI_KEY"),
     openai_org_id: System.get_env("OPENAI_ORG_ID")
 
+  config :sentry,
+    dsn: System.get_env("SENTRY_DSN"),
+    environment_name: System.get_env("RELEASE_LEVEL") || "production"
+
   # Configure image nsfw detection
   config :image, :classifier,
     model: {:hf, "Falconsai/nsfw_image_detection"},
@@ -253,7 +278,27 @@ if config_env() == :prod do
   # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
 end
 
-if System.get_env("MOSSLET_NATIVE") == "true" do
+if System.get_env("MOSSLET_NATIVE") == "true" || config_env() == :dev_desktop do
+  config :mosslet,
+    server_public_key: System.get_env("SERVER_PUBLIC_KEY"),
+    server_private_key: System.get_env("SERVER_PRIVATE_KEY"),
+    api_base_url: System.get_env("MOSSLET_API_BASE_URL", "https://mosslet.com"),
+    canonical_host: System.get_env("PHX_HOST", "localhost"),
+    plug_attack_ip_secret:
+      System.get_env("PLUG_ATTACK_IP_SECRET") || Mosslet.Platform.Config.generate_secret()
+
+  config :langchain,
+    openai_key: System.get_env("OPENAI_KEY"),
+    openai_org_id: System.get_env("OPENAI_ORG_ID")
+
+  config :sentry,
+    dsn: System.get_env("SENTRY_DSN"),
+    environment_name: System.get_env("RELEASE_LEVEL") || "development"
+
+  config :stripity_stripe,
+    api_key: System.get_env("STRIPE_API_KEY"),
+    signing_secret: System.get_env("STRIPE_WEBHOOK_SECRET")
+
   config :phoenix_live_view,
     debug_heex_annotations: false,
     debug_tags_location: false,

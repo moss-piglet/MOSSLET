@@ -264,22 +264,10 @@ defmodule MossletWeb.UserResetPasswordLive do
   # leaked token giving the user access to the account.
   def handle_event("reset_password", %{"user" => user_params}, socket) do
     if socket.assigns.user.is_forgot_pwd? && socket.assigns.user.key do
-      user = socket.assigns.user
-      key = socket.assigns.user.key
-
-      case Accounts.reset_user_password(socket.assigns.user, user_params,
-             user: user,
-             key: key,
-             reset_password: true
-           ) do
-        {:ok, _} ->
-          {:noreply,
-           socket
-           |> put_flash(:success, "Password reset successfully.")
-           |> redirect(to: ~p"/auth/sign_in")}
-
-        {:error, changeset} ->
-          {:noreply, assign_form(socket, Map.put(changeset, :action, :insert))}
+      if Mosslet.Platform.native?() do
+        handle_native_reset_password(socket, user_params)
+      else
+        handle_web_reset_password(socket, user_params)
       end
     else
       {:noreply,
@@ -293,6 +281,66 @@ defmodule MossletWeb.UserResetPasswordLive do
     changeset = Accounts.change_user_password(socket.assigns.user, user_params)
     {:noreply, assign_form(socket, Map.put(changeset, :action, :validate))}
   end
+
+  defp handle_native_reset_password(socket, user_params) do
+    token = socket.assigns.token
+    password = Map.get(user_params, "password", "")
+    password_confirmation = Map.get(user_params, "password_confirmation", "")
+
+    case Mosslet.API.Client.reset_password_with_token(token, password, password_confirmation) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:success, "Password reset successfully.")
+         |> redirect(to: ~p"/auth/sign_in")}
+
+      {:error, {_status, %{errors: errors}}} ->
+        changeset =
+          Accounts.change_user_password(socket.assigns.user, user_params)
+          |> apply_api_errors(errors)
+          |> Map.put(:action, :insert)
+
+        {:noreply, assign_form(socket, changeset)}
+
+      {:error, _reason} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Something went wrong. Please try again.")
+         |> redirect(to: ~p"/auth/reset-password")}
+    end
+  end
+
+  defp handle_web_reset_password(socket, user_params) do
+    user = socket.assigns.user
+    key = socket.assigns.user.key
+
+    case Accounts.reset_user_password(socket.assigns.user, user_params,
+           user: user,
+           key: key,
+           reset_password: true
+         ) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:success, "Password reset successfully.")
+         |> redirect(to: ~p"/auth/sign_in")}
+
+      {:error, changeset} ->
+        {:noreply, assign_form(socket, Map.put(changeset, :action, :insert))}
+    end
+  end
+
+  defp apply_api_errors(changeset, errors) when is_map(errors) do
+    Enum.reduce(errors, changeset, fn {field, messages}, cs ->
+      field_atom = if is_atom(field), do: field, else: String.to_existing_atom(field)
+
+      Enum.reduce(List.wrap(messages), cs, fn msg, inner_cs ->
+        Ecto.Changeset.add_error(inner_cs, field_atom, msg)
+      end)
+    end)
+  end
+
+  defp apply_api_errors(changeset, _errors), do: changeset
 
   defp assign_user_and_token(socket, %{"token" => token}) do
     if user = Accounts.get_user_by_reset_password_token(token) do

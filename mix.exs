@@ -73,6 +73,7 @@ defmodule Mosslet.MixProject do
   end
 
   defp elixirc_paths(:test), do: ["lib", "test/support"] ++ native_paths()
+  defp elixirc_paths(:dev_desktop), do: ["lib", "lib_native"]
   defp elixirc_paths(_), do: ["lib"] ++ native_paths()
 
   defp native_paths do
@@ -96,7 +97,7 @@ defmodule Mosslet.MixProject do
   end
 
   defp native_build? do
-    System.get_env("MOSSLET_NATIVE") == "true"
+    System.get_env("MOSSLET_NATIVE") == "true" or Mix.env() == :dev_desktop
   end
 
   defp windows_deps do
@@ -139,7 +140,7 @@ defmodule Mosslet.MixProject do
       {:email_checker, "~> 0.2.4"},
       {:enacl, github: "aeternity/enacl"},
       {:eqrcode, "~> 0.1.10"},
-      {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
+      {:esbuild, "~> 0.10", runtime: Mix.env() in [:dev, :dev_desktop]},
       {:ex_aws, "~> 2.4"},
       {:ex_aws_s3, "~> 2.4"},
       {:expletive, "~> 0.1.5"},
@@ -186,7 +187,7 @@ defmodule Mosslet.MixProject do
       {:phoenix_ecto, "~> 4.6"},
       {:phoenix_html, "~> 4.0"},
       {:phoenix_live_dashboard, "~> 0.8.0"},
-      {:phoenix_live_reload, "~> 1.2", only: :dev},
+      {:phoenix_live_reload, "~> 1.2", only: [:dev, :dev_desktop]},
       {:phoenix_live_view, "~> 1.1"},
       {:phoenix_swoosh, "~> 1.0"},
       {:plug_attack, "~> 0.4.3"},
@@ -206,7 +207,7 @@ defmodule Mosslet.MixProject do
       {:stripity_stripe, "~> 3.1"},
       {:sweet_xml, "~> 0.6"},
       {:swoosh, "~> 1.3"},
-      {:tailwind, "~> 0.3.0", runtime: Mix.env() == :dev},
+      {:tailwind, "~> 0.3.0", runtime: Mix.env() in [:dev, :dev_desktop]},
       {:telemetry_metrics, "~> 0.6"},
       {:telemetry_poller, "~> 1.0"},
       {:tesla, "~> 1.7.0"},

@@ -804,7 +804,8 @@ defmodule MossletWeb.API.UserController do
       visibility: user.visibility,
       is_confirmed: not is_nil(user.confirmed_at),
       is_onboarded: user.is_onboarded?,
-      notifications: user.notifications?,
+      calm_notifications: user.calm_notifications,
+      email_notifications: user.email_notifications,
       updated_at: user.updated_at
     }
   end

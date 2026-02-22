@@ -599,14 +599,18 @@ defmodule MossletWeb.UserRegistrationLive do
          %{} = c_attrs <- user_changeset.changes.connection_map,
          {:ok, user} <- Accounts.register_user(user_changeset, c_attrs),
          :ok <- maybe_create_pending_referral(user, socket.assigns.referral_code) do
-      {:ok, _} =
-        Accounts.deliver_user_confirmation_instructions(
-          user,
-          email,
-          &url(~p"/auth/confirm/#{&1}")
-        )
+      if Mosslet.Platform.native?() do
+        {:noreply, socket |> assign(trigger_submit: true)}
+      else
+        {:ok, _} =
+          Accounts.deliver_user_confirmation_instructions(
+            user,
+            email,
+            &url(~p"/auth/confirm/#{&1}")
+          )
 
-      {:noreply, socket |> assign(trigger_submit: true)}
+        {:noreply, socket |> assign(trigger_submit: true)}
+      end
     else
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, socket |> assign(check_errors: true) |> assign_form(changeset)}

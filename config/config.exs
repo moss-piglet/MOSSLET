@@ -23,13 +23,6 @@ config :mosslet,
     "A social alternative that's simple and privacy-first. Connect with friends and family, or simply yourself through our encrypted journal. Bluesky interop, no ads, no algorithms — just your people and your thoughts.",
   github_url: "https://github.com/moss-piglet/mosslet",
   discord_url: "https://discord.gg/hjeUW39ytd",
-  server_public_key: System.get_env("SERVER_PUBLIC_KEY"),
-  server_private_key: System.get_env("SERVER_PRIVATE_KEY"),
-  avatars_bucket: System.get_env("AVATARS_BUCKET"),
-  memories_bucket: System.get_env("MEMORIES_BUCKET"),
-  canonical_host: System.get_env("PHX_HOST"),
-  plug_attack_ip_secret: System.get_env("PLUG_ATTACK_IP_SECRET"),
-  s3_access_key_id: System.get_env("AWS_ACCESS_KEY_ID"),
   env: :dev
 
 config :mosslet, Mosslet.Security.BotDetector,
@@ -202,9 +195,7 @@ config :mosslet, :passwordless_enabled, false
 config :elixir, :time_zone_database, Tzdata.TimeZoneDatabase
 
 # Configure langchain OpenAI key
-config :langchain,
-  openai_key: System.get_env("OPENAI_KEY"),
-  openai_org_id: System.get_env("OPENAI_ORG_ID")
+config :langchain, []
 
 # Configure Nx - backend is set at runtime based on OS
 # EXLA for macOS/Linux, Torchx for Windows
@@ -231,15 +222,12 @@ config :image, :social,
 
 # Configure Sentry error monitoring
 config :sentry,
-  dsn: System.get_env("SENTRY_DSN"),
   included_environments: ~w(production staging),
-  environment_name: System.get_env("RELEASE_LEVEL") || "development"
+  environment_name: "development"
 
 # Configure Stripe
 config :stripity_stripe,
-  api_version: "2023-08-16",
-  api_key: System.get_env("STRIPE_API_KEY"),
-  signing_secret: System.get_env("STRIPE_WEBHOOK_SECRET")
+  api_version: "2023-08-16"
 
 # :user or :org (perhaps change to family)
 config :mosslet, :billing_entity, :user
@@ -396,6 +384,7 @@ config :flop, repo: Mosslet.Repo.Local
 import_config "#{config_env()}.exs"
 
 # Import desktop config if MOSSLET_NATIVE is set (for native app builds)
-if System.get_env("MOSSLET_NATIVE") do
+# Skip when dev_desktop since dev_desktop.exs already imports desktop.exs
+if System.get_env("MOSSLET_NATIVE") && config_env() != :dev_desktop do
   import_config "desktop.exs"
 end
