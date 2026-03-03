@@ -47,7 +47,8 @@ defmodule <%= inspect context.web_module %>.<%= inspect Module.concat(schema.web
             field={f[:email]}
             type="email"
             label="Email"
-            autocomplete="email"
+            autocomplete="username"
+            spellcheck="false"
             required
             phx-mounted={JS.focus()}
           />
@@ -71,7 +72,8 @@ defmodule <%= inspect context.web_module %>.<%= inspect Module.concat(schema.web
             field={f[:email]}
             type="email"
             label="Email"
-            autocomplete="email"
+            autocomplete="username"
+            spellcheck="false"
             required
           />
           <.input
@@ -79,6 +81,7 @@ defmodule <%= inspect context.web_module %>.<%= inspect Module.concat(schema.web
             type="password"
             label="Password"
             autocomplete="current-password"
+            spellcheck="false"
           />
           <.button class="btn btn-primary w-full" name={@form[:remember_me].name} value="true">
             Log in and stay logged in <span aria-hidden="true">→</span>

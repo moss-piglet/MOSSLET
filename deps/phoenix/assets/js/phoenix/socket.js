@@ -158,7 +158,7 @@ export default class Socket {
         } else {
           this.pageHidden = false
           // reconnect immediately
-          if(!this.isConnected()){
+          if(!this.isConnected() && !this.closeWasClean){
             this.teardown(() => this.connect())
           }
         }
@@ -367,8 +367,25 @@ export default class Socket {
 
   /**
    * @private
+   *
+   * @param {Function}
    */
+  transportName(transport){
+    // JavaScript minification, enabled by default in production in Phoenix
+    // projects, renames symbols to reduce code size.
+    // See https://esbuild.github.io/api/#keep-names.
+    // This helper ensures we return the correct name for the LongPoll transport
+    // even after minification. The other common transport is WebSocket, which
+    // is native to browsers and does not need special handling.
+    switch(transport){
+      case LongPoll: return "LongPoll"
+      default: return transport.name
+    }
+  }
 
+  /**
+   * @private
+   */
   transportConnect(){
     this.connectClock++
     this.closeWasClean = false
@@ -396,14 +413,15 @@ export default class Socket {
     let established = false
     let primaryTransport = true
     let openRef, errorRef
+    let fallbackTransportName = this.transportName(fallbackTransport)
     let fallback = (reason) => {
-      this.log("transport", `falling back to ${fallbackTransport.name}...`, reason)
+      this.log("transport", `falling back to ${fallbackTransportName}...`, reason)
       this.off([openRef, errorRef])
       primaryTransport = false
       this.replaceTransport(fallbackTransport)
       this.transportConnect()
     }
-    if(this.getSession(`phx:fallback:${fallbackTransport.name}`)){ return fallback("memorized") }
+    if(this.getSession(`phx:fallback:${fallbackTransportName}`)){ return fallback("memorized") }
 
     this.fallbackTimer = setTimeout(fallback, fallbackThreshold)
 
@@ -420,9 +438,10 @@ export default class Socket {
     this.fallbackRef = this.onOpen(() => {
       established = true
       if(!primaryTransport){
+        let fallbackTransportName = this.transportName(fallbackTransport)
         // only memorize LP if we never connected to primary
-        if(!this.primaryPassedHealthCheck){ this.storeSession(`phx:fallback:${fallbackTransport.name}`, "true") }
-        return this.log("transport", `established ${fallbackTransport.name} fallback`)
+        if(!this.primaryPassedHealthCheck){ this.storeSession(`phx:fallback:${fallbackTransportName}`, "true") }
+        return this.log("transport", `established ${fallbackTransportName} fallback`)
       }
       // if we've established primary, give the fallback a new period to attempt ping
       clearTimeout(this.fallbackTimer)
@@ -442,7 +461,7 @@ export default class Socket {
   }
 
   onConnOpen(){
-    if(this.hasLogger()) this.log("transport", `${this.transport.name} connected to ${this.endPointURL()}`)
+    if(this.hasLogger()) this.log("transport", `${this.transportName(this.transport)} connected to ${this.endPointURL()}`)
     this.closeWasClean = false
     this.disconnecting = false
     this.establishedConnections++
@@ -477,17 +496,16 @@ export default class Socket {
     if(!this.conn){
       return callback && callback()
     }
-    let connectClock = this.connectClock
 
-    this.waitForBufferDone(() => {
-      if(connectClock !== this.connectClock){ return }
-      if(this.conn){
-        if(code){ this.conn.close(code, reason || "") } else { this.conn.close() }
-      }
+    // If someone calls connect before we finish tearing down,
+    // we create a new connection, but we still want to finish tearing down the old one.
+    const connToClose = this.conn
 
-      this.waitForSocketClosed(() => {
-        if(connectClock !== this.connectClock){ return }
-        if(this.conn){
+    this.waitForBufferDone(connToClose, () => {
+      if(code){ connToClose.close(code, reason || "") } else { connToClose.close() }
+
+      this.waitForSocketClosed(connToClose, () => {
+        if(this.conn === connToClose){
           this.conn.onopen = function (){ } // noop
           this.conn.onerror = function (){ } // noop
           this.conn.onmessage = function (){ } // noop
@@ -500,25 +518,25 @@ export default class Socket {
     })
   }
 
-  waitForBufferDone(callback, tries = 1){
-    if(tries === 5 || !this.conn || !this.conn.bufferedAmount){
+  waitForBufferDone(conn, callback, tries = 1){
+    if(tries === 5 || !conn.bufferedAmount){
       callback()
       return
     }
 
     setTimeout(() => {
-      this.waitForBufferDone(callback, tries + 1)
+      this.waitForBufferDone(conn, callback, tries + 1)
     }, 150 * tries)
   }
 
-  waitForSocketClosed(callback, tries = 1){
-    if(tries === 5 || !this.conn || this.conn.readyState === SOCKET_STATES.closed){
+  waitForSocketClosed(conn, callback, tries = 1){
+    if(tries === 5 || conn.readyState === SOCKET_STATES.closed){
       callback()
       return
     }
 
     setTimeout(() => {
-      this.waitForSocketClosed(callback, tries + 1)
+      this.waitForSocketClosed(conn, callback, tries + 1)
     }, 150 * tries)
   }
 

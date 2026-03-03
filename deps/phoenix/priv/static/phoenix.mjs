@@ -224,12 +224,14 @@ var Channel = class {
     });
     this.onClose(() => {
       this.rejoinTimer.reset();
-      if (this.socket.hasLogger()) this.socket.log("channel", `close ${this.topic} ${this.joinRef()}`);
+      if (this.socket.hasLogger())
+        this.socket.log("channel", `close ${this.topic} ${this.joinRef()}`);
       this.state = CHANNEL_STATES.closed;
       this.socket.remove(this);
     });
     this.onError((reason) => {
-      if (this.socket.hasLogger()) this.socket.log("channel", `error ${this.topic}`, reason);
+      if (this.socket.hasLogger())
+        this.socket.log("channel", `error ${this.topic}`, reason);
       if (this.isJoining()) {
         this.joinPush.reset();
       }
@@ -239,7 +241,8 @@ var Channel = class {
       }
     });
     this.joinPush.receive("timeout", () => {
-      if (this.socket.hasLogger()) this.socket.log("channel", `timeout ${this.topic} (${this.joinRef()})`, this.joinPush.timeout);
+      if (this.socket.hasLogger())
+        this.socket.log("channel", `timeout ${this.topic} (${this.joinRef()})`, this.joinPush.timeout);
       let leavePush = new Push(this, CHANNEL_EVENTS.leave, closure({}), this.timeout);
       leavePush.send();
       this.state = CHANNEL_STATES.errored;
@@ -385,7 +388,8 @@ var Channel = class {
     this.joinPush.cancelTimeout();
     this.state = CHANNEL_STATES.leaving;
     let onClose = () => {
-      if (this.socket.hasLogger()) this.socket.log("channel", `leave ${this.topic}`);
+      if (this.socket.hasLogger())
+        this.socket.log("channel", `leave ${this.topic}`);
       this.trigger(CHANNEL_EVENTS.close, "leave");
     };
     let leavePush = new Push(this, CHANNEL_EVENTS.leave, closure({}), timeout);
@@ -419,7 +423,8 @@ var Channel = class {
       return false;
     }
     if (joinRef && joinRef !== this.joinRef()) {
-      if (this.socket.hasLogger()) this.socket.log("channel", "dropping outdated message", { topic, event, payload, joinRef });
+      if (this.socket.hasLogger())
+        this.socket.log("channel", "dropping outdated message", { topic, event, payload, joinRef });
       return false;
     } else {
       return true;
@@ -762,7 +767,7 @@ var LongPoll = class {
 };
 
 // js/phoenix/presence.js
-var Presence = class _Presence {
+var Presence = class {
   constructor(channel, opts = {}) {
     let events = opts.events || { state: "presence_state", diff: "presence_diff" };
     this.state = {};
@@ -780,9 +785,9 @@ var Presence = class _Presence {
     this.channel.on(events.state, (newState) => {
       let { onJoin, onLeave, onSync } = this.caller;
       this.joinRef = this.channel.joinRef();
-      this.state = _Presence.syncState(this.state, newState, onJoin, onLeave);
+      this.state = Presence.syncState(this.state, newState, onJoin, onLeave);
       this.pendingDiffs.forEach((diff) => {
-        this.state = _Presence.syncDiff(this.state, diff, onJoin, onLeave);
+        this.state = Presence.syncDiff(this.state, diff, onJoin, onLeave);
       });
       this.pendingDiffs = [];
       onSync();
@@ -792,7 +797,7 @@ var Presence = class _Presence {
       if (this.inPendingSyncState()) {
         this.pendingDiffs.push(diff);
       } else {
-        this.state = _Presence.syncDiff(this.state, diff, onJoin, onLeave);
+        this.state = Presence.syncDiff(this.state, diff, onJoin, onLeave);
         onSync();
       }
     });
@@ -807,7 +812,7 @@ var Presence = class _Presence {
     this.caller.onSync = callback;
   }
   list(by) {
-    return _Presence.list(this.state, by);
+    return Presence.list(this.state, by);
   }
   inPendingSyncState() {
     return !this.joinRef || this.joinRef !== this.channel.joinRef();
@@ -1071,7 +1076,7 @@ var Socket = class {
           this.pageHidden = true;
         } else {
           this.pageHidden = false;
-          if (!this.isConnected()) {
+          if (!this.isConnected() && !this.closeWasClean) {
             this.teardown(() => this.connect());
           }
         }
@@ -1285,6 +1290,19 @@ var Socket = class {
   }
   /**
    * @private
+   *
+   * @param {Function}
+   */
+  transportName(transport) {
+    switch (transport) {
+      case LongPoll:
+        return "LongPoll";
+      default:
+        return transport.name;
+    }
+  }
+  /**
+   * @private
    */
   transportConnect() {
     this.connectClock++;
@@ -1312,14 +1330,15 @@ var Socket = class {
     let established = false;
     let primaryTransport = true;
     let openRef, errorRef;
+    let fallbackTransportName = this.transportName(fallbackTransport);
     let fallback = (reason) => {
-      this.log("transport", `falling back to ${fallbackTransport.name}...`, reason);
+      this.log("transport", `falling back to ${fallbackTransportName}...`, reason);
       this.off([openRef, errorRef]);
       primaryTransport = false;
       this.replaceTransport(fallbackTransport);
       this.transportConnect();
     };
-    if (this.getSession(`phx:fallback:${fallbackTransport.name}`)) {
+    if (this.getSession(`phx:fallback:${fallbackTransportName}`)) {
       return fallback("memorized");
     }
     this.fallbackTimer = setTimeout(fallback, fallbackThreshold);
@@ -1336,10 +1355,11 @@ var Socket = class {
     this.fallbackRef = this.onOpen(() => {
       established = true;
       if (!primaryTransport) {
+        let fallbackTransportName2 = this.transportName(fallbackTransport);
         if (!this.primaryPassedHealthCheck) {
-          this.storeSession(`phx:fallback:${fallbackTransport.name}`, "true");
+          this.storeSession(`phx:fallback:${fallbackTransportName2}`, "true");
         }
-        return this.log("transport", `established ${fallbackTransport.name} fallback`);
+        return this.log("transport", `established ${fallbackTransportName2} fallback`);
       }
       clearTimeout(this.fallbackTimer);
       this.fallbackTimer = setTimeout(fallback, fallbackThreshold);
@@ -1356,7 +1376,8 @@ var Socket = class {
     clearTimeout(this.heartbeatTimeoutTimer);
   }
   onConnOpen() {
-    if (this.hasLogger()) this.log("transport", `${this.transport.name} connected to ${this.endPointURL()}`);
+    if (this.hasLogger())
+      this.log("transport", `${this.transportName(this.transport)} connected to ${this.endPointURL()}`);
     this.closeWasClean = false;
     this.disconnecting = false;
     this.establishedConnections++;
@@ -1391,23 +1412,15 @@ var Socket = class {
     if (!this.conn) {
       return callback && callback();
     }
-    let connectClock = this.connectClock;
-    this.waitForBufferDone(() => {
-      if (connectClock !== this.connectClock) {
-        return;
+    const connToClose = this.conn;
+    this.waitForBufferDone(connToClose, () => {
+      if (code) {
+        connToClose.close(code, reason || "");
+      } else {
+        connToClose.close();
       }
-      if (this.conn) {
-        if (code) {
-          this.conn.close(code, reason || "");
-        } else {
-          this.conn.close();
-        }
-      }
-      this.waitForSocketClosed(() => {
-        if (connectClock !== this.connectClock) {
-          return;
-        }
-        if (this.conn) {
+      this.waitForSocketClosed(connToClose, () => {
+        if (this.conn === connToClose) {
           this.conn.onopen = function() {
           };
           this.conn.onerror = function() {
@@ -1422,29 +1435,31 @@ var Socket = class {
       });
     });
   }
-  waitForBufferDone(callback, tries = 1) {
-    if (tries === 5 || !this.conn || !this.conn.bufferedAmount) {
+  waitForBufferDone(conn, callback, tries = 1) {
+    if (tries === 5 || !conn.bufferedAmount) {
       callback();
       return;
     }
     setTimeout(() => {
-      this.waitForBufferDone(callback, tries + 1);
+      this.waitForBufferDone(conn, callback, tries + 1);
     }, 150 * tries);
   }
-  waitForSocketClosed(callback, tries = 1) {
-    if (tries === 5 || !this.conn || this.conn.readyState === SOCKET_STATES.closed) {
+  waitForSocketClosed(conn, callback, tries = 1) {
+    if (tries === 5 || conn.readyState === SOCKET_STATES.closed) {
       callback();
       return;
     }
     setTimeout(() => {
-      this.waitForSocketClosed(callback, tries + 1);
+      this.waitForSocketClosed(conn, callback, tries + 1);
     }, 150 * tries);
   }
   onConnClose(event) {
-    if (this.conn) this.conn.onclose = () => {
-    };
+    if (this.conn)
+      this.conn.onclose = () => {
+      };
     let closeCode = event && event.code;
-    if (this.hasLogger()) this.log("transport", "close", event);
+    if (this.hasLogger())
+      this.log("transport", "close", event);
     this.triggerChanError();
     this.clearHeartbeats();
     if (!this.closeWasClean && closeCode !== 1e3) {
@@ -1456,7 +1471,8 @@ var Socket = class {
    * @private
    */
   onConnError(error) {
-    if (this.hasLogger()) this.log("transport", error);
+    if (this.hasLogger())
+      this.log("transport", error);
     let transportBefore = this.transport;
     let establishedBefore = this.establishedConnections;
     this.stateChangeCallbacks.error.forEach(([, callback]) => {
@@ -1580,7 +1596,8 @@ var Socket = class {
         this.pendingHeartbeatRef = null;
         this.heartbeatTimer = setTimeout(() => this.sendHeartbeat(), this.heartbeatIntervalMs);
       }
-      if (this.hasLogger()) this.log("receive", `${payload.status || ""} ${topic} ${event} ${ref && "(" + ref + ")" || ""}`, payload);
+      if (this.hasLogger())
+        this.log("receive", `${payload.status || ""} ${topic} ${event} ${ref && "(" + ref + ")" || ""}`, payload);
       for (let i = 0; i < this.channels.length; i++) {
         const channel = this.channels[i];
         if (!channel.isMember(topic, event, payload, join_ref)) {
@@ -1597,7 +1614,8 @@ var Socket = class {
   leaveOpenTopic(topic) {
     let dupChannel = this.channels.find((c) => c.topic === topic && (c.isJoined() || c.isJoining()));
     if (dupChannel) {
-      if (this.hasLogger()) this.log("transport", `leaving duplicate topic "${topic}"`);
+      if (this.hasLogger())
+        this.log("transport", `leaving duplicate topic "${topic}"`);
       dupChannel.leave();
     }
   }

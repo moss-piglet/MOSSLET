@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.22.1
+
+### 🐛 Bug Fixes
+
+- Fix mailbox preview text-body clipping by removing negative top offset @copilot-swe-agent (#1108)
+
+## 1.22.0
+
+### ✨ Features
+
+- Adapter/mailersend @cpursley (#1104)
+
 ## 1.21.0
 
 - Bump Elixir requirement to 1.16, Erlang OTP to 26
