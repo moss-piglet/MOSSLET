@@ -202,6 +202,10 @@ defmodule Mosslet.Journal do
   Additionally, the streak is preserved if you journaled yesterday but haven't
   journaled today yet - your streak only breaks when you miss a full day.
 
+  It should also start your streak over at 1 when you start a new journal entry
+  and any previous streak was broken — meaning if it was 0 then it would be 1
+  because you've begun a new day of journaling.
+
   The `local_now` parameter should be the user's current local DateTime.
   """
   def streak_days(user, local_now \\ nil) do
@@ -230,7 +234,7 @@ defmodule Mosslet.Journal do
     timestamps
     |> Enum.map(&to_journaling_day/1)
     |> Enum.uniq()
-    |> Enum.sort(:desc)
+    |> Enum.sort(:asc)
   end
 
   defp to_journaling_day(%DateTime{} = dt) do
