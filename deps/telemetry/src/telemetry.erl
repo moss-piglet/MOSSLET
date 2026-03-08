@@ -2,6 +2,7 @@
 
 -export([attach/4,
          attach_many/4,
+         persist/0,
          detach/1,
          list_handlers/1,
          execute/2,
@@ -29,7 +30,7 @@ and `execute/2`.
 -type handler_config() :: term().
 -type handler_function() :: fun((event_name(), event_measurements(), event_metadata(), handler_config()) -> any()).
 -type span_result() :: term().
--type span_function() :: fun(() -> {span_result(), event_metadata()}) | {span_result(), event_measurements(), event_metadata()}.
+-type span_function() :: fun(() -> {span_result(), event_metadata()} | {span_result(), event_measurements(), event_metadata()}).
 -type handler() :: #{id := handler_id(),
                      event_name := event_name(),
                      function := handler_function(),
@@ -68,11 +69,31 @@ See `execute/3` to learn how the handlers are invoked.
 All the handlers are executed by the process dispatching event. If the function fails (raises,
 exits or throws) then the handler is removed and a failure event is emitted.
 
-Handler failure events `[telemetry, handler, failure]` should only be used for monitoring
-and diagnostic purposes. Re-attaching a failed handler will likely result in the handler
-failing again.
-
 Note that you should not rely on the order in which handlers are invoked.
+
+### Failing Handlers
+
+When a handler fails, it is removed and a **failure event** is emitted.
+This is useful for monitoring and diagnostic purposes.
+
+Handler failure events are executed as:
+
+  * Event name: `[telemetry, handler, failure]`
+  * Measurements:
+    * `monotonic_time` - The current monotonic time in native units from calling
+      `erlang:monotonic_time/0`
+    * `system_time` - The current system time in native units from calling
+      `erlang:system_time/0`
+  * Metadata:
+    * `event_name` - The event that failed (`t:event_name/0`)
+    * `handler_id` - The ID of the handler that failed
+    * `handler_config` - The configuration of the handler that failed
+    * `kind` - The kind of failure (`error`, `exit`, `throw`)
+    * `reason` - The reason for the failure
+    * `stacktrace` - The stacktrace for the failure
+
+These handler failure events should only be used for monitoring and diagnostic purposes.
+Re-attaching a failed handler will likely result in the handler failing again.
 """).
 -spec attach(HandlerId, EventName, Function, Config) -> ok | {error, already_exists} when
       HandlerId :: handler_id(),
@@ -98,9 +119,7 @@ or `&handle_event/4`) as event handlers.
 All the handlers are executed by the process dispatching event. If the function fails (raises,
 exits or throws) a handler failure event is emitted and then the handler is removed.
 
-Handler failure events `[telemetry, handler, failure]` should only be used for monitoring
-and diagnostic purposes. Re-attaching a failed handler will likely result in the handler
-failing again.
+Failing handlers emit a failure event, which is documented in `attach/4`.
 
 Note that you should not rely on the order in which handlers are invoked.
 """).
@@ -123,6 +142,19 @@ attach_many(HandlerId, EventNames, Function, Config) when is_function(Function, 
                       #{report_cb => fun ?MODULE:report_cb/1})
     end,
     telemetry_handler_table:insert(HandlerId, EventNames, Function, Config).
+
+?DOC("""
+Persist telemetry handlers.
+
+This will improve performance of calling Telemetry handlers at the cost of
+reducing performance of attaching or detaching new handlers.
+
+This function should be used with care.
+""").
+?DOC_SINCE("1.4.0").
+-spec persist() -> ok.
+persist() ->
+    telemetry_handler_table:persist().
 
 ?DOC("""
 Removes the existing handler.
@@ -159,29 +191,32 @@ execute(EventName, Value, Metadata) when is_number(Value) ->
     execute(EventName, #{value => Value}, Metadata);
 execute([_ | _] = EventName, Measurements, Metadata) when is_map(Measurements) and is_map(Metadata) ->
     Handlers = telemetry_handler_table:list_for_event(EventName),
-    ApplyFun =
-        fun(#handler{id=HandlerId,
-                     function=HandlerFunction,
-                     config=Config}) ->
-            try
-                HandlerFunction(EventName, Measurements, Metadata, Config)
-            catch
-                ?WITH_STACKTRACE(Class, Reason, Stacktrace)
-                    detach(HandlerId),
-                    FailureMetadata = #{event_name => EventName,
-                                        handler_id => HandlerId,
-                                        handler_config => Config,
-                                        kind => Class,
-                                        reason => Reason,
-                                        stacktrace => Stacktrace},
-                    FailureMeasurements = #{monotonic_time => erlang:monotonic_time(), system_time => erlang:system_time()},
-                    execute([telemetry, handler, failure], FailureMeasurements, FailureMetadata),
-                    ?LOG_ERROR("Handler ~p has failed and has been detached. "
-                               "Class=~p~nReason=~p~nStacktrace=~p~n",
-                               [HandlerId, Class, Reason, Stacktrace])
-            end
-        end,
-    lists:foreach(ApplyFun, Handlers).
+    do_execute(Handlers, EventName, Measurements, Metadata).
+
+do_execute([], _EventName, _Measurements, _Metadata) -> ok;
+do_execute([Handler | Rest], EventName, Measurements, Metadata) ->
+    #handler{id=HandlerId,
+             function=HandlerFunction,
+             config=Config} = Handler,
+    try
+        HandlerFunction(EventName, Measurements, Metadata, Config)
+    catch
+        ?WITH_STACKTRACE(Class, Reason, Stacktrace)
+        detach(HandlerId),
+        FailureMetadata = #{event_name => EventName,
+                            handler_id => HandlerId,
+                            handler_config => Config,
+                            kind => Class,
+                            reason => Reason,
+                            stacktrace => Stacktrace},
+        FailureMeasurements = #{monotonic_time => erlang:monotonic_time(), system_time => erlang:system_time()},
+        execute([telemetry, handler, failure], FailureMeasurements, FailureMetadata),
+        ?LOG_ERROR("Handler ~p has failed and has been detached. "
+                   "Class=~p~nReason=~p~nStacktrace=~p~n",
+                   [HandlerId, Class, Reason, Stacktrace])
+    end,
+    do_execute(Rest, EventName, Measurements, Metadata).
+
 
 ?DOC("""
 Runs the provided `SpanFunction`, emitting start and stop/exception events, invoking the handlers attached to each.
