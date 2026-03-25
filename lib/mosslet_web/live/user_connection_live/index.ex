@@ -3,6 +3,7 @@ defmodule MossletWeb.UserConnectionLive.Index do
 
   alias Mosslet.Accounts
   alias Mosslet.Accounts.UserConnection
+  alias Mosslet.Conversations
   alias Mosslet.Encrypted
 
   import MossletWeb.DesignSystem,
@@ -734,6 +735,20 @@ defmodule MossletWeb.UserConnectionLive.Index do
   end
 
   @impl true
+  def handle_event("start_conversation", %{"connection-id" => user_connection_id}, socket) do
+    current_user = socket.assigns.current_user
+    uconn = Accounts.get_user_connection!(user_connection_id)
+
+    existing = find_conversation_for_connection(uconn.connection_id, current_user.id)
+
+    if existing do
+      {:noreply, push_navigate(socket, to: ~p"/app/conversations/#{existing.conversation_id}")}
+    else
+      {:noreply, push_navigate(socket, to: ~p"/app/conversations?start=#{uconn.connection_id}")}
+    end
+  end
+
+  @impl true
   def handle_event("block_user", %{"id" => connection_id, "name" => name}, socket) do
     case Accounts.get_user_connection!(connection_id) do
       connection ->
@@ -1369,6 +1384,18 @@ defmodule MossletWeb.UserConnectionLive.Index do
       is_nil(connection.connection.profile) -> false
       true -> connection.connection.profile.visibility in [:connections, :public]
     end
+  end
+
+  defp find_conversation_for_connection(connection_id, user_id) do
+    import Ecto.Query, only: [from: 2]
+
+    from(uc in Mosslet.Conversations.UserConversation,
+      join: c in assoc(uc, :conversation),
+      join: uconn in assoc(c, :user_connection),
+      where: uconn.connection_id == ^connection_id and uc.user_id == ^user_id,
+      limit: 1
+    )
+    |> Mosslet.Repo.one()
   end
 
   defp validate_and_clean_visibility_groups(visibility_groups, user_connections, user, key) do

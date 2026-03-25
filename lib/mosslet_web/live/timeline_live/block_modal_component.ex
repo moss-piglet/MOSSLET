@@ -116,7 +116,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
                     <div class="ml-3">
                       <div class="font-medium text-slate-900 dark:text-slate-100">Everything</div>
                       <div class="text-sm text-slate-600 dark:text-slate-400">
-                        Block all posts, replies, and interactions from this author
+                        Block all posts, replies, conversations, and interactions from this author
                       </div>
                     </div>
                   </label>
@@ -149,6 +149,24 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
                       <div class="font-medium text-slate-900 dark:text-slate-100">Replies only</div>
                       <div class="text-sm text-slate-600 dark:text-slate-400">
                         Block replies but still see their posts
+                      </div>
+                    </div>
+                  </label>
+
+                  <label class="relative flex items-start p-4 border border-rose-200 dark:border-rose-700/50 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-900/20 cursor-pointer transition-all duration-200 hover:border-rose-300 dark:hover:border-rose-600">
+                    <input
+                      type="radio"
+                      name="block[block_type]"
+                      value="conversations_only"
+                      checked={@form_data["block_type"] == "conversations_only"}
+                      class="mt-1 h-4 w-4 text-rose-600 focus:ring-rose-500 border-rose-300 dark:border-rose-600"
+                    />
+                    <div class="ml-3">
+                      <div class="font-medium text-slate-900 dark:text-slate-100">
+                        Conversations only
+                      </div>
+                      <div class="text-sm text-slate-600 dark:text-slate-400">
+                        Block direct messages but still see their posts and replies
                       </div>
                     </div>
                   </label>

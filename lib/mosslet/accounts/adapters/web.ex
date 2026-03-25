@@ -326,6 +326,22 @@ defmodule Mosslet.Accounts.Adapters.Web do
   end
 
   @impl true
+  def blocked_user_ids(user_id) do
+    from(b in UserBlock,
+      where: b.blocker_id == ^user_id or b.blocked_id == ^user_id,
+      select:
+        fragment(
+          "CASE WHEN ? = ? THEN ? ELSE ? END",
+          b.blocker_id,
+          type(^user_id, :binary_id),
+          b.blocked_id,
+          b.blocker_id
+        )
+    )
+    |> Repo.all()
+  end
+
+  @impl true
   def preload_connection(%User{} = user) do
     user |> Repo.preload([:connection])
   end

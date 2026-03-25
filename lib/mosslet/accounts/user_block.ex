@@ -22,7 +22,7 @@ defmodule Mosslet.Accounts.UserBlock do
 
     # PLAINTEXT FIELDS (system data)
     field :block_type, Ecto.Enum,
-      values: [:full, :posts_only, :replies_only],
+      values: [:full, :posts_only, :replies_only, :conversations_only],
       default: :full
 
     # RELATIONSHIPS

@@ -60,14 +60,32 @@ defmodule MossletWeb.Menus do
       # Regular users get normal app menu
       current_user.connection.profile ->
         build_menu(
-          [:home, :journal, :connections, :circles, :timeline, :settings, :subscribe],
+          [
+            :home,
+            :journal,
+            :conversations,
+            :connections,
+            :circles,
+            :timeline,
+            :settings,
+            :subscribe
+          ],
           current_user
         )
 
       # Users without profile get dashboard menu
       true ->
         build_menu(
-          [:dashboard, :journal, :connections, :circles, :timeline, :settings, :subscribe],
+          [
+            :dashboard,
+            :journal,
+            :conversations,
+            :connections,
+            :circles,
+            :timeline,
+            :settings,
+            :subscribe
+          ],
           current_user
         )
     end
@@ -454,6 +472,15 @@ defmodule MossletWeb.Menus do
       label: gettext("Connections"),
       path: ~p"/app/users/connections",
       icon: "hero-users"
+    }
+  end
+
+  def get_link(:conversations = name, _current_user) do
+    %{
+      name: name,
+      label: gettext("Conversations"),
+      path: ~p"/app/conversations",
+      icon: "hero-chat-bubble-left-right"
     }
   end
 

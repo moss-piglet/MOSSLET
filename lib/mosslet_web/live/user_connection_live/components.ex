@@ -177,6 +177,23 @@ defmodule MossletWeb.UserConnectionLive.Components do
         <div class="mt-6 flex flex-col-reverse justify-stretch space-y-4 space-y-reverse sm:flex-row-reverse sm:justify-end sm:space-x-3 sm:space-y-0 sm:space-x-reverse md:mt-0 md:flex-row md:space-x-3">
           <.link
             :if={@current_user}
+            id={"message-button-#{@user_connection.id}"}
+            class="hover:text-teal-600"
+            phx-click="start_conversation"
+            phx-value-connection-id={@user_connection.connection_id}
+            data-tippy-content="Send Encrypted Message"
+            phx-hook="TippyHook"
+          >
+            <button
+              type="button"
+              class="inline-flex items-center justify-center rounded-full border-2 border-teal-300 dark:border-teal-500 bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-md hover:from-teal-600 hover:to-emerald-600 transition-all duration-200"
+            >
+              <MossletWeb.CoreComponents.phx_icon name="hero-chat-bubble-left" class="h-4 w-4 mr-2" />
+              Message
+            </button>
+          </.link>
+          <.link
+            :if={@current_user}
             id={"edit-button-#{@user_connection.id}"}
             class="hover:text-emerald-600"
             phx-click={

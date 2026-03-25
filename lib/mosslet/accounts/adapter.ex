@@ -383,6 +383,11 @@ defmodule Mosslet.Accounts.Adapter do
   @callback list_blocked_users(user :: User.t()) :: [any()]
 
   @doc """
+  Returns user IDs where either user blocked the other (bidirectional).
+  """
+  @callback blocked_user_ids(user_id :: String.t()) :: [String.t()]
+
+  @doc """
   Gets a specific user block if it exists.
   """
   @callback get_user_block(blocker :: User.t(), blocked_user_id :: String.t()) :: any() | nil

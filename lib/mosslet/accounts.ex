@@ -2371,6 +2371,14 @@ defmodule Mosslet.Accounts do
     adapter().list_blocked_users(user)
   end
 
+  @doc """
+  Returns a list of user IDs where either the given user blocked them
+  or they blocked the given user (bidirectional).
+  """
+  def blocked_user_ids(user_id) do
+    adapter().blocked_user_ids(user_id)
+  end
+
   ## Status Management
 
   @doc """

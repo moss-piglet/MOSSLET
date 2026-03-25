@@ -3,6 +3,8 @@ import AutoResize from "./auto-resize";
 import BookPageFitHook from "./book-page-fit-hook";
 import BookReaderSwipe from "./book-reader-swipe";
 import BookScrollReader from "./book-scroll-reader";
+import ConversationEmojiPicker from "./conversation-emoji-picker";
+import { ConversationComposer, DecryptMessage, ConversationScroll } from "./conversation-hooks";
 import CharacterCounter from "./character-counter";
 import ClipboardHook from "./clipboard-hook";
 import ComposerEmojiPicker from "./composer-emoji-picker";
@@ -59,6 +61,7 @@ import BackgroundSyncHook from "./background-sync-hook";
 import PlatformDetector from "./platform-detector";
 import PostExpandHook from "./post-expand-hook";
 import FileDownloadHook from "./file-download-hook";
+import StartConversation from "./start-conversation";
 
 export default {
   AutoResize,
@@ -68,9 +71,13 @@ export default {
   CharacterCounter,
   ClipboardHook,
   ComposerEmojiPicker,
+  ConversationComposer,
+  ConversationEmojiPicker,
+  ConversationScroll,
   CSSBookBackCoverClick,
   CSSBookCoverClick,
   DeepLinkHook,
+  DecryptMessage,
   DeleteReadingEntry,
   EntryColumnFlow,
   GroupMessageEmojiPicker,
@@ -122,4 +129,5 @@ export default {
   PlatformDetector,
   PostExpandHook,
   FileDownloadHook,
+  StartConversation,
 };

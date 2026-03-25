@@ -324,18 +324,18 @@ defmodule MossletWeb.Router do
     post "/org-invitations/:id/accept", OrgController, :accept_invitation
     post "/org-invitations/:id/reject", OrgController, :reject_invitation
 
-    # Conversations (legacy AI chat)
+    # Conversations (E2E encrypted messaging)
     get "/conversations", ConversationController, :index
+    get "/conversations/unread-count", ConversationController, :unread_count
     get "/conversations/:id", ConversationController, :show
-    get "/conversations/:id/token-count", ConversationController, :token_count
     post "/conversations", ConversationController, :create
-    put "/conversations/:id", ConversationController, :update
     delete "/conversations/:id", ConversationController, :delete
+    post "/conversations/:id/mark-read", ConversationController, :mark_read
+    post "/conversations/:id/archive", ConversationController, :archive
+    post "/conversations/:id/unarchive", ConversationController, :unarchive
 
-    # Conversation messages (legacy)
+    # Messages (E2E encrypted)
     get "/conversations/:conversation_id/messages", MessageController, :index
-    get "/conversations/:conversation_id/messages/last", MessageController, :last
-    get "/conversations/:conversation_id/messages/:id", MessageController, :show
     post "/conversations/:conversation_id/messages", MessageController, :create
     put "/conversations/:conversation_id/messages/:id", MessageController, :update
     delete "/conversations/:conversation_id/messages/:id", MessageController, :delete

@@ -467,6 +467,7 @@ defmodule MossletWeb.BlockedUsersLive do
   defp format_block_type(:full), do: "Everything blocked"
   defp format_block_type(:posts_only), do: "Posts blocked"
   defp format_block_type(:replies_only), do: "Replies blocked"
+  defp format_block_type(:conversations_only), do: "Conversations blocked"
   defp format_block_type(_), do: "Blocked"
 
   # Helper function to get block type badge classes
@@ -480,6 +481,10 @@ defmodule MossletWeb.BlockedUsersLive do
 
   defp block_type_classes(:replies_only) do
     "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+  end
+
+  defp block_type_classes(:conversations_only) do
+    "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
   end
 
   defp block_type_classes(_) do

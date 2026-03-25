@@ -414,16 +414,17 @@ const AutoResize = {
     const savedScrollY = window.scrollY;
     const savedSelStart = el.selectionStart;
     const savedSelEnd = el.selectionEnd;
+    const minHeight = parseFloat(getComputedStyle(el).minHeight) || 0;
     
     if (this.isIOS) {
       const currentHeight = el.offsetHeight;
       const currentScrollHeight = el.scrollHeight;
       
       if (currentScrollHeight > currentHeight) {
-        el.style.height = (currentScrollHeight + this.offset) + "px";
+        el.style.height = Math.max(minHeight, currentScrollHeight + this.offset) + "px";
       } else if (this.lastHeight !== null && currentScrollHeight < this.lastHeight - 20) {
         const newHeight = this.measureContentHeight();
-        el.style.height = newHeight + "px";
+        el.style.height = Math.max(minHeight, newHeight) + "px";
       }
       
       this.lastHeight = el.scrollHeight;
@@ -432,11 +433,12 @@ const AutoResize = {
       const currentSetHeight = parseFloat(el.style.height) || el.offsetHeight;
       
       if (currentScrollHeight + this.offset > currentSetHeight) {
-        el.style.height = (currentScrollHeight + this.offset) + "px";
+        el.style.height = Math.max(minHeight, currentScrollHeight + this.offset) + "px";
       } else {
         const newHeight = this.measureContentHeight();
-        if (Math.abs(newHeight - currentSetHeight) > 1) {
-          el.style.height = newHeight + "px";
+        const clampedHeight = Math.max(minHeight, newHeight);
+        if (Math.abs(clampedHeight - currentSetHeight) > 1) {
+          el.style.height = clampedHeight + "px";
         }
       }
       el.style.overflowY = "hidden";

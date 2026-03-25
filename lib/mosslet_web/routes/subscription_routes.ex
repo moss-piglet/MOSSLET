@@ -31,6 +31,10 @@ defmodule MossletWeb.SubscriptionRoutes do
           live "/users/connections/:id", UserConnectionLive.Show, :show
           live "/users/connections/:id/edit", UserConnectionLive.Show, :edit
 
+          # Conversations (E2E encrypted messaging)
+          live "/conversations", ConversationLive.Index, :index
+          live "/conversations/:id", ConversationLive.Show, :show
+
           # Groups
           live "/circles", GroupLive.Index, :index
           live "/circles/new", GroupLive.Index, :new

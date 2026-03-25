@@ -6,6 +6,7 @@ defmodule MossletWeb.UserConnectionLive.Show do
   alias Phoenix.LiveView.AsyncResult
 
   alias Mosslet.Accounts
+  alias Mosslet.Conversations
   alias Mosslet.Encrypted
   alias Mosslet.Groups
   alias Mosslet.Memories
@@ -613,6 +614,18 @@ defmodule MossletWeb.UserConnectionLive.Show do
       end
     else
       {:noreply, put_flash(socket, :warning, "You do not have permission to delete this Reply.")}
+    end
+  end
+
+  def handle_event("start_conversation", %{"connection-id" => connection_id}, socket) do
+    current_user = socket.assigns.current_user
+
+    existing = find_conversation_for_connection(connection_id, current_user.id)
+
+    if existing do
+      {:noreply, push_navigate(socket, to: ~p"/app/conversations/#{existing.conversation_id}")}
+    else
+      {:noreply, push_navigate(socket, to: ~p"/app/conversations?start=#{connection_id}")}
     end
   end
 
@@ -1454,5 +1467,17 @@ defmodule MossletWeb.UserConnectionLive.Show do
     |> List.last()
     |> String.split(".")
     |> List.first()
+  end
+
+  defp find_conversation_for_connection(connection_id, user_id) do
+    import Ecto.Query
+
+    from(uc in Mosslet.Conversations.UserConversation,
+      join: c in assoc(uc, :conversation),
+      join: uconn in assoc(c, :user_connection),
+      where: uconn.connection_id == ^connection_id and uc.user_id == ^user_id,
+      limit: 1
+    )
+    |> Mosslet.Repo.one()
   end
 end

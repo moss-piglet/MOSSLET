@@ -11803,20 +11803,16 @@ defmodule MossletWeb.DesignSystem do
           <div class="flex items-center justify-between pt-4 border-t border-slate-200/60 dark:border-slate-600/60">
             <%!-- Action buttons --%>
             <div :if={@show_interactions?} class="flex items-center gap-2">
-              <%!-- Message button --%>
-              <%!-- Future feature maybe --%>
-              <%!--
-              <button
+              <.link
                 id={"message-button-#{@connection_id}"}
                 phx-hook="TippyHook"
-                data-tippy-content="Coming Soon - TBD"
-                type="button"
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-900/20 hover:bg-teal-100/50 dark:hover:bg-teal-900/30 border border-teal-200/40 dark:border-teal-700/40 rounded-full transition-all duration-200 ease-out hover:scale-105"
-                title="Send message"
+                data-tippy-content="Send encrypted message"
+                phx-click="start_conversation"
+                phx-value-connection-id={@connection_id}
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-900/20 hover:bg-teal-100/50 dark:hover:bg-teal-900/30 border border-teal-200/40 dark:border-teal-700/40 rounded-full transition-all duration-200 ease-out hover:scale-105 cursor-pointer"
               >
                 <.phx_icon name="hero-chat-bubble-left" class="h-3.5 w-3.5" /> Message
-              </button>
-              --%>
+              </.link>
 
               <%!-- View profile button --%>
 

@@ -71,7 +71,7 @@ config :esbuild,
   version: "0.25.4",
   default: [
     args:
-      ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets --external:/fonts/* --external:/images/* --external:@emoji-mart/react --external:emoji-mart --alias:@=.),
+      ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets --external:/fonts/* --external:/images/* --external:@emoji-mart/react --external:emoji-mart --external:fs --external:path --alias:@=. --alias:libsodium-sumo=./vendor/libsodium-sumo/libsodium-sumo.js),
     cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => [Path.expand("../deps", __DIR__), Mix.Project.build_path()]}
   ]

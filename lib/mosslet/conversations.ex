@@ -1,25 +1,28 @@
 defmodule Mosslet.Conversations do
   @moduledoc """
-  The Conversations context.
+  The Conversations context for end-to-end encrypted direct messaging.
+
+  Messages are encrypted client-side using libsodium (NaCl) before being
+  sent to the server. The server stores only encrypted blobs and never
+  has access to plaintext message content.
+
+  ## Encryption Architecture
+
+  Each conversation has a unique symmetric key (`conversation_key`).
+  This key is encrypted per-participant using their public key and stored
+  in `user_conversations.key`. Messages are encrypted with the conversation_key
+  using secretbox (XSalsa20-Poly1305).
 
   This context uses platform-aware adapters for database operations:
   - Web (Fly.io): Direct Postgres access via `Mosslet.Conversations.Adapters.Web`
   - Native (Desktop/Mobile): API + SQLite cache via `Mosslet.Conversations.Adapters.Native`
-
-  The adapter is selected at runtime based on `Mosslet.Platform.native?()`.
-
-  Note: Conversations is a legacy feature being phased out. This adapter
-  implementation provides platform support during the transition period.
   """
 
-  alias Mosslet.Conversations.Conversation
+  alias Mosslet.Conversations.{Conversation, Message}
   alias Mosslet.Platform
 
   require Logger
 
-  @doc """
-  Returns the appropriate adapter module based on the current platform.
-  """
   def adapter do
     if Platform.native?() do
       Module.concat([__MODULE__, Adapters, Native])
@@ -28,87 +31,115 @@ defmodule Mosslet.Conversations do
     end
   end
 
-  @doc """
-  Returns the list of conversations.
-  """
-  def load_conversations(user), do: adapter().load_conversations(user)
+  def list_conversations(user), do: adapter().list_conversations(user)
 
-  @doc """
-  Gets a single conversation.
+  def get_conversation!(id), do: adapter().get_conversation!(id)
 
-  Raises `Ecto.NoResultsError` if the Conversation does not exist.
-
-  ## Examples
-
-      iex> get_conversation!(123, user)
-      %Conversation{}
-
-      iex> get_conversation!(456, user)
-      ** (Ecto.NoResultsError)
-
-  """
-  def get_conversation!(id, user), do: adapter().get_conversation!(id, user)
-
-  def total_conversation_tokens(conversation, user) do
-    adapter().total_conversation_tokens(conversation, user)
+  def get_conversation_for_connection(user_connection_id) do
+    adapter().get_conversation_for_connection(user_connection_id)
   end
 
-  @doc """
-  Creates a conversation.
-
-  ## Examples
-
-      iex> create_conversation(%{field: value})
-      {:ok, %Conversation{}}
-
-      iex> create_conversation(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
-  """
-  def create_conversation(attrs \\ %{}), do: adapter().create_conversation(attrs)
-
-  @doc """
-  Updates a conversation.
-
-  ## Examples
-
-      iex> update_conversation(conversation, %{field: new_value}, user)
-      {:ok, %Conversation{}}
-
-      iex> update_conversation(conversation, %{field: bad_value}, user)
-      {:error, %Ecto.Changeset{}}
-
-  """
-  def update_conversation(%Conversation{} = conversation, attrs, user) do
-    adapter().update_conversation(conversation, attrs, user)
+  def get_or_create_conversation(user_connection_id, user_conversation_attrs_list) do
+    adapter().get_or_create_conversation(user_connection_id, user_conversation_attrs_list)
   end
 
-  @doc """
-  Deletes a conversation.
-
-  ## Examples
-
-      iex> delete_conversation(conversation, user)
-      {:ok, %Conversation{}}
-
-      iex> delete_conversation(conversation, user)
-      {:error, %Ecto.Changeset{}}
-
-  """
-  def delete_conversation(%Conversation{} = conversation, user) do
-    adapter().delete_conversation(conversation, user)
+  def get_user_conversation(conversation_id, user_id) do
+    adapter().get_user_conversation(conversation_id, user_id)
   end
 
-  @doc """
-  Returns an `%Ecto.Changeset{}` for tracking conversation changes.
+  def list_messages(conversation_id, opts \\ []) do
+    adapter().list_messages(conversation_id, opts)
+  end
 
-  ## Examples
+  def create_message(attrs) do
+    adapter().create_message(attrs)
+  end
 
-      iex> change_conversation(conversation)
-      %Ecto.Changeset{data: %Conversation{}}
+  def update_message(%Message{} = message, attrs) do
+    adapter().update_message(message, attrs)
+  end
 
-  """
+  def delete_message(%Message{} = message) do
+    adapter().delete_message(message)
+  end
+
+  def mark_conversation_read(conversation_id, user_id) do
+    adapter().mark_conversation_read(conversation_id, user_id)
+  end
+
+  def archive_conversation(conversation_id, user_id) do
+    adapter().archive_conversation(conversation_id, user_id)
+  end
+
+  def unarchive_conversation(conversation_id, user_id) do
+    adapter().unarchive_conversation(conversation_id, user_id)
+  end
+
+  def delete_conversation(%Conversation{} = conversation) do
+    adapter().delete_conversation(conversation)
+  end
+
+  def count_unread_messages(user_id) do
+    adapter().count_unread_messages(user_id)
+  end
+
+  def get_last_message(conversation_id) do
+    adapter().get_last_message(conversation_id)
+  end
+
+  def list_archived_conversations(user) do
+    adapter().list_archived_conversations(user)
+  end
+
+  def get_user_connection_for_conversation(conversation_id, user_id) do
+    adapter().get_user_connection_for_conversation(conversation_id, user_id)
+  end
+
+  def change_message(%Message{} = message, attrs \\ %{}) do
+    Message.changeset(message, attrs)
+  end
+
   def change_conversation(%Conversation{} = conversation, attrs \\ %{}) do
     Conversation.changeset(conversation, attrs)
+  end
+
+  def subscribe_to_conversation(conversation_id) do
+    Phoenix.PubSub.subscribe(Mosslet.PubSub, "conversation:#{conversation_id}")
+  end
+
+  def subscribe_to_user(user_id) do
+    Phoenix.PubSub.subscribe(Mosslet.PubSub, "user_conversations:#{user_id}")
+  end
+
+  def broadcast_new_message(conversation_id, message) do
+    Phoenix.PubSub.broadcast(
+      Mosslet.PubSub,
+      "conversation:#{conversation_id}",
+      {:new_message, message}
+    )
+  end
+
+  def broadcast_message_updated(conversation_id, message) do
+    Phoenix.PubSub.broadcast(
+      Mosslet.PubSub,
+      "conversation:#{conversation_id}",
+      {:message_updated, message}
+    )
+  end
+
+  def broadcast_message_deleted(conversation_id, message) do
+    Phoenix.PubSub.broadcast(
+      Mosslet.PubSub,
+      "conversation:#{conversation_id}",
+      {:message_deleted, message}
+    )
+  end
+
+  def broadcast_conversation_updated(user_id, conversation_id) do
+    Phoenix.PubSub.broadcast(
+      Mosslet.PubSub,
+      "user_conversations:#{user_id}",
+      {:conversation_updated, conversation_id}
+    )
   end
 end
