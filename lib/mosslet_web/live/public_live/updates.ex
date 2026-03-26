@@ -96,7 +96,7 @@ defmodule MossletWeb.PublicLive.Updates do
                       Encrypted image sharing — share photos in conversations with the same E2E encryption protecting your images
                     </.changelog_item>
                     <.changelog_item icon="hero-bolt" color="cyan">
-                      Real-time delivery — messages appear instantly via WebSocket with live typing indicators and read receipts
+                      Real-time delivery — messages appear instantly via WebSocket with live typing indicators and markdown support
                     </.changelog_item>
                     <.changelog_item icon="hero-pencil-square" color="amber">
                       Edit & delete — update or remove messages anytime, changes sync instantly across all participants

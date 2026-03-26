@@ -43,6 +43,7 @@ defmodule MossletWeb.ConversationLive.Index do
               >
                 <.phx_icon name="hero-plus" class="size-4" />
                 <span class="hidden sm:inline">New</span>
+                <span class="sr-only sm:hidden">New conversation</span>
               </button>
             </div>
 
@@ -481,6 +482,7 @@ defmodule MossletWeb.ConversationLive.Index do
 
       case Conversations.delete_conversation(conversation) do
         {:ok, _} ->
+          Conversations.broadcast_conversation_deleted(id)
           Enum.each(image_urls, &Mosslet.FileUploads.ImageUploadWriter.delete_from_storage/1)
           conversations = Conversations.list_conversations(current_user)
 

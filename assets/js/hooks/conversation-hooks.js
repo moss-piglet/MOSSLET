@@ -33,6 +33,8 @@ const ConversationComposer = {
     this._savedValue = "";
     this._savedSelectionStart = 0;
     this._savedSelectionEnd = 0;
+    this._isTyping = false;
+    this._typingTimeout = null;
     this._bindElements();
   },
 
@@ -43,6 +45,24 @@ const ConversationComposer = {
     if (this.textarea && this._keydownHandler) {
       this.textarea.removeEventListener("keydown", this._keydownHandler);
     }
+    if (this.textarea && this._inputHandler) {
+      this.textarea.removeEventListener("input", this._inputHandler);
+    }
+  },
+
+  _sendTyping(typing) {
+    if (typing !== this._isTyping) {
+      this._isTyping = typing;
+      this.pushEvent("typing", { typing });
+    }
+  },
+
+  _handleTypingInput() {
+    this._sendTyping(true);
+    clearTimeout(this._typingTimeout);
+    this._typingTimeout = setTimeout(() => {
+      this._sendTyping(false);
+    }, 2000);
   },
 
   _hasPhotoAttached() {
@@ -88,6 +108,9 @@ const ConversationComposer = {
         this.textarea.style.height = "auto";
         this.textarea.dispatchEvent(new Event("input", { bubbles: true }));
 
+        clearTimeout(this._typingTimeout);
+        this._sendTyping(false);
+
         this.pushEvent("send_message", { encrypted_content: encryptedContent });
       } catch (err) {
         console.error("Encryption failed:", err);
@@ -105,6 +128,16 @@ const ConversationComposer = {
 
     this.form.addEventListener("submit", this._submitHandler);
     this.textarea.addEventListener("keydown", this._keydownHandler);
+
+    this._inputHandler = () => {
+      if (this.textarea.value.trim().length > 0) {
+        this._handleTypingInput();
+      } else {
+        clearTimeout(this._typingTimeout);
+        this._sendTyping(false);
+      }
+    };
+    this.textarea.addEventListener("input", this._inputHandler);
   },
 
   beforeUpdate() {
@@ -124,6 +157,12 @@ const ConversationComposer = {
       this.textarea.selectionStart = this._savedSelectionStart;
       this.textarea.selectionEnd = this._savedSelectionEnd;
     }
+  },
+
+  destroyed() {
+    this._unbindElements();
+    clearTimeout(this._typingTimeout);
+    this._sendTyping(false);
   },
 };
 
@@ -181,21 +220,28 @@ const DecryptMessage = {
     }
   },
 
+  _openLightbox(dataUrl) {
+    const lightbox = document.querySelector("#conversation-image-lightbox");
+    if (lightbox && lightbox._lightboxHook) {
+      lightbox._lightboxHook.open(dataUrl);
+    }
+  },
+
   _appendImageElement(dataUrl) {
     const imgContainer = document.createElement("div");
     imgContainer.className = "mt-2 rounded-lg overflow-hidden";
     imgContainer.innerHTML = `
-      <div class="inline-block rounded-lg bg-white dark:bg-slate-700 p-1 shadow-sm">
+      <div class="inline-block rounded-xl bg-white dark:bg-slate-700 p-1 shadow-sm">
         <img
           src="${dataUrl}"
           alt="Encrypted image"
-          class="max-w-xs max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity block"
+          class="max-w-[280px] max-h-[280px] w-auto h-auto rounded-xl cursor-pointer hover:opacity-90 transition-opacity block object-contain"
           loading="lazy"
         />
       </div>
     `;
     imgContainer.querySelector("img").addEventListener("click", () => {
-      window.open(dataUrl, "_blank");
+      this._openLightbox(dataUrl);
     });
     this.el.appendChild(imgContainer);
   },
@@ -208,7 +254,7 @@ const DecryptMessage = {
     const imgContainer = document.createElement("div");
     imgContainer.className = "mt-2 rounded-lg overflow-hidden";
     imgContainer.innerHTML = `
-      <div class="h-48 w-full max-w-xs bg-slate-200/50 dark:bg-slate-700/50 rounded-lg flex items-center justify-center">
+      <div class="h-40 w-40 bg-slate-200/50 dark:bg-slate-700/50 rounded-xl flex items-center justify-center">
         <div class="flex flex-col items-center gap-1.5">
           <div class="w-5 h-5 rounded-full border-2 border-emerald-500/30 border-t-emerald-500 animate-spin"></div>
           <span class="text-xs text-slate-400">Loading image...</span>
@@ -224,17 +270,17 @@ const DecryptMessage = {
         if (reply.image_data_url) {
           this._cachedImageDataUrl = reply.image_data_url;
           imgContainer.innerHTML = `
-          <div class="inline-block rounded-lg bg-white dark:bg-slate-700 p-1 shadow-sm">
+          <div class="inline-block rounded-xl bg-white dark:bg-slate-700 p-1 shadow-sm">
             <img
               src="${reply.image_data_url}"
               alt="Encrypted image"
-              class="max-w-xs max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity block"
+              class="max-w-[280px] max-h-[280px] w-auto h-auto rounded-xl cursor-pointer hover:opacity-90 transition-opacity block object-contain"
               loading="lazy"
             />
           </div>
         `;
           imgContainer.querySelector("img").addEventListener("click", () => {
-            window.open(reply.image_data_url, "_blank");
+            this._openLightbox(reply.image_data_url);
           });
         } else {
           imgContainer.innerHTML = `

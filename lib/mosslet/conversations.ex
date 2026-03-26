@@ -144,4 +144,20 @@ defmodule Mosslet.Conversations do
       {:conversation_updated, conversation_id}
     )
   end
+
+  def broadcast_conversation_deleted(conversation_id) do
+    Phoenix.PubSub.broadcast(
+      Mosslet.PubSub,
+      "conversation:#{conversation_id}",
+      {:conversation_deleted, conversation_id}
+    )
+  end
+
+  def broadcast_typing(conversation_id, user_id, typing?) do
+    Phoenix.PubSub.broadcast(
+      Mosslet.PubSub,
+      "conversation:#{conversation_id}",
+      {:typing, user_id, typing?}
+    )
+  end
 end

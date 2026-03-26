@@ -87,6 +87,7 @@ defmodule MossletWeb.ConversationLive.Show do
             id="messages-container"
             class="flex-1 overflow-y-auto min-h-0 px-4 sm:px-6 py-4 space-y-1"
             phx-hook="ConversationScroll"
+            data-allow-download={to_string(@partner_allows_download)}
           >
             <div
               :if={@messages_empty?}
@@ -187,6 +188,25 @@ defmodule MossletWeb.ConversationLive.Show do
             </div>
           </div>
 
+          <div
+            :if={@partner_typing}
+            id="typing-indicator"
+            class="flex-shrink-0 px-4 sm:px-6 pt-1 pb-0"
+          >
+            <div class="max-w-4xl mx-auto">
+              <div class="flex items-center gap-2 py-1.5">
+                <div class="flex gap-1 items-center">
+                  <span class="w-1.5 h-1.5 rounded-full bg-teal-500/70 animate-bounce [animation-delay:0ms]" />
+                  <span class="w-1.5 h-1.5 rounded-full bg-teal-500/70 animate-bounce [animation-delay:150ms]" />
+                  <span class="w-1.5 h-1.5 rounded-full bg-teal-500/70 animate-bounce [animation-delay:300ms]" />
+                </div>
+                <span class="text-xs text-slate-500 dark:text-slate-400">
+                  {@partner_name} is typing...
+                </span>
+              </div>
+            </div>
+          </div>
+
           <div class={[
             "flex-shrink-0 px-4 sm:px-6 py-3",
             "border-t border-slate-200/60 dark:border-slate-700/60",
@@ -216,10 +236,10 @@ defmodule MossletWeb.ConversationLive.Show do
                 >
                   <%= cond do %>
                     <% @completed_upload && @completed_upload[:preview_data_url] -> %>
-                      <div class="relative inline-block">
+                      <div class="relative inline-block group">
                         <img
                           src={@completed_upload.preview_data_url}
-                          alt="Photo preview"
+                          alt={@completed_upload[:alt_text] || "Photo preview"}
                           class="h-20 w-20 object-cover rounded-lg"
                         />
                         <div class="absolute -top-1 -left-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg">
@@ -232,6 +252,51 @@ defmodule MossletWeb.ConversationLive.Show do
                         >
                           <.phx_icon name="hero-x-mark" class="h-3 w-3" />
                         </button>
+                        <div class="absolute bottom-5 left-0.5 right-0.5 z-10 flex items-center justify-between">
+                          <button
+                            type="button"
+                            id="conversation-edit-alt-photo"
+                            phx-click="open_alt_text_modal"
+                            phx-value-ref={@completed_upload.ref}
+                            aria-label="Edit alt text"
+                            class={[
+                              "px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-0.5",
+                              "transition-all duration-200 hover:scale-105",
+                              if(@completed_upload[:alt_text] && @completed_upload[:alt_text] != "",
+                                do: "bg-emerald-500 text-white",
+                                else: "bg-slate-800 text-white hover:bg-slate-700"
+                              )
+                            ]}
+                          >
+                            <.phx_icon
+                              :if={
+                                !(@completed_upload[:alt_text] && @completed_upload[:alt_text] != "")
+                              }
+                              name="hero-plus"
+                              class="h-2.5 w-2.5"
+                            /> ALT
+                          </button>
+                          <button
+                            type="button"
+                            id="conversation-edit-image"
+                            phx-click="open_image_edit_modal"
+                            phx-value-ref={@completed_upload.ref}
+                            aria-label="Edit image"
+                            class={[
+                              "w-6 h-5 rounded flex items-center justify-center",
+                              "transition-all duration-200 hover:scale-105",
+                              if(@completed_upload[:crop] && @completed_upload[:crop] != %{},
+                                do: "bg-sky-500 text-white",
+                                else: "bg-slate-800 text-white hover:bg-slate-700"
+                              )
+                            ]}
+                          >
+                            <.phx_icon name="hero-pencil" class="h-3 w-3" />
+                          </button>
+                        </div>
+                        <div class="absolute bottom-0 left-0 right-0 bg-black/50 px-1 py-0.5 text-[9px] text-white truncate rounded-b-lg">
+                          {@completed_upload.client_name}
+                        </div>
                       </div>
                     <% upload_error?(@uploads.photo) -> %>
                       <div class="flex items-center gap-2 text-xs text-red-500">
@@ -414,6 +479,60 @@ defmodule MossletWeb.ConversationLive.Show do
         show={@show_markdown_guide}
         on_cancel={JS.push("close_markdown_guide")}
       />
+
+      <MossletWeb.DesignSystem.liquid_alt_text_modal
+        show={@alt_text_modal_open}
+        upload={@alt_text_editing_upload}
+        alt_text={@alt_text_editing_value}
+        id="conversation-alt-text-modal"
+      />
+
+      <MossletWeb.DesignSystem.liquid_image_edit_modal
+        show={@image_edit_modal_open}
+        upload={@image_edit_upload}
+        crop={@image_edit_crop}
+        id="conversation-image-edit-modal"
+      />
+
+      <div
+        id="conversation-image-lightbox"
+        phx-hook="ImageLightbox"
+        class="fixed inset-0 z-[70] hidden"
+        data-allow-download={to_string(@partner_allows_download)}
+      >
+        <div
+          id="conversation-image-lightbox-backdrop"
+          class="absolute inset-0 bg-black/90 backdrop-blur-md transition-opacity duration-300 opacity-0"
+        >
+        </div>
+        <div class="absolute inset-0 flex items-center justify-center p-4">
+          <div class="absolute top-4 right-4 z-10 flex items-center gap-2">
+            <a
+              id="conversation-image-lightbox-download"
+              href="#"
+              download="image.webp"
+              class="hidden p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/90 hover:text-white transition-all duration-200 backdrop-blur-sm border border-white/10"
+              title="Download image"
+            >
+              <.phx_icon name="hero-arrow-down-tray" class="size-5" />
+            </a>
+            <button
+              id="conversation-image-lightbox-close"
+              type="button"
+              class="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/90 hover:text-white transition-all duration-200 backdrop-blur-sm border border-white/10"
+              title="Close"
+            >
+              <.phx_icon name="hero-x-mark" class="size-5" />
+            </button>
+          </div>
+          <img
+            id="conversation-image-lightbox-img"
+            src=""
+            alt="Full size image"
+            class="max-w-[95vw] max-h-[90vh] object-contain rounded-lg shadow-2xl transition-transform duration-300 scale-95 opacity-0"
+          />
+        </div>
+      </div>
     </.layout>
     """
   end
@@ -447,6 +566,12 @@ defmodule MossletWeb.ConversationLive.Show do
         end
 
       partner_user_id = get_partner_user_id(conversation, current_user.id)
+
+      partner_allows_download =
+        case Accounts.get_user_connection_between_users(current_user.id, partner_user_id) do
+          %{photos?: true} -> true
+          _ -> false
+        end
 
       {is_blocked, blocked_by_me} = check_block_status(current_user, partner_user_id)
 
@@ -483,9 +608,17 @@ defmodule MossletWeb.ConversationLive.Show do
        |> assign(:delete_message_id, nil)
        |> assign(:show_block_modal, false)
        |> assign(:blocked_user_id, partner_user_id)
+       |> assign(:partner_allows_download, partner_allows_download)
        |> assign(:form, to_form(%{}, as: :message))
+       |> assign(:partner_typing, false)
        |> assign(:upload_stage, nil)
        |> assign(:completed_upload, nil)
+       |> assign(:alt_text_modal_open, false)
+       |> assign(:alt_text_editing_upload, nil)
+       |> assign(:alt_text_editing_value, "")
+       |> assign(:image_edit_modal_open, false)
+       |> assign(:image_edit_upload, nil)
+       |> assign(:image_edit_crop, %{})
        |> assign(:user_token, session["user_token"])
        |> allow_upload(:photo,
          accept: ~w(.gif .jpg .jpeg .png .webp .heic .heif),
@@ -509,11 +642,40 @@ defmodule MossletWeb.ConversationLive.Show do
   end
 
   def terminate(_reason, socket) do
+    if socket.assigns[:typing_timer] do
+      Process.cancel_timer(socket.assigns.typing_timer)
+    end
+
     if upload = socket.assigns[:completed_upload] do
       if upload[:temp_path], do: cleanup_temp_file(upload.temp_path)
     end
 
     :ok
+  end
+
+  def handle_event("typing", %{"typing" => typing}, socket) do
+    conversation_id = socket.assigns.conversation.id
+    user_id = socket.assigns.current_scope.user.id
+
+    Conversations.broadcast_typing(conversation_id, user_id, typing)
+
+    socket =
+      if typing do
+        if socket.assigns[:typing_timer] do
+          Process.cancel_timer(socket.assigns.typing_timer)
+        end
+
+        timer = Process.send_after(self(), :clear_typing, 5_000)
+        assign(socket, :typing_timer, timer)
+      else
+        if socket.assigns[:typing_timer] do
+          Process.cancel_timer(socket.assigns.typing_timer)
+        end
+
+        assign(socket, :typing_timer, nil)
+      end
+
+    {:noreply, socket}
   end
 
   def handle_event("send_message", %{"encrypted_content" => encrypted_content}, socket) do
@@ -536,6 +698,7 @@ defmodule MossletWeb.ConversationLive.Show do
       case Conversations.create_message(attrs) do
         {:ok, message} ->
           Conversations.broadcast_new_message(conversation.id, message)
+          Conversations.broadcast_typing(conversation.id, current_user.id, false)
 
           conversation.user_conversations
           |> Enum.each(fn uc ->
@@ -645,6 +808,127 @@ defmodule MossletWeb.ConversationLive.Show do
      socket
      |> assign(:completed_upload, nil)
      |> assign(:upload_stage, nil)}
+  end
+
+  def handle_event("open_alt_text_modal", %{"ref" => _ref}, socket) do
+    upload = socket.assigns.completed_upload
+
+    {:noreply,
+     socket
+     |> assign(:alt_text_modal_open, true)
+     |> assign(:alt_text_editing_upload, upload)
+     |> assign(:alt_text_editing_value, (upload && upload[:alt_text]) || "")}
+  end
+
+  def handle_event("close_alt_text_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:alt_text_modal_open, false)
+     |> assign(:alt_text_editing_upload, nil)
+     |> assign(:alt_text_editing_value, "")}
+  end
+
+  def handle_event("save_alt_text", %{"alt_text" => alt_text}, socket) do
+    case socket.assigns.completed_upload do
+      nil ->
+        {:noreply, socket}
+
+      upload ->
+        updated_upload = Map.put(upload, :alt_text, String.trim(alt_text))
+
+        {:noreply,
+         socket
+         |> assign(:completed_upload, updated_upload)
+         |> assign(:alt_text_modal_open, false)
+         |> assign(:alt_text_editing_upload, nil)
+         |> assign(:alt_text_editing_value, "")}
+    end
+  end
+
+  def handle_event("open_image_edit_modal", %{"ref" => _ref}, socket) do
+    upload = socket.assigns.completed_upload
+
+    {:noreply,
+     socket
+     |> assign(:image_edit_modal_open, true)
+     |> assign(:image_edit_upload, upload)
+     |> assign(:image_edit_crop, (upload && upload[:crop]) || %{})}
+  end
+
+  def handle_event("close_image_edit_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:image_edit_modal_open, false)
+     |> assign(:image_edit_upload, nil)
+     |> assign(:image_edit_crop, %{})}
+  end
+
+  def handle_event("save_image_crop", %{"ref" => _ref, "crop" => crop}, socket) do
+    crop_map =
+      case crop do
+        %{"x" => x, "y" => y, "width" => w, "height" => h} ->
+          %{x: x, y: y, width: w, height: h}
+
+        _ ->
+          %{}
+      end
+
+    case socket.assigns.completed_upload do
+      nil ->
+        {:noreply, socket}
+
+      upload ->
+        upload =
+          if is_nil(upload[:original_preview_data_url]) do
+            Map.put(upload, :original_preview_data_url, upload.preview_data_url)
+          else
+            upload
+          end
+
+        upload = Map.put(upload, :crop, crop_map)
+
+        upload =
+          if crop_map != %{} do
+            case generate_cropped_preview(upload.temp_path, crop_map) do
+              {:ok, cropped_preview} -> Map.put(upload, :preview_data_url, cropped_preview)
+              _ -> upload
+            end
+          else
+            Map.put(
+              upload,
+              :preview_data_url,
+              upload[:original_preview_data_url] || upload.preview_data_url
+            )
+          end
+
+        {:noreply,
+         socket
+         |> assign(:completed_upload, upload)
+         |> assign(:image_edit_modal_open, false)
+         |> assign(:image_edit_upload, nil)
+         |> assign(:image_edit_crop, %{})}
+    end
+  end
+
+  def handle_event("reset_crop", _params, socket) do
+    case socket.assigns.completed_upload do
+      nil ->
+        {:noreply, socket}
+
+      upload ->
+        updated_upload =
+          upload
+          |> Map.put(:crop, %{})
+          |> Map.put(
+            :preview_data_url,
+            upload[:original_preview_data_url] || upload.preview_data_url
+          )
+
+        {:noreply,
+         socket
+         |> assign(:completed_upload, updated_upload)
+         |> assign(:image_edit_crop, %{})}
+    end
   end
 
   def handle_event("decrypt_message_image", %{"message_id" => message_id}, socket) do
@@ -769,6 +1053,28 @@ defmodule MossletWeb.ConversationLive.Show do
      |> stream(:messages, messages, reset: true)}
   end
 
+  def handle_info({:conversation_deleted, _conversation_id}, socket) do
+    {:noreply,
+     socket
+     |> put_flash(:info, "This conversation has been deleted")
+     |> push_navigate(to: ~p"/app/conversations")}
+  end
+
+  def handle_info({:typing, user_id, typing?}, socket) do
+    if user_id != socket.assigns.current_scope.user.id do
+      {:noreply, assign(socket, :partner_typing, typing?)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info(:clear_typing, socket) do
+    conversation_id = socket.assigns.conversation.id
+    user_id = socket.assigns.current_scope.user.id
+    Conversations.broadcast_typing(conversation_id, user_id, false)
+    {:noreply, assign(socket, :typing_timer, nil)}
+  end
+
   def handle_info(_msg, socket) do
     {:noreply, socket}
   end
@@ -840,6 +1146,7 @@ defmodule MossletWeb.ConversationLive.Show do
 
       upload ->
         binary = File.read!(upload.temp_path)
+        binary = maybe_apply_crop(binary, upload[:crop])
         trix_key = upload.trix_key
 
         case Mosslet.FileUploads.ImageUploadWriter.upload_to_storage(binary, trix_key) do
@@ -960,4 +1267,123 @@ defmodule MossletWeb.ConversationLive.Show do
   defp upload_stage_percent({:processing, val}) when is_integer(val), do: val
   defp upload_stage_percent({:ready, _}), do: 100
   defp upload_stage_percent(_), do: 10
+
+  defp maybe_apply_crop(binary, nil), do: binary
+  defp maybe_apply_crop(binary, crop) when crop == %{}, do: binary
+
+  defp maybe_apply_crop(binary, %{x: x, y: y, width: w, height: h}) do
+    case Image.from_binary(binary, pages: :all) do
+      {:ok, image} ->
+        is_animated = Image.pages(image) > 1
+        {img_width, img_height, _} = Image.shape(image)
+
+        crop_x = round(x * img_width)
+        crop_y = round(y * img_height)
+        crop_w = round(w * img_width)
+        crop_h = round(h * img_height)
+
+        crop_w = min(crop_w, img_width - crop_x)
+        crop_h = min(crop_h, img_height - crop_y)
+
+        crop_result =
+          if is_animated do
+            Image.map_join_pages(image, fn page ->
+              Image.crop(page, crop_x, crop_y, crop_w, crop_h)
+            end)
+          else
+            Image.crop(image, crop_x, crop_y, crop_w, crop_h)
+          end
+
+        case crop_result do
+          {:ok, cropped} ->
+            write_opts =
+              if is_animated,
+                do: [suffix: ".webp", webp: [quality: 90, minimize_file_size: true]],
+                else: [suffix: ".webp", webp: [quality: 90]]
+
+            case Image.write(cropped, :memory, write_opts) do
+              {:ok, cropped_binary} -> cropped_binary
+              _ -> binary
+            end
+
+          _ ->
+            binary
+        end
+
+      _ ->
+        binary
+    end
+  end
+
+  defp maybe_apply_crop(binary, _), do: binary
+
+  defp generate_cropped_preview(temp_path, %{x: x, y: y, width: w, height: h}) do
+    case File.read(temp_path) do
+      {:ok, binary} ->
+        case Image.from_binary(binary, pages: :all) do
+          {:ok, image} ->
+            is_animated = Image.pages(image) > 1
+            {img_width, img_height, _} = Image.shape(image)
+
+            crop_x = round(x * img_width)
+            crop_y = round(y * img_height)
+            crop_w = round(w * img_width)
+            crop_h = round(h * img_height)
+
+            crop_w = min(crop_w, img_width - crop_x)
+            crop_h = min(crop_h, img_height - crop_y)
+
+            crop_result =
+              if is_animated do
+                Image.map_join_pages(image, fn page ->
+                  Image.crop(page, crop_x, crop_y, crop_w, crop_h)
+                end)
+              else
+                Image.crop(image, crop_x, crop_y, crop_w, crop_h)
+              end
+
+            case crop_result do
+              {:ok, cropped} ->
+                thumb_result =
+                  if is_animated do
+                    Image.map_join_pages(cropped, fn page ->
+                      Image.thumbnail(page, "400x400", crop: :attention)
+                    end)
+                  else
+                    Image.thumbnail(cropped, "400x400", crop: :attention)
+                  end
+
+                case thumb_result do
+                  {:ok, thumb} ->
+                    write_opts =
+                      if is_animated,
+                        do: [suffix: ".webp", webp: [quality: 75, minimize_file_size: true]],
+                        else: [suffix: ".webp", webp: [quality: 75]]
+
+                    case Image.write(thumb, :memory, write_opts) do
+                      {:ok, thumb_binary} ->
+                        {:ok, "data:image/webp;base64,#{Base.encode64(thumb_binary)}"}
+
+                      _ ->
+                        {:error, :write_failed}
+                    end
+
+                  _ ->
+                    {:error, :thumbnail_failed}
+                end
+
+              _ ->
+                {:error, :crop_failed}
+            end
+
+          _ ->
+            {:error, :image_load_failed}
+        end
+
+      _ ->
+        {:error, :file_read_failed}
+    end
+  end
+
+  defp generate_cropped_preview(_temp_path, _crop), do: {:error, :invalid_crop}
 end

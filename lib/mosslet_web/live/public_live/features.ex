@@ -1953,7 +1953,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </:title>
 
                   <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Messages arrive instantly via WebSocket connections. Typing indicators, read receipts, and unread counts keep you connected — all without compromising encryption.
+                    Messages arrive instantly via WebSocket connections. Typing indicators, markdown support, and calm unread badges keep you connected — all without compromising encryption.
                   </p>
                 </.liquid_card>
 

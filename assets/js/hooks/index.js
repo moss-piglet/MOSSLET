@@ -47,6 +47,7 @@ import ScrollableTabs from "./scrollable-tabs";
 import TouchHoverHook from "./touch-hover-hook";
 import PublicPostImagesHook from "./public-post-images-hook";
 import ImageErrorHook from "./image-error-hook";
+import ImageLightbox from "./image-lightbox-hook";
 import UnsavedChanges from "./unsaved-changes";
 import SortableUploadsHook from "./sortable-uploads-hook";
 import SortableBooksHook from "./sortable-books-hook";
@@ -115,6 +116,7 @@ export default {
   URLPreviewHook,
   PublicPostImagesHook,
   ImageErrorHook,
+  ImageLightbox,
   UnsavedChanges,
   SortableUploadsHook,
   SortableBooksHook,
