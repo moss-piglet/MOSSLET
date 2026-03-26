@@ -1472,7 +1472,7 @@ defmodule MossletWeb.UserConnectionLive.Show do
   defp find_conversation_for_connection(connection_id, user_id) do
     import Ecto.Query
 
-    from(uc in Mosslet.Conversations.UserConversation,
+    from(uc in Conversations.UserConversation,
       join: c in assoc(uc, :conversation),
       join: uconn in assoc(c, :user_connection),
       where: uconn.connection_id == ^connection_id and uc.user_id == ^user_id,
