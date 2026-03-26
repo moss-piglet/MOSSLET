@@ -33,16 +33,6 @@ defmodule MossletWeb.PublicLive.Referrals do
             <div class="overflow-hidden">
               <div class="mx-auto max-w-7xl px-6 pb-16 pt-36 sm:pt-60 lg:px-8 lg:pt-32">
                 <div class="mx-auto max-w-3xl text-center">
-                  <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 border border-amber-200/50 dark:border-amber-700/30 mb-6">
-                    <.phx_icon
-                      name="hero-sparkles"
-                      class="w-4 h-4 text-amber-600 dark:text-amber-400"
-                    />
-                    <span class="text-sm font-medium text-amber-700 dark:text-amber-300">
-                      Beta Bonus: Enhanced rates for early supporters!
-                    </span>
-                  </div>
-
                   <h1 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl">
                     <span class="bg-gradient-to-r from-slate-800 to-slate-700 dark:from-slate-100 dark:to-slate-200 bg-clip-text text-transparent">
                       When's the last time
@@ -157,35 +147,25 @@ defmodule MossletWeb.PublicLive.Referrals do
             </div>
 
             <div class="text-center mb-16">
-              <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
-                Beta rates — limited time
+              <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">
+                Commission rates
               </h2>
               <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-                Early supporters get significantly higher commission rates. Lock in these rates by joining during beta.
+                Generous commissions on every referral — earn real money for sharing something you love.
               </p>
             </div>
 
             <div class="max-w-4xl mx-auto mb-20">
               <.liquid_card
                 padding="lg"
-                class="bg-gradient-to-br from-amber-50/60 via-orange-50/40 to-yellow-50/60 dark:from-amber-900/20 dark:via-orange-900/15 dark:to-yellow-900/20 border-amber-200/60 dark:border-amber-700/30"
+                class="bg-gradient-to-br from-emerald-50/60 via-teal-50/40 to-cyan-50/60 dark:from-emerald-900/20 dark:via-teal-900/15 dark:to-cyan-900/20 border-emerald-200/60 dark:border-emerald-700/30"
               >
-                <div class="flex items-center justify-center gap-2 mb-8">
-                  <.phx_icon name="hero-sparkles" class="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                  <span class="text-sm font-semibold text-amber-700 dark:text-amber-300">
-                    Beta Bonus Active
-                  </span>
-                </div>
-
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                   <div class="text-center">
                     <p class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">
                       Subscription Commission
                     </p>
-                    <div class="flex items-center justify-center gap-3">
-                      <span class="text-2xl text-slate-400 line-through">
-                        {@prod_subscription_commission}%
-                      </span>
+                    <div class="flex items-center justify-center">
                       <span class="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 dark:from-emerald-400 dark:to-teal-400 bg-clip-text text-transparent">
                         {@subscription_commission}%
                       </span>
@@ -199,10 +179,7 @@ defmodule MossletWeb.PublicLive.Referrals do
                     <p class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">
                       Lifetime Purchase Commission
                     </p>
-                    <div class="flex items-center justify-center gap-3">
-                      <span class="text-2xl text-slate-400 line-through">
-                        {@prod_one_time_commission}%
-                      </span>
+                    <div class="flex items-center justify-center">
                       <span class="text-4xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 dark:from-amber-400 dark:to-orange-400 bg-clip-text text-transparent">
                         {@one_time_commission}%
                       </span>
@@ -227,13 +204,10 @@ defmodule MossletWeb.PublicLive.Referrals do
                   </div>
                 </div>
 
-                <div class="mt-8 pt-6 border-t border-amber-200/60 dark:border-amber-700/30">
+                <div class="mt-8 pt-6 border-t border-emerald-200/60 dark:border-emerald-700/30">
                   <p class="text-sm text-slate-600 dark:text-slate-400 text-center">
-                    <span class="font-medium text-amber-700 dark:text-amber-300">Beta example:</span>
-                    If 10 friends subscribe monthly at $10/month, you'd earn ~$24/month in recurring commissions — that's $288/year just for sharing something you love.
-                    <span class="text-slate-500 dark:text-slate-500">
-                      (After beta: ~$12/month)
-                    </span>
+                    <span class="font-medium text-emerald-700 dark:text-emerald-300">Example:</span>
+                    If 10 friends subscribe monthly at $5/month, you'd earn ~$7.50/month in recurring commissions — that's $90/year just for sharing something you love.
                   </p>
                 </div>
               </.liquid_card>
@@ -321,7 +295,7 @@ defmodule MossletWeb.PublicLive.Referrals do
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  After an initial 35-day hold to allow for cancellations and refunds, earnings are available immediately. Monthly automatic payouts when you reach $15.
+                  After an initial 35-day hold to allow for cancellations and refunds, earnings are available immediately. Monthly automatic payouts when you reach $20.
                 </p>
               </.liquid_card>
             </div>
@@ -340,16 +314,6 @@ defmodule MossletWeb.PublicLive.Referrals do
                   <p class="mt-6 text-lg leading-8 text-slate-700 dark:text-slate-300 max-w-2xl mx-auto">
                     Join MOSSLET and get your referral link. Share meaningful connections while earning real money — all without compromising anyone's privacy.
                   </p>
-
-                  <div class="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/40 dark:to-orange-900/40 border border-amber-200/60 dark:border-amber-700/40">
-                    <.phx_icon
-                      name="hero-sparkles"
-                      class="h-4 w-4 text-amber-600 dark:text-amber-400"
-                    />
-                    <span class="text-sm font-medium text-amber-700 dark:text-amber-300">
-                      Lock in {@subscription_commission}% beta rates before they drop to {@prod_subscription_commission}%
-                    </span>
-                  </div>
 
                   <div class="mt-10 flex flex-col sm:flex-row sm:items-center sm:justify-center gap-6">
                     <.liquid_button
@@ -392,26 +356,17 @@ defmodule MossletWeb.PublicLive.Referrals do
   @impl true
   def mount(_params, _session, socket) do
     config = Application.get_env(:mosslet, :referral_program)
-    beta_rates = config[:beta]
     prod_rates = config[:production]
 
     subscription_commission =
-      Decimal.new(beta_rates[:commission_rate]) |> Decimal.mult(100) |> Decimal.to_integer()
-
-    one_time_commission =
-      Decimal.new(beta_rates[:one_time_commission_rate])
-      |> Decimal.mult(100)
-      |> Decimal.to_integer()
-
-    prod_subscription_commission =
       Decimal.new(prod_rates[:commission_rate]) |> Decimal.mult(100) |> Decimal.to_integer()
 
-    prod_one_time_commission =
+    one_time_commission =
       Decimal.new(prod_rates[:one_time_commission_rate])
       |> Decimal.mult(100)
       |> Decimal.to_integer()
 
-    discount = beta_rates[:referee_discount_percent]
+    discount = prod_rates[:referee_discount_percent]
 
     {:ok,
      socket
@@ -419,11 +374,9 @@ defmodule MossletWeb.PublicLive.Referrals do
      |> assign(:page_title, "Referral Program")
      |> assign(:subscription_commission, subscription_commission)
      |> assign(:one_time_commission, one_time_commission)
-     |> assign(:prod_subscription_commission, prod_subscription_commission)
-     |> assign(:prod_one_time_commission, prod_one_time_commission)
      |> assign(:discount, discount)
      |> assign_new(:meta_description, fn ->
-       "Earn real money sharing MOSSLET with friends. Beta bonus: #{subscription_commission}% recurring commissions on subscriptions (normally #{prod_subscription_commission}%) and #{one_time_commission}% on lifetime purchases. Privacy-first referral program with direct bank payouts."
+       "Earn real money sharing MOSSLET with friends. #{subscription_commission}% recurring commissions on subscriptions and #{one_time_commission}% on lifetime purchases. Privacy-first referral program with direct bank payouts."
      end)
      |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/referrals/referrals_og.png")
      |> assign(:og_image_type, "image/png")

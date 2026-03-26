@@ -132,6 +132,224 @@ decrypted_content = decrypt(post.body, decrypted_post_key)
 - `encrypt_attrs/2` handles per-user encryption of the post_key
 - Different encryption for public vs private posts (server vs user public keys)
 
+## 💬 Conversation/Message Encryption (Browser-Side Zero-Knowledge)
+
+### Overview
+
+Conversations use the **same NaCl/libsodium cryptographic architecture** as posts, groups, and connections, but with one critical difference: **all encryption and decryption happens in the browser** using `libsodium-wrappers` (JavaScript), not on the server with `:enacl` (Erlang). This makes conversations **truly zero-knowledge even for web users** — the server never sees plaintext message content.
+
+### Why Browser-Side?
+
+| Feature | Server-side (Posts, Groups) | Browser-side (Conversations) |
+|---------|---------------------------|------------------------------|
+| **Library** | `:enacl` (Erlang NaCl bindings) | `libsodium-wrappers` (JS) |
+| **Where encryption runs** | Server (BEAM process) | Browser (JavaScript) |
+| **Zero-knowledge on web?** | No — server sees plaintext briefly | **Yes** — server never sees plaintext |
+| **Algorithms** | Identical: XSalsa20-Poly1305 (secretbox) + X25519 (box_seal) | Identical |
+| **Nonce format** | `nonce <> ciphertext` (prepended, base64) | `nonce + ciphertext` (prepended, base64) |
+| **Key size** | `secretbox_KEYBYTES` (32 bytes) | `crypto_secretbox_KEYBYTES` (32 bytes) |
+
+The two implementations are **cryptographically identical** — the same algorithms, key sizes, nonce formats, and base64 encoding. An `:enacl` encrypted blob can be decrypted by `libsodium-wrappers` and vice versa.
+
+### Schema Structure
+
+```
+Conversation (conversations table)
+├── id
+├── user_connection_id          # Which connection this conversation belongs to
+├── has_many: user_conversations
+└── has_many: messages
+
+UserConversation (user_conversations table)
+├── id
+├── conversation_id
+├── user_id
+├── key: Encrypted.Binary       # conversation_key encrypted with user's PUBLIC key (box_seal)
+├── last_read_at
+└── archived
+
+Message (messages table)
+├── id
+├── conversation_id
+├── sender_id
+├── content: Encrypted.Binary   # Message encrypted with conversation_key (secretbox) — pre-encrypted in browser
+├── image_url: Encrypted.Binary # Encrypted image storage path
+├── image_key: Encrypted.Binary # Key for decrypting the image
+└── edited
+```
+
+### Conversation Context Flow (Same Pattern as Posts)
+
+```
+CONVERSATION CONTEXT (browser-side, same pattern as post/group/connection):
+
+conversation_key = generateKey()                                    # 1. Browser generates symmetric key
+message.content = encryptDmMessage("Hello!", conversation_key)      # 2. Browser encrypts with conversation_key
+# For each participant:
+user_conversation.key = encryptDmKeyForUser(conversation_key, user.public_key)  # 3. box_seal per user
+# When reading:
+conversation_key = decryptDmKey(user_conversation.key, pk, sk)     # 4. box_seal_open with private key
+plaintext = decryptDmMessage(message.content, conversation_key)    # 5. secretbox_open to get plaintext
+```
+
+Compare to the server-side post pattern:
+```
+POST CONTEXT (server-side, identical cryptographic pattern):
+
+post_key = Encrypted.Utils.generate_key()                          # 1. Server generates symmetric key
+post.body = Encrypted.Utils.encrypt(%{key: post_key, payload: "My post"})  # 2. secretbox encrypt
+user_post.key = encrypt_message_for_user_with_pk(post_key, %{public: pk})  # 3. box_seal per user
+# When reading:
+post_key = decrypt_message_for_user(user_post.key, %{public: pk, private: sk})  # 4. box_seal_open
+plaintext = Encrypted.Utils.decrypt(%{key: post_key, payload: post.body})  # 5. secretbox_open
+```
+
+### Data Flow: Creating a Conversation
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    CONVERSATION CREATION (Browser)                       │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   1. Browser: generateKey() → conversation_key (random 32 bytes)        │
+│                                                                         │
+│   2. Browser: For each participant:                                     │
+│      encryptDmKeyForUser(conversation_key, user.public_key)             │
+│      → crypto_box_seal(conversation_key, public_key)                    │
+│                                                                         │
+│   3. Browser → Server: pushEvent("create_conversation", {              │
+│        user_conversations: [                                            │
+│          { user_id: current_user_id, key: encrypted_key_for_me },       │
+│          { user_id: other_user_id, key: encrypted_key_for_them }        │
+│        ]                                                                │
+│      })                                                                 │
+│                                                                         │
+│   4. Server stores encrypted keys → Cloak wraps → Postgres              │
+│      (Server NEVER sees the plaintext conversation_key)                 │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow: Sending a Message
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    SENDING A MESSAGE (Browser → Server)                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   1. Browser decrypts conversation_key:                                 │
+│      a. decryptPrivateKey(encrypted_private_key, session_key)           │
+│         → user's private key (via secretbox)                            │
+│      b. decryptDmKey(user_conversation.key, public_key, private_key)    │
+│         → conversation_key (via box_seal_open)                          │
+│                                                                         │
+│   2. Browser encrypts message:                                          │
+│      encryptDmMessage(plaintext, conversation_key)                      │
+│      → nonce + crypto_secretbox_easy(plaintext, nonce, key)             │
+│      → base64 encoded blob                                              │
+│                                                                         │
+│   3. Browser → Server: pushEvent("send_message", {                     │
+│        encrypted_content: base64_encrypted_blob                         │
+│      })                                                                 │
+│                                                                         │
+│   4. Server: Base.decode64!(encrypted_content) → binary                 │
+│      Stores in message.content (Encrypted.Binary wraps with Cloak)      │
+│      Server NEVER decrypts the NaCl layer                               │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow: Reading a Message
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    READING A MESSAGE (Server → Browser)                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   1. Server: Cloak unwraps message.content → NaCl-encrypted blob        │
+│      Server sends Base64-encoded blob to browser via data attributes    │
+│                                                                         │
+│   2. Browser (DecryptMessage hook):                                     │
+│      a. Gets encrypted conversation_key from data-conversation-key      │
+│      b. Gets session_key + encrypted_private_key from composer element  │
+│      c. Decrypts private key → Decrypts conversation_key                │
+│      d. decryptDmMessage(encrypted_content, conversation_key)           │
+│         → plaintext message                                             │
+│                                                                         │
+│   3. Browser renders plaintext (with Markdown support)                  │
+│                                                                         │
+│   Result: Server only ever handled encrypted blobs!                     │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Data Attributes (Browser ↔ Server Bridge)
+
+The conversation LiveView passes encrypted keys to the browser via HTML data attributes on the `#conversation-composer` element:
+
+| Data Attribute | Purpose | Source |
+|---------------|---------|--------|
+| `data-conversation-key` | User's encrypted copy of conversation_key | `user_conversation.key` (base64) |
+| `data-user-public-key` | User's public key | `current_scope.user.key_pair["public"]` |
+| `data-session-key` | Password-derived session key | `current_scope.key` |
+| `data-encrypted-private-key` | User's private key (encrypted with session key) | `current_scope.user.key_pair["private"]` |
+
+### JavaScript Crypto Module (`assets/js/crypto/nacl.js`)
+
+Maps 1:1 to the server-side `:enacl` functions:
+
+| JS Function | Enacl Equivalent | NaCl Primitive |
+|-------------|-----------------|----------------|
+| `generateKey()` | `Encrypted.Utils.generate_key()` | `randombytes(secretbox_KEYBYTES)` |
+| `encryptSecretboxString(plaintext, key)` | `Encrypted.Utils.encrypt(%{key:, payload:})` | `secretbox(msg, nonce, key)` |
+| `decryptSecretboxToString(ciphertext, key)` | `Encrypted.Utils.decrypt(%{key:, payload:})` | `secretbox_open(ct, nonce, key)` |
+| `boxSeal(plaintext, pk)` | `encrypt_message_for_user_with_pk(msg, %{public: pk})` | `box_seal(msg, pk)` |
+| `boxSealOpen(ct, pk, sk)` | `decrypt_message_for_user(ct, %{public: pk, private: sk})` | `box_seal_open(ct, pk, sk)` |
+| `encryptDmKeyForUser(key, pk)` | — (composition of above) | `box_seal(key_bytes, pk)` |
+| `decryptDmKey(ct, pk, sk)` | — (composition of above) | `box_seal_open(ct, pk, sk)` |
+| `encryptDmMessage(plaintext, key)` | — (alias for secretbox) | `secretbox(msg, nonce, key)` |
+| `decryptDmMessage(ct, key)` | — (alias for secretbox) | `secretbox_open(ct, nonce, key)` |
+| `deriveSessionKey(password, salt)` | `Encrypted.Utils.derive_pwd_key(pwd, salt)` | `pwhash(pwd, salt)` |
+| `decryptPrivateKey(ct, sessionKey)` | `Encrypted.Utils.decrypt(%{key:, payload:})` | `secretbox_open(ct, nonce, key)` |
+
+### Encryption Layers for Messages
+
+```
+Message content storage (double-encrypted, same as all other content):
+
+  Browser: plaintext → NaCl secretbox encrypt (conversation_key) → base64 blob
+  Server:  base64 blob → decode → Cloak AES-256-GCM encrypt → Postgres
+
+Message content retrieval:
+
+  Server:  Postgres → Cloak AES-256-GCM decrypt → base64 encode → send to browser
+  Browser: base64 blob → NaCl secretbox decrypt (conversation_key) → plaintext
+```
+
+### Image Encryption in Conversations
+
+Conversation images use a hybrid approach:
+- **Image content**: Encrypted server-side with a random `trix_key` via `Encrypted.Utils.encrypt()`, stored in cloud storage (Storj/Tigris)
+- **Image metadata**: `message.image_url` (encrypted storage path) and `message.image_key` (the `trix_key`) stored in the database with Cloak
+- **Decryption**: Server fetches encrypted image from storage, decrypts with `image_key`, returns as base64 data URL to browser
+
+This is the one exception where server-side decryption occurs for conversation-related content.
+
+### Native App (Desktop/Mobile) Considerations
+
+For native apps, the conversation encryption can move entirely to the device:
+- Key generation, message encryption/decryption all happen in the BEAM on-device using `:enacl`
+- Same algorithms, same key formats — fully interoperable with browser JS encryption
+- Native users achieve the same zero-knowledge guarantee as browser users
+
+### Why This Matters
+
+- ✅ **True zero-knowledge for web**: Unlike posts/groups where the server briefly sees plaintext during web sessions, conversation messages are NEVER decrypted server-side
+- ✅ **Same cryptographic primitives**: `:enacl` and `libsodium-wrappers` are both wrappers around the same NaCl/libsodium library — byte-for-byte compatible
+- ✅ **Same architectural pattern**: `context_key` + `user_context.key` (box_seal) — identical to posts, groups, connections
+- ✅ **Password change resilient**: Same as all other contexts — private key persists, conversation_key access preserved
+- ✅ **Forward secrecy**: Each conversation has a unique key, compromise of one doesn't affect others
+
 ## 🔐 Encryption Patterns by Content Type
 
 ### 1. Post-Related Content → Use existing `post_key`
@@ -152,7 +370,24 @@ post_report.details = encrypt("Report details", post_key)         # Same as post
 - ✅ Automatic access control via existing `user_post` relationships
 - ✅ Natural data cleanup when posts are deleted
 
-### 2. User-Specific Content → Use `user_key` with dual-update pattern
+### 2. Conversation/Message Content → Use `conversation_key` (browser-side encryption)
+
+**Rule**: All message content is encrypted/decrypted in the browser. Server only stores encrypted blobs.
+
+```javascript
+// ✅ CONVERSATION CONTENT (browser-side, zero-knowledge)
+message.content = encryptDmMessage("My message", conversation_key)  // Encrypted in browser
+// Server stores the encrypted blob directly — never decrypts it
+```
+
+**Benefits**:
+
+- ✅ True zero-knowledge — server never sees plaintext messages
+- ✅ Same NaCl/libsodium primitives as server-side encryption
+- ✅ Same context-key pattern (conversation_key ↔ post_key)
+- ✅ Access via `user_conversation.key` (same as `user_post.key` pattern)
+
+### 3. User-Specific Content → Use `user_key` with dual-update pattern
 
 **Rule**: Personal user data that may be shared with connections
 
@@ -162,7 +397,7 @@ user.status_message = encrypt("My status", user_key)              # Personal sta
 bookmark_category.name = encrypt("Work", user_key)               # User's categories
 ```
 
-### 3. Connection-Shared Content → Use `conn_key` via connection_map pattern
+### 4. Connection-Shared Content → Use `conn_key` via connection_map pattern
 
 **Rule**: Data explicitly shared between connected users
 
@@ -201,6 +436,17 @@ conn_key = generate_unique_key()                              # 1. Generate conn
 connection.username = encrypt("My username", conn_key)        # 2. Encrypt with connection key
 user_connection.key = encrypt(conn_key, user.public_key)     # 3. Share with connections
 # Access: decrypt(user_connection.key, user.private_key) → conn_key → decrypt shared profile
+```
+
+### CONVERSATION CONTEXT (same pattern, but browser-side):
+
+```javascript
+// Key generation and encryption happen in the BROWSER (not server)
+conversation_key = generateKey()                              // 1. Browser generates conversation key
+encrypted_msg = encryptDmMessage("Hello!", conversation_key)  // 2. Browser encrypts with conv key
+user_conversation.key = encryptDmKeyForUser(conversation_key, user.public_key)  // 3. box_seal per user
+// Access: decryptDmKey(user_conversation.key, pk, sk) → conversation_key → decryptDmMessage(content)
+// Server ONLY stores encrypted blobs — never sees plaintext
 ```
 
 ## 🔄 How Password Changes Work Without Breaking Decryption
