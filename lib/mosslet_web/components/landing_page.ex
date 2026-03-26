@@ -2187,25 +2187,7 @@ defmodule MossletWeb.Components.LandingPage do
                   $59
                 </span>
                 <span class="text-lg text-gray-500 font-medium">/once</span>
-                <.badge
-                  id="desktop-beta-badge"
-                  phx-hook="TippyHook"
-                  data-tippy-content="Special price while we're in beta"
-                  color="warning"
-                  label="Save 40%"
-                  variant="soft"
-                  class="rounded-full ml-3 hidden sm:inline-flex"
-                />
               </span>
-              <.badge
-                id="mobile-beta-badge"
-                phx-hook="TippyHook"
-                data-tippy-content="Special price while we're in beta"
-                color="warning"
-                label="Save 40%"
-                variant="soft"
-                class="rounded-full mt-2 self-start sm:hidden"
-              />
             </p>
             <p class="mt-6 text-base leading-7 text-gray-600 dark:text-gray-400">
               Own your privacy forever with one simple payment. No subscriptions, no recurring fees – just pure digital freedom.
@@ -3743,7 +3725,7 @@ defmodule MossletWeb.Components.LandingPage do
                     What is the pay once pricing model?
                   </dt>
                   <dd class="mt-3 text-base/7 text-gray-600 dark:text-gray-400">
-                    MOSSLET operates on a pay once pricing model, currently set at $59 during our beta phase. This approach allows us to maintain our service without relying on advertising or data monetization, ensuring that your privacy and experience remains our top priority.
+                    MOSSLET offers flexible pricing with monthly, yearly, and lifetime plans. Our pay-once lifetime option is currently set at $59. This approach allows us to maintain our service without relying on advertising or data monetization, ensuring that your privacy and experience remains our top priority.
                   </dd>
                 </div>
 
@@ -4287,7 +4269,7 @@ defmodule MossletWeb.Components.LandingPage do
                     What is the pay once pricing model?
                   </dt>
                   <dd class="mt-3 text-base/7 text-gray-600 dark:text-gray-400">
-                    MOSSLET operates on a pay once pricing model, currently set at $59 during our beta phase. This approach allows us to maintain our service without relying on advertising or data monetization, ensuring that your privacy and experience remains our top priority.
+                    MOSSLET offers flexible pricing with monthly, yearly, and lifetime plans. Our pay-once lifetime option is currently set at $59. This approach allows us to maintain our service without relying on advertising or data monetization, ensuring that your privacy and experience remains our top priority.
                   </dd>
                 </div>
 

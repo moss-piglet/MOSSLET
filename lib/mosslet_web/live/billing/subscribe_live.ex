@@ -380,23 +380,11 @@ defmodule MossletWeb.SubscribeLive do
             <div class="lg:w-72 flex-shrink-0">
               <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-6 border border-amber-200/50 dark:border-amber-700/30 shadow-lg">
                 <div class="text-center mb-6">
-                  <div class="flex flex-wrap items-center justify-center gap-2 mb-3">
-                    <div
-                      :if={Map.get(@item, :save_percent)}
-                      id={"beta-pricing-#{@item.id}-#{@item.interval}"}
-                      phx-hook="TippyHook"
-                      data-tippy-content={
-                        gettext("Save %{percent}% off", percent: @item.save_percent)
-                      }
-                      class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-semibold cursor-help"
-                    >
-                      <.phx_icon name="hero-tag" class="w-3.5 h-3.5" />
-                      {gettext("Beta Pricing")}
-                    </div>
-                    <div
-                      :if={@discounted_amount}
-                      class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold"
-                    >
+                  <div
+                    :if={@discounted_amount}
+                    class="flex flex-wrap items-center justify-center gap-2 mb-3"
+                  >
+                    <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold">
                       <.phx_icon name="hero-gift" class="w-3.5 h-3.5" />
                       {gettext("%{percent}% off", percent: @referral_discount)}
                     </div>
@@ -591,29 +579,9 @@ defmodule MossletWeb.SubscribeLive do
               current_subscription={@current_subscription}
               key={@key}
             />
-
-            <div
-              :if={@item.interval == :year}
-              id={"affirm-disclosure-#{@item.id}"}
-              phx-hook="TippyHook"
-              data-tippy-content={
-                gettext(
-                  "Payment options through Affirm are subject to eligibility, may not be available in all states, and are provided by these lending partners: affirm.com/lenders."
-                )
-              }
-              class="mt-4 flex items-center justify-center gap-2 text-xs text-blue-600 dark:text-blue-400 cursor-help hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-            >
-              <.phx_icon name="hero-credit-card" class="w-3.5 h-3.5" />
-              <span>{gettext("Split payments with Affirm")}</span>
-              <.phx_icon name="hero-information-circle" class="w-3.5 h-3.5" />
-            </div>
           </div>
 
           <div class="mt-8 pt-6 border-t border-slate-200/60 dark:border-slate-700/50">
-            <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
-              <.phx_icon name="hero-check-badge" class="w-4 h-4 text-emerald-500" />
-              {gettext("What's included")}
-            </h3>
             <ul class="space-y-3">
               <%= for feature <- @product.features do %>
                 <li class="flex items-start gap-3">
@@ -664,13 +632,15 @@ defmodule MossletWeb.SubscribeLive do
     <div class="mt-6 mb-2">
       <div class="flex items-center gap-3 mb-2">
         <div
-          :if={Map.get(@item, :save_percent)}
-          id={"beta-pricing-#{@item.id}-#{@item.interval}"}
+          :if={Map.get(@item, :save_percent) && @item.save_percent > 0}
+          id={"save-pricing-#{@item.id}-#{@item.interval}"}
           phx-hook="TippyHook"
           data-tippy-content={gettext("Save %{percent}% off", percent: @item.save_percent)}
           class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-semibold cursor-help"
         >
-          <.phx_icon name="hero-tag" class="w-3.5 h-3.5" /> {gettext("Beta Pricing")}
+          <.phx_icon name="hero-tag" class="w-3.5 h-3.5" /> {gettext("Save %{percent}%",
+            percent: @item.save_percent
+          )}
         </div>
         <div
           :if={@discounted_amount}

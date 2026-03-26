@@ -1273,17 +1273,12 @@ defmodule MossletWeb.DesignSystem do
                   </.liquid_tracking_indicator>
                 </td>
                 <td class="py-4 px-2 text-right">
-                  <div
-                    id="comparison-beta-pricing"
-                    phx-hook="TippyHook"
-                    data-tippy-content="Beta pricing - 50% off regular price"
-                    class="inline-block cursor-help"
-                  >
+                  <div class="inline-block">
                     <div class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      From $80/yr
+                      From $40/yr
                     </div>
                     <div class="text-xs text-emerald-600 dark:text-emerald-400">
-                      Or lifetime • Beta
+                      Or lifetime
                     </div>
                   </div>
                 </td>

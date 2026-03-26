@@ -94,7 +94,7 @@ config :mosslet, :billing_products, [
       "Join month-to-month with the freedom to stay as long as you need. MOSSLET (Personal) is designed for individuals who value peace of mind and privacy. Bring a friend and share meaningful experiences in a safe and supportive environment.",
     most_popular: false,
     features: [
-      "Unlimited Connections, Circles, and Posts",
+      "Unlimited Connections, Conversations, Circles, and Posts",
       "Unlimited Journal entries & books",
       "Unlimited new features",
       "Streamlined settings",
@@ -106,10 +106,10 @@ config :mosslet, :billing_products, [
       %{
         id: "personal-monthly",
         interval: :month,
-        price: "price_1SgHFIJhDwcSIdONg4zrI9Hy",
+        price: "price_1TFGxkJhDwcSIdONIg5r0FKs",
         quantity: 1,
-        amount: 1000,
-        save_percent: 50,
+        amount: 500,
+        save_percent: 0,
         trial_days: 14,
         allow_promotion_codes: true
       }
@@ -125,23 +125,22 @@ config :mosslet, :billing_products, [
       "Get a full year of access at our best rate. MOSSLET (Personal) is designed for individuals who value peace of mind and privacy. Bring a friend and join today to share meaningful experiences in a safe and supportive environment.",
     most_popular: true,
     features: [
-      "Unlimited Connections, Circles, and Posts",
+      "Unlimited Connections, Conversations, Circles, and Posts",
       "Unlimited Journal entries & books",
       "Unlimited new features",
       "Streamlined settings",
       "Own your data",
       "Advanced asymmetric encryption",
-      "Email support",
-      "Supports Affirm Payment Plans"
+      "Email support"
     ],
     line_items: [
       %{
         id: "personal-yearly",
         interval: :year,
-        price: "price_1SgHLZJhDwcSIdONoTj6Rbac",
+        price: "price_1TFGy7JhDwcSIdONcSgORO0J",
         quantity: 1,
-        amount: 8000,
-        save_percent: 50,
+        amount: 4000,
+        save_percent: 0,
         trial_days: 14,
         allow_promotion_codes: true
       }

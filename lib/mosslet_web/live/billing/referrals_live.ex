@@ -887,7 +887,6 @@ defmodule MossletWeb.ReferralsLive do
       |> assign(:one_time_commission, one_time_commission)
       |> assign(:discount, discount)
       |> assign(:min_payout, min_payout)
-      |> assign(:beta_mode, Referrals.beta_mode?())
 
     ~H"""
     <DesignSystem.liquid_card>
@@ -895,18 +894,6 @@ defmodule MossletWeb.ReferralsLive do
         {gettext("How It Works")}
       </h3>
       <div class="space-y-4">
-        <div
-          :if={@beta_mode}
-          class="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700"
-        >
-          <div class="flex items-center gap-2">
-            <.phx_icon name="hero-sparkles" class="h-5 w-5 text-amber-600 dark:text-amber-400" />
-            <span class="text-sm font-medium text-amber-800 dark:text-amber-200">
-              {gettext("Beta Bonus: Enhanced rates for early supporters!")}
-            </span>
-          </div>
-        </div>
-
         <div class="grid md:grid-cols-3 gap-6">
           <div class="flex gap-3">
             <div class="flex-shrink-0">

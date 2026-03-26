@@ -303,15 +303,6 @@ defmodule MossletWeb.PublicLive.Pricing do
             <div class="lg:w-72 flex-shrink-0">
               <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-6 border border-amber-200/50 dark:border-amber-700/30 shadow-lg">
                 <div class="text-center mb-6">
-                  <div
-                    :if={Map.get(@item, :save_percent)}
-                    id={"beta-pricing-#{@item.id}-#{@item.interval}"}
-                    phx-hook="TippyHook"
-                    data-tippy-content={"Save #{@item.save_percent}% off"}
-                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-semibold cursor-help mb-3"
-                  >
-                    <.phx_icon name="hero-tag" class="w-3.5 h-3.5" /> Beta Pricing
-                  </div>
                   <div class="flex items-baseline justify-center gap-1">
                     <span class="text-5xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 dark:from-amber-400 dark:to-orange-400 bg-clip-text text-transparent">
                       {Util.format_money(@item.amount)}
@@ -418,18 +409,6 @@ defmodule MossletWeb.PublicLive.Pricing do
             <.action_button item={@item} is_most_popular={@is_most_popular} />
           </div>
 
-          <div
-            :if={@item.interval == :year}
-            id={"affirm-disclosure-#{@item.id}-#{@item.interval}"}
-            phx-hook="TippyHook"
-            data-tippy-content="Payment options through Affirm are subject to eligibility, may not be available in all states, and are provided by these lending partners: affirm.com/lenders."
-            class="mt-3 flex items-center justify-center gap-2 text-xs text-blue-600 dark:text-blue-400 cursor-help hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-          >
-            <.phx_icon name="hero-credit-card" class="w-3.5 h-3.5" />
-            <span>Split payments with Affirm</span>
-            <.phx_icon name="hero-information-circle" class="w-3.5 h-3.5" />
-          </div>
-
           <div class="mt-8 pt-6 border-t border-slate-200/60 dark:border-slate-700/50">
             <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
               <.phx_icon name="hero-check-badge" class="w-4 h-4 text-emerald-500" /> What's included
@@ -464,13 +443,13 @@ defmodule MossletWeb.PublicLive.Pricing do
     <div class="mt-6 mb-2">
       <div class="flex items-center gap-3 mb-2">
         <div
-          :if={Map.get(@item, :save_percent)}
-          id={"beta-pricing-#{@item.id}-#{@item.interval}"}
+          :if={Map.get(@item, :save_percent) && @item.save_percent > 0}
+          id={"save-pricing-#{@item.id}-#{@item.interval}"}
           phx-hook="TippyHook"
           data-tippy-content={"Save #{@item.save_percent}% off"}
           class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-semibold cursor-help"
         >
-          <.phx_icon name="hero-tag" class="w-3.5 h-3.5" /> Beta Pricing
+          <.phx_icon name="hero-tag" class="w-3.5 h-3.5" /> Save {@item.save_percent}%
         </div>
       </div>
       <div class="flex items-baseline gap-2">
@@ -607,7 +586,7 @@ defmodule MossletWeb.PublicLive.Pricing do
      |> assign(:one_time_products, one_time_products)
      |> assign(:subscription_products, subscription_products)
      |> assign_new(:meta_description, fn ->
-       "Simple, pay-once pricing. Say goodbye to never-ending subscription fees. Pay once and forget about it. With one, simple payment you get access to our service forever. No hidden fees, no subscriptions, no surprises. We also support lowering your upfront payment with Affirm."
+       "Simple, flexible pricing. Choose monthly, yearly, or lifetime access. With our pay-once lifetime option you get access to our service forever. No hidden fees, no surprises. We also support lowering your upfront lifetime payment with Affirm."
      end)
      |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/pricing/pricing_og.png")
      |> assign(:og_image_type, "image/png")

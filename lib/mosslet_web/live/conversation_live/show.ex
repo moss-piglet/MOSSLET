@@ -947,6 +947,18 @@ defmodule MossletWeb.ConversationLive.Show do
     end
   end
 
+  def handle_event("fetch_url_preview", %{"url" => url, "message_id" => _message_id}, socket) do
+    case Mosslet.Extensions.URLPreviewServer.fetch(url,
+           user_id: socket.assigns.current_scope.user.id
+         ) do
+      {:ok, preview} ->
+        {:reply, %{preview: preview}, socket}
+
+      {:error, _reason} ->
+        {:reply, %{preview: nil}, socket}
+    end
+  end
+
   def handle_info(
         {:upload_ready, entry_ref, %{processed_binary: binary, trix_key: trix_key} = upload_data},
         socket

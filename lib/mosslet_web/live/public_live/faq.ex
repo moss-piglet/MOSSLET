@@ -128,7 +128,7 @@ defmodule MossletWeb.PublicLive.Faq do
           %{
             q: "What payment options do you offer?",
             a:
-              "You can choose from monthly, yearly, or lifetime access. Monthly gives you flexibility, yearly offers a better rate, and lifetime means one payment for permanent access. We also support Affirm for splitting larger payments."
+              "You can choose from monthly, yearly, or lifetime access. Monthly gives you flexibility, yearly offers a better rate, and lifetime means one payment for permanent access. We also support Affirm for splitting lifetime payments."
           },
           %{
             q: "What if I'm not satisfied?",

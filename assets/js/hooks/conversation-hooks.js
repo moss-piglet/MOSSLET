@@ -3,7 +3,7 @@ import {
   encryptDmMessage,
   decryptDmKey,
 } from "../crypto/nacl";
-import { renderMarkdown } from "../utils/render-markdown";
+import { renderMarkdown, extractFirstUrl } from "../utils/render-markdown";
 
 function getComposerEl() {
   return document.querySelector("#conversation-composer");
@@ -177,6 +177,9 @@ const DecryptMessage = {
       if (this._cachedImageDataUrl) {
         this._appendImageElement(this._cachedImageDataUrl);
       }
+      if (this._cachedPreviewHtml) {
+        this._appendPreviewElement(this._cachedPreviewHtml);
+      }
     } else {
       await this.decrypt();
     }
@@ -214,10 +217,135 @@ const DecryptMessage = {
       if (this.el.dataset.hasImage === "true") {
         this.loadImage();
       }
+
+      this.maybeLoadUrlPreview(plaintext);
     } catch (e) {
       console.error("Message decryption failed:", e);
       this.el.textContent = "[Decryption failed]";
     }
+  },
+
+  _isSenderBubble() {
+    const bubble = this.el.closest('[class*="rounded-2xl"]');
+    return bubble ? bubble.className.includes("from-teal") : false;
+  },
+
+  maybeLoadUrlPreview(plaintext) {
+    const messageId = this.el.dataset.messageId;
+    if (!messageId || this._previewLoaded) return;
+
+    const url = extractFirstUrl(plaintext);
+    if (!url) return;
+    this._previewLoaded = true;
+
+    const isSender = this._isSenderBubble();
+    const loadingEl = document.createElement("div");
+    loadingEl.className = "mt-3 url-preview-container";
+    loadingEl.innerHTML = `
+      <div class="overflow-hidden rounded-xl ${isSender ? "border border-white/20 bg-white/10" : "border border-slate-200/60 dark:border-slate-700/50 bg-slate-50/80 dark:bg-slate-900/40"} animate-pulse">
+        <div class="h-[140px] ${isSender ? "bg-white/10" : "bg-slate-200/60 dark:bg-slate-700/30"}"></div>
+        <div class="p-3 space-y-2">
+          <div class="h-3 w-1/3 rounded-full ${isSender ? "bg-white/15" : "bg-slate-200/80 dark:bg-slate-700/40"}"></div>
+          <div class="h-4 w-3/4 rounded-full ${isSender ? "bg-white/15" : "bg-slate-200/80 dark:bg-slate-700/40"}"></div>
+          <div class="h-3 w-full rounded-full ${isSender ? "bg-white/15" : "bg-slate-200/80 dark:bg-slate-700/40"}"></div>
+        </div>
+      </div>
+    `;
+    this.el.appendChild(loadingEl);
+
+    this.pushEvent(
+      "fetch_url_preview",
+      { url: url, message_id: messageId },
+      (reply) => {
+        if (reply.preview) {
+          const previewHtml = this._buildPreviewCard(reply.preview, isSender);
+          this._cachedPreviewHtml = previewHtml;
+          this._cachedPreviewIsSender = isSender;
+          loadingEl.innerHTML = previewHtml;
+          loadingEl.classList.remove("animate-pulse");
+        } else {
+          loadingEl.remove();
+        }
+      },
+    );
+  },
+
+  _buildPreviewCard(preview, isSender) {
+    const title = this._escapeHtml(preview.title || "");
+    const description = this._escapeHtml(preview.description || "");
+    const siteName = this._escapeHtml(
+      preview.site_name || this._extractDomain(preview.url) || "",
+    );
+    const url = this._escapeHtml(preview.url || "");
+    const image = preview.image || "";
+
+    const imageHtml = image
+      ? `<div class="w-full overflow-hidden">
+           <img src="${this._escapeHtml(image)}" alt="${title || "Preview"}" class="w-full max-h-[120px] object-cover group-hover/preview:scale-[1.03] transition-transform duration-500" onerror="this.parentElement.style.display='none'" />
+         </div>`
+      : "";
+
+    const siteIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5 shrink-0 ${isSender ? "text-white/50" : "text-slate-400 dark:text-slate-500"}">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" />
+    </svg>`;
+
+    const siteNameHtml = siteName
+      ? `<div class="flex items-center gap-1.5">
+           ${siteIconSvg}
+           <span class="text-xs font-medium ${isSender ? "text-white/60" : "text-slate-500 dark:text-slate-400"} truncate uppercase tracking-wide">${siteName}</span>
+         </div>`
+      : "";
+
+    const titleHtml = title
+      ? `<p class="font-semibold text-[13px] leading-snug ${isSender ? "text-white group-hover/preview:text-white" : "text-slate-900 dark:text-slate-100 group-hover/preview:text-teal-600 dark:group-hover/preview:text-teal-400"} line-clamp-2 transition-colors">${title}</p>`
+      : "";
+
+    const descHtml = description
+      ? `<p class="text-[11px] leading-relaxed ${isSender ? "text-white/70" : "text-slate-500 dark:text-slate-400"} line-clamp-1 mt-0.5">${description}</p>`
+      : "";
+
+    const cardBorder = isSender
+      ? "border border-white/20"
+      : "border border-slate-200/60 dark:border-slate-700/50";
+    const cardBg = isSender
+      ? "bg-white/10 hover:bg-white/15"
+      : "bg-slate-50/80 dark:bg-slate-900/40 hover:bg-slate-100/80 dark:hover:bg-slate-800/60";
+    const hoverBorder = isSender
+      ? "hover:border-white/30"
+      : "hover:border-teal-300 dark:hover:border-teal-600";
+
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="block max-w-[280px] overflow-hidden rounded-lg ${cardBorder} ${cardBg} ${hoverBorder} transition-all duration-300 group/preview no-underline !no-underline">
+      ${imageHtml}
+      <div class="px-2.5 py-2 space-y-0.5">
+        ${siteNameHtml}
+        ${titleHtml}
+        ${descHtml}
+      </div>
+    </a>`;
+  },
+
+  _extractDomain(url) {
+    if (!url) return null;
+    try {
+      return new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      return null;
+    }
+  },
+
+  _escapeHtml(str) {
+    const div = document.createElement("div");
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+  },
+
+  _appendPreviewElement(previewHtml) {
+    const existing = this.el.querySelector(".url-preview-container");
+    if (existing) existing.remove();
+    const container = document.createElement("div");
+    container.className = "mt-3 url-preview-container";
+    container.innerHTML = previewHtml;
+    this.el.appendChild(container);
   },
 
   _openLightbox(dataUrl) {
