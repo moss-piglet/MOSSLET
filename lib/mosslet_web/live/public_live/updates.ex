@@ -73,10 +73,45 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.17.1"
+                  version="0.18.0"
                   date="February 2026"
                   tag="Latest"
                   tag_color="emerald"
+                >
+                  <:title>Zero-Knowledge Direct Messages 🔐</:title>
+                  <:description>
+                    Private conversations, truly private — end-to-end encrypted direct messaging where even we can't read your messages. Each conversation has its own encryption key, and messages are encrypted before they ever leave your device.
+                  </:description>
+                  <:items>
+                    <.changelog_item icon="hero-lock-closed" color="emerald">
+                      End-to-end encrypted messages — every message is encrypted client-side using XSalsa20-Poly1305 before it reaches our servers
+                    </.changelog_item>
+                    <.changelog_item icon="hero-key" color="teal">
+                      Per-conversation keys — each conversation has its own unique symmetric key, encrypted with your public key
+                    </.changelog_item>
+                    <.changelog_item icon="hero-eye-slash" color="purple">
+                      Zero-knowledge architecture — we store only encrypted blobs, never plaintext. We literally can't read your messages
+                    </.changelog_item>
+                    <.changelog_item icon="hero-photo" color="blue">
+                      Encrypted image sharing — share photos in conversations with the same E2E encryption protecting your images
+                    </.changelog_item>
+                    <.changelog_item icon="hero-bolt" color="cyan">
+                      Real-time delivery — messages appear instantly via WebSocket with live typing indicators and read receipts
+                    </.changelog_item>
+                    <.changelog_item icon="hero-pencil-square" color="amber">
+                      Edit & delete — update or remove messages anytime, changes sync instantly across all participants
+                    </.changelog_item>
+                    <.changelog_item icon="hero-archive-box" color="rose">
+                      Archive conversations — keep your inbox tidy without losing any encrypted message history
+                    </.changelog_item>
+                  </:items>
+                </.changelog_entry>
+
+                <.changelog_entry
+                  version="0.17.1"
+                  date="February 2026"
+                  tag="Feature"
+                  tag_color="blue"
                 >
                   <:title>Journal Print & Secure Export 🖨️</:title>
                   <:description>

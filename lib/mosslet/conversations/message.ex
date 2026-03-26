@@ -12,6 +12,8 @@ defmodule Mosslet.Conversations.Message do
   schema "messages" do
     field :content, Encrypted.Binary, redact: true
     field :edited, :boolean, default: false
+    field :image_url, Encrypted.Binary, redact: true
+    field :image_key, Encrypted.Binary, redact: true
 
     belongs_to :conversation, Conversation
     belongs_to :sender, User

@@ -677,6 +677,117 @@ defmodule MossletWeb.Components.LandingPage do
           </div>
         </MossletWeb.DesignSystem.liquid_container>
 
+        <MossletWeb.DesignSystem.liquid_container
+          max_width="full"
+          class="relative mt-16 sm:mt-24 py-16 sm:py-20"
+        >
+          <div class="absolute inset-0 bg-gradient-to-b from-cyan-50/30 via-teal-50/20 to-transparent dark:from-cyan-950/20 dark:via-teal-950/10 dark:to-transparent">
+          </div>
+          <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
+            <div class="flex items-center justify-center gap-3 mb-4">
+              <div class="h-px w-12 bg-gradient-to-r from-transparent to-cyan-400 dark:to-cyan-600">
+              </div>
+              <span class="text-sm font-semibold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
+                Messaging
+              </span>
+              <div class="h-px w-12 bg-gradient-to-l from-transparent to-cyan-400 dark:to-cyan-600">
+              </div>
+            </div>
+            <div class="text-center mb-12">
+              <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">
+                Zero-knowledge direct messages
+              </h2>
+              <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+                Private conversations that are truly private. Every message is end-to-end encrypted before it leaves your device — we literally can't read what you write.
+              </p>
+            </div>
+
+            <div class="grid grid-cols-1 gap-8 md:grid-cols-3 max-w-5xl mx-auto">
+              <MossletWeb.DesignSystem.liquid_card
+                padding="lg"
+                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+              >
+                <:title>
+                  <div class="flex items-center gap-3 mb-4">
+                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-cyan-500 to-teal-500 shadow-lg">
+                      <.phx_icon
+                        name="hero-lock-closed"
+                        class="h-5 w-5 text-white"
+                      />
+                    </div>
+                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                      End-to-End Encrypted
+                    </span>
+                  </div>
+                </:title>
+
+                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Each conversation has its own unique encryption key. Messages are encrypted on your device before reaching our servers — we only ever store encrypted blobs.
+                </p>
+              </MossletWeb.DesignSystem.liquid_card>
+
+              <MossletWeb.DesignSystem.liquid_card
+                padding="lg"
+                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+              >
+                <:title>
+                  <div class="flex items-center gap-3 mb-4">
+                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-teal-500 to-emerald-500 shadow-lg">
+                      <.phx_icon
+                        name="hero-bolt"
+                        class="h-5 w-5 text-white"
+                      />
+                    </div>
+                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                      Real-Time & Instant
+                    </span>
+                  </div>
+                </:title>
+
+                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Messages arrive instantly via WebSocket. Edit, delete, or archive conversations in real-time — all without breaking the encryption chain.
+                </p>
+              </MossletWeb.DesignSystem.liquid_card>
+
+              <MossletWeb.DesignSystem.liquid_card
+                padding="lg"
+                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+              >
+                <:title>
+                  <div class="flex items-center gap-3 mb-4">
+                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-emerald-500 to-green-500 shadow-lg">
+                      <.phx_icon
+                        name="hero-eye-slash"
+                        class="h-5 w-5 text-white"
+                      />
+                    </div>
+                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                      True Zero-Knowledge
+                    </span>
+                  </div>
+                </:title>
+
+                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Per-conversation keys encrypted with your public key. We can't read your messages, your images, or your conversation keys. Privacy by design, not by promise.
+                </p>
+              </MossletWeb.DesignSystem.liquid_card>
+            </div>
+
+            <div class="mt-12 text-center">
+              <MossletWeb.DesignSystem.liquid_button
+                navigate="/features#encrypted-messaging"
+                variant="secondary"
+                color="teal"
+                icon="hero-arrow-right"
+                size="lg"
+                shimmer="page"
+              >
+                See how encryption works
+              </MossletWeb.DesignSystem.liquid_button>
+            </div>
+          </div>
+        </MossletWeb.DesignSystem.liquid_container>
+
         <.liquid_testimonials />
       </DesignSystem.liquid_container>
     </section>

@@ -45,6 +45,11 @@ const ConversationComposer = {
     }
   },
 
+  _hasPhotoAttached() {
+    const preview = document.querySelector("#conversation-photo-preview");
+    return preview?.dataset?.photoReady === "true";
+  },
+
   _bindElements() {
     this._unbindElements();
 
@@ -57,7 +62,11 @@ const ConversationComposer = {
       e.preventDefault();
 
       const plaintext = this.textarea.value.trim();
-      if (!plaintext) return;
+      const hasPhoto = this._hasPhotoAttached();
+
+      if (!plaintext && !hasPhoto) return;
+
+      const messageText = plaintext || "📷";
 
       const convKeyEncrypted = this.el.dataset.conversationKey;
       const userPublicKey = this.el.dataset.userPublicKey;
@@ -65,14 +74,14 @@ const ConversationComposer = {
       try {
         const convKey = await getConversationKey(
           convKeyEncrypted,
-          userPublicKey
+          userPublicKey,
         );
         if (!convKey) {
           console.error("Could not decrypt conversation key");
           return;
         }
 
-        const encryptedContent = await encryptDmMessage(plaintext, convKey);
+        const encryptedContent = await encryptDmMessage(messageText, convKey);
 
         this.textarea.value = "";
         this._savedValue = "";
@@ -88,7 +97,9 @@ const ConversationComposer = {
     this._keydownHandler = (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        this.form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        this.form.dispatchEvent(
+          new Event("submit", { bubbles: true, cancelable: true }),
+        );
       }
     };
 
@@ -122,7 +133,14 @@ const DecryptMessage = {
   },
 
   async updated() {
-    await this.decrypt();
+    if (this._cachedHtml) {
+      this.el.innerHTML = this._cachedHtml;
+      if (this._cachedImageDataUrl) {
+        this._appendImageElement(this._cachedImageDataUrl);
+      }
+    } else {
+      await this.decrypt();
+    }
   },
 
   async decrypt() {
@@ -150,11 +168,83 @@ const DecryptMessage = {
       }
 
       const plaintext = await decryptDmMessage(encryptedContent, convKey);
-      this.el.innerHTML = renderMarkdown(plaintext);
+      const html = renderMarkdown(plaintext);
+      this._cachedHtml = html;
+      this.el.innerHTML = html;
+
+      if (this.el.dataset.hasImage === "true") {
+        this.loadImage();
+      }
     } catch (e) {
       console.error("Message decryption failed:", e);
       this.el.textContent = "[Decryption failed]";
     }
+  },
+
+  _appendImageElement(dataUrl) {
+    const imgContainer = document.createElement("div");
+    imgContainer.className = "mt-2 rounded-lg overflow-hidden";
+    imgContainer.innerHTML = `
+      <div class="inline-block rounded-lg bg-white dark:bg-slate-700 p-1 shadow-sm">
+        <img
+          src="${dataUrl}"
+          alt="Encrypted image"
+          class="max-w-xs max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity block"
+          loading="lazy"
+        />
+      </div>
+    `;
+    imgContainer.querySelector("img").addEventListener("click", () => {
+      window.open(dataUrl, "_blank");
+    });
+    this.el.appendChild(imgContainer);
+  },
+
+  loadImage() {
+    const messageId = this.el.dataset.messageId;
+    if (!messageId || this._imageLoaded) return;
+    this._imageLoaded = true;
+
+    const imgContainer = document.createElement("div");
+    imgContainer.className = "mt-2 rounded-lg overflow-hidden";
+    imgContainer.innerHTML = `
+      <div class="h-48 w-full max-w-xs bg-slate-200/50 dark:bg-slate-700/50 rounded-lg flex items-center justify-center">
+        <div class="flex flex-col items-center gap-1.5">
+          <div class="w-5 h-5 rounded-full border-2 border-emerald-500/30 border-t-emerald-500 animate-spin"></div>
+          <span class="text-xs text-slate-400">Loading image...</span>
+        </div>
+      </div>
+    `;
+    this.el.appendChild(imgContainer);
+
+    this.pushEvent(
+      "decrypt_message_image",
+      { message_id: messageId },
+      (reply) => {
+        if (reply.image_data_url) {
+          this._cachedImageDataUrl = reply.image_data_url;
+          imgContainer.innerHTML = `
+          <div class="inline-block rounded-lg bg-white dark:bg-slate-700 p-1 shadow-sm">
+            <img
+              src="${reply.image_data_url}"
+              alt="Encrypted image"
+              class="max-w-xs max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity block"
+              loading="lazy"
+            />
+          </div>
+        `;
+          imgContainer.querySelector("img").addEventListener("click", () => {
+            window.open(reply.image_data_url, "_blank");
+          });
+        } else {
+          imgContainer.innerHTML = `
+          <div class="text-xs text-slate-400 italic py-1">
+            Image unavailable
+          </div>
+        `;
+        }
+      },
+    );
   },
 };
 

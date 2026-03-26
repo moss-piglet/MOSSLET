@@ -542,6 +542,24 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
     end
   end
 
+  @doc """
+  Deletes an image from cloud storage by its file path.
+  Runs asynchronously via the StorjTask supervisor.
+  Returns `:ok` if the path is nil.
+  """
+  def delete_from_storage(file_path) when is_binary(file_path) do
+    bucket = Encrypted.Session.memories_bucket()
+
+    Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
+      case ExAws.S3.delete_object(bucket, file_path) |> ExAws.request() do
+        {:ok, _resp} -> {:ok, :deleted}
+        {:error, reason} -> {:error, reason}
+      end
+    end)
+  end
+
+  def delete_from_storage(nil), do: :ok
+
   defp calculate_adaptive_quality(image) do
     width = Image.width(image)
     height = Image.height(image)

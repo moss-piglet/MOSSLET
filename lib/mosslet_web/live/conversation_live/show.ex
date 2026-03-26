@@ -88,25 +88,26 @@ defmodule MossletWeb.ConversationLive.Show do
             class="flex-1 overflow-y-auto min-h-0 px-4 sm:px-6 py-4 space-y-1"
             phx-hook="ConversationScroll"
           >
-            <div class="max-w-4xl mx-auto">
-              <div
-                :if={@messages == []}
-                class="flex flex-col items-center justify-center h-full text-center py-12"
-              >
-                <div class="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30 mb-4">
-                  <.phx_icon name="hero-lock-closed" class="size-7 text-teal-600 dark:text-teal-400" />
-                </div>
-                <p class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Start your encrypted conversation
-                </p>
-                <p class="text-xs text-slate-500 dark:text-slate-400 max-w-xs">
-                  Messages are encrypted end-to-end. Only you and {@partner_name} can read them.
-                </p>
+            <div
+              :if={@messages_empty?}
+              id="messages-empty-state"
+              class="flex flex-col items-center justify-center h-full text-center py-12"
+            >
+              <div class="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30 mb-4">
+                <.phx_icon name="hero-lock-closed" class="size-7 text-teal-600 dark:text-teal-400" />
               </div>
+              <p class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Start your encrypted conversation
+              </p>
+              <p class="text-xs text-slate-500 dark:text-slate-400 max-w-xs">
+                Messages are encrypted end-to-end. Only you and {@partner_name} can read them.
+              </p>
+            </div>
 
+            <div class="max-w-4xl mx-auto" id="messages-stream" phx-update="stream">
               <div
-                :for={message <- @messages}
-                id={"msg-#{message.id}"}
+                :for={{dom_id, message} <- @streams.messages}
+                id={dom_id}
                 class={[
                   "group/msg flex mb-2",
                   if(message.sender_id == @current_scope.user.id,
@@ -137,6 +138,8 @@ defmodule MossletWeb.ConversationLive.Show do
                       phx-hook="DecryptMessage"
                       data-encrypted-content={encode_message_content(message.content)}
                       data-conversation-key={@conversation_key_encrypted}
+                      data-has-image={to_string(message.image_url != nil)}
+                      data-message-id={message.id}
                       class={[
                         "prose prose-sm max-w-none prose-p:my-0.5 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-pre:my-1.5 break-words",
                         if(message.sender_id == @current_scope.user.id,
@@ -196,9 +199,87 @@ defmodule MossletWeb.ConversationLive.Show do
               data-user-public-key={@current_scope.user.key_pair["public"]}
               data-session-key={@current_scope.key}
               data-encrypted-private-key={@current_scope.user.key_pair["private"]}
+              phx-drop-target={@uploads.photo.ref}
               class="max-w-4xl mx-auto"
             >
-              <.form for={@form} id="message-form">
+              <.form
+                for={@form}
+                id="message-form"
+                phx-change="validate_upload"
+                phx-submit="send_message_noop"
+              >
+                <div
+                  :if={@completed_upload || uploading_photo?(@uploads.photo)}
+                  id="conversation-photo-preview"
+                  data-photo-ready={to_string(@completed_upload != nil)}
+                  class="mb-2 p-2 rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-slate-50/60 dark:bg-slate-900/40"
+                >
+                  <%= cond do %>
+                    <% @completed_upload && @completed_upload[:preview_data_url] -> %>
+                      <div class="relative inline-block">
+                        <img
+                          src={@completed_upload.preview_data_url}
+                          alt="Photo preview"
+                          class="h-20 w-20 object-cover rounded-lg"
+                        />
+                        <div class="absolute -top-1 -left-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg">
+                          <.phx_icon name="hero-check" class="h-3 w-3 text-white" />
+                        </div>
+                        <button
+                          type="button"
+                          phx-click="remove_completed_photo"
+                          class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-colors"
+                        >
+                          <.phx_icon name="hero-x-mark" class="h-3 w-3" />
+                        </button>
+                      </div>
+                    <% upload_error?(@uploads.photo) -> %>
+                      <div class="flex items-center gap-2 text-xs text-red-500">
+                        <.phx_icon name="hero-exclamation-circle" class="h-4 w-4" />
+                        <span>{upload_error_message(@uploads.photo)}</span>
+                        <%= for entry <- @uploads.photo.entries do %>
+                          <button
+                            type="button"
+                            phx-click="cancel_photo"
+                            phx-value-ref={entry.ref}
+                            class="ml-auto text-red-400 hover:text-red-600"
+                          >
+                            <.phx_icon name="hero-x-mark" class="h-4 w-4" />
+                          </button>
+                        <% end %>
+                      </div>
+                    <% uploading_photo?(@uploads.photo) -> %>
+                      <div class="flex items-center gap-3">
+                        <div class="h-20 w-20 rounded-lg bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+                          <div class="w-5 h-5 rounded-full border-2 border-emerald-500/30 border-t-emerald-500 animate-spin">
+                          </div>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <div class="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                            {upload_stage_label(@upload_stage)}
+                          </div>
+                          <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
+                            <div
+                              class="bg-emerald-500 h-1.5 rounded-full transition-all duration-300"
+                              style={"width: #{upload_stage_percent(@upload_stage)}%"}
+                            >
+                            </div>
+                          </div>
+                        </div>
+                        <%= for entry <- @uploads.photo.entries do %>
+                          <button
+                            type="button"
+                            phx-click="cancel_photo"
+                            phx-value-ref={entry.ref}
+                            class="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                          >
+                            <.phx_icon name="hero-x-mark" class="h-4 w-4" />
+                          </button>
+                        <% end %>
+                      </div>
+                    <% true -> %>
+                  <% end %>
+                </div>
                 <div class="relative">
                   <textarea
                     id="message-input"
@@ -219,18 +300,26 @@ defmodule MossletWeb.ConversationLive.Show do
                     phx-hook="AutoResize"
                   ></textarea>
                   <div class="absolute right-2 bottom-2 flex items-center gap-1 z-[2]">
-                    <button
-                      type="button"
+                    <.live_file_input upload={@uploads.photo} class="hidden" />
+                    <label
+                      for={@uploads.photo.ref}
                       id="conversation-image-upload-button"
-                      phx-click="image_upload_placeholder"
-                      class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out group"
-                      title="Attach image (coming soon)"
+                      class={[
+                        "p-2 rounded-lg cursor-pointer transition-all duration-200 ease-out group",
+                        if(@completed_upload,
+                          do:
+                            "text-emerald-500 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-900/20",
+                          else:
+                            "text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20"
+                        )
+                      ]}
+                      title="Attach photo"
                     >
                       <.phx_icon
                         name="hero-photo"
                         class="h-4 w-4 transition-transform duration-200 group-hover:scale-110"
                       />
-                    </button>
+                    </label>
                     <button
                       type="button"
                       id="conversation-emoji-button"
@@ -329,7 +418,7 @@ defmodule MossletWeb.ConversationLive.Show do
     """
   end
 
-  def mount(%{"id" => conversation_id}, _session, socket) do
+  def mount(%{"id" => conversation_id}, session, socket) do
     current_user = socket.assigns.current_scope.user
     key = socket.assigns.current_scope.key
 
@@ -386,15 +475,45 @@ defmodule MossletWeb.ConversationLive.Show do
        |> assign(:partner_user_id, partner_user_id)
        |> assign(:is_blocked, is_blocked)
        |> assign(:blocked_by_me, blocked_by_me)
-       |> assign(:messages, messages)
+       |> assign(:messages_empty?, messages == [])
+       |> stream(:messages, messages)
        |> assign(:conversation_key_encrypted, conversation_key_encrypted)
        |> assign(:show_markdown_guide, false)
        |> assign(:show_delete_message_confirm, false)
        |> assign(:delete_message_id, nil)
        |> assign(:show_block_modal, false)
        |> assign(:blocked_user_id, partner_user_id)
-       |> assign(:form, to_form(%{}, as: :message))}
+       |> assign(:form, to_form(%{}, as: :message))
+       |> assign(:upload_stage, nil)
+       |> assign(:completed_upload, nil)
+       |> assign(:user_token, session["user_token"])
+       |> allow_upload(:photo,
+         accept: ~w(.gif .jpg .jpeg .png .webp .heic .heif),
+         max_entries: 1,
+         max_file_size: 10_000_000,
+         auto_upload: true,
+         progress: &handle_upload_progress/3,
+         writer: fn _name, entry, socket ->
+           {Mosslet.FileUploads.ImageUploadWriter,
+            %{
+              lv_pid: self(),
+              entry_ref: entry.ref,
+              user_token: socket.assigns.user_token,
+              key: socket.assigns.current_scope.key,
+              visibility: "connections",
+              expected_size: entry.client_size
+            }}
+         end
+       )}
     end
+  end
+
+  def terminate(_reason, socket) do
+    if upload = socket.assigns[:completed_upload] do
+      if upload[:temp_path], do: cleanup_temp_file(upload.temp_path)
+    end
+
+    :ok
   end
 
   def handle_event("send_message", %{"encrypted_content" => encrypted_content}, socket) do
@@ -404,10 +523,14 @@ defmodule MossletWeb.ConversationLive.Show do
     if socket.assigns.is_blocked do
       {:noreply, put_flash(socket, :error, "Cannot send messages in a blocked conversation")}
     else
+      {image_url, image_key} = maybe_upload_photo(socket)
+
       attrs = %{
         content: Base.decode64!(encrypted_content),
         conversation_id: conversation.id,
-        sender_id: current_user.id
+        sender_id: current_user.id,
+        image_url: image_url,
+        image_key: image_key
       }
 
       case Conversations.create_message(attrs) do
@@ -419,7 +542,10 @@ defmodule MossletWeb.ConversationLive.Show do
             Conversations.broadcast_conversation_updated(uc.user_id, conversation.id)
           end)
 
-          {:noreply, socket}
+          {:noreply,
+           socket
+           |> assign(:completed_upload, nil)
+           |> assign(:upload_stage, nil)}
 
         {:error, _changeset} ->
           {:noreply, put_flash(socket, :error, "Failed to send message")}
@@ -428,6 +554,14 @@ defmodule MossletWeb.ConversationLive.Show do
   end
 
   def handle_event("send_message", _params, socket) do
+    {:noreply, socket}
+  end
+
+  def handle_event("send_message_noop", _params, socket) do
+    {:noreply, socket}
+  end
+
+  def handle_event("validate_upload", _params, socket) do
     {:noreply, socket}
   end
 
@@ -447,7 +581,7 @@ defmodule MossletWeb.ConversationLive.Show do
 
   def handle_event("delete_message", %{"id" => message_id}, socket) do
     current_user = socket.assigns.current_scope.user
-    message = Enum.find(socket.assigns.messages, &(&1.id == message_id))
+    message = Conversations.get_message(message_id)
 
     cond do
       is_nil(message) ->
@@ -459,12 +593,15 @@ defmodule MossletWeb.ConversationLive.Show do
       true ->
         case Conversations.delete_message(message) do
           {:ok, deleted} ->
+            if message.image_url do
+              Mosslet.FileUploads.ImageUploadWriter.delete_from_storage(message.image_url)
+            end
+
             Conversations.broadcast_message_deleted(socket.assigns.conversation.id, deleted)
-            messages = Enum.reject(socket.assigns.messages, &(&1.id == message_id))
 
             {:noreply,
              socket
-             |> assign(:messages, messages)
+             |> stream_delete(:messages, deleted)
              |> assign(:show_delete_message_confirm, false)
              |> assign(:delete_message_id, nil)
              |> put_flash(:info, "Message deleted")}
@@ -491,8 +628,70 @@ defmodule MossletWeb.ConversationLive.Show do
     {:noreply, assign(socket, :show_markdown_guide, false)}
   end
 
-  def handle_event("image_upload_placeholder", _params, socket) do
-    {:noreply, put_flash(socket, :info, "Encrypted image sharing is coming soon!")}
+  def handle_event("cancel_photo", %{"ref" => ref}, socket) do
+    {:noreply,
+     socket
+     |> cancel_upload(:photo, ref)
+     |> assign(:upload_stage, nil)
+     |> assign(:completed_upload, nil)}
+  end
+
+  def handle_event("remove_completed_photo", _params, socket) do
+    if upload = socket.assigns.completed_upload do
+      if upload[:temp_path], do: cleanup_temp_file(upload.temp_path)
+    end
+
+    {:noreply,
+     socket
+     |> assign(:completed_upload, nil)
+     |> assign(:upload_stage, nil)}
+  end
+
+  def handle_event("decrypt_message_image", %{"message_id" => message_id}, socket) do
+    message = Conversations.get_message(message_id)
+
+    if message && message.image_url && message.image_key do
+      case fetch_and_decrypt_image(message.image_url, message.image_key) do
+        {:ok, data_url} ->
+          {:reply, %{image_data_url: data_url}, socket}
+
+        {:error, _reason} ->
+          {:reply, %{error: "Failed to load image"}, socket}
+      end
+    else
+      {:reply, %{error: "No image"}, socket}
+    end
+  end
+
+  def handle_info(
+        {:upload_ready, entry_ref, %{processed_binary: binary, trix_key: trix_key} = upload_data},
+        socket
+      ) do
+    entry = Enum.find(socket.assigns.uploads.photo.entries, &(&1.ref == entry_ref))
+    temp_path = write_upload_to_temp_file(binary, entry_ref)
+    preview_data_url = generate_thumbnail_preview(binary)
+
+    completed_upload = %{
+      ref: entry_ref,
+      client_name: (entry && entry.client_name) || "photo",
+      temp_path: temp_path,
+      trix_key: trix_key,
+      preview_data_url: preview_data_url,
+      ai_generated: Map.get(upload_data, :ai_generated, false)
+    }
+
+    {:noreply,
+     socket
+     |> assign(:upload_stage, {:ready, nil})
+     |> assign(:completed_upload, completed_upload)}
+  end
+
+  def handle_info({:upload_progress, _entry_ref, stage, value}, socket) do
+    {:noreply, assign(socket, :upload_stage, {stage, value})}
+  end
+
+  def handle_info({:upload_trix_key, _entry_ref, _trix_key}, socket) do
+    {:noreply, socket}
   end
 
   def handle_info({:submit_block, block_params}, socket) do
@@ -512,7 +711,8 @@ defmodule MossletWeb.ConversationLive.Show do
          |> assign(:show_block_modal, false)
          |> assign(:is_blocked, true)
          |> assign(:blocked_by_me, true)
-         |> assign(:messages, [])
+         |> assign(:messages_empty?, true)
+         |> stream(:messages, [], reset: true)
          |> put_flash(:info, "User has been blocked")}
 
       {:error, _changeset} ->
@@ -532,7 +732,8 @@ defmodule MossletWeb.ConversationLive.Show do
 
       socket =
         socket
-        |> assign(:messages, socket.assigns.messages ++ [message])
+        |> assign(:messages_empty?, false)
+        |> stream_insert(:messages, message)
         |> push_event("new-message", %{id: message.id})
 
       if message.sender_id != current_user.id do
@@ -544,17 +745,11 @@ defmodule MossletWeb.ConversationLive.Show do
   end
 
   def handle_info({:message_updated, message}, socket) do
-    messages =
-      Enum.map(socket.assigns.messages, fn m ->
-        if m.id == message.id, do: message, else: m
-      end)
-
-    {:noreply, assign(socket, :messages, messages)}
+    {:noreply, stream_insert(socket, :messages, message)}
   end
 
   def handle_info({:message_deleted, message}, socket) do
-    messages = Enum.reject(socket.assigns.messages, &(&1.id == message.id))
-    {:noreply, assign(socket, :messages, messages)}
+    {:noreply, stream_delete(socket, :messages, message)}
   end
 
   def handle_info({event, _block}, socket)
@@ -570,7 +765,8 @@ defmodule MossletWeb.ConversationLive.Show do
      socket
      |> assign(:is_blocked, is_blocked)
      |> assign(:blocked_by_me, blocked_by_me)
-     |> assign(:messages, messages)}
+     |> assign(:messages_empty?, messages == [])
+     |> stream(:messages, messages, reset: true)}
   end
 
   def handle_info(_msg, socket) do
@@ -584,13 +780,24 @@ defmodule MossletWeb.ConversationLive.Show do
   defp encode_message_content(_), do: ""
 
   defp find_my_user_connection(conversation, current_user) do
-    connection_id = conversation.user_connection.connection_id
+    partner_user_id =
+      conversation.user_conversations
+      |> Enum.find(fn uc -> uc.user_id != current_user.id end)
+      |> case do
+        nil -> nil
+        uc -> uc.user_id
+      end
 
-    from(uc in Mosslet.Accounts.UserConnection,
-      where: uc.user_id == ^current_user.id and uc.connection_id == ^connection_id,
-      preload: [:connection]
-    )
-    |> Mosslet.Repo.one()
+    if partner_user_id do
+      from(uc in Mosslet.Accounts.UserConnection,
+        where: uc.user_id == ^current_user.id and uc.reverse_user_id == ^partner_user_id,
+        where: not is_nil(uc.confirmed_at),
+        preload: [:connection]
+      )
+      |> Mosslet.Repo.one()
+    else
+      nil
+    end
   end
 
   defp get_partner_user_id(conversation, current_user_id) do
@@ -617,4 +824,140 @@ defmodule MossletWeb.ConversationLive.Show do
   end
 
   defp check_block_status(_current_user, _partner_user_id), do: {false, false}
+
+  defp handle_upload_progress(:photo, entry, socket) do
+    if entry.done? do
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp maybe_upload_photo(socket) do
+    case socket.assigns.completed_upload do
+      nil ->
+        {nil, nil}
+
+      upload ->
+        binary = File.read!(upload.temp_path)
+        trix_key = upload.trix_key
+
+        case Mosslet.FileUploads.ImageUploadWriter.upload_to_storage(binary, trix_key) do
+          {:ok, file_path} ->
+            cleanup_temp_file(upload.temp_path)
+            {file_path, trix_key}
+
+          {:error, reason} ->
+            require Logger
+            Logger.error("Failed to upload conversation photo: #{inspect(reason)}")
+            {nil, nil}
+        end
+    end
+  end
+
+  defp fetch_and_decrypt_image(image_url, image_key) do
+    bucket = Mosslet.Encrypted.Session.memories_bucket()
+
+    case ExAws.S3.get_object(bucket, image_url) |> ExAws.request() do
+      {:ok, %{body: encrypted_binary}} ->
+        case Mosslet.Encrypted.Utils.decrypt(%{key: image_key, payload: encrypted_binary}) do
+          {:ok, decrypted} ->
+            {:ok, "data:image/webp;base64,#{Base.encode64(decrypted)}"}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp write_upload_to_temp_file(binary, entry_ref) do
+    temp_path =
+      Mosslet.FileUploads.TempStorage.temp_path("conversation_uploads", entry_ref) <> ".webp"
+
+    File.write!(temp_path, binary)
+    temp_path
+  end
+
+  defp generate_thumbnail_preview(binary) do
+    case Image.from_binary(binary, pages: :all) do
+      {:ok, image} ->
+        is_animated = Image.pages(image) > 1
+
+        thumb_result =
+          if is_animated do
+            Image.map_join_pages(image, fn page ->
+              Image.thumbnail(page, "400x400", crop: :attention)
+            end)
+          else
+            Image.thumbnail(image, "400x400", crop: :attention)
+          end
+
+        case thumb_result do
+          {:ok, thumb} ->
+            write_opts =
+              if is_animated,
+                do: [suffix: ".webp", webp: [quality: 75, minimize_file_size: true]],
+                else: [suffix: ".webp", webp: [quality: 75]]
+
+            case Image.write(thumb, :memory, write_opts) do
+              {:ok, thumb_binary} ->
+                "data:image/webp;base64,#{Base.encode64(thumb_binary)}"
+
+              _ ->
+                nil
+            end
+
+          _ ->
+            nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp cleanup_temp_file(nil), do: :ok
+
+  defp cleanup_temp_file(path) do
+    File.rm(path)
+    :ok
+  end
+
+  defp uploading_photo?(upload) do
+    upload.entries != [] and not Enum.all?(upload.entries, & &1.done?)
+  end
+
+  defp upload_error?(upload) do
+    Enum.any?(upload.entries, fn entry -> entry.cancelled? || !entry.valid? end) ||
+      upload.errors != []
+  end
+
+  defp upload_error_message(upload) do
+    upload_error = List.first(upload.errors)
+
+    case upload_error do
+      {_ref, :too_large} -> "File too large (max 10MB)"
+      {_ref, :not_accepted} -> "File type not supported"
+      {_ref, :too_many_files} -> "Only 1 photo allowed"
+      _ -> "Upload failed"
+    end
+  end
+
+  defp upload_stage_label(nil), do: "Preparing..."
+  defp upload_stage_label({:receiving, _}), do: "Uploading..."
+  defp upload_stage_label({:validating, _}), do: "Checking safety..."
+  defp upload_stage_label({:processing, _}), do: "Processing..."
+  defp upload_stage_label({:ready, _}), do: "Ready"
+  defp upload_stage_label({:error, _}), do: "Error"
+  defp upload_stage_label(_), do: "Processing..."
+
+  defp upload_stage_percent(nil), do: 5
+  defp upload_stage_percent({:receiving, val}) when is_integer(val), do: val
+  defp upload_stage_percent({:validating, _}), do: 45
+  defp upload_stage_percent({:processing, val}) when is_integer(val), do: val
+  defp upload_stage_percent({:ready, _}), do: 100
+  defp upload_stage_percent(_), do: 10
 end

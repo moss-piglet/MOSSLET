@@ -31,6 +31,8 @@ defmodule Mosslet.Conversations.Adapter do
   @callback get_user_conversation(conversation_id :: binary(), user_id :: binary()) ::
               UserConversation.t() | nil
 
+  @callback get_message(id :: binary()) :: Message.t() | nil
+
   @callback list_messages(conversation_id :: binary(), opts :: keyword()) :: [Message.t()]
 
   @callback create_message(attrs :: map()) ::

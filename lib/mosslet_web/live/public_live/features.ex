@@ -1839,6 +1839,167 @@ defmodule MossletWeb.PublicLive.Features do
             </div>
           </.liquid_container>
 
+          <%!-- Zero-Knowledge Direct Messaging Section --%>
+          <.liquid_container
+            max_width="full"
+            class="relative mt-24 sm:mt-32 py-16 sm:py-20"
+            id="encrypted-messaging"
+          >
+            <div class="absolute inset-0 bg-gradient-to-b from-cyan-50/30 via-teal-50/20 to-transparent dark:from-cyan-950/20 dark:via-teal-950/10 dark:to-transparent">
+            </div>
+            <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
+              <div class="flex items-center justify-center gap-3 mb-4">
+                <div class="h-px w-12 bg-gradient-to-r from-transparent to-cyan-400 dark:to-cyan-600">
+                </div>
+                <span class="text-sm font-semibold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
+                  Messaging
+                </span>
+                <div class="h-px w-12 bg-gradient-to-l from-transparent to-cyan-400 dark:to-cyan-600">
+                </div>
+              </div>
+              <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">
+                  Zero-knowledge direct messages
+                </h2>
+                <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+                  Private conversations that are truly private. Every message is end-to-end encrypted before it leaves your device — we store only encrypted blobs and never have access to your plaintext.
+                </p>
+              </div>
+
+              <div class="max-w-4xl mx-auto mb-12">
+                <.liquid_card
+                  padding="lg"
+                  class="bg-gradient-to-br from-cyan-50/40 via-teal-50/30 to-emerald-50/40 dark:from-cyan-900/15 dark:via-teal-900/10 dark:to-emerald-900/15 border-cyan-200/60 dark:border-cyan-700/30"
+                >
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                      <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-teal-500 shadow-lg">
+                          <.phx_icon name="hero-lock-closed" class="h-5 w-5 text-white" />
+                        </div>
+                        How It Works
+                      </h3>
+                      <ul class="space-y-3 text-sm text-slate-600 dark:text-slate-400">
+                        <li class="flex items-start gap-2">
+                          <.phx_icon name="hero-check" class="h-4 w-4 text-cyan-500 shrink-0 mt-0.5" />
+                          <span>
+                            Each conversation generates a unique symmetric key (XSalsa20-Poly1305)
+                          </span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                          <.phx_icon name="hero-check" class="h-4 w-4 text-cyan-500 shrink-0 mt-0.5" />
+                          <span>
+                            Your conversation key is encrypted with your public key and stored securely
+                          </span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                          <.phx_icon name="hero-check" class="h-4 w-4 text-cyan-500 shrink-0 mt-0.5" />
+                          <span>Messages are encrypted client-side before reaching our servers</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                          <.phx_icon name="hero-check" class="h-4 w-4 text-cyan-500 shrink-0 mt-0.5" />
+                          <span>
+                            Only participants with the conversation key can decrypt messages
+                          </span>
+                        </li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 shadow-lg">
+                          <.phx_icon name="hero-eye-slash" class="h-5 w-5 text-white" />
+                        </div>
+                        What We Can't See
+                      </h3>
+                      <ul class="space-y-3 text-sm text-slate-600 dark:text-slate-400">
+                        <li class="flex items-start gap-2">
+                          <.phx_icon name="hero-x-mark" class="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+                          <span>Message content — we only store encrypted blobs</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                          <.phx_icon name="hero-x-mark" class="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+                          <span>Shared images — encrypted with the same conversation key</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                          <.phx_icon name="hero-x-mark" class="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+                          <span>
+                            Conversation keys — encrypted per-user with public key cryptography
+                          </span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                          <.phx_icon name="hero-x-mark" class="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+                          <span>Your private keys — derived from your password, never stored</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </.liquid_card>
+              </div>
+
+              <div class="grid grid-cols-1 gap-8 md:grid-cols-3 max-w-5xl mx-auto">
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-cyan-500 to-teal-500 shadow-lg">
+                        <.phx_icon name="hero-chat-bubble-left-right" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Real-Time Messaging
+                      </span>
+                    </div>
+                  </:title>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Messages arrive instantly via WebSocket connections. Typing indicators, read receipts, and unread counts keep you connected — all without compromising encryption.
+                  </p>
+                </.liquid_card>
+
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-teal-500 to-emerald-500 shadow-lg">
+                        <.phx_icon name="hero-photo" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Encrypted Image Sharing
+                      </span>
+                    </div>
+                  </:title>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Share photos in your conversations with the same end-to-end encryption protecting every pixel. Images are encrypted with the conversation key before upload.
+                  </p>
+                </.liquid_card>
+
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-emerald-500 to-green-500 shadow-lg">
+                        <.phx_icon name="hero-pencil-square" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Edit, Delete & Archive
+                      </span>
+                    </div>
+                  </:title>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Full control over your conversations. Edit or delete messages, archive conversations to keep things tidy, and everything syncs in real-time across all participants.
+                  </p>
+                </.liquid_card>
+              </div>
+            </div>
+          </.liquid_container>
+
           <%!-- Features Section --%>
           <.liquid_container max_width="full" class="mt-24">
             <div class="text-center mb-16">
@@ -2191,9 +2352,9 @@ defmodule MossletWeb.PublicLive.Features do
                 </:title>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div>
-                    <h4 class="font-semibold text-slate-900 dark:text-slate-100 mb-3">
+                    <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 mb-3">
                       For Private & Connections Posts
-                    </h4>
+                    </h3>
                     <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-3">
                       Your posts are encrypted with your personal key pair. Only you (and people you explicitly share with) can decrypt them — not Mosslet, not Bluesky, not anyone.
                     </p>
@@ -2202,9 +2363,9 @@ defmodule MossletWeb.PublicLive.Features do
                     </p>
                   </div>
                   <div>
-                    <h4 class="font-semibold text-slate-900 dark:text-slate-100 mb-3">
+                    <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 mb-3">
                       The Result: No Lock-In, Anywhere
-                    </h4>
+                    </h3>
                     <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-400">
                       <li class="flex items-start gap-2">
                         <.phx_icon name="hero-check" class="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />

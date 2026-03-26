@@ -47,6 +47,8 @@ defmodule Mosslet.Conversations do
     adapter().get_user_conversation(conversation_id, user_id)
   end
 
+  def get_message(id), do: adapter().get_message(id)
+
   def list_messages(conversation_id, opts \\ []) do
     adapter().list_messages(conversation_id, opts)
   end

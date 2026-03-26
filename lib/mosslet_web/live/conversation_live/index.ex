@@ -474,8 +474,14 @@ defmodule MossletWeb.ConversationLive.Index do
     uc = Conversations.get_user_conversation(id, current_user.id)
 
     if uc do
+      image_urls =
+        Conversations.list_messages(id, limit: 10_000)
+        |> Enum.filter(& &1.image_url)
+        |> Enum.map(& &1.image_url)
+
       case Conversations.delete_conversation(conversation) do
         {:ok, _} ->
+          Enum.each(image_urls, &Mosslet.FileUploads.ImageUploadWriter.delete_from_storage/1)
           conversations = Conversations.list_conversations(current_user)
 
           {:noreply,

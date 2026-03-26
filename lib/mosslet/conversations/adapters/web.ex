@@ -62,26 +62,38 @@ defmodule Mosslet.Conversations.Adapters.Web do
         |> Map.new(&{&1.conversation_id, &1})
       end
 
-    connection_ids =
+    partner_user_ids =
       user_conversations
-      |> Enum.map(& &1.conversation.user_connection.connection_id)
+      |> Enum.flat_map(fn uc ->
+        uc.conversation.user_conversations
+        |> Enum.filter(fn partner_uc -> partner_uc.user_id != user.id end)
+        |> Enum.map(& &1.user_id)
+      end)
       |> Enum.uniq()
 
     user_connections_map =
-      if connection_ids == [] do
+      if partner_user_ids == [] do
         %{}
       else
         from(uc in Mosslet.Accounts.UserConnection,
-          where: uc.user_id == ^user.id and uc.connection_id in ^connection_ids,
+          where: uc.user_id == ^user.id and uc.reverse_user_id in ^partner_user_ids,
+          where: not is_nil(uc.confirmed_at),
           preload: [:connection]
         )
         |> Repo.all()
-        |> Map.new(&{&1.connection_id, &1})
+        |> Map.new(&{&1.reverse_user_id, &1})
       end
 
     Enum.map(user_conversations, fn uc ->
-      conn_id = uc.conversation.user_connection.connection_id
-      user_conn = Map.get(user_connections_map, conn_id)
+      partner_user_id =
+        uc.conversation.user_conversations
+        |> Enum.find(fn partner_uc -> partner_uc.user_id != user.id end)
+        |> case do
+          nil -> nil
+          partner_uc -> partner_uc.user_id
+        end
+
+      user_conn = Map.get(user_connections_map, partner_user_id)
 
       %{
         user_conversation: uc,
@@ -179,6 +191,11 @@ defmodule Mosslet.Conversations.Adapters.Web do
   end
 
   @impl true
+  def get_message(id) do
+    Repo.get(Message, id)
+  end
+
+  @impl true
   def list_messages(conversation_id, opts) do
     limit = Keyword.get(opts, :limit, 50)
     before = Keyword.get(opts, :before)
@@ -210,6 +227,7 @@ defmodule Mosslet.Conversations.Adapters.Web do
            |> Message.changeset(attrs)
            |> Ecto.Changeset.put_change(:conversation_id, attrs.conversation_id)
            |> Ecto.Changeset.put_change(:sender_id, attrs.sender_id)
+           |> maybe_put_image_fields(attrs)
            |> Repo.insert()
          end) do
       {:ok, {:ok, message}} ->
@@ -342,4 +360,13 @@ defmodule Mosslet.Conversations.Adapters.Web do
     )
     |> Repo.one() || 0
   end
+
+  defp maybe_put_image_fields(changeset, %{image_url: url, image_key: key})
+       when is_binary(url) and is_binary(key) do
+    changeset
+    |> Ecto.Changeset.put_change(:image_url, url)
+    |> Ecto.Changeset.put_change(:image_key, key)
+  end
+
+  defp maybe_put_image_fields(changeset, _attrs), do: changeset
 end
