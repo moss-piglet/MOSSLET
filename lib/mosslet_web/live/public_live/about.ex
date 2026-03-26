@@ -373,6 +373,15 @@ defmodule MossletWeb.PublicLive.About do
             </div>
             <div class="mx-auto mt-16 grid max-w-2xl auto-rows-fr grid-cols-1 gap-8 sm:mt-20 lg:mx-0 lg:max-w-none lg:grid-cols-3">
               <.article_preview
+                id="blogPostMNCWE2EE"
+                img_source={~p"/images/blog/mar_26_2026_e2ee.jpg"}
+                date="March 26, 2026"
+                title="End-to-End Encrypted Messaging"
+                author_mark?={true}
+                author_isabella?={false}
+                link={~p"/blog/articles/15"}
+              />
+              <.article_preview
                 id="blogPostMNCWBSKY"
                 img_source={~p"/images/blog/jan_25_2026_bsky.jpg"}
                 date="January 25, 2026"

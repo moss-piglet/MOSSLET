@@ -29,6 +29,13 @@ defmodule MossletWeb.PublicLive.Blog.Index do
             <%!-- Blog entries --%>
             <div class="space-y-8">
               <.blog_entry
+                id="blog_15"
+                date="March 26, 2026"
+                title="True Zero-Knowledge Messaging Is Here"
+                preview="MOSSLET now has end-to-end encrypted messaging. Every message is encrypted on your device before it ever leaves — we literally can't read what you write. While Big Tech removes encryption from their DMs, we built Conversations with true zero-knowledge architecture and image safety checks that protect without surveillance."
+                link={~p"/blog/articles/15"}
+              />
+              <.blog_entry
                 id="blog_14"
                 date="January 25, 2026"
                 title="MOSSLET Now Connects With Bluesky"

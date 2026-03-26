@@ -8,6 +8,14 @@ defmodule MossletWeb.FeedController do
 
   @blog_entries [
     %{
+      id: "15",
+      date: "March 26, 2026",
+      title: "True Zero-Knowledge Messaging Is Here",
+      preview:
+        "MOSSLET now has end-to-end encrypted messaging. Every message is encrypted on your device before it ever leaves — we literally can't read what you write. While Big Tech removes encryption from their DMs, we built Conversations with true zero-knowledge architecture and image safety checks that protect without surveillance.",
+      path: "/blog/articles/15"
+    },
+    %{
       id: "14",
       date: "January 25, 2026",
       title: "MOSSLET Now Connects With Bluesky",

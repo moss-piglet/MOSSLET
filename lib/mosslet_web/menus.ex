@@ -63,9 +63,9 @@ defmodule MossletWeb.Menus do
           [
             :home,
             :journal,
-            :conversations,
-            :connections,
             :circles,
+            :connections,
+            :conversations,
             :timeline,
             :settings,
             :subscribe
@@ -79,9 +79,9 @@ defmodule MossletWeb.Menus do
           [
             :dashboard,
             :journal,
-            :conversations,
-            :connections,
             :circles,
+            :connections,
+            :conversations,
             :timeline,
             :settings,
             :subscribe
