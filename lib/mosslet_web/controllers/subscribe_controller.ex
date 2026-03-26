@@ -64,6 +64,11 @@ defmodule MossletWeb.SubscribeController do
          ) do
       {:ok, _customer, session} ->
         redirect(conn, external: billing_provider().checkout_url(session))
+
+      {:error, _reason} ->
+        conn
+        |> put_flash(:error, gettext("Unable to start checkout. Please try again later."))
+        |> redirect(to: ~p"/app/subscribe")
     end
   end
 

@@ -105,15 +105,69 @@ defmodule Mosslet.Conversations.Adapters.Web do
 
   @impl true
   def list_archived_conversations(user) do
-    from(uc in UserConversation,
-      where: uc.user_id == ^user.id and uc.archived == true,
-      join: c in assoc(uc, :conversation),
-      preload: [conversation: {c, [user_connection: [:connection]]}],
-      order_by: [desc: c.updated_at]
-    )
-    |> Repo.all()
-    |> Enum.map(fn uc ->
-      %{user_conversation: uc, last_message: nil}
+    user_conversations =
+      from(uc in UserConversation,
+        where: uc.user_id == ^user.id and uc.archived == true,
+        join: c in assoc(uc, :conversation),
+        preload: [conversation: {c, [user_connection: [:connection], user_conversations: []]}],
+        order_by: [desc: c.updated_at]
+      )
+      |> Repo.all()
+
+    partner_user_ids =
+      user_conversations
+      |> Enum.flat_map(fn uc ->
+        uc.conversation.user_conversations
+        |> Enum.filter(fn partner_uc -> partner_uc.user_id != user.id end)
+        |> Enum.map(& &1.user_id)
+      end)
+      |> Enum.uniq()
+
+    user_connections_map =
+      if partner_user_ids == [] do
+        %{}
+      else
+        from(uc in Mosslet.Accounts.UserConnection,
+          where: uc.user_id == ^user.id and uc.reverse_user_id in ^partner_user_ids,
+          where: not is_nil(uc.confirmed_at),
+          preload: [:connection]
+        )
+        |> Repo.all()
+        |> Map.new(&{&1.reverse_user_id, &1})
+      end
+
+    conversation_ids = Enum.map(user_conversations, & &1.conversation_id)
+
+    last_messages =
+      if conversation_ids == [] do
+        %{}
+      else
+        from(m in Message,
+          where: m.conversation_id in ^conversation_ids,
+          distinct: m.conversation_id,
+          order_by: [desc: m.inserted_at],
+          preload: [:sender]
+        )
+        |> Repo.all()
+        |> Map.new(&{&1.conversation_id, &1})
+      end
+
+    Enum.map(user_conversations, fn uc ->
+      partner_user_id =
+        uc.conversation.user_conversations
+        |> Enum.find(fn partner_uc -> partner_uc.user_id != user.id end)
+        |> case do
+          nil -> nil
+          partner_uc -> partner_uc.user_id
+        end
+
+      user_conn = Map.get(user_connections_map, partner_user_id)
+
+      %{
+        user_conversation: uc,
+        last_message: Map.get(last_messages, uc.conversation_id),
+        user_connection: user_conn
+      }
     end)
   end
 

@@ -79,26 +79,21 @@ defmodule MossletWeb.PublicLive.Pricing do
                       <h3 class="text-xl font-bold text-slate-900 dark:text-slate-100">
                         Share MOSSLET and earn real money
                       </h3>
-                      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-semibold">
-                        <.phx_icon name="hero-sparkles" class="w-3.5 h-3.5" /> Beta Bonus
-                      </span>
                     </div>
                     <p class="text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
-                      When's the last time your social network paid you? Lock in enhanced beta rates before they drop. Your friends save 20% too.
+                      When's the last time your social network paid you? Earn commissions when friends join. Your friends save 20% too.
                     </p>
                     <div class="flex flex-wrap items-center gap-4 text-sm">
                       <div class="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
                         <.phx_icon name="hero-arrow-path" class="h-4 w-4" />
                         <span>
-                          <span class="line-through text-slate-400 mr-1">15%</span>
-                          <span class="font-semibold">30%</span> recurring
+                          <span class="font-semibold">15%</span> recurring
                         </span>
                       </div>
                       <div class="flex items-center gap-2 text-amber-700 dark:text-amber-300">
                         <.phx_icon name="hero-bolt" class="h-4 w-4" />
                         <span>
-                          <span class="line-through text-slate-400 mr-1">20%</span>
-                          <span class="font-semibold">35%</span> lifetime
+                          <span class="font-semibold">20%</span> lifetime
                         </span>
                       </div>
                       <div class="flex items-center gap-2 text-slate-600 dark:text-slate-400">

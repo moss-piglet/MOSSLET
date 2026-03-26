@@ -1866,73 +1866,125 @@ defmodule MossletWeb.PublicLive.Features do
                 </p>
               </div>
 
-              <div class="max-w-4xl mx-auto mb-12">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12">
                 <.liquid_card
                   padding="lg"
-                  class="bg-gradient-to-br from-cyan-50/40 via-teal-50/30 to-emerald-50/40 dark:from-cyan-900/15 dark:via-teal-900/10 dark:to-emerald-900/15 border-cyan-200/60 dark:border-cyan-700/30"
+                  class="bg-gradient-to-br from-cyan-50/30 to-teal-50/20 dark:from-cyan-900/10 dark:to-teal-900/10 border-cyan-200/50 dark:border-cyan-700/25"
                 >
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                      <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-3">
-                        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-teal-500 shadow-lg">
-                          <.phx_icon name="hero-lock-closed" class="h-5 w-5 text-white" />
-                        </div>
+                  <:title>
+                    <div class="flex items-center gap-3">
+                      <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-teal-500 shadow-md">
+                        <.phx_icon name="hero-lock-closed" class="h-4.5 w-4.5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
                         How It Works
-                      </h3>
-                      <ul class="space-y-3 text-sm text-slate-600 dark:text-slate-400">
-                        <li class="flex items-start gap-2">
-                          <.phx_icon name="hero-check" class="h-4 w-4 text-cyan-500 shrink-0 mt-0.5" />
-                          <span>
-                            Each conversation generates a unique symmetric key (XSalsa20-Poly1305)
-                          </span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                          <.phx_icon name="hero-check" class="h-4 w-4 text-cyan-500 shrink-0 mt-0.5" />
-                          <span>
-                            Your conversation key is encrypted with your public key and stored securely
-                          </span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                          <.phx_icon name="hero-check" class="h-4 w-4 text-cyan-500 shrink-0 mt-0.5" />
-                          <span>Messages are encrypted client-side before reaching our servers</span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                          <.phx_icon name="hero-check" class="h-4 w-4 text-cyan-500 shrink-0 mt-0.5" />
-                          <span>
-                            Only participants with the conversation key can decrypt messages
-                          </span>
-                        </li>
-                      </ul>
+                      </span>
                     </div>
-                    <div>
-                      <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-3">
-                        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 shadow-lg">
-                          <.phx_icon name="hero-eye-slash" class="h-5 w-5 text-white" />
-                        </div>
+                  </:title>
+                  <ul class="space-y-2.5">
+                    <li class="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
+                      <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-900/40">
+                        <.phx_icon
+                          name="hero-check-mini"
+                          class="h-3 w-3 text-cyan-600 dark:text-cyan-400"
+                        />
+                      </span>
+                      Each conversation generates a unique symmetric key (XSalsa20-Poly1305)
+                    </li>
+                    <li class="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
+                      <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-900/40">
+                        <.phx_icon
+                          name="hero-check-mini"
+                          class="h-3 w-3 text-cyan-600 dark:text-cyan-400"
+                        />
+                      </span>
+                      Your conversation key is encrypted with your public key and stored securely
+                    </li>
+                    <li class="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
+                      <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-900/40">
+                        <.phx_icon
+                          name="hero-check-mini"
+                          class="h-3 w-3 text-cyan-600 dark:text-cyan-400"
+                        />
+                      </span>
+                      Messages are encrypted client-side before reaching our servers
+                    </li>
+                    <li class="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
+                      <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-900/40">
+                        <.phx_icon
+                          name="hero-check-mini"
+                          class="h-3 w-3 text-cyan-600 dark:text-cyan-400"
+                        />
+                      </span>
+                      Images are safety-checked using privacy-respecting methods before encryption
+                    </li>
+                    <li class="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
+                      <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-900/40">
+                        <.phx_icon
+                          name="hero-check-mini"
+                          class="h-3 w-3 text-cyan-600 dark:text-cyan-400"
+                        />
+                      </span>
+                      Only participants with the conversation key can decrypt messages
+                    </li>
+                  </ul>
+                </.liquid_card>
+
+                <.liquid_card
+                  padding="lg"
+                  class="bg-gradient-to-br from-slate-50/40 to-slate-100/30 dark:from-slate-800/40 dark:to-slate-900/30 border-slate-200/50 dark:border-slate-700/25"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3">
+                      <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-slate-500 to-slate-600 dark:from-slate-400 dark:to-slate-500 shadow-md">
+                        <.phx_icon
+                          name="hero-eye-slash"
+                          class="h-4.5 w-4.5 text-white dark:text-slate-900"
+                        />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
                         What We Can't See
-                      </h3>
-                      <ul class="space-y-3 text-sm text-slate-600 dark:text-slate-400">
-                        <li class="flex items-start gap-2">
-                          <.phx_icon name="hero-x-mark" class="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
-                          <span>Message content — we only store encrypted blobs</span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                          <.phx_icon name="hero-x-mark" class="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
-                          <span>Shared images — encrypted with the same conversation key</span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                          <.phx_icon name="hero-x-mark" class="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
-                          <span>
-                            Conversation keys — encrypted per-user with public key cryptography
-                          </span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                          <.phx_icon name="hero-x-mark" class="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
-                          <span>Your private keys — derived from your password, never stored</span>
-                        </li>
-                      </ul>
+                      </span>
                     </div>
-                  </div>
+                  </:title>
+                  <ul class="space-y-2.5">
+                    <li class="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
+                      <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-900/40">
+                        <.phx_icon
+                          name="hero-x-mark-mini"
+                          class="h-3 w-3 text-rose-500 dark:text-rose-400"
+                        />
+                      </span>
+                      Message content — we only store encrypted blobs
+                    </li>
+                    <li class="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
+                      <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-900/40">
+                        <.phx_icon
+                          name="hero-x-mark-mini"
+                          class="h-3 w-3 text-rose-500 dark:text-rose-400"
+                        />
+                      </span>
+                      Shared images — encrypted with the same conversation key
+                    </li>
+                    <li class="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
+                      <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-900/40">
+                        <.phx_icon
+                          name="hero-x-mark-mini"
+                          class="h-3 w-3 text-rose-500 dark:text-rose-400"
+                        />
+                      </span>
+                      Conversation keys — encrypted per-user with public key cryptography
+                    </li>
+                    <li class="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
+                      <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-900/40">
+                        <.phx_icon
+                          name="hero-x-mark-mini"
+                          class="h-3 w-3 text-rose-500 dark:text-rose-400"
+                        />
+                      </span>
+                      Your private keys — derived from your password, never stored
+                    </li>
+                  </ul>
                 </.liquid_card>
               </div>
 
@@ -1973,7 +2025,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </:title>
 
                   <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Share photos in your conversations with the same end-to-end encryption protecting every pixel. Images are encrypted with the conversation key before upload.
+                    Share photos in your conversations with the same end-to-end encryption protecting every pixel. Images are privately checked for safety before being encrypted with the conversation key and uploaded — we never store or view unencrypted content.
                   </p>
                 </.liquid_card>
 
@@ -1987,13 +2039,13 @@ defmodule MossletWeb.PublicLive.Features do
                         <.phx_icon name="hero-pencil-square" class="h-5 w-5 text-white" />
                       </div>
                       <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        Edit, Delete & Archive
+                        Block, Delete & Archive
                       </span>
                     </div>
                   </:title>
 
                   <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Full control over your conversations. Edit or delete messages, archive conversations to keep things tidy, and everything syncs in real-time across all participants.
+                    Full control over your conversations. Block or delete messages, archive conversations to keep things tidy, and everything syncs in real-time across all participants.
                   </p>
                 </.liquid_card>
               </div>
@@ -2440,13 +2492,13 @@ defmodule MossletWeb.PublicLive.Features do
                       <div class="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
                         <.phx_icon name="hero-arrow-path" class="h-4 w-4" />
                         <span>
-                          <span class="font-semibold">30%</span> recurring on subscriptions
+                          <span class="font-semibold">15%</span> recurring on subscriptions
                         </span>
                       </div>
                       <div class="flex items-center gap-2 text-amber-700 dark:text-amber-300">
                         <.phx_icon name="hero-bolt" class="h-4 w-4" />
                         <span>
-                          <span class="font-semibold">35%</span> on lifetime purchases
+                          <span class="font-semibold">20%</span> on lifetime purchases
                         </span>
                       </div>
                     </div>

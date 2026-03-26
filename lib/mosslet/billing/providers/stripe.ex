@@ -46,7 +46,7 @@ defmodule Mosslet.Billing.Providers.Stripe do
       {:error, error} ->
         Logger.error("Failed to create Stripe Customer")
         Logger.debug("Failed to create Stripe Customer: #{inspect(error)}")
-        raise "Failed to create Stripe Customer"
+        {:error, :stripe_customer_creation_failed}
     end
   end
 

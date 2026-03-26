@@ -357,7 +357,7 @@ defmodule MossletWeb.PublicLive.Updates do
                   </:description>
                   <:items>
                     <.changelog_item icon="hero-banknotes" color="emerald">
-                      Referral program — earn 30% recurring on subscriptions and 35% on lifetime purchases (beta rates)
+                      Referral program — earn 15% recurring on subscriptions and 20% on lifetime purchases
                     </.changelog_item>
                     <.changelog_item icon="hero-gift" color="amber">
                       Friend discount — your referrals get 20% off their first payment

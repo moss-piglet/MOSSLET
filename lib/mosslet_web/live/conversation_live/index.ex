@@ -47,8 +47,17 @@ defmodule MossletWeb.ConversationLive.Index do
               </button>
             </div>
 
+            <.liquid_tab_bar class="mb-6">
+              <:tab id="active" icon="hero-chat-bubble-left-right" active={@active_tab == "active"}>
+                Active
+              </:tab>
+              <:tab id="archived" icon="hero-archive-box" active={@active_tab == "archived"}>
+                Archived
+              </:tab>
+            </.liquid_tab_bar>
+
             <div
-              :if={@conversations == []}
+              :if={@active_tab == "active" && @conversations == []}
               class="text-center py-16"
             >
               <div class="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-700 mx-auto mb-4">
@@ -75,7 +84,11 @@ defmodule MossletWeb.ConversationLive.Index do
               </.liquid_button>
             </div>
 
-            <div :if={@conversations != []} id="conversations-list" class="space-y-1">
+            <div
+              :if={@active_tab == "active" && @conversations != []}
+              id="conversations-list"
+              class="space-y-1"
+            >
               <div
                 :for={conv <- @conversations}
                 id={"conversation-#{conv.user_conversation.conversation_id}"}
@@ -169,6 +182,15 @@ defmodule MossletWeb.ConversationLive.Index do
                 ]}>
                   <button
                     type="button"
+                    phx-click="archive_conversation"
+                    phx-value-id={conv.user_conversation.conversation_id}
+                    class="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all duration-200"
+                    title="Archive conversation"
+                  >
+                    <.phx_icon name="hero-archive-box" class="size-4" />
+                  </button>
+                  <button
+                    type="button"
                     phx-click="confirm_delete_conversation"
                     phx-value-id={conv.user_conversation.conversation_id}
                     phx-value-name={get_name(conv, @current_scope)}
@@ -186,6 +208,104 @@ defmodule MossletWeb.ConversationLive.Index do
                     title="Block user"
                   >
                     <.phx_icon name="hero-no-symbol" class="size-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div
+              :if={@active_tab == "archived" && @archived_conversations == []}
+              class="text-center py-16"
+            >
+              <div class="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-700 mx-auto mb-4">
+                <.phx_icon
+                  name="hero-archive-box"
+                  class="size-8 text-slate-400 dark:text-slate-500"
+                />
+              </div>
+              <h2 class="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">
+                No archived conversations
+              </h2>
+              <p class="text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                Archive conversations to keep your inbox tidy. They'll appear here whenever you need them.
+              </p>
+            </div>
+
+            <div
+              :if={@active_tab == "archived" && @archived_conversations != []}
+              id="archived-conversations-list"
+              class="space-y-1"
+            >
+              <div
+                :for={conv <- @archived_conversations}
+                id={"archived-conversation-#{conv.user_conversation.conversation_id}"}
+                class={[
+                  "group/conv flex items-center rounded-2xl",
+                  "transition-all duration-200 ease-out",
+                  "hover:bg-gradient-to-r hover:from-slate-50/50 hover:via-white/70 hover:to-slate-50/50",
+                  "dark:hover:from-slate-800/50 dark:hover:via-slate-800/50 dark:hover:to-slate-800/50",
+                  "border border-transparent hover:border-slate-200/40 dark:hover:border-slate-700/30"
+                ]}
+              >
+                <.link
+                  navigate={~p"/app/conversations/#{conv.user_conversation.conversation_id}"}
+                  class="flex items-center gap-3 p-3 sm:p-4 flex-1 min-w-0"
+                >
+                  <div class="relative flex-shrink-0">
+                    <div class="w-12 h-12 rounded-full overflow-hidden ring-2 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 ring-slate-200/60 dark:ring-slate-700/60">
+                      <img
+                        src={get_avatar_src(conv, @current_scope)}
+                        alt="Avatar"
+                        class="w-full h-full object-cover opacity-75"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="font-semibold text-sm truncate text-slate-500 dark:text-slate-400">
+                        {get_name(conv, @current_scope)}
+                      </span>
+                      <span class="inline-flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
+                        <.phx_icon name="hero-archive-box" class="size-3" /> Archived
+                      </span>
+                    </div>
+                    <p class="text-xs truncate text-slate-400 dark:text-slate-500 mt-0.5">
+                      <span class="inline-flex items-center gap-1">
+                        <.phx_icon
+                          name="hero-lock-closed"
+                          class="w-3 h-3 text-teal-500/40 flex-shrink-0"
+                        />
+                        <span class="italic">Encrypted conversation</span>
+                      </span>
+                    </p>
+                  </div>
+                </.link>
+
+                <div class={[
+                  "flex items-center gap-0.5 pr-2 flex-shrink-0",
+                  "opacity-0 group-hover/conv:opacity-100",
+                  "translate-x-2 group-hover/conv:translate-x-0",
+                  "transition-all duration-200"
+                ]}>
+                  <button
+                    type="button"
+                    phx-click="unarchive_conversation"
+                    phx-value-id={conv.user_conversation.conversation_id}
+                    class="p-1.5 rounded-lg text-slate-400 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-all duration-200"
+                    title="Unarchive conversation"
+                  >
+                    <.phx_icon name="hero-archive-box-arrow-down" class="size-4" />
+                  </button>
+                  <button
+                    type="button"
+                    phx-click="confirm_delete_conversation"
+                    phx-value-id={conv.user_conversation.conversation_id}
+                    phx-value-name={get_name(conv, @current_scope)}
+                    class="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all duration-200"
+                    title="Delete conversation"
+                  >
+                    <.phx_icon name="hero-trash" class="size-4" />
                   </button>
                 </div>
               </div>
@@ -326,10 +446,14 @@ defmodule MossletWeb.ConversationLive.Index do
       Accounts.block_subscribe(current_user)
     end
 
+    archived_conversations = Conversations.list_archived_conversations(current_user)
+
     socket =
       socket
       |> assign(:page_title, "Conversations")
+      |> assign(:active_tab, "active")
       |> assign(:conversations, conversations)
+      |> assign(:archived_conversations, archived_conversations)
       |> assign(:show_new_conversation_modal, false)
       |> assign(:eligible_connections, [])
       |> assign(:show_delete_confirm, false)
@@ -393,6 +517,40 @@ defmodule MossletWeb.ConversationLive.Index do
      socket
      |> assign(:show_new_conversation_modal, false)
      |> assign(:eligible_connections, [])}
+  end
+
+  def handle_event("switch_tab", %{"tab" => tab}, socket) do
+    {:noreply, assign(socket, :active_tab, tab)}
+  end
+
+  def handle_event("archive_conversation", %{"id" => id}, socket) do
+    current_user = socket.assigns.current_scope.user
+
+    case Conversations.archive_conversation(id, current_user.id) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> refresh_conversations()
+         |> put_flash(:info, "Conversation archived")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to archive conversation")}
+    end
+  end
+
+  def handle_event("unarchive_conversation", %{"id" => id}, socket) do
+    current_user = socket.assigns.current_scope.user
+
+    case Conversations.unarchive_conversation(id, current_user.id) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> refresh_conversations()
+         |> put_flash(:info, "Conversation unarchived")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to unarchive conversation")}
+    end
   end
 
   def handle_event("select_connection", %{"connection-id" => connection_id}, socket) do
@@ -484,11 +642,10 @@ defmodule MossletWeb.ConversationLive.Index do
         {:ok, _} ->
           Conversations.broadcast_conversation_deleted(id)
           Enum.each(image_urls, &Mosslet.FileUploads.ImageUploadWriter.delete_from_storage/1)
-          conversations = Conversations.list_conversations(current_user)
 
           {:noreply,
            socket
-           |> assign(:conversations, conversations)
+           |> refresh_conversations()
            |> assign(:show_delete_confirm, false)
            |> assign(:delete_conversation_id, nil)
            |> assign(:delete_conversation_name, nil)
@@ -541,11 +698,9 @@ defmodule MossletWeb.ConversationLive.Index do
            key: key
          ) do
       {:ok, _user_block} ->
-        conversations = Conversations.list_conversations(current_user)
-
         {:noreply,
          socket
-         |> assign(:conversations, conversations)
+         |> refresh_conversations()
          |> assign(:show_block_modal, false)
          |> assign(:blocked_user_id, nil)
          |> assign(:blocked_user_name, nil)
@@ -565,14 +720,12 @@ defmodule MossletWeb.ConversationLive.Index do
   end
 
   def handle_info({:conversation_updated, _}, socket) do
-    conversations = Conversations.list_conversations(socket.assigns.current_scope.user)
-    {:noreply, assign(socket, :conversations, conversations)}
+    {:noreply, refresh_conversations(socket)}
   end
 
   def handle_info({event, _block}, socket)
       when event in [:user_blocked, :user_unblocked, :user_block_updated] do
-    conversations = Conversations.list_conversations(socket.assigns.current_scope.user)
-    {:noreply, assign(socket, :conversations, conversations)}
+    {:noreply, refresh_conversations(socket)}
   end
 
   def handle_info(_msg, socket) do
@@ -584,6 +737,14 @@ defmodule MossletWeb.ConversationLive.Index do
       nil -> "[Unknown]"
       uconn -> get_decrypted_connection_name(uconn, scope.user, scope.key)
     end
+  end
+
+  defp refresh_conversations(socket) do
+    current_user = socket.assigns.current_scope.user
+
+    socket
+    |> assign(:conversations, Conversations.list_conversations(current_user))
+    |> assign(:archived_conversations, Conversations.list_archived_conversations(current_user))
   end
 
   defp get_avatar_src(conv, scope) do
