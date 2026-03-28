@@ -4,7 +4,7 @@ defmodule Mosslet.Conversations.Message do
   import Ecto.Changeset
 
   alias Mosslet.Accounts.User
-  alias Mosslet.Conversations.Conversation
+  alias Mosslet.Conversations.{Conversation, MessageReaction}
   alias Mosslet.Encrypted
 
   @primary_key {:id, :binary_id, autogenerate: true}
@@ -17,6 +17,7 @@ defmodule Mosslet.Conversations.Message do
 
     belongs_to :conversation, Conversation
     belongs_to :sender, User
+    has_many :reactions, MessageReaction
 
     timestamps()
   end

@@ -117,42 +117,84 @@ defmodule MossletWeb.ConversationLive.Show do
                   )
                 ]}
               >
-                <div class="max-w-[85%] sm:max-w-[75%]">
+                <div
+                  class="max-w-[85%] sm:max-w-[75%]"
+                  id={"msg-reactions-#{message.id}"}
+                  phx-hook="MessageReactions"
+                  data-message-id={message.id}
+                >
                   <div class={[
-                    "relative rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm transition-all duration-200",
-                    if(message.sender_id == @current_scope.user.id,
-                      do: [
-                        "bg-gradient-to-r from-teal-500 to-emerald-500 dark:from-teal-600 dark:to-emerald-600",
-                        "text-white",
-                        "border border-teal-400/40 dark:border-teal-500/50",
-                        "shadow-lg shadow-teal-500/25 dark:shadow-teal-500/15"
-                      ],
-                      else: [
-                        "bg-white/95 dark:bg-slate-800/80 backdrop-blur-sm",
-                        "text-slate-800 dark:text-slate-200",
-                        "border border-slate-200/60 dark:border-slate-700/50"
-                      ]
+                    "relative",
+                    if(message.reactions != [] && message.reactions != nil,
+                      do: "mb-2.5",
+                      else: ""
                     )
                   ]}>
+                    <div class={[
+                      "relative rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm transition-all duration-200",
+                      if(message.sender_id == @current_scope.user.id,
+                        do: [
+                          "bg-gradient-to-r from-teal-500 to-emerald-500 dark:from-teal-600 dark:to-emerald-600",
+                          "text-white",
+                          "border border-teal-400/40 dark:border-teal-500/50",
+                          "shadow-lg shadow-teal-500/25 dark:shadow-teal-500/15"
+                        ],
+                        else: [
+                          "bg-white/95 dark:bg-slate-800/80 backdrop-blur-sm",
+                          "text-slate-800 dark:text-slate-200",
+                          "border border-slate-200/60 dark:border-slate-700/50"
+                        ]
+                      )
+                    ]}>
+                      <div
+                        id={"msg-content-#{message.id}"}
+                        phx-hook="DecryptMessage"
+                        data-encrypted-content={encode_message_content(message.content)}
+                        data-conversation-key={@conversation_key_encrypted}
+                        data-has-image={to_string(message.image_url != nil)}
+                        data-message-id={message.id}
+                        class={[
+                          "prose prose-sm max-w-none prose-p:my-0.5 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-pre:my-1.5 break-words",
+                          if(message.sender_id == @current_scope.user.id,
+                            do:
+                              "text-white prose-headings:text-white prose-strong:text-white prose-code:text-teal-100 prose-code:bg-white/10 prose-a:text-teal-100 prose-a:no-underline hover:prose-a:underline",
+                            else:
+                              "prose-slate dark:prose-invert prose-code:text-teal-600 dark:prose-code:text-teal-400 prose-a:text-teal-600 dark:prose-a:text-teal-400 prose-a:no-underline hover:prose-a:underline"
+                          )
+                        ]}
+                      >
+                        <span class="inline-flex items-center gap-1 text-xs opacity-60">
+                          <.phx_icon name="hero-lock-closed" class="w-3 h-3" /> Decrypting...
+                        </span>
+                      </div>
+                    </div>
                     <div
-                      id={"msg-content-#{message.id}"}
-                      phx-hook="DecryptMessage"
-                      data-encrypted-content={encode_message_content(message.content)}
-                      data-conversation-key={@conversation_key_encrypted}
-                      data-has-image={to_string(message.image_url != nil)}
-                      data-message-id={message.id}
+                      :if={message.reactions != [] && message.reactions != nil}
                       class={[
-                        "prose prose-sm max-w-none prose-p:my-0.5 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-pre:my-1.5 break-words",
+                        "absolute -bottom-3 flex gap-0.5 z-10",
                         if(message.sender_id == @current_scope.user.id,
-                          do:
-                            "text-white prose-headings:text-white prose-strong:text-white prose-code:text-teal-100 prose-code:bg-white/10 prose-a:text-teal-100 prose-a:no-underline hover:prose-a:underline",
-                          else:
-                            "prose-slate dark:prose-invert prose-code:text-teal-600 dark:prose-code:text-teal-400 prose-a:text-teal-600 dark:prose-a:text-teal-400 prose-a:no-underline hover:prose-a:underline"
+                          do: "left-2",
+                          else: "right-2"
                         )
                       ]}
                     >
-                      <span class="inline-flex items-center gap-1 text-xs opacity-60">
-                        <.phx_icon name="hero-lock-closed" class="w-3 h-3" /> Decrypting...
+                      <span
+                        :for={reaction <- message.reactions}
+                        data-encrypted-emoji={encode_message_content(reaction.emoji)}
+                        class={[
+                          "inline-flex items-center justify-center text-xs leading-none rounded-full size-7 cursor-pointer select-none transition-all duration-150 hover:scale-110 active:scale-95 shadow-sm",
+                          if(reaction.user_id == @current_scope.user.id,
+                            do:
+                              "bg-teal-50 dark:bg-teal-950/60 border-2 border-teal-400/50 dark:border-teal-500/50",
+                            else:
+                              "bg-slate-50 dark:bg-slate-800/80 border-2 border-slate-200/70 dark:border-slate-700/50"
+                          )
+                        ]}
+                        phx-click="toggle_reaction_from_display"
+                        phx-value-message-id={message.id}
+                        phx-value-reaction-id={reaction.id}
+                      >
+                        🔒
                       </span>
                     </div>
                   </div>
@@ -172,6 +214,25 @@ defmodule MossletWeb.ConversationLive.Show do
                     >
                       (edited)
                     </span>
+                    <div
+                      data-react-area
+                      class={[
+                        "relative inline-flex",
+                        if(message.sender_id == @current_scope.user.id,
+                          do: "order-first",
+                          else: ""
+                        )
+                      ]}
+                    >
+                      <button
+                        type="button"
+                        data-react-trigger
+                        class="opacity-0 group-hover/msg:opacity-100 p-0.5 rounded text-slate-400 hover:text-teal-500 transition-all duration-200"
+                        title="React"
+                      >
+                        <.phx_icon name="hero-face-smile" class="size-3.5" />
+                      </button>
+                    </div>
                     <button
                       :if={message.sender_id == @current_scope.user.id}
                       type="button"
@@ -779,6 +840,70 @@ defmodule MossletWeb.ConversationLive.Show do
     {:noreply, assign(socket, :show_block_modal, true)}
   end
 
+  def handle_event(
+        "toggle_reaction",
+        %{"message_id" => message_id, "encrypted_emoji" => encrypted_emoji},
+        socket
+      ) do
+    current_user = socket.assigns.current_scope.user
+    conversation = socket.assigns.conversation
+
+    if socket.assigns.is_blocked do
+      {:noreply, socket}
+    else
+      emoji_binary = Base.decode64!(encrypted_emoji)
+
+      case Conversations.toggle_reaction(message_id, current_user.id, emoji_binary) do
+        {:ok, _action, _reaction} ->
+          message = Conversations.get_message(message_id)
+          Conversations.broadcast_reaction_updated(conversation.id, message_id)
+          {:noreply, stream_insert(socket, :messages, message)}
+
+        {:ok, :removed} ->
+          message = Conversations.get_message(message_id)
+          Conversations.broadcast_reaction_updated(conversation.id, message_id)
+          {:noreply, stream_insert(socket, :messages, message)}
+
+        {:error, _reason} ->
+          {:noreply, socket}
+      end
+    end
+  end
+
+  def handle_event(
+        "toggle_reaction_from_display",
+        %{"message-id" => message_id, "reaction-id" => reaction_id},
+        socket
+      ) do
+    current_user = socket.assigns.current_scope.user
+    conversation = socket.assigns.conversation
+
+    if socket.assigns.is_blocked do
+      {:noreply, socket}
+    else
+      reaction = Mosslet.Repo.get(Mosslet.Conversations.MessageReaction, reaction_id)
+
+      if reaction && reaction.user_id == current_user.id do
+        case Conversations.toggle_reaction(message_id, current_user.id, reaction.emoji) do
+          {:ok, :removed} ->
+            message = Conversations.get_message(message_id)
+            Conversations.broadcast_reaction_updated(conversation.id, message_id)
+            {:noreply, stream_insert(socket, :messages, message)}
+
+          {:ok, _action, _reaction} ->
+            message = Conversations.get_message(message_id)
+            Conversations.broadcast_reaction_updated(conversation.id, message_id)
+            {:noreply, stream_insert(socket, :messages, message)}
+
+          {:error, _reason} ->
+            {:noreply, socket}
+        end
+      else
+        {:noreply, socket}
+      end
+    end
+  end
+
   def handle_event("close_block_modal", _params, socket) do
     {:noreply, assign(socket, :show_block_modal, false)}
   end
@@ -1046,6 +1171,20 @@ defmodule MossletWeb.ConversationLive.Show do
 
   def handle_info({:message_deleted, message}, socket) do
     {:noreply, stream_delete(socket, :messages, message)}
+  end
+
+  def handle_info({:reaction_updated, message_id}, socket) do
+    if socket.assigns.is_blocked do
+      {:noreply, socket}
+    else
+      message = Conversations.get_message(message_id)
+
+      if message do
+        {:noreply, stream_insert(socket, :messages, message)}
+      else
+        {:noreply, socket}
+      end
+    end
   end
 
   def handle_info({event, _block}, socket)

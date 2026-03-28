@@ -12,7 +12,7 @@ defmodule Mosslet.Conversations.Adapter do
   - Offline fallback to cached data
   """
 
-  alias Mosslet.Conversations.{Conversation, Message, UserConversation}
+  alias Mosslet.Conversations.{Conversation, Message, MessageReaction, UserConversation}
   alias Mosslet.Accounts.User
 
   @callback list_conversations(user :: User.t()) :: [map()]
@@ -64,4 +64,9 @@ defmodule Mosslet.Conversations.Adapter do
 
   @callback get_user_connection_for_conversation(conversation_id :: binary(), user_id :: binary()) ::
               UserConversation.t() | nil
+
+  @callback toggle_reaction(message_id :: binary(), user_id :: binary(), emoji :: binary()) ::
+              {:ok, :added, MessageReaction.t()} | {:ok, :removed} | {:error, term()}
+
+  @callback list_reactions(message_id :: binary()) :: [MessageReaction.t()]
 end

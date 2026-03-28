@@ -105,6 +105,14 @@ defmodule Mosslet.Conversations do
     Conversation.changeset(conversation, attrs)
   end
 
+  def toggle_reaction(message_id, user_id, emoji) do
+    adapter().toggle_reaction(message_id, user_id, emoji)
+  end
+
+  def list_reactions(message_id) do
+    adapter().list_reactions(message_id)
+  end
+
   def subscribe_to_conversation(conversation_id) do
     Phoenix.PubSub.subscribe(Mosslet.PubSub, "conversation:#{conversation_id}")
   end
@@ -158,6 +166,14 @@ defmodule Mosslet.Conversations do
       Mosslet.PubSub,
       "conversation:#{conversation_id}",
       {:typing, user_id, typing?}
+    )
+  end
+
+  def broadcast_reaction_updated(conversation_id, message_id) do
+    Phoenix.PubSub.broadcast(
+      Mosslet.PubSub,
+      "conversation:#{conversation_id}",
+      {:reaction_updated, message_id}
     )
   end
 end

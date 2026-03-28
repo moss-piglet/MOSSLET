@@ -30,6 +30,7 @@ import MaintainFocus from "./maintain-focus";
 import Menu from "./dropdown-menu";
 import MentionHighlight from "./mention-highlight";
 import MentionPicker from "./mention-picker";
+import MessageReactions from "./message-reactions";
 import ModalPortal from "./modal-portal";
 import ReplyComposer from "./reply-composer";
 import ReplyEmojiPicker from "./reply-emoji-picker";
@@ -98,6 +99,7 @@ export default {
   Menu,
   MentionHighlight,
   MentionPicker,
+  MessageReactions,
   ModalPortal,
   MossletFrameworkHooks,
   ReplyComposer,

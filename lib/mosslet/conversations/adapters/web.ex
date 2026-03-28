@@ -11,7 +11,7 @@ defmodule Mosslet.Conversations.Adapters.Web do
   import Ecto.Query, warn: false
 
   alias Mosslet.Repo
-  alias Mosslet.Conversations.{Conversation, Message, UserConversation}
+  alias Mosslet.Conversations.{Conversation, Message, MessageReaction, UserConversation}
 
   @impl true
   def list_conversations(user) do
@@ -246,7 +246,9 @@ defmodule Mosslet.Conversations.Adapters.Web do
 
   @impl true
   def get_message(id) do
-    Repo.get(Message, id)
+    Message
+    |> Repo.get(id)
+    |> Repo.preload(:reactions)
   end
 
   @impl true
@@ -259,7 +261,7 @@ defmodule Mosslet.Conversations.Adapters.Web do
         where: m.conversation_id == ^conversation_id,
         order_by: [desc: m.inserted_at],
         limit: ^limit,
-        preload: [:sender]
+        preload: [:sender, :reactions]
       )
 
     query =
@@ -292,7 +294,7 @@ defmodule Mosslet.Conversations.Adapters.Web do
           )
         end)
 
-        {:ok, Repo.preload(message, [:sender])}
+        {:ok, Repo.preload(message, [:sender, :reactions])}
 
       {:ok, {:error, changeset}} ->
         {:error, changeset}
@@ -306,7 +308,7 @@ defmodule Mosslet.Conversations.Adapters.Web do
            |> Message.changeset(attrs)
            |> Repo.update()
          end) do
-      {:ok, {:ok, message}} -> {:ok, Repo.preload(message, [:sender])}
+      {:ok, {:ok, message}} -> {:ok, Repo.preload(message, [:sender, :reactions])}
       {:ok, {:error, changeset}} -> {:error, changeset}
     end
   end
@@ -423,4 +425,52 @@ defmodule Mosslet.Conversations.Adapters.Web do
   end
 
   defp maybe_put_image_fields(changeset, _attrs), do: changeset
+
+  @impl true
+  def toggle_reaction(message_id, user_id, emoji) do
+    existing =
+      from(r in MessageReaction,
+        where: r.message_id == ^message_id and r.user_id == ^user_id
+      )
+      |> Repo.one()
+
+    case existing do
+      %MessageReaction{emoji: ^emoji} ->
+        case Repo.transaction_on_primary(fn -> Repo.delete(existing) end) do
+          {:ok, {:ok, _}} -> {:ok, :removed}
+          {:ok, {:error, changeset}} -> {:error, changeset}
+        end
+
+      %MessageReaction{} = reaction ->
+        case Repo.transaction_on_primary(fn ->
+               reaction
+               |> Ecto.Changeset.change(%{emoji: emoji})
+               |> Repo.update()
+             end) do
+          {:ok, {:ok, updated}} -> {:ok, :added, updated}
+          {:ok, {:error, changeset}} -> {:error, changeset}
+        end
+
+      nil ->
+        case Repo.transaction_on_primary(fn ->
+               %MessageReaction{}
+               |> MessageReaction.changeset(%{emoji: emoji})
+               |> Ecto.Changeset.put_change(:message_id, message_id)
+               |> Ecto.Changeset.put_change(:user_id, user_id)
+               |> Repo.insert()
+             end) do
+          {:ok, {:ok, reaction}} -> {:ok, :added, reaction}
+          {:ok, {:error, changeset}} -> {:error, changeset}
+        end
+    end
+  end
+
+  @impl true
+  def list_reactions(message_id) do
+    from(r in MessageReaction,
+      where: r.message_id == ^message_id,
+      order_by: [asc: r.inserted_at]
+    )
+    |> Repo.all()
+  end
 end
