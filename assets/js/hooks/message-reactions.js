@@ -212,6 +212,23 @@ const MessageReactions = {
     }
 
     requestAnimationFrame(() => {
+      const barRect = bar.getBoundingClientRect();
+      const margin = 8;
+      if (barRect.right > window.innerWidth - margin) {
+        const overflow = barRect.right - window.innerWidth + margin;
+        bar.style.left = "auto";
+        bar.style.right = "0";
+        if (barRect.right - barRect.width < margin) {
+          bar.style.right = "auto";
+          bar.style.left = `${-(barRect.left - margin)}px`;
+        }
+      }
+      if (barRect.top < margin) {
+        bar.style.bottom = "auto";
+        bar.style.top = "100%";
+        bar.style.marginBottom = "0";
+        bar.style.marginTop = "6px";
+      }
       bar.style.opacity = "1";
       bar.style.transform = "scale(1) translateY(0)";
     });
@@ -265,19 +282,27 @@ const MessageReactions = {
       "opacity 200ms ease-out, transform 200ms ease-out";
 
     const areaRect = reactArea.getBoundingClientRect();
+    const pickerWidth = 352;
+    const pickerHeight = 435;
+    const gap = 8;
+    const margin = 16;
     const spaceBelow = window.innerHeight - areaRect.bottom;
+    const spaceAbove = areaRect.top;
 
-    if (spaceBelow >= 450) {
-      pickerContainer.style.top = `${areaRect.bottom + 8}px`;
+    let topPos;
+    if (spaceBelow >= pickerHeight + gap) {
+      topPos = areaRect.bottom + gap;
+    } else if (spaceAbove >= pickerHeight + gap) {
+      topPos = areaRect.top - pickerHeight - gap;
     } else {
-      pickerContainer.style.top = `${areaRect.top - 450 - 8}px`;
+      topPos = Math.max(margin, Math.min(areaRect.bottom + gap, window.innerHeight - pickerHeight - margin));
     }
+    pickerContainer.style.top = `${topPos}px`;
 
     let leftPos = areaRect.left - 160;
-    if (leftPos + 352 > window.innerWidth) {
-      leftPos = window.innerWidth - 352 - 16;
-    }
-    pickerContainer.style.left = `${Math.max(16, leftPos)}px`;
+    leftPos = Math.min(leftPos, window.innerWidth - pickerWidth - margin);
+    leftPos = Math.max(margin, leftPos);
+    pickerContainer.style.left = `${leftPos}px`;
 
     document.body.appendChild(pickerContainer);
 
