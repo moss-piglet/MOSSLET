@@ -1,5 +1,6 @@
 import data from "../../vendor/@emoji-mart/data";
 import { Picker } from "../../vendor/emoji-mart";
+import { fixEmojiPickerA11y } from "./emoji-picker-a11y";
 
 const ReplyEmojiPicker = {
   mounted() {
@@ -117,7 +118,7 @@ const ReplyEmojiPicker = {
 
     setTimeout(() => {
       this.applyLiquidMetalStyling(theme);
-      this.fixA11yIssues();
+      fixEmojiPickerA11y(pickerContainer);
       setTimeout(() => {
         if (pickerContainer) {
           pickerContainer.style.opacity = "1";
@@ -160,33 +161,6 @@ const ReplyEmojiPicker = {
     }
   },
 
-  fixA11yIssues() {
-    if (!this.pickerContainer) return;
-    const emojiMart = this.pickerContainer.querySelector("em-emoji-picker");
-    if (!emojiMart?.shadowRoot) {
-      setTimeout(() => this.fixA11yIssues(), 50);
-      return;
-    }
-    const scrollRegion = emojiMart.shadowRoot.querySelector(".scroll");
-    if (scrollRegion && !scrollRegion.hasAttribute("tabindex")) {
-      scrollRegion.setAttribute("tabindex", "0");
-    }
-    const nav = emojiMart.shadowRoot.querySelector("nav");
-    if (nav) {
-      nav.setAttribute("role", "tablist");
-      nav.querySelectorAll("button").forEach((btn) => {
-        btn.setAttribute("role", "tab");
-        if (!btn.hasAttribute("aria-selected")) {
-          btn.setAttribute("aria-selected", "false");
-        }
-      });
-    }
-    emojiMart.shadowRoot.querySelectorAll("button[aria-posinset]").forEach((btn) => {
-      btn.removeAttribute("aria-posinset");
-      btn.removeAttribute("aria-setsize");
-    });
-  },
-
   applyLiquidMetalStyling(theme) {
     if (!this.pickerInstance || !this.pickerContainer) return;
 
@@ -225,7 +199,7 @@ const ReplyEmojiPicker = {
         
         #root {
           border-radius: 16px !important;
-          ${theme === "dark" ? "background: rgba(30, 41, 59, 0.95) !important;" : "background: rgba(255, 255, 255, 0.95) !important;"}
+          ${theme === "dark" ? "background: rgba(30, 41, 59, 0.95) !important; --color-c: rgb(148, 163, 184) !important;" : "background: rgba(255, 255, 255, 0.95) !important;"}
         }
         
         .search input {
