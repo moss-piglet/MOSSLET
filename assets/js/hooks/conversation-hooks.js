@@ -171,7 +171,15 @@ const DecryptMessage = {
     await this.decrypt();
   },
 
+  beforeUpdate() {
+    this._prevHeight = this.el.offsetHeight;
+  },
+
   async updated() {
+    if (this._prevHeight) {
+      this.el.style.minHeight = `${this._prevHeight}px`;
+    }
+
     if (this._cachedHtml) {
       this.el.innerHTML = this._cachedHtml;
       if (this._cachedImageDataUrl) {
@@ -180,8 +188,25 @@ const DecryptMessage = {
       if (this._cachedPreviewHtml) {
         this._appendPreviewElement(this._cachedPreviewHtml);
       }
+
+      const img = this.el.querySelector("img");
+      if (img && !img.complete) {
+        img.addEventListener(
+          "load",
+          () => { this.el.style.minHeight = ""; },
+          { once: true },
+        );
+        img.addEventListener(
+          "error",
+          () => { this.el.style.minHeight = ""; },
+          { once: true },
+        );
+      } else {
+        this.el.style.minHeight = "";
+      }
     } else {
       await this.decrypt();
+      this.el.style.minHeight = "";
     }
   },
 
@@ -429,6 +454,26 @@ const ConversationScroll = {
     this.handleEvent("new-message", () => {
       requestAnimationFrame(() => this.scrollToBottom());
     });
+
+    this._observer = new MutationObserver(() => {
+      if (this._anchorBottom != null) {
+        this.el.scrollTop =
+          this.el.scrollHeight - this._anchorBottom;
+      }
+    });
+    this._observer.observe(this.el, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+    });
+
+    this.el.addEventListener("scroll", () => {
+      this._anchorBottom =
+        this.el.scrollHeight - this.el.scrollTop;
+    }, { passive: true });
+    this._anchorBottom =
+      this.el.scrollHeight - this.el.scrollTop;
   },
 
   updated() {
@@ -437,8 +482,16 @@ const ConversationScroll = {
     }
   },
 
+  destroyed() {
+    if (this._observer) {
+      this._observer.disconnect();
+    }
+  },
+
   scrollToBottom() {
     this.el.scrollTop = this.el.scrollHeight;
+    this._anchorBottom =
+      this.el.scrollHeight - this.el.scrollTop;
   },
 
   isNearBottom() {
