@@ -22,6 +22,9 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
 
   require Logger
 
+  @bluesky_max_graphemes 300
+  @max_thumb_size 976_560
+
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"action" => "sync_all"}}) do
     Logger.info("[BlueskyExport] Running scheduled sync for all accounts")
@@ -119,7 +122,7 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
     {export_text, facets} = prepare_post_for_export(decrypted_body, post.id)
 
     pds_url = account.pds_url || "https://bsky.social"
-    embed = build_external_embed(export_text, account, signing_key, pds_url)
+    embed = build_post_embed(post, export_text, account, signing_key, pds_url)
 
     opts =
       [
@@ -184,8 +187,6 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
     end
   end
 
-  @bluesky_max_graphemes 300
-
   defp prepare_post_for_export(text, post_id) do
     grapheme_count = String.graphemes(text) |> length()
 
@@ -225,7 +226,7 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
     {export_text, facets} = prepare_post_for_export(decrypted_body, post.id)
 
     pds_url = account.pds_url || "https://bsky.social"
-    embed = build_external_embed(export_text, account, signing_key, pds_url)
+    embed = build_post_embed(post, export_text, account, signing_key, pds_url)
 
     opts =
       [
@@ -452,7 +453,185 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
   defp maybe_put_embed(opts, nil), do: opts
   defp maybe_put_embed(opts, embed), do: Keyword.put(opts, :embed, embed)
 
-  defp build_external_embed(text, account, signing_key, pds_url) do
+  defp build_post_embed(post, export_text, account, signing_key, pds_url) do
+    case build_images_embed(post, account, signing_key, pds_url) do
+      %{} = images_embed ->
+        images_embed
+
+      nil ->
+        build_external_embed(export_text, post, account, signing_key, pds_url)
+    end
+  end
+
+  defp build_images_embed(post, account, signing_key, pds_url) do
+    case decrypt_post_image_urls(post, account.user) do
+      {:ok, urls} when urls != [] ->
+        alt_texts = decrypt_post_image_alt_texts(post, account.user)
+
+        uploaded_images =
+          urls
+          |> Enum.with_index()
+          |> Enum.take(4)
+          |> Enum.map(fn {file_path, index} ->
+            alt_text = Enum.at(alt_texts, index, "")
+            upload_post_image_to_bluesky(file_path, alt_text, post, account, signing_key, pds_url)
+          end)
+          |> Enum.filter(&match?({:ok, _, _}, &1))
+          |> Enum.map(fn {:ok, blob, alt} -> %{"alt" => alt, "image" => blob} end)
+
+        if Enum.empty?(uploaded_images) do
+          nil
+        else
+          %{"$type" => "app.bsky.embed.images", "images" => uploaded_images}
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp decrypt_post_image_urls(post, user) do
+    image_urls = post.image_urls || []
+
+    if is_list(image_urls) && !Enum.empty?(image_urls) do
+      case get_post_key(post, user) do
+        {:ok, post_key} ->
+          decrypted =
+            Enum.map(image_urls, fn encrypted_url ->
+              case Mosslet.Encrypted.Utils.decrypt(%{key: post_key, payload: encrypted_url}) do
+                {:ok, url} -> url
+                _ -> nil
+              end
+            end)
+            |> Enum.filter(&is_binary/1)
+
+          {:ok, decrypted}
+
+        _ ->
+          {:ok, []}
+      end
+    else
+      {:ok, []}
+    end
+  end
+
+  defp decrypt_post_image_alt_texts(post, user) do
+    alt_texts = post.image_alt_texts || []
+
+    if is_list(alt_texts) && !Enum.empty?(alt_texts) do
+      case get_post_key(post, user) do
+        {:ok, post_key} ->
+          Enum.map(alt_texts, fn encrypted_alt ->
+            case Mosslet.Encrypted.Utils.decrypt(%{key: post_key, payload: encrypted_alt}) do
+              {:ok, alt} -> alt
+              _ -> ""
+            end
+          end)
+
+        _ ->
+          []
+      end
+    else
+      []
+    end
+  end
+
+  defp get_post_key(post, user) do
+    user_post = Enum.find(post.user_posts, &(&1.user_id == user.id))
+
+    if user_post do
+      case post.visibility do
+        :public ->
+          {:ok, Mosslet.Encrypted.Users.Utils.decrypt_public_item_key(user_post.key)}
+
+        _ ->
+          {:error, :private_post}
+      end
+    else
+      {:error, :no_user_post}
+    end
+  end
+
+  defp upload_post_image_to_bluesky(file_path, alt_text, post, account, signing_key, pds_url) do
+    with {:ok, image_data} <- fetch_and_decrypt_image_from_s3(file_path, post, account.user),
+         {:ok, jpeg_data, content_type} <- convert_image_for_bluesky(image_data) do
+      upload_opts =
+        [pds_url: pds_url]
+        |> maybe_add_dpop_proof_for_upload(account, signing_key, pds_url)
+
+      case Client.upload_blob(account.access_jwt, jpeg_data, content_type, upload_opts) do
+        {:ok, %{blob: blob}} ->
+          {:ok, blob, alt_text}
+
+        {:error, reason} ->
+          Logger.warning("[BlueskyExport] Failed to upload image blob: #{inspect(reason)}")
+          {:error, reason}
+      end
+    else
+      error ->
+        Logger.warning("[BlueskyExport] Failed to process image for export: #{inspect(error)}")
+        error
+    end
+  end
+
+  defp fetch_and_decrypt_image_from_s3(file_path, post, user) do
+    bucket = Mosslet.Encrypted.Session.memories_bucket()
+    webp_path = normalize_to_webp(file_path)
+
+    encrypted_binary =
+      case ExAws.S3.get_object(bucket, webp_path) |> ExAws.request() do
+        {:ok, %{body: body}} ->
+          {:ok, body}
+
+        {:error, _} ->
+          case ExAws.S3.get_object(bucket, file_path) |> ExAws.request() do
+            {:ok, %{body: body}} -> {:ok, body}
+            {:error, reason} -> {:error, {:s3_fetch_failed, reason}}
+          end
+      end
+
+    with {:ok, encrypted} <- encrypted_binary,
+         {:ok, post_key} <- get_post_key(post, user),
+         {:ok, decrypted} <- Mosslet.Encrypted.Utils.decrypt(%{key: post_key, payload: encrypted}) do
+      {:ok, decrypted}
+    end
+  end
+
+  defp normalize_to_webp(file_path) do
+    base = Path.rootname(file_path)
+    "#{base}.webp"
+  end
+
+  defp convert_image_for_bluesky(image_data) do
+    case Image.from_binary(image_data) do
+      {:ok, image} ->
+        {:ok, resized} =
+          Image.thumbnail(image, "800x800",
+            resize: :down,
+            crop: :none
+          )
+
+        case Image.write(resized, :memory, suffix: ".jpeg", quality: 85) do
+          {:ok, jpeg_data} ->
+            if byte_size(jpeg_data) <= @max_thumb_size do
+              {:ok, jpeg_data, "image/jpeg"}
+            else
+              {:ok, compressed} =
+                Image.write(resized, :memory, suffix: ".jpeg", quality: 60)
+
+              {:ok, compressed, "image/jpeg"}
+            end
+
+          error ->
+            error
+        end
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
+  defp build_external_embed(text, post, account, signing_key, pds_url) do
     case extract_first_url(text) do
       nil ->
         nil
@@ -464,8 +643,68 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
 
           {:error, reason} ->
             Logger.debug("[BlueskyExport] Failed to fetch URL metadata: #{inspect(reason)}")
-            nil
+            build_external_embed_from_stored_preview(post, account, signing_key, pds_url)
         end
+    end
+  end
+
+  defp build_external_embed_from_stored_preview(post, account, signing_key, pds_url) do
+    case decrypt_url_preview(post) do
+      %{"url" => url, "title" => title} = preview when is_binary(url) ->
+        metadata = %{
+          url: url,
+          title: title || "",
+          description: preview["description"] || "",
+          image_url: preview["original_image_url"]
+        }
+
+        build_embed_with_metadata(metadata, account, signing_key, pds_url)
+
+      _ ->
+        nil
+    end
+  end
+
+  defp decrypt_url_preview(post) do
+    url_preview = post.url_preview
+
+    cond do
+      is_nil(url_preview) ->
+        nil
+
+      !is_map(url_preview) || map_size(url_preview) == 0 ->
+        nil
+
+      true ->
+        with {:ok, post_key} <- get_post_key_direct(post) do
+          url_preview
+          |> Enum.map(fn {key, value} ->
+            decrypted_value =
+              if is_binary(value) do
+                case Mosslet.Encrypted.Utils.decrypt(%{key: post_key, payload: value}) do
+                  {:ok, v} -> v
+                  _ -> nil
+                end
+              else
+                value
+              end
+
+            {key, decrypted_value}
+          end)
+          |> Enum.into(%{})
+        else
+          _ -> nil
+        end
+    end
+  end
+
+  defp get_post_key_direct(post) do
+    user_post = List.first(post.user_posts || [])
+
+    if user_post && post.visibility == :public do
+      {:ok, Mosslet.Encrypted.Users.Utils.decrypt_public_item_key(user_post.key)}
+    else
+      {:error, :cannot_decrypt}
     end
   end
 
@@ -582,8 +821,6 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
         {:error, reason}
     end
   end
-
-  @max_thumb_size 976_560
 
   defp resize_image_for_bluesky(image_data) do
     case Image.from_binary(image_data) do
