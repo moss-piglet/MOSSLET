@@ -389,7 +389,6 @@ const DecryptMessage = {
           src="${dataUrl}"
           alt="Encrypted image"
           class="max-w-[280px] max-h-[280px] w-auto h-auto rounded-xl cursor-pointer hover:opacity-90 transition-opacity block object-contain"
-          loading="lazy"
         />
       </div>
     `;
@@ -428,7 +427,6 @@ const DecryptMessage = {
               src="${reply.image_data_url}"
               alt="Encrypted image"
               class="max-w-[280px] max-h-[280px] w-auto h-auto rounded-xl cursor-pointer hover:opacity-90 transition-opacity block object-contain"
-              loading="lazy"
             />
           </div>
         `;
@@ -449,17 +447,24 @@ const DecryptMessage = {
 
 const ConversationScroll = {
   mounted() {
+    this._initialLoad = true;
     this.scrollToBottom();
 
     this.handleEvent("new-message", () => {
       requestAnimationFrame(() => this.scrollToBottom());
     });
 
-    this._observer = new MutationObserver(() => {
+    this._observer = new MutationObserver((mutations) => {
+      if (this._initialLoad) {
+        this.scrollToBottom();
+        this._watchNewImages(mutations);
+        return;
+      }
       if (this._anchorBottom != null) {
         this.el.scrollTop =
           this.el.scrollHeight - this._anchorBottom;
       }
+      this._watchNewImages(mutations);
     });
     this._observer.observe(this.el, {
       childList: true,
@@ -474,6 +479,8 @@ const ConversationScroll = {
     }, { passive: true });
     this._anchorBottom =
       this.el.scrollHeight - this.el.scrollTop;
+
+    setTimeout(() => { this._initialLoad = false; }, 5000);
   },
 
   updated() {
@@ -485,6 +492,28 @@ const ConversationScroll = {
   destroyed() {
     if (this._observer) {
       this._observer.disconnect();
+    }
+  },
+
+  _watchNewImages(mutations) {
+    for (const mutation of mutations) {
+      const nodes = mutation.type === "childList" ? mutation.addedNodes : [];
+      for (const node of nodes) {
+        if (node.nodeType !== 1) continue;
+        const imgs = node.tagName === "IMG" ? [node] : node.querySelectorAll?.("img") || [];
+        for (const img of imgs) {
+          if (!img.complete) {
+            img.addEventListener("load", () => this._onImageLoad(), { once: true });
+            img.addEventListener("error", () => this._onImageLoad(), { once: true });
+          }
+        }
+      }
+    }
+  },
+
+  _onImageLoad() {
+    if (this._initialLoad || this.isNearBottom()) {
+      this.scrollToBottom();
     }
   },
 

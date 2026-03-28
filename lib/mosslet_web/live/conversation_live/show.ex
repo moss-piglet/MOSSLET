@@ -760,6 +760,7 @@ defmodule MossletWeb.ConversationLive.Show do
         {:ok, message} ->
           Conversations.broadcast_new_message(conversation.id, message)
           Conversations.broadcast_typing(conversation.id, current_user.id, false)
+          Conversations.mark_conversation_read(conversation.id, current_user.id)
 
           conversation.user_conversations
           |> Enum.each(fn uc ->
