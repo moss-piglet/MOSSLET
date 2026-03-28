@@ -172,10 +172,12 @@ defmodule MossletWeb.ModernSidebarLayout do
         <div
           class={[
             "fixed z-[60] w-72 flex flex-col px-0 pb-4",
-            "bg-gradient-to-b from-white via-slate-50/50 to-slate-100/30",
-            "dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-900/60",
-            "border-r border-slate-200/60 dark:border-slate-700/60",
-            "backdrop-blur-sm transition-transform duration-300 ease-out"
+            "bg-gradient-to-b from-white via-slate-50/80 to-slate-100/50",
+            "dark:from-slate-800 dark:via-slate-800/90 dark:to-slate-900/70",
+            "rounded-r-2xl",
+            "ring-1 ring-slate-200/40 dark:ring-slate-700/40",
+            "shadow-xl shadow-slate-900/[0.08] dark:shadow-2xl dark:shadow-black/30",
+            "backdrop-blur-md transition-transform duration-300 ease-out"
           ]}
           x-data="{ sidebarCollapsed: false }"
           x-show="sidebarOpen"
