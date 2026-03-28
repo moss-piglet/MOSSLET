@@ -624,14 +624,26 @@ defmodule MossletWeb.UserAuth do
     socket = mount_current_scope(socket, session)
     scope = socket.assigns.current_scope
 
-    if scope && scope.user && scope.key && !totp_pending do
-      {:halt, Phoenix.LiveView.redirect(socket, to: signed_in_path(scope.user))}
-    else
-      if scope && scope.user && scope.key && totp_pending do
+    cond do
+      scope && scope.user && scope.key && !totp_pending ->
+        {:halt, Phoenix.LiveView.redirect(socket, to: signed_in_path(scope.user))}
+
+      scope && scope.user && scope.key && totp_pending ->
         {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/app/users/totp")}
-      else
+
+      scope && scope.user && !scope.key ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(
+            :info,
+            "Please enter your password to unlock your session."
+          )
+          |> Phoenix.LiveView.redirect(to: ~p"/auth/unlock")
+
+        {:halt, socket}
+
+      true ->
         {:cont, socket}
-      end
     end
   end
 
@@ -658,18 +670,25 @@ defmodule MossletWeb.UserAuth do
     scope = conn.assigns[:current_scope]
     user = scope && scope.user
 
-    if user && scope.key && !totp_pending do
-      conn
-      |> redirect(to: signed_in_path(user))
-      |> halt()
-    else
-      if user && scope.key && totp_pending do
+    cond do
+      user && scope.key && !totp_pending ->
+        conn
+        |> redirect(to: signed_in_path(user))
+        |> halt()
+
+      user && scope.key && totp_pending ->
         conn
         |> redirect(to: ~p"/app/users/totp")
         |> halt()
-      else
+
+      user && !scope.key ->
         conn
-      end
+        |> put_flash(:info, "Please enter your password to unlock your session.")
+        |> redirect(to: ~p"/auth/unlock")
+        |> halt()
+
+      true ->
+        conn
     end
   end
 

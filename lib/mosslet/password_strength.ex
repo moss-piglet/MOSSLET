@@ -469,7 +469,7 @@ defmodule Mosslet.PasswordStrength do
   defp dictionary_match(password) do
     words = extract_words(password)
 
-    if length(words) > 0 do
+    if words != [] do
       guesses =
         words
         |> Enum.map(&word_guesses/1)

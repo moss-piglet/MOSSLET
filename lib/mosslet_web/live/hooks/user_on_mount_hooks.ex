@@ -84,21 +84,28 @@ defmodule MossletWeb.UserOnMountHooks do
 
     totp_pending = session["user_totp_pending"]
 
-    if scope && scope.user && scope.key && !totp_pending do
-      signed_in_path =
-        if scope.user.is_onboarded? do
-          ~p"/app"
-        else
-          ~p"/app/users/onboarding"
-        end
+    cond do
+      scope && scope.user && scope.key && !totp_pending ->
+        signed_in_path =
+          if scope.user.is_onboarded? do
+            ~p"/app"
+          else
+            ~p"/app/users/onboarding"
+          end
 
-      {:halt, redirect(socket, to: signed_in_path)}
-    else
-      if scope && scope.user && scope.key && totp_pending do
+        {:halt, redirect(socket, to: signed_in_path)}
+
+      scope && scope.user && scope.key && totp_pending ->
         {:halt, redirect(socket, to: ~p"/app/users/totp")}
-      else
+
+      scope && scope.user && !scope.key ->
+        socket =
+          put_flash(socket, :info, "Please enter your password to unlock your session.")
+
+        {:halt, redirect(socket, to: ~p"/auth/unlock")}
+
+      true ->
         {:cont, socket}
-      end
     end
   end
 

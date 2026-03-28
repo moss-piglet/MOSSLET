@@ -115,7 +115,7 @@ defmodule Mosslet.Notifications.PushNotificationsGenServer do
 
   @impl true
   def handle_info(:process_batch, state) do
-    if state.pushes_sent_this_minute < @rate_limit_per_minute and length(state.queue) > 0 do
+    if state.pushes_sent_this_minute < @rate_limit_per_minute and state.queue != [] do
       {batch, remaining} = Enum.split(state.queue, @batch_size)
 
       {processed, failed} = process_batch(Enum.reverse(batch))

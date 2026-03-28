@@ -1171,8 +1171,7 @@ defmodule MossletWeb.JournalLive.Book do
   end
 
   @impl true
-  def handle_event("content_overflow_detected", %{"overflow_data" => overflow_data}, socket) do
-    IO.inspect(overflow_data, label: "Content overflow detected")
+  def handle_event("content_overflow_detected", %{"overflow_data" => _overflow_data}, socket) do
     {:noreply, socket}
   end
 
