@@ -17,6 +17,7 @@ export default {
   setupKeyboardShortcuts() {
     this.keydownHandler = (e) => {
       if (e.key !== "c") return;
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
 
       const activeEl = document.activeElement;
       const tagName = activeEl?.tagName?.toUpperCase() || "";
