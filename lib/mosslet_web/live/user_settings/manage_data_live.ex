@@ -411,6 +411,15 @@ defmodule MossletWeb.ManageDataLive do
                   />
 
                   <.data_checkbox
+                    id="user_data_conversations"
+                    name="user[data][conversations]"
+                    icon="hero-chat-bubble-bottom-center-text"
+                    label="Conversations"
+                    description="Delete all direct message conversations and their messages, including any shared images"
+                    checked={data_checked?(@form, "conversations")}
+                  />
+
+                  <.data_checkbox
                     id="user_data_journals"
                     name="user[data][journals]"
                     icon="hero-pencil-square"
@@ -676,6 +685,21 @@ defmodule MossletWeb.ManageDataLive do
                   </div>
                   <p class="text-sm text-blue-700 dark:text-blue-300 ml-6">
                     Deletes all your replies to conversations and threads
+                  </p>
+                </div>
+
+                <div class="space-y-2">
+                  <div class="flex items-center gap-2">
+                    <.phx_icon
+                      name="hero-chat-bubble-bottom-center-text"
+                      class="h-4 w-4 text-blue-600 dark:text-blue-400"
+                    />
+                    <span class="text-sm font-semibold text-blue-800 dark:text-blue-200">
+                      Conversations
+                    </span>
+                  </div>
+                  <p class="text-sm text-blue-700 dark:text-blue-300 ml-6">
+                    Removes all direct message conversations, messages, and shared images
                   </p>
                 </div>
               </div>

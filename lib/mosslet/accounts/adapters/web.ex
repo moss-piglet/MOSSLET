@@ -1691,6 +1691,30 @@ defmodule Mosslet.Accounts.Adapters.Web do
   end
 
   @impl true
+  def delete_all_conversations(user_id) do
+    alias Mosslet.Conversations.{Conversation, UserConversation}
+
+    conversation_ids_query =
+      from(uc in UserConversation,
+        where: uc.user_id == ^user_id,
+        select: uc.conversation_id
+      )
+
+    conversations_query =
+      from(c in Conversation,
+        where: c.id in subquery(conversation_ids_query)
+      )
+
+    Ecto.Multi.new()
+    |> Ecto.Multi.delete_all(:delete_conversations, conversations_query)
+    |> Repo.transaction_on_primary()
+    |> case do
+      {:ok, %{delete_conversations: {count, _}}} -> {:ok, count}
+      {:error, _op, reason, _changes} -> {:error, reason}
+    end
+  end
+
+  @impl true
   def cleanup_shared_users_from_posts(uconn_user_id, uconn_reverse_user_id) do
     posts_to_clean =
       from(p in Post, where: p.user_id == ^uconn_reverse_user_id)

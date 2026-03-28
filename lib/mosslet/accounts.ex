@@ -1184,6 +1184,35 @@ defmodule Mosslet.Accounts do
     end
   end
 
+  defp delete_data_filter(user, _attrs, _key, "conversations") do
+    alias Mosslet.Conversations.{Message, UserConversation}
+    alias Mosslet.FileUploads.ImageUploadWriter
+
+    conversation_ids =
+      from(uc in UserConversation,
+        where: uc.user_id == ^user.id,
+        select: uc.conversation_id
+      )
+      |> Mosslet.Repo.all()
+
+    if conversation_ids != [] do
+      from(m in Message,
+        where: m.conversation_id in ^conversation_ids and not is_nil(m.image_url),
+        select: m.image_url
+      )
+      |> Mosslet.Repo.all()
+      |> Enum.each(&ImageUploadWriter.delete_from_storage/1)
+    end
+
+    case adapter().delete_all_conversations(user.id) do
+      {:ok, _count} ->
+        :ok
+
+      {:error, _reason} ->
+        {:error, "There was an error deleting all conversations."}
+    end
+  end
+
   defp delete_data_filter(user, _attrs, key, "journals") do
     alias Mosslet.Journal.JournalBook
     alias Mosslet.FileUploads.JournalCoverUploadWriter
