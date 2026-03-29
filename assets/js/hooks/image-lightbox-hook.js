@@ -5,6 +5,8 @@ const ImageLightbox = {
     this.img = this.el.querySelector("#conversation-image-lightbox-img");
     this.closeBtn = this.el.querySelector("#conversation-image-lightbox-close");
     this.downloadBtn = this.el.querySelector("#conversation-image-lightbox-download");
+    this.originalParent = this.el.parentNode;
+    this.originalNextSibling = this.el.nextSibling;
 
     this.el._lightboxHook = this;
 
@@ -21,10 +23,15 @@ const ImageLightbox = {
 
   destroyed() {
     window.removeEventListener("keydown", this._keyHandler);
+    if (this.el.parentNode === document.body) {
+      document.body.removeChild(this.el);
+    }
   },
 
   open(dataUrl) {
     const allowDownload = this.el.dataset.allowDownload === "true";
+
+    document.body.appendChild(this.el);
 
     this.img.src = dataUrl;
     this.container.classList.remove("hidden");
@@ -54,6 +61,11 @@ const ImageLightbox = {
       this.container.classList.add("hidden");
       this.img.src = "";
       this.downloadBtn.href = "#";
+      if (this.originalNextSibling) {
+        this.originalParent.insertBefore(this.el, this.originalNextSibling);
+      } else {
+        this.originalParent.appendChild(this.el);
+      }
     }, 300);
   },
 };

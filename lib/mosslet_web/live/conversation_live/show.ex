@@ -109,6 +109,7 @@ defmodule MossletWeb.ConversationLive.Show do
               <div
                 :for={{dom_id, message} <- @streams.messages}
                 id={dom_id}
+                phx-hook="TouchHoverHook"
                 class={[
                   "group/msg flex mb-2",
                   if(message.sender_id == @current_scope.user.id,
@@ -227,7 +228,7 @@ defmodule MossletWeb.ConversationLive.Show do
                       <button
                         type="button"
                         data-react-trigger
-                        class="opacity-60 sm:opacity-0 sm:group-hover/msg:opacity-100 p-0.5 rounded text-slate-400 hover:text-teal-500 transition-all duration-200"
+                        class="opacity-0 group-hover/msg:opacity-100 touch-hover:opacity-100 p-0.5 rounded text-slate-400 hover:text-teal-500 transition-all duration-200"
                         title="React"
                       >
                         <.phx_icon name="hero-face-smile" class="size-3.5" />
@@ -238,7 +239,7 @@ defmodule MossletWeb.ConversationLive.Show do
                       type="button"
                       phx-click="confirm_delete_message"
                       phx-value-id={message.id}
-                      class="opacity-60 sm:opacity-0 sm:group-hover/msg:opacity-100 p-0.5 rounded text-slate-400 hover:text-rose-500 transition-all duration-200"
+                      class="opacity-0 group-hover/msg:opacity-100 touch-hover:opacity-100 p-0.5 rounded text-slate-400 hover:text-rose-500 transition-all duration-200"
                       title="Delete message"
                     >
                       <.phx_icon name="hero-trash" class="size-3.5" />
@@ -558,7 +559,7 @@ defmodule MossletWeb.ConversationLive.Show do
       <div
         id="conversation-image-lightbox"
         phx-hook="ImageLightbox"
-        class="fixed inset-0 z-50 hidden"
+        class="fixed inset-0 z-[100] hidden"
         data-allow-download={to_string(@partner_allows_download)}
       >
         <div
