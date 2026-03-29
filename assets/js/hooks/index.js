@@ -63,6 +63,7 @@ import BackgroundSyncHook from "./background-sync-hook";
 import PlatformDetector from "./platform-detector";
 import PostExpandHook from "./post-expand-hook";
 import FileDownloadHook from "./file-download-hook";
+import ConversationTouchReveal from "./conversation-touch-reveal";
 import StartConversation from "./start-conversation";
 
 export default {
@@ -76,6 +77,7 @@ export default {
   ConversationComposer,
   ConversationEmojiPicker,
   ConversationScroll,
+  ConversationTouchReveal,
   CSSBookBackCoverClick,
   CSSBookCoverClick,
   DeepLinkHook,

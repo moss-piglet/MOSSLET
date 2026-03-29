@@ -105,11 +105,16 @@ defmodule MossletWeb.ConversationLive.Show do
               </p>
             </div>
 
-            <div class="max-w-4xl mx-auto" id="messages-stream" phx-update="stream">
+            <div
+              class="max-w-4xl mx-auto"
+              id="messages-stream"
+              phx-update="stream"
+              phx-hook="ConversationTouchReveal"
+            >
               <div
                 :for={{dom_id, message} <- @streams.messages}
                 id={dom_id}
-                phx-hook="TouchHoverHook"
+                data-msg-touch
                 class={[
                   "group/msg flex mb-2",
                   if(message.sender_id == @current_scope.user.id,
