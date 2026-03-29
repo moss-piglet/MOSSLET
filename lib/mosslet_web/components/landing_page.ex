@@ -2210,7 +2210,7 @@ defmodule MossletWeb.Components.LandingPage do
                     clip-rule="evenodd"
                   />
                 </svg>
-                Unlimited Connections, Circles, and Posts
+                Unlimited Connections, Conversations, Circles, and Posts
               </li>
               <li class="flex gap-x-3">
                 <svg
