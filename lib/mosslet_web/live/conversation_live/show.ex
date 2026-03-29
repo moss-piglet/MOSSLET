@@ -413,7 +413,7 @@ defmodule MossletWeb.ConversationLive.Show do
                     rows="1"
                     placeholder={"Message #{@partner_name}..."}
                     class={[
-                      "block w-full resize-none rounded-2xl py-3 pl-4 pr-32 text-sm leading-relaxed",
+                      "block w-full resize-none rounded-2xl py-3 pl-4 pr-32 text-base sm:text-sm leading-relaxed",
                       "bg-slate-50/60 dark:bg-slate-900/40",
                       "border border-slate-200/60 dark:border-slate-700/60",
                       "focus:border-teal-400/60 dark:focus:border-teal-500/60",
@@ -558,7 +558,7 @@ defmodule MossletWeb.ConversationLive.Show do
       <div
         id="conversation-image-lightbox"
         phx-hook="ImageLightbox"
-        class="fixed inset-0 z-[70] hidden"
+        class="fixed inset-0 z-[9999] hidden"
         data-allow-download={to_string(@partner_allows_download)}
       >
         <div
@@ -566,8 +566,8 @@ defmodule MossletWeb.ConversationLive.Show do
           class="absolute inset-0 bg-black/90 backdrop-blur-md transition-opacity duration-300 opacity-0"
         >
         </div>
-        <div class="absolute inset-0 flex items-center justify-center p-4">
-          <div class="absolute top-4 right-4 z-10 flex items-center gap-2">
+        <div class="absolute inset-0 flex flex-col">
+          <div class="flex items-center justify-end gap-2 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-2">
             <a
               id="conversation-image-lightbox-download"
               href="#"
@@ -586,12 +586,14 @@ defmodule MossletWeb.ConversationLive.Show do
               <.phx_icon name="hero-x-mark" class="size-5" />
             </button>
           </div>
-          <img
-            id="conversation-image-lightbox-img"
-            src=""
-            alt="Full size image"
-            class="max-w-[95vw] max-h-[90vh] object-contain rounded-lg shadow-2xl transition-transform duration-300 scale-95 opacity-0"
-          />
+          <div class="flex-1 flex items-center justify-center p-4 min-h-0">
+            <img
+              id="conversation-image-lightbox-img"
+              src=""
+              alt="Full size image"
+              class="max-w-full max-h-full object-contain rounded-lg shadow-2xl transition-transform duration-300 scale-95 opacity-0"
+            />
+          </div>
         </div>
       </div>
     </.layout>
