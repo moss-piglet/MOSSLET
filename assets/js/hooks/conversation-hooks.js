@@ -193,12 +193,16 @@ const DecryptMessage = {
       if (img && !img.complete) {
         img.addEventListener(
           "load",
-          () => { this.el.style.minHeight = ""; },
+          () => {
+            this.el.style.minHeight = "";
+          },
           { once: true },
         );
         img.addEventListener(
           "error",
-          () => { this.el.style.minHeight = ""; },
+          () => {
+            this.el.style.minHeight = "";
+          },
           { once: true },
         );
       } else {
@@ -267,12 +271,24 @@ const DecryptMessage = {
     const loadingEl = document.createElement("div");
     loadingEl.className = "mt-3 url-preview-container";
     loadingEl.innerHTML = `
-      <div class="overflow-hidden rounded-xl ${isSender ? "border border-white/20 bg-white/10" : "border border-slate-200/60 dark:border-slate-700/50 bg-slate-50/80 dark:bg-slate-900/40"} animate-pulse">
-        <div class="h-[140px] ${isSender ? "bg-white/10" : "bg-slate-200/60 dark:bg-slate-700/30"}"></div>
+      <div class="overflow-hidden rounded-xl ${
+        isSender
+          ? "border border-white/20 bg-white/10"
+          : "border border-slate-200/60 dark:border-slate-700/50 bg-slate-50/80 dark:bg-slate-900/40"
+      } animate-pulse">
+        <div class="h-[140px] ${
+          isSender ? "bg-white/10" : "bg-slate-200/60 dark:bg-slate-700/30"
+        }"></div>
         <div class="p-3 space-y-2">
-          <div class="h-3 w-1/3 rounded-full ${isSender ? "bg-white/15" : "bg-slate-200/80 dark:bg-slate-700/40"}"></div>
-          <div class="h-4 w-3/4 rounded-full ${isSender ? "bg-white/15" : "bg-slate-200/80 dark:bg-slate-700/40"}"></div>
-          <div class="h-3 w-full rounded-full ${isSender ? "bg-white/15" : "bg-slate-200/80 dark:bg-slate-700/40"}"></div>
+          <div class="h-3 w-1/3 rounded-full ${
+            isSender ? "bg-white/15" : "bg-slate-200/80 dark:bg-slate-700/40"
+          }"></div>
+          <div class="h-4 w-3/4 rounded-full ${
+            isSender ? "bg-white/15" : "bg-slate-200/80 dark:bg-slate-700/40"
+          }"></div>
+          <div class="h-3 w-full rounded-full ${
+            isSender ? "bg-white/15" : "bg-slate-200/80 dark:bg-slate-700/40"
+          }"></div>
         </div>
       </div>
     `;
@@ -306,27 +322,39 @@ const DecryptMessage = {
 
     const imageHtml = image
       ? `<div class="w-full overflow-hidden">
-           <img src="${this._escapeHtml(image)}" alt="${title || "Preview"}" class="w-full max-h-[120px] object-cover group-hover/preview:scale-[1.03] transition-transform duration-500" onerror="this.parentElement.style.display='none'" />
+           <img src="${this._escapeHtml(image)}" alt="${
+             title || "Preview"
+           }" class="w-full max-h-[120px] object-cover group-hover/preview:scale-[1.03] transition-transform duration-500" onerror="this.parentElement.style.display='none'" />
          </div>`
       : "";
 
-    const siteIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5 shrink-0 ${isSender ? "text-white/50" : "text-slate-400 dark:text-slate-500"}">
+    const siteIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5 shrink-0 ${
+      isSender ? "text-white/50" : "text-slate-400 dark:text-slate-500"
+    }">
       <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" />
     </svg>`;
 
     const siteNameHtml = siteName
       ? `<div class="flex items-center gap-1.5">
            ${siteIconSvg}
-           <span class="text-xs font-medium ${isSender ? "text-white/60" : "text-slate-500 dark:text-slate-400"} truncate uppercase tracking-wide">${siteName}</span>
+           <span class="text-xs font-medium ${
+             isSender ? "text-white/60" : "text-slate-500 dark:text-slate-400"
+           } truncate uppercase tracking-wide">${siteName}</span>
          </div>`
       : "";
 
     const titleHtml = title
-      ? `<p class="font-semibold text-[13px] leading-snug ${isSender ? "text-white group-hover/preview:text-white" : "text-slate-900 dark:text-slate-100 group-hover/preview:text-teal-600 dark:group-hover/preview:text-teal-400"} line-clamp-2 transition-colors">${title}</p>`
+      ? `<p class="font-semibold text-[13px] leading-snug ${
+          isSender
+            ? "text-white group-hover/preview:text-white"
+            : "text-slate-900 dark:text-slate-100 group-hover/preview:text-teal-600 dark:group-hover/preview:text-teal-400"
+        } line-clamp-2 transition-colors">${title}</p>`
       : "";
 
     const descHtml = description
-      ? `<p class="text-[11px] leading-relaxed ${isSender ? "text-white/70" : "text-slate-500 dark:text-slate-400"} line-clamp-1 mt-0.5">${description}</p>`
+      ? `<p class="text-[11px] leading-relaxed ${
+          isSender ? "text-white/70" : "text-slate-500 dark:text-slate-400"
+        } line-clamp-1 mt-0.5">${description}</p>`
       : "";
 
     const cardBorder = isSender
@@ -461,8 +489,7 @@ const ConversationScroll = {
         return;
       }
       if (this._anchorBottom != null) {
-        this.el.scrollTop =
-          this.el.scrollHeight - this._anchorBottom;
+        this.el.scrollTop = this.el.scrollHeight - this._anchorBottom;
       }
       this._watchNewImages(mutations);
     });
@@ -473,14 +500,18 @@ const ConversationScroll = {
       attributes: true,
     });
 
-    this.el.addEventListener("scroll", () => {
-      this._anchorBottom =
-        this.el.scrollHeight - this.el.scrollTop;
-    }, { passive: true });
-    this._anchorBottom =
-      this.el.scrollHeight - this.el.scrollTop;
+    this.el.addEventListener(
+      "scroll",
+      () => {
+        this._anchorBottom = this.el.scrollHeight - this.el.scrollTop;
+      },
+      { passive: true },
+    );
+    this._anchorBottom = this.el.scrollHeight - this.el.scrollTop;
 
-    setTimeout(() => { this._initialLoad = false; }, 5000);
+    setTimeout(() => {
+      this._initialLoad = false;
+    }, 5000);
   },
 
   updated() {
@@ -500,11 +531,18 @@ const ConversationScroll = {
       const nodes = mutation.type === "childList" ? mutation.addedNodes : [];
       for (const node of nodes) {
         if (node.nodeType !== 1) continue;
-        const imgs = node.tagName === "IMG" ? [node] : node.querySelectorAll?.("img") || [];
+        const imgs =
+          node.tagName === "IMG"
+            ? [node]
+            : node.querySelectorAll?.("img") || [];
         for (const img of imgs) {
           if (!img.complete) {
-            img.addEventListener("load", () => this._onImageLoad(), { once: true });
-            img.addEventListener("error", () => this._onImageLoad(), { once: true });
+            img.addEventListener("load", () => this._onImageLoad(), {
+              once: true,
+            });
+            img.addEventListener("error", () => this._onImageLoad(), {
+              once: true,
+            });
           }
         }
       }
@@ -519,8 +557,7 @@ const ConversationScroll = {
 
   scrollToBottom() {
     this.el.scrollTop = this.el.scrollHeight;
-    this._anchorBottom =
-      this.el.scrollHeight - this.el.scrollTop;
+    this._anchorBottom = this.el.scrollHeight - this.el.scrollTop;
   },
 
   isNearBottom() {

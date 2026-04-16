@@ -52,6 +52,7 @@ npm-debug.log
 # Environment files
 *.env
 .env
+*.env**
 
 # OS specific files
 .DS_Store

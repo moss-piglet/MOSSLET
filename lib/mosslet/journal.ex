@@ -234,7 +234,7 @@ defmodule Mosslet.Journal do
     timestamps
     |> Enum.map(&to_journaling_day/1)
     |> Enum.uniq()
-    |> Enum.sort(:asc)
+    |> Enum.sort(:desc)
   end
 
   defp to_journaling_day(%DateTime{} = dt) do
