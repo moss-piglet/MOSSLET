@@ -24,7 +24,13 @@ defmodule MossletWeb.PublicLive.Blog.Blog16 do
           Each of these stories felt like a separate problem. They're not.
         </p>
         <p>
-          Over the past year and a half, I've been writing about individual privacy stories on this blog. Meta gutting its privacy teams. Smart doorbells spying for insurance companies. Airlines selling passenger data to Homeland Security. AI algorithms deciding which families to surveil. The government abandoning rules that would have shielded us from data brokers.
+          Over the past year and a half, I've been writing about individual privacy stories on this blog. <a href={
+            ~p"/blog/articles/08"
+          }>Meta gutting its privacy teams</a>. <a href={~p"/blog/articles/07"}>Smart doorbells spying for insurance companies</a>. <a href={
+            ~p"/blog/articles/03"
+          }>Airlines selling passenger data to Homeland Security</a>. <a href={~p"/blog/articles/02"}>AI algorithms deciding which families to surveil</a>. <a href={
+            ~p"/blog/articles/01"
+          }>The government abandoning rules that would have shielded us from data brokers</a>.
         </p>
         <p>
           Each time, I wrote about them as separate events. They're not. They're one story.
@@ -40,19 +46,31 @@ defmodule MossletWeb.PublicLive.Blog.Blog16 do
           </a>
         </h2>
         <p>
-          In late March, the FTC filed a lawsuit against OkCupid and its parent company Match Group — the company behind Tinder, Hinge, and Match.com — for secretly sharing nearly three million user photos, along with location and demographic data, with a facial recognition company called Clarifai. The kicker? OkCupid's founders were personally invested in Clarifai. They handed over the data as a favor. No contract. No restrictions on how it could be used. No notice to users. And then they spent over a decade trying to cover it up — including attempting to obstruct the FTC's own investigation.
+          In late March, the FTC took action against OkCupid and its parent company Match Group — the company behind Tinder, Hinge, and Match.com — for secretly sharing nearly three million user photos, along with location and demographic data, with a facial recognition company called Clarifai. The kicker? OkCupid's founders were personally invested in Clarifai. They handed over the data as a favor. No contract. No restrictions on how it could be used. No notice to users. And then they spent over a decade trying to cover it up — including attempting to obstruct the FTC's own investigation.
         </p>
         <p>
           OkCupid's privacy policy at the time told users their data would not be shared "except as indicated in this Privacy Policy or when we inform you and give you an opportunity to opt out." Clarifai was not a service provider, not a business partner, not a corporate affiliate. Users were never informed. They were never given the chance to opt out. Their photos were just... given away. To train facial recognition.
         </p>
         <p>
-          Meanwhile, Tinder — also owned by Match Group — rolled out a new feature in March that uses AI to scan your entire camera roll. They call it "Photo Insights." It analyzes every photo on your phone to determine your "vibe" — your interests, personality, lifestyle. One tech commentator put it well: "'Vibe analysis' is the friendliest possible name for training a behavioral model on your private photos."
+          Meanwhile, Tinder — also owned by Match Group —
+          <a
+            target="_blank"
+            rel="noopener noreferrer"
+            href="https://cybernews.com/privacy/tinders-artificial-intelligence-scans-camera-roll/"
+          >
+            rolled out a new feature in March
+          </a>
+          that uses AI to scan your entire camera roll. They call it "Photo Insights." It analyzes every photo on your phone to determine your "vibe" — your interests, personality, lifestyle. One tech commentator put it well: "'Vibe analysis' is the friendliest possible name for training a behavioral model on your private photos."
         </p>
         <p>
-          Tinder says it's optional. They say select photos are "temporarily uploaded" to their servers. They say photos you don't keep "are deleted within 90 days and may be analyzed to help us improve the Photo Insights feature." Read that last part again. They delete your photos, but not before using them to improve their system. And this is the company that just settled with the FTC for secretly funneling user photos to a facial recognition startup.
+          Tinder says it's optional. They say select photos are "temporarily uploaded" to their servers. They say photos you don't keep "are deleted within 90 days and may be analyzed to help us improve the Photo Insights feature." Read that last part again. They delete your photos, but not before using them to improve their system. And this is the same company that just settled with the FTC for secretly funneling user photos to a facial recognition startup.
         </p>
         <p>
-          Then there's the Ring doorbell saga. Amazon aired a Super Bowl ad for Ring's new "Search Party" feature — pitched as a way to find lost dogs using your neighborhood camera network. The backlash was immediate. People saw through the framing: what tracks a dog can track a person. In the same week, the FBI publicly explained that in the Nancy Guthrie kidnapping case, agents were able to "excavate material that people would think would normally be deleted" from a Nest smart doorbell camera. Residual data. Footage from a camera that wasn't even actively recording.
+          Then there's the Ring doorbell saga. Amazon aired a Super Bowl ad for Ring's new "Search Party" feature — pitched as a way to find lost dogs using your neighborhood camera network. The backlash was immediate. People saw through the framing: what tracks a dog can track a person. Around the same time, the FBI revealed that in the <a
+            target="_blank"
+            rel="noopener noreferrer"
+            href="https://www.theverge.com/tech/877235/nancy-guthrie-google-nest-cam-video-storage"
+          >Nancy Guthrie kidnapping case</a>, investigators recovered footage from a Nest doorbell camera using "residual data located in backend systems" — footage the user no longer had access to and that should have been gone. The camera had been forcibly removed, the subscription was inactive, and the clips had expired. Google's engineers still pulled them back.
         </p>
         <p>
           Ring had also been exploring a partnership with Flock Safety, a company whose AI-powered license plate readers are used by law enforcement across more than 6,000 communities. ICE has been tapping that data through requests to local police. Ring eventually cancelled the partnership after public pressure, but the architecture is already built. The sensor network exists. It's in neighborhoods across the country. It's privately owned, and it's available.
@@ -97,7 +115,11 @@ defmodule MossletWeb.PublicLive.Blog.Blog16 do
           <strong>
             The companies collecting your data are the same companies losing it, sharing it, and lying about it.
           </strong>
-          Match Group promised privacy and handed photos to a facial recognition firm. Ring promised security and built a surveillance network accessible to law enforcement. Data brokers promise anonymity and sell coordinates that can identify soldiers visiting nuclear vaults.
+          Match Group promised privacy and handed photos to a facial recognition firm. <a href={
+            ~p"/blog/articles/07"
+          }>Ring promised security and built a surveillance network accessible to law enforcement</a>. Data brokers promise anonymity and <a href={
+            ~p"/blog/articles/05"
+          }>sell coordinates that can identify soldiers visiting nuclear vaults</a>.
         </p>
         <p>
           <strong>Opt-in" is becoming the new "trust me."</strong>
@@ -105,7 +127,9 @@ defmodule MossletWeb.PublicLive.Blog.Blog16 do
         </p>
         <p>
           <strong>The government isn't protecting you — it's a customer.</strong>
-          DHS received $165 billion in yearly funding through the 2025 spending law. ICE is tapping commercial surveillance networks. The government purchases data from brokers specifically because it's not subject to the same restrictions as information it collects directly. And the CFPB, as I wrote about last year, withdrew its own proposal to regulate the data broker industry. The entity that was supposed to protect us quietly stood down.
+          DHS received over $100 billion in yearly funding through the 2025 spending law. ICE is tapping commercial surveillance networks. The government purchases data from brokers specifically because it's not subject to the same restrictions as information it collects directly. And the CFPB, as <a href={
+            ~p"/blog/articles/01"
+          }>I wrote about last year</a>, withdrew its own proposal to regulate the data broker industry. The entity that was supposed to protect us quietly stood down.
         </p>
         <p>
           <strong>AI is making all of this worse, faster.</strong>
@@ -144,7 +168,13 @@ defmodule MossletWeb.PublicLive.Blog.Blog16 do
           This is <strong>algorithmic governance</strong>. Total control, offered as a service. And the floor collapsing — the removal of guardrails, the gutting of regulatory agencies, the normalization of corporate surveillance — isn't a failure of the system. It's the transition between phase two and phase three. The chaos isn't a bug. It's the sales pitch.
         </p>
         <p>
-          Every story I've covered on this blog fits somewhere on this trajectory. The data brokers extracting everything they can. The platforms optimizing for engagement over truth. The government purchasing surveillance data instead of regulating it. The new privacy bills that look like protection but strip away your ability to fight back. The AI systems that promise to make sense of a world that was deliberately made senseless.
+          Every story I've covered on this blog fits somewhere on this trajectory. The <a href={
+            ~p"/blog/articles/01"
+          }>data brokers extracting everything they can</a>. The platforms optimizing for engagement over truth. The
+          <a href={~p"/blog/articles/03"}>government purchasing surveillance data</a>
+          instead of regulating it. The new privacy bills that look like protection but strip away your ability to fight back. The <a href={
+            ~p"/blog/articles/02"
+          }>AI systems that promise to make sense of a world that was deliberately made senseless</a>.
         </p>
         <p>
           This is the floor that's collapsing. Not just individual privacy protections — the entire assumption that someone, somewhere, is keeping the system accountable.
@@ -161,7 +191,11 @@ defmodule MossletWeb.PublicLive.Blog.Blog16 do
         </p>
 
         <p>
-          The point of Mosslet was never to be the anti-Facebook. It was to ask a simple question: what would it look like if a social network couldn't spy on its own people? What if your messages were encrypted before they left your device? What if your photos were only visible to the people you chose to share them with? What if deleting something actually deleted it?
+          The point of Mosslet was never to be the anti-Facebook. It was to ask a simple question:
+          <a href={~p"/blog/articles/10"}>
+            what would it look like if a social network couldn't spy on its own people?
+          </a>
+          What if your messages were encrypted before they left your device? What if your photos were only visible to the people you chose to share them with? What if deleting something actually deleted it?
         </p>
 
         <p>
@@ -192,7 +226,9 @@ defmodule MossletWeb.PublicLive.Blog.Blog16 do
             target="_blank"
             rel="noopener noreferrer"
             href="https://www.schneier.com/essays/archives/2016/04/the_value_of_encrypt.html"
-          >encryption (privacy) keeps you safe</a>. Real safety is systemic and comes from caring about safety and then giving people the tools to protect themselves — blocking, reporting, image safety checks — not from having a corporation read your private thoughts (Instagram was harming kids long before they added end-to-end encryption to their DMs).
+          >encryption (privacy) keeps you safe</a>. Real safety is systemic and comes from caring about safety and then giving people the tools to protect themselves — blocking, reporting,
+          <a href={~p"/blog/articles/15"}>image safety checks</a>
+          — not from having a corporation read your private thoughts (Instagram was harming kids long before they added end-to-end encryption to their DMs).
         </p>
         <p>
           And let's not forget the business model at play. Meta makes money by understanding you as deeply as possible. Every unencrypted message is another data point, another signal for their advertising machine. When they argue against encryption, they're not just arguing for safety — they're arguing for access to your most intimate digital conversations.
