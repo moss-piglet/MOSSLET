@@ -19,6 +19,21 @@ Allow: /
 User-agent: Slurp
 Allow: /
 
+User-agent: Twitterbot
+Allow: /
+
+User-agent: Slackbot
+Allow: /
+
+User-agent: TelegramBot
+Allow: /
+
+User-Agent: FacebookBot
+Allow: /
+
+User-agent: WhatsApp
+Allow: /
+
 User-agent: LinkedInBot
 Allow: /
 
@@ -52,9 +67,6 @@ Disallow: /
 User-agent: Omgilibot
 Disallow: /
 
-User-Agent: FacebookBot
-Disallow: /
-
 User-agent: anthropic-ai
 Disallow: /
 
@@ -70,12 +82,8 @@ Disallow: /
 User-agent: ImagesiftBot
 Disallow: /
 
-User-agent: Omgilibot
-Disallow: /
-
 User-agent: Omgili
 Disallow: /
 
 User-agent: YouBot
 Disallow: /
-
