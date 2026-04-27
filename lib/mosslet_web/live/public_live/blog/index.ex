@@ -29,6 +29,13 @@ defmodule MossletWeb.PublicLive.Blog.Index do
             <%!-- Blog entries --%>
             <div class="space-y-8">
               <.blog_entry
+                id="blog_16"
+                date="April 27, 2026"
+                title="The Floor Is Collapsing"
+                preview="Over the past year and a half, I've been writing about individual privacy stories on this blog. Meta gutting its privacy teams. Smart doorbells spying for insurance companies. Airlines selling passenger data to Homeland Security. AI algorithms deciding which families to surveil. The government abandoning rules that would have shielded us from data brokers."
+                link={~p"/blog/articles/16"}
+              />
+              <.blog_entry
                 id="blog_15"
                 date="March 26, 2026"
                 title="True Zero-Knowledge Messaging Is Here"

@@ -8,6 +8,14 @@ defmodule MossletWeb.FeedController do
 
   @blog_entries [
     %{
+      id: "16",
+      date: "April 27, 2026",
+      title: "The Floor Is Collapsing",
+      preview:
+        "Over the past year, we've covered airlines selling data, doorbells spying for insurers, data brokers tracking soldiers, and governments stepping aside. They're not separate stories — they're one system. And the floor beneath it is collapsing.",
+      path: "/blog/articles/16"
+    },
+    %{
       id: "15",
       date: "March 26, 2026",
       title: "True Zero-Knowledge Messaging Is Here",
