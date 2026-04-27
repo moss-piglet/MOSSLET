@@ -43,6 +43,9 @@ Allow: /
 User-agent: Ruby
 Allow: /
 
+User-agent: redditbot
+Allow: /
+
 User-agent: AdsBot-Google
 Disallow: /
 
