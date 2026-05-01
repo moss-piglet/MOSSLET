@@ -140,14 +140,14 @@ Conversations use the **same NaCl/libsodium cryptographic architecture** as post
 
 ### Why Browser-Side?
 
-| Feature | Server-side (Posts, Groups) | Browser-side (Conversations) |
-|---------|---------------------------|------------------------------|
-| **Library** | `:enacl` (Erlang NaCl bindings) | `libsodium-wrappers` (JS) |
-| **Where encryption runs** | Server (BEAM process) | Browser (JavaScript) |
-| **Zero-knowledge on web?** | No — server sees plaintext briefly | **Yes** — server never sees plaintext |
-| **Algorithms** | Identical: XSalsa20-Poly1305 (secretbox) + X25519 (box_seal) | Identical |
-| **Nonce format** | `nonce <> ciphertext` (prepended, base64) | `nonce + ciphertext` (prepended, base64) |
-| **Key size** | `secretbox_KEYBYTES` (32 bytes) | `crypto_secretbox_KEYBYTES` (32 bytes) |
+| Feature                    | Server-side (Posts, Groups)                                  | Browser-side (Conversations)             |
+| -------------------------- | ------------------------------------------------------------ | ---------------------------------------- |
+| **Library**                | `:enacl` (Erlang NaCl bindings)                              | `libsodium-wrappers` (JS)                |
+| **Where encryption runs**  | Server (BEAM process)                                        | Browser (JavaScript)                     |
+| **Zero-knowledge on web?** | No — server sees plaintext briefly                           | **Yes** — server never sees plaintext    |
+| **Algorithms**             | Identical: XSalsa20-Poly1305 (secretbox) + X25519 (box_seal) | Identical                                |
+| **Nonce format**           | `nonce <> ciphertext` (prepended, base64)                    | `nonce + ciphertext` (prepended, base64) |
+| **Key size**               | `secretbox_KEYBYTES` (32 bytes)                              | `crypto_secretbox_KEYBYTES` (32 bytes)   |
 
 The two implementations are **cryptographically identical** — the same algorithms, key sizes, nonce formats, and base64 encoding. An `:enacl` encrypted blob can be decrypted by `libsodium-wrappers` and vice versa.
 
@@ -193,6 +193,7 @@ plaintext = decryptDmMessage(message.content, conversation_key)    # 5. secretbo
 ```
 
 Compare to the server-side post pattern:
+
 ```
 POST CONTEXT (server-side, identical cryptographic pattern):
 
@@ -287,30 +288,30 @@ plaintext = Encrypted.Utils.decrypt(%{key: post_key, payload: post.body})  # 5. 
 
 The conversation LiveView passes encrypted keys to the browser via HTML data attributes on the `#conversation-composer` element:
 
-| Data Attribute | Purpose | Source |
-|---------------|---------|--------|
-| `data-conversation-key` | User's encrypted copy of conversation_key | `user_conversation.key` (base64) |
-| `data-user-public-key` | User's public key | `current_scope.user.key_pair["public"]` |
-| `data-session-key` | Password-derived session key | `current_scope.key` |
+| Data Attribute               | Purpose                                         | Source                                   |
+| ---------------------------- | ----------------------------------------------- | ---------------------------------------- |
+| `data-conversation-key`      | User's encrypted copy of conversation_key       | `user_conversation.key` (base64)         |
+| `data-user-public-key`       | User's public key                               | `current_scope.user.key_pair["public"]`  |
+| `data-session-key`           | Password-derived session key                    | `current_scope.key`                      |
 | `data-encrypted-private-key` | User's private key (encrypted with session key) | `current_scope.user.key_pair["private"]` |
 
 ### JavaScript Crypto Module (`assets/js/crypto/nacl.js`)
 
 Maps 1:1 to the server-side `:enacl` functions:
 
-| JS Function | Enacl Equivalent | NaCl Primitive |
-|-------------|-----------------|----------------|
-| `generateKey()` | `Encrypted.Utils.generate_key()` | `randombytes(secretbox_KEYBYTES)` |
-| `encryptSecretboxString(plaintext, key)` | `Encrypted.Utils.encrypt(%{key:, payload:})` | `secretbox(msg, nonce, key)` |
-| `decryptSecretboxToString(ciphertext, key)` | `Encrypted.Utils.decrypt(%{key:, payload:})` | `secretbox_open(ct, nonce, key)` |
-| `boxSeal(plaintext, pk)` | `encrypt_message_for_user_with_pk(msg, %{public: pk})` | `box_seal(msg, pk)` |
-| `boxSealOpen(ct, pk, sk)` | `decrypt_message_for_user(ct, %{public: pk, private: sk})` | `box_seal_open(ct, pk, sk)` |
-| `encryptDmKeyForUser(key, pk)` | — (composition of above) | `box_seal(key_bytes, pk)` |
-| `decryptDmKey(ct, pk, sk)` | — (composition of above) | `box_seal_open(ct, pk, sk)` |
-| `encryptDmMessage(plaintext, key)` | — (alias for secretbox) | `secretbox(msg, nonce, key)` |
-| `decryptDmMessage(ct, key)` | — (alias for secretbox) | `secretbox_open(ct, nonce, key)` |
-| `deriveSessionKey(password, salt)` | `Encrypted.Utils.derive_pwd_key(pwd, salt)` | `pwhash(pwd, salt)` |
-| `decryptPrivateKey(ct, sessionKey)` | `Encrypted.Utils.decrypt(%{key:, payload:})` | `secretbox_open(ct, nonce, key)` |
+| JS Function                                 | Enacl Equivalent                                           | NaCl Primitive                    |
+| ------------------------------------------- | ---------------------------------------------------------- | --------------------------------- |
+| `generateKey()`                             | `Encrypted.Utils.generate_key()`                           | `randombytes(secretbox_KEYBYTES)` |
+| `encryptSecretboxString(plaintext, key)`    | `Encrypted.Utils.encrypt(%{key:, payload:})`               | `secretbox(msg, nonce, key)`      |
+| `decryptSecretboxToString(ciphertext, key)` | `Encrypted.Utils.decrypt(%{key:, payload:})`               | `secretbox_open(ct, nonce, key)`  |
+| `boxSeal(plaintext, pk)`                    | `encrypt_message_for_user_with_pk(msg, %{public: pk})`     | `box_seal(msg, pk)`               |
+| `boxSealOpen(ct, pk, sk)`                   | `decrypt_message_for_user(ct, %{public: pk, private: sk})` | `box_seal_open(ct, pk, sk)`       |
+| `encryptDmKeyForUser(key, pk)`              | — (composition of above)                                   | `box_seal(key_bytes, pk)`         |
+| `decryptDmKey(ct, pk, sk)`                  | — (composition of above)                                   | `box_seal_open(ct, pk, sk)`       |
+| `encryptDmMessage(plaintext, key)`          | — (alias for secretbox)                                    | `secretbox(msg, nonce, key)`      |
+| `decryptDmMessage(ct, key)`                 | — (alias for secretbox)                                    | `secretbox_open(ct, nonce, key)`  |
+| `deriveSessionKey(password, salt)`          | `Encrypted.Utils.derive_pwd_key(pwd, salt)`                | `pwhash(pwd, salt)`               |
+| `decryptPrivateKey(ct, sessionKey)`         | `Encrypted.Utils.decrypt(%{key:, payload:})`               | `secretbox_open(ct, nonce, key)`  |
 
 ### Encryption Layers for Messages
 
@@ -329,6 +330,7 @@ Message content retrieval:
 ### Image Encryption in Conversations
 
 Conversation images use a hybrid approach:
+
 - **Image content**: Encrypted server-side with a random `trix_key` via `Encrypted.Utils.encrypt()`, stored in cloud storage (Storj/Tigris)
 - **Image metadata**: `message.image_url` (encrypted storage path) and `message.image_key` (the `trix_key`) stored in the database with Cloak
 - **Decryption**: Server fetches encrypted image from storage, decrypts with `image_key`, returns as base64 data URL to browser
@@ -338,6 +340,7 @@ This is the one exception where server-side decryption occurs for conversation-r
 ### Native App (Desktop/Mobile) Considerations
 
 For native apps, the conversation encryption can move entirely to the device:
+
 - Key generation, message encryption/decryption all happen in the BEAM on-device using `:enacl`
 - Same algorithms, same key formats — fully interoperable with browser JS encryption
 - Native users achieve the same zero-knowledge guarantee as browser users
@@ -376,7 +379,7 @@ post_report.details = encrypt("Report details", post_key)         # Same as post
 
 ```javascript
 // ✅ CONVERSATION CONTENT (browser-side, zero-knowledge)
-message.content = encryptDmMessage("My message", conversation_key)  // Encrypted in browser
+message.content = encryptDmMessage("My message", conversation_key); // Encrypted in browser
 // Server stores the encrypted blob directly — never decrypts it
 ```
 
@@ -442,9 +445,9 @@ user_connection.key = encrypt(conn_key, user.public_key)     # 3. Share with con
 
 ```javascript
 // Key generation and encryption happen in the BROWSER (not server)
-conversation_key = generateKey()                              // 1. Browser generates conversation key
-encrypted_msg = encryptDmMessage("Hello!", conversation_key)  // 2. Browser encrypts with conv key
-user_conversation.key = encryptDmKeyForUser(conversation_key, user.public_key)  // 3. box_seal per user
+conversation_key = generateKey(); // 1. Browser generates conversation key
+encrypted_msg = encryptDmMessage("Hello!", conversation_key); // 2. Browser encrypts with conv key
+user_conversation.key = encryptDmKeyForUser(conversation_key, user.public_key); // 3. box_seal per user
 // Access: decryptDmKey(user_conversation.key, pk, sk) → conversation_key → decryptDmMessage(content)
 // Server ONLY stores encrypted blobs — never sees plaintext
 ```
@@ -493,7 +496,7 @@ defp encrypt_muted_users(changeset, opts) do
 
     if muted_users && length(muted_users) > 0 do
       # Encrypt each user_id with USER_KEY (personal data)
-      encrypted_user_ids = 
+      encrypted_user_ids =
         Enum.map(muted_users, fn user_id ->
           Mosslet.Encrypted.Users.Utils.encrypt_user_data(
             user_id,  # Personal preference data
@@ -528,7 +531,7 @@ defp encrypt_post_tags(changeset, opts) do
 
     if tags && length(tags) > 0 do
       # Encrypt each tag with POST_KEY (same key as post.body)
-      encrypted_tags = 
+      encrypted_tags =
         Enum.map(tags, fn tag ->
           Mosslet.Encrypted.Utils.encrypt(%{
             key: opts[:post_key],  # Same key used for post content
@@ -880,10 +883,10 @@ This encryption architecture provides:
 
 Mosslet uses **two layers of encryption** that serve different purposes:
 
-| Layer | Technology | Purpose | Where It Happens | Who Has Key |
-|-------|-----------|---------|------------------|-------------|
-| **Layer 1: At-Rest (Symmetric)** | Cloak (AES-256-GCM) | Protects data in database from DB-level breaches | Server (Fly.io) | Server only (`CLOAK_KEY`) |
-| **Layer 2: E2E (Asymmetric)** | Enacl (NaCl/libsodium) | Protects content from server access | Where BEAM runs | User's keypair |
+| Layer                            | Technology             | Purpose                                          | Where It Happens | Who Has Key               |
+| -------------------------------- | ---------------------- | ------------------------------------------------ | ---------------- | ------------------------- |
+| **Layer 1: At-Rest (Symmetric)** | Cloak (AES-256-GCM)    | Protects data in database from DB-level breaches | Server (Fly.io)  | Server only (`CLOAK_KEY`) |
+| **Layer 2: E2E (Asymmetric)**    | Enacl (NaCl/libsodium) | Protects content from server access              | Where BEAM runs  | User's keypair            |
 
 ### How Data Flows
 
@@ -921,13 +924,13 @@ Mosslet uses **two layers of encryption** that serve different purposes:
 
 ### Platform Comparison
 
-| Platform | Enacl Encryption | Cloak Encryption | Database | Zero-Knowledge? |
-|----------|-----------------|------------------|----------|-----------------|
-| **Web (Browser)** | Server-side (in Elixir on Fly.io) | Server-side | Postgres (Fly.io) | No* |
-| **Desktop App** | Device-side (in Elixir on device) | Server-side | Postgres (Fly.io) | **Yes** |
-| **Mobile App** | Device-side (in Elixir on device) | Server-side | Postgres (Fly.io) | **Yes** |
+| Platform          | Enacl Encryption                  | Cloak Encryption | Database          | Zero-Knowledge? |
+| ----------------- | --------------------------------- | ---------------- | ----------------- | --------------- |
+| **Web (Browser)** | Server-side (in Elixir on Fly.io) | Server-side      | Postgres (Fly.io) | No\*            |
+| **Desktop App**   | Device-side (in Elixir on device) | Server-side      | Postgres (Fly.io) | **Yes**         |
+| **Mobile App**    | Device-side (in Elixir on device) | Server-side      | Postgres (Fly.io) | **Yes**         |
 
-*Web users' content is briefly decrypted in server memory during their session. Native app users never expose plaintext to the server.
+\*Web users' content is briefly decrypted in server memory during their session. Native app users never expose plaintext to the server.
 
 ### Why Single Cloud Database (Not Local SQLite for User Data)
 
@@ -956,26 +959,28 @@ ALL PLATFORMS:
 Desktop User Reading:
   Postgres → Cloak decrypt (server) → API → Enacl decrypt (device) → Plaintext
 
-Web User Reading:  
+Web User Reading:
   Postgres → Cloak decrypt (server) → Enacl decrypt (server) → Plaintext
 ```
 
 ### Data Visibility by Platform
 
-| What Server Sees | Web User | Native User |
-|------------------|----------|-------------|
-| Cloak-encrypted blob in DB | ✓ | ✓ |
-| Enacl-encrypted blob (after Cloak decrypt) | ✓ | ✓ |
-| Plaintext content | ✓ (during session) | **Never** |
+| What Server Sees                           | Web User           | Native User |
+| ------------------------------------------ | ------------------ | ----------- |
+| Cloak-encrypted blob in DB                 | ✓                  | ✓           |
+| Enacl-encrypted blob (after Cloak decrypt) | ✓                  | ✓           |
+| Plaintext content                          | ✓ (during session) | **Never**   |
 
 ### Server Keys vs User Keys
 
 **User-Specific Content (Private):**
+
 - Encrypted with user's PUBLIC key (enacl)
 - Only user's PRIVATE key can decrypt
 - Server CANNOT read (even for web users, the enacl layer uses user's keys)
 
 **Public/Shared Content:**
+
 - Encrypted with SERVER's PUBLIC key (enacl)
 - Server's PRIVATE key can decrypt when needed (admin access, reports, etc.)
 - Examples: Public posts, post reports, connection profiles
@@ -984,7 +989,7 @@ Web User Reading:
 # Private content → User's public key
 user_post.key = encrypt_for_user(post_key, user.key_pair["public"])
 
-# Public content → Server's public key  
+# Public content → Server's public key
 user_post.key = encrypt_for_user(post_key, Encrypted.Session.server_public_key())
 ```
 
@@ -1045,18 +1050,20 @@ Native Cache:    Content → Enacl → Cloak (device key from keychain) → SQLi
 
 Two separate secrets are stored in the device's OS-native keychain:
 
-| Secret | Purpose | Storage |
-|--------|---------|---------|
-| **Device Encryption Key** | AES-256-GCM encryption via `Mosslet.Vault.Native` | OS Keychain |
-| **Device HMAC Secret** | Deterministic hashing via `Mosslet.Encrypted.Native.HMAC` | OS Keychain |
+| Secret                    | Purpose                                                   | Storage     |
+| ------------------------- | --------------------------------------------------------- | ----------- |
+| **Device Encryption Key** | AES-256-GCM encryption via `Mosslet.Vault.Native`         | OS Keychain |
+| **Device HMAC Secret**    | Deterministic hashing via `Mosslet.Encrypted.Native.HMAC` | OS Keychain |
 
 **Platform-Specific Keychain Storage:**
+
 - **macOS/iOS**: Keychain Services (device-only, not synced to iCloud)
 - **Windows**: DPAPI / Credential Manager
 - **Linux**: Secret Service API (libsecret)
 - **Android**: Keystore
 
 **Key Properties:**
+
 - Generated once per device on first app launch
 - Never transmitted or synced between devices
 - Lost when device is wiped (cache rebuilds from cloud sync)
@@ -1129,11 +1136,13 @@ Mosslet supports encryption key rotation without downtime. The system uses Cloak
 ### Safe Key Rotation Process
 
 1. **Generate a new key locally**:
+
    ```elixir
    :crypto.strong_rand_bytes(32) |> Base.encode64()
    ```
 
 2. **Deploy the new key** (on Fly.io):
+
    ```bash
    fly secrets set CLOAK_KEY_NEW=<new_base64_key> CLOAK_KEY_NEW_TAG=AES.GCM.V2
    ```
@@ -1143,6 +1152,7 @@ Mosslet supports encryption key rotation without downtime. The system uses Cloak
    - Keeps `CLOAK_KEY` available for decrypting existing data
 
 4. **Start the rotation job**:
+
    ```elixir
    # Via IEx or scheduled job
    %{"action" => "start_rotation"}
@@ -1151,6 +1161,7 @@ Mosslet supports encryption key rotation without downtime. The system uses Cloak
    ```
 
 5. **Monitor progress**:
+
    ```elixir
    Mosslet.Security.KeyRotation.rotation_summary()
    Mosslet.Vault.rotation_status()
@@ -1175,6 +1186,7 @@ This approach ensures you **never lose access to your current key** during rotat
 ### Rotation Monitoring
 
 The `KeyRotationOrchestratorJob` runs weekly (Sundays at 3 AM UTC) to:
+
 - Check for stalled rotations
 - Resume pending work
 - Log warnings for any issues

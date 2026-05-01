@@ -10,6 +10,7 @@ defmodule Mosslet.Accounts.User do
   alias Mosslet.Accounts.{Connection, UserConnection}
   alias Mosslet.Billing.Customers.Customer
   alias Mosslet.Encrypted
+  alias Mosslet.Security.EmailBlocklist
   alias Mosslet.Groups.{Group, UserGroup}
   alias Mosslet.Orgs.Org
   alias Mosslet.Memories.{Memory, Remark, UserMemory}
@@ -191,6 +192,7 @@ defmodule Mosslet.Accounts.User do
         message: "must have the @ sign and no spaces"
       )
       |> validate_length(:email, max: 160)
+      |> validate_blocked_email_domain()
       |> validate_mx_records()
       |> add_email_hash()
       |> maybe_validate_unique_email_hash(opts)
@@ -202,9 +204,20 @@ defmodule Mosslet.Accounts.User do
         message: "must have the @ sign and no spaces"
       )
       |> validate_length(:email, max: 160)
+      |> validate_blocked_email_domain()
       |> validate_mx_records()
       |> add_email_hash()
       |> maybe_validate_unique_email_hash(opts)
+    end
+  end
+
+  defp validate_blocked_email_domain(changeset) do
+    email = get_field(changeset, :email)
+
+    if email && EmailBlocklist.blocked?(email) do
+      add_error(changeset, :email, "this email provider is not accepted")
+    else
+      changeset
     end
   end
 
