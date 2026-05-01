@@ -61,3 +61,6 @@ config :mosslet, Oban, testing: :manual
 
 # Disable bot detection during tests
 config :mosslet, Mosslet.Security.BotDetector, auto_ban_enabled: false
+
+# Provide a static secret for plug_attack IP hashing in tests
+config :mosslet, plug_attack_ip_secret: "test_plug_attack_secret"
