@@ -313,7 +313,7 @@ defmodule Mosslet.AI.Images do
 
   defp check_exif_for_ai(image) do
     case Image.exif(image) do
-      {:ok, exif} ->
+      {:ok, exif} when is_map(exif) ->
         software = Map.get(exif, :software, "") || ""
         user_comment = Map.get(exif, :user_comment, "") || ""
         make = Map.get(exif, :make, "") || ""
@@ -322,7 +322,7 @@ defmodule Mosslet.AI.Images do
         combined = Enum.join([software, user_comment, make, model], " ")
         Enum.any?(@ai_software_patterns, &Regex.match?(&1, combined))
 
-      {:error, _} ->
+      _other ->
         false
     end
   end
