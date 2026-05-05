@@ -81,15 +81,17 @@ defmodule Mosslet.Bluesky.ImportProcessor do
     if Enum.empty?(images) do
       {:ok, []}
     else
-      results =
-        images
-        |> Enum.map(&process_single_image(&1, visibility, post_key))
-        |> Enum.reduce_while({:ok, []}, fn
-          {:ok, result}, {:ok, acc} -> {:cont, {:ok, acc ++ [result]}}
-          {:error, reason}, _ -> {:halt, {:error, reason}}
-        end)
-
-      results
+      images
+      |> Enum.reduce_while({:ok, []}, fn image, {:ok, acc} ->
+        case process_single_image(image, visibility, post_key) do
+          {:ok, result} -> {:cont, {:ok, [result | acc]}}
+          {:error, reason} -> {:halt, {:error, reason}}
+        end
+      end)
+      |> case do
+        {:ok, results} -> {:ok, Enum.reverse(results)}
+        {:error, _} = error -> error
+      end
     end
   end
 

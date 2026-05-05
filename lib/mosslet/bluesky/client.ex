@@ -25,6 +25,24 @@ defmodule Mosslet.Bluesky.Client do
   @default_pds "https://bsky.social"
   @default_timeout 30_000
 
+  # Known AT Protocol response keys that are safe to atomize.
+  # Unknown keys from API responses are kept as strings to prevent
+  # unbounded atom table growth.
+  @known_keys MapSet.new(~w(
+    did handle email accessJwt refreshJwt access_jwt refresh_jwt
+    uri cid value records cursor feed thread posts preferences
+    repo collection rkey blob error message description
+    text createdAt reply embed facets langs images alt fullsize thumb
+    available inviteCodeRequired availableUserDomains
+    type subject root parent byteStart byteEnd features tag
+    serviceEndpoint service didDoc labels indexedAt likeCount
+    repostCount replyCount viewer muted blockedBy following
+    followedBy displayName avatar banner followsCount followersCount
+    postsCount associated invitesDisabled emailConfirmed
+    scope token_type expires_in access_token refresh_token sub
+    $type items pinned saved
+  ))
+
   @type session :: %{
           did: String.t(),
           handle: String.t(),
@@ -1176,6 +1194,13 @@ defmodule Mosslet.Bluesky.Client do
   end
 
   defp do_request(method, pds_url, path, body_or_params, opts, retried_nonce) do
+    alias Mosslet.Bluesky.RateLimiter
+
+    unless RateLimiter.allow_request?() do
+      Logger.warning("Bluesky rate limit reached, backing off for #{path}")
+      Process.sleep(RateLimiter.backoff_ms())
+    end
+
     url = pds_url <> path
     headers = build_headers(opts)
     timeout = opts[:timeout] || @default_timeout
@@ -1199,18 +1224,22 @@ defmodule Mosslet.Bluesky.Client do
       end
 
     case apply(Req, method, [url, req_opts]) do
-      {:ok, %Req.Response{status: status, body: body}} when status in 200..299 ->
+      {:ok, %Req.Response{status: status, headers: resp_headers, body: body}}
+      when status in 200..299 ->
+        RateLimiter.record_headers(resp_headers)
         {:ok, atomize_keys(body)}
 
       {:ok,
        %Req.Response{status: status, headers: resp_headers, body: %{"error" => "use_dpop_nonce"}}}
       when status in [400, 401] and not retried_nonce ->
+        RateLimiter.record_headers(resp_headers)
         handle_dpop_nonce_retry(method, pds_url, path, body_or_params, opts, resp_headers)
 
       {:ok, %Req.Response{status: status, body: %{"error" => "RecordNotFound"} = body}} ->
         {:error, {status, atomize_keys(body)}}
 
-      {:ok, %Req.Response{status: status, body: body}} ->
+      {:ok, %Req.Response{status: status, headers: resp_headers, body: body}} ->
+        RateLimiter.record_headers(resp_headers)
         error = atomize_keys(body)
 
         Logger.warning(
@@ -1299,11 +1328,17 @@ defmodule Mosslet.Bluesky.Client do
 
   defp atomize_keys(map) when is_map(map) do
     Map.new(map, fn
-      {k, v} when is_binary(k) -> {String.to_atom(k), atomize_keys(v)}
+      {k, v} when is_binary(k) -> {maybe_atomize_key(k), atomize_keys(v)}
       {k, v} -> {k, atomize_keys(v)}
     end)
   end
 
   defp atomize_keys(list) when is_list(list), do: Enum.map(list, &atomize_keys/1)
   defp atomize_keys(value), do: value
+
+  defp maybe_atomize_key(key) when is_binary(key) do
+    if MapSet.member?(@known_keys, key),
+      do: String.to_existing_atom(key),
+      else: key
+  end
 end

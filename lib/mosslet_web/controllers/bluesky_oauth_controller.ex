@@ -57,6 +57,12 @@ defmodule MossletWeb.BlueskyOAuthController do
         |> put_flash(:error, "Invalid OAuth state. Please try again.")
         |> redirect(to: ~p"/app/users/bluesky")
 
+      oauth_state_expired?(stored_state) ->
+        conn
+        |> delete_session(:bluesky_oauth_state)
+        |> put_flash(:error, "OAuth authorization timed out. Please try again.")
+        |> redirect(to: ~p"/app/users/bluesky")
+
       true ->
         redirect_uri = url(~p"/app/oauth/bluesky/callback")
         handle_token_exchange(conn, code, stored_state, redirect_uri)
@@ -167,6 +173,15 @@ defmodule MossletWeb.BlueskyOAuthController do
         {:error, reason}
     end
   end
+
+  # OAuth state is valid for 10 minutes to account for slow authorizations
+  @oauth_state_max_age_seconds 600
+
+  defp oauth_state_expired?(%{created_at: created_at}) when not is_nil(created_at) do
+    DateTime.diff(DateTime.utc_now(), created_at, :second) > @oauth_state_max_age_seconds
+  end
+
+  defp oauth_state_expired?(_), do: false
 
   defp format_changeset_errors(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->

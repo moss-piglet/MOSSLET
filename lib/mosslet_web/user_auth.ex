@@ -477,8 +477,7 @@ defmodule MossletWeb.UserAuth do
     else
       user = scope.user
 
-      if params["id"] &&
-           String.to_existing_atom("Elixir.MossletWeb.UserConnectionLive.Show") == socket.view do
+      if params["id"] && socket.view == MossletWeb.UserConnectionLive.Show do
         if user.id == params["id"] do
           {:cont, socket}
         else
@@ -512,7 +511,7 @@ defmodule MossletWeb.UserAuth do
       user = scope.user
       info = "You do not have permission to view this page or it does not exist."
 
-      if String.to_existing_atom("Elixir.MossletWeb.PostLive.Show") == socket.view do
+      if socket.view == MossletWeb.PostLive.Show do
         with %Timeline.Post{} = post <- Timeline.get_post(params["id"]),
              true <- post.user_id == user.id do
           {:cont, socket}
@@ -560,7 +559,7 @@ defmodule MossletWeb.UserAuth do
 
     info = "You do not have permission to view this page or it does not exist."
 
-    if String.to_existing_atom("Elixir.MossletWeb.UserHomeLive") == socket.view do
+    if socket.view == MossletWeb.UserHomeLive do
       with %Accounts.User{} = user <- Accounts.get_user_from_profile_slug(params["slug"]),
            %Accounts.Connection.ConnectionProfile{} = profile <-
              Map.get(user.connection, :profile) do

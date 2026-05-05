@@ -97,7 +97,7 @@ defmodule Mosslet.Vault do
       rotation_in_progress: rotation_in_progress?(),
       current_default_tag: current_cipher_tag(),
       base_key_tag: base_cipher_tag(),
-      base_key_value: System.get_env("CLOAK_KEY"),
+      base_key_configured: System.get_env("CLOAK_KEY") not in [nil, ""],
       all_tags: all_cipher_tags(),
       retired_key_count: length(retired_keys),
       retired_tags: retired_tags

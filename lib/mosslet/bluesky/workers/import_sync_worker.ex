@@ -20,7 +20,10 @@ defmodule Mosslet.Bluesky.Workers.ImportSyncWorker do
   - Original AT URI and CID preserved
   - Visibility set to :public (server-key encrypted)
   """
-  use Oban.Worker, queue: :bluesky_sync, max_attempts: 3
+  use Oban.Worker,
+    queue: :bluesky_sync,
+    max_attempts: 3,
+    unique: [keys: [:account_id], period: 120, states: [:available, :scheduled, :executing]]
 
   alias Mosslet.Bluesky
   alias Mosslet.Bluesky.Client
