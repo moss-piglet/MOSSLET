@@ -321,19 +321,18 @@ defmodule Oban.Queue.Executor do
   end
 
   defp measurements(exec) do
+    {memory, reductions} =
+      case Process.info(self(), [:memory, :reductions]) do
+        [memory: memory, reductions: reductions] -> {memory, reductions}
+        nil -> {0, 0}
+      end
+
     %{
       duration: exec.duration,
-      memory: info_for(:memory),
+      memory: memory,
       queue_time: exec.queue_time,
-      reductions: info_for(:reductions)
+      reductions: reductions
     }
-  end
-
-  defp info_for(item) do
-    case Process.info(self(), item) do
-      {^item, value} -> value
-      nil -> 0
-    end
   end
 
   defp log_warning(%__MODULE__{safe: true, worker: worker}, returned) do

@@ -5,6 +5,8 @@ defmodule Oban.Migrations.SQLite do
 
   use Ecto.Migration
 
+  def current_version, do: 1
+
   @impl Oban.Migration
   def up(_opts) do
     create_if_not_exists table(:oban_jobs, primary_key: false) do
@@ -49,5 +51,16 @@ defmodule Oban.Migrations.SQLite do
   end
 
   @impl Oban.Migration
-  def migrated_version(_opts), do: 0
+  def migrated_version(opts) do
+    repo = Keyword.get_lazy(opts, :repo, fn -> repo() end)
+
+    query = """
+    SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'oban_jobs'
+    """
+
+    case repo.query(query, [], log: false) do
+      {:ok, %{rows: [[1]]}} -> 1
+      _ -> 0
+    end
+  end
 end

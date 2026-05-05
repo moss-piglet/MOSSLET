@@ -98,6 +98,10 @@ defmodule DBConnection.Ownership.Manager do
     mode = Keyword.get(pool_opts, :ownership_mode, :auto)
     checkout_opts = Keyword.take(pool_opts, [:ownership_timeout, :queue_target, :queue_interval])
 
+    if label = pool_opts[:label] do
+      Util.set_label({__MODULE__, label})
+    end
+
     {:ok,
      %{
        pool: pool,
@@ -327,28 +331,34 @@ defmodule DBConnection.Ownership.Manager do
     state
   end
 
-  defp owner_unallow(%{ets: ets, log: log} = state, caller, unallow, ref, proxy) do
-    if log do
-      Logger.log(log, fn ->
-        [
-          Util.inspect_pid(unallow),
-          " was unallowed by ",
-          Util.inspect_pid(caller),
-          " on proxy ",
-          Util.inspect_pid(proxy)
-        ]
-      end)
+  defp owner_unallow(%{ets: ets, log: log} = state, caller, unallow, _ref, _proxy) do
+    case Map.get(state.checkouts, unallow, :not_found) do
+      {_status, old_ref, old_proxy} ->
+        if log do
+          Logger.log(log, fn ->
+            [
+              Util.inspect_pid(unallow),
+              " was unallowed by ",
+              Util.inspect_pid(caller),
+              " on proxy ",
+              Util.inspect_pid(old_proxy)
+            ]
+          end)
+        end
+
+        state = update_in(state.checkouts, &Map.delete(&1, unallow))
+
+        state =
+          update_in(state.owners[old_ref], fn {proxy, caller, allowed} ->
+            {proxy, caller, List.delete(allowed, unallow)}
+          end)
+
+        ets && :ets.delete(ets, unallow)
+        state
+
+      :not_found ->
+        state
     end
-
-    state = update_in(state.checkouts, &Map.delete(&1, unallow))
-
-    state =
-      update_in(state.owners[ref], fn {proxy, caller, allowed} ->
-        {proxy, caller, List.delete(allowed, unallow)}
-      end)
-
-    ets && :ets.delete(ets, {unallow, proxy})
-    state
   end
 
   defp owner_down(%{ets: ets, log: log} = state, ref) do
@@ -406,9 +416,14 @@ defmodule DBConnection.Ownership.Manager do
   end
 
   defp not_found({pid, _} = from, mode) do
+    label = Util.pool_label(self())
+    label_info = if label, do: "(#{inspect(label)}) ", else: ""
+
     msg = """
     cannot find ownership process for #{Util.inspect_pid(pid)}
-    using mode #{inspect(mode)}.
+    #{label_info}using mode #{inspect(mode)}.
+    (Note that a connection's mode reverts to :manual if its owner
+    terminates.)
 
     When using ownership, you must manage connections in one
     of the four ways:

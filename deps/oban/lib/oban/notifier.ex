@@ -304,25 +304,40 @@ defmodule Oban.Notifier do
     channels
   end
 
-  defp encode(payload) do
-    payload
-    |> to_encodable()
-    |> JSON.encode_to_iodata!()
-    |> :zlib.gzip()
-    |> Base.encode64()
+  @compress_threshold 512
+
+  @doc false
+  def encode(payload) do
+    iodata =
+      payload
+      |> to_encodable()
+      |> JSON.encode_to_iodata!()
+
+    if IO.iodata_length(iodata) > @compress_threshold do
+      "Z:" <> Base.encode64(:zlib.gzip(iodata))
+    else
+      IO.iodata_to_binary(iodata)
+    end
   end
 
-  defp decode(payload) do
-    case Base.decode64(payload) do
-      {:ok, decoded} ->
-        decoded
-        |> :zlib.gunzip()
-        |> JSON.decode!()
+  @doc false
+  def decode("Z:" <> compressed) do
+    compressed
+    |> Base.decode64!()
+    |> :zlib.gunzip()
+    |> JSON.decode!()
+  end
 
-      # Messages emitted by the insert trigger aren't compressed.
-      :error ->
-        JSON.decode!(payload)
-    end
+  # Legacy compressed format (gzip magic bytes 0x1f 0x8b 0x08 base64 encode to "H4sI")
+  def decode("H4sI" <> _ = compressed) do
+    compressed
+    |> Base.decode64!()
+    |> :zlib.gunzip()
+    |> JSON.decode!()
+  end
+
+  def decode(payload) do
+    JSON.decode!(payload)
   end
 
   defp to_encodable(%_{} = struct), do: struct

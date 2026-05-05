@@ -131,7 +131,6 @@ const isAtViewportTop = (el, scrollContainer) => {
   const rect = el.getBoundingClientRect();
   return (
     Math.ceil(rect.top) >= top(scrollContainer) &&
-    Math.ceil(rect.left) >= 0 &&
     Math.floor(rect.top) <= bottom(scrollContainer)
   );
 };
@@ -140,7 +139,6 @@ const isAtViewportBottom = (el, scrollContainer) => {
   const rect = el.getBoundingClientRect();
   return (
     Math.ceil(rect.bottom) >= top(scrollContainer) &&
-    Math.ceil(rect.left) >= 0 &&
     Math.floor(rect.bottom) <= bottom(scrollContainer)
   );
 };
@@ -149,7 +147,6 @@ const isWithinViewport = (el, scrollContainer) => {
   const rect = el.getBoundingClientRect();
   return (
     Math.ceil(rect.top) >= top(scrollContainer) &&
-    Math.ceil(rect.left) >= 0 &&
     Math.floor(rect.top) <= bottom(scrollContainer)
   );
 };
@@ -261,6 +258,15 @@ Hooks.InfiniteScroll = {
       this.scrollContainer.addEventListener("scroll", this.onScroll);
     } else {
       window.addEventListener("scroll", this.onScroll);
+    }
+  },
+
+  updated() {
+    // Check if the scroll container still exists
+    // https://github.com/phoenixframework/phoenix_live_view/issues/4169.
+    if (this.scrollContainer && !this.scrollContainer.isConnected) {
+      this.destroyed();
+      this.mounted();
     }
   },
 

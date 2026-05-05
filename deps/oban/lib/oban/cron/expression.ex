@@ -45,6 +45,21 @@ defmodule Oban.Cron.Expression do
   @mon_range 1..12
   @dow_range 0..6
 
+  @max_days_per_month %{
+    1 => 31,
+    2 => 29,
+    3 => 31,
+    4 => 30,
+    5 => 31,
+    6 => 30,
+    7 => 31,
+    8 => 31,
+    9 => 30,
+    10 => 31,
+    11 => 30,
+    12 => 31
+  }
+
   @doc """
   Check whether a cron expression matches the current date and time.
 
@@ -275,13 +290,18 @@ defmodule Oban.Cron.Expression do
   def parse(input) when is_binary(input) do
     case String.split(input, ~r/\s+/, trim: true, parts: 5) do
       [mip, hrp, dap, mop, wdp] ->
+        days = parse_field(dap, @day_range)
+        months = mop |> trans_field(@mon_map) |> parse_field(@mon_range)
+
+        validate_days(days, months, dap, mop)
+
         {:ok,
          %__MODULE__{
            input: input,
            minutes: parse_field(mip, @min_range),
            hours: parse_field(hrp, @hrs_range),
-           days: parse_field(dap, @day_range),
-           months: mop |> trans_field(@mon_map) |> parse_field(@mon_range),
+           days: days,
+           months: months,
            weekdays: wdp |> trans_field(@dow_map) |> parse_field(@dow_range)
          }}
 
@@ -290,6 +310,21 @@ defmodule Oban.Cron.Expression do
     end
   catch
     {:error, message} -> {:error, %ArgumentError{message: message}}
+  end
+
+  defp validate_days(_days, _months, "*", _mon_field), do: :ok
+  defp validate_days(_days, _months, _day_field, "*"), do: :ok
+
+  defp validate_days(days, months, day_field, mon_field) do
+    aligned =
+      for month <- months,
+          day <- days,
+          day <= Map.fetch!(@max_days_per_month, month),
+          do: true
+
+    if aligned == [] do
+      throw({:error, "no day in #{inspect(day_field)} can occur in months #{inspect(mon_field)}"})
+    end
   end
 
   @spec parse!(input :: binary()) :: t()
@@ -364,22 +399,23 @@ defmodule Oban.Cron.Expression do
   end
 
   defp parse_range(part, max_range) do
-    case String.split(part, "-") do
-      [rall] ->
-        String.to_integer(rall)..Enum.max(max_range)
+    {min_allowed, max_allowed} = Enum.min_max(max_range)
 
-      [rmin, rmax] ->
-        rmin = String.to_integer(rmin)
-        rmax = String.to_integer(rmax)
+    {rmin, rmax} =
+      case String.split(part, "-") do
+        [rall] -> {String.to_integer(rall), max_allowed}
+        [rmin, rmax] -> {String.to_integer(rmin), String.to_integer(rmax)}
+      end
 
-        if rmin <= rmax do
-          rmin..rmax
-        else
-          throw(
-            {:error,
-             "left side (#{rmin}) of a range must be less than or equal to the right side (#{rmax})"}
-          )
-        end
+    cond do
+      rmin > rmax ->
+        throw({:error, "min (#{rmin}) of range must be less than or equal to the max (#{rmax})"})
+
+      rmin < min_allowed or rmax > max_allowed ->
+        throw({:error, "expression field #{part} is out of range: #{inspect(max_range)}"})
+
+      true ->
+        rmin..rmax
     end
   end
 end

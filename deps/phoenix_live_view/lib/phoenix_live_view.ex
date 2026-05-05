@@ -172,6 +172,46 @@ defmodule Phoenix.LiveView do
   async operation, but you can also assign any value directly to the socket
   if you want to handle the state yourself.
 
+  ### A note on linked processes
+
+  LiveView ensures that any async operations stop when the LiveView itself exits
+  to prevent unnecessary work like long running database operations from continuing
+  when a user navigates away from the page. To do this, the LiveView process is
+  linked to the process executing the function passed to `assign_async/4` /
+  `start_async/4`. LiveView will rescue/catch any error from the spawned
+  process but if that process is linked to another process which then crashes,
+  it will cause all linked processes in the chain to crash, including your LiveView.
+
+  > ### Common source of links {: .warning}
+  >
+  > One of the most common source of links in codebases is via
+  > the `Task` module:
+  >
+  > ```elixir
+  > assign_async(socket, :org, fn ->
+  >   # Task.async links the new process to the caller!
+  >   ... = Task.async(fn -> raise "oops" end) |> Task.await()
+  > end)
+  > ```
+  >
+  > Because `Task.async/1` links the spawned process to the caller,
+  > if it exits for whatever reason, the LiveView will exit too.
+  >
+  > Even if you're not directly calling `Task.async/1` in one of
+  > LiveView's async functions, you might have a linking call
+  > somewhere deeper in a function you invoke, so the link
+  > may not obviously stand out.
+
+  There are different ways to resolve this problem.
+
+  1. Avoid exits in linked processes by rescuing exceptions / catching exits in calls
+     that should never crash your LiveView.
+  2. Don't link the processes by using a `Task.Supervisor` and `Task.Supervisor.async_nolink/3`
+     (be aware that this means those async processes will not stop executing when the LiveView exits!).
+  3. Trap exits in your LiveView by calling `Process.flag(:trap_exit, true)`. In general, trapping
+     exits should be avoided, as it changes how your LiveView reacts to all exits, not only
+     ones related to async operations.
+
   ## Endpoint configuration
 
   LiveView accepts the following configuration in your endpoint under
@@ -770,8 +810,8 @@ defmodule Phoenix.LiveView do
   handling the given `event`. If you need to scope events, then
   this must be done by namespacing them.
 
-  Events pushed during `push_navigate` are currently discarded,
-  as the LiveView is immediately dismounted.
+  Events pushed during `push_navigate` (or any redirect) are sent to the
+  client before the redirection happens.
 
   ## Hook example
 
@@ -846,10 +886,10 @@ defmodule Phoenix.LiveView do
     * `:auto_upload` - Instructs the client to upload the file automatically
       on file selection instead of waiting for form submits. Defaults to `false`.
 
-    * `:writer` - A module implementing the `Phoenix.LiveView.UploadWriter`
-      behaviour to use for writing the uploaded chunks. Defaults to writing to a
-      temporary file for consumption. See the `Phoenix.LiveView.UploadWriter` docs
-      for custom usage.
+    * `:writer` - A 3-arity anonymous function that returns a tuple with a module
+      implementing the `Phoenix.LiveView.UploadWriter` behaviour and its options to use for
+      writing the uploaded chunks. Defaults to writing to a temporary file for consumption.
+      See the `Phoenix.LiveView.UploadWriter` docs for custom usage.
 
   Raises when a previously allowed upload under the same name is still active.
 
@@ -2319,8 +2359,8 @@ defmodule Phoenix.LiveView do
   ## Options
 
     * `:supervisor` - allows you to specify a `Task.Supervisor` to supervise the task.
-    * `:reset` - remove previous results during async operation when true. Possible values are
-      `true`, `false`, or a list of keys to reset. Defaults to `false`.
+    * `:reset` - A boolean to control whether to remove previous results during the async operation.
+      Defaults to `false`.
 
   ## Examples
 

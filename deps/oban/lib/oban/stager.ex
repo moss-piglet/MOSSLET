@@ -7,6 +7,7 @@ defmodule Oban.Stager do
   alias __MODULE__, as: State
 
   require Logger
+  require Oban.Errors
 
   @type option :: Plugin.option() | {:interval, pos_integer()}
 
@@ -90,13 +91,26 @@ defmodule Oban.Stager do
       staged
     end)
   rescue
-    error in [DBConnection.ConnectionError, Postgrex.Error] -> {:error, error}
+    error in Oban.Errors.retryable_errors() ->
+      # Force notifying in local mode after an unrecovered database exception. This ensures jobs
+      # keep processing when staging or database driven notifications fail.
+      safe_notify(state)
+
+      {:error, error}
   end
 
   defp stage_and_notify(_leader, state) do
     if state.mode == :local, do: notify_queues(state)
 
     {:ok, []}
+  end
+
+  defp safe_notify(state) do
+    notify_queues(state)
+  rescue
+    _ -> notify_queues(%{state | mode: :local})
+  catch
+    :exit, _ -> notify_queues(%{state | mode: :local})
   end
 
   defp notify_queues(%{conf: conf, mode: :global}) do

@@ -1518,10 +1518,6 @@ defmodule Phoenix.Component do
     end
   end
 
-  def update(assigns, _key, fun) when is_function(fun, 1) or is_function(fun, 2) do
-    raise_bad_socket_or_assign!("update/3", assigns)
-  end
-
   @doc """
   Checks if the given key changed in `socket_or_assigns`.
 
@@ -3067,8 +3063,10 @@ defmodule Phoenix.Component do
     and therefore only works with the `href={...}` attribute. It has no effect on `patch`
     and `navigate` instructions.
 
-    In case the method is not `get`, the link is generated inside the form which sets the proper
-    information. In order to submit the form, JavaScript must be enabled in the browser.
+    In case the method is not `get`, the link is generated with the `data-method`
+    attribute that is intercepted by the `phoenix_html` JavaScript library to
+    trigger a form submission. In order to submit the form, JavaScript must
+    be enabled in the browser.
     """
   )
 

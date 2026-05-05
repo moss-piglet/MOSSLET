@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased][unreleased]
 
+## [0.38.1] - 2026-03-17
+
+### Performance
+
+This version contains major performance improvements in the following functions:
+
+* `Floki.filter_out/2`.
+* `Floki.find/2` - with some improvements to specific selectors, like classes
+  and attribute selectors.
+* `Floki.text/2`.
+
+Those functions are not only faster, but are now using less memory. Please check
+the PRs related to this release if you want to better understand the numbers.
+
+* [Speed up `do_classes_matches?` - #649](https://github.com/philss/floki/pull/649)
+* [Make `filter_out` faster - #650](https://github.com/philss/floki/pull/650)
+* [Speed up attribute lookup - #651](https://github.com/philss/floki/pull/651)
+* [Enable tuple traversal optimization for multiple selectors - #652](https://github.com/philss/floki/pull/652)
+* [Optimize `HTMLTree.to_tuple` conversion using `Enum.reduce` - #657](https://github.com/philss/floki/pull/657)
+* [Optimize `Finder.get_descendant_ids/2` memory usage and speed - #660](https://github.com/philss/floki/pull/660)
+* [Optimize `Finder.get_siblings/2` memory usage and speed - #663](https://github.com/philss/floki/pull/663)
+* [Optimize `FlatText.get/3` memory usage and speed - #664](https://github.com/philss/floki/pull/664)
+* [Optimize class matching in `Floki.Selector` - #665](https://github.com/philss/floki/pull/665)
+
+All the improvements in this version were made by [Barna Kovacs - @preciz](https://github.com/preciz),
+so shout out and thanks to him!
+
+### Fixed
+
+Remove a warning about an unused `require Logger` that pops up when using Elixir v1.20.
+
 ## [0.38.0] - 2025-06-14
 
 ### Added
@@ -53,6 +84,28 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   * `text/3` - removed clause
   * `attribute/2` - removed clause
   * `filter_out/2` - removed clause
+
+- HTML must be parsed before searching. Functions like `Floki.find/2`,
+  `Floki.attribute/2`, and other HTML manipulation functions **no longer work
+  directly with HTML strings**. The HTML must be parsed first using
+  `Floki.parse_fragment/2` or `Floki.parse_document/2`.
+
+  Before:
+
+  ```elixir
+  html = "<div class='foobar'><p>Hello</p></div>"
+  Floki.find(html, "p")
+  Floki.attribute(html, "div", "class")
+  ```
+
+  After:
+
+  ```elixir
+  html = "<div class='foobar'><p>Hello</p></div>"
+  parsed_html = Floki.parse_fragment!(html)
+  Floki.find(parsed_html, "p")
+  Floki.attribute(parsed_html, "div", "class")
+  ```
 
 ## [0.37.1] - 2025-03-22
 
@@ -213,7 +266,7 @@ usage of memory for `find/2`, for example.
 
 ### Fixed
 
-- Fix find of elements by classes that contain colons. This is useful for when 
+- Fix find of elements by classes that contain colons. This is useful for when
   people are trying to find elements that contain Tailwind classes.
   Thanks [@viniciusmuller](https://github.com/viniciusmuller).
 
@@ -251,7 +304,7 @@ usage of memory for `find/2`, for example.
 ### Fixed
 
 - Allow attribute values to not be escaped. This fixes `Floki.raw_html/2` when used with the
-option `encode: false`. Thanks [@juanazam](https://github.com/juanazam). 
+option `encode: false`. Thanks [@juanazam](https://github.com/juanazam).
 - Fix `traverse_and_update/3` spec. Thanks [@WLSF](https://github.com/WLSF).
 
 ### Changed
@@ -867,7 +920,8 @@ of the parent element inside HTML.
 
 - Elixir version requirement from "~> 1.0.0" to ">= 1.0.0".
 
-[unreleased]: https://github.com/philss/floki/compare/v0.38.0...HEAD
+[unreleased]: https://github.com/philss/floki/compare/v0.38.1...HEAD
+[0.38.1]: https://github.com/philss/floki/compare/v0.38.0...v0.38.1
 [0.38.0]: https://github.com/philss/floki/compare/v0.37.1...v0.38.0
 [0.37.1]: https://github.com/philss/floki/compare/v0.37.0...v0.37.1
 [0.37.0]: https://github.com/philss/floki/compare/v0.36.3...v0.37.0

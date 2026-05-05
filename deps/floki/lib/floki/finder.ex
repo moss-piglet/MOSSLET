@@ -58,9 +58,14 @@ defmodule Floki.Finder do
       when (is_list(html_tree_as_tuple) or is_html_node(html_tree_as_tuple)) and
              is_list(selectors) do
     if traverse_html_tuples?(selectors) do
-      [selector] = selectors
       html_tree_as_tuple = List.wrap(html_tree_as_tuple)
-      results = traverse_html_tuples(html_tree_as_tuple, selector, [])
+
+      results =
+        case selectors do
+          [selector] -> traverse_html_tuples(html_tree_as_tuple, selector, [])
+          _ -> traverse_html_tuples(html_tree_as_tuple, selectors, [])
+        end
+
       Enum.reverse(results)
     else
       tree = HTMLTree.build(html_tree_as_tuple)
@@ -108,6 +113,14 @@ defmodule Floki.Finder do
   end
 
   defp traverse_html_tuples?([]), do: true
+
+  defp traverse_html_tuples?(selectors) when is_list(selectors) do
+    Enum.all?(selectors, fn
+      %Selector{combinator: nil} = selector -> traverse_html_tuples?(selector)
+      _ -> false
+    end)
+  end
+
   defp traverse_html_tuples?(_), do: false
 
   defp traverse_html_tree([], _selector, _tree, acc), do: acc
@@ -158,6 +171,23 @@ defmodule Floki.Finder do
   # term in the traversal to keep track of this information.
   defp traverse_html_tuples([], _selector, acc) do
     acc
+  end
+
+  defp traverse_html_tuples(
+         [{_type, _attributes, children} = html_tuple | siblings],
+         selectors,
+         acc
+       )
+       when is_list(selectors) do
+    acc =
+      if Enum.any?(selectors, &Selector.match?(html_tuple, &1, nil)) do
+        [html_tuple | acc]
+      else
+        acc
+      end
+
+    acc = traverse_html_tuples(children, selectors, acc)
+    traverse_html_tuples(siblings, selectors, acc)
   end
 
   defp traverse_html_tuples(
@@ -311,43 +341,60 @@ defmodule Floki.Finder do
     Map.get(tree.nodes, id)
   end
 
-  defp get_sibling_ids_from([], _html_node), do: []
-
-  defp get_sibling_ids_from(ids, html_node) do
-    ids
-    |> Enum.reverse()
-    |> Enum.drop_while(fn id -> id != html_node.node_id end)
-    |> tl()
-  end
-
   defp get_siblings(html_node, tree) do
     parent = get_node(html_node.parent_node_id, tree)
 
     ids =
       if parent do
-        get_sibling_ids_from(parent.children_nodes_ids, html_node)
+        parent.children_nodes_ids
       else
-        get_sibling_ids_from(Enum.reverse(tree.root_nodes_ids), html_node)
+        tree.root_nodes_ids
       end
 
-    Enum.filter(ids, fn id ->
-      case get_node(id, tree) do
-        %HTMLNode{} -> true
-        _ -> false
-      end
-    end)
+    get_sibling_nodes(ids, html_node.node_id, tree, [])
   end
+
+  defp get_sibling_nodes([id | _], id, _tree, acc), do: acc
+
+  defp get_sibling_nodes([id | rest], target_id, tree, acc) do
+    acc =
+      case get_node(id, tree) do
+        %HTMLNode{} -> [id | acc]
+        _ -> acc
+      end
+
+    get_sibling_nodes(rest, target_id, tree, acc)
+  end
+
+  defp get_sibling_nodes([], _target_id, _tree, _acc), do: []
 
   # finds all descendant node ids recursively through the tree preserving the order
   defp get_descendant_ids(node_id, tree) do
     case get_node(node_id, tree) do
-      %{children_nodes_ids: node_ids} ->
-        reversed_ids = Enum.reverse(node_ids)
-        reversed_ids ++ Enum.flat_map(reversed_ids, &get_descendant_ids(&1, tree))
+      %{children_nodes_ids: children} when children != [] ->
+        do_get_descendant_ids(Enum.reverse(children), tree, [])
+        |> Enum.reverse()
 
       _ ->
         []
     end
+  end
+
+  defp do_get_descendant_ids([], _tree, acc), do: acc
+
+  defp do_get_descendant_ids([node_id | rest], tree, acc) do
+    acc = [node_id | acc]
+
+    acc =
+      case get_node(node_id, tree) do
+        %{children_nodes_ids: children} when children != [] ->
+          do_get_descendant_ids(Enum.reverse(children), tree, acc)
+
+        _ ->
+          acc
+      end
+
+    do_get_descendant_ids(rest, tree, acc)
   end
 
   @spec map(Floki.html_tree() | Floki.html_node(), function()) ::

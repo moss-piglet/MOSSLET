@@ -16,11 +16,13 @@ defmodule Oban.Migrations.Postgres.V01 do
                      AND typnamespace = '#{escaped}'::regnamespace::oid) THEN
         CREATE TYPE #{quoted}.oban_job_state AS ENUM (
           'available',
+          'suspended',
           'scheduled',
           'executing',
           'retryable',
           'completed',
-          'discarded'
+          'discarded',
+          'cancelled'
         );
       END IF;
     END$$;

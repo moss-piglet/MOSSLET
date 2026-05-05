@@ -54,7 +54,11 @@ export default class DOMPatch {
       afterphxChildAdded: [],
       aftertransitionsDiscarded: [],
     };
-    this.withChildren = opts.withChildren || opts.undoRef || false;
+    // unlock patches pass undoRef and must morph the locked element itself, not
+    // only its children. The first client ref is 0, so this must check for the
+    // option's presence rather than truthiness.
+    this.withChildren =
+      opts.withChildren || opts.undoRef !== undefined || false;
     this.undoRef = opts.undoRef;
   }
 
@@ -105,6 +109,12 @@ export default class DOMPatch {
           targetContainer = clonedTree.querySelector(
             `[data-phx-component="${this.targetCID}"]`,
           );
+          // The visible DOM can still contain the target CID while the locked
+          // clone has gone stale and no longer does. In that case there is no
+          // safe clone target for this component diff, so leave the visible DOM
+          // locked and wait for a later patch instead of throwing or patching
+          // outside the locked tree.
+          if (!targetContainer) return;
         }
       }
     }
@@ -148,6 +158,13 @@ export default class DOMPatch {
           if (isJoinPatch) {
             return node.id;
           }
+
+          // If ID was touched by JavaScript hook, use PHX_MAGIC_ID for matching.
+          // This ensures morphdom can match elements even when JS modifies their IDs.
+          if (DOM.private(node, "clientsideIdAttribute")) {
+            return node.getAttribute && node.getAttribute(PHX_MAGIC_ID);
+          }
+
           return (
             node.id || (node.getAttribute && node.getAttribute(PHX_MAGIC_ID))
           );
@@ -309,7 +326,16 @@ export default class DOMPatch {
             phxViewportBottom,
           );
           DOM.cleanChildNodes(toEl, phxUpdate);
+          const isFocusedFormEl =
+            focused && fromEl.isSameNode(focused) && DOM.isFormInput(fromEl);
+          const focusedSelectChanged =
+            isFocusedFormEl && this.isChangedSelect(fromEl, toEl);
           if (this.skipCIDSibling(toEl)) {
+            // A skipped update returns before the normal update path below, so
+            // it must still perform the lock bookkeeping that keeps private
+            // cloned trees in sync.
+            this.maybeCloneLockedElement(fromEl, isFocusedFormEl);
+            this.copyNestedPrivateLock(fromEl, toEl);
             // if this is a live component used in a stream, we may need to reorder it
             this.maybeReOrderStream(fromEl);
             return false;
@@ -354,30 +380,7 @@ export default class DOMPatch {
           // We keep a reference to the cloned tree in the element's private data, and
           // on ack (view.undoRefs), we morph the cloned tree with the true fromEl in the DOM to
           // apply any changes that happened while the element was locked.
-          const isFocusedFormEl =
-            focused && fromEl.isSameNode(focused) && DOM.isFormInput(fromEl);
-          const focusedSelectChanged =
-            isFocusedFormEl && this.isChangedSelect(fromEl, toEl);
-          if (fromEl.hasAttribute(PHX_REF_SRC)) {
-            const ref = new ElementRef(fromEl);
-            // only perform the clone step if this is not a patch that unlocks
-            if (
-              ref.lockRef &&
-              (!this.undoRef || !ref.isLockUndoneBy(this.undoRef))
-            ) {
-              DOM.applyStickyOperations(fromEl);
-              const isLocked = fromEl.hasAttribute(PHX_REF_LOCK);
-              const clone = isLocked
-                ? DOM.private(fromEl, PHX_REF_LOCK) || fromEl.cloneNode(true)
-                : null;
-              if (clone) {
-                DOM.putPrivate(fromEl, PHX_REF_LOCK, clone);
-                if (!isFocusedFormEl) {
-                  fromEl = clone;
-                }
-              }
-            }
-          }
+          fromEl = this.maybeCloneLockedElement(fromEl, isFocusedFormEl);
 
           // nested view handling
           if (DOM.isPhxChild(toEl)) {
@@ -391,14 +394,10 @@ export default class DOMPatch {
             return false;
           }
 
-          // if we are undoing a lock, copy potentially nested clones over
-          if (this.undoRef && DOM.private(toEl, PHX_REF_LOCK)) {
-            DOM.putPrivate(
-              fromEl,
-              PHX_REF_LOCK,
-              DOM.private(toEl, PHX_REF_LOCK),
-            );
-          }
+          // If we are undoing a lock, copy potentially nested clones over.
+          // This keeps an inner locked subtree's private clone alive while an
+          // ancestor lock is being reconciled.
+          this.copyNestedPrivateLock(fromEl, toEl);
           // now copy regular DOM.private data
           DOM.copyPrivates(toEl, fromEl);
 
@@ -407,7 +406,10 @@ export default class DOMPatch {
             portalCallbacks.push(() => this.teleport(toEl, morph));
             // for the magicId optimization we need to ensure that the template contents
             // are properly updated as they are used when restoring a cloned tree
-            fromEl.innerHTML = toEl.innerHTML;
+            // Note: we can't write fromEl.innerHTML = toEl.innerHTML because in Chrome
+            // the HTML parser would drop nested forms, even when it should not.
+            // https://issues.chromium.org/issues/490290430
+            fromEl.content.replaceChildren(toEl.content.cloneNode(true));
             return false;
           }
 
@@ -646,23 +648,50 @@ export default class DOMPatch {
     }
 
     if (streamAt === 0) {
-      el.parentElement.insertBefore(el, el.parentElement.firstElementChild);
+      this.moveOrInsertBefore(
+        el.parentElement,
+        el,
+        el.parentElement.firstElementChild,
+      );
     } else if (streamAt > 0) {
       const children = Array.from(el.parentElement.children);
       const oldIndex = children.indexOf(el);
       if (streamAt >= children.length - 1) {
-        el.parentElement.appendChild(el);
+        this.moveOrInsertBefore(el.parentElement, el, null);
       } else {
         const sibling = children[streamAt];
         if (oldIndex > streamAt) {
-          el.parentElement.insertBefore(el, sibling);
+          this.moveOrInsertBefore(el.parentElement, el, sibling);
         } else {
-          el.parentElement.insertBefore(el, sibling.nextElementSibling);
+          this.moveOrInsertBefore(
+            el.parentElement,
+            el,
+            sibling.nextElementSibling,
+          );
         }
       }
     }
 
     this.maybeLimitStream(el);
+  }
+
+  // Reorder a child within its parent. When supported, use the atomic
+  // moveBefore (https://developer.mozilla.org/en-US/docs/Web/API/Node/moveBefore)
+  // so connected custom elements (and other state-bearing nodes like iframes)
+  // are not disconnected and reconnected by the move. Falls back to
+  // insertBefore otherwise. Passing `ref === null` moves to the end.
+  // See also https://github.com/phoenixframework/phoenix_live_view/issues/4212.
+  moveOrInsertBefore(parent, child, ref) {
+    if (typeof parent.moveBefore === "function") {
+      try {
+        parent.moveBefore(child, ref);
+        return;
+      } catch {
+        // moveBefore can throw (e.g. HierarchyRequestError) in cases where
+        // an atomic move is not possible; fall back to insertBefore.
+      }
+    }
+    parent.insertBefore(child, ref);
   }
 
   maybeLimitStream(el) {
@@ -717,6 +746,39 @@ export default class DOMPatch {
 
   skipCIDSibling(el) {
     return el.nodeType === Node.ELEMENT_NODE && el.hasAttribute(PHX_SKIP);
+  }
+
+  maybeCloneLockedElement(fromEl, isFocusedFormEl) {
+    if (!fromEl.hasAttribute(PHX_REF_SRC)) return fromEl;
+
+    const ref = new ElementRef(fromEl);
+    // Only perform the clone step while the element remains locked. lockRef can
+    // be 0 for the first event, so compare against null/undefined explicitly.
+    if (
+      ref.lockRef === null ||
+      (this.undoRef !== undefined && ref.isLockUndoneBy(this.undoRef))
+    ) {
+      return fromEl;
+    }
+
+    DOM.applyStickyOperations(fromEl);
+    const clone = fromEl.hasAttribute(PHX_REF_LOCK)
+      ? DOM.private(fromEl, PHX_REF_LOCK) || fromEl.cloneNode(true)
+      : null;
+    if (!clone) return fromEl;
+
+    DOM.putPrivate(fromEl, PHX_REF_LOCK, clone);
+    return isFocusedFormEl ? fromEl : clone;
+  }
+
+  copyNestedPrivateLock(fromEl, toEl) {
+    // During unlock morphs, toEl may be the private clone that accumulated a
+    // nested locked subtree. Copy that private clone back to fromEl before the
+    // outer unlock finishes so the nested element can apply its own ack later.
+    // undoRef can be 0, so presence is checked with undefined.
+    if (this.undoRef === undefined || !DOM.private(toEl, PHX_REF_LOCK)) return;
+
+    DOM.putPrivate(fromEl, PHX_REF_LOCK, DOM.private(toEl, PHX_REF_LOCK));
   }
 
   targetCIDContainer(html) {

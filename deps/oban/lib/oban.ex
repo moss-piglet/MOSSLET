@@ -135,16 +135,19 @@ defmodule Oban do
   """
   @type multi_name :: Multi.name()
 
+  defguardp is_stream(value)
+            when is_struct(value, Stream) or is_function(value, 2)
+
   defguardp is_changeset_or_fun(cf)
             when is_struct(cf, Changeset) or is_function(cf, 1)
 
-  defguardp is_list_or_wrapper(cw)
+  defguardp is_insertable(cw)
             when is_list(cw) or
-                   is_struct(cw, Stream) or
+                   is_stream(cw) or
                    is_function(cw, 1) or
                    (is_map_key(cw, :changesets) and is_list(cw.changesets)) or
-                   (is_map_key(cw, :changesets) and is_struct(cw.changesets, Stream)) or
-                   (is_map_key(cw, :changesets) and is_function(cw.changesets))
+                   (is_map_key(cw, :changesets) and is_stream(cw.changesets)) or
+                   (is_map_key(cw, :changesets) and is_function(cw.changesets, 1))
 
   @doc """
   Creates a facade for `Oban` functions and automates fetching configuration from the application
@@ -218,6 +221,10 @@ defmodule Oban do
         |> Keyword.merge(opts)
         |> Keyword.put(:name, __MODULE__)
         |> Oban.child_spec()
+      end
+
+      def all_jobs(queryable) do
+        Oban.all_jobs(__MODULE__, queryable)
       end
 
       def cancel_all_jobs(queryable) do
@@ -312,7 +319,8 @@ defmodule Oban do
         Oban.update_job(__MODULE__, job_or_id, changes_or_fun)
       end
 
-      defoverridable cancel_all_jobs: 1,
+      defoverridable all_jobs: 1,
+                     cancel_all_jobs: 1,
                      cancel_job: 1,
                      check_queue: 1,
                      check_all_queues: 0,
@@ -508,7 +516,15 @@ defmodule Oban do
   def start_link(opts) when is_list(opts) do
     conf = Config.new(opts)
 
+    verify_migrated!(conf)
+
     Supervisor.start_link(__MODULE__, conf, name: Registry.via(conf.name, nil, conf))
+  end
+
+  defp verify_migrated!(conf) do
+    if conf.testing != :disabled do
+      Oban.Migration.verify_migrated!(repo: conf.repo, prefix: conf.prefix)
+    end
   end
 
   @doc false
@@ -689,7 +705,7 @@ defmodule Oban do
   end
 
   @doc false
-  def insert_all(changesets, opts) when is_list_or_wrapper(changesets) do
+  def insert_all(changesets, opts) when is_insertable(changesets) do
     insert_all(__MODULE__, changesets, opts)
   end
 
@@ -762,24 +778,23 @@ defmodule Oban do
         ) :: [Job.t()] | Multi.t()
   def insert_all(name \\ __MODULE__, changesets, opts \\ [])
 
-  def insert_all(name, changesets, opts) when is_list_or_wrapper(changesets) and is_list(opts) do
+  def insert_all(name, changesets, opts) when is_insertable(changesets) and is_list(opts) do
     name
     |> config()
     |> Engine.insert_all_jobs(changesets, opts)
   end
 
-  def insert_all(%Multi{} = multi, multi_name, changesets) when is_list_or_wrapper(changesets) do
+  def insert_all(%Multi{} = multi, multi_name, changesets) when is_insertable(changesets) do
     insert_all(__MODULE__, multi, multi_name, changesets, [])
   end
 
   @doc false
-  def insert_all(%Multi{} = multi, multi_name, changesets, opts)
-      when is_list_or_wrapper(changesets) do
+  def insert_all(%Multi{} = multi, multi_name, changesets, opts) when is_insertable(changesets) do
     insert_all(__MODULE__, multi, multi_name, changesets, opts)
   end
 
   @doc false
-  def insert_all(name, multi, multi_name, changesets) when is_list_or_wrapper(changesets) do
+  def insert_all(name, multi, multi_name, changesets) when is_insertable(changesets) do
     insert_all(name, multi, multi_name, changesets, [])
   end
 
@@ -813,7 +828,7 @@ defmodule Oban do
   @spec insert_all(name(), Multi.t(), multi_name(), changesets_or_wrapper_or_fun(), Keyword.t()) ::
           Multi.t()
   def insert_all(name, multi, multi_name, changesets, opts)
-      when is_list_or_wrapper(changesets) and is_list(opts) do
+      when is_insertable(changesets) and is_list(opts) do
     name
     |> config()
     |> Engine.insert_all_jobs(multi, multi_name, changesets, opts)
@@ -1348,15 +1363,15 @@ defmodule Oban do
 
   Retries jobs with the `retryable` state:
 
-      Oban.Job
-      |> Ecto.Query.where(state: "retryable")
+      [state: :retryable]
+      |> Oban.Job.query()
       |> Oban.retry_all_jobs()
       {:ok, 3}
 
-  Retries all inactive jobs with priority 0
+  Retries all inactive jobs with priority 0:
 
-      Oban.Job
-      |> Ecto.Query.where(priority: 0)
+      [priority: 0]
+      |> Oban.Job.query()
       |> Oban.retry_all_jobs()
       {:ok, 5}
   """
@@ -1403,6 +1418,37 @@ defmodule Oban do
   end
 
   @doc """
+  Fetch all jobs matching a queryable.
+
+  The `queryable` is typically `Oban.Job` or an `Ecto.Query` built from it, for example via
+  `Oban.Job.query/1` or direct `Ecto.Query` composition. Jobs are loaded through the repo
+  configured for the given instance.
+
+  ## Examples
+
+  Fetch every job:
+
+      Oban.all_jobs(Oban.Job)
+
+  Fetch jobs matching a set of filters:
+
+      [state: ~w(available scheduled), worker: MyApp.Worker]
+      |> Oban.Job.query()
+      |> Oban.all_jobs()
+
+  Fetch jobs from a custom instance:
+
+      Oban.all_jobs(MyOban, Oban.Job)
+  """
+  @doc since: "2.22.0"
+  @spec all_jobs(name(), queryable :: Ecto.Queryable.t()) :: [Job.t()]
+  def all_jobs(name \\ __MODULE__, queryable) do
+    name
+    |> config()
+    |> Repo.all(queryable)
+  end
+
+  @doc """
   Cancel many jobs based on a queryable and mark them as `cancelled` to prevent them from running.
 
   Any currently `executing` jobs are killed. If executing jobs happen to fail before cancellation
@@ -1420,8 +1466,8 @@ defmodule Oban do
 
   Cancel all jobs for a specific worker:
 
-      Oban.Job
-      |> Ecto.Query.where(worker: "MyApp.MyWorker")
+      [worker: MyApp.MyWorker]
+      |> Oban.Job.query()
       |> Oban.cancel_all_jobs()
       {:ok, 2}
   """
@@ -1478,8 +1524,8 @@ defmodule Oban do
 
   Delete all jobs for a specific worker:
 
-      Oban.Job
-      |> Ecto.Query.where(worker: "MyApp.MyWorker")
+      [worker: MyApp.MyWorker]
+      |> Oban.Job.query()
       |> Oban.delete_all_jobs()
       {:ok, 9}
   """

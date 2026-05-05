@@ -2,7 +2,7 @@ defmodule Oban.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/oban-bg/oban"
-  @version "2.20.3"
+  @version "2.22.1"
 
   def project do
     [
@@ -13,7 +13,6 @@ defmodule Oban.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
-      xref: [exclude: [Postgrex.Error, MyXQL.Error]],
 
       # Hex
       package: package(),
@@ -34,6 +33,7 @@ defmodule Oban.MixProject do
         main: "Oban",
         api_reference: false,
         logo: "assets/oban-logo.svg",
+        assets: %{"assets" => "assets"},
         source_ref: "v#{@version}",
         source_url: @source_url,
         extra_section: "GUIDES",
@@ -92,6 +92,7 @@ defmodule Oban.MixProject do
       "guides/upgrading/v2.14.md",
       "guides/upgrading/v2.17.md",
       "guides/upgrading/v2.20.md",
+      "guides/upgrading/v2.21.md",
 
       # Recipes
       "guides/recipes/recursive-jobs.md",

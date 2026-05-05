@@ -8,7 +8,7 @@ defmodule Phoenix.MixProject do
     end
   end
 
-  @version "1.8.5"
+  @version "1.8.6"
   @scm_url "https://github.com/phoenixframework/phoenix"
 
   # If the elixir requirement is updated, we need to make the installer
@@ -125,7 +125,7 @@ defmodule Phoenix.MixProject do
       },
       files: ~w(
           assets/js lib priv usage-rules CHANGELOG.md LICENSE.md mix.exs package.json README.md .formatter.exs
-          installer/templates/phx_web/components/core_components.ex
+          installer/templates/phx_web/components/core_components.ex.eex
         )
     ]
   end
@@ -299,10 +299,10 @@ defmodule Phoenix.MixProject do
 
   defp copy_core_components(_) do
     source =
-      Path.join(__DIR__, "installer/templates/phx_web/components/core_components.ex")
+      Path.join(__DIR__, "installer/templates/phx_web/components/core_components.ex.eex")
 
     destination_dir = Path.join([__DIR__, "priv", "templates", "phx.gen.live"])
-    destination = Path.join(destination_dir, "core_components.ex")
+    destination = Path.join(destination_dir, "core_components.ex.eex")
     File.cp!(source, destination)
   end
 end

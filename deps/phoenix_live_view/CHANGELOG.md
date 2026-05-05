@@ -267,6 +267,39 @@ When `:debug_heex_annotations` is enabled, LiveView will now annotate the beginn
 
 To enable this, a new callback called `annotate_slot/4` was added. Custom implementations of `Phoenix.LiveView.TagEngine` must implement it accordingly.
 
+## v1.1.30 (2026-05-05)
+
+### Bug fixes
+
+* Ensure internal phx-viewport hook does not crash on update if no scroll container is used ([#4214](https://github.com/phoenixframework/phoenix_live_view/issues/4214)), introduced in v1.1.29.
+
+## v1.1.29 (2026-05-04)
+
+### Bug fixes
+
+* Prevent JS crash when hook has a duplicate ID ([#4196](https://github.com/phoenixframework/phoenix_live_view/issues/4196))
+* Recompute scroll container for phx-viewport bindings if it is no longer available ([#4169](https://github.com/phoenixframework/phoenix_live_view/issues/4169))
+* Fix phx-viewport events not firing when container has horizontal overflow ([#3897](https://github.com/phoenixframework/phoenix_live_view/issues/3897))
+* Handle locks on skipped nodes ([#4209](https://github.com/phoenixframework/phoenix_live_view/issues/4209))
+* Use `moveBefore` if available when reordering stream elements ([#4212](https://github.com/phoenixframework/phoenix_live_view/issues/4212))
+
+## v1.1.28 (2026-03-27)
+
+### Bug fixes
+
+* Fix race condition that could lead to a JS exception when nested LiveView is removed while it is joining ([#4177](https://github.com/phoenixframework/phoenix_live_view/issues/4177))
+
+### Enhancements
+
+* A bunch of small performance and documentation improvements (thank you [@preciz](https://github.com/preciz)!)
+
+## v1.1.27 (2026-03-10)
+
+### Bug fixes
+
+* Workaround Chrome bug when patching `<template>` elements ([#4163](https://github.com/phoenixframework/phoenix_live_view/pull/4163))
+* Fix more type warnings on Elixir 1.20
+
 ## v1.1.26 (2026-03-04)
 
 ### Bug fixes

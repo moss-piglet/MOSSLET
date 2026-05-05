@@ -193,6 +193,11 @@ export default class View {
     // bind the view to the element
     DOM.putPrivate(this.el, "view", this);
     this.id = this.el.id;
+    // destroyViewByEl requires the root set, so we need to set it early
+    // otherwise it could happen that we try to apply a join result for a
+    // view whose DOM node was already removed
+    // See https://github.com/phoenixframework/phoenix_live_view/issues/4177.
+    this.el.setAttribute(PHX_ROOT_ID, this.root.id);
     this.ref = 0;
     this.lastAckRef = null;
     this.childJoins = 0;
@@ -684,7 +689,8 @@ export default class View {
 
     patch.after("updated", (el) => {
       if (updatedHookIds.has(el.id)) {
-        this.getHook(el).__updated();
+        const hook = this.getHook(el);
+        hook && hook.__updated();
       }
     });
 

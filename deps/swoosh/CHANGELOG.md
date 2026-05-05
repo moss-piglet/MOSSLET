@@ -1,5 +1,42 @@
 # Changelog
 
+## 1.25.1
+
+### 🐛 Bug Fixes
+
+- Escape email content in mailbox preview UI @mogest (#1124)
+- fix: assert_no_email_sent and refute_email_sent now catch deliver_many @donleandro (#1123)
+
+## 1.25.0
+
+### ✨ Features
+
+- Add `Swoosh.Adapters.Sandbox` @aidalgol (#1120)
+
+### 📝 Documentation
+
+- Improve discoverability and HexDocs coverage for `Swoosh.Adapters.Sandbox` @copilot-swe-agent (#1121)
+
+### 🧰 Maintenance
+
+- Add release-published workflow to comment on released PRs @copilot-swe-agent (#1118)
+
+## 1.24.0
+
+### ✨ Features
+
+- Add Azure Communication Services adapter @jamilbk (#1116)
+
+## 1.23.1
+
+### ✨ Features
+
+- Add tracking options to the mailjet adapter @wkirschbaum (#1114)
+
+### 🧰 Maintenance
+
+- Remove unused require Logger compilation warning @wkirschbaum (#1115)
+
 ## 1.23.0
 
 ### ✨ Features

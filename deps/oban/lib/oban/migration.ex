@@ -159,7 +159,18 @@ defmodule Oban.Migration do
       Oban.Migration.up(unlogged: false)
   """
   def up(opts \\ []) when is_list(opts) do
-    migrator().up(opts)
+    migrator(opts).up(opts)
+  end
+
+  @doc """
+  Get the current migration version.
+
+  ## Example
+
+      Oban.Migration.current_version()
+  """
+  def current_version(opts \\ []) when is_list(opts) do
+    migrator(opts).current_version()
   end
 
   @doc """
@@ -180,7 +191,7 @@ defmodule Oban.Migration do
       Oban.Migration.down(prefix: "payments")
   """
   def down(opts \\ []) when is_list(opts) do
-    migrator().down(opts)
+    migrator(opts).down(opts)
   end
 
   @doc """
@@ -191,11 +202,73 @@ defmodule Oban.Migration do
       Oban.Migration.migrated_version()
   """
   def migrated_version(opts \\ []) when is_list(opts) do
-    migrator().migrated_version(opts)
+    migrator(opts).migrated_version(opts)
   end
 
-  defp migrator do
-    case repo().__adapter__() do
+  @doc false
+  def verify_migrated!(opts) when is_list(opts) do
+    opts = Keyword.put_new_lazy(opts, :repo, &repo/0)
+    current = current_version(opts)
+    version = unboxed_run(opts, fn -> migrated_version(opts) end)
+
+    cond do
+      version == 0 ->
+        raise RuntimeError, """
+        Oban migrations have not been run. The oban_jobs table does not exist.
+
+        Run migrations before starting Oban:
+
+            mix ecto.migrate
+
+        Or add a migration:
+
+            defmodule MyApp.Repo.Migrations.AddOban do
+              use Ecto.Migration
+
+              def up, do: Oban.Migrations.up()
+              def down, do: Oban.Migrations.down()
+            end
+        """
+
+      version < current ->
+        raise RuntimeError, """
+        Oban migrations are outdated. Found version #{version}, but version #{current} is required.
+
+        Run migrations to update:
+
+            mix ecto.migrate
+
+        Or add a migration:
+
+            defmodule MyApp.Repo.Migrations.UpdateObanToV#{current} do
+              use Ecto.Migration
+
+              def up, do: Oban.Migrations.up(version: #{current})
+              def down, do: Oban.Migrations.down(version: #{version})
+            end
+        """
+
+      true ->
+        :ok
+    end
+  end
+
+  defp unboxed_run(opts, fun) do
+    repo = Keyword.fetch!(opts, :repo)
+
+    case Keyword.get(repo.config(), :pool) do
+      Ecto.Adapters.SQL.Sandbox = pool ->
+        pool.unboxed_run(repo, fun)
+
+      _ ->
+        fun.()
+    end
+  end
+
+  defp migrator(opts) do
+    repo = Keyword.get_lazy(opts, :repo, &repo/0)
+
+    case repo.__adapter__() do
       Ecto.Adapters.Postgres -> Oban.Migrations.Postgres
       Ecto.Adapters.SQLite3 -> Oban.Migrations.SQLite
       Ecto.Adapters.MyXQL -> Oban.Migrations.MyXQL

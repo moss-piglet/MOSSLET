@@ -62,17 +62,12 @@ defmodule Phoenix.LiveView.Diff do
     if !keyed or keyed[@keyed_count] == 0 do
       {[], components}
     else
-      Enum.map_reduce(0..(keyed[@keyed_count] - 1), components, fn index, components ->
-        diff = Map.fetch!(keyed, index)
-
-        to_iodata(Map.put(diff, @static, static), components, template, mapper)
-      end)
+      keyed_to_iodata(keyed[@keyed_count] - 1, keyed, static, components, template, mapper, [])
     end
   end
 
   defp to_iodata(%{@static => static} = parts, components, template, mapper) do
-    static = template_static(static, template)
-    one_to_iodata(static, parts, 0, [], components, template, mapper)
+    to_iodata_parts(parts, static, components, template, mapper)
   end
 
   defp to_iodata(cid, components, _template, mapper) when is_integer(cid) do
@@ -84,6 +79,22 @@ defmodule Phoenix.LiveView.Diff do
 
   defp to_iodata(binary, components, _template, _mapper) when is_binary(binary) do
     {binary, components}
+  end
+
+  defp to_iodata_parts(parts, static, components, template, mapper) do
+    static = template_static(static, template)
+    one_to_iodata(static, parts, 0, [], components, template, mapper)
+  end
+
+  defp keyed_to_iodata(index, keyed, static, components, template, mapper, acc)
+       when index >= 0 do
+    diff = Map.fetch!(keyed, index)
+    {iodata, components} = to_iodata_parts(diff, static, components, template, mapper)
+    keyed_to_iodata(index - 1, keyed, static, components, template, mapper, [iodata | acc])
+  end
+
+  defp keyed_to_iodata(_index, _keyed, _static, components, _template, _mapper, acc) do
+    {acc, components}
   end
 
   defp one_to_iodata([last], _parts, _counter, acc, components, _template, _mapper) do
@@ -601,32 +612,82 @@ defmodule Phoenix.LiveView.Diff do
   end
 
   defp traverse_dynamic(dynamic, children, pending, components, template, changed?) do
-    Enum.reduce(dynamic, {0, %{}, children, pending, components, template}, fn
-      entry, {counter, diff, children, pending, components, template} ->
-        child = Map.get(children, counter)
+    traverse_dynamic(dynamic, 0, %{}, children, pending, components, template, changed?)
+  end
 
-        {serialized, child_fingerprint, pending, components, template} =
-          traverse(entry, child, pending, components, template, changed?)
+  defp traverse_dynamic(
+         [entry | entries],
+         counter,
+         diff,
+         children,
+         pending,
+         components,
+         template,
+         changed?
+       )
+       when is_nil(entry) or (is_binary(entry) and not is_map_key(children, counter)) do
+    traverse_dynamic(
+      entries,
+      counter + 1,
+      if(is_binary(entry), do: Map.put(diff, counter, entry), else: diff),
+      children,
+      pending,
+      components,
+      template,
+      changed?
+    )
+  end
 
-        # If serialized is nil, it means no changes.
-        # If it is an empty map, then it means it is a rendered struct
-        # that did not change, so we don't have to emit it either.
-        diff =
-          if serialized != nil and serialized != %{} do
-            Map.put(diff, counter, serialized)
-          else
-            diff
-          end
+  defp traverse_dynamic(
+         [entry | entries],
+         counter,
+         diff,
+         children,
+         pending,
+         components,
+         template,
+         changed?
+       ) do
+    child = Map.get(children, counter)
 
-        children =
-          if child_fingerprint do
-            Map.put(children, counter, child_fingerprint)
-          else
-            Map.delete(children, counter)
-          end
+    {serialized, child_fingerprint, pending, components, template} =
+      traverse(entry, child, pending, components, template, changed?)
 
-        {counter + 1, diff, children, pending, components, template}
-    end)
+    # If serialized is nil, it means no changes.
+    # If it is an empty map, then it means it is a rendered struct
+    # that did not change, so we don't have to emit it either.
+    diff =
+      if serialized != nil and serialized != %{} do
+        Map.put(diff, counter, serialized)
+      else
+        diff
+      end
+
+    children =
+      if child_fingerprint do
+        Map.put(children, counter, child_fingerprint)
+      else
+        if child do
+          Map.delete(children, counter)
+        else
+          children
+        end
+      end
+
+    traverse_dynamic(
+      entries,
+      counter + 1,
+      diff,
+      children,
+      pending,
+      components,
+      template,
+      changed?
+    )
+  end
+
+  defp traverse_dynamic([], counter, diff, children, pending, components, template, _changed?) do
+    {counter, diff, children, pending, components, template}
   end
 
   defp traverse_keyed(
@@ -645,7 +706,7 @@ defmodule Phoenix.LiveView.Diff do
     {{diff, count, new_prints, pending, components, template}, _seen_keys} =
       Enum.reduce(
         entries,
-        {{diff, 0, new_prints, pending, components, template}, MapSet.new()},
+        {{diff, 0, new_prints, pending, components, template}, %{}},
         fn
           {key, vars, render},
           {{_diff, index, _new_prints, _pending, _components, _template} = acc, seen_keys} ->
@@ -655,11 +716,11 @@ defmodule Phoenix.LiveView.Diff do
                   # no need to check for duplicates if we use the index
                   {index, seen_keys}
 
-                MapSet.member?(seen_keys, key) ->
+                Map.has_key?(seen_keys, key) ->
                   raise "found duplicate key #{inspect(key)} in comprehension"
 
                 true ->
-                  {key, MapSet.put(seen_keys, key)}
+                  {key, Map.put(seen_keys, key, true)}
               end
 
             {process_keyed({key, vars, render}, previous_prints, changed?, stream?, acc),

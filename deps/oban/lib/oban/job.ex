@@ -11,6 +11,7 @@ defmodule Oban.Job do
   use Ecto.Schema
 
   import Ecto.Changeset
+  import Ecto.Query, only: [where: 3]
   import Oban.Period, only: [is_valid_period: 1]
 
   alias Ecto.Changeset
@@ -37,6 +38,7 @@ defmodule Oban.Job do
           | :executing
           | :retryable
           | :scheduled
+          | :suspended
 
   @type unique_timestamp :: :inserted_at | :scheduled_at
 
@@ -44,7 +46,7 @@ defmodule Oban.Job do
           {:fields, [unique_field()]}
           | {:keys, [atom()]}
           | {:period, unique_period()}
-          | {:states, [unique_state()]}
+          | {:states, unique_state_group() | [unique_state()]}
           | {:timestamp, unique_timestamp()}
 
   @type replace_option :: [
@@ -66,6 +68,7 @@ defmodule Oban.Job do
           | {:executing, [replace_option()]}
           | {:retryable, [replace_option()]}
           | {:scheduled, [replace_option()]}
+          | {:suspended, [replace_option()]}
 
   @type schedule_in_option :: pos_integer() | {pos_integer(), time_unit()}
 
@@ -201,6 +204,25 @@ defmodule Oban.Job do
     days
     week
     weeks
+  )a
+
+  @query_fields ~w(
+    id
+    state
+    queue
+    worker
+    priority
+    attempt
+    max_attempts
+    tags
+    args
+    meta
+    attempted_at
+    cancelled_at
+    completed_at
+    discarded_at
+    inserted_at
+    scheduled_at
   )a
 
   @unique_fields ~w(args meta queue worker)a
@@ -363,9 +385,11 @@ defmodule Oban.Job do
   ## Examples
 
       iex> Oban.Job.states() -- [:completed, :discarded]
-      ~w(scheduled available executing retryable cancelled)a
+      ~w(suspended scheduled available executing retryable cancelled)a
 
   ## Job State Transitions
+
+  * `:suspended`—Jobs that are held and won't be processed until they are resumed
 
   * `:scheduled`—Jobs inserted with `scheduled_at` in the future are `:scheduled`. After the
     `scheduled_at` time has elapsed Oban's job staging will transition them to `:available`
@@ -389,7 +413,7 @@ defmodule Oban.Job do
   """
   @doc since: "2.1.0"
   def states do
-    ~w(scheduled available executing retryable completed discarded cancelled)a
+    ~w(suspended scheduled available executing retryable completed discarded cancelled)a
   end
 
   @doc """
@@ -405,7 +429,7 @@ defmodule Oban.Job do
   ## Examples
 
       iex> Oban.Job.unique_states(:incomplete)
-      ~w(available scheduled executing retryable)a
+      ~w(suspended available scheduled executing retryable)a
 
       iex> Oban.Job.unique_states(:scheduled)
       ~w(scheduled)a
@@ -413,9 +437,123 @@ defmodule Oban.Job do
   """
   @doc since: "2.20.0"
   def unique_states(:all), do: states()
-  def unique_states(:incomplete), do: ~w(available scheduled executing retryable)a
+  def unique_states(:incomplete), do: ~w(suspended available scheduled executing retryable)a
   def unique_states(:scheduled), do: ~w(scheduled)a
-  def unique_states(:successful), do: ~w(available scheduled executing retryable completed)a
+
+  def unique_states(:successful),
+    do: ~w(suspended available scheduled executing retryable completed)a
+
+  @doc """
+  Build a composable query over `Oban.Job` from a keyword list of filters.
+
+  * Scalar values become equality matches
+  * List values become `IN` matches, except the `:tags` field, which is always compared as a
+    complete array
+  * Atom values are coerced to strings for `:state` and `:queue`, and modules are coerced for
+    `:worker`.
+  * Map values for `:args` and `:meta` become JSONB containment matches, with nested maps and
+    multiple keys supported natively. Only Postgres is supported; SQLite and MySQL users should
+    compose JSON filters with `Ecto.Query` directly.
+  * Unknown fields, `nil` values, empty lists (except on `:tags`), and empty maps will raise an
+    `ArgumentError`.
+
+  The return value is an `Ecto.Queryable` that can be piped into further `Ecto.Query` composition
+  or passed to functions like `Oban.cancel_all_jobs/2` and `Oban.delete_all_jobs/2`.
+
+  ## Examples
+
+  Match a single field:
+
+      Oban.Job.query(state: "completed")
+
+  Match multiple values in a field:
+
+      Oban.Job.query(state: ~w(completed cancelled))
+
+  Combine multiple filters:
+
+      Oban.Job.query(worker: MyApp.Worker, state: :available, queue: :default)
+
+  Match against `args` or `meta` with JSONB containment:
+
+      Oban.Job.query(args: %{account_id: 1})
+      Oban.Job.query(args: %{account_id: 1, region: "us-east"})
+      Oban.Job.query(args: %{user: %{id: 42}})
+
+  Compose with further `Ecto.Query` calls:
+
+      import Ecto.Query
+
+      [state: :available]
+      |> Oban.Job.query()
+      |> order_by(desc: :id)
+      |> limit(100)
+  """
+  @doc since: "2.22.0"
+  @spec query([{atom(), term()}]) :: Ecto.Query.t()
+  def query(filters) when is_list(filters) do
+    Enum.reduce(filters, __MODULE__, fn {field, value}, query ->
+      validate_filter!(field, value)
+
+      case {field, coerce_value(field, value)} do
+        {field, value} when field in ~w(args meta)a ->
+          where(query, [job], fragment("? @> ?", field(job, ^field), ^value))
+
+        {:tags, value} ->
+          where(query, [job], job.tags == ^value)
+
+        {_field, list} when is_list(list) ->
+          where(query, [job], field(job, ^field) in ^list)
+
+        {_field, value} ->
+          where(query, [job], field(job, ^field) == ^value)
+      end
+    end)
+  end
+
+  defp validate_filter!(field, _value) when field not in @query_fields do
+    raise ArgumentError,
+          "unknown filter field #{inspect(field)}, " <>
+            "expected one of #{inspect(@query_fields)}"
+  end
+
+  defp validate_filter!(field, nil) do
+    raise ArgumentError, "filter #{inspect(field)} values can't be nil"
+  end
+
+  defp validate_filter!(field, value) when field in ~w(args meta)a do
+    cond do
+      is_map(value) and map_size(value) == 0 ->
+        raise ArgumentError, "filter #{inspect(field)} can't be empty"
+
+      is_map(value) ->
+        :ok
+
+      true ->
+        raise ArgumentError, "filter #{inspect(field)} must be a map, got: #{inspect(value)}"
+    end
+  end
+
+  defp validate_filter!(field, []) when field != :tags do
+    raise ArgumentError, "filter #{inspect(field)} can't be an empty list"
+  end
+
+  defp validate_filter!(_field, _value), do: :ok
+
+  defp coerce_value(:worker, value) when is_atom(value), do: inspect(value)
+
+  defp coerce_value(:worker, values) when is_list(values) do
+    Enum.map(values, &coerce_value(:worker, &1))
+  end
+
+  defp coerce_value(field, value) when field in ~w(state queue)a and is_atom(value),
+    do: to_string(value)
+
+  defp coerce_value(field, values) when field in ~w(state queue)a and is_list(values) do
+    Enum.map(values, &coerce_value(field, &1))
+  end
+
+  defp coerce_value(_field, value), do: value
 
   @doc """
   Convert a Job changeset into a map suitable for database insertion.

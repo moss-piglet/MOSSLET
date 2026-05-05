@@ -1,217 +1,187 @@
-# Changelog for Oban v2.20
+# Changelog for Oban v2.22
 
 _🌟 Looking for changes to [Oban Pro][pro]? Check the [Oban.Pro Changelog][opc] 🌟_
 
-This release brings a fantastic new helper function, an optional migration to aid pruning, some
-stability improvements, and a bevy of documentation updates.
+Adds a job querying API, migration checking in test mode, smarter notifier ping cadence, and a
+handful of bug fixes around recovery and resilience.
 
-See the [Upgrade Guide](v2-20.html) for _optional_ upgrade instructions.
+## 📇 Job Querying
 
-## 🦋 Update Job
+Two new functions make it easier to load jobs without hand-rolling Ecto queries.
+`Oban.Job.query/1` builds a composable query from a keyword list of field filters,
+and `Oban.all_jobs/2` runs any queryable through the configured repo.
 
-This introduces the `Oban.update_job/2,3` function to simplify updating existing jobs while
-ensuring data consistency and safety. Previously, updating jobs required manually constructing
-change operations or complex queries that could lead to race conditions or invalid state changes.
-
-Only a curated subset of job fields, e.g. `:args`, `:max_attempts`, `:meta`, etc. may be updated
-and they use the same validation rules as insertion to prevent invalid data. Updates are also
-wrapped in a transaction with locking clauses to prevent concurrent modifications.
-
-The function supports direct map changes:
+For example, to fetch every `available` job for a worker with `account_id: 1`:
 
 ```elixir
-Oban.update_job(job, %{priority: 0, tags: ["urgent"]})
+[args: %{account_id: 1}, worker: MyApp.Worker, state: :available]
+|> Oban.Job.query()
+|> Oban.all_jobs()
 ```
 
-It also has a convenient function-based mode for dynamic changes:
+The result is an `Ecto.Queryable`, so it composes with further `Ecto.Query` calls, and pairs
+naturally with with `Oban.cancel_all_jobs/2` and `Oban.delete_all_jobs/2`:
 
 ```elixir
-Oban.update_job(job, fn job ->
-  %{meta: Map.put(job.meta, "processed_by", current_node())}
-end)
+[state: :available, queue: :media]
+|> Oban.Job.query()
+|> limit(10)
+|> Oban.cancel_all_jobs()
 ```
 
-## ❄️ Unique State Groups
+## 📡 Smarter Sonar Pings
 
-There are now named unique state groups to replace custom state lists for unique jobs, promoting
-better uniqueness design and reducing configuration errors.
+Sonar, the notifier monitor, used to ping every 5 seconds from every node. That resulted in 120
+messages a minute to confirm connectivity, even in a stable environment.
 
-Previously, developers had to manually specify lists of job states for uniqueness, which was
-error-prone and could lead to subtle bugs when states were omitted or incorrectly combined. The
-new predefined groups ensure correctness and consistency across applications.
+Pings are now status-aware and back off when the cluster is quiet. A solitary node settles to one
+ping a minute. A clustered group scales the per-node interval with peer count, so aggregate
+traffic stays roughly constant as the cluster grows.
 
-The new state groups are:
+There is no configuration required. When a node joins, drops, or recovers, pings snap back to the
+fast cadence immediately.
 
-- **`:all`** - All job states
-- **`:incomplete`** - Jobs that haven't finished (`~w(available scheduled executing retryable)a`)
-- **`:scheduled`** - Only scheduled jobs (`[:scheduled]`)
-- **`:successful`** - Jobs that completed successfully (`~w(available scheduled executing retryable completed)a`)
+## 🧪 Migration Checks at Startup
 
-These groups eliminate the risk of accidentally creating incomplete or incorrect state lists that
-could allow duplicate jobs to be created when they shouldn't be, or prevent valid job creation
-when duplicates should be allowed.
+When Oban boots in a testing mode, it now verifies that the `oban_jobs` table exists and that the
+migration version is current. A missing or outdated migration fails fast with an actionable
+message instead of surfacing later as cryptic database errors mid-test.
 
-## 🪺 Nested Plugin Supervision
+For example, forgetting to run the v2.21 migration after upgrading would previously fail somewhere
+deep in a test with an enum mismatch on the new `suspended` state. Now Oban refuses to start:
 
-Plugins and the internal Stager are now nested within a secondary supervision tree to improve
-system resilience and stability.
+```
+** (RuntimeError) Oban migrations are outdated. Found version 12, but version 13 is required.
 
-Previously, plugins were supervised directly under the main Oban supervisor alongside core
-process. This meant that plugin failures could potentially impact the entire Oban system, and
-frequent plugin restarts could trigger cascading failures in the primary supervision tree.
+    Run migrations to update:
 
-The new supervisor has more lenient restart limits to allow for more plugin restart attempts
-before giving up. This change makes Oban more robust in production environments where plugins may
-experience transient failures due to database or connectivity issues.
+        mix ecto.migrate
+```
 
-## v2.20.3 — 2025-01-22
+The check is limited to `testing` mode and geared toward catching migration requirements before
+they hit production.
+
+## v2.22.1 — 2026-04-30
+
+### Bug Fixes
+
+- [Repo] Conditionally reference database driver errors
+
+  The retryable_exceptions macro previously hard-coded references to `MyXQL.Error` and
+  `Postgrex.Error`, which Elixir v1.20.0.rc.2+ flags as missing module references at macro
+  expansion time when the corresponding driver isn't a project dependency. The missing module
+  reference could escalate into a deadlock, and compilation would halt entirely.
+
+  Driver error lists are now resolved at compile time and only include modules that are actually
+  loaded, so projects using `Postgrex` without `MyXQL` (or vice versa) compile cleanly.
+
+- [Cron] Reject impossible combinations in cron expressions
+
+  Cron strings whose day and month fields could never align (e.g. "0 0 30 2 *", or "0 0 31 4 *")
+  parsed, but caused `next_at/2` and `last_at/2` to loop indefinitely.
+
+  Now expressions are validated to ensure at least one day fits within the maximum length of at
+  least one selected month.
+
+- [Cron] Validate cron range bounds before expansion
+
+  Range parts like 0-99999999 were accepted and expanded into the full integer range before the
+  out-of-bounds check fired. For sufficiently large upper bounds that could stall the BEAM and
+  risk OOM. The same path was reachable via the step variant 0-99999999/1 and the open-ended form
+  99999999/1.
+
+  Expression parsing now compares against the field's allowed min/max and rejects out-of-range
+  values before any range is materialized.
+
+- [Migration] Fix prefix escaping in Postgres migrations
+
+  Switch to the standard doubled-quote escape so it works under default Postgres configuration.
+
+  The escaped_prefix value was using `\'` to escape single quotes, which hasn't been enabled by
+  default since 9.1. Under default settings, the backslash was treated literally and the quote
+  terminated the string, allowing a crafted prefix to break out of the SQL literal in
+  `migrated_version/1` and the notify trigger bodies.
+
+- [Backoff] Narrow `with_retry` exit catch to :timeout
+
+  Exits never carry a database error module atom in the first tuple
+  element. Connection failures surface as raised database exceptions,
+  which the rescue clause above already handles. The catch now only
+  matches `:exit, {:timeout, _}`, the one shape that's actually reachable.
+
+## v2.22.0 — 2026-04-27
 
 ### Enhancements
 
-- [Worker] Allow snoozing jobs by returning a tuple period
+- [Oban] Add `Oban.all_jobs/2` and `Oban.Job.query/1`
 
-  It's now possible to snooze jobs with a period such as `{1, :minute}` instead of just a raw
-  number of seconds.
+  Introduce `Oban.Job.query/1`, a keyword-based builder that composes Ecto queryable from a small
+  set of field filters. Scalar values become equality matches, lists become `IN` matches, atoms
+  are coerced, and `args` or `meta` are compiled to a containment check.
 
-### Bug Fixes
+  That pairs with `Oban.all_jobs/2`, a thin function that runs any queryable through the
+  configured repo.
 
-- [Oban] Fix starting a queue on a specific node
+- [Oban] Verify migrations at startup in testing mode
 
-  The `:node` option was incorrectly preserved when starting a queue, which would crash it. Now
-  the `:node` is dropped after scoping the start signal.
+  When Oban starts in a testing mode, it now verifies that migrations have been run and are up to
+  date. This catches migration issues early in CI rather than failing with confusing database
+  errors during test execution or worse, in production.
 
-- [Reindexer] Fix dropping invalid indexes from the reindexer
+  For Postgres, the check verifies the migration version is current, while for SQLite and MySQL,
+  the check verifies the `oban_jobs` table exists.
 
-  The reindexer would fail sliently with "DROP INDEX CONCURRENTLY" cannot be executed from a
-  function message because the deindex operation used a `DO` block to loop through and drop
-  invalid indexes, but PostgreSQL prohibits `CONCURRENTLY` operations inside functions or DO
-  blocks. Now invalid indexes are fetched first, then dropped as individual queries.
+- [Sonar] Reduce ping rate with status-aware intervals
 
-- [Installer] Prevent installer crash with unsupported adapters
+  Sonar previously pinged every 5s regardless of cluster state, which is aggressive for systems
+  where nothing is changing. It now walks between a min and max interval, resetting on any status
+  change and otherwise backing off toward a status driven target:
 
-  The installer would crash with a `CaseClauseError` when a project had an Ecto repo using an
-  unsupported adapter like `Ecto.Adapters.Tds`.
+  - `:clustered` scales with peer count so aggregate traffic stays ~1 ping per `min_interval`
+    regardless of cluster size
+  - `:solitary` drifts to the max interval, since its only job is verifying the notifier channel
+  - `:isolated` and `:unknown` stay at `min_interval` to keep recovery probes
 
-  Now the installer filters repos to find one with a supported adapter, skipping unsupported ones
-  automatically. Without a compatible repo, it displays an error message listing the found repos
-  and their adapters, along with guidance on how to specify a repo explicitly.
+  Stale-node pruning now uses an absolute window (default 120s) instead of a multiple of the
+  current interval, and scheduled pings are jittered to avoid synchronizing nodes.
 
-- [Pruner] Better sqlite timestamp default and pruning query
+- [Repo] The Repo retry behavior is now compile-time configurable, partially for
+  testing purposes, but also to allow tweaking the internal retry behavior
+  based on system requirements.
 
-  The `CURRENT_TIMESTAMP` type lacks a trailing `z`, which causes it to be compared incorrectly
-  against UTC datetimes. Any jobs inserted without a `scheduled_at`, where the default is used,
-  could be returned in queries that compare against a `DateTime`.
+- [Repo] Allow disabling `transaction/3` retries
 
-  This prevents the issue in the future two ways:
-
-  1. Switch the default `inserted_at/scheduled_at` timestamp to a format that can be queried
-     properly.
-  2. Change the pruning check to use `completed_at` rather than `scheduled_at` for existing
-     databases. This is a more accurate query that was avoided before because it didn't match the
-  `Basic` engine.
-
-## v2.20.2 — 2025-12-04
-
-### Enhancements
-
-- [Telemetry] Add domain to `attach_default_logger` metadata
-
-  Although this information is present in the source attribute, it’s not part of the metadata,
-  it’s part of the attributes. And when `encode = true`, it’s generated as a string, which makes
-  it less convenient to work with.
-
-- [Cron] Add unique cron entry identifiers to job meta
-
-  A id value is generated for each cron entry and stored in the job's meta to distinguish between
-  different cron jobs with the same expression.
+  Pass `retry: 0` or `retry: false` to skip retries entirely, including for expected conflicts
+  like deadlocks and serialization failures. This is intended for callers invoking queries like
+  `Oban.insert/2` from within an existing transaction, where a retry inside a savepoint would mask
+  the real error from the outer transaction.
 
 ### Bug Fixes
 
-- [Stager] Order staging query to maximize compound index usage
+- [Stager] Notify queues regardless of staging success
 
-  The core compound index couldn't be utilized by staging queries when the planner estimated a
-  large number of hits. Changing the query to order by `scheduled_at` and `id`, it becomes an
-  index scan.
+  When `stage_jobs/3` raises a non-recoverable exception (e.g. a unique constraint violation), the
+  wrapping transaction rolls back and the queue notification never fires. Pre-existing `available`
+  jobs would then sit until the stager either recovered or the cluster was restarted.
 
-  It would still be more efficient to use a dedicated index, but OSS doesn't have any mechanisms
-  for automatic concurrent index creation and we have to save it for later.
+  The stager now falls back to notifying queues outside the failed transaction, preferring the
+  configured global path so the whole cluster is reached, and dropping to a local registry notify
+  if the database itself is unreachable.
 
-- [Executor] Take measurements from the executing process
+- [Testing] Include suspended jobs in test helper queries
 
-  When Producer starts jobs, it calls `Executor.new` in its own process, before handing it off to
-  `Task.Supervisor.async_nolink` to call `Executor.call`. That means it used the Producer `pid`,
-  and took measurements from that process.
+  The query used by test helpers like `all_enqueued/0,1` now includes `suspended` jobs in addition
+  to `available` and `scheduled` states.
 
-- [Oban] Set `scheduled` state correctly when updating with `update_job/3`
+- [Repo] Tolerate unavailable Repo modules from all operations
 
-  When the `scheduled_at` timestamp is set during `update_job`, the state is automatically set to
-  `scheduled`. This mirrors the functionality of `insert_job`.
+  In development using containers, where recompiles take several seconds, the repo module can be
+  purged and not-yet-reloaded for long enough that multiple `Stager` ticks occur. Each tick may
+  crash with `UndefinedFunctionError`, blowing through the supervisor's restart quota.
 
-  Note that the value of the timestamp isn't considered. Setting a timestamp in the past will set
-  the job as `scheduled`. This isn't a problem in practice because the stager will change the
-  state to `available` on the next cycle anyhow.
+  The Repo now rescues `UndefinedFunctionError` alongside the existing connection errors.
 
-- [Repo] Include `:deadlock_detected` in expected errors
+- [Notifier] Fix duplicate pid accumulation in Postgres notifier
 
-  Deadlocks are automatically resolved by Postgres because it aborts one transaction. At that
-  point, the retry should succeed quickly since the blocking transaction is gone.
-
-## v2.20.1 — 2025-08-15
-
-### Bug Fixes
-
-- [Worker] Handle missing fields in unique Worker validation.
-
-  Workers that specified `keys` without `fields` would fail validation at compile time. Now
-  default values are considered for `use Oban.Worker` as well as `Job.new/2`.
-
-## v2.20.0 — 2025-08-13
-
-### Enhancements
-
-- `Migration` Add V13 migration for indexing cancelled and discarded states.
-
-  A new V13 migration adds compound indexes to significantly improve `Oban.Plugins.Pruner`
-  performance when cleaning up `discarded` and `cancelled` jobs. This is especially beneficial for
-  applications that process large volumes of jobs and retain them for extended periods.
-
-- `Repo` Expose dynamic repo switching as `with_dynamic_repo/2`
-
-  The function was previously internal, which made impossible to use in external modules or extend
-  upon. Now custom plugins and extensions can use `Repo.with_dynamic_repo/2` to use the configured
-  dynamic repo options.
-
-### Bug Fixes
-
-- [Oban] Allow `insert_all/1,3` via Oban facade
-
-  The `insert_all/1` and `insert_all/3` function variants were missing from the generated Oban
-  facade functions when using a named instance.
-
-- [Testing] Generate correct `perform_job/1,2,3` clauses.
-
-  The `perform_job/2,3` clauses generated by `use Oban.Testing` didn't handle the `perform_job/2`
-  variant designed to run jobs created with `build_job/3`. This caused test failures when trying
-  to execute jobs built using the `build_job/3` helper function.
-
-  The fix generates the missing `perform_job/2` clause along with a convenient `perform_job/1`
-  variant, ensuring all testing scenarios work seamlessly regardless of how jobs are constructed.
-
-- [Testing] Restrict inline execution to `available` and `scheduled` states.
-
-  Jobs in the `completed` state or other non-runnable states were incorrectly attempted by the
-  inline engine, potentially causing errors or unexpected behavior during testing.
-
-- [Worker] Disallow `:keys` when `:fields` doesn't contain `:args` or `:meta`
-
-  Unique job configurations using `:keys` were allowed even when `:fields` didn't include `:args`
-  or `:meta`, which would result in runtime errors since keys can only extract values from these
-  keyable fields.
-
-- [Cron] Fix error message when the crontab has an invalid range.
-
-  Cron validation errors for invalid ranges were returning exception structs instead of readable
-  error messages, making it difficult to understand and fix crontab configuration issues.
-
-[pro]: https://oban.pro
-[opc]: https://oban.pro/docs/pro/changelog.html
+  Registering from the same process multiple times would accumulate duplicate pids in the Postgres
+  notifier. Listening was deduplicated, but process registration wasn't.

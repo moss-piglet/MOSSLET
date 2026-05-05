@@ -265,6 +265,10 @@ defmodule Phoenix.VerifiedRoutes do
                 "expected path_prefixes to be a list of zero-arity functions, got: #{inspect(other)}"
       end
 
+    if Module.get_attribute(mod, :phoenix_verified_config) do
+      raise "duplicate call to \"use Phoenix.VerifiedRoutes\" found, make sure it is used only once per module"
+    end
+
     Module.put_attribute(mod, :phoenix_verified_config, %{
       statics: statics,
       path_prefixes: path_prefixes
@@ -294,17 +298,13 @@ defmodule Phoenix.VerifiedRoutes do
   """
   @callback verified_route?(plug_opts(), [String.t()]) :: boolean()
 
-  @after_verify_supported Version.match?(System.version(), ">= 1.14.0")
-
   defmacro __before_compile__(_env) do
-    if @after_verify_supported do
-      quote do
-        @after_verify {__MODULE__, :__phoenix_verify_routes__}
+    quote do
+      @after_verify {__MODULE__, :__phoenix_verify_routes__}
 
-        @doc false
-        def __phoenix_verify_routes__(_module) do
-          unquote(__MODULE__).__verify__(@phoenix_verified_routes)
-        end
+      @doc false
+      def __phoenix_verify_routes__(_module) do
+        unquote(__MODULE__).__verify__(@phoenix_verified_routes)
       end
     end
   end
@@ -891,11 +891,23 @@ defmodule Phoenix.VerifiedRoutes do
   @doc false
   def __encode_query__(dict, sort? \\ false)
 
-  def __encode_query__(dict, sort?)
-      when is_list(dict) or (is_map(dict) and not is_struct(dict)) do
+  def __encode_query__(dict, sort?) when is_map(dict) and not is_struct(dict) do
     case Plug.Conn.Query.encode(dict, &to_param/1) do
       "" -> ""
       query_str -> maybe_sort_query(query_str, sort?)
+    end
+  end
+
+  def __encode_query__(dict, sort?) when is_list(dict) do
+    if dict == [] or match?([{_, _} | _], dict) do
+      case Plug.Conn.Query.encode(dict, &to_param/1) do
+        "" -> ""
+        query_str -> maybe_sort_query(query_str, sort?)
+      end
+    else
+      raise ArgumentError,
+            "expected a keyword list or map for query string encoding, got: #{inspect(dict)}. " <>
+              "Use the full query string syntax instead, such as ~p\"/path?#\{[key: #{inspect(dict)}]}\""
     end
   end
 
@@ -941,15 +953,9 @@ defmodule Phoenix.VerifiedRoutes do
     {route, static?, endpoint_ctx, route_ast, path_ast, static_ast}
   end
 
-  if @after_verify_supported do
-    defp warn_location(meta, %{line: line, file: file, function: function, module: module}) do
-      column = if column = meta[:column], do: column + 2
-      [line: line, function: function, module: module, file: file, column: column]
-    end
-  else
-    defp warn_location(_meta, env) do
-      Macro.Env.stacktrace(env)
-    end
+  defp warn_location(meta, %{line: line, file: file, function: function, module: module}) do
+    column = if column = meta[:column], do: column + 2
+    [line: line, function: function, module: module, file: file, column: column]
   end
 
   defp rewrite_path(route, endpoint, router, config) do
