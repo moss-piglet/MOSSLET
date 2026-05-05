@@ -3,7 +3,6 @@ defmodule MossletWeb.GroupLive.Components do
   Components for groups.
   """
   use MossletWeb, :component
-  use MossletWeb, :verified_routes
 
   def group_pagination(assigns) do
     ~H"""

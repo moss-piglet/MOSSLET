@@ -3,7 +3,6 @@ defmodule MossletWeb.PostLive.Components do
   Components for posts.
   """
   use MossletWeb, :component
-  use MossletWeb, :verified_routes
 
   alias Phoenix.LiveView.JS
   alias Mosslet.Accounts
