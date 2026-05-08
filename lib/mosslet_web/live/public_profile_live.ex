@@ -80,7 +80,7 @@ defmodule MossletWeb.PublicProfileLive do
               <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
                 <div class="relative flex-shrink-0">
                   <MossletWeb.DesignSystem.liquid_avatar
-                    src={get_public_avatar(@profile_user, @current_scope.user)}
+                    src={get_public_avatar(@profile_user, @current_scope && @current_scope.user)}
                     name={
                       URLPreviewHelpers.decrypt_public_field(
                         @profile_user.connection.profile.name,
@@ -91,7 +91,7 @@ defmodule MossletWeb.PublicProfileLive do
                     status={get_public_status(@profile_user)}
                     status_message={get_public_status_message(@profile_user)}
                     show_status={
-                      can_view_status?(@profile_user, @current_scope.user, @current_scope.key)
+                      can_view_status?(@profile_user, @current_scope && @current_scope.user, @current_scope && @current_scope.key)
                     }
                     user_id={@profile_user.id}
                     verified={false}
