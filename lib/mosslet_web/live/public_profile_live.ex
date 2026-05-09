@@ -91,7 +91,11 @@ defmodule MossletWeb.PublicProfileLive do
                     status={get_public_status(@profile_user)}
                     status_message={get_public_status_message(@profile_user)}
                     show_status={
-                      can_view_status?(@profile_user, @current_scope && @current_scope.user, @current_scope && @current_scope.key)
+                      can_view_status?(
+                        @profile_user,
+                        @current_scope && @current_scope.user,
+                        @current_scope && @current_scope.key
+                      )
                     }
                     user_id={@profile_user.id}
                     verified={false}
