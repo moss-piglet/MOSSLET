@@ -8,7 +8,7 @@ defmodule Phoenix.MixProject do
     end
   end
 
-  @version "1.8.6"
+  @version "1.8.7"
   @scm_url "https://github.com/phoenixframework/phoenix"
 
   # If the elixir requirement is updated, we need to make the installer
@@ -69,7 +69,7 @@ defmodule Phoenix.MixProject do
       env: [
         logger: true,
         stacktrace_depth: nil,
-        filter_parameters: ["password"],
+        filter_parameters: ["password", "token"],
         serve_endpoints: false,
         gzippable_exts: ~w(.js .map .css .txt .text .html .json .svg .eot .ttf),
         static_compressors: [Phoenix.Digester.Gzip]

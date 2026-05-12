@@ -3,6 +3,7 @@ defmodule Finch.HTTP1.Conn do
 
   alias Finch.SSL
   alias Finch.Telemetry
+  alias Finch.Error
 
   def new(scheme, host, port, opts, parent) do
     %{
@@ -56,9 +57,10 @@ defmodule Finch.HTTP1.Conn do
         {:ok, %{conn | mint: mint}}
 
       {:error, error} ->
-        meta = Map.put(meta, :error, error)
+        wrapped_error = Error.wrap(error)
+        meta = Map.put(meta, :error, wrapped_error)
         Telemetry.stop(:connect, start_time, meta)
-        {:error, conn, error}
+        {:error, conn, wrapped_error}
     end
   end
 
@@ -86,7 +88,7 @@ defmodule Finch.HTTP1.Conn do
   def set_mode(conn, mode) when mode in [:active, :passive] do
     case Mint.HTTP.set_mode(conn.mint, mode) do
       {:ok, mint} -> {:ok, %{conn | mint: mint}}
-      _ -> {:error, "Connection is dead"}
+      _ -> {:error, Error.exception(:connection_dead)}
     end
   end
 
@@ -100,7 +102,8 @@ defmodule Finch.HTTP1.Conn do
     end
   end
 
-  def request(%{mint: nil} = conn, _, _, _, _, _, _, _), do: {:error, conn, "Could not connect"}
+  def request(%{mint: nil} = conn, _, _, _, _, _, _, _),
+    do: {:error, conn, Error.exception(:could_not_connect)}
 
   def request(conn, req, acc, fun, name, receive_timeout, request_timeout, idle_time) do
     full_path = Finch.Request.request_path(req)
@@ -120,8 +123,8 @@ defmodule Finch.HTTP1.Conn do
              stream_or_body(req.body)
            ) do
         {:ok, mint, ref} ->
-          case maybe_stream_request_body(mint, ref, req.body) do
-            {:ok, mint} ->
+          case maybe_stream_request_body(mint, ref, req.body, acc) do
+            {:ok, mint, acc} ->
               Telemetry.stop(:send, start_time, metadata, extra_measurements)
               start_time = Telemetry.start(:recv, metadata, extra_measurements)
               resp_metadata = %{status: nil, headers: [], trailers: []}
@@ -141,7 +144,12 @@ defmodule Finch.HTTP1.Conn do
 
               handle_response(response, conn, metadata, start_time, extra_measurements)
 
-            {:error, mint, error} ->
+            {:halt, mint, acc} ->
+              Telemetry.stop(:send, start_time, metadata, extra_measurements)
+              conn = close(%{conn | mint: mint})
+              {:ok, conn, acc}
+
+            {:error, mint, error, acc} ->
               handle_request_error(
                 conn,
                 mint,
@@ -168,24 +176,67 @@ defmodule Finch.HTTP1.Conn do
   defp stream_or_body(body), do: body
 
   defp handle_request_error(conn, mint, error, acc, metadata, start_time, extra_measurements) do
-    metadata = Map.put(metadata, :error, error)
+    wrapped_error = Error.wrap(error)
+    metadata = Map.put(metadata, :error, wrapped_error)
     Telemetry.stop(:send, start_time, metadata, extra_measurements)
-    {:error, %{conn | mint: mint}, error, acc}
+    {:error, %{conn | mint: mint}, wrapped_error, acc}
   end
 
-  defp maybe_stream_request_body(mint, ref, {:stream, stream}) do
-    with {:ok, mint} <- stream_request_body(mint, ref, stream) do
-      Mint.HTTP.stream_request_body(mint, ref, :eof)
+  defp maybe_stream_request_body(mint, ref, {:stream, stream}, acc) do
+    with {:ok, mint, acc} <- stream_request_body(mint, ref, stream, acc) do
+      case Mint.HTTP.stream_request_body(mint, ref, :eof) do
+        {:ok, mint} ->
+          {:ok, mint, acc}
+
+        {:error, mint, reason} ->
+          {:error, mint, reason, acc}
+      end
     end
   end
 
-  defp maybe_stream_request_body(mint, _, _), do: {:ok, mint}
+  defp maybe_stream_request_body(mint, _, _, acc) do
+    {:ok, mint, acc}
+  end
 
-  defp stream_request_body(mint, ref, stream) do
-    Enum.reduce_while(stream, {:ok, mint}, fn
-      chunk, {:ok, mint} -> {:cont, Mint.HTTP.stream_request_body(mint, ref, chunk)}
-      _chunk, error -> {:halt, error}
-    end)
+  defp stream_request_body(mint, ref, req_body_fun, acc) when is_function(req_body_fun, 1) do
+    case req_body_fun.(acc) do
+      {:data, chunk, acc} ->
+        case Mint.HTTP.stream_request_body(mint, ref, chunk) do
+          {:ok, mint} ->
+            stream_request_body(mint, ref, req_body_fun, acc)
+
+          {:error, mint, reason} ->
+            {:error, mint, reason, acc}
+        end
+
+      {:done, acc} ->
+        {:ok, mint, acc}
+
+      {:halt, acc} ->
+        {:halt, mint, acc}
+
+      other ->
+        raise "expected req_body_fun to return {:data, chunk, acc}, {:done, acc}, or {:halt, acc}, got: #{inspect(other)}"
+    end
+  end
+
+  defp stream_request_body(mint, ref, stream, acc) do
+    result =
+      Enum.reduce_while(stream, {:ok, mint}, fn
+        chunk, {:ok, mint} ->
+          {:cont, Mint.HTTP.stream_request_body(mint, ref, chunk)}
+
+        _chunk, error ->
+          {:halt, error}
+      end)
+
+    case result do
+      {:ok, mint} ->
+        {:ok, mint, acc}
+
+      {:error, mint, reason} ->
+        {:error, mint, reason, acc}
+    end
   end
 
   def close(%{mint: nil} = conn), do: conn
@@ -203,9 +254,10 @@ defmodule Finch.HTTP1.Conn do
         {:ok, %{conn | mint: mint}, acc}
 
       {:error, mint, error, acc, resp_metadata} ->
-        metadata = Map.merge(metadata, Map.put(resp_metadata, :error, error))
+        wrapped_error = Error.wrap(error)
+        metadata = Map.merge(metadata, Map.put(resp_metadata, :error, wrapped_error))
         Telemetry.stop(:recv, start_time, metadata, extra_measurements)
-        {:error, %{conn | mint: mint}, error, acc}
+        {:error, %{conn | mint: mint}, wrapped_error, acc}
     end
   end
 

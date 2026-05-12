@@ -55,10 +55,20 @@ defmodule Mint.TransportError do
       reason_type
     end
 
-  @type t() :: %__MODULE__{reason: unquote(reason_type) | term()}
+  @typedoc """
+  The error reason.
+  """
+  @typedoc since: "1.8.0"
+  @type reason :: unquote(reason_type) | term()
+
+  @typedoc """
+  Type for the `Mint.TransportError` exception struct.
+  """
+  @type t() :: %__MODULE__{reason: reason()}
 
   defexception [:reason]
 
+  @impl true
   def message(%__MODULE__{reason: reason}) do
     format_reason(reason)
   end

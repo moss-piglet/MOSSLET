@@ -1,7 +1,7 @@
 defmodule Mint.MixProject do
   use Mix.Project
 
-  @version "1.7.1"
+  @version "1.8.0"
   @repo_url "https://github.com/elixir-mint/mint"
 
   def project do
@@ -16,7 +16,6 @@ defmodule Mint.MixProject do
       # Xref
       xref: [
         exclude: [
-          :persistent_term,
           {:ssl, :cipher_suites, 1},
           {:public_key, :cacerts_get, 0},
           CAStore
@@ -27,12 +26,12 @@ defmodule Mint.MixProject do
       dialyzer: [
         plt_add_apps: [:castore],
         plt_local_path: "plts",
-        plt_core_path: "plts"
+        plt_core_path: "plts",
+        ignore_warnings: ".dialyzer_ignore"
       ],
 
       # Code coverage
       test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: ["coveralls.html": :test, coveralls: :test],
 
       # Hex
       package: package(),
@@ -54,8 +53,13 @@ defmodule Mint.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger, :ssl],
-      mod: {Mint.Application, []}
+      extra_applications: [:logger, :ssl]
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: ["coveralls.html": :test, coveralls: :test]
     ]
   end
 

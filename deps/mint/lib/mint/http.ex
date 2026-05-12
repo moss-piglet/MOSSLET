@@ -126,7 +126,7 @@ defmodule Mint.HTTP do
 
   @behaviour Mint.Core.Conn
 
-  @opaque t() :: Mint.HTTP1.t() | Mint.HTTP2.t()
+  @type t() :: Mint.HTTP1.t() | Mint.HTTP2.t() | Mint.UnsafeProxy.t()
 
   defguardp is_data_message(message)
             when elem(message, 0) in [:ssl, :tcp] and tuple_size(message) == 3
@@ -237,6 +237,20 @@ defmodule Mint.HTTP do
     * `:client_settings` - (keyword) a list of client HTTP/2 settings to send to the
       server. See `Mint.HTTP2.put_settings/2` for more information. This is only used
       in HTTP/2 connections.
+
+    * `:connection_window_size` - (integer) the initial size of the connection-level
+      HTTP/2 receive window, in bytes. Sent to the server as a `WINDOW_UPDATE` frame
+      on stream 0 as part of the connection preface. Defaults to 16 MB. Can be
+      raised later with `Mint.HTTP2.set_window_size/3`. *Available since v1.8.0*.
+
+    * `:receive_window_update_threshold` - (integer) the minimum number of bytes of receive
+      window that must remain on a connection or stream before a `WINDOW_UPDATE`
+      frame is sent to refill it. Lower values send more frequent, smaller updates;
+      higher values batch updates into fewer, larger ones. Defaults to 160_000
+      (approximately 10× the default max frame size). The same threshold applies
+      to both the connection and per-stream windows; when a window's peak size is
+      at or below the threshold, the client refills after every DATA frame on
+      that window. *Available since v1.8.0*.
 
   There may be further protocol specific options that only take effect when the corresponding
   connection is established. Check `Mint.HTTP1.connect/4` and `Mint.HTTP2.connect/4` for
@@ -623,6 +637,10 @@ defmodule Mint.HTTP do
 
   This function always returns an updated connection to be stored over the old connection.
 
+  When streaming a body of arbitrary size, use `request_body_window/2` to learn
+  how many bytes you can send right now without violating HTTP/2 flow control,
+  then split your body accordingly before passing each chunk to this function.
+
   For information about transfer encoding and content length in HTTP/1, see
   `Mint.HTTP1.stream_request_body/3`.
 
@@ -758,6 +776,12 @@ defmodule Mint.HTTP do
       with a response status code. The status code is a non-negative integer.
       You can have zero or more `1xx` `:status` and `:headers` responses for a
       single request, but they all precede a single non-`1xx` `:status` response.
+
+    * `{:status_reason, request_ref, reason_phrase}` - returned when the server replied
+      with a response status code and a reason-phrase. The reason-phrase is a string.
+      Returned when the `:optional_responses` option is passed to `connect/4`, with
+      `:status_reason` in the list. See `Mint.HTTP1.connect/4` for more information.
+      This is only available for HTTP/1.1 connections. *Available since v1.8.0*.
 
     * `{:headers, request_ref, headers}` - returned when the server replied
       with a list of headers. Headers are in the form `{header_name, header_value}`
@@ -1058,6 +1082,75 @@ defmodule Mint.HTTP do
   @doc false
   @impl true
   def put_proxy_headers(conn, headers), do: conn_apply(conn, :put_proxy_headers, [conn, headers])
+
+  @doc """
+  Returns the request body flow-control window for the streaming request
+  identified by `request_ref`.
+
+  The semantics differ by protocol:
+
+    * In HTTP/2, returns `min(connection_window, stream_window)` — the maximum
+      number of body bytes that can be sent right now without violating flow
+      control. Exceeding this value in a single `DATA` frame would close the
+      connection with a `FLOW_CONTROL_ERROR`. See `Mint.HTTP2.get_window_size/2`
+      for the underlying primitives.
+
+    * In HTTP/1, returns `:infinity`. HTTP/1 has no application-level
+      flow-control mechanism: any amount of body data is protocol-valid.
+
+  The value returned reflects only the protocol-level flow-control
+  constraint. It does not account for the operating-system socket send
+  buffer: under either protocol, `stream_request_body/3` can still block
+  when that buffer fills up. To bound this behavior, configure
+  `send_timeout` on the socket via `:transport_opts` when establishing the
+  connection (see `Mint.HTTP.connect/4`).
+
+  Raises `ArgumentError` if `request_ref` is not associated with an active
+  streaming request.
+
+  ## Examples
+
+  Streaming a binary body in chunks that respect the protocol window:
+
+      defp stream_body(conn, ref, "") do
+        Mint.HTTP.stream_request_body(conn, ref, :eof)
+      end
+
+      defp stream_body(conn, ref, body) do
+        conn
+        |> Mint.HTTP.request_body_window(ref)
+        |> send_body_chunk(conn, ref, body)
+      end
+
+      defp send_body_chunk(0, conn, ref, body) do
+        with {:ok, conn} <- wait(conn, ref) do
+          stream_body(conn, ref, body)
+        end
+      end
+
+      defp send_body_chunk(window, conn, ref, body) do
+        chunk_size = min(window, byte_size(body))
+        <<chunk::binary-size(chunk_size), rest::binary>> = body
+
+        with {:ok, conn} <- Mint.HTTP.stream_request_body(conn, ref, chunk) do
+          stream_body(conn, ref, rest)
+        end
+      end
+
+      defp wait(conn, ref) do
+        # Wait for the server to refill the request body window with a
+        # WINDOW_UPDATE frame. The concrete implementation depends on the
+        # socket mode and other context.
+      end
+
+  Note that `min(:infinity, n) == n` thanks to Erlang term ordering, so the
+  same loop works on HTTP/1 (each iteration sends the entire remaining body in
+  a single chunk) and on HTTP/2 (each iteration sends at most the current
+  flow-control window).
+  """
+  @doc since: "1.8.0"
+  @impl true
+  def request_body_window(conn, ref), do: conn_apply(conn, :request_body_window, [conn, ref])
 
   ## Helpers
 

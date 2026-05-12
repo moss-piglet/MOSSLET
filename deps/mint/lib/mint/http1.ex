@@ -83,6 +83,8 @@ defmodule Mint.HTTP1 do
   """
   @type error_reason() :: term()
 
+  @optional_responses_opts [:status_reason]
+
   defstruct [
     :host,
     :port,
@@ -99,7 +101,8 @@ defmodule Mint.HTTP1 do
     buffer: "",
     proxy_headers: [],
     private: %{},
-    log: false
+    log: false,
+    optional_responses: []
   ]
 
   defmacrop log(conn, level, message) do
@@ -128,6 +131,12 @@ defmodule Mint.HTTP1 do
        will not be validated. You might want this if you deal with non standard-
        conforming URIs but need to preserve them. The default is to validate the request
        target. *Available since v1.7.0*.
+    * `:optional_responses` - (list of atoms) a list of optional responses to return.
+      Defaults to `[]`. The allowed values in the list are:
+       * `:status_reason`: includes the
+          [reason-phrase](https://datatracker.ietf.org/doc/html/rfc9112#name-status-line)
+          for the status code if it is returned by the server in the status-line.
+          This is only available for HTTP/1.1 connections. *Available since v1.8.0*.
 
   """
   @spec connect(Types.scheme(), Types.address(), :inet.port_number(), keyword()) ::
@@ -206,7 +215,8 @@ defmodule Mint.HTTP1 do
         state: :open,
         log: log?,
         case_sensitive_headers: Keyword.get(opts, :case_sensitive_headers, false),
-        skip_target_validation: Keyword.get(opts, :skip_target_validation, false)
+        skip_target_validation: Keyword.get(opts, :skip_target_validation, false),
+        optional_responses: validate_optional_response_values(opts)
       }
 
       {:ok, conn}
@@ -215,6 +225,21 @@ defmodule Mint.HTTP1 do
         :ok = transport.close(socket)
         {:error, reason}
     end
+  end
+
+  defp validate_optional_response_values(opts) do
+    opts
+    |> Keyword.get(:optional_responses, [])
+    |> Enum.map(fn opt ->
+      if opt not in @optional_responses_opts do
+        raise ArgumentError, """
+        invalid :optional_responses value #{inspect(opt)}, the allowed values are: \
+        #{inspect(@optional_responses_opts)}\
+        """
+      end
+
+      opt
+    end)
   end
 
   @doc """
@@ -642,14 +667,34 @@ defmodule Mint.HTTP1 do
     %{conn | proxy_headers: headers}
   end
 
+  @doc """
+  See `Mint.HTTP.request_body_window/2`.
+  """
+  @doc since: "1.8.0"
+  @impl true
+  def request_body_window(%__MODULE__{streaming_request: %{ref: ref}}, ref), do: :infinity
+
+  def request_body_window(%__MODULE__{}, ref) do
+    raise ArgumentError,
+          "request with request reference #{inspect(ref)} was not found or is not streaming a body"
+  end
+
   ## Helpers
 
   defp decode(:status, %{request: request} = conn, data, responses) do
     case Response.decode_status_line(data) do
-      {:ok, {version, status, _reason}, rest} ->
+      {:ok, {version, status, status_reason}, rest} ->
         request = %{request | version: version, status: status, state: :headers}
         conn = %{conn | request: request}
         responses = [{:status, request.ref, status} | responses]
+
+        responses =
+          if :status_reason in conn.optional_responses do
+            [{:status_reason, request.ref, status_reason} | responses]
+          else
+            responses
+          end
+
         decode(:headers, conn, rest, responses)
 
       :more ->
@@ -709,6 +754,27 @@ defmodule Mint.HTTP1 do
     {:ok, conn, responses}
   end
 
+  # Informational (1xx) responses have no body and must not finalize the
+  # request; the final response follows on the same request ref. Reset the
+  # request's response-side fields and continue parsing without popping it.
+  defp decode_body(:informational, conn, data, _request_ref, responses) do
+    request = %{
+      conn.request
+      | state: :status,
+        version: nil,
+        status: nil,
+        headers_buffer: [],
+        data_buffer: [],
+        content_length: nil,
+        connection: [],
+        transfer_encoding: [],
+        body: nil
+    }
+
+    conn = %{conn | request: request, buffer: ""}
+    decode(:status, conn, data, responses)
+  end
+
   defp decode_body(:single, conn, data, request_ref, responses) do
     {conn, responses} = add_body(conn, data, responses)
     conn = request_done(conn)
@@ -729,7 +795,7 @@ defmodule Mint.HTTP1 do
         {:ok, conn, responses}
 
       length <= byte_size(data) ->
-        <<body::binary-size(length), rest::binary>> = data
+        {body, rest} = :erlang.split_binary(data, length)
         {conn, responses} = add_body(conn, body, responses)
         conn = request_done(conn)
         responses = [{:done, request_ref} | responses]
@@ -803,7 +869,7 @@ defmodule Mint.HTTP1 do
         {:ok, conn, responses}
 
       length <= byte_size(data) ->
-        <<body::binary-size(length), rest::binary>> = data
+        {body, rest} = :erlang.split_binary(data, length)
         {conn, responses} = add_body(conn, body, responses)
         conn = put_in(conn.request.body, {:chunked, :crlf})
         decode_body({:chunked, :crlf}, conn, rest, request_ref, responses)
@@ -948,7 +1014,10 @@ defmodule Mint.HTTP1 do
       status == 101 ->
         {:ok, :single}
 
-      method == "HEAD" or status in 100..199 or status in [204, 304] ->
+      status in 100..199 ->
+        {:ok, :informational}
+
+      method == "HEAD" or status in [204, 304] ->
         {:ok, :none}
 
       # method == "CONNECT" and status in 200..299 -> nil
@@ -978,6 +1047,7 @@ defmodule Mint.HTTP1 do
   # Percent-encoding is not case sensitive so we have to account for lowercase and uppercase.
   @hex_characters ~c"0123456789abcdefABCDEF"
 
+  defp validate_target(<<>> = empty_target), do: {:error, {:invalid_request_target, empty_target}}
   defp validate_target(target), do: validate_target(target, target)
 
   defp validate_target(<<?%, char1, char2, rest::binary>>, original_target)

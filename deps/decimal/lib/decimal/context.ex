@@ -6,9 +6,14 @@ defmodule Decimal.Context do
   The context is kept in the process dictionary. It can be accessed with
   `get/0` and `set/1`.
 
-  The default context has a precision of 28, the rounding algorithm is
-  `:half_up`. The set trap enablers are `:invalid_operation` and
-  `:division_by_zero`.
+  The default context follows IEEE 754 decimal128: precision is 34, `emax` is
+  6 144, and `emin` is -6 143. The rounding algorithm is `:half_up` and the
+  set trap enablers are `:invalid_operation` and `:division_by_zero`.
+
+  `emax` and `emin` limit operation results. They do not validate values that
+  have already been created, so applications that parse untrusted input should
+  still rely on the default `Decimal.parse/2` and `Decimal.cast/2` limits or
+  pass explicit `:max_digits` and `:max_exponent` options.
 
   ## Fields
 
@@ -17,6 +22,12 @@ defmodule Decimal.Context do
       digits with the rounding algorithm in `rounding`.
     * `rounding` - the rounding algorithm used when the coefficient's number of
       exceeds `precision`. Strategies explained below.
+    * `emax` - maximum adjusted exponent. If the adjusted exponent of a result
+      is larger than `emax`, overflow is signalled. `:infinity` disables this
+      limit.
+    * `emin` - minimum adjusted exponent. If the adjusted exponent of a result
+      is smaller than `emin`, underflow is signalled. `:infinity` disables this
+      limit.
     * `flags` - a list of signals that for which the flag is sent. When an
       exceptional condition is signalled its flag is set. The flags are sticky
       and will be set until explicitly cleared.
@@ -69,12 +80,16 @@ defmodule Decimal.Context do
   @type t :: %__MODULE__{
           precision: pos_integer,
           rounding: Decimal.rounding(),
+          emax: integer | :infinity,
+          emin: integer | :infinity,
           flags: [Decimal.signal()],
           traps: [Decimal.signal()]
         }
 
-  defstruct precision: 28,
+  defstruct precision: 34,
             rounding: :half_up,
+            emax: 6_144,
+            emin: -6_143,
             flags: [],
             traps: [:invalid_operation, :division_by_zero]
 
