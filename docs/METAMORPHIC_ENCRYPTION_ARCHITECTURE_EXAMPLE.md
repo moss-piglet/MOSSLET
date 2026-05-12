@@ -2,13 +2,13 @@
 
 ## Overview
 
-Metamorphic is a **zero-knowledge, end-to-end encrypted** habit and self-improvement tracker. All user content is encrypted and decrypted **client-side** in the browser using `libsodium-wrappers-sumo` (JavaScript). The server **never** sees plaintext user data.
+Metamorphic is a **zero-knowledge, end-to-end encrypted** habit and self-improvement tracker. All user content is encrypted and decrypted **client-side** in the browser using an [open-source Rust crypto core](https://github.com/metamorphic/metamorphic-crypto) compiled to WebAssembly. The server **never** sees plaintext user data.
 
 **Core guarantee**: The server stores only opaque ciphertext blobs and HMAC blind indexes. Even a full database breach reveals nothing about user habits, goals, reflections, or streaks. The plaintext email is never persisted — only a one-way HMAC hash (`email_hash`) and an E2E-encrypted blob (`encrypted_email`) are stored.
 
 ## Principles
 
-1. All encryption/decryption happens **client-side** (browser JS via libsodium-wrappers-sumo)
+1. All encryption/decryption happens **client-side** (Rust → WASM, loaded by browser)
 2. Server stores **encrypted blobs** (binary) + **blind index hashes** (for lookups)
 3. Each context (user, habit, family group) gets its own **symmetric key**
 4. Symmetric keys are distributed via **asymmetric encryption** (NaCl box_seal)
@@ -16,20 +16,21 @@ Metamorphic is a **zero-knowledge, end-to-end encrypted** habit and self-improve
 6. Cloak (AES-256-GCM) adds a second at-rest encryption layer in Postgres
 7. The API returns the same encrypted blobs — native clients decrypt on-device
 8. The **raw password never touches sessionStorage** — only the Argon2id-derived session key
+9. The crypto implementation is **open-source** and independently auditable (`#![forbid(unsafe_code)]`)
 
 ## Cryptographic Primitives
 
-| Operation         | Algorithm                  | JS Function                        | Purpose                                    |
-| ----------------- | -------------------------- | ---------------------------------- | ------------------------------------------ |
-| Symmetric encrypt | XSalsa20-Poly1305          | `crypto_secretbox_easy`            | Encrypt data with context key              |
-| Symmetric decrypt | XSalsa20-Poly1305          | `crypto_secretbox_open_easy`       | Decrypt data with context key              |
-| Hybrid seal       | ML-KEM-768+X25519+XSalsa20 | `sealForUser` (via `hybrid.js`)    | PQ-resistant key encryption (new default)  |
-| Hybrid open       | ML-KEM-768+X25519+XSalsa20 | `unsealFromUser` (via `hybrid.js`) | PQ-resistant key decryption (auto-detects) |
-| Legacy seal       | X25519+XSalsa20            | `crypto_box_seal`                  | Encrypt key (legacy, pre-PQ migration)     |
-| Legacy open       | X25519+XSalsa20            | `crypto_box_seal_open`             | Decrypt key (legacy, pre-PQ migration)     |
-| Key derivation    | Argon2id                   | `crypto_pwhash`                    | Derive session key from password           |
-| Random key        | ---                        | `randombytes_buf`                  | Generate context keys                      |
-| Blind index       | HMAC-SHA512                | server-side `:crypto.mac`          | Case-insensitive email lookups             |
+| Operation         | Algorithm                  | Implementation                   | Purpose                                    |
+| ----------------- | -------------------------- | -------------------------------- | ------------------------------------------ |
+| Symmetric encrypt | XSalsa20-Poly1305          | `metamorphic-crypto` (Rust/WASM) | Encrypt data with context key              |
+| Symmetric decrypt | XSalsa20-Poly1305          | `metamorphic-crypto` (Rust/WASM) | Decrypt data with context key              |
+| Hybrid seal       | ML-KEM-768+X25519+XSalsa20 | `metamorphic-crypto` (Rust/WASM) | PQ-resistant key encryption (default)      |
+| Hybrid open       | ML-KEM-768+X25519+XSalsa20 | `metamorphic-crypto` (Rust/WASM) | PQ-resistant key decryption (auto-detects) |
+| Legacy seal       | X25519+XSalsa20            | `metamorphic-crypto` (Rust/WASM) | Encrypt key (legacy, pre-PQ migration)     |
+| Legacy open       | X25519+XSalsa20            | `metamorphic-crypto` (Rust/WASM) | Decrypt key (legacy, pre-PQ migration)     |
+| Key derivation    | Argon2id                   | `metamorphic-crypto` (Rust/WASM) | Derive session key from password           |
+| Random key        | ---                        | `randombytes_buf`                | Generate context keys                      |
+| Blind index       | HMAC-SHA512                | server-side `:crypto.mac`        | Case-insensitive email lookups             |
 
 All ciphertext is stored as `nonce || ciphertext`, base64-encoded, then Cloak-wrapped for DB storage.
 
@@ -986,5 +987,5 @@ The `/api/check_ins/quick` endpoint allows check-ins without client-side crypto.
 - [x] Recovery key flow updated to backup/restore PQ private key
 - [x] All resource hooks migrated to sealForUser/unsealFromUser
 - [x] Quick check-in from push — token-based API endpoint (no crypto needed, metadata-only record)
-- [ ] Stripe subscriptions for tier gating
+- [x] Stripe subscriptions for tier gating
 - [ ] JSON API controllers (same encrypted blobs)
