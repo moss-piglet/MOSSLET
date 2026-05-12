@@ -219,6 +219,8 @@ defmodule MossletWeb.PostLive.Replies.FormComponent do
   end
 
   defp save_reply(socket, :reply_edit, reply_params) do
+    reply_params = Map.new(reply_params, fn {k, v} -> {to_string(k), v} end)
+
     if can_edit?(socket.assigns.user, socket.assigns.reply) do
       user = socket.assigns.user
       key = socket.assigns.key
@@ -232,7 +234,7 @@ defmodule MossletWeb.PostLive.Replies.FormComponent do
              visibility: reply.visibility,
              trix_key: trix_key,
              post_key: get_post_key(post, user),
-             group_id: reply_params["group_id"] || reply_params[:group_id],
+             group_id: reply_params["group_id"],
              user: user,
              key: key
            ) do
@@ -256,6 +258,7 @@ defmodule MossletWeb.PostLive.Replies.FormComponent do
   end
 
   defp save_reply(socket, :reply, reply_params) do
+    reply_params = Map.new(reply_params, fn {k, v} -> {to_string(k), v} end)
     user = socket.assigns.user
     key = socket.assigns.key
     post = socket.assigns.post
@@ -269,7 +272,7 @@ defmodule MossletWeb.PostLive.Replies.FormComponent do
              post: post,
              trix_key: trix_key,
              post_key: get_post_key(post, user),
-             group_id: reply_params["group_id"] || reply_params[:group_id],
+             group_id: reply_params["group_id"],
              user: user,
              key: key
            ) do

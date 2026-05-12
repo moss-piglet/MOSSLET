@@ -155,7 +155,7 @@ defmodule Mosslet.Vault do
           key = Base.decode64!(base64_key)
           {String.to_atom(tag), {Cloak.Ciphers.AES.GCM, tag: tag, key: key}}
         rescue
-          _ -> nil
+          ArgumentError -> nil
         end
 
       _ ->

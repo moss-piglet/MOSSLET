@@ -696,30 +696,15 @@ defmodule MossletWeb.PublicLive.PublicTimeline do
         nil
 
       true ->
+        url_preview = Map.new(url_preview, fn {k, v} -> {to_string(k), v} end)
+
         %{
-          "url" =>
-            decrypt_with_key(Map.get(url_preview, :url) || Map.get(url_preview, "url"), post_key),
-          "title" =>
-            decrypt_with_key(
-              Map.get(url_preview, :title) || Map.get(url_preview, "title"),
-              post_key
-            ),
-          "description" =>
-            decrypt_with_key(
-              Map.get(url_preview, :description) || Map.get(url_preview, "description"),
-              post_key
-            ),
-          "image" =>
-            decrypt_with_key(
-              Map.get(url_preview, :image) || Map.get(url_preview, "image"),
-              post_key
-            ),
-          "image_hash" => Map.get(url_preview, :image_hash) || Map.get(url_preview, "image_hash"),
-          "site_name" =>
-            decrypt_with_key(
-              Map.get(url_preview, :site_name) || Map.get(url_preview, "site_name"),
-              post_key
-            )
+          "url" => decrypt_with_key(url_preview["url"], post_key),
+          "title" => decrypt_with_key(url_preview["title"], post_key),
+          "description" => decrypt_with_key(url_preview["description"], post_key),
+          "image" => decrypt_with_key(url_preview["image"], post_key),
+          "image_hash" => url_preview["image_hash"],
+          "site_name" => decrypt_with_key(url_preview["site_name"], post_key)
         }
     end
   end

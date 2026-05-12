@@ -25,9 +25,13 @@ defmodule Mosslet.Logs.Jobs.LogCleanupJob do
 
       :ok
     rescue
-      error ->
-        Logger.error("Log cleanup failed: #{inspect(error)}")
-        {:error, error}
+      Ecto.QueryError ->
+        Logger.error("Log cleanup failed due to query error")
+        {:error, :query_error}
+
+      Postgrex.Error ->
+        Logger.error("Log cleanup failed due to database error")
+        {:error, :db_error}
     end
   end
 

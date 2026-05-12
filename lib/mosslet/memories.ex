@@ -249,7 +249,8 @@ defmodule Mosslet.Memories do
   defp create_shared_user_memories(memory, attrs, p_attrs, current_user) do
     if attrs["shared_users"] && !Enum.empty?(attrs["shared_users"]) do
       for su <- attrs["shared_users"] do
-        user = Mosslet.Accounts.get_user!(su[:user_id] || su["user_id"])
+        su = Map.new(su, fn {k, v} -> {to_string(k), v} end)
+        user = Mosslet.Accounts.get_user!(su["user_id"])
         adapter().create_shared_user_memory(memory, user, p_attrs, attrs["visibility"])
       end
 

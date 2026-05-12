@@ -161,15 +161,16 @@ defmodule Mosslet.Groups do
 
   """
   def create_group(attrs \\ %{}, opts \\ []) do
+    attrs = Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
     group_changeset = Group.changeset(%Group{}, attrs, opts)
 
-    if attrs["user_id"] || attrs[:user_id] do
-      user = Accounts.get_user!(attrs["user_id"] || attrs[:user_id])
+    if attrs["user_id"] do
+      user = Accounts.get_user!(attrs["user_id"])
       user_group_map = group_changeset.changes.user_group_map
 
       case adapter().create_group(attrs, group_changeset, user, user_group_map, opts) do
         {:ok, %{insert_group: group, insert_user_group: _user_group}} ->
-          for u <- attrs["users"] || attrs[:users] do
+          for u <- attrs["users"] do
             uconn = Accounts.get_user_connection_between_users(u.id, user.id)
 
             ug_attrs = %{
@@ -767,8 +768,9 @@ defmodule Mosslet.Groups do
     - There must always be at least one owner in the group
   """
   def update_user_group_role(%UserGroup{} = user_group, attrs, opts \\ []) do
+    attrs = Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
     actor = Keyword.get(opts, :actor)
-    new_role = attrs["role"] || attrs[:role]
+    new_role = attrs["role"]
     new_role_atom = if is_binary(new_role), do: String.to_existing_atom(new_role), else: new_role
 
     with :ok <- authorize_role_change(user_group, new_role_atom, actor),

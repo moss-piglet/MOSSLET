@@ -239,13 +239,15 @@ defmodule Mosslet.Groups.Adapters.Web do
 
   @impl true
   def create_group(attrs, group_changeset, user, user_group_map, opts) do
+    attrs = Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
+
     Ecto.Multi.new()
     |> Ecto.Multi.insert(:insert_group, group_changeset)
     |> Ecto.Multi.insert(:insert_user_group, fn %{insert_group: group} ->
       UserGroup.changeset(
         %UserGroup{},
         %{
-          name: attrs["user_name"] || attrs[:user_name],
+          name: attrs["user_name"],
           key: user_group_map.key,
           role: "owner",
           confirmed_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)

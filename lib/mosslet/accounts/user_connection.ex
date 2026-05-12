@@ -82,6 +82,8 @@ defmodule Mosslet.Accounts.UserConnection do
   end
 
   def label_changeset(uconn, attrs \\ %{}, opts \\ []) do
+    attrs = Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
+
     # For updating existing connections, we need to use the connection's own key
     # not create a new one from the user's conn_key
     {:ok, d_connection_key} =
@@ -92,7 +94,7 @@ defmodule Mosslet.Accounts.UserConnection do
         opts[:key]
       )
 
-    temp_label = attrs[:temp_label] || attrs["temp_label"]
+    temp_label = attrs["temp_label"]
 
     uconn
     |> cast(attrs, [:temp_label, :color])

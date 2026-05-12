@@ -10,17 +10,19 @@ defmodule Mosslet.GroupsFixtures do
   def unique_username, do: Faker.Internet.user_name()
 
   def valid_group_attributes(attrs \\ %{}, options \\ []) do
+    attrs = Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
+
     Enum.into(attrs, %{
-      name: attrs[:name] || "some name",
-      name_hash: attrs[:name_hash] || "some name",
-      description: attrs[:description] || "some description",
-      password: attrs[:password] || @valid_password,
-      require_password?: attrs[:require_password?] || options[:require_password?],
-      public?: attrs[:public?] || false,
-      user_id: attrs[:user_id] || options[:user].id,
+      name: attrs["name"] || "some name",
+      name_hash: attrs["name_hash"] || "some name",
+      description: attrs["description"] || "some description",
+      password: attrs["password"] || @valid_password,
+      require_password?: attrs["require_password?"] || options[:require_password?],
+      public?: attrs["public?"] || false,
+      user_id: attrs["user_id"] || options[:user].id,
       # used when making user_group
-      user_name: attrs[:name] || "some name",
-      users: attrs[:users] || attrs["users"] || []
+      user_name: attrs["name"] || "some name",
+      users: attrs["users"] || []
     })
   end
 

@@ -1103,7 +1103,9 @@ defmodule Mosslet.Timeline do
 
   # Helper function to calculate thread depth for nested replies
   defp calculate_thread_depth(attrs) do
-    case attrs["parent_reply_id"] || attrs[:parent_reply_id] do
+    attrs = Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
+
+    case attrs["parent_reply_id"] do
       nil ->
         Map.put(attrs, "thread_depth", 0)
 
@@ -1714,7 +1716,8 @@ defmodule Mosslet.Timeline do
   defp create_shared_user_posts(post, attrs, p_attrs, current_user) do
     if attrs["shared_users"] && !Enum.empty?(attrs["shared_users"]) do
       for su <- attrs["shared_users"] do
-        user = Mosslet.Accounts.get_user!(su[:user_id] || su["user_id"])
+        su = Map.new(su, fn {k, v} -> {to_string(k), v} end)
+        user = Mosslet.Accounts.get_user!(su["user_id"])
 
         user_post =
           UserPost.sharing_changeset(
@@ -1774,7 +1777,8 @@ defmodule Mosslet.Timeline do
   defp update_shared_user_posts(post, attrs, p_attrs, current_user) do
     if attrs["shared_users"] && !Enum.empty?(attrs["shared_users"]) do
       for su <- attrs["shared_users"] do
-        user = Mosslet.Accounts.get_user!(su[:user_id] || su["user_id"])
+        su = Map.new(su, fn {k, v} -> {to_string(k), v} end)
+        user = Mosslet.Accounts.get_user!(su["user_id"])
 
         user_post =
           UserPost.sharing_changeset(
@@ -1833,6 +1837,7 @@ defmodule Mosslet.Timeline do
 
   """
   def create_public_repost(attrs \\ %{}, opts \\ []) do
+    attrs = Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
     post = Post.repost_changeset(%Post{}, attrs, opts)
     user = Accounts.get_user!(opts[:user].id)
     p_attrs = post.changes.user_post_map
@@ -1849,7 +1854,7 @@ defmodule Mosslet.Timeline do
             post_id: post.id
           },
           user: user,
-          visibility: attrs["visibility"] || attrs[:visibility]
+          visibility: attrs["visibility"]
         )
         |> Ecto.Changeset.put_assoc(:post, post)
         |> Ecto.Changeset.put_assoc(:user, user)
@@ -1878,11 +1883,12 @@ defmodule Mosslet.Timeline do
 
   """
   def create_repost(attrs \\ %{}, opts \\ []) do
+    attrs = Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
     post = Post.repost_changeset(%Post{}, attrs, opts)
     user = Accounts.get_user!(opts[:user].id)
     p_attrs = post.changes.user_post_map
 
-    case attrs["visibility"] || attrs[:visibility] do
+    case attrs["visibility"] do
       :public ->
         # For public reposts, only create the Post record, not UserPost records
         # Public posts should reuse the original post's UserPost with public key
@@ -1957,29 +1963,10 @@ defmodule Mosslet.Timeline do
                    post_id: post.id
                  },
                  user: user,
-                 visibility: attrs["visibility"] || attrs[:visibility]
+                 visibility: attrs["visibility"]
                )
                |> Ecto.Changeset.put_assoc(:post, post)
                |> Ecto.Changeset.put_assoc(:user, user)
-             end)
-             |> Ecto.Multi.insert(:insert_user_post_receipt_creator, fn %{
-                                                                          insert_user_post:
-                                                                            user_post
-                                                                        } ->
-               # Create receipt for the repost creator (marked as read)
-               {:ok, dt} = DateTime.now("Etc/UTC")
-
-               UserPostReceipt.changeset(
-                 %UserPostReceipt{},
-                 %{
-                   user_id: user.id,
-                   user_post_id: user_post.id,
-                   is_read?: true,
-                   read_at: DateTime.to_naive(dt)
-                 }
-               )
-               |> Ecto.Changeset.put_assoc(:user, user)
-               |> Ecto.Changeset.put_assoc(:user_post, user_post)
              end)
              |> Repo.transaction_on_primary() do
           {:ok, %{insert_post: post, insert_user_post: _user_post_conn}} ->
@@ -2006,7 +1993,8 @@ defmodule Mosslet.Timeline do
   defp create_shared_user_reposts(post, attrs, p_attrs, current_user) do
     if attrs.shared_users && !Enum.empty?(attrs.shared_users) do
       for su <- attrs.shared_users do
-        user = Mosslet.Accounts.get_user!(su[:user_id] || su["user_id"])
+        su = Map.new(su, fn {k, v} -> {to_string(k), v} end)
+        user = Mosslet.Accounts.get_user!(su["user_id"])
 
         user_post =
           UserPost.sharing_changeset(
@@ -2111,11 +2099,14 @@ defmodule Mosslet.Timeline do
   end
 
   defp create_targeted_share_user_posts(post, attrs, p_attrs, current_user) do
-    if attrs.shared_users && !Enum.empty?(attrs.shared_users) do
-      share_note = Map.get(attrs, :share_note) || Map.get(attrs, "share_note")
+    attrs = Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
 
-      for su <- attrs.shared_users do
-        user = Mosslet.Accounts.get_user!(su.user_id || su[:user_id] || su["user_id"])
+    if attrs["shared_users"] && !Enum.empty?(attrs["shared_users"]) do
+      share_note = attrs["share_note"]
+
+      for su <- attrs["shared_users"] do
+        su = Map.new(su, fn {k, v} -> {to_string(k), v} end)
+        user = Mosslet.Accounts.get_user!(su["user_id"])
 
         user_post =
           UserPost.sharing_changeset(

@@ -118,9 +118,13 @@ defmodule Mosslet.AI.ServingManager do
               {:error, error}
           end
         rescue
-          e ->
-            Logger.error("Failed to load #{inspect(name)}: #{Exception.message(e)}")
-            {:error, Exception.message(e)}
+          ArgumentError ->
+            Logger.error("Failed to load #{inspect(name)}: invalid arguments")
+            {:error, :invalid_arguments}
+
+          RuntimeError ->
+            Logger.error("Failed to load #{inspect(name)}: runtime error")
+            {:error, :runtime_error}
         end
     end
   end
