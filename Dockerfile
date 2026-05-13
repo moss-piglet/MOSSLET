@@ -22,7 +22,7 @@ FROM ${BUILDER_IMAGE} as builder
 
 # install build dependencies
 RUN apt-get update -y && apt-get install -y build-essential git \
-  && apt-get install -y libsodium-dev && apt install -y libvips-dev && apt-get clean && rm -f /var/lib/apt/lists/*_*
+  && apt install -y libvips-dev && apt-get clean && rm -f /var/lib/apt/lists/*_*
 
 # prepare build dir
 WORKDIR /app
@@ -74,7 +74,7 @@ RUN mix release
 # the compiled release and other runtime necessities
 FROM ${RUNNER_IMAGE}
 
-RUN apt-get update -y && apt-get install -y libstdc++6 openssl libncurses5 libsodium-dev locales \
+RUN apt-get update -y && apt-get install -y libstdc++6 openssl libncurses5 locales \
   && apt install -y libvips-dev libheif-examples && apt-get clean && rm -f /var/lib/apt/lists/*_*
 
 # Set the locale
