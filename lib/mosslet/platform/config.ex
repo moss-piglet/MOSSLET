@@ -178,19 +178,17 @@ defmodule Mosslet.Platform.Config do
 
   @doc """
   Generates a cryptographically secure secret key for the local Phoenix endpoint.
-  Uses enacl for consistency with the rest of the encryption system.
   """
   @spec generate_secret() :: String.t()
   def generate_secret do
-    :enacl.randombytes(@secret_key_bytes) |> Base.encode64()
+    :crypto.strong_rand_bytes(@secret_key_bytes) |> Base.encode64()
   end
 
   @doc """
   Generates a cryptographically secure salt for LiveView signing.
-  Uses enacl for consistency with the rest of the encryption system.
   """
   @spec generate_salt() :: String.t()
   def generate_salt do
-    :enacl.randombytes(@salt_bytes) |> Base.encode64()
+    :crypto.strong_rand_bytes(@salt_bytes) |> Base.encode64()
   end
 end

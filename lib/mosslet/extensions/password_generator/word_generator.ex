@@ -13,13 +13,7 @@ defmodule Mosslet.Extensions.PasswordGenerator.WordGenerator do
   end
 
   def generate_number do
-    <<a::32, b::32, c::32>> = :enacl.randombytes(12)
-    # don't use the default seed to increase randomness
-    # :random.seed(a, b, c)
-    # Enum.reduce(1..5, 0, fn _, sum -> :random.uniform(6) + sum * 10 end)
-    # Use the new :rand.seed/2
-    # Currently using the [exs1024s](https://erlang.org/doc/man/rand.html#algorithms) algorithm
-    # we also swap :crypto.strong_rand_bytes(12) in favor of :enacl.randombytes(12)
+    <<a::32, b::32, c::32>> = :crypto.strong_rand_bytes(12)
     :rand.seed(:exs1024s, {a, b, c})
     Enum.reduce(1..5, 0, fn _, sum -> :rand.uniform(6) + sum * 10 end)
   end
