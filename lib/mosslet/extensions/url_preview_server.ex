@@ -1,4 +1,12 @@
 defmodule Mosslet.Extensions.URLPreviewServer do
+  @moduledoc """
+  URL preview fetching with ETS caching and rate limiting.
+
+  The GenServer owns the ETS tables and runs periodic cache cleanup.
+  All HTTP fetching runs in the caller's process (or in `start_async`
+  tasks spawned by LiveViews), so slow external requests never block
+  other users.
+  """
   use GenServer
 
   alias Mosslet.Encrypted.Utils
@@ -8,6 +16,10 @@ defmodule Mosslet.Extensions.URLPreviewServer do
   @table_name :url_preview_cache
   @cache_ttl :timer.hours(24)
   @cleanup_interval :timer.minutes(30)
+
+  # -------------------------------------------------------------------
+  # GenServer lifecycle — owns ETS tables and periodic cleanup
+  # -------------------------------------------------------------------
 
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
@@ -20,160 +32,13 @@ defmodule Mosslet.Extensions.URLPreviewServer do
     {:ok, state}
   end
 
-  @doc """
-  Simple fetch - fetches URL metadata without encryption
-  Returns plain preview data with data URL image for CSP-safe display in composer
-
-  ## Options
-    - user_id: Optional user ID for rate limiting. If not provided, rate limiting is skipped.
-  """
-  def fetch(url, opts \\ []) do
-    timeout = Keyword.get(opts, :timeout, 10_000)
-    user_id = Keyword.get(opts, :user_id)
-
-    GenServer.call(__MODULE__, {:fetch, url, user_id}, timeout)
-  end
-
-  @doc """
-  Fetch preview image and convert to data URL for CSP-safe display
-  Returns {:ok, data_url} or {:error, reason}
-  """
-  def fetch_image_as_data_url(image_url, timeout \\ 10_000) do
-    GenServer.call(__MODULE__, {:fetch_image_as_data_url, image_url}, timeout)
-  end
-
-  @doc """
-  Async fetch - returns immediately, broadcasts result via PubSub
-  """
-  def fetch_async(url, context) do
-    GenServer.cast(__MODULE__, {:fetch, url, context})
-  end
-
-  @doc """
-  Sync fetch and cache - fetches URL metadata, encrypts with post_key, and caches by url_hash
-  Returns encrypted preview data ready for database storage
-
-  ## Options
-    - timeout: Request timeout (default: 10_000ms)
-    - user_id: Optional user ID for rate limiting. If not provided, rate limiting is skipped.
-    - profile_key: Optional storage key identifier (e.g., connection_id) for organizing cached images
-  """
-  def fetch_and_cache(url, url_hash, post_key, opts \\ []) do
-    timeout = Keyword.get(opts, :timeout, 10_000)
-    user_id = Keyword.get(opts, :user_id)
-    profile_key = Keyword.get(opts, :profile_key)
-
-    GenServer.call(
-      __MODULE__,
-      {:fetch_and_cache, url, url_hash, post_key, user_id, profile_key},
-      timeout
-    )
-  end
-
-  @doc """
-  Get cached encrypted preview by url_hash
-  Returns the encrypted preview map or nil if not cached
-  """
-  def get_cached_preview(url_hash) do
-    case :ets.lookup(@table_name, url_hash) do
-      [{^url_hash, encrypted_preview, expires_at}] ->
-        if System.system_time(:millisecond) < expires_at do
-          encrypted_preview
-        else
-          :ets.delete(@table_name, url_hash)
-          nil
-        end
-
-      [] ->
-        nil
-    end
-  end
-
-  @doc """
-  Cache an encrypted preview by url_hash
-  """
-  def cache_preview(url_hash, encrypted_preview) do
-    GenServer.cast(__MODULE__, {:cache, url_hash, encrypted_preview})
-  end
-
-  @doc """
-  Delete cached preview by url_hash
-  """
-  def delete_cached_preview(url_hash) do
-    GenServer.cast(__MODULE__, {:delete_cache, url_hash})
-  end
-
-  @doc """
-  Delete all cached previews for a connection_id.
-  Used when a profile or account is deleted.
-  """
-  def delete_cached_previews_for_connection(connection_id) do
-    GenServer.cast(__MODULE__, {:delete_cache_for_connection, connection_id})
-  end
-
-  @doc """
-  Encrypt a preview map with the provided post_key
-  Used when storing preview data in the database or cache
-  """
-  def encrypt_preview_with_key(nil, _post_key), do: nil
-
-  def encrypt_preview_with_key(preview, post_key) when is_map(preview) do
-    preview
-    |> Enum.map(fn {field_key, value} ->
-      encrypted_value =
-        if is_binary(value) && value != "" do
-          Utils.encrypt(%{key: post_key, payload: value})
-        else
-          value
-        end
-
-      {field_key, encrypted_value}
-    end)
-    |> Enum.into(%{})
-  end
-
-  @doc """
-  Decrypt a preview map using the provided post_key
-  Used when displaying preview data from the database or cache
-  """
-  def decrypt_preview_with_key(nil, _post_key), do: nil
-
-  def decrypt_preview_with_key(encrypted_preview, post_key) when is_map(encrypted_preview) do
-    encrypted_preview
-    |> Enum.map(fn {field_key, encrypted_value} ->
-      decrypted_value =
-        if is_binary(encrypted_value) && encrypted_value != "" do
-          case Utils.decrypt(%{key: post_key, payload: encrypted_value}) do
-            {:ok, value} -> value
-            _ -> nil
-          end
-        else
-          encrypted_value
-        end
-
-      {field_key, decrypted_value}
-    end)
-    |> Enum.into(%{})
-  end
-
-  def handle_cast({:fetch, url, context}, state) do
-    Task.start(fn ->
-      case fetch_preview(url) do
-        {:ok, preview} ->
-          Phoenix.PubSub.broadcast(
-            Mosslet.PubSub,
-            "url_preview:#{context.request_id}",
-            {:preview_ready, preview}
-          )
-
-        {:error, _reason} ->
-          nil
-      end
-    end)
-
+  def handle_info(:cleanup_expired, state) do
+    cleanup_expired_entries()
+    schedule_cleanup()
     {:noreply, state}
   end
 
+  # Keep cast-based cache management for fire-and-forget callers
   def handle_cast({:cache, url_hash, encrypted_preview}, state) do
     do_cache_preview(url_hash, encrypted_preview)
     {:noreply, state}
@@ -198,63 +63,191 @@ defmodule Mosslet.Extensions.URLPreviewServer do
     {:noreply, state}
   end
 
-  def handle_call({:fetch, url, user_id}, _from, state) do
-    result =
-      with :ok <- maybe_check_rate_limit(user_id),
-           {:ok, preview} <- fetch_preview(url) do
-        preview_with_data_url = maybe_fetch_image_as_data_url(preview)
-        {:ok, preview_with_data_url}
+  # -------------------------------------------------------------------
+  # Public API — runs in the caller's process (no GenServer bottleneck)
+  # -------------------------------------------------------------------
+
+  @doc """
+  Simple fetch — fetches URL metadata without encryption.
+  Returns plain preview data with data URL image for CSP-safe display.
+
+  Runs in the calling process. Call from `start_async` in LiveViews
+  to keep the LiveView responsive.
+
+  ## Options
+    - user_id: Optional user ID for rate limiting
+  """
+  def fetch(url, opts \\ []) do
+    user_id = Keyword.get(opts, :user_id)
+
+    with :ok <- maybe_check_rate_limit(user_id),
+         {:ok, preview} <- fetch_preview(url) do
+      preview_with_data_url = maybe_fetch_image_as_data_url(preview)
+      {:ok, preview_with_data_url}
+    end
+  end
+
+  @doc """
+  Fetch preview image and convert to data URL for CSP-safe display.
+  Returns {:ok, data_url} or {:error, reason}.
+
+  Runs in the calling process.
+  """
+  def fetch_image_as_data_url(image_url) do
+    do_fetch_image_as_data_url(image_url)
+  end
+
+  @doc """
+  Async fetch — returns immediately, broadcasts result via PubSub.
+  """
+  def fetch_async(url, context) do
+    Task.start(fn ->
+      case fetch_preview(url) do
+        {:ok, preview} ->
+          Phoenix.PubSub.broadcast(
+            Mosslet.PubSub,
+            "url_preview:#{context.request_id}",
+            {:preview_ready, preview}
+          )
+
+        {:error, _reason} ->
+          nil
       end
-
-    {:reply, result, state}
+    end)
   end
 
-  def handle_call({:fetch_image_as_data_url, image_url}, _from, state) do
-    result = do_fetch_image_as_data_url(image_url)
-    {:reply, result, state}
-  end
+  @doc """
+  Fetch, encrypt, and cache — fetches URL metadata, encrypts with post_key,
+  and caches by url_hash. Returns encrypted preview data.
 
-  def handle_call({:fetch_and_cache, url, url_hash, post_key, user_id, profile_key}, _from, state) do
+  Runs in the calling process.
+
+  ## Options
+    - user_id: Optional user ID for rate limiting
+    - profile_key: Optional storage key identifier for organizing cached images
+  """
+  def fetch_and_cache(url, url_hash, post_key, opts \\ []) do
+    user_id = Keyword.get(opts, :user_id)
+    profile_key = Keyword.get(opts, :profile_key)
     storage_key = profile_key || url_hash
 
-    result =
-      with :ok <- maybe_check_rate_limit(user_id) do
-        case get_cached_preview(url_hash) do
-          nil ->
-            case fetch_preview(url) do
-              {:ok, preview} ->
-                preview_with_proxied_image =
-                  maybe_proxy_preview_image(preview, storage_key, post_key)
+    with :ok <- maybe_check_rate_limit(user_id) do
+      case get_cached_preview(url_hash) do
+        nil ->
+          case fetch_preview(url) do
+            {:ok, preview} ->
+              preview_with_proxied_image =
+                maybe_proxy_preview_image(preview, storage_key, post_key)
 
-                encrypted_preview = encrypt_preview_with_key(preview_with_proxied_image, post_key)
-                do_cache_preview(url_hash, encrypted_preview)
-                {:ok, encrypted_preview}
+              encrypted_preview = encrypt_preview_with_key(preview_with_proxied_image, post_key)
+              do_cache_preview(url_hash, encrypted_preview)
+              {:ok, encrypted_preview}
 
-              error ->
-                error
-            end
+            error ->
+              error
+          end
 
-          cached_encrypted_preview ->
-            {:ok, cached_encrypted_preview}
-        end
+        cached_encrypted_preview ->
+          {:ok, cached_encrypted_preview}
       end
-
-    {:reply, result, state}
+    end
   end
 
-  def handle_info(:cleanup_expired, state) do
-    cleanup_expired_entries()
-    schedule_cleanup()
-    {:noreply, state}
+  @doc """
+  Get cached encrypted preview by url_hash.
+  Reads directly from the public ETS table (no GenServer call).
+  """
+  def get_cached_preview(url_hash) do
+    case :ets.lookup(@table_name, url_hash) do
+      [{^url_hash, encrypted_preview, expires_at}] ->
+        if System.system_time(:millisecond) < expires_at do
+          encrypted_preview
+        else
+          :ets.delete(@table_name, url_hash)
+          nil
+        end
+
+      [] ->
+        nil
+    end
   end
+
+  @doc """
+  Cache an encrypted preview by url_hash.
+  """
+  def cache_preview(url_hash, encrypted_preview) do
+    GenServer.cast(__MODULE__, {:cache, url_hash, encrypted_preview})
+  end
+
+  @doc """
+  Delete cached preview by url_hash.
+  """
+  def delete_cached_preview(url_hash) do
+    GenServer.cast(__MODULE__, {:delete_cache, url_hash})
+  end
+
+  @doc """
+  Delete all cached previews for a connection_id.
+  Used when a profile or account is deleted.
+  """
+  def delete_cached_previews_for_connection(connection_id) do
+    GenServer.cast(__MODULE__, {:delete_cache_for_connection, connection_id})
+  end
+
+  @doc """
+  Encrypt a preview map with the provided post_key.
+  """
+  def encrypt_preview_with_key(nil, _post_key), do: nil
+
+  def encrypt_preview_with_key(preview, post_key) when is_map(preview) do
+    preview
+    |> Enum.map(fn {field_key, value} ->
+      encrypted_value =
+        if is_binary(value) && value != "" do
+          Utils.encrypt(%{key: post_key, payload: value})
+        else
+          value
+        end
+
+      {field_key, encrypted_value}
+    end)
+    |> Enum.into(%{})
+  end
+
+  @doc """
+  Decrypt a preview map using the provided post_key.
+  """
+  def decrypt_preview_with_key(nil, _post_key), do: nil
+
+  def decrypt_preview_with_key(encrypted_preview, post_key) when is_map(encrypted_preview) do
+    encrypted_preview
+    |> Enum.map(fn {field_key, encrypted_value} ->
+      decrypted_value =
+        if is_binary(encrypted_value) && encrypted_value != "" do
+          case Utils.decrypt(%{key: post_key, payload: encrypted_value}) do
+            {:ok, value} -> value
+            _ -> nil
+          end
+        else
+          encrypted_value
+        end
+
+      {field_key, decrypted_value}
+    end)
+    |> Enum.into(%{})
+  end
+
+  # -------------------------------------------------------------------
+  # Private — HTTP fetching and helpers (run in caller's process)
+  # -------------------------------------------------------------------
 
   defp fetch_preview(url) do
     with {:ok, normalized_url} <- URLPreviewSecurity.validate_and_normalize_url(url) do
       case Req.get(normalized_url,
              max_redirects: 5,
              retry: :transient,
-             max_retries: 2,
-             receive_timeout: 10_000,
+             max_retries: 1,
+             receive_timeout: 8_000,
              headers: [
                {"user-agent",
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"},
@@ -430,8 +423,8 @@ defmodule Mosslet.Extensions.URLPreviewServer do
       case Req.get(validated_url,
              max_redirects: 5,
              retry: :transient,
-             max_retries: 2,
-             receive_timeout: 10_000,
+             max_retries: 1,
+             receive_timeout: 8_000,
              headers: [
                {"user-agent",
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"},
