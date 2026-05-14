@@ -2115,6 +2115,68 @@ defmodule Mosslet.Accounts do
   defp attach_action_if_current_password(changeset, _),
     do: Map.replace!(changeset, :action, :validate)
 
+  # Progressive PQ key migration for existing users logging in.
+  # Generates a hybrid ML-KEM-768 + X25519 keypair and re-seals
+  # the existing user_key and conn_key under the new post-quantum wrapping.
+  defp migrate_user_to_pq_keys(%User{} = user, session_key) do
+    %{public: pq_pk, private: pq_sk} = Encrypted.Utils.generate_pq_key_pairs()
+    public_key = user.key_pair["public"]
+
+    with {:ok, d_private_key} <- decrypt_user_private_key(user, session_key),
+         {:ok, d_user_key} <-
+           Encrypted.Utils.decrypt_message_for_user(user.user_key, %{
+             public: public_key,
+             private: d_private_key
+           }),
+         {:ok, d_conn_key} <-
+           Encrypted.Utils.decrypt_message_for_user(user.conn_key, %{
+             public: public_key,
+             private: d_private_key
+           }) do
+      pq_opts = [pq_public_key: pq_pk]
+
+      new_user_key =
+        Encrypted.Utils.encrypt_message_for_user_with_pk(
+          d_user_key,
+          %{public: public_key},
+          pq_opts
+        )
+
+      new_conn_key =
+        Encrypted.Utils.encrypt_message_for_user_with_pk(
+          d_conn_key,
+          %{public: public_key},
+          pq_opts
+        )
+
+      encrypted_pq_private_key =
+        Encrypted.Utils.encrypt(%{key: session_key, payload: pq_sk})
+
+      Mosslet.Repo.transaction_on_primary(fn ->
+        user
+        |> User.changeset_for_pq_migration(%{
+          pq_public_key: pq_pk,
+          encrypted_pq_private_key: encrypted_pq_private_key,
+          user_key: new_user_key,
+          conn_key: new_conn_key
+        })
+        |> Mosslet.Repo.update!()
+      end)
+    else
+      _ -> :ok
+    end
+  end
+
+  # Decrypts a user's X25519 private key using their session key.
+  defp decrypt_user_private_key(user, session_key) do
+    private_key = user.key_pair["private"] || user.key_pair.private
+
+    case Encrypted.Utils.decrypt(%{key: session_key, payload: private_key}) do
+      {:ok, d_key} -> {:ok, d_key}
+      {:error, _} -> {:error, :failed_verification}
+    end
+  end
+
   # User lifecyle actions - these allow you to hook into certain user events and do secondary tasks like create logs, send Slack messages etc.
   def user_lifecycle_action(action, user, opts \\ %{})
 
@@ -2126,6 +2188,11 @@ defmodule Mosslet.Accounts do
   def user_lifecycle_action("after_sign_in", user, %{ip: ip, key: key}) do
     Logs.log_async("sign_in", %{user: user})
     {:ok, user} = update_last_signed_in_info(user, ip, key)
+
+    if key && is_nil(user.pq_public_key) do
+      migrate_user_to_pq_keys(user, key)
+    end
+
     Mosslet.MailBluster.sync_user_async(user)
   end
 

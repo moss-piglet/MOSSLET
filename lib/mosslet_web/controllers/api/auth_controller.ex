@@ -536,6 +536,8 @@ defmodule MossletWeb.API.AuthController do
       name_hash: encode_binary(user.name_hash),
       avatar_url_hash: encode_binary(user.avatar_url_hash),
       key_pair: encode_key_pair(user.key_pair),
+      pq_public_key: encode_binary(user.pq_public_key),
+      pq_private_key: encode_binary(user.encrypted_pq_private_key),
       key_hash: encode_binary(user.key_hash),
       conn_key: encode_binary(user.conn_key),
       user_key: encode_binary(user.user_key),

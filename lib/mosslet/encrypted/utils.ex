@@ -100,22 +100,53 @@ defmodule Mosslet.Encrypted.Utils do
     %{private: private, public: public}
   end
 
-  @spec decrypt_message_for_user(binary, %{private: binary, public: binary}) ::
+  @spec generate_pq_key_pairs :: %{private: binary, public: binary}
+  def generate_pq_key_pairs do
+    {public, private} = MetamorphicCrypto.Hybrid.generate_keypair()
+    %{private: private, public: public}
+  end
+
+  @spec decrypt_message_for_user(binary, %{private: binary, public: binary}, keyword) ::
           {:error, :failed_verification} | {:ok, binary}
-  def decrypt_message_for_user(encrypted_message, %{public: public_key, private: private_key}) do
-    case MetamorphicCrypto.BoxSeal.open(encrypted_message, public_key, private_key) do
-      {:ok, plaintext} -> {:ok, plaintext}
-      {:error, _reason} -> {:error, :failed_verification}
+  def decrypt_message_for_user(
+        encrypted_message,
+        %{public: public_key, private: private_key},
+        opts \\ []
+      ) do
+    pq_secret_key = Keyword.get(opts, :pq_secret_key)
+
+    if pq_secret_key do
+      case MetamorphicCrypto.Seal.unseal_from_user(encrypted_message, public_key, private_key,
+             pq_secret_key: pq_secret_key
+           ) do
+        {:ok, plaintext} -> {:ok, plaintext}
+        {:error, _reason} -> {:error, :failed_verification}
+      end
+    else
+      case MetamorphicCrypto.BoxSeal.open(encrypted_message, public_key, private_key) do
+        {:ok, plaintext} -> {:ok, plaintext}
+        {:error, _reason} -> {:error, :failed_verification}
+      end
     end
   end
 
   @spec encrypt_message_for_user_with_pk(
           binary,
-          %{public: binary}
+          %{public: binary},
+          keyword
         ) :: binary
-  def encrypt_message_for_user_with_pk(message, %{public: public_key}) do
-    {:ok, ciphertext} = MetamorphicCrypto.BoxSeal.seal(message, public_key)
-    ciphertext
+  def encrypt_message_for_user_with_pk(message, %{public: public_key}, opts \\ []) do
+    pq_public_key = Keyword.get(opts, :pq_public_key)
+
+    if pq_public_key do
+      {:ok, ciphertext} =
+        MetamorphicCrypto.Seal.seal_for_user(message, public_key, pq_public_key: pq_public_key)
+
+      ciphertext
+    else
+      {:ok, ciphertext} = MetamorphicCrypto.BoxSeal.seal(message, public_key)
+      ciphertext
+    end
   end
 
   # PRIVATE FUNCTIONS

@@ -23,12 +23,14 @@ defmodule Mosslet.Encrypted.Users.Utils do
       ) do
     with session_key <- current_user_session_key,
          {:ok, d_private_key} <- decrypt_private_key(current_user, session_key),
+         {:ok, d_pq_private_key} <- decrypt_pq_private_key(current_user, session_key),
          {:ok, d_user_key} <-
-           decrypt_user_key(current_user, current_user.user_key, d_private_key),
+           decrypt_user_key(current_user, current_user.user_key, d_private_key,
+             pq_secret_key: d_pq_private_key
+           ),
          {:ok, d_payload} <- decrypt_payload(d_user_key, payload) do
       d_payload
     else
-      # only error return is :failed_verification
       rest -> rest
     end
   end
@@ -42,7 +44,6 @@ defmodule Mosslet.Encrypted.Users.Utils do
          {:ok, d_payload} <- decrypt_payload(d_item_key, payload) do
       d_payload
     else
-      # only error return is :failed_verification
       rest -> rest
     end
   end
@@ -54,12 +55,19 @@ defmodule Mosslet.Encrypted.Users.Utils do
 
   def decrypt_item(payload, user, e_item_key, key) do
     {:ok, private_key} = decrypt_private_key(user, key)
+    {:ok, pq_private_key} = decrypt_pq_private_key(user, key)
+
+    pq_opts = if pq_private_key, do: [pq_secret_key: pq_private_key], else: []
 
     {:ok, decr_item_key} =
-      Encrypted.Utils.decrypt_message_for_user(e_item_key, %{
-        public: user.key_pair["public"],
-        private: private_key
-      })
+      Encrypted.Utils.decrypt_message_for_user(
+        e_item_key,
+        %{
+          public: user.key_pair["public"],
+          private: private_key
+        },
+        pq_opts
+      )
 
     return = Encrypted.Utils.decrypt(%{key: decr_item_key, payload: payload})
 
@@ -112,8 +120,11 @@ defmodule Mosslet.Encrypted.Users.Utils do
       ) do
     with session_key <- current_user_session_key,
          {:ok, d_private_key} <- decrypt_private_key(current_user, session_key),
+         {:ok, d_pq_private_key} <- decrypt_pq_private_key(current_user, session_key),
          {:ok, d_user_key} <-
-           decrypt_user_key(current_user, user_key, d_private_key) do
+           decrypt_user_key(current_user, user_key, d_private_key,
+             pq_secret_key: d_pq_private_key
+           ) do
       {:ok, d_user_key}
     else
       {:error_private_key, message} -> message
@@ -132,9 +143,12 @@ defmodule Mosslet.Encrypted.Users.Utils do
       ) do
     with session_key <- current_user_session_key,
          {:ok, d_private_key} <- decrypt_private_key(current_user, session_key),
+         {:ok, d_pq_private_key} <- decrypt_pq_private_key(current_user, session_key),
          {:ok, d_user_key} <-
-           decrypt_user_key(current_user, user_key, d_private_key) do
-      %{user_key: d_user_key, private_key: d_private_key}
+           decrypt_user_key(current_user, user_key, d_private_key,
+             pq_secret_key: d_pq_private_key
+           ) do
+      %{user_key: d_user_key, private_key: d_private_key, pq_private_key: d_pq_private_key}
     else
       {:error_private_key, message} -> message
       {:error_user_key, message} -> message
@@ -155,8 +169,11 @@ defmodule Mosslet.Encrypted.Users.Utils do
       ) do
     with session_key <- current_user_session_key,
          {:ok, d_private_key} <- decrypt_private_key(current_user, session_key),
+         {:ok, d_pq_private_key} <- decrypt_pq_private_key(current_user, session_key),
          {:ok, d_user_key} <-
-           decrypt_user_key(current_user, current_user.user_key, d_private_key),
+           decrypt_user_key(current_user, current_user.user_key, d_private_key,
+             pq_secret_key: d_pq_private_key
+           ),
          e_payload <- encrypt_payload(d_user_key, payload) do
       e_payload
     else
@@ -180,14 +197,35 @@ defmodule Mosslet.Encrypted.Users.Utils do
     end
   end
 
-  @spec decrypt_user_key(struct, binary, binary) :: tuple
-  defp decrypt_user_key(user, encrypted_payload_user_key, d_private_key) do
-    public_key = user.key_pair["public"] || user.key_pair.public
+  @spec decrypt_pq_private_key(struct, binary) :: {:ok, binary() | nil} | tuple
+  defp decrypt_pq_private_key(user, session_key) do
+    encrypted = user.encrypted_pq_private_key
 
-    case Encrypted.Utils.decrypt_message_for_user(encrypted_payload_user_key, %{
-           public: public_key,
-           private: d_private_key
-         }) do
+    if encrypted do
+      case Encrypted.Utils.decrypt(%{key: session_key, payload: encrypted}) do
+        {:ok, d_key} -> {:ok, d_key}
+        {:error, _message} -> {:ok, nil}
+      end
+    else
+      {:ok, nil}
+    end
+  end
+
+  @spec decrypt_user_key(struct, binary, binary, keyword) :: tuple
+  defp decrypt_user_key(user, encrypted_payload_user_key, d_private_key, opts) do
+    public_key = user.key_pair["public"] || user.key_pair.public
+    pq_secret_key = Keyword.get(opts, :pq_secret_key)
+
+    pq_opts = if pq_secret_key, do: [pq_secret_key: pq_secret_key], else: []
+
+    case Encrypted.Utils.decrypt_message_for_user(
+           encrypted_payload_user_key,
+           %{
+             public: public_key,
+             private: d_private_key
+           },
+           pq_opts
+         ) do
       {:ok, d_user_key} ->
         {:ok, d_user_key}
 
@@ -202,7 +240,6 @@ defmodule Mosslet.Encrypted.Users.Utils do
       {:ok, d_payload} ->
         {:ok, d_payload}
 
-      # message is :failed_verification
       {:error, message} ->
         message
     end

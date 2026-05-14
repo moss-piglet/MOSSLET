@@ -37,6 +37,8 @@ defmodule Mosslet.Accounts.User do
     field :key_hash, Encrypted.Binary, redact: true
     field :key, Encrypted.Binary, redact: true
     field :key_pair, {:map, Encrypted.Binary}, redact: true
+    field :pq_public_key, Encrypted.Binary, redact: true
+    field :encrypted_pq_private_key, Encrypted.Binary, redact: true
     field :user_key, Encrypted.Binary, redact: true
     field :conn_key, Encrypted.Binary, redact: true
     field :ai_tokens, :decimal
@@ -1111,15 +1113,8 @@ defmodule Mosslet.Accounts.User do
   defp put_new_key_hash_and_key_pair(changeset, password, opts) do
     cond do
       opts[:change_password] || opts[:reset_password] ->
-        %{user_key: user_key, private_key: private_key} =
+        %{user_key: user_key, private_key: private_key, pq_private_key: pq_private_key} =
           decrypt_user_keys(opts[:user].user_key, opts[:user], opts[:key])
-
-        # Can update this as the private_key is not needed
-        # so we  also don't need to make changes to they key pair.
-        # We only need to get the user_key and make a new key_hash
-        # with the new password.
-        #
-        # We can drop the put_change -> key_pair work. :)
 
         %{key_hash: new_key_hash} = Encrypted.Utils.generate_key_hash(password, user_key)
         e_private_key = Encrypted.Utils.encrypt(%{key: user_key, payload: private_key})
@@ -1127,6 +1122,14 @@ defmodule Mosslet.Accounts.User do
         changeset
         |> put_change(:key_hash, new_key_hash)
         |> put_change(:key_pair, %{public: opts[:user].key_pair["public"], private: e_private_key})
+        |> then(fn cs ->
+          if pq_private_key do
+            e_pq_private_key = Encrypted.Utils.encrypt(%{key: user_key, payload: pq_private_key})
+            put_change(cs, :encrypted_pq_private_key, e_pq_private_key)
+          else
+            cs
+          end
+        end)
 
       true ->
         changeset
@@ -1147,16 +1150,24 @@ defmodule Mosslet.Accounts.User do
 
     %{key_hash: key_hash} = Encrypted.Utils.generate_key_hash(password, user_key)
     %{public: public_key, private: private_key} = Encrypted.Utils.generate_key_pairs()
+    %{public: pq_public_key, private: pq_private_key} = Encrypted.Utils.generate_pq_key_pairs()
+
+    pq_opts = [pq_public_key: pq_public_key]
 
     # Encrypt user data
     encrypted_email = Encrypted.Utils.encrypt(%{key: user_attributes_key, payload: email})
     encrypted_username = Encrypted.Utils.encrypt(%{key: user_attributes_key, payload: username})
     encrypted_private_key = Encrypted.Utils.encrypt(%{key: user_key, payload: private_key})
+    encrypted_pq_private_key = Encrypted.Utils.encrypt(%{key: user_key, payload: pq_private_key})
 
     encrypted_user_attributes_key =
-      Encrypted.Utils.encrypt_message_for_user_with_pk(user_attributes_key, %{
-        public: public_key
-      })
+      Encrypted.Utils.encrypt_message_for_user_with_pk(
+        user_attributes_key,
+        %{
+          public: public_key
+        },
+        pq_opts
+      )
 
     # Encrypt connection data
     # This data will not be cast to the user record
@@ -1170,14 +1181,20 @@ defmodule Mosslet.Accounts.User do
     c_encrypted_username = Encrypted.Utils.encrypt(%{key: conn_key, payload: username})
 
     encrypted_conn_key =
-      Encrypted.Utils.encrypt_message_for_user_with_pk(conn_key, %{
-        public: public_key
-      })
+      Encrypted.Utils.encrypt_message_for_user_with_pk(
+        conn_key,
+        %{
+          public: public_key
+        },
+        pq_opts
+      )
 
     changeset
     |> put_change(:email, encrypted_email)
     |> put_change(:key_hash, key_hash)
     |> put_change(:key_pair, %{public: public_key, private: encrypted_private_key})
+    |> put_change(:pq_public_key, pq_public_key)
+    |> put_change(:encrypted_pq_private_key, encrypted_pq_private_key)
     |> put_change(:username, encrypted_username)
     |> put_change(:user_key, encrypted_user_attributes_key)
     |> put_change(:conn_key, encrypted_conn_key)
@@ -1793,5 +1810,16 @@ defmodule Mosslet.Accounts.User do
     |> Enum.sort()
     |> Enum.join(",")
     |> String.downcase()
+  end
+
+  @doc """
+  Changeset for the progressive PQ key migration on login.
+  Updates pq_public_key, encrypted_pq_private_key, and re-seals
+  user_key and conn_key under hybrid PQ wrapping.
+  """
+  def changeset_for_pq_migration(user, attrs) do
+    user
+    |> cast(attrs, [:pq_public_key, :encrypted_pq_private_key, :user_key, :conn_key])
+    |> validate_required([:pq_public_key, :encrypted_pq_private_key, :user_key, :conn_key])
   end
 end
