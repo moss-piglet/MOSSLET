@@ -98,6 +98,9 @@ defmodule Mosslet.Timeline.Post do
     field :removed_by_user_ids_hash, Encrypted.HMAC, redact: true
 
     field :user_post_map, :map, virtual: true
+    # Pre-decrypted fields map, populated by MossletWeb.Helpers.pre_decrypt_post/3
+    # to avoid redundant key derivation during template rendering
+    field :decrypted, :map, virtual: true
 
     embeds_many :shared_users, SharedUser, on_replace: :delete do
       @derive Jason.Encoder

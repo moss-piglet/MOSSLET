@@ -288,10 +288,7 @@
               >
                 <MossletWeb.DesignSystem.liquid_timeline_post
                   user_name={get_post_author_name(post, @current_user, @key)}
-                  user_handle={"@" <> (case decr_item(post.username, @current_user, get_post_key(post, @current_user), @key, post, "username") do
-                  result when is_binary(result) -> result
-                  _ -> "author"
-                end)}
+                  user_handle={"@" <> (post.decrypted[:username] || "author")}
                   user_avatar={get_post_author_avatar(post, @current_user, @key)}
                   user_status={get_cached_user_status(@user_statuses, post.user_id)}
                   user_status_message={
@@ -305,81 +302,11 @@
                   timestamp={format_post_timestamp(post.inserted_at)}
                   verified={false}
                   content_warning?={post.content_warning?}
-                  content_warning={
-                    if post.content_warning? do
-                      case post.visibility do
-                        :public ->
-                          decr_item(
-                            post.content_warning,
-                            @current_user,
-                            get_post_key(post),
-                            @key,
-                            post,
-                            "body"
-                          ) || "[Could not decrypt content]"
-
-                        _ ->
-                          decr_item(
-                            post.content_warning,
-                            @current_user,
-                            get_post_key(post, @current_user),
-                            @key,
-                            post,
-                            "body"
-                          ) || "[Could not decrypt content]"
-                      end
-                    end
-                  }
-                  content_warning_category={
-                    if post.content_warning? do
-                      case post.visibility do
-                        :public ->
-                          decr_item(
-                            post.content_warning_category,
-                            @current_user,
-                            get_post_key(post),
-                            @key,
-                            post,
-                            "body"
-                          ) || "[Could not decrypt content]"
-
-                        _ ->
-                          decr_item(
-                            post.content_warning_category,
-                            @current_user,
-                            get_post_key(post, @current_user),
-                            @key,
-                            post,
-                            "body"
-                          ) || "[Could not decrypt content]"
-                      end
-                    end
-                  }
-                  content={
-                    case post.visibility do
-                      :public ->
-                        decr_item(
-                          post.body,
-                          @current_user,
-                          get_post_key(post),
-                          @key,
-                          post,
-                          "body"
-                        ) || "[Could not decrypt content]"
-
-                      _ ->
-                        decr_item(
-                          post.body,
-                          @current_user,
-                          get_post_key(post, @current_user),
-                          @key,
-                          post,
-                          "body"
-                        ) || "[Could not decrypt content]"
-                    end
-                  }
-                  images={get_decrypted_post_images(post, @current_user, @key)}
-                  decrypted_url_preview={get_decrypted_url_preview(post, @current_user, @key)}
+                  content_warning={post.decrypted[:content_warning]}
+                  content_warning_category={post.decrypted[:content_warning_category]}
+                  content={post.decrypted[:body] || "[Could not decrypt content]"}
+                  images={post.decrypted[:image_urls] || []}
+                  decrypted_url_preview={post.decrypted[:url_preview]}
                   stats={
                     %{
                       replies: Map.get(post, :total_reply_count, count_all_replies(post.replies)),
@@ -395,10 +322,10 @@
                   post={post}
                   current_scope={@current_scope}
                   is_repost={post.repost || false}
-                  share_note={get_decrypted_share_note(post, @current_user, @key)}
-                  liked={get_post_liked_status(post, @current_user, @key)}
+                  share_note={post.decrypted[:share_note]}
+                  liked={@current_user.id in (post.decrypted[:favs_list] || [])}
                   bookmarked={get_post_bookmarked_status(post, @current_user)}
-                  can_repost={can_repost_with_decryption?(post, @current_user, @key)}
+                  can_repost={can_repost_with_pre_decrypted?(post, @current_user)}
                   can_reply?={can_reply?(post, @current_user)}
                   can_bookmark?={can_bookmark?(post, @current_user)}
                   unread?={get_post_unread_status(post, @current_user)}
@@ -453,10 +380,7 @@
                 >
                   <MossletWeb.DesignSystem.liquid_timeline_post
                     user_name={get_post_author_name(post, @current_user, @key)}
-                    user_handle={"@" <> (case decr_item(post.username, @current_user, get_post_key(post, @current_user), @key, post, "username") do
-                    result when is_binary(result) -> result
-                    _ -> "author"
-                  end)}
+                    user_handle={"@" <> (post.decrypted[:username] || "author")}
                     user_avatar={get_post_author_avatar(post, @current_user, @key)}
                     user_status={get_cached_user_status(@user_statuses, post.user_id)}
                     user_status_message={
@@ -472,81 +396,11 @@
                     timestamp={format_post_timestamp(post.inserted_at)}
                     verified={false}
                     content_warning?={post.content_warning?}
-                    content_warning={
-                      if post.content_warning? do
-                        case post.visibility do
-                          :public ->
-                            decr_item(
-                              post.content_warning,
-                              @current_user,
-                              get_post_key(post),
-                              @key,
-                              post,
-                              "body"
-                            ) || "[Could not decrypt content]"
-
-                          _ ->
-                            decr_item(
-                              post.content_warning,
-                              @current_user,
-                              get_post_key(post, @current_user),
-                              @key,
-                              post,
-                              "body"
-                            ) || "[Could not decrypt content]"
-                        end
-                      end
-                    }
-                    content_warning_category={
-                      if post.content_warning? do
-                        case post.visibility do
-                          :public ->
-                            decr_item(
-                              post.content_warning_category,
-                              @current_user,
-                              get_post_key(post),
-                              @key,
-                              post,
-                              "body"
-                            ) || "[Could not decrypt content]"
-
-                          _ ->
-                            decr_item(
-                              post.content_warning_category,
-                              @current_user,
-                              get_post_key(post, @current_user),
-                              @key,
-                              post,
-                              "body"
-                            ) || "[Could not decrypt content]"
-                        end
-                      end
-                    }
-                    content={
-                      case post.visibility do
-                        :public ->
-                          decr_item(
-                            post.body,
-                            @current_user,
-                            get_post_key(post),
-                            @key,
-                            post,
-                            "body"
-                          ) || "[Could not decrypt content]"
-
-                        _ ->
-                          decr_item(
-                            post.body,
-                            @current_user,
-                            get_post_key(post, @current_user),
-                            @key,
-                            post,
-                            "body"
-                          ) || "[Could not decrypt content]"
-                      end
-                    }
-                    images={get_decrypted_post_images(post, @current_user, @key)}
-                    decrypted_url_preview={get_decrypted_url_preview(post, @current_user, @key)}
+                    content_warning={post.decrypted[:content_warning]}
+                    content_warning_category={post.decrypted[:content_warning_category]}
+                    content={post.decrypted[:body] || "[Could not decrypt content]"}
+                    images={post.decrypted[:image_urls] || []}
+                    decrypted_url_preview={post.decrypted[:url_preview]}
                     stats={
                       %{
                         replies:
@@ -563,10 +417,10 @@
                     post={post}
                     current_scope={@current_scope}
                     is_repost={post.repost || false}
-                    share_note={get_decrypted_share_note(post, @current_user, @key)}
-                    liked={get_post_liked_status(post, @current_user, @key)}
+                    share_note={post.decrypted[:share_note]}
+                    liked={@current_user.id in (post.decrypted[:favs_list] || [])}
                     bookmarked={get_post_bookmarked_status(post, @current_user)}
-                    can_repost={can_repost_with_decryption?(post, @current_user, @key)}
+                    can_repost={can_repost_with_pre_decrypted?(post, @current_user)}
                     can_reply?={can_reply?(post, @current_user)}
                     can_bookmark?={can_bookmark?(post, @current_user)}
                     unread?={false}

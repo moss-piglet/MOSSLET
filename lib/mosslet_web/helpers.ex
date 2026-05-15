@@ -523,6 +523,168 @@ defmodule MossletWeb.Helpers do
     end
   end
 
+  @doc """
+  Unseals the raw post_key for a post, performing the expensive asymmetric
+  crypto only once. Returns `{:ok, raw_key}` or `:error`.
+
+  For public posts, unseals using the server keypair.
+  For non-public posts, unseals using the current user's keypair.
+  Handles the group_id edge case where the key comes from user_group.
+  """
+  def unseal_post_key(post, current_user, session_key) do
+    sealed_key =
+      case post.visibility do
+        :public -> get_post_key(post)
+        _ -> get_post_key(post, current_user)
+      end
+
+    if is_nil(sealed_key) do
+      :error
+    else
+      case post.visibility do
+        :public ->
+          case Encrypted.Users.Utils.decrypt_public_item_key(sealed_key) do
+            raw_key when is_binary(raw_key) -> {:ok, raw_key}
+            _ -> :error
+          end
+
+        _ ->
+          case Encrypted.Users.Utils.decrypt_user_attrs_key(sealed_key, current_user, session_key) do
+            {:ok, raw_key} -> {:ok, raw_key}
+            _ -> :error
+          end
+      end
+    end
+  end
+
+  @doc """
+  Decrypts a single field payload using an already-unsealed raw post_key.
+  Returns the plaintext string, or the fallback on failure.
+  """
+  def decrypt_field(nil, _raw_key, fallback), do: fallback
+  def decrypt_field("", _raw_key, _fallback), do: ""
+  def decrypt_field(_payload, nil, fallback), do: fallback
+
+  def decrypt_field(payload, raw_key, fallback) do
+    case Encrypted.Utils.decrypt(%{key: raw_key, payload: payload}) do
+      {:ok, plaintext} -> plaintext
+      _ -> fallback
+    end
+  end
+
+  @doc """
+  Decrypts all renderable fields of a post in one pass, unsealing the
+  post_key only once. Returns a map suitable for template rendering.
+
+  This replaces the per-field `decr_item` calls in the timeline template,
+  reducing NIF calls from ~10-13 per post down to 1 unseal + N secretbox ops.
+
+  Fields decrypted:
+    - :body, :username, :content_warning, :content_warning_category
+    - :image_urls (list), :url_preview (map)
+    - :favs_list (list of user IDs), :reposts_list (list of user IDs)
+    - :share_note (from user_post)
+  """
+  def decrypt_post_fields(post, current_user, session_key) do
+    case unseal_post_key(post, current_user, session_key) do
+      {:ok, raw_key} ->
+        %{
+          body: decrypt_field(post.body, raw_key, "[Could not decrypt content]"),
+          username: decrypt_field(post.username, raw_key, "author"),
+          content_warning:
+            if(post.content_warning?,
+              do: decrypt_field(post.content_warning, raw_key, nil),
+              else: nil
+            ),
+          content_warning_category:
+            if(post.content_warning?,
+              do: decrypt_field(post.content_warning_category, raw_key, nil),
+              else: nil
+            ),
+          image_urls: decrypt_list(post.image_urls, raw_key),
+          image_alt_texts: decrypt_list(post.image_alt_texts, raw_key),
+          url_preview: decrypt_url_preview(post.url_preview, raw_key),
+          favs_list: decrypt_id_list(post.favs_list, raw_key),
+          reposts_list: decrypt_id_list(post.reposts_list, raw_key),
+          share_note: decrypt_share_note(post, current_user, raw_key),
+          raw_key: raw_key
+        }
+
+      :error ->
+        %{
+          body: "[Could not decrypt content]",
+          username: "author",
+          content_warning: nil,
+          content_warning_category: nil,
+          image_urls: [],
+          image_alt_texts: [],
+          url_preview: nil,
+          favs_list: [],
+          reposts_list: [],
+          share_note: nil,
+          raw_key: nil
+        }
+    end
+  end
+
+  defp decrypt_list(nil, _raw_key), do: []
+  defp decrypt_list([], _raw_key), do: []
+
+  defp decrypt_list(items, raw_key) when is_list(items) do
+    Enum.map(items, fn item -> decrypt_field(item, raw_key, nil) end)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp decrypt_id_list(nil, _raw_key), do: []
+  defp decrypt_id_list([], _raw_key), do: []
+
+  defp decrypt_id_list(items, raw_key) when is_list(items) do
+    Enum.map(items, fn item ->
+      case Encrypted.Utils.decrypt(%{key: raw_key, payload: item}) do
+        {:ok, decrypted_id} -> decrypted_id
+        _ -> item
+      end
+    end)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp decrypt_url_preview(nil, _raw_key), do: nil
+  defp decrypt_url_preview(preview, _raw_key) when not is_map(preview), do: nil
+
+  defp decrypt_url_preview(preview, raw_key) do
+    alias Mosslet.Extensions.URLPreviewServer
+    URLPreviewServer.decrypt_preview_with_key(preview, raw_key)
+  end
+
+  defp decrypt_share_note(post, current_user, raw_key) do
+    if Ecto.assoc_loaded?(post.user_posts) do
+      user_post = Enum.find(post.user_posts, fn up -> up.user_id == current_user.id end)
+
+      if user_post && user_post.share_note do
+        decrypt_field(user_post.share_note, raw_key, nil)
+      end
+    end
+  end
+
+  @doc """
+  Pre-decrypts a post and attaches the decrypted fields as a `:decrypted` key
+  on the post map. This is designed to be called before streaming posts into
+  the LiveView, so the template can read plaintext directly.
+  """
+  def pre_decrypt_post(%Post{} = post, current_user, session_key) do
+    decrypted = decrypt_post_fields(post, current_user, session_key)
+    Map.put(post, :decrypted, decrypted)
+  end
+
+  def pre_decrypt_post(post, _current_user, _session_key), do: post
+
+  @doc """
+  Pre-decrypts a list of posts. See `pre_decrypt_post/3`.
+  """
+  def pre_decrypt_posts(posts, current_user, session_key) do
+    Enum.map(posts, &pre_decrypt_post(&1, current_user, session_key))
+  end
+
   def decr_uconn_item(payload, user, uconn, key) do
     if is_nil(uconn) || is_nil(uconn.key) do
       # if the owner of the Memory is trying to decrypt their own data

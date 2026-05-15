@@ -20,7 +20,6 @@ defmodule MossletWeb.TimelineLive.Index do
   alias Mosslet.Journal.AI
   alias Mosslet.Timeline
   alias Mosslet.Timeline.{Post, Reply, ContentFilter}
-  alias Mosslet.Extensions.URLPreviewServer
 
   @post_page_default 1
   @post_per_page_default 10
@@ -1372,7 +1371,8 @@ defmodule MossletWeb.TimelineLive.Index do
           |> apply_tab_filtering(current_tab, current_user)
       end
 
-    posts_with_dates = add_date_grouping_context(posts)
+    posts_with_dates =
+      prepare_posts_for_stream(posts, socket.assigns.current_user, socket.assigns.key)
 
     socket =
       socket
@@ -1423,7 +1423,8 @@ defmodule MossletWeb.TimelineLive.Index do
     timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
     unread_counts = calculate_unread_counts(current_user, options_with_filters)
 
-    posts_with_dates = add_date_grouping_context(posts)
+    posts_with_dates =
+      prepare_posts_for_stream(posts, socket.assigns.current_user, socket.assigns.key)
 
     socket =
       socket
@@ -1479,7 +1480,8 @@ defmodule MossletWeb.TimelineLive.Index do
       if block.blocked_id != current_user.id,
         do: "Block settings updated. Timeline refreshed to reflect changes."
 
-    posts_with_dates = add_date_grouping_context(posts)
+    posts_with_dates =
+      prepare_posts_for_stream(posts, socket.assigns.current_user, socket.assigns.key)
 
     socket =
       socket
@@ -1597,7 +1599,13 @@ defmodule MossletWeb.TimelineLive.Index do
        |> stream(:read_posts, [], reset: true)}
     else
       cached_posts = socket.assigns[:cached_read_posts] || []
-      posts_with_dates = add_date_grouping_context(cached_posts)
+
+      posts_with_dates =
+        prepare_posts_for_stream(
+          cached_posts,
+          socket.assigns.current_user,
+          socket.assigns.key
+        )
 
       {:noreply,
        socket
@@ -4163,8 +4171,11 @@ defmodule MossletWeb.TimelineLive.Index do
     unread_nested_replies_by_parent =
       Map.get(timeline_result, :unread_nested_replies_by_parent, %{})
 
-    unread_posts_with_dates = add_date_grouping_context(unread_posts)
-    read_posts_with_dates = add_date_grouping_context(read_posts)
+    unread_posts_with_dates =
+      prepare_posts_for_stream(unread_posts, socket.assigns.current_user, socket.assigns.key)
+
+    read_posts_with_dates =
+      prepare_posts_for_stream(read_posts, socket.assigns.current_user, socket.assigns.key)
 
     all_posts = unread_posts ++ read_posts
 
@@ -5618,33 +5629,13 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  defp get_decrypted_share_note(post, current_user, key) do
-    if Ecto.assoc_loaded?(post.user_posts) do
-      user_post = Enum.find(post.user_posts, fn up -> up.user_id == current_user.id end)
-
-      if user_post && user_post.share_note do
-        post_key = get_post_key(post, current_user)
-        decr_item(user_post.share_note, current_user, post_key, key, post, "body")
-      else
-        nil
-      end
-    else
-      nil
-    end
-  end
-
-  # Helper function to check if current user can repost (with encrypted reposts_list support)
-  defp can_repost_with_decryption?(post, current_user, key) do
+  # Same as can_repost_with_decryption? but uses pre-decrypted reposts_list
+  defp can_repost_with_pre_decrypted?(post, current_user) do
     cond do
-      # If sharing is disabled for this post
       !post.allow_shares -> false
-      # If user is the post author, they cannot repost their own content
       post.user_id == current_user.id -> false
-      # If post is ephemeral, then there are no reposts allowed
       post.is_ephemeral -> false
-      # If user has already reposted this post (# Decrypt reposts list and check if user already reposted)
-      current_user.id in decrypt_post_reposts_list(post, current_user, key) -> false
-      # Otherwise, check if sharing is allowed
+      current_user.id in (post.decrypted[:reposts_list] || []) -> false
       true -> post.allow_shares
     end
   end
@@ -5833,72 +5824,6 @@ defmodule MossletWeb.TimelineLive.Index do
   # Helper functions for decrypting and formatting post data
   # All status-related functions have been moved to MossletWeb.Helpers.StatusHelpers for consistency
 
-  defp get_decrypted_post_images(post, current_user, key) do
-    cond do
-      is_list(post.image_urls) and post.image_urls != [] ->
-        encrypted_post_key =
-          case post.visibility do
-            :public -> get_post_key(post)
-            _ -> get_post_key(post, current_user)
-          end
-
-        Enum.map(post.image_urls, fn encrypted_url ->
-          decr_item(encrypted_url, current_user, encrypted_post_key, key, post, "body")
-        end)
-
-      true ->
-        []
-    end
-  end
-
-  defp get_decrypted_url_preview(post, current_user, key) do
-    if post.url_preview && is_map(post.url_preview) do
-      encrypted_post_key =
-        case post.visibility do
-          :public -> get_post_key(post)
-          _ -> get_post_key(post, current_user)
-        end
-
-      d_post_key =
-        case post.visibility do
-          :public ->
-            case Mosslet.Encrypted.Users.Utils.decrypt_public_item_key(encrypted_post_key) do
-              decrypted when is_binary(decrypted) -> decrypted
-              _ -> nil
-            end
-
-          _ ->
-            case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(
-                   encrypted_post_key,
-                   current_user,
-                   key
-                 ) do
-              {:ok, decrypted} -> decrypted
-              _ -> nil
-            end
-        end
-
-      if d_post_key do
-        decrypted_preview =
-          URLPreviewServer.decrypt_preview_with_key(post.url_preview, d_post_key)
-
-        if decrypted_preview && decrypted_preview["url"] do
-          url_hash =
-            :crypto.hash(:sha512, decrypted_preview["url"]) |> Base.encode16(case: :lower)
-
-          cache_preview_in_ets(url_hash, post.url_preview)
-          decrypted_preview
-        else
-          nil
-        end
-      else
-        nil
-      end
-    else
-      nil
-    end
-  end
-
   defp fetch_and_decrypt_url_preview_image(
          presigned_url,
          encrypted_post_key,
@@ -5937,10 +5862,6 @@ defmodule MossletWeb.TimelineLive.Index do
         Logger.error("Unexpected error fetching/decrypting URL preview image: #{inspect(error)}")
         {:error, :unknown}
     end
-  end
-
-  defp cache_preview_in_ets(url_hash, encrypted_url_preview) do
-    URLPreviewServer.cache_preview(url_hash, encrypted_url_preview)
   end
 
   defp format_post_timestamp(naive_datetime) do
@@ -6035,8 +5956,11 @@ defmodule MossletWeb.TimelineLive.Index do
     timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
     unread_counts = calculate_unread_counts(current_user, options_with_filters)
 
-    unread_posts_with_dates = add_date_grouping_context(unread_posts)
-    read_posts_with_dates = add_date_grouping_context(read_posts)
+    unread_posts_with_dates =
+      prepare_posts_for_stream(unread_posts, current_user, socket.assigns.key)
+
+    read_posts_with_dates =
+      prepare_posts_for_stream(read_posts, current_user, socket.assigns.key)
 
     socket =
       socket
@@ -6736,7 +6660,12 @@ defmodule MossletWeb.TimelineLive.Index do
         update_or_add_cached_post(cached_unread_posts, post)
         |> Enum.sort_by(& &1.inserted_at, {:desc, NaiveDateTime})
 
-      posts_with_dates = add_date_grouping_context(updated_cached_unread)
+      posts_with_dates =
+        prepare_posts_for_stream(
+          updated_cached_unread,
+          current_user,
+          socket.assigns.key
+        )
 
       socket
       |> assign(:cached_read_posts, updated_cached_read)
@@ -6768,11 +6697,25 @@ defmodule MossletWeb.TimelineLive.Index do
 
   defp maybe_reset_read_posts_stream(socket, cached_read_posts) do
     if socket.assigns[:read_posts_expanded] do
-      posts_with_dates = add_date_grouping_context(cached_read_posts)
+      posts_with_dates =
+        prepare_posts_for_stream(
+          cached_read_posts,
+          socket.assigns.current_user,
+          socket.assigns.key
+        )
+
       stream(socket, :read_posts, posts_with_dates, reset: true)
     else
       socket
     end
+  end
+
+  # Prepares posts for streaming: adds date separators and pre-decrypts all
+  # encrypted fields in a single pass (unsealing each post_key only once).
+  defp prepare_posts_for_stream(posts, current_user, session_key) do
+    posts
+    |> add_date_grouping_context()
+    |> pre_decrypt_posts(current_user, session_key)
   end
 
   defp add_date_grouping_context(posts) do
