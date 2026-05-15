@@ -494,6 +494,8 @@ defmodule MossletWeb.ConversationLive.Index do
       connections
       |> Enum.reject(fn conn -> MapSet.member?(existing_connection_ids, conn.connection_id) end)
       |> Enum.map(fn conn ->
+        other_keys = get_other_user_keys(conn)
+
         %{
           connection_id: conn.connection_id,
           user_connection_id: conn.id,
@@ -501,7 +503,8 @@ defmodule MossletWeb.ConversationLive.Index do
           name: get_decrypted_connection_name(conn, current_user, key),
           username: get_decrypted_connection_username(conn, current_user, key),
           avatar_src: get_connection_avatar_src(conn, current_user, key),
-          other_user_public_key: get_other_user_public_key(conn)
+          other_user_public_key: other_keys.public_key,
+          other_user_pq_public_key: other_keys.pq_public_key
         }
       end)
       |> Enum.sort_by(& &1.name)
@@ -576,8 +579,10 @@ defmodule MossletWeb.ConversationLive.Index do
            user_connection_id: conn_data.user_connection_id,
            current_user_id: current_user.id,
            current_user_public_key: current_user.key_pair["public"],
+           current_user_pq_public_key: current_user.pq_public_key,
            other_user_id: conn_data.reverse_user_id,
-           other_user_public_key: conn_data.other_user_public_key
+           other_user_public_key: conn_data.other_user_public_key,
+           other_user_pq_public_key: conn_data.other_user_pq_public_key
          })}
       end
     else
@@ -763,9 +768,9 @@ defmodule MossletWeb.ConversationLive.Index do
     end
   end
 
-  defp get_other_user_public_key(conn) do
+  defp get_other_user_keys(conn) do
     user = Accounts.get_user!(conn.reverse_user_id)
-    user.key_pair["public"]
+    %{public_key: user.key_pair["public"], pq_public_key: user.pq_public_key}
   end
 
   defp get_partner_user_id(conversation_id, current_user_id) do
@@ -798,12 +803,16 @@ defmodule MossletWeb.ConversationLive.Index do
           socket
         end
       else
+        other_keys = get_other_user_keys(conn)
+
         push_event(socket, "start-conversation", %{
           user_connection_id: conn.id,
           current_user_id: current_user.id,
           current_user_public_key: current_user.key_pair["public"],
+          current_user_pq_public_key: current_user.pq_public_key,
           other_user_id: conn.reverse_user_id,
-          other_user_public_key: get_other_user_public_key(conn)
+          other_user_public_key: other_keys.public_key,
+          other_user_pq_public_key: other_keys.pq_public_key
         })
       end
     else

@@ -136,20 +136,38 @@ decrypted_content = decrypt(post.body, decrypted_post_key)
 
 ### Overview
 
-Conversations use the **same NaCl/libsodium cryptographic architecture** as posts, groups, and connections, but with one critical difference: **all encryption and decryption happens in the browser** using `libsodium-wrappers` (JavaScript), not on the server with `:enacl` (Erlang). This makes conversations **truly zero-knowledge even for web users** — the server never sees plaintext message content.
+Conversations use the **same NaCl cryptographic architecture** as posts, groups, and connections, but with one critical difference: **all encryption and decryption happens in the browser** using the `metamorphic-crypto` Rust crate compiled to WASM. This makes conversations **truly zero-knowledge even for web users** — the server never sees plaintext message content.
+
+The same Rust crate (`metamorphic-crypto`) compiles to both the server-side NIF (`metamorphic_crypto` Hex package) and the browser WASM module, guaranteeing wire-format compatibility.
 
 ### Why Browser-Side?
 
-| Feature                    | Server-side (Posts, Groups)                                  | Browser-side (Conversations)             |
-| -------------------------- | ------------------------------------------------------------ | ---------------------------------------- |
-| **Library**                | `:enacl` (Erlang NaCl bindings)                              | `libsodium-wrappers` (JS)                |
-| **Where encryption runs**  | Server (BEAM process)                                        | Browser (JavaScript)                     |
-| **Zero-knowledge on web?** | No — server sees plaintext briefly                           | **Yes** — server never sees plaintext    |
-| **Algorithms**             | Identical: XSalsa20-Poly1305 (secretbox) + X25519 (box_seal) | Identical                                |
-| **Nonce format**           | `nonce <> ciphertext` (prepended, base64)                    | `nonce + ciphertext` (prepended, base64) |
-| **Key size**               | `secretbox_KEYBYTES` (32 bytes)                              | `crypto_secretbox_KEYBYTES` (32 bytes)   |
+| Feature                    | Server-side (Posts, Groups)                                          | Browser-side (Conversations)                           |
+| -------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------ |
+| **Library**                | `metamorphic_crypto` (Rust NIF)                                      | `metamorphic-crypto` (Rust WASM)                       |
+| **Where encryption runs**  | Server (BEAM process)                                                | Browser (WASM)                                         |
+| **Zero-knowledge on web?** | No — server sees plaintext briefly                                   | **Yes** — server never sees plaintext                  |
+| **Algorithms**             | XSalsa20-Poly1305 (secretbox) + X25519 (box_seal) + ML-KEM-768 (PQ) | Identical — same Rust code                             |
+| **PQ support**             | Yes — `seal_for_user`/`unseal_from_user` with hybrid ML-KEM-768     | Yes — `sealForUser`/`unsealFromUser` with hybrid       |
+| **Key wrapping**           | Legacy (v1, box_seal) or Hybrid (v2, ML-KEM-768+X25519)             | Identical — auto-detects format                        |
 
-The two implementations are **cryptographically identical** — the same algorithms, key sizes, nonce formats, and base64 encoding. An `:enacl` encrypted blob can be decrypted by `libsodium-wrappers` and vice versa.
+### JS Crypto Modules
+
+| Module | Purpose |
+|--------|---------|
+| `assets/js/crypto/nacl.js` | WASM-backed crypto — secretbox, box_seal, sealForUser/unsealFromUser, key generation, KDF |
+| `assets/js/crypto/session.js` | Shared helpers — reads keys from `#conversation-composer` data attributes, provides `getConversationKey()` |
+
+### Data Attributes on `#conversation-composer`
+
+| Attribute | Content | Source |
+|-----------|---------|--------|
+| `data-conversation-key` | Sealed conversation key (base64) | `user_conversation.key` |
+| `data-user-public-key` | User's X25519 public key (base64) | `user.key_pair["public"]` |
+| `data-session-key` | Session-derived key (base64) | `current_scope.key` |
+| `data-encrypted-private-key` | Encrypted X25519 private key (base64) | `user.key_pair["private"]` |
+| `data-pq-public-key` | User's hybrid PQ public key (base64) | `user.pq_public_key` |
+| `data-encrypted-pq-private-key` | Encrypted PQ private key (base64) | `user.encrypted_pq_private_key` |
 
 ### Schema Structure
 
@@ -178,17 +196,17 @@ Message (messages table)
 └── edited
 ```
 
-### Conversation Context Flow (Same Pattern as Posts)
+### Conversation Context Flow (Same Pattern as Posts, with PQ Support)
 
 ```
 CONVERSATION CONTEXT (browser-side, same pattern as post/group/connection):
 
 conversation_key = generateKey()                                    # 1. Browser generates symmetric key
 message.content = encryptDmMessage("Hello!", conversation_key)      # 2. Browser encrypts with conversation_key
-# For each participant:
-user_conversation.key = encryptDmKeyForUser(conversation_key, user.public_key)  # 3. box_seal per user
-# When reading:
-conversation_key = decryptDmKey(user_conversation.key, pk, sk)     # 4. box_seal_open with private key
+# For each participant (hybrid PQ when PQ keys available, legacy fallback otherwise):
+user_conversation.key = sealForUser(conversation_key, user.public_key, user.pq_public_key)  # 3. seal per user
+# When reading (auto-detects v1 legacy or v2 hybrid format):
+conversation_key = unsealFromUser(user_conversation.key, pk, sk, pq_sk)  # 4. unseal with private key(s)
 plaintext = decryptDmMessage(message.content, conversation_key)    # 5. secretbox_open to get plaintext
 ```
 
@@ -215,17 +233,18 @@ plaintext = Encrypted.Utils.decrypt(%{key: post_key, payload: post.body})  # 5. 
 │   1. Browser: generateKey() → conversation_key (random 32 bytes)        │
 │                                                                         │
 │   2. Browser: For each participant:                                     │
-│      encryptDmKeyForUser(conversation_key, user.public_key)             │
-│      → crypto_box_seal(conversation_key, public_key)                    │
+│      sealForUser(conversation_key, user.public_key, user.pq_public_key) │
+│      → hybrid ML-KEM-768+X25519 seal if PQ key available               │
+│      → legacy crypto_box_seal if no PQ key                              │
 │                                                                         │
 │   3. Browser → Server: pushEvent("create_conversation", {              │
 │        user_conversations: [                                            │
-│          { user_id: current_user_id, key: encrypted_key_for_me },       │
-│          { user_id: other_user_id, key: encrypted_key_for_them }        │
+│          { user_id: current_user_id, key: sealed_key_for_me },          │
+│          { user_id: other_user_id, key: sealed_key_for_them }           │
 │        ]                                                                │
 │      })                                                                 │
 │                                                                         │
-│   4. Server stores encrypted keys → Cloak wraps → Postgres              │
+│   4. Server stores sealed keys → Cloak wraps → Postgres                 │
 │      (Server NEVER sees the plaintext conversation_key)                 │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -240,9 +259,10 @@ plaintext = Encrypted.Utils.decrypt(%{key: post_key, payload: post.body})  # 5. 
 │                                                                         │
 │   1. Browser decrypts conversation_key:                                 │
 │      a. decryptPrivateKey(encrypted_private_key, session_key)           │
-│         → user's private key (via secretbox)                            │
-│      b. decryptDmKey(user_conversation.key, public_key, private_key)    │
-│         → conversation_key (via box_seal_open)                          │
+│         → user's X25519 private key (via secretbox)                     │
+│      b. If PQ key available: decrypt PQ private key similarly           │
+│      c. unsealFromUser(user_conversation.key, pk, sk, pq_sk)           │
+│         → conversation_key (auto-detects v1 box_seal or v2 hybrid)     │
 │                                                                         │
 │   2. Browser encrypts message:                                          │
 │      encryptDmMessage(plaintext, conversation_key)                      │

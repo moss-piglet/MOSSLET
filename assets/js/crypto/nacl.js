@@ -1,13 +1,44 @@
-import sodiumWrappers from "../../vendor/libsodium-wrappers-sumo/libsodium-wrappers.js";
+/**
+ * Mosslet Crypto — WASM-backed implementation.
+ *
+ * Drop-in replacement for the original nacl.js (libsodium-wrappers-sumo).
+ * All functions have the same signatures and return the same base64 strings.
+ *
+ * The WASM module (metamorphic-crypto, Rust) provides NaCl-compatible
+ * primitives plus hybrid PQ key encapsulation (ML-KEM-768 + X25519).
+ * The same Rust crate compiles to the server-side NIF (MetamorphicCrypto Hex),
+ * guaranteeing wire-format compatibility between browser and server.
+ */
 
-let _sodium = null;
+import wasmInit, {
+  deriveSessionKey as _deriveSessionKey,
+  encryptSecretboxString as _encryptSecretboxString,
+  decryptSecretboxToString as _decryptSecretboxToString,
+  encryptSecretbox as _encryptSecretbox,
+  decryptSecretbox as _decryptSecretbox,
+  boxSeal as _boxSeal,
+  boxSealOpen as _boxSealOpen,
+  sealForUser as _sealForUser,
+  unsealFromUser as _unsealFromUser,
+  generateKey as _generateKey,
+  generateHybridKeyPair as _generateHybridKeyPair,
+  isHybridCiphertext as _isHybridCiphertext,
+  decryptPrivateKey as _decryptPrivateKey,
+  parseSaltFromKeyHash as _parseSaltFromKeyHash,
+} from "../../vendor/metamorphic-crypto/metamorphic_crypto.js";
 
-async function getSodium() {
-  if (_sodium) return _sodium;
-  await sodiumWrappers.ready;
-  _sodium = sodiumWrappers;
-  return _sodium;
+// --- WASM initialization ---
+
+let _ready = null;
+
+async function ensureReady() {
+  if (_ready) return _ready;
+  _ready = wasmInit("/wasm/metamorphic_crypto_bg.wasm");
+  await _ready;
+  return _ready;
 }
+
+// --- Base64 helpers ---
 
 function b64Encode(uint8Array) {
   let binary = "";
@@ -26,100 +57,101 @@ function b64Decode(base64String) {
   return bytes;
 }
 
-export async function deriveSessionKey(password, saltBase64) {
-  const sodium = await getSodium();
-  const salt = b64Decode(saltBase64);
-  const key = sodium.crypto_pwhash(
-    sodium.crypto_secretbox_KEYBYTES,
-    password,
-    salt,
-    sodium.crypto_pwhash_OPSLIMIT_INTERACTIVE,
-    sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE,
-    sodium.crypto_pwhash_ALG_DEFAULT
-  );
-  return b64Encode(key);
-}
+// --- Symmetric encryption (XSalsa20-Poly1305 secretbox) ---
 
-export async function decryptSecretbox(ciphertextBase64, keyBase64) {
-  const sodium = await getSodium();
-  const combined = b64Decode(ciphertextBase64);
-  const key = b64Decode(keyBase64);
-  const nonceSize = sodium.crypto_secretbox_NONCEBYTES;
-  const nonce = combined.slice(0, nonceSize);
-  const ciphertext = combined.slice(nonceSize);
-  const plaintext = sodium.crypto_secretbox_open_easy(ciphertext, nonce, key);
-  return plaintext;
+export async function encryptSecretboxString(plaintext, keyBase64) {
+  await ensureReady();
+  return _encryptSecretboxString(plaintext, keyBase64);
 }
 
 export async function decryptSecretboxToString(ciphertextBase64, keyBase64) {
-  const plaintext = await decryptSecretbox(ciphertextBase64, keyBase64);
-  const sodium = await getSodium();
-  return sodium.to_string(plaintext);
+  await ensureReady();
+  return _decryptSecretboxToString(ciphertextBase64, keyBase64);
 }
 
 export async function encryptSecretbox(plaintextBytes, keyBase64) {
-  const sodium = await getSodium();
-  const key = b64Decode(keyBase64);
-  const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES);
-  const ciphertext = sodium.crypto_secretbox_easy(plaintextBytes, nonce, key);
-  const combined = new Uint8Array(nonce.length + ciphertext.length);
-  combined.set(nonce);
-  combined.set(ciphertext, nonce.length);
-  return b64Encode(combined);
+  await ensureReady();
+  const ptB64 = b64Encode(plaintextBytes);
+  return _encryptSecretbox(ptB64, keyBase64);
 }
 
-export async function encryptSecretboxString(plaintext, keyBase64) {
-  const sodium = await getSodium();
-  return encryptSecretbox(sodium.from_string(plaintext), keyBase64);
+export async function decryptSecretbox(ciphertextBase64, keyBase64) {
+  await ensureReady();
+  const ptB64 = _decryptSecretbox(ciphertextBase64, keyBase64);
+  return b64Decode(ptB64);
 }
 
-export async function decryptPrivateKey(
-  encryptedPrivateKeyBase64,
-  sessionKeyBase64
-) {
-  return decryptSecretboxToString(encryptedPrivateKeyBase64, sessionKeyBase64);
+// --- Key derivation (Argon2id) ---
+
+export async function deriveSessionKey(password, saltBase64) {
+  await ensureReady();
+  return _deriveSessionKey(password, saltBase64);
 }
 
-export async function boxSealOpen(
-  ciphertextBase64,
-  publicKeyBase64,
-  privateKeyBase64
-) {
-  const sodium = await getSodium();
-  const ciphertext = b64Decode(ciphertextBase64);
-  const publicKey = b64Decode(publicKeyBase64);
-  const privateKey = b64Decode(privateKeyBase64);
-  const plaintext = sodium.crypto_box_seal_open(
-    ciphertext,
-    publicKey,
-    privateKey
-  );
-  return b64Encode(plaintext);
+// --- Private key management ---
+
+export async function decryptPrivateKey(encryptedPrivateKeyBase64, sessionKeyBase64) {
+  await ensureReady();
+  return _decryptPrivateKey(encryptedPrivateKeyBase64, sessionKeyBase64);
+}
+
+// --- Asymmetric encryption (X25519 box_seal, legacy) ---
+
+export async function boxSealOpen(ciphertextBase64, publicKeyBase64, privateKeyBase64) {
+  await ensureReady();
+  return _boxSealOpen(ciphertextBase64, publicKeyBase64, privateKeyBase64);
 }
 
 export async function boxSeal(plaintextBytes, publicKeyBase64) {
-  const sodium = await getSodium();
-  const publicKey = b64Decode(publicKeyBase64);
-  const ciphertext = sodium.crypto_box_seal(plaintextBytes, publicKey);
-  return b64Encode(ciphertext);
+  await ensureReady();
+  const ptB64 = b64Encode(plaintextBytes);
+  return _boxSeal(ptB64, publicKeyBase64);
 }
 
-export async function boxSealString(plaintext, publicKeyBase64) {
-  const sodium = await getSodium();
-  return boxSeal(sodium.from_string(plaintext), publicKeyBase64);
-}
+// --- Key generation ---
 
 export async function generateKey() {
-  const sodium = await getSodium();
-  const key = sodium.randombytes_buf(sodium.crypto_secretbox_KEYBYTES);
-  return b64Encode(key);
+  await ensureReady();
+  return _generateKey();
 }
 
-export async function decryptDmKey(
-  encryptedDmKeyBase64,
+// --- Hybrid PQ KEM (ML-KEM-768 + X25519) ---
+
+export async function sealForUser(plaintextBytes, publicKeyBase64, pqPublicKeyBase64) {
+  await ensureReady();
+  const ptB64 = b64Encode(plaintextBytes);
+  return _sealForUser(ptB64, publicKeyBase64, pqPublicKeyBase64 || null);
+}
+
+export async function unsealFromUser(
+  ciphertextBase64,
   publicKeyBase64,
-  privateKeyBase64
+  privateKeyBase64,
+  pqSecretKeyBase64,
 ) {
+  await ensureReady();
+  return _unsealFromUser(
+    ciphertextBase64,
+    publicKeyBase64,
+    privateKeyBase64,
+    pqSecretKeyBase64 || null,
+  );
+}
+
+export async function generateHybridKeyPair() {
+  await ensureReady();
+  const kp = _generateHybridKeyPair();
+  return { publicKey: kp.publicKey, secretKey: kp.secretKey };
+}
+
+export async function isHybridCiphertext(ciphertextBase64) {
+  await ensureReady();
+  return _isHybridCiphertext(ciphertextBase64);
+}
+
+// --- Conversation helpers (preserved API for existing hooks) ---
+
+export async function decryptDmKey(encryptedDmKeyBase64, publicKeyBase64, privateKeyBase64) {
   return boxSealOpen(encryptedDmKeyBase64, publicKeyBase64, privateKeyBase64);
 }
 
@@ -131,19 +163,16 @@ export async function decryptDmMessage(ciphertextBase64, dmKeyBase64) {
   return decryptSecretboxToString(ciphertextBase64, dmKeyBase64);
 }
 
-export async function encryptDmKeyForUser(
-  dmKeyBase64,
-  recipientPublicKeyBase64
-) {
-  const sodium = await getSodium();
-  const dmKeyBytes = b64Decode(dmKeyBase64);
-  return boxSeal(dmKeyBytes, recipientPublicKeyBase64);
+export async function encryptDmKeyForUser(dmKeyBase64, recipientPublicKeyBase64) {
+  await ensureReady();
+  return _boxSeal(dmKeyBase64, recipientPublicKeyBase64);
 }
+
+// --- Utility ---
 
 export async function parseSaltFromKeyHash(keyHash) {
-  const parts = keyHash.split("$");
-  if (parts.length !== 2) throw new Error("Invalid key_hash format");
-  return parts[0];
+  await ensureReady();
+  return _parseSaltFromKeyHash(keyHash);
 }
 
-export { getSodium, b64Encode, b64Decode };
+export { b64Encode, b64Decode };

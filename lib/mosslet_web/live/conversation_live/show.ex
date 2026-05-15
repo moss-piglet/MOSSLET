@@ -286,6 +286,8 @@ defmodule MossletWeb.ConversationLive.Show do
               data-user-public-key={@current_scope.user.key_pair["public"]}
               data-session-key={@current_scope.key}
               data-encrypted-private-key={@current_scope.user.key_pair["private"]}
+              data-pq-public-key={@current_scope.user.pq_public_key}
+              data-encrypted-pq-private-key={@current_scope.user.encrypted_pq_private_key}
               phx-drop-target={@uploads.photo.ref}
               class="max-w-4xl mx-auto"
             >

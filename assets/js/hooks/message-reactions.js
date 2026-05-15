@@ -1,43 +1,20 @@
 import {
   encryptDmMessage,
   decryptDmMessage,
-  decryptDmKey,
 } from "../crypto/nacl";
+import {
+  getConversationKey as _getConversationKey,
+} from "../crypto/session";
 
 import emojiData from "../../vendor/@emoji-mart/data";
 import { Picker } from "../../vendor/emoji-mart";
 import { fixEmojiPickerA11y } from "./emoji-picker-a11y";
 
-function getComposerEl() {
-  return document.querySelector("#conversation-composer");
-}
-
 async function getConversationKey() {
-  const composerEl = getComposerEl();
-  if (!composerEl) return null;
-
-  const encryptedConvKey = composerEl.dataset.conversationKey;
-  const sessionKey = composerEl.dataset.sessionKey;
-  const encryptedPrivateKey = composerEl.dataset.encryptedPrivateKey;
-  const userPublicKey = composerEl.dataset.userPublicKey;
-
-  if (
-    !sessionKey ||
-    !encryptedPrivateKey ||
-    !encryptedConvKey ||
-    !userPublicKey
-  ) {
-    return null;
-  }
-
-  try {
-    const { decryptPrivateKey } = await import("../crypto/nacl");
-    const privateKey = await decryptPrivateKey(encryptedPrivateKey, sessionKey);
-    return await decryptDmKey(encryptedConvKey, userPublicKey, privateKey);
-  } catch (e) {
-    console.error("Failed to decrypt conversation key for reactions:", e);
-    return null;
-  }
+  const composerEl = document.querySelector("#conversation-composer");
+  const encryptedConvKey = composerEl?.dataset?.conversationKey;
+  if (!encryptedConvKey) return null;
+  return _getConversationKey(encryptedConvKey);
 }
 
 const QUICK_EMOJIS = ["❤️", "👍", "😂", "😮", "😢", "🙏"];

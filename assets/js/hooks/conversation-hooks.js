@@ -1,32 +1,9 @@
 import {
   decryptDmMessage,
   encryptDmMessage,
-  decryptDmKey,
 } from "../crypto/nacl";
+import { getConversationKey, getPublicKey } from "../crypto/session";
 import { renderMarkdown, extractFirstUrl } from "../utils/render-markdown";
-
-function getComposerEl() {
-  return document.querySelector("#conversation-composer");
-}
-
-async function getConversationKey(encryptedConvKey, userPublicKey) {
-  const composerEl = getComposerEl();
-  const sessionKey = composerEl?.dataset?.sessionKey;
-  const encryptedPrivateKey = composerEl?.dataset?.encryptedPrivateKey;
-
-  if (!sessionKey || !encryptedPrivateKey || !encryptedConvKey) {
-    return null;
-  }
-
-  try {
-    const { decryptPrivateKey } = await import("../crypto/nacl");
-    const privateKey = await decryptPrivateKey(encryptedPrivateKey, sessionKey);
-    return await decryptDmKey(encryptedConvKey, userPublicKey, privateKey);
-  } catch (e) {
-    console.error("Failed to decrypt conversation key:", e);
-    return null;
-  }
-}
 
 const ConversationComposer = {
   mounted() {
@@ -89,13 +66,9 @@ const ConversationComposer = {
       const messageText = plaintext || "📷";
 
       const convKeyEncrypted = this.el.dataset.conversationKey;
-      const userPublicKey = this.el.dataset.userPublicKey;
 
       try {
-        const convKey = await getConversationKey(
-          convKeyEncrypted,
-          userPublicKey,
-        );
+        const convKey = await getConversationKey(convKeyEncrypted);
         if (!convKey) {
           console.error("Could not decrypt conversation key");
           return;
@@ -223,16 +196,13 @@ const DecryptMessage = {
       return;
     }
 
-    const composerEl = getComposerEl();
-    const userPublicKey = composerEl?.dataset?.userPublicKey;
-
-    if (!userPublicKey) {
+    if (!getPublicKey()) {
       this.el.textContent = "[Encryption key unavailable]";
       return;
     }
 
     try {
-      const convKey = await getConversationKey(convKeyEncrypted, userPublicKey);
+      const convKey = await getConversationKey(convKeyEncrypted);
       if (!convKey) {
         this.el.textContent = "[Key decryption failed]";
         return;

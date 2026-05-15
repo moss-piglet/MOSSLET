@@ -2,75 +2,85 @@
 
 ## Current Status (May 2026)
 
-**Phase 1 COMPLETE**: Swapped `enacl` (C NIF, libsodium) for `metamorphic_crypto` v0.1.2 (Rust NIF, precompiled).
+**Phase 1 COMPLETE**: Swapped `enacl` (C NIF, libsodium) for `metamorphic_crypto` v0.2 (Rust NIF, precompiled).
 
 - Same NaCl wire format — zero data migration needed
 - All existing encrypted data (text + binary/images) decrypts correctly
 - `libsodium-dev` removed from Dockerfile
 - Precommit passes, all tests green
 
-### Files Changed (Mosslet)
+**Phase 2 COMPLETE**: Hybrid PQ key wrapping (server-side) + PQ fields on users table.
 
-- `mix.exs` — removed `enacl`, already had `metamorphic_crypto ~> 0.1.2`
-- `lib/mosslet/encrypted/utils.ex` — rewritten to use `MetamorphicCrypto.SecretBox`, `BoxSeal`, `KDF`
+- `pq_public_key` and `encrypted_pq_private_key` columns added to `users`
+- PQ keypairs generated at registration via `MetamorphicCrypto.Hybrid.generate_keypair()`
+- All server-side seal/unseal operations accept PQ key options
+- `Encrypted.Utils.encrypt_message_for_user_with_pk/3` uses `MetamorphicCrypto.Seal.seal_for_user` when PQ key available
+- `Encrypted.Utils.decrypt_message_for_user/3` uses `MetamorphicCrypto.Seal.unseal_from_user` (auto-detects v1/v2)
+- PQ private key re-encrypted on password change
+- `changeset_for_pq_migration/2` exists for progressive migration of existing users
+
+**Phase 3 IN PROGRESS**: Browser-side WASM crypto + hybrid PQ for conversations.
+
+- `metamorphic-crypto` Rust crate compiled to WASM, vendored in `assets/vendor/metamorphic-crypto/`
+- WASM binary served at `/wasm/metamorphic_crypto_bg.wasm`
+- `nacl.js` replaced with WASM-backed drop-in (same Rust code as server NIF)
+- `sealForUser`/`unsealFromUser` added to browser crypto (auto-detects v1 legacy vs v2 hybrid)
+- `session.js` centralizes key reading from DOM data attributes
+- Conversation LiveView passes PQ keys via `data-pq-public-key` and `data-encrypted-pq-private-key`
+- `start-conversation.js` seals conversation keys with hybrid PQ when PQ keys available
+- `conversation-hooks.js` and `message-reactions.js` unseal via `unsealFromUser` (auto-detects format)
+- All existing conversations (v1 sealed) continue to decrypt without migration
+
+### Phase 1 Files Changed
+
+- `mix.exs` — removed `enacl`, added `metamorphic_crypto ~> 0.2`
+- `lib/mosslet/encrypted/utils.ex` — rewritten to use `MetamorphicCrypto.SecretBox`, `BoxSeal`, `KDF`, `Seal`, `Hybrid`
 - `lib/mosslet/platform/config.ex` — switched to `:crypto.strong_rand_bytes`
 - `lib/mosslet/extensions/password_generator/word_generator.ex` — switched to `:crypto.strong_rand_bytes`
 - `Dockerfile` — removed `libsodium-dev` from builder + runner stages
 
-### Key Implementation Detail
+### Phase 2 Files Changed
 
-`Mosslet.Encrypted.Utils.decrypt/1` uses a fallback pattern:
+- `priv/repo/migrations/20260514155214_add_pq_key_fields_to_users.exs` — adds PQ columns
+- `lib/mosslet/accounts/user.ex` — PQ fields on schema, PQ keypair at registration, PQ re-encrypt on password change
+- `lib/mosslet/encrypted/utils.ex` — `generate_pq_key_pairs/0`, hybrid seal/unseal with PQ opts
+- `lib/mosslet/encrypted/users/utils.ex` — all decrypt paths pass PQ opts when available
+
+### Phase 3 Files Changed (Conversations)
+
+- `assets/vendor/metamorphic-crypto/` — WASM build (JS glue + `.wasm` binary)
+- `priv/static/wasm/metamorphic_crypto_bg.wasm` — served by Phoenix static
+- `lib/mosslet_web.ex` — added `"wasm"` to `static_paths`
+- `config/test.exs` — added `'wasm-unsafe-eval'` to CSP
+- `assets/js/crypto/nacl.js` — replaced libsodium-wrappers with WASM-backed implementation
+- `assets/js/crypto/session.js` — new shared key helpers (centralizes DOM queries)
+- `assets/js/hooks/conversation-hooks.js` — uses `unsealFromUser` via session.js
+- `assets/js/hooks/message-reactions.js` — uses shared `getConversationKey` from session.js
+- `assets/js/hooks/start-conversation.js` — uses `sealForUser` with PQ keys
+- `lib/mosslet_web/live/conversation_live/show.ex` — passes PQ data attributes on composer
+- `lib/mosslet_web/live/conversation_live/index.ex` — passes PQ keys in start-conversation event
+
+### Key Implementation Details
+
+**Decrypt fallback pattern** (`Encrypted.Utils.decrypt/1`):
 1. Try `MetamorphicCrypto.SecretBox.decrypt_string` (UTF-8 text — fast path)
 2. If that fails, try `MetamorphicCrypto.SecretBox.decrypt` (raw binary — images/avatars)
 
-This handles both encrypted text fields AND encrypted binary blobs through the same interface.
+**WASM initialization** (`nacl.js`):
+- `ensureReady()` loads WASM on first crypto call
+- All functions `await ensureReady()` then delegate to WASM bindings
+- Same Rust code as NIF = guaranteed wire-format compatibility
+
+**Hybrid auto-detection**:
+- v1 (legacy): raw `crypto_box_seal` output — no version prefix
+- v2 (hybrid): `0x02 || ML-KEM-768+X25519 cipherText || nonce || secretbox`
+- `unsealFromUser` checks first byte; both server NIF and browser WASM use the same detection logic
 
 ---
 
-## Phase 2: Hybrid Post-Quantum Key Wrapping (NEXT)
+## Phase 3 Remaining: Full Zero-Knowledge (NEXT)
 
-Add ML-KEM-768 + X25519 hybrid encryption for key distribution.
-
-### What This Achieves
-
-Quantum resistance for all **key distribution** (the `box_seal` / `unseal` operations that wrap context keys for each user). The symmetric encryption (XSalsa20-Poly1305) is already quantum-resistant at 256-bit keys.
-
-### Steps
-
-1. **Migration**: Add `pq_public_key` and `encrypted_pq_private_key` columns to `users`
-2. **Key generation**: On next login, generate hybrid keypair via `MetamorphicCrypto.Hybrid.generate_keypair()`
-3. **Seal operations**: Use `MetamorphicCrypto.Seal.seal_for_user/3` with `pq_public_key:` option
-4. **Unseal operations**: Use `MetamorphicCrypto.Seal.unseal_from_user/4` — auto-detects legacy (v1) vs hybrid (v2) format
-5. **Progressive re-seal**: On login, re-seal existing context keys (user_key, post_keys, conn_keys) under hybrid
-
-### Key APIs
-
-```elixir
-# Generate PQ keypair (server-side, on login)
-{pq_pk, pq_sk} = MetamorphicCrypto.Hybrid.generate_keypair()
-
-# Seal with PQ (new operations)
-{:ok, ct} = MetamorphicCrypto.Seal.seal_for_user(context_key, user_pk, pq_public_key: pq_pk)
-
-# Unseal (auto-detects v1 legacy or v2 hybrid)
-{:ok, key} = MetamorphicCrypto.Seal.unseal_from_user(ct, pk, sk, pq_secret_key: pq_sk)
-
-# Check format
-MetamorphicCrypto.Hybrid.hybrid_ciphertext?(ciphertext)  # true if v2
-```
-
-### Ciphertext Format
-
-- **v1 (legacy)**: raw `crypto_box_seal` output (X25519 only) — no version prefix
-- **v2 (hybrid)**: `0x02 || ML-KEM-768 ciphertext (1088 bytes) || X25519 ephemeral pk (32 bytes) || nonce (24 bytes) || secretbox ciphertext`
-
-Old and new ciphertexts coexist seamlessly — `unseal_from_user` auto-detects.
-
----
-
-## Phase 3: Full Zero-Knowledge with WASM (FUTURE)
-
-Move encryption/decryption to the browser using the `metamorphic-crypto` Rust crate compiled to WASM.
+Extend the WASM-backed browser crypto to all encrypted content, not just conversations.
 
 ### Architecture
 
@@ -78,14 +88,28 @@ Move encryption/decryption to the browser using the `metamorphic-crypto` Rust cr
 metamorphic-crypto (Rust crate)
 ├── Compiles to WASM → browser (JS hooks encrypt/decrypt)
 ├── Compiles to NIF  → metamorphic_crypto Hex package (server-side)
-└── Compiles to UniFFI → iOS/Android (native apps)
+└── Compiles to UniFFI → iOS/Android (native apps, future)
 ```
 
-### What Changes
+### What's Done (Conversations Only)
 
-- New features encrypt entirely client-side (LiveView hooks + WASM)
-- Server stores opaque ciphertext blobs (can't decrypt)
-- `MetamorphicCrypto` NIF still useful for: test fixtures, migration helpers, server-provisioned keys
+Conversations are now fully zero-knowledge with PQ support:
+- Browser generates conversation keys, encrypts messages
+- Server never sees plaintext message content
+- New conversations sealed with hybrid PQ when both users have PQ keys
+- Existing v1-sealed conversation keys auto-detected and decrypted
+
+### What Remains
+
+1. **Progressive PQ migration for existing users** — on login, detect missing PQ keys, generate hybrid keypair client-side, re-seal user_key/conn_key, push to server
+2. **Posts/timeline** — currently server-side encrypted; move to browser-side encrypt/decrypt
+3. **Groups/connections** — same pattern: browser-side seal/unseal
+4. **User profile data** — user_key and conn_key encryption in browser
+5. **Data export** — client-side batch decryption (like Metamorphic's pattern)
+6. **Key cache** — persistent key cache (IndexedDB + Web Crypto wrapping key) for browser restart survival
+7. **Recovery key** — client-side recovery key generation + password reset flow
+8. **Login hook** — pre-submit KDF (password never in sessionStorage)
+9. **Registration hook** — client-side key generation during registration
 
 ### Reference
 
@@ -96,17 +120,20 @@ See `docs/METAMORPHIC_ENCRYPTION_ARCHITECTURE_EXAMPLE.md` for the full ZK patter
 ## Dependency Chain
 
 ```
-@noble/post-quantum (JS, browser-side PQ for Metamorphic web app)
-         ↕ (same algorithms, different implementation)
-metamorphic-crypto (Rust crate, the core)
-    ├── WASM build (browser, same as @noble/post-quantum in function)
-    └── NIF build → metamorphic_crypto (Hex package, used by Mosslet server)
+metamorphic-crypto (Rust crate, the core — github.com/moss-piglet/metamorphic-crypto)
+├── WASM build → browser (Mosslet + Metamorphic)
+│     assets/vendor/metamorphic-crypto/metamorphic_crypto.js (wasm-bindgen glue)
+│     assets/vendor/metamorphic-crypto/metamorphic_crypto_bg.wasm (compiled binary)
+│     priv/static/wasm/metamorphic_crypto_bg.wasm (served by Phoenix)
+└── NIF build → metamorphic_crypto (Hex package)
+      Used by Mosslet server + Metamorphic server
 ```
+
+Note: `@noble/post-quantum` was the original browser-side PQ library (pure JS). It has been replaced by the WASM build of `metamorphic-crypto` for both Mosslet and Metamorphic, ensuring the same Rust code runs on server (NIF) and browser (WASM).
 
 ### Upstream Monitoring
 
-- **`@noble/post-quantum`** (paulmillr): v0.6.1 (Apr 2026), self-audited. ML-KEM is FIPS-203 final. Used by Metamorphic's browser client. Pure JS implementation.
-- **`metamorphic-crypto`** (Rust crate): Our implementation of the same algorithms in Rust. Uses `ml-kem` crate (Rust Crypto group) for ML-KEM-768, which tracks FIPS-203 final.
+- **`metamorphic-crypto`** (Rust crate): Our implementation. Uses `ml-kem` crate (RustCrypto group) for ML-KEM-768, which tracks FIPS-203 final.
 - **`metamorphic_crypto`** (Hex): Elixir NIF wrapper around the Rust crate.
 
 ### What to Watch
@@ -115,7 +142,6 @@ metamorphic-crypto (Rust crate, the core)
 |---------|--------|---------------|
 | ML-KEM-768 (FIPS-203) | **Final standard** (Aug 2024) | Stable. No changes expected. |
 | Hybrid KEM combiner | Draft (`irtf-cfrg-concrete-hybrid-kems`) | Monitor for breaking changes to the combiner construction |
-| `@noble/post-quantum` | v0.6.1, self-audited | Track releases for security fixes |
 | `ml-kem` Rust crate | Stable, RustCrypto group | Track for FIPS-203 compliance updates |
 | FN-DSA (FIPS-206) | **Not final** — don't use yet | Wait for finalization if we ever need PQ signatures |
 
@@ -124,18 +150,10 @@ metamorphic-crypto (Rust crate, the core)
 - If the hybrid KEM IETF draft has breaking changes to the combiner (SHA3-256 over both shared secrets)
 - If `ml-kem` Rust crate releases a security fix
 - If we want to bump security level (ML-KEM-1024 instead of 768)
-- Updates to the Rust crate automatically flow to `metamorphic_crypto` Hex on next release
-
-## Follow-up Tasks (Next Session)
-
-1. **Publish `metamorphic-crypto` to crates.io** — merge PR #2, `cargo publish`
-2. **Update `metamorphic_crypto` Hex package** — swap `path = "./metamorphic-crypto"` to `metamorphic-crypto = "0.2"` in Cargo.toml, remove vendored copy, expose Cat-5 NIF functions, release v0.2.0 to Hex
-3. **Update Metamorphic app** — point WASM build at the crates.io dep instead of local copy
-4. **Phase 2 in Mosslet** — add PQ fields to users table, progressive hybrid key migration on login using `MetamorphicCrypto.Seal.seal_for_user/3`
+- Updates to the Rust crate automatically flow to both WASM and NIF builds
 
 ### Reference
 
-- PR: https://github.com/moss-piglet/metamorphic-crypto/pull/2
 - Standalone crate: `github.com/moss-piglet/metamorphic-crypto` (source of truth)
 - Hex wrapper: `github.com/moss-piglet/metamorphic_crypto`
 - Mosslet Dockerfile: `libsodium-dev` already removed, ready to deploy
