@@ -111,17 +111,166 @@ Conversations are now fully zero-knowledge with PQ support:
 - New conversations sealed with hybrid PQ when both users have PQ keys
 - Existing v1-sealed conversation keys auto-detected and decrypted
 
-### What Remains
+### What's Done
 
-1. **Progressive PQ migration for existing users** — on login, detect missing PQ keys, generate hybrid keypair client-side, re-seal user_key/conn_key, push to server
-2. **Posts/timeline** — currently server-side encrypted; move to browser-side encrypt/decrypt
-3. **Groups/connections** — same pattern: browser-side seal/unseal
-4. **User profile data** — user_key and conn_key encryption in browser
-5. **Data export** — client-side batch decryption (like Metamorphic's pattern)
-6. **Key cache** — persistent key cache (IndexedDB + Web Crypto wrapping key) for browser restart survival
-7. **Recovery key** — client-side recovery key generation + password reset flow
-8. **Login hook** — pre-submit KDF (password never in sessionStorage)
-9. **Registration hook** — client-side key generation during registration
+- **user_key / conn_key**: PQ-sealed at registration and progressively migrated on login
+- **All resource context keys** (post, group, memory, connection, profile): PQ-sealed for new operations, v1 re-sealed in background via `PqResealWorker`
+- **Conversations**: Fully browser-side ZK with PQ — sealForUser/unsealFromUser in WASM
+- **WASM crypto module**: metamorphic-crypto compiled to WASM, served at `/wasm/`, same Rust code as server NIF
+
+### What Remains — Browser-Side ZK Roadmap
+
+Moving encryption from server to browser for all content. This is the path from "server encrypts, browser receives plaintext" to "browser encrypts, server stores opaque blobs."
+
+#### Assessment: What Makes Posts Different from Conversations
+
+Conversations were straightforward to make ZK because:
+- Simple data model (one key per conversation, messages are strings)
+- No visibility tiers (always two-party)
+- No server-side rendering needed (messages rendered in JS hooks)
+
+Posts are significantly more complex:
+- **Visibility tiers**: public (server_public_key), connections, specific_groups, specific_users, private
+- **UserPost fan-out**: Each recipient gets their own sealed copy of the post_key
+- **Rich content**: Trix editor, image uploads (encrypted + uploaded to S3), URL previews, content warnings
+- **Server-side rendering**: Templates call `decr_item()` inline — ALL decryption happens server-side before HTML reaches the browser
+- **Timeline queries**: Posts are fetched, decrypted, and rendered in a single server round-trip
+- **Public posts**: Must remain server-decryptable for unauthenticated viewers and SEO
+
+#### Phase 3a: Infrastructure Prerequisites
+
+These are needed before any content can move to browser-side encryption.
+
+**1. SessionKeyDeriver hook (like Metamorphic)**
+
+Currently Mosslet passes keys via data attributes on specific elements (e.g., `#conversation-composer`). For browser-side ZK across all pages, we need a central hook that:
+- Derives session_key + private_key + user_key on every authenticated page load
+- Stores derived keys in sessionStorage
+- Provides them to all other hooks via `session.js` helpers
+- Handles the persistent key cache (IndexedDB + Web Crypto wrapping key) so users don't re-enter passwords on browser restart
+
+This is the foundation — every other browser-side feature depends on it.
+
+Reference: Metamorphic's `SessionKeyDeriver` hook (see `METAMORPHIC_ENCRYPTION_ARCHITECTURE_EXAMPLE.md`)
+
+**2. LoginHook (pre-submit KDF)**
+
+Currently the password is submitted to the server, which derives the session key. For true ZK:
+- Browser intercepts login form submit
+- Derives session_key via Argon2id KDF in WASM (already available in metamorphic-crypto)
+- Stores derived key in sessionStorage (password never stored)
+- Submits the form normally for server-side password verification
+
+This ensures the raw password never touches sessionStorage. The `deriveSessionKey()` function already exists in the WASM module.
+
+**3. RegistrationHook (client-side key generation)**
+
+Currently registration generates all keys server-side. For ZK:
+- Browser generates X25519 keypair + hybrid PQ keypair + user_key + conn_key
+- Encrypts private keys with session_key (derived from password)
+- Seals user_key/conn_key with hybrid PQ
+- Injects encrypted blobs into hidden form fields
+- Submits form — server stores opaque blobs
+
+This is how Metamorphic does registration. The WASM module already has all the primitives.
+
+**4. Key cache (browser restart survival)**
+
+SessionStorage is cleared on browser close. Without a persistent cache, users would have to re-enter their password every time they reopen the browser. Solution:
+- AES-256-GCM wrapping key (non-extractable CryptoKey) in IndexedDB
+- Encrypted key payload in localStorage
+- Validated on restore via trial decryption
+- Cleared on logout and password change
+
+Reference: Metamorphic's `key_cache.js`
+
+#### Phase 3b: Post Decryption in Browser (Read Path)
+
+Move post decryption from server-side templates to browser-side JS hooks. This is the lower-risk step — it doesn't change how posts are encrypted, just where they're decrypted.
+
+**Architecture change:**
+- Server sends encrypted post content + sealed post_key to the browser (instead of decrypted plaintext)
+- JS `DecryptPost` hook unseals the post_key, decrypts content, renders HTML
+- Similar to how `DecryptMessage` works for conversations today
+
+**Implications:**
+- Templates change from `decr_item(post.body, ...)` to passing raw encrypted blobs
+- Each post component needs a `phx-hook="DecryptPost"` with data attributes
+- Images stay server-decrypted for now (they require S3 fetch + decrypt, which is server-only)
+- **Public posts** can still be server-decrypted (optimization: avoid WASM overhead for public content)
+- Timeline loading may feel slower (decrypt in JS vs server). Mitigate with: decrypt-on-scroll, skeleton loading, cached decrypted content
+
+**What changes:**
+- `index.html.heex` — pass encrypted blobs in data attributes instead of calling `decr_item()`
+- New JS hook `DecryptPost` — unseals post_key, decrypts body/username/avatar/cw
+- `session.js` — extended to provide privateKey/pqPrivateKey for post unseal
+
+**What doesn't change:**
+- Post creation flow (still server-side encrypted)
+- Database schema
+- UserPost key distribution
+- Image encryption/decryption (still server-side)
+
+#### Phase 3c: Post Encryption in Browser (Write Path)
+
+Move post encryption from server to browser. This is the bigger change — the server would receive opaque ciphertext.
+
+**Architecture change:**
+- JS `PostFormHook` intercepts form submit (like `ConversationComposer` does)
+- Browser generates post_key, encrypts body/username/avatar/cw with secretbox
+- Browser seals post_key for each recipient (requires knowing recipients' public keys)
+- Server receives encrypted blobs + sealed keys, stores as-is
+- Server **never sees plaintext post content** for private/connections posts
+
+**Hard problems:**
+1. **Recipient list is server-determined**: The server knows who a user's connections are, but the browser needs their public keys to seal the post_key. Either:
+   - Server sends recipient public keys to the browser (leaks who the recipients are to any browser extension)
+   - Server seals the post_key on behalf of each recipient after receiving the encrypted post (hybrid approach — server sees post_key but not content... wait, that defeats the purpose)
+   - Best: Server sends `[{user_id, public_key, pq_public_key}]` for connections. This is already semi-public data.
+
+2. **Image uploads**: Currently images are encrypted server-side in `ImageUploadWriter`. For ZK:
+   - Browser encrypts image bytes with post_key before upload
+   - Upload encrypted blob to S3 (via presigned URL or LiveView upload)
+   - Server never sees plaintext image
+   - This requires changes to the upload pipeline
+
+3. **URL previews**: Server fetches URL metadata. For ZK:
+   - Server still fetches the URL preview (it sees the URL, which is in the post body)
+   - For full ZK: server shouldn't see URLs either — but this is impractical for preview generation
+   - Pragmatic: keep URL preview as server-side, encrypt the preview data with the post_key
+
+4. **Public posts**: These MUST remain server-decryptable for:
+   - Unauthenticated visitors (SEO, link sharing)
+   - Server-side moderation (AI content moderation)
+   - Bluesky federation (export worker decrypts post content)
+   - Email notifications (post content in notification emails)
+
+**Recommendation**: Only move **private and connections-visibility** posts to browser-side encryption. Public posts stay server-encrypted because the server needs to read them anyway.
+
+#### Phase 3d: Groups, Memories, Profile Data
+
+Same pattern as posts but simpler:
+- Groups: `GroupMessage` content encrypted in browser with group_key
+- Memories: Memory content encrypted in browser with memory_key
+- Profile: Username, email, avatar encrypted in browser with user_key/conn_key
+
+These can follow the same phased approach: first move the read path (decrypt in browser), then the write path (encrypt in browser).
+
+#### Phase 3e: Supporting Features
+
+**Recovery key**: Client-side recovery key generation + password reset flow. The WASM module already has `generateRecoveryKey()`, `encryptPrivateKeyForRecovery()`, `decryptPrivateKeyWithRecovery()`.
+
+**Data export**: Client-side batch decryption — server sends encrypted blobs via push_event, JS decrypts everything and triggers download. Zero-knowledge export.
+
+#### Priority Order
+
+1. **SessionKeyDeriver + LoginHook + key cache** — foundation for everything else
+2. **Post decrypt in browser** (read path) — lower risk, proves the architecture
+3. **Post encrypt in browser** (write path) — connections/private posts only
+4. **Groups/Memories** — same pattern, smaller surface area
+5. **Profile data** — user_key/conn_key operations in browser
+6. **RegistrationHook** — completes the ZK lifecycle
+7. **Recovery key + data export** — safety net features
 
 ### Reference
 
