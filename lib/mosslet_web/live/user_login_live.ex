@@ -43,6 +43,7 @@ defmodule MossletWeb.UserLoginLive do
           for={@form}
           id="login_form"
           action={~p"/auth/sign_in"}
+          phx-hook="LoginHook"
           phx-update="ignore"
           class="space-y-6"
         >

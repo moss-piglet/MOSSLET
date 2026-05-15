@@ -160,6 +160,7 @@ defmodule MossletWeb.Router do
     pipe_through :api
 
     post "/auth/login", AuthController, :login
+    post "/auth/salt", AuthController, :salt
     post "/auth/register", AuthController, :register
     post "/auth/totp/verify", AuthController, :verify_totp
     post "/auth/remember-me/refresh", AuthController, :refresh_from_remember_me

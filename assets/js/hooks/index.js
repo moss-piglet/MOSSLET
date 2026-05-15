@@ -19,6 +19,7 @@ import KeywordFilterInput from "./keyword-filter-input";
 import ClearFlashHook from "./clear-flash-hook";
 import Flash from "./flash";
 import LiquidFlash from "./liquid-flash";
+import LoginHook from "./login-hook";
 import FlashGroup from "./flash-group";
 import HoverGroupMessage from "./hover-group-message";
 import InfiniteScrollGroupMessage from "./infinite-scroll-group-message";
@@ -98,6 +99,7 @@ export default {
   ...LocalTimeHooks,
   LocalTimeTooltip,
   LockBodyScroll,
+  LoginHook,
   MaintainFocus,
   Menu,
   MentionHighlight,

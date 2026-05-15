@@ -574,6 +574,64 @@ defmodule MossletWeb.API.AuthController do
     Map.new(key_pair, fn {k, v} -> {k, encode_binary(v)} end)
   end
 
+  # ---------------------------------------------------------------------------
+  # Salt endpoint for browser-side key derivation (LoginHook)
+  # ---------------------------------------------------------------------------
+
+  @min_salt_response_ms 100
+
+  @doc """
+  Returns the key_hash for a given email so the browser can derive the
+  session key via Argon2id KDF before form submission.
+
+  For unknown emails, returns a deterministic fake key_hash (HMAC-derived)
+  so that timing and response shape are identical regardless of whether the
+  user exists. This prevents user enumeration.
+  """
+  def salt(conn, %{"email" => email}) when is_binary(email) and email != "" do
+    start = System.monotonic_time(:millisecond)
+
+    user = Accounts.get_user_by_email(String.downcase(email))
+
+    key_hash =
+      case user do
+        %User{key_hash: kh} when is_binary(kh) and kh != "" -> kh
+        _ -> generate_fake_key_hash(email)
+      end
+
+    enforce_min_duration(start, @min_salt_response_ms)
+    json(conn, %{key_hash: key_hash})
+  end
+
+  def salt(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "email is required"})
+  end
+
+  # Deterministic fake key_hash for unknown emails.
+  # Same email always produces the same fake so timing is consistent.
+  defp generate_fake_key_hash(email) do
+    secret = Application.get_env(:mosslet, :fake_salt_secret, "mosslet_fake_salt_fallback")
+
+    fake_salt =
+      :crypto.mac(:hmac, :sha256, secret, String.downcase(email))
+      |> binary_part(0, 16)
+      |> Base.encode64()
+
+    # Return a plausible key_hash: salt$fake_ciphertext
+    # The fake ciphertext is also deterministic so repeated queries match.
+    fake_ct =
+      :crypto.mac(:hmac, :sha256, secret, fake_salt)
+      |> Base.encode64()
+
+    fake_salt <> "$" <> fake_ct
+  end
+
+  defp enforce_min_duration(start, min_ms) do
+    elapsed = System.monotonic_time(:millisecond) - start
+    remaining = min_ms - elapsed
+    if remaining > 0, do: Process.sleep(remaining)
+  end
+
   defp get_ip(conn) do
     case Plug.Conn.get_req_header(conn, "x-forwarded-for") do
       [forwarded | _] ->

@@ -14,10 +14,8 @@
  * Key resolution order (fast path first):
  *   1. sessionStorage (already derived this tab session)
  *   2. Persistent cache (IndexedDB-wrapped, survives browser restart)
- *   3. DOM data attributes (server-rendered on every authenticated page)
- *
- * Once #14 (LoginHook) is implemented, a fourth source will be added:
- *   4. sessionStorage temp key from pre-submit Argon2id KDF
+ *   3. Temp key from LoginHook (browser-side Argon2id KDF on login)
+ *   4. DOM data attributes (server-rendered user_key, transitional fallback)
  *
  * Storage keys:
  *   _mosslet_user_key       — decrypted user_key (base64)
@@ -32,6 +30,7 @@ import {
   decryptSecretboxToString,
 } from "../crypto/nacl";
 import { cacheKeys, getCachedKeys, clearKeyCache } from "../crypto/key_cache";
+import { TEMP_USER_KEY } from "./login-hook";
 
 // sessionStorage key names (namespaced to avoid collisions)
 export const SK = {
@@ -98,10 +97,31 @@ const SessionKeyDeriver = {
       // Cache stale — fall through to DOM derivation
     }
 
-    // --- Derivation path: use server-provided user_key from data attribute ---
-    // Currently the server passes the decrypted user_key directly.
-    // When LoginHook (#14) is implemented, the server will stop sending it
-    // and the browser will derive it from the password via Argon2id KDF.
+    // --- Source 3: temp key from LoginHook (browser-derived on login) ---
+    const tempUserKey = sessionStorage.getItem(TEMP_USER_KEY);
+    if (tempUserKey) {
+      sessionStorage.removeItem(TEMP_USER_KEY);
+      const pk = await tryDecrypt(encryptedPrivateKey, tempUserKey);
+      if (pk) {
+        const resolvedKey = tempUserKey;
+        let pqPrivateKey = null;
+        if (encryptedPqPrivateKey) {
+          try {
+            pqPrivateKey = await decryptSecretboxToString(encryptedPqPrivateKey, resolvedKey);
+          } catch {
+            // Non-fatal — PQ key may not be available yet
+          }
+        }
+        this._storeKeys({ userKey: resolvedKey, privateKey: pk, pqPrivateKey });
+        await cacheKeys({ userKey: resolvedKey, privateKey: pk, pqPrivateKey });
+        return;
+      }
+      // Temp key didn't work (wrong password submitted to fake salt) — fall through
+    }
+
+    // --- Source 4: server-provided user_key from DOM data attribute (transitional) ---
+    // The server still derives and passes the user_key during the transition period.
+    // Once all clients support LoginHook, this fallback can be removed.
     if (!userKey) {
       // No user_key available — user needs to re-authenticate.
       // Don't redirect here; let individual features handle missing keys
