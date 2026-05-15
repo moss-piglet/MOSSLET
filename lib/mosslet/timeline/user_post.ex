@@ -73,9 +73,11 @@ defmodule Mosslet.Timeline.UserPost do
         changeset
         |> put_change(
           :key,
-          Encrypted.Utils.encrypt_message_for_user_with_pk(temp_key, %{
-            public: public_key
-          })
+          Encrypted.Utils.encrypt_message_for_user_with_pk(
+            temp_key,
+            %{public: public_key},
+            Encrypted.Utils.pq_opts_for_user(opts[:user])
+          )
         )
 
       share_note = get_field(changeset, :share_note)

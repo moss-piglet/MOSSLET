@@ -108,9 +108,11 @@ defmodule Mosslet.Groups.UserGroup do
       |> generate_avatar_img()
       |> put_change(
         :key,
-        Encrypted.Utils.encrypt_message_for_user_with_pk(get_field(changeset, :key), %{
-          public: public_key
-        })
+        Encrypted.Utils.encrypt_message_for_user_with_pk(
+          get_field(changeset, :key),
+          %{public: public_key},
+          Encrypted.Utils.pq_opts_for_user(opts[:user])
+        )
       )
     else
       changeset

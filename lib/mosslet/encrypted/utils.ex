@@ -149,6 +149,19 @@ defmodule Mosslet.Encrypted.Utils do
     end
   end
 
+  @doc """
+  Builds PQ opts keyword list from a user struct.
+
+  Returns `[pq_public_key: key]` if the user has a PQ public key,
+  or `[]` if not (which causes `encrypt_message_for_user_with_pk/3`
+  to fall back to legacy box_seal).
+  """
+  @spec pq_opts_for_user(map) :: keyword
+  def pq_opts_for_user(%{pq_public_key: pq_pk}) when is_binary(pq_pk) and pq_pk != "",
+    do: [pq_public_key: pq_pk]
+
+  def pq_opts_for_user(_), do: []
+
   # PRIVATE FUNCTIONS
 
   defp derive_pwd_key(pwd) do

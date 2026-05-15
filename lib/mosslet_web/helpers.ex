@@ -145,9 +145,11 @@ defmodule MossletWeb.Helpers do
       else
         public_key = current_user.key_pair["public"]
 
-        Encrypted.Utils.encrypt_message_for_user_with_pk(post_key, %{
-          public: public_key
-        })
+        Encrypted.Utils.encrypt_message_for_user_with_pk(
+          post_key,
+          %{public: public_key},
+          Encrypted.Utils.pq_opts_for_user(current_user)
+        )
       end
     else
       get_post_key(post, current_user)

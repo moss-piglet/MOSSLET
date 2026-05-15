@@ -429,9 +429,11 @@ defmodule Mosslet.Accounts.Connection do
           |> put_change(:username, Utils.encrypt(%{key: profile_key, payload: username}))
           |> put_change(
             :profile_key,
-            Encrypted.Utils.encrypt_message_for_user_with_pk(profile_key, %{
-              public: opts_map.user.key_pair["public"]
-            })
+            Encrypted.Utils.encrypt_message_for_user_with_pk(
+              profile_key,
+              %{public: opts_map.user.key_pair["public"]},
+              Encrypted.Utils.pq_opts_for_user(opts_map.user)
+            )
           )
 
         :connections ->
@@ -446,9 +448,11 @@ defmodule Mosslet.Accounts.Connection do
           |> put_change(:username, Utils.encrypt(%{key: profile_key, payload: username}))
           |> put_change(
             :profile_key,
-            Encrypted.Utils.encrypt_message_for_user_with_pk(profile_key, %{
-              public: opts_map.user.key_pair["public"]
-            })
+            Encrypted.Utils.encrypt_message_for_user_with_pk(
+              profile_key,
+              %{public: opts_map.user.key_pair["public"]},
+              Encrypted.Utils.pq_opts_for_user(opts_map.user)
+            )
           )
 
         _rest ->

@@ -367,9 +367,11 @@ defmodule Mosslet.Accounts.UserConnection do
     changeset
     |> put_change(
       :key,
-      Encrypted.Utils.encrypt_message_for_user_with_pk(d_conn_key, %{
-        public: recipient.key_pair["public"]
-      })
+      Encrypted.Utils.encrypt_message_for_user_with_pk(
+        d_conn_key,
+        %{public: recipient.key_pair["public"]},
+        Encrypted.Utils.pq_opts_for_user(recipient)
+      )
     )
     |> put_change(
       :request_username,
