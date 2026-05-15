@@ -1,15 +1,11 @@
 /**
- * DecryptPost — browser-side post decryption hook.
+ * DecryptPost — browser-side post decryption hook (zero-knowledge).
  *
  * For non-public posts, the server passes the sealed post_key and encrypted
  * body as data attributes. This hook unseals the key using the user's
  * private keys (from sessionStorage, populated by SessionKeyDeriver) and
- * decrypts the body content in the browser.
- *
- * During the transition period the server also renders decrypted content as
- * the initial HTML inside [data-decrypt-target]. If browser-side decryption
- * fails, the server-rendered content is preserved — the hook never overwrites
- * good content with an error message.
+ * decrypts the body content in the browser. The server never sees plaintext
+ * body content for non-public posts.
  *
  * Public posts are decrypted server-side (sealed to the server keypair)
  * and don't use this hook.

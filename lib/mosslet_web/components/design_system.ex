@@ -6551,7 +6551,11 @@ defmodule MossletWeb.DesignSystem do
                     data-decrypt-target
                     class="prose prose-slate dark:prose-invert prose-base prose-p:leading-relaxed prose-p:my-2 prose-headings:mt-4 prose-headings:mb-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-pre:my-3 prose-code:text-emerald-600 dark:prose-code:text-emerald-400 prose-a:text-emerald-600 dark:prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline [&_pre_code]:text-inherit [&_pre_*]:text-inherit"
                   >
-                    {format_decrypted_content(@content)}
+                    <%!-- Loading skeleton shown until JS decrypts --%>
+                    <div class="animate-pulse space-y-2">
+                      <div class="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
+                      <div class="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/2"></div>
+                    </div>
                   </div>
                 </div>
               <% else %>

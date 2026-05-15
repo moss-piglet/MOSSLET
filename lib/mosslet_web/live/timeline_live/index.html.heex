@@ -304,7 +304,7 @@
                   content_warning?={post.content_warning?}
                   content_warning={post.decrypted[:content_warning]}
                   content_warning_category={post.decrypted[:content_warning_category]}
-                  content={post.decrypted[:body] || "[Could not decrypt content]"}
+                  content={post.decrypted[:body] || ""}
                   images={post.decrypted[:image_urls] || []}
                   decrypted_url_preview={post.decrypted[:url_preview]}
                   stats={
@@ -398,7 +398,7 @@
                     content_warning?={post.content_warning?}
                     content_warning={post.decrypted[:content_warning]}
                     content_warning_category={post.decrypted[:content_warning_category]}
-                    content={post.decrypted[:body] || "[Could not decrypt content]"}
+                    content={post.decrypted[:body] || ""}
                     images={post.decrypted[:image_urls] || []}
                     decrypted_url_preview={post.decrypted[:url_preview]}
                     stats={

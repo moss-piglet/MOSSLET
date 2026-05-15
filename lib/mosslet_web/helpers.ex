@@ -597,7 +597,11 @@ defmodule MossletWeb.Helpers do
     case unseal_post_key(post, current_user, session_key) do
       {:ok, raw_key} ->
         %{
-          body: decrypt_field(post.body, raw_key, "[Could not decrypt content]"),
+          body:
+            if(browser_decrypt?,
+              do: nil,
+              else: decrypt_field(post.body, raw_key, "[Could not decrypt content]")
+            ),
           username: decrypt_field(post.username, raw_key, "author"),
           content_warning:
             if(post.content_warning?,
