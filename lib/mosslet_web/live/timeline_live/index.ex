@@ -2527,63 +2527,70 @@ defmodule MossletWeb.TimelineLive.Index do
       post_shared_users = socket.assigns.post_shared_users
       visibility = socket.assigns.selector
 
-      # Unseal the browser-provided post_key so we can encrypt other fields
-      # (username, avatar, content_warning, etc.) — the server sees the key
-      # but never the plaintext body.
-      case unseal_browser_post_key(sealed_post_key, current_user, key) do
-        {:ok, post_key} ->
-          {uploaded_photo_urls, uploaded_alt_texts, _trix_key} =
-            process_uploaded_photos(socket, current_user, key)
+      # Public posts must go through the normal save_post path (server needs
+      # plaintext for moderation, SEO, and federation). If the hook
+      # accidentally fires for a public post, reject gracefully.
+      if visibility == "public" do
+        {:noreply, put_flash(socket, :warning, "Please submit your post again.")}
+      else
+        # Unseal the browser-provided post_key so we can encrypt other fields
+        # (username, avatar, content_warning, etc.) — the server sees the key
+        # but never the plaintext body.
+        case unseal_browser_post_key(sealed_post_key, current_user, key) do
+          {:ok, post_key} ->
+            {uploaded_photo_urls, uploaded_alt_texts, _trix_key} =
+              process_uploaded_photos(socket, current_user, key)
 
-          any_ai_generated =
-            Enum.any?(socket.assigns.completed_uploads, fn upload ->
-              Map.get(upload, :ai_generated, false)
-            end)
+            any_ai_generated =
+              Enum.any?(socket.assigns.completed_uploads, fn upload ->
+                Map.get(upload, :ai_generated, false)
+              end)
 
-          # Build post_params from socket assigns — body comes from the
-          # last validate_post event (the form tracks it via phx-change).
-          body = Ecto.Changeset.get_field(socket.assigns.post_form.source, :body) || ""
+            # Build post_params from socket assigns — body comes from the
+            # last validate_post event (the form tracks it via phx-change).
+            body = Ecto.Changeset.get_field(socket.assigns.post_form.source, :body) || ""
 
-          post_params =
-            %{
-              "body" => body,
-              "username" => username(current_user, key) || "",
-              "image_urls" => socket.assigns.image_urls ++ uploaded_photo_urls,
-              "image_alt_texts" => uploaded_alt_texts,
-              "image_urls_updated_at" => NaiveDateTime.utc_now(),
-              "visibility" => visibility,
-              "user_id" => current_user.id,
-              "content_warning?" => socket.assigns.content_warning_enabled?,
-              "ai_generated" => any_ai_generated,
-              "allow_replies" => socket.assigns.allow_replies,
-              "allow_shares" => socket.assigns.allow_shares,
-              "allow_bookmarks" => socket.assigns.allow_bookmarks,
-              "is_ephemeral" => socket.assigns.is_ephemeral,
-              "require_follow_to_reply" => socket.assigns.require_follow_to_reply,
-              "mature_content" => socket.assigns.mature_content,
-              "local_only" => socket.assigns.local_only,
-              "expires_at_option" => socket.assigns.expires_at_option,
-              "visibility_groups" => socket.assigns.selected_visibility_groups || [],
-              "visibility_users" => socket.assigns.selected_visibility_users || []
-            }
-            |> maybe_put_url_preview(socket)
-            |> Map.put(
-              "url_preview_fetched_at",
-              if(socket.assigns.url_preview, do: NaiveDateTime.utc_now(), else: nil)
+            post_params =
+              %{
+                "body" => body,
+                "username" => username(current_user, key) || "",
+                "image_urls" => socket.assigns.image_urls ++ uploaded_photo_urls,
+                "image_alt_texts" => uploaded_alt_texts,
+                "image_urls_updated_at" => NaiveDateTime.utc_now(),
+                "visibility" => visibility,
+                "user_id" => current_user.id,
+                "content_warning?" => socket.assigns.content_warning_enabled?,
+                "ai_generated" => any_ai_generated,
+                "allow_replies" => socket.assigns.allow_replies,
+                "allow_shares" => socket.assigns.allow_shares,
+                "allow_bookmarks" => socket.assigns.allow_bookmarks,
+                "is_ephemeral" => socket.assigns.is_ephemeral,
+                "require_follow_to_reply" => socket.assigns.require_follow_to_reply,
+                "mature_content" => socket.assigns.mature_content,
+                "local_only" => socket.assigns.local_only,
+                "expires_at_option" => socket.assigns.expires_at_option,
+                "visibility_groups" => socket.assigns.selected_visibility_groups || [],
+                "visibility_users" => socket.assigns.selected_visibility_users || []
+              }
+              |> maybe_put_url_preview(socket)
+              |> Map.put(
+                "url_preview_fetched_at",
+                if(socket.assigns.url_preview, do: NaiveDateTime.utc_now(), else: nil)
+              )
+              |> add_shared_users_list_for_new_post(post_shared_users, %{
+                visibility_setting: visibility,
+                current_user: current_user,
+                key: key
+              })
+
+            create_post_and_respond(socket, post_params, current_user, key, post_key,
+              encrypted_body: encrypted_body
             )
-            |> add_shared_users_list_for_new_post(post_shared_users, %{
-              visibility_setting: visibility,
-              current_user: current_user,
-              key: key
-            })
 
-          create_post_and_respond(socket, post_params, current_user, key, post_key,
-            encrypted_body: encrypted_body
-          )
-
-        :error ->
-          {:noreply,
-           put_flash(socket, :error, "Could not process encrypted post. Please try again.")}
+          :error ->
+            {:noreply,
+             put_flash(socket, :error, "Could not process encrypted post. Please try again.")}
+        end
       end
     else
       {:noreply, put_flash(socket, :warning, "Not connected. Please refresh and try again.")}
@@ -4506,67 +4513,76 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   defp do_toggle_fav(id, socket) do
-    post = Timeline.get_post!(id)
-    current_user = socket.assigns.current_user
-    key = socket.assigns.key
+    case Mosslet.Repo.get(Post, id) do
+      nil ->
+        {:noreply,
+         socket
+         |> stream_delete(:posts, %Post{id: id})
+         |> put_flash(:error, "This post is no longer available.")}
 
-    decrypted_favs = decrypt_post_favs_list(post, current_user, key)
-    is_currently_liked = current_user.id in decrypted_favs
+      _found ->
+        post = Timeline.get_post!(id)
+        current_user = socket.assigns.current_user
+        key = socket.assigns.key
 
-    if is_currently_liked do
-      {:ok, post} = Timeline.decr_favs(post)
+        decrypted_favs = decrypt_post_favs_list(post, current_user, key)
+        is_currently_liked = current_user.id in decrypted_favs
 
-      updated_favs = List.delete(decrypted_favs, current_user.id)
-      encrypted_post_key = get_post_key(post, current_user)
+        if is_currently_liked do
+          {:ok, post} = Timeline.decr_favs(post)
 
-      case Timeline.update_post_fav(post, %{favs_list: updated_favs},
-             user: current_user,
-             key: key,
-             post_key: encrypted_post_key
-           ) do
-        {:ok, updated_post} ->
-          Accounts.track_user_activity(current_user, :interaction)
+          updated_favs = List.delete(decrypted_favs, current_user.id)
+          encrypted_post_key = get_post_key(post, current_user)
 
-          socket =
-            socket
-            |> push_event("update_post_fav_count", %{
-              post_id: updated_post.id,
-              favs_count: updated_post.favs_count,
-              is_liked: false
-            })
+          case Timeline.update_post_fav(post, %{favs_list: updated_favs},
+                 user: current_user,
+                 key: key,
+                 post_key: encrypted_post_key
+               ) do
+            {:ok, updated_post} ->
+              Accounts.track_user_activity(current_user, :interaction)
 
-          {:noreply, socket}
+              socket =
+                socket
+                |> push_event("update_post_fav_count", %{
+                  post_id: updated_post.id,
+                  favs_count: updated_post.favs_count,
+                  is_liked: false
+                })
 
-        {:error, _changeset} ->
-          {:noreply, put_flash(socket, :error, "Failed to remove love. Please try again.")}
-      end
-    else
-      {:ok, post} = Timeline.inc_favs(post)
+              {:noreply, socket}
 
-      updated_favs = [current_user.id | decrypted_favs]
-      encrypted_post_key = get_post_key(post, current_user)
+            {:error, _changeset} ->
+              {:noreply, put_flash(socket, :error, "Failed to remove love. Please try again.")}
+          end
+        else
+          {:ok, post} = Timeline.inc_favs(post)
 
-      case Timeline.update_post_fav(post, %{favs_list: updated_favs},
-             user: current_user,
-             key: key,
-             post_key: encrypted_post_key
-           ) do
-        {:ok, updated_post} ->
-          Accounts.track_user_activity(current_user, :interaction)
+          updated_favs = [current_user.id | decrypted_favs]
+          encrypted_post_key = get_post_key(post, current_user)
 
-          socket =
-            socket
-            |> push_event("update_post_fav_count", %{
-              post_id: updated_post.id,
-              favs_count: updated_post.favs_count,
-              is_liked: true
-            })
+          case Timeline.update_post_fav(post, %{favs_list: updated_favs},
+                 user: current_user,
+                 key: key,
+                 post_key: encrypted_post_key
+               ) do
+            {:ok, updated_post} ->
+              Accounts.track_user_activity(current_user, :interaction)
 
-          {:noreply, socket}
+              socket =
+                socket
+                |> push_event("update_post_fav_count", %{
+                  post_id: updated_post.id,
+                  favs_count: updated_post.favs_count,
+                  is_liked: true
+                })
 
-        {:error, _changeset} ->
-          {:noreply, put_flash(socket, :error, "Operation failed. Please try again.")}
-      end
+              {:noreply, socket}
+
+            {:error, _changeset} ->
+              {:noreply, put_flash(socket, :error, "Operation failed. Please try again.")}
+          end
+        end
     end
   end
 
