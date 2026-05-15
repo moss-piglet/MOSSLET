@@ -30,6 +30,9 @@
 - `start-conversation.js` seals conversation keys with hybrid PQ when PQ keys available
 - `conversation-hooks.js` and `message-reactions.js` unseal via `unsealFromUser` (auto-detects format)
 - All existing conversations (v1 sealed) continue to decrypt without migration
+- All server-side seal operations (post_key, group_key, memory_key, connection_key, profile_key) pass PQ opts via `pq_opts_for_user/1` helper
+- `PqResealWorker` (Oban, `:security` queue) progressively re-seals v1 context keys on login
+- Re-seal is non-blocking (background job), retryable, and deduplicated (unique per 5 min)
 
 ### Phase 1 Files Changed
 
@@ -46,7 +49,7 @@
 - `lib/mosslet/encrypted/utils.ex` — `generate_pq_key_pairs/0`, hybrid seal/unseal with PQ opts
 - `lib/mosslet/encrypted/users/utils.ex` — all decrypt paths pass PQ opts when available
 
-### Phase 3 Files Changed (Conversations)
+### Phase 3 Files Changed (Conversations + Server-Side PQ Seal)
 
 - `assets/vendor/metamorphic-crypto/` — WASM build (JS glue + `.wasm` binary)
 - `priv/static/wasm/metamorphic_crypto_bg.wasm` — served by Phoenix static
@@ -59,6 +62,15 @@
 - `assets/js/hooks/start-conversation.js` — uses `sealForUser` with PQ keys
 - `lib/mosslet_web/live/conversation_live/show.ex` — passes PQ data attributes on composer
 - `lib/mosslet_web/live/conversation_live/index.ex` — passes PQ keys in start-conversation event
+- `lib/mosslet/encrypted/utils.ex` — added `pq_opts_for_user/1` helper
+- `lib/mosslet/timeline/user_post.ex` — passes PQ opts when sealing post_key
+- `lib/mosslet/accounts/user_connection.ex` — passes PQ opts when sealing connection_key
+- `lib/mosslet/accounts/connection.ex` — passes PQ opts when sealing profile_key (private/connections)
+- `lib/mosslet/memories/user_memory.ex` — passes PQ opts when sealing memory_key
+- `lib/mosslet/groups/user_group.ex` — passes PQ opts when sealing group_key
+- `lib/mosslet_web/helpers.ex` — passes PQ opts when sealing trix upload key
+- `lib/mosslet/workers/pq_reseal_worker.ex` — new Oban worker for progressive v1→v2 re-seal
+- `lib/mosslet/accounts.ex` — enqueues PqResealWorker on login
 
 ### Key Implementation Details
 
