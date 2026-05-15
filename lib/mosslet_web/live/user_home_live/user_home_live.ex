@@ -844,8 +844,25 @@ defmodule MossletWeb.UserHomeLive do
     if post.user_id != user.id && user.id not in decrypted_reposts do
       selected_user_ids = share_params.selected_user_ids
       note = share_params.note || ""
-      body = share_params.body
       username = share_params.username
+
+      # For non-public posts the browser-sent body may be empty because the
+      # server skips body decryption (ZK read path).  Decrypt from the
+      # original post using the post key.
+      body =
+        case share_params.body do
+          b when is_binary(b) and b != "" ->
+            b
+
+          _ when is_binary(decrypted_post_key) ->
+            case Mosslet.Encrypted.Utils.decrypt(%{key: decrypted_post_key, payload: post.body}) do
+              {:ok, decrypted} -> decrypted
+              _ -> ""
+            end
+
+          _ ->
+            ""
+        end
 
       all_shared_users = socket.assigns.post_shared_users
 

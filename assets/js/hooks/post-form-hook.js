@@ -23,10 +23,16 @@ import { getPublicKey, getPqPublicKey } from "../crypto/session";
 
 const PostFormHook = {
   mounted() {
+    this._fallback = false;
     this.el.addEventListener("submit", (e) => this._onSubmit(e), true);
   },
 
-  async _onSubmit(e) {
+  _onSubmit(e) {
+    if (this._fallback) {
+      this._fallback = false;
+      return; // let LiveView handle the re-dispatched submit
+    }
+
     const visibility = this.el.dataset.visibility;
     if (!visibility || visibility === "public") return;
     if (!getPublicKey()) return;
@@ -35,25 +41,32 @@ const PostFormHook = {
     const body = bodyEl?.value?.trim();
     if (!body) return;
 
+    // Must preventDefault synchronously — async handlers run after the
+    // event has already propagated.
     e.preventDefault();
     e.stopImmediatePropagation();
 
-    try {
-      const postKey = await generateKey();
-      const encryptedBody = await encryptSecretboxString(body, postKey);
-
-      const authorPk = getPublicKey();
-      const authorPqPk = getPqPublicKey();
-      const keyBytes = b64Decode(postKey);
-      const sealedPostKey = await sealForUser(keyBytes, authorPk, authorPqPk);
-
-      this.pushEvent("save_post_encrypted", {
-        encrypted_body: encryptedBody,
-        sealed_post_key: sealedPostKey,
-      });
-    } catch (err) {
+    this._encryptAndSubmit(body).catch((err) => {
       console.error("PostFormHook: encryption failed, falling back to server-side:", err);
-    }
+      // Re-dispatch the submit so LiveView's phx-submit="save_post" fires
+      this._fallback = true;
+      this.el.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+  },
+
+  async _encryptAndSubmit(body) {
+    const postKey = await generateKey();
+    const encryptedBody = await encryptSecretboxString(body, postKey);
+
+    const authorPk = getPublicKey();
+    const authorPqPk = getPqPublicKey();
+    const keyBytes = b64Decode(postKey);
+    const sealedPostKey = await sealForUser(keyBytes, authorPk, authorPqPk);
+
+    this.pushEvent("save_post_encrypted", {
+      encrypted_body: encryptedBody,
+      sealed_post_key: sealedPostKey,
+    });
   },
 };
 
