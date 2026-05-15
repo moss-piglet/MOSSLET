@@ -6515,6 +6515,14 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   defp stream_insert_post(socket, post, current_user, opts) do
+    # Ensure the post has its .decrypted map populated before streaming.
+    # Some callers (e.g. reply handlers) fetch a fresh post from the DB
+    # without calling pre_decrypt_post first.
+    post =
+      if Map.has_key?(post, :decrypted) and is_map(post.decrypted),
+        do: post,
+        else: pre_decrypt_post(post, current_user, socket.assigns.key)
+
     current_tab = socket.assigns[:active_tab] || "home"
 
     if is_post_unread?(post, current_user, tab: current_tab) do

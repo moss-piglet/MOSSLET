@@ -586,6 +586,14 @@ defmodule MossletWeb.Helpers do
     - :share_note (from user_post)
   """
   def decrypt_post_fields(post, current_user, session_key) do
+    sealed_key =
+      case post.visibility do
+        :public -> get_post_key(post)
+        _ -> get_post_key(post, current_user)
+      end
+
+    browser_decrypt? = post.visibility != :public
+
     case unseal_post_key(post, current_user, session_key) do
       {:ok, raw_key} ->
         %{
@@ -607,7 +615,10 @@ defmodule MossletWeb.Helpers do
           favs_list: decrypt_id_list(post.favs_list, raw_key),
           reposts_list: decrypt_id_list(post.reposts_list, raw_key),
           share_note: decrypt_share_note(post, current_user, raw_key),
-          raw_key: raw_key
+          raw_key: raw_key,
+          sealed_post_key: if(browser_decrypt?, do: sealed_key),
+          encrypted_body: if(browser_decrypt?, do: post.body),
+          browser_decrypt?: browser_decrypt?
         }
 
       :error ->
@@ -622,7 +633,10 @@ defmodule MossletWeb.Helpers do
           favs_list: [],
           reposts_list: [],
           share_note: nil,
-          raw_key: nil
+          raw_key: nil,
+          sealed_post_key: nil,
+          encrypted_body: nil,
+          browser_decrypt?: false
         }
     end
   end

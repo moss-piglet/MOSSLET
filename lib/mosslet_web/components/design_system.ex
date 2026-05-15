@@ -6538,21 +6538,37 @@ defmodule MossletWeb.DesignSystem do
               data-post-content
               class="max-h-40 overflow-hidden transition-[max-height] duration-300 ease-out"
             >
-              <%!-- Legacy posts with HTML (sanitized and rendered) --%>
-              <p
-                :if={contains_html?(@content)}
-                class="text-slate-900 dark:text-slate-100 leading-loose whitespace-pre-wrap text-base"
-              >
-                {html_block(@content)}
-              </p>
-
-              <%!-- Modern posts with markdown rendering --%>
-              <div
-                :if={!contains_html?(@content)}
-                class="prose prose-slate dark:prose-invert prose-base prose-p:leading-relaxed prose-p:my-2 prose-headings:mt-4 prose-headings:mb-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-pre:my-3 prose-code:text-emerald-600 dark:prose-code:text-emerald-400 prose-a:text-emerald-600 dark:prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline [&_pre_code]:text-inherit [&_pre_*]:text-inherit"
-              >
-                {format_decrypted_content(@content)}
-              </div>
+              <%= if @post.decrypted[:browser_decrypt?] do %>
+                <%!-- Non-public post: browser-side decryption via DecryptPost hook --%>
+                <div
+                  id={"decrypt-post-#{@post.id}"}
+                  phx-hook="DecryptPost"
+                  phx-update="ignore"
+                  data-sealed-post-key={@post.decrypted[:sealed_post_key]}
+                  data-encrypted-body={@post.decrypted[:encrypted_body]}
+                >
+                  <div
+                    data-decrypt-target
+                    class="prose prose-slate dark:prose-invert prose-base prose-p:leading-relaxed prose-p:my-2 prose-headings:mt-4 prose-headings:mb-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-pre:my-3 prose-code:text-emerald-600 dark:prose-code:text-emerald-400 prose-a:text-emerald-600 dark:prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline [&_pre_code]:text-inherit [&_pre_*]:text-inherit"
+                  >
+                    {format_decrypted_content(@content)}
+                  </div>
+                </div>
+              <% else %>
+                <%!-- Public post: server-decrypted content rendered directly --%>
+                <p
+                  :if={contains_html?(@content)}
+                  class="text-slate-900 dark:text-slate-100 leading-loose whitespace-pre-wrap text-base"
+                >
+                  {html_block(@content)}
+                </p>
+                <div
+                  :if={!contains_html?(@content)}
+                  class="prose prose-slate dark:prose-invert prose-base prose-p:leading-relaxed prose-p:my-2 prose-headings:mt-4 prose-headings:mb-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-pre:my-3 prose-code:text-emerald-600 dark:prose-code:text-emerald-400 prose-a:text-emerald-600 dark:prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline [&_pre_code]:text-inherit [&_pre_*]:text-inherit"
+                >
+                  {format_decrypted_content(@content)}
+                </div>
+              <% end %>
             </div>
 
             <%!-- Gradient fade overlay --%>

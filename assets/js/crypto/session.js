@@ -134,23 +134,38 @@ export function getPqPrivateKey() {
  * @returns {Promise<string|null>} base64-encoded conversation key, or null on failure
  */
 export async function getConversationKey(encryptedConvKey) {
-  if (!encryptedConvKey) return null;
+  return unsealContextKey(encryptedConvKey);
+}
+
+// ---------------------------------------------------------------------------
+// General-purpose context key helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Unseals any context key (post_key, conversation_key, group_key, etc.)
+ * from its sealed form using the current user's keys.
+ *
+ * Uses unsealFromUser which auto-detects legacy (v1, X25519 box_seal) vs
+ * hybrid (v2, ML-KEM-768+X25519) ciphertext format.
+ *
+ * @param {string} sealedKey - base64-encoded sealed context key
+ * @returns {Promise<string|null>} base64-encoded raw key, or null on failure
+ */
+export async function unsealContextKey(sealedKey) {
+  if (!sealedKey) return null;
 
   try {
-    // Fast path: use pre-derived keys from sessionStorage
     let privateKey = getPrivateKey();
     let pqPrivateKey = getPqPrivateKey();
     const userPublicKey = getPublicKey();
 
     if (!userPublicKey) return null;
 
-    // If private key not in sessionStorage, derive it from the user_key
     if (!privateKey) {
       const keys = getSessionKeys();
       if (!keys) return null;
       privateKey = await decryptPrivateKey(keys.encryptedPrivateKey, keys.sessionKey);
 
-      // Also decrypt PQ private key if available
       if (!pqPrivateKey) {
         const encryptedPqSk = getEncryptedPqPrivateKey();
         if (encryptedPqSk) {
@@ -159,9 +174,26 @@ export async function getConversationKey(encryptedConvKey) {
       }
     }
 
-    return await unsealFromUser(encryptedConvKey, userPublicKey, privateKey, pqPrivateKey);
+    return await unsealFromUser(sealedKey, userPublicKey, privateKey, pqPrivateKey);
   } catch (e) {
-    console.error("Failed to decrypt conversation key:", e);
+    console.error("Failed to unseal context key:", e);
+    return null;
+  }
+}
+
+/**
+ * Decrypts a secretbox-encrypted payload using an already-unsealed raw key.
+ *
+ * @param {string} ciphertext - base64-encoded secretbox ciphertext
+ * @param {string} rawKey - base64-encoded symmetric key
+ * @returns {Promise<string|null>} plaintext string, or null on failure
+ */
+export async function decryptWithKey(ciphertext, rawKey) {
+  if (!ciphertext || !rawKey) return null;
+  try {
+    return await decryptSecretboxToString(ciphertext, rawKey);
+  } catch (e) {
+    console.error("Failed to decrypt payload:", e);
     return null;
   }
 }
