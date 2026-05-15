@@ -1,5 +1,20 @@
 <%!-- Offline banner at the very top when offline --%>
 <MossletWeb.DesignSystem.offline_banner :if={assigns[:sync_status]} sync_status={@sync_status} />
+<%!-- Session key deriver — derives and caches encryption keys for all browser-side crypto --%>
+<%= if assigns[:current_scope] && @current_scope.user && @current_scope.key do %>
+  <div
+    id="session-key-deriver"
+    phx-hook="SessionKeyDeriver"
+    phx-update="ignore"
+    data-user-key={@current_scope.key}
+    data-public-key={@current_scope.user.key_pair["public"]}
+    data-encrypted-private-key={@current_scope.user.key_pair["private"]}
+    data-pq-public-key={@current_scope.user.pq_public_key}
+    data-encrypted-pq-private-key={@current_scope.user.encrypted_pq_private_key}
+    class="hidden"
+  >
+  </div>
+<% end %>
 <%!-- Flash notifications positioned relative to viewport --%>
 <div id="flash-notifications" class="fixed bottom-4 right-4 z-[100]">
   <.phx_flash_group flash={@flash} />

@@ -5,7 +5,7 @@
  * All functions have the same signatures and return the same base64 strings.
  *
  * The WASM module (metamorphic-crypto, Rust) provides NaCl-compatible
- * primitives plus hybrid PQ key encapsulation (ML-KEM-768 + X25519).
+ * primitives plus hybrid PQ key encapsulation (ML-KEM-768/1024 + X25519).
  * The same Rust crate compiles to the server-side NIF (MetamorphicCrypto Hex),
  * guaranteeing wire-format compatibility between browser and server.
  */
@@ -22,9 +22,11 @@ import wasmInit, {
   unsealFromUser as _unsealFromUser,
   generateKey as _generateKey,
   generateHybridKeyPair as _generateHybridKeyPair,
+  generateHybridKeyPair1024 as _generateHybridKeyPair1024,
   isHybridCiphertext as _isHybridCiphertext,
   decryptPrivateKey as _decryptPrivateKey,
   parseSaltFromKeyHash as _parseSaltFromKeyHash,
+  sealForUserWithLevel as _sealForUserWithLevel,
 } from "../../vendor/metamorphic-crypto/metamorphic_crypto.js";
 
 // --- WASM initialization ---
@@ -115,7 +117,7 @@ export async function generateKey() {
   return _generateKey();
 }
 
-// --- Hybrid PQ KEM (ML-KEM-768 + X25519) ---
+// --- Hybrid PQ KEM (ML-KEM-768 + X25519, default Cat-3) ---
 
 export async function sealForUser(plaintextBytes, publicKeyBase64, pqPublicKeyBase64) {
   await ensureReady();
@@ -147,6 +149,44 @@ export async function generateHybridKeyPair() {
 export async function isHybridCiphertext(ciphertextBase64) {
   await ensureReady();
   return _isHybridCiphertext(ciphertextBase64);
+}
+
+// --- Hybrid PQ KEM Cat-5 (ML-KEM-1024 + X25519, opt-in) ---
+
+/**
+ * Seal plaintext to a user's keys at a specific security level.
+ *
+ * @param {Uint8Array} plaintextBytes - raw plaintext bytes
+ * @param {string} publicKeyBase64 - X25519 public key (base64)
+ * @param {string|null} pqPublicKeyBase64 - PQ public key (base64), or null for legacy
+ * @param {"cat3"|"cat5"} level - security level ("cat3" = ML-KEM-768, "cat5" = ML-KEM-1024)
+ * @returns {Promise<string>} base64 ciphertext
+ */
+export async function sealForUserWithLevel(
+  plaintextBytes,
+  publicKeyBase64,
+  pqPublicKeyBase64,
+  level,
+) {
+  await ensureReady();
+  const ptB64 = b64Encode(plaintextBytes);
+  return _sealForUserWithLevel(
+    ptB64,
+    publicKeyBase64,
+    pqPublicKeyBase64 || null,
+    level,
+  );
+}
+
+/**
+ * Generate a ML-KEM-1024 + X25519 hybrid keypair (Cat-5, NIST Category 5).
+ *
+ * @returns {Promise<{publicKey: string, secretKey: string}>} base64 keypair
+ */
+export async function generateHybridKeyPair1024() {
+  await ensureReady();
+  const kp = _generateHybridKeyPair1024();
+  return { publicKey: kp.publicKey, secretKey: kp.secretKey };
 }
 
 // --- Conversation helpers (preserved API for existing hooks) ---

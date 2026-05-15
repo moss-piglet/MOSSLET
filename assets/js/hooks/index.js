@@ -57,6 +57,7 @@ import ImageCropHook from "./image-crop-hook";
 import JournalDragDropHook from "./journal-drag-drop-hook";
 import WordCounter from "./word-counter";
 import SubmitOnEnter from "./submit-on-enter";
+import SessionKeyDeriver from "./session-key-deriver";
 import SyncStatusHook from "./sync-status-hook";
 import PushNotificationHook from "./push-notification-hook";
 import BackgroundSyncHook from "./background-sync-hook";
@@ -109,6 +110,7 @@ export default {
   RestoreBodyScroll,
   ScrollableTabs,
   ScrollDown,
+  SessionKeyDeriver,
   TippyHook,
   TrixContentPostHook,
   TrixContentReplyHook,

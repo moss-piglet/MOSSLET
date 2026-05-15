@@ -397,6 +397,15 @@ export function generateHybridKeyPair() {
 }
 
 /**
+ * Generate a ML-KEM-1024 + X25519 keypair (Cat-5). Returns JSON: `{ publicKey, secretKey }`.
+ * @returns {any}
+ */
+export function generateHybridKeyPair1024() {
+    const ret = wasm.generateHybridKeyPair1024();
+    return takeObject(ret);
+}
+
+/**
  * Generate a random 32-byte symmetric key (base64).
  * @returns {string}
  */
@@ -468,7 +477,7 @@ export function generateSalt() {
 }
 
 /**
- * Check if a base64 ciphertext is hybrid (v2) format.
+ * Check if a base64 ciphertext is hybrid (v2/v3) format.
  * @param {string} ciphertext_b64
  * @returns {boolean}
  */
@@ -578,6 +587,50 @@ export function sealForUser(plaintext_b64, public_key_b64, pq_public_key_b64) {
     } finally {
         wasm.__wbindgen_add_to_stack_pointer(16);
         wasm.__wbindgen_export4(deferred5_0, deferred5_1, 1);
+    }
+}
+
+/**
+ * Seal plaintext bytes (base64) to a user's key(s) at a specific security level.
+ *
+ * `level` must be `"cat3"` (ML-KEM-768, default) or `"cat5"` (ML-KEM-1024).
+ * If `pq_public_key_b64` is absent or empty, falls back to legacy X25519.
+ * @param {string} plaintext_b64
+ * @param {string} public_key_b64
+ * @param {string | null | undefined} pq_public_key_b64
+ * @param {string} level
+ * @returns {string}
+ */
+export function sealForUserWithLevel(plaintext_b64, public_key_b64, pq_public_key_b64, level) {
+    let deferred6_0;
+    let deferred6_1;
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passStringToWasm0(plaintext_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(public_key_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len1 = WASM_VECTOR_LEN;
+        var ptr2 = isLikeNone(pq_public_key_b64) ? 0 : passStringToWasm0(pq_public_key_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        var len2 = WASM_VECTOR_LEN;
+        const ptr3 = passStringToWasm0(level, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len3 = WASM_VECTOR_LEN;
+        wasm.sealForUserWithLevel(retptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+        var ptr5 = r0;
+        var len5 = r1;
+        if (r3) {
+            ptr5 = 0; len5 = 0;
+            throw takeObject(r2);
+        }
+        deferred6_0 = ptr5;
+        deferred6_1 = len5;
+        return getStringFromWasm0(ptr5, len5);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+        wasm.__wbindgen_export4(deferred6_0, deferred6_1, 1);
     }
 }
 
