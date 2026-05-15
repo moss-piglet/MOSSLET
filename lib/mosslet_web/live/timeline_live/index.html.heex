@@ -567,6 +567,8 @@
             phx-submit="save_post"
             phx-change="validate_post"
             phx-drop-target={@uploads.photos.ref}
+            phx-hook="PostFormHook"
+            data-visibility={@selector}
           >
             <MossletWeb.DesignSystem.liquid_timeline_composer_enhanced
               id={"timeline-composer-enhanced-#{@active_tab}"}

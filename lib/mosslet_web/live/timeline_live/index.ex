@@ -2513,6 +2513,83 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
+  # Browser-encrypted post submission (zero-knowledge write path).
+  # The browser generated a post_key, encrypted the body, and sealed
+  # the key for the author. The server never sees plaintext body content.
+  def handle_event(
+        "save_post_encrypted",
+        %{"encrypted_body" => encrypted_body, "sealed_post_key" => sealed_post_key},
+        socket
+      ) do
+    if connected?(socket) do
+      current_user = socket.assigns.current_user
+      key = socket.assigns.key
+      post_shared_users = socket.assigns.post_shared_users
+      visibility = socket.assigns.selector
+
+      # Unseal the browser-provided post_key so we can encrypt other fields
+      # (username, avatar, content_warning, etc.) — the server sees the key
+      # but never the plaintext body.
+      case unseal_browser_post_key(sealed_post_key, current_user, key) do
+        {:ok, post_key} ->
+          {uploaded_photo_urls, uploaded_alt_texts, _trix_key} =
+            process_uploaded_photos(socket, current_user, key)
+
+          any_ai_generated =
+            Enum.any?(socket.assigns.completed_uploads, fn upload ->
+              Map.get(upload, :ai_generated, false)
+            end)
+
+          # Build post_params from socket assigns — body comes from the
+          # last validate_post event (the form tracks it via phx-change).
+          body = Ecto.Changeset.get_field(socket.assigns.post_form.source, :body) || ""
+
+          post_params =
+            %{
+              "body" => body,
+              "username" => username(current_user, key) || "",
+              "image_urls" => socket.assigns.image_urls ++ uploaded_photo_urls,
+              "image_alt_texts" => uploaded_alt_texts,
+              "image_urls_updated_at" => NaiveDateTime.utc_now(),
+              "visibility" => visibility,
+              "user_id" => current_user.id,
+              "content_warning?" => socket.assigns.content_warning_enabled?,
+              "ai_generated" => any_ai_generated,
+              "allow_replies" => socket.assigns.allow_replies,
+              "allow_shares" => socket.assigns.allow_shares,
+              "allow_bookmarks" => socket.assigns.allow_bookmarks,
+              "is_ephemeral" => socket.assigns.is_ephemeral,
+              "require_follow_to_reply" => socket.assigns.require_follow_to_reply,
+              "mature_content" => socket.assigns.mature_content,
+              "local_only" => socket.assigns.local_only,
+              "expires_at_option" => socket.assigns.expires_at_option,
+              "visibility_groups" => socket.assigns.selected_visibility_groups || [],
+              "visibility_users" => socket.assigns.selected_visibility_users || []
+            }
+            |> maybe_put_url_preview(socket)
+            |> Map.put(
+              "url_preview_fetched_at",
+              if(socket.assigns.url_preview, do: NaiveDateTime.utc_now(), else: nil)
+            )
+            |> add_shared_users_list_for_new_post(post_shared_users, %{
+              visibility_setting: visibility,
+              current_user: current_user,
+              key: key
+            })
+
+          create_post_and_respond(socket, post_params, current_user, key, post_key,
+            encrypted_body: encrypted_body
+          )
+
+        :error ->
+          {:noreply,
+           put_flash(socket, :error, "Could not process encrypted post. Please try again.")}
+      end
+    else
+      {:noreply, put_flash(socket, :warning, "Not connected. Please refresh and try again.")}
+    end
+  end
+
   def handle_event("save_post", %{"post" => post_params}, socket) do
     if connected?(socket) do
       current_user = socket.assigns.current_user
@@ -4493,8 +4570,11 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  defp create_post_and_respond(socket, post_params, current_user, key, trix_key) do
-    case Timeline.create_post(post_params, user: current_user, key: key, trix_key: trix_key) do
+  defp create_post_and_respond(socket, post_params, current_user, key, trix_key, opts \\ []) do
+    create_opts =
+      [user: current_user, key: key, trix_key: trix_key] ++ opts
+
+    case Timeline.create_post(post_params, create_opts) do
       {:ok, post} ->
         Accounts.track_user_activity(current_user, :post)
         process_email_notifications_for_offline_users(post, current_user, key)
@@ -7012,4 +7092,22 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   defp generate_cropped_preview(_temp_path, _crop), do: {:error, :invalid_crop}
+
+  # Unseals a browser-provided sealed post_key. The browser sealed the key
+  # to the author's public key; we unseal it here so the server can encrypt
+  # the remaining fields (username, avatar, etc.) with the same key.
+  #
+  # The browser seals raw 32-byte key bytes (via b64Decode before sealForUser),
+  # so unseal returns raw bytes. We re-encode to base64 since that's the format
+  # MetamorphicCrypto.SecretBox expects for keys throughout the codebase.
+  defp unseal_browser_post_key(sealed_post_key_b64, current_user, session_key) do
+    case Encrypted.Users.Utils.decrypt_user_attrs_key(
+           sealed_post_key_b64,
+           current_user,
+           session_key
+         ) do
+      {:ok, raw_key_bytes} -> {:ok, Base.encode64(raw_key_bytes)}
+      other -> other
+    end
+  end
 end

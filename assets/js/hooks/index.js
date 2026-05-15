@@ -6,6 +6,7 @@ import BookScrollReader from "./book-scroll-reader";
 import ConversationEmojiPicker from "./conversation-emoji-picker";
 import { ConversationComposer, DecryptMessage, ConversationScroll } from "./conversation-hooks";
 import DecryptPost from "./decrypt-post";
+import PostFormHook from "./post-form-hook";
 import CharacterCounter from "./character-counter";
 import ClipboardHook from "./clipboard-hook";
 import ComposerEmojiPicker from "./composer-emoji-picker";
@@ -109,6 +110,7 @@ export default {
   MessageReactions,
   ModalPortal,
   MossletFrameworkHooks,
+  PostFormHook,
   ReplyComposer,
   ReplyEmojiPicker,
   RestoreBodyScroll,

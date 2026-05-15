@@ -719,48 +719,29 @@ defmodule Mosslet.Timeline.Post do
         if image_alt_texts && !Enum.empty?(image_alt_texts) && post_key,
           do: encrypt_image_urls(image_alt_texts, post_key)
 
-      cond do
-        visibility === :public ->
-          changeset
-          |> put_change(:avatar_url, e_avatar_url)
-          |> put_change(:image_urls, e_image_urls)
-          |> put_change(:image_alt_texts, e_image_alt_texts)
-          |> put_change(:body, Utils.encrypt(%{key: post_key, payload: body}))
-          |> put_change(:username, Utils.encrypt(%{key: post_key, payload: username}))
-          |> put_change(:user_post_map, %{temp_key: post_key})
-          |> encrypt_favs_list(post_key, opts)
-          |> encrypt_reposts_list(post_key, opts)
-          |> encrypt_content_warning_if_present(post_key, opts)
-          |> encrypt_url_preview_if_present(post_key, opts)
+      # For non-public posts with browser-encrypted body, use the pre-encrypted
+      # ciphertext directly instead of re-encrypting. The server never sees plaintext.
+      e_body =
+        if opts[:encrypted_body] && visibility != :public do
+          opts[:encrypted_body]
+        else
+          Utils.encrypt(%{key: post_key, payload: body})
+        end
 
-        visibility === :private ->
-          changeset
-          |> put_change(:avatar_url, e_avatar_url)
-          |> put_change(:image_urls, e_image_urls)
-          |> put_change(:image_alt_texts, e_image_alt_texts)
-          |> put_change(:body, Utils.encrypt(%{key: post_key, payload: body}))
-          |> put_change(:username, Utils.encrypt(%{key: post_key, payload: username}))
-          |> put_change(:user_post_map, %{temp_key: post_key})
-          |> encrypt_favs_list(post_key, opts)
-          |> encrypt_reposts_list(post_key, opts)
-          |> encrypt_content_warning_if_present(post_key, opts)
-          |> encrypt_url_preview_if_present(post_key, opts)
-
-        visibility in [:connections, :specific_groups, :specific_users] ->
-          changeset
-          |> put_change(:avatar_url, e_avatar_url)
-          |> put_change(:image_urls, e_image_urls)
-          |> put_change(:image_alt_texts, e_image_alt_texts)
-          |> put_change(:body, Utils.encrypt(%{key: post_key, payload: body}))
-          |> put_change(:username, Utils.encrypt(%{key: post_key, payload: username}))
-          |> put_change(:user_post_map, %{temp_key: post_key})
-          |> encrypt_favs_list(post_key, opts)
-          |> encrypt_reposts_list(post_key, opts)
-          |> encrypt_content_warning_if_present(post_key, opts)
-          |> encrypt_url_preview_if_present(post_key, opts)
-
-        true ->
-          changeset |> add_error(:body, "There was an error determining the visibility.")
+      if visibility in [:public, :private, :connections, :specific_groups, :specific_users] do
+        changeset
+        |> put_change(:avatar_url, e_avatar_url)
+        |> put_change(:image_urls, e_image_urls)
+        |> put_change(:image_alt_texts, e_image_alt_texts)
+        |> put_change(:body, e_body)
+        |> put_change(:username, Utils.encrypt(%{key: post_key, payload: username}))
+        |> put_change(:user_post_map, %{temp_key: post_key})
+        |> encrypt_favs_list(post_key, opts)
+        |> encrypt_reposts_list(post_key, opts)
+        |> encrypt_content_warning_if_present(post_key, opts)
+        |> encrypt_url_preview_if_present(post_key, opts)
+      else
+        changeset |> add_error(:body, "There was an error determining the visibility.")
       end
     else
       changeset
