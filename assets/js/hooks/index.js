@@ -5,6 +5,7 @@ import BookReaderSwipe from "./book-reader-swipe";
 import BookScrollReader from "./book-scroll-reader";
 import ConversationEmojiPicker from "./conversation-emoji-picker";
 import { ConversationComposer, DecryptMessage, ConversationScroll } from "./conversation-hooks";
+import DecryptGroupMessage from "./decrypt-group-message";
 import DecryptPost from "./decrypt-post";
 import PostFormHook from "./post-form-hook";
 import CharacterCounter from "./character-counter";
@@ -85,6 +86,7 @@ export default {
   CSSBookBackCoverClick,
   CSSBookCoverClick,
   DeepLinkHook,
+  DecryptGroupMessage,
   DecryptMessage,
   DecryptPost,
   DeleteReadingEntry,

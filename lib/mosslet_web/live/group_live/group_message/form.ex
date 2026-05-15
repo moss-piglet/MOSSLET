@@ -120,6 +120,9 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
         phx-change="update"
         phx-target={@myself}
         id="group-message-form"
+        phx-hook="GroupMessageFormHook"
+        data-public={to_string(@public?)}
+        data-sealed-group-key={not @public? && Base.encode64(@user_group_key)}
         class="max-w-4xl mx-auto"
       >
         <div class="relative">

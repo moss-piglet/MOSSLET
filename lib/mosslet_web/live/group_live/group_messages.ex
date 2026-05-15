@@ -44,20 +44,26 @@ defmodule MossletWeb.GroupLive.GroupMessages do
   attr :messages_list, :list, required: true
 
   def message_details(assigns) do
+    decrypted = Map.get(assigns.message, :decrypted, %{})
+
     uconn =
       get_uconn_for_users(
         get_user_from_user_group_id(assigns.message.sender_id),
         assigns.current_scope.user
       )
 
+    # Avatar: prefer connection avatar, fall back to decrypted group avatar
+    group_avatar_path =
+      case decrypted[:avatar_img] do
+        img when is_binary(img) and img != "" -> ~p"/images/groups/#{img}"
+        _ -> ~p"/images/groups/default.png"
+      end
+
     avatar_src =
       if assigns.user_group.id == assigns.message.sender_id do
         maybe_get_user_avatar(assigns.current_scope.user, assigns.current_scope.key) ||
-          ~p"/images/groups/#{decr_item(assigns.message.sender.avatar_img, assigns.current_scope.user, assigns.user_group.key, assigns.current_scope.key, assigns.group)}"
+          group_avatar_path
       else
-        group_avatar_fallback =
-          ~p"/images/groups/#{decr_item(assigns.message.sender.avatar_img, assigns.current_scope.user, assigns.user_group.key, assigns.current_scope.key, assigns.group)}"
-
         if uconn do
           case maybe_get_avatar_src(
                  uconn,
@@ -65,12 +71,12 @@ defmodule MossletWeb.GroupLive.GroupMessages do
                  assigns.current_scope.key,
                  assigns.messages_list
                ) do
-            "" -> group_avatar_fallback
-            nil -> group_avatar_fallback
+            "" -> group_avatar_path
+            nil -> group_avatar_path
             src -> src
           end
         else
-          group_avatar_fallback
+          group_avatar_path
         end
       end
 
@@ -97,27 +103,24 @@ defmodule MossletWeb.GroupLive.GroupMessages do
           nil
       end
 
-    moniker =
-      decr_item(
-        assigns.message.sender.moniker,
-        assigns.current_scope.user,
-        assigns.user_group.key,
-        assigns.current_scope.key,
-        assigns.group
-      )
+    moniker = decrypted[:moniker] || "member"
 
-    raw_content =
-      decr_item(
-        assigns.message.content,
-        assigns.current_scope.user,
-        assigns.user_group_key,
-        assigns.current_scope.key,
-        assigns.group
-      )
+    # For non-public groups, content is nil (browser decrypts via hook).
+    # For public groups, content is pre-decrypted by the server.
+    raw_content = decrypted[:content]
 
     is_own_message = assigns.user_group.id == assigns.message.sender_id
-    markdown_html = Mosslet.MarkdownRenderer.to_html(raw_content)
-    content = render_mentions(markdown_html, assigns, is_own_message)
+    browser_decrypt? = decrypted[:browser_decrypt?] || false
+
+    {content, can_check_mentions} =
+      if browser_decrypt? do
+        # Content will be decrypted and rendered by the DecryptGroupMessage hook
+        {nil, false}
+      else
+        markdown_html = Mosslet.MarkdownRenderer.to_html(raw_content)
+        rendered = render_mentions(markdown_html, assigns, is_own_message)
+        {rendered, true}
+      end
 
     can_delete =
       assigns.user_group.role in [:owner, :admin, :moderator] || is_own_message
@@ -127,7 +130,15 @@ defmodule MossletWeb.GroupLive.GroupMessages do
     message_datetime = assigns.message.inserted_at
     is_new_message = Map.get(assigns.message, :is_new_message, false)
 
-    is_mentioned = content_mentions_user?(raw_content, assigns.user_group.id)
+    is_mentioned =
+      if can_check_mentions do
+        content_mentions_user?(raw_content, assigns.user_group.id)
+      else
+        # For browser-decrypted messages, check the encrypted content for mention tokens
+        # (mention tokens @[uuid] are not encrypted — they're part of the plaintext structure)
+        content_mentions_user?(assigns.message.content, assigns.user_group.id)
+      end
+
     is_new_mention = is_mentioned && is_new_message
 
     assigns =
@@ -143,6 +154,9 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       |> assign(:message_datetime, message_datetime)
       |> assign(:is_mentioned, is_mentioned)
       |> assign(:is_new_mention, is_new_mention)
+      |> assign(:browser_decrypt?, browser_decrypt?)
+      |> assign(:encrypted_content, decrypted[:encrypted_content])
+      |> assign(:sealed_group_key, decrypted[:sealed_group_key])
 
     ~H"""
     <DesignSystem.liquid_chat_message
@@ -162,7 +176,18 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       is_mentioned={@is_mentioned}
       is_new_mention={@is_new_mention}
     >
-      {@content |> Phoenix.HTML.raw()}
+      <div
+        :if={@browser_decrypt?}
+        id={"decrypt-msg-#{@message.id}"}
+        phx-hook="DecryptGroupMessage"
+        data-encrypted-content={@encrypted_content}
+        data-sealed-group-key={@sealed_group_key && Base.encode64(@sealed_group_key)}
+      >
+        <span class="text-slate-400 dark:text-slate-500 text-sm italic">Decrypting...</span>
+      </div>
+      <div :if={not @browser_decrypt?}>
+        {@content |> Phoenix.HTML.raw()}
+      </div>
     </DesignSystem.liquid_chat_message>
     """
   end

@@ -102,9 +102,11 @@ defmodule MossletWeb.GroupLive.Show do
   @impl true
   def handle_info(%{event: "new_message", payload: %{message: message}}, socket) do
     if message.sender_id == socket.assigns.current_user_group.id do
+      message_with_context = add_grouping_context(message, socket)
+
       {:noreply,
        socket
-       |> stream_insert(:messages, add_grouping_context(message, socket))
+       |> stream_insert(:messages, pre_decrypt_message(message_with_context, socket))
        |> assign(:last_message_info, extract_message_info(message))
        |> assign_last_user_message(message)}
     else
@@ -258,12 +260,11 @@ defmodule MossletWeb.GroupLive.Show do
     if not is_nil(oldest_message_id) do
       case Mosslet.GroupMessages.get_message!(oldest_message_id) do
         nil ->
-          # Message was deleted, reset to load from beginning
           messages = GroupMessages.get_previous_n_messages(nil, socket.assigns.group.id, 5)
 
           {:noreply,
            socket
-           |> stream_batch_insert(:messages, messages, at: 0)
+           |> stream_batch_insert(:messages, pre_decrypt_messages(messages, socket), at: 0)
            |> assign_oldest_message_id(List.first(messages))
            |> assign_scrolled_to_top("true")}
 
@@ -277,7 +278,7 @@ defmodule MossletWeb.GroupLive.Show do
 
           {:noreply,
            socket
-           |> stream_batch_insert(:messages, messages, at: 0)
+           |> stream_batch_insert(:messages, pre_decrypt_messages(messages, socket), at: 0)
            |> assign_oldest_message_id(List.first(messages))
            |> assign_scrolled_to_top("true")}
       end
@@ -286,7 +287,7 @@ defmodule MossletWeb.GroupLive.Show do
 
       {:noreply,
        socket
-       |> stream_batch_insert(:messages, messages, at: 0)
+       |> stream_batch_insert(:messages, pre_decrypt_messages(messages, socket), at: 0)
        |> assign_oldest_message_id(List.first(messages))
        |> assign_scrolled_to_top("true")}
     end
@@ -553,15 +554,18 @@ defmodule MossletWeb.GroupLive.Show do
 
   def insert_new_message(socket, message, opts \\ []) do
     is_new = Keyword.get(opts, :is_new, false)
+    message_with_context = add_grouping_context(message, socket, is_new: is_new)
 
     socket
-    |> stream_insert(:messages, add_grouping_context(message, socket, is_new: is_new))
+    |> stream_insert(:messages, pre_decrypt_message(message_with_context, socket))
     |> update(:total_messages_count, &(&1 + 1))
   end
 
   def insert_updated_message(socket, message) do
+    preloaded = GroupMessages.preload_message_sender(message)
+
     socket
-    |> stream_insert(:messages, GroupMessages.preload_message_sender(message), at: -1)
+    |> stream_insert(:messages, pre_decrypt_message(preloaded, socket), at: -1)
   end
 
   def insert_deleted_message(socket, message) do
@@ -643,6 +647,7 @@ defmodule MossletWeb.GroupLive.Show do
   def assign_active_group_messages(socket) do
     user_group = socket.assigns.current_user_group
     group = socket.assigns.group
+    current_scope = socket.assigns.current_scope
 
     unread_message_ids =
       if user_group && user_group.confirmed_at do
@@ -654,12 +659,26 @@ defmodule MossletWeb.GroupLive.Show do
     messages = GroupMessages.last_ten_messages_for(group.id)
     messages_with_context = add_initial_grouping_context(messages, unread_message_ids)
 
+    # Pre-decrypt all messages so templates read from .decrypted map
+    pre_decrypted =
+      if user_group do
+        pre_decrypt_group_messages(
+          messages_with_context,
+          group,
+          user_group,
+          current_scope.user,
+          current_scope.key
+        )
+      else
+        messages_with_context
+      end
+
     if Enum.empty?(messages) do
       socket
       |> assign(:messages_list, messages)
       |> assign(:total_messages_count, 0)
       |> assign(:last_message_info, nil)
-      |> stream(:messages, messages)
+      |> stream(:messages, pre_decrypted)
       |> assign(:oldest_message_id, nil)
     else
       last_message = List.last(messages)
@@ -671,9 +690,25 @@ defmodule MossletWeb.GroupLive.Show do
         GroupMessages.get_message_count_for_group(group.id)
       )
       |> assign(:last_message_info, extract_message_info(last_message))
-      |> stream(:messages, messages_with_context)
+      |> stream(:messages, pre_decrypted)
       |> assign(:oldest_message_id, List.first(messages).id)
     end
+  end
+
+  defp pre_decrypt_message(message, socket) do
+    group = socket.assigns.group
+    user_group = socket.assigns.current_user_group
+    current_scope = socket.assigns.current_scope
+
+    if user_group do
+      pre_decrypt_group_message(message, group, user_group, current_scope.user, current_scope.key)
+    else
+      message
+    end
+  end
+
+  defp pre_decrypt_messages(messages, socket) do
+    Enum.map(messages, &pre_decrypt_message(&1, socket))
   end
 
   def assign_active_group(socket) do

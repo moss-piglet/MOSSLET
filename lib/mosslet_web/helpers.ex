@@ -703,6 +703,86 @@ defmodule MossletWeb.Helpers do
     Enum.map(posts, &pre_decrypt_post(&1, current_user, session_key))
   end
 
+  @doc """
+  Unseals a group key from a user_group.key binary.
+
+  For public groups the key was sealed with the server's public key;
+  for private groups it was sealed with the user's public key.
+  Returns `{:ok, raw_key}` or `:error`.
+  """
+  def unseal_group_key(sealed_key, group, current_user, session_key) do
+    if is_nil(sealed_key) do
+      :error
+    else
+      if group.public? do
+        case Encrypted.Users.Utils.decrypt_public_item_key(sealed_key) do
+          raw_key when is_binary(raw_key) -> {:ok, raw_key}
+          _ -> :error
+        end
+      else
+        case Encrypted.Users.Utils.decrypt_user_attrs_key(sealed_key, current_user, session_key) do
+          {:ok, raw_key} -> {:ok, raw_key}
+          _ -> :error
+        end
+      end
+    end
+  end
+
+  @doc """
+  Pre-decrypts a group message into a `.decrypted` map.
+
+  For non-public groups, `content` is set to `nil` (browser decrypts it via
+  the DecryptGroupMessage hook). For public groups, all fields are server-decrypted.
+
+  The sealed group key and encrypted content are included so the browser can
+  perform client-side decryption.
+  """
+  def pre_decrypt_group_message(message, group, user_group, current_user, session_key) do
+    sealed_key = user_group.key
+    browser_decrypt? = not group.public?
+
+    case unseal_group_key(sealed_key, group, current_user, session_key) do
+      {:ok, raw_key} ->
+        sender = message.sender || %{}
+
+        decrypted = %{
+          content:
+            if(browser_decrypt?,
+              do: nil,
+              else: decrypt_field(message.content, raw_key, "[Could not decrypt]")
+            ),
+          moniker: decrypt_field(Map.get(sender, :moniker), raw_key, "member"),
+          avatar_img: decrypt_field(Map.get(sender, :avatar_img), raw_key, nil),
+          raw_key: raw_key,
+          sealed_group_key: if(browser_decrypt?, do: sealed_key),
+          encrypted_content: if(browser_decrypt?, do: message.content),
+          browser_decrypt?: browser_decrypt?
+        }
+
+        Map.put(message, :decrypted, decrypted)
+
+      :error ->
+        decrypted = %{
+          content: "[Could not decrypt]",
+          moniker: "member",
+          avatar_img: nil,
+          raw_key: nil,
+          sealed_group_key: nil,
+          encrypted_content: nil,
+          browser_decrypt?: false
+        }
+
+        Map.put(message, :decrypted, decrypted)
+    end
+  end
+
+  def pre_decrypt_group_messages(messages, group, user_group, current_user, session_key) do
+    Enum.map(
+      messages,
+      &pre_decrypt_group_message(&1, group, user_group, current_user, session_key)
+    )
+  end
+
   def decr_uconn_item(payload, user, uconn, key) do
     if is_nil(uconn) || is_nil(uconn.key) do
       # if the owner of the Memory is trying to decrypt their own data
