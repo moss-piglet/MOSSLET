@@ -159,6 +159,7 @@ defmodule MossletWeb.UserRegistrationLive do
           <.form
             for={@form}
             id="registration_form"
+            phx-hook="RegistrationHook"
             phx-submit="save"
             phx-change="validate"
             phx-trigger-action={@trigger_submit}
@@ -594,7 +595,7 @@ defmodule MossletWeb.UserRegistrationLive do
   end
 
   def handle_event("save", %{"user" => %{"email" => email} = user_params}, socket) do
-    with user_changeset <- User.registration_changeset(%User{}, user_params),
+    with user_changeset <- build_registration_changeset(user_params),
          true <- user_changeset.valid?,
          %{} = c_attrs <- user_changeset.changes.connection_map,
          {:ok, user} <- Accounts.register_user(user_changeset, c_attrs),
@@ -617,7 +618,7 @@ defmodule MossletWeb.UserRegistrationLive do
 
       false ->
         changeset =
-          User.registration_changeset(%User{}, user_params)
+          build_registration_changeset(user_params)
 
         {:noreply, socket |> assign(check_errors: true) |> assign_form(changeset)}
 
@@ -655,6 +656,20 @@ defmodule MossletWeb.UserRegistrationLive do
        socket
        |> assign(:current_step, new_step)}
     end
+  end
+
+  # Build the appropriate registration changeset based on whether the browser
+  # sent ZK-encrypted key material (RegistrationHook) or not (server fallback).
+  defp build_registration_changeset(user_params) do
+    if zk_params_present?(user_params) do
+      User.registration_changeset_zk(%User{}, user_params)
+    else
+      User.registration_changeset(%User{}, user_params)
+    end
+  end
+
+  defp zk_params_present?(params) do
+    is_binary(params["zk_key_hash"]) and params["zk_key_hash"] != ""
   end
 
   defp check_if_step_is_invalid(current_step, changeset) do

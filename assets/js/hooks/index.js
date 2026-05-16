@@ -37,6 +37,7 @@ import MentionHighlight from "./mention-highlight";
 import MentionPicker from "./mention-picker";
 import MessageReactions from "./message-reactions";
 import ModalPortal from "./modal-portal";
+import RegistrationHook from "./registration-hook";
 import ReplyComposer from "./reply-composer";
 import ReplyEmojiPicker from "./reply-emoji-picker";
 import TippyHook from "./tippy-hook";
@@ -115,6 +116,7 @@ export default {
   ModalPortal,
   MossletFrameworkHooks,
   PostFormHook,
+  RegistrationHook,
   ReplyComposer,
   ReplyEmojiPicker,
   RestoreBodyScroll,

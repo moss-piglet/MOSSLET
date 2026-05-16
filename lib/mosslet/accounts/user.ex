@@ -176,6 +176,30 @@ defmodule Mosslet.Accounts.User do
   end
 
   @doc """
+  Zero-knowledge registration changeset.
+
+  Accepts pre-encrypted key material from the browser's RegistrationHook.
+  The server never sees raw user_key, user_attributes_key, conn_key, or
+  private keys. It only receives opaque encrypted blobs and public keys.
+
+  The server still sees the plaintext email (for confirmation email + HMAC
+  blind index) and plaintext username (for HMAC slug) transiently. After
+  the request completes, only encrypted forms and HMAC hashes persist.
+  """
+  def registration_changeset_zk(user, attrs) do
+    user
+    |> cast(attrs, [:email, :password, :username, :password_reminder])
+    |> validate_email([])
+    |> validate_username([])
+    |> validate_password_no_name(zk: true)
+    |> validate_confirmation(:password, message: "does not match password")
+    |> validate_acceptance(:password_reminder,
+      message: "please take a moment to understand and agree before continuing"
+    )
+    |> apply_zk_key_material(attrs)
+  end
+
+  @doc """
   A changeset for updating a user's tokens for using
   AI services, e.g. chatting with OpenAI.
   """
@@ -1080,15 +1104,26 @@ defmodule Mosslet.Accounts.User do
 
   defp maybe_hash_password_no_name(changeset, opts) do
     hash_password? = Keyword.get(opts, :hash_password, true)
+    zk? = Keyword.get(opts, :zk, false)
     password = get_change(changeset, :password)
 
     if hash_password? && password && changeset.valid? do
-      changeset
-      # Hashing could be done with `Ecto.Changeset.prepare_changes/2`, but that
-      # would keep the database transaction open longer and hurt performance.
-      |> put_change(:hashed_password, Argon2.hash_pwd_salt(password, salt_len: 128))
-      |> put_key_hash_and_key_pair_and_maybe_encrypt_user_data_no_name()
-      |> delete_change(:password)
+      changeset =
+        changeset
+        # Hashing could be done with `Ecto.Changeset.prepare_changes/2`, but that
+        # would keep the database transaction open longer and hurt performance.
+        |> put_change(:hashed_password, Argon2.hash_pwd_salt(password, salt_len: 128))
+
+      changeset =
+        if zk? do
+          # ZK path: key material comes from the browser via apply_zk_key_material.
+          # Skip server-side key generation — only hash the password for session auth.
+          changeset
+        else
+          put_key_hash_and_key_pair_and_maybe_encrypt_user_data_no_name(changeset)
+        end
+
+      delete_change(changeset, :password)
     else
       changeset
     end
@@ -1205,6 +1240,120 @@ defmodule Mosslet.Accounts.User do
       c_username_hash: username
     })
   end
+
+  # Applies browser-generated ZK key material to the changeset.
+  # Called by registration_changeset_zk/2 when the RegistrationHook has
+  # injected pre-encrypted blobs. Validates blob structure before accepting.
+  defp apply_zk_key_material(changeset, attrs) do
+    if not changeset.valid? do
+      changeset
+    else
+      with {:ok, zk} <- extract_zk_params(attrs),
+           :ok <- validate_zk_blobs(zk) do
+        email = get_field(changeset, :email)
+        username = get_field(changeset, :username)
+
+        changeset
+        |> put_change(:email, zk.encrypted_email)
+        |> put_change(:key_hash, zk.key_hash)
+        |> put_change(:key_pair, %{public: zk.public_key, private: zk.encrypted_private_key})
+        |> put_change(:pq_public_key, zk.pq_public_key)
+        |> put_change(:encrypted_pq_private_key, zk.encrypted_pq_private_key)
+        |> put_change(:username, zk.encrypted_username)
+        |> put_change(:user_key, zk.encrypted_user_key)
+        |> put_change(:conn_key, zk.encrypted_conn_key)
+        |> put_change(:connection_map, %{
+          c_email: zk.c_encrypted_email,
+          c_username: zk.c_encrypted_username,
+          c_email_hash: email,
+          c_username_hash: username
+        })
+      else
+        {:error, field, message} ->
+          add_error(changeset, field, message)
+      end
+    end
+  end
+
+  defp extract_zk_params(attrs) do
+    zk = %{
+      key_hash: attrs["zk_key_hash"],
+      public_key: attrs["zk_public_key"],
+      encrypted_private_key: attrs["zk_encrypted_private_key"],
+      pq_public_key: attrs["zk_pq_public_key"],
+      encrypted_pq_private_key: attrs["zk_encrypted_pq_private_key"],
+      encrypted_user_key: attrs["zk_encrypted_user_key"],
+      encrypted_conn_key: attrs["zk_encrypted_conn_key"],
+      encrypted_email: attrs["zk_encrypted_email"],
+      encrypted_username: attrs["zk_encrypted_username"],
+      c_encrypted_email: attrs["zk_c_encrypted_email"],
+      c_encrypted_username: attrs["zk_c_encrypted_username"]
+    }
+
+    # Verify all required ZK fields are present
+    missing =
+      zk
+      |> Enum.filter(fn {_k, v} -> is_nil(v) or v == "" end)
+      |> Enum.map(fn {k, _v} -> k end)
+
+    if missing == [] do
+      {:ok, zk}
+    else
+      {:error, :email, "encryption setup incomplete — please try again"}
+    end
+  end
+
+  # Structural validation of encrypted blobs.
+  # We can't verify correctness (we don't have the keys), but we can reject
+  # clearly malformed data that would corrupt the database.
+  defp validate_zk_blobs(zk) do
+    cond do
+      not valid_key_hash_format?(zk.key_hash) ->
+        {:error, :email, "invalid key material format"}
+
+      not valid_base64?(zk.public_key) ->
+        {:error, :email, "invalid public key format"}
+
+      not valid_base64?(zk.encrypted_private_key) ->
+        {:error, :email, "invalid encrypted key format"}
+
+      not valid_base64?(zk.pq_public_key) ->
+        {:error, :email, "invalid PQ public key format"}
+
+      not valid_base64?(zk.encrypted_pq_private_key) ->
+        {:error, :email, "invalid encrypted PQ key format"}
+
+      not valid_base64?(zk.encrypted_user_key) ->
+        {:error, :email, "invalid encrypted user key format"}
+
+      not valid_base64?(zk.encrypted_conn_key) ->
+        {:error, :email, "invalid encrypted conn key format"}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp valid_key_hash_format?(key_hash) when is_binary(key_hash) do
+    case String.split(key_hash, "$", parts: 2) do
+      [salt, encrypted] when byte_size(salt) > 0 and byte_size(encrypted) > 0 ->
+        valid_base64?(salt) and valid_base64?(encrypted)
+
+      _ ->
+        false
+    end
+  end
+
+  defp valid_key_hash_format?(_), do: false
+
+  defp valid_base64?(str) when is_binary(str) and byte_size(str) > 0 do
+    case Base.decode64(str) do
+      {:ok, _} -> true
+      :error -> false
+    end
+  end
+
+  defp valid_base64?(_), do: false
 
   @doc """
   A user changeset for changing the email.

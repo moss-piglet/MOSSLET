@@ -21,9 +21,12 @@ import wasmInit, {
   sealForUser as _sealForUser,
   unsealFromUser as _unsealFromUser,
   generateKey as _generateKey,
+  generateKeyPair as _generateKeyPair,
+  generateSalt as _generateSalt,
   generateHybridKeyPair as _generateHybridKeyPair,
   generateHybridKeyPair1024 as _generateHybridKeyPair1024,
   isHybridCiphertext as _isHybridCiphertext,
+  encryptPrivateKey as _encryptPrivateKey,
   decryptPrivateKey as _decryptPrivateKey,
   parseSaltFromKeyHash as _parseSaltFromKeyHash,
   sealForUserWithLevel as _sealForUserWithLevel,
@@ -206,6 +209,24 @@ export async function decryptDmMessage(ciphertextBase64, dmKeyBase64) {
 export async function encryptDmKeyForUser(dmKeyBase64, recipientPublicKeyBase64) {
   await ensureReady();
   return _boxSeal(dmKeyBase64, recipientPublicKeyBase64);
+}
+
+// --- Key pair generation ---
+
+export async function generateKeyPair() {
+  await ensureReady();
+  const kp = _generateKeyPair();
+  return { publicKey: kp.publicKey, privateKey: kp.privateKey };
+}
+
+export async function generateSalt() {
+  await ensureReady();
+  return _generateSalt();
+}
+
+export async function encryptPrivateKey(privateKeyBase64, sessionKeyBase64) {
+  await ensureReady();
+  return _encryptPrivateKey(privateKeyBase64, sessionKeyBase64);
 }
 
 // --- Utility ---

@@ -72,6 +72,14 @@
 - `lib/mosslet/workers/pq_reseal_worker.ex` — new Oban worker for progressive v1→v2 re-seal
 - `lib/mosslet/accounts.ex` — enqueues PqResealWorker on login
 
+### Phase 3 Files Changed (Registration ZK)
+
+- `assets/js/hooks/registration-hook.js` — new: browser-side key generation via WASM
+- `assets/js/hooks/index.js` — registers RegistrationHook
+- `assets/js/crypto/nacl.js` — exports generateKeyPair, generateSalt, encryptPrivateKey from WASM
+- `lib/mosslet_web/live/user_registration_live.ex` — attaches RegistrationHook, routes to ZK or fallback changeset
+- `lib/mosslet/accounts/user.ex` — `registration_changeset_zk/2`, `apply_zk_key_material/2`, ZK-aware `maybe_hash_password_no_name/2`
+
 ### Key Implementation Details
 
 **Decrypt fallback pattern** (`Encrypted.Utils.decrypt/1`):
@@ -117,6 +125,10 @@ Conversations are now fully zero-knowledge with PQ support:
 - **All resource context keys** (post, group, memory, connection, profile): PQ-sealed for new operations, v1 re-sealed in background via `PqResealWorker`
 - **Conversations**: Fully browser-side ZK with PQ — sealForUser/unsealFromUser in WASM
 - **WASM crypto module**: metamorphic-crypto compiled to WASM, served at `/wasm/`, same Rust code as server NIF
+- **Posts (read path)**: Non-public post bodies decrypted browser-side via DecryptPost hook
+- **Posts (write path)**: Non-public post body encryption browser-side via PostFormHook; multi-recipient key sealing remains server-side (pragmatic hybrid)
+- **Groups**: GroupMessage content encrypted/decrypted browser-side via GroupMessageFormHook + DecryptGroupMessage
+- **Registration**: Browser-side key generation via RegistrationHook — user_key, user_attributes_key, conn_key, X25519+PQ keypairs all generated in WASM; server receives only encrypted blobs and public keys. Graceful fallback to server-side key generation if WASM unavailable.
 
 ### What Remains — Browser-Side ZK Roadmap
 
@@ -264,12 +276,12 @@ These can follow the same phased approach: first move the read path (decrypt in 
 
 #### Priority Order
 
-1. **SessionKeyDeriver + LoginHook + key cache** — foundation for everything else
-2. **Post decrypt in browser** (read path) — lower risk, proves the architecture
-3. **Post encrypt in browser** (write path) — connections/private posts only
-4. **Groups/Memories** — same pattern, smaller surface area
+1. ~~**SessionKeyDeriver + LoginHook + key cache**~~ — DONE
+2. ~~**Post decrypt in browser**~~ (read path) — DONE
+3. ~~**Post encrypt in browser**~~ (write path) — DONE (connections/private posts)
+4. ~~**Groups**~~ — DONE (read + write); Memories skipped (phasing out)
 5. **Profile data** — user_key/conn_key operations in browser
-6. **RegistrationHook** — completes the ZK lifecycle
+6. ~~**RegistrationHook**~~ — DONE (browser-side key generation)
 7. **Recovery key + data export** — safety net features
 
 ### Reference
