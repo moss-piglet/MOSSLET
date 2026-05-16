@@ -30,6 +30,7 @@ defmodule MossletWeb.AuthRoutes do
           live "/sign_in", UserLoginLive, :new
 
           live "/reset-password", UserForgotPasswordLive, :new
+          live "/recover-account", UserAccountRecoveryLive, :new
         end
 
         put "/sign_in", UserSessionController, :create

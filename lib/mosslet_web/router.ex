@@ -169,6 +169,9 @@ defmodule MossletWeb.Router do
     post "/auth/password/verify-token", AuthController, :verify_password_reset_token
     post "/auth/password/reset", AuthController, :reset_password_with_token
 
+    post "/auth/recovery-data", AuthController, :recovery_data
+    post "/auth/recovery-reset", AuthController, :recovery_reset
+
     post "/auth/confirmation/resend", AuthController, :resend_confirmation
     post "/auth/confirmation/confirm", AuthController, :confirm_email
   end

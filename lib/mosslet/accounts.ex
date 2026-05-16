@@ -573,6 +573,112 @@ defmodule Mosslet.Accounts do
   end
 
   @doc """
+  Sets up a ZK recovery key for the user.
+
+  Stores the Argon2 hash of the recovery secret and the encrypted
+  private key blob. The raw recovery secret is never stored.
+  """
+  def setup_recovery_key(user, recovery_secret, encrypted_recovery_private_key) do
+    recovery_key_hash = Argon2.hash_pwd_salt(recovery_secret, salt_len: 32)
+
+    user
+    |> User.recovery_key_setup_changeset(%{
+      recovery_key_hash: recovery_key_hash,
+      encrypted_recovery_private_key: encrypted_recovery_private_key
+    })
+    |> Mosslet.Repo.update()
+  end
+
+  @doc """
+  Clears all recovery key fields for the user.
+  """
+  def clear_recovery_key(user) do
+    user
+    |> User.recovery_key_clear_changeset()
+    |> Mosslet.Repo.update()
+  end
+
+  @doc """
+  Verifies a recovery secret against the stored hash.
+  Returns the user's recovery data if valid, or error if not.
+  """
+  def verify_recovery_key(email, recovery_secret)
+      when is_binary(email) and is_binary(recovery_secret) do
+    email_hash = String.downcase(email)
+
+    case Mosslet.Repo.get_by(User, email_hash: email_hash) do
+      %User{recovery_key_hash: hash} = user when is_binary(hash) and hash != "" ->
+        if Argon2.verify_pass(recovery_secret, hash) do
+          {:ok,
+           %{
+             encrypted_recovery_private_key: user.encrypted_recovery_private_key,
+             public_key: user.key_pair["public"],
+             encrypted_user_key: user.user_key,
+             pq_secret_key: nil
+           }}
+        else
+          # Timing-safe: Argon2.verify_pass already normalizes timing
+          {:error, :invalid_recovery_key}
+        end
+
+      %User{} ->
+        # User exists but no recovery key set up
+        Argon2.no_user_verify()
+        {:error, :invalid_recovery_key}
+
+      nil ->
+        # No user found — timing-normalized
+        Argon2.no_user_verify()
+        {:error, :invalid_recovery_key}
+    end
+  end
+
+  @doc """
+  Resets a user's password using a verified recovery key.
+
+  The recovery key is consumed on use (fields cleared). The user must
+  set up a new recovery key afterward.
+  """
+  def reset_password_with_recovery(
+        email,
+        recovery_secret,
+        new_password,
+        new_key_hash,
+        new_encrypted_private_key
+      ) do
+    email_hash = String.downcase(email)
+
+    case Mosslet.Repo.get_by(User, email_hash: email_hash) do
+      %User{recovery_key_hash: hash} = user when is_binary(hash) and hash != "" ->
+        if Argon2.verify_pass(recovery_secret, hash) do
+          Ecto.Multi.new()
+          |> Ecto.Multi.update(
+            :user,
+            User.recovery_reset_password_changeset(user, %{password: new_password},
+              new_key_hash: new_key_hash,
+              new_encrypted_private_key: new_encrypted_private_key
+            )
+          )
+          |> Ecto.Multi.delete_all(
+            :tokens,
+            Mosslet.Accounts.UserToken.user_and_contexts_query(user, :all)
+          )
+          |> Mosslet.Repo.transaction()
+          |> case do
+            {:ok, %{user: user}} -> {:ok, user}
+            {:error, :user, changeset, _} -> {:error, changeset}
+          end
+        else
+          {:error, :invalid_recovery_key}
+        end
+
+      _ ->
+        Argon2.no_user_verify()
+        {:error, :invalid_recovery_key}
+    end
+  end
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for changing the user's notifications boolean.
 
   ## Examples

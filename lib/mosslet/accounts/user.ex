@@ -41,6 +41,10 @@ defmodule Mosslet.Accounts.User do
     field :encrypted_pq_private_key, Encrypted.Binary, redact: true
     field :user_key, Encrypted.Binary, redact: true
     field :conn_key, Encrypted.Binary, redact: true
+    # ZK recovery key fields (browser-generated, server stores opaque blobs)
+    field :recovery_key_hash, :string, redact: true
+    field :encrypted_recovery_private_key, Encrypted.Binary, redact: true
+    field :recovery_key_created_at, :utc_datetime
     field :ai_tokens, :decimal
     field :ai_tokens_used, :decimal
     field :visibility, Ecto.Enum, values: [:public, :private, :connections], default: :private
@@ -1544,6 +1548,96 @@ defmodule Mosslet.Accounts.User do
     |> case do
       %{changes: %{is_forgot_pwd?: _}} = changeset -> changeset
       %{} = changeset -> add_error(changeset, :is_forgot_pwd?, "did not change")
+    end
+  end
+
+  @doc """
+  ZK recovery key setup changeset.
+
+  Stores the Argon2 hash of the recovery secret and the encrypted
+  private key blob. The raw recovery secret is never stored — only
+  the hash (for verification during recovery) and the encrypted
+  private key (which requires the raw secret to decrypt).
+
+  Also sets `is_forgot_pwd?` to true for backward-compatible gating
+  and clears the legacy `key` field (server-stored session key) since
+  the ZK model doesn't need it.
+  """
+  def recovery_key_setup_changeset(user, %{
+        recovery_key_hash: recovery_key_hash,
+        encrypted_recovery_private_key: encrypted_recovery_private_key
+      }) do
+    user
+    |> change(%{
+      is_forgot_pwd?: true,
+      key: nil,
+      recovery_key_hash: recovery_key_hash,
+      encrypted_recovery_private_key: encrypted_recovery_private_key,
+      recovery_key_created_at: DateTime.truncate(DateTime.utc_now(), :second)
+    })
+  end
+
+  @doc """
+  Clears all recovery key fields. Used when:
+  - User disables recovery
+  - Recovery key is consumed during password reset (must regenerate)
+  """
+  def recovery_key_clear_changeset(user) do
+    user
+    |> change(%{
+      is_forgot_pwd?: false,
+      key: nil,
+      recovery_key_hash: nil,
+      encrypted_recovery_private_key: nil,
+      recovery_key_created_at: nil
+    })
+  end
+
+  @doc """
+  Password reset via ZK recovery key.
+
+  Accepts the new key material from the browser (new key_hash with the
+  new password-derived encryption, new encrypted private key) and clears
+  the recovery key fields (consumed on use — user must regenerate).
+  """
+  def recovery_reset_password_changeset(user, attrs, opts \\ []) do
+    user
+    |> cast(attrs, [:password])
+    |> validate_required([:password])
+    |> validate_length(:password, min: 12, max: 72)
+    |> maybe_hash_recovery_password(opts)
+  end
+
+  defp maybe_hash_recovery_password(changeset, opts) do
+    password = get_change(changeset, :password)
+
+    if password && changeset.valid? do
+      new_key_hash = Keyword.fetch!(opts, :new_key_hash)
+      new_encrypted_private_key = Keyword.fetch!(opts, :new_encrypted_private_key)
+
+      changeset
+      |> put_change(:hashed_password, Argon2.hash_pwd_salt(password, salt_len: 128))
+      |> put_change(:key_hash, new_key_hash)
+      |> put_change(:key_pair, %{
+        public: user_public_key(changeset),
+        private: new_encrypted_private_key
+      })
+      # Consume the recovery key — user must set up a new one
+      |> put_change(:is_forgot_pwd?, false)
+      |> put_change(:key, nil)
+      |> put_change(:recovery_key_hash, nil)
+      |> put_change(:encrypted_recovery_private_key, nil)
+      |> put_change(:recovery_key_created_at, nil)
+      |> delete_change(:password)
+    else
+      changeset
+    end
+  end
+
+  defp user_public_key(changeset) do
+    case get_field(changeset, :key_pair) do
+      %{} = kp -> Map.get(kp, "public") || Map.get(kp, :public)
+      _ -> nil
     end
   end
 

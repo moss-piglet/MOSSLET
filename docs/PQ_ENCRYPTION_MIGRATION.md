@@ -80,6 +80,21 @@
 - `lib/mosslet_web/live/user_registration_live.ex` — attaches RegistrationHook, routes to ZK or fallback changeset
 - `lib/mosslet/accounts/user.ex` — `registration_changeset_zk/2`, `apply_zk_key_material/2`, ZK-aware `maybe_hash_password_no_name/2`
 
+### Phase 3 Files Changed (Recovery Key ZK)
+
+- `priv/repo/migrations/20260516030402_add_recovery_key_fields_to_users.exs` — adds recovery_key_hash, encrypted_recovery_private_key, recovery_key_created_at
+- `lib/mosslet/accounts/user.ex` — `recovery_key_setup_changeset/2`, `recovery_key_clear_changeset/1`, `recovery_reset_password_changeset/3`
+- `lib/mosslet/accounts.ex` — `setup_recovery_key/3`, `clear_recovery_key/1`, `verify_recovery_key/2`, `reset_password_with_recovery/5`
+- `lib/mosslet_web/controllers/api/auth_controller.ex` — `recovery_data/2`, `recovery_reset/2` endpoints
+- `lib/mosslet_web/router.ex` — routes for `/api/auth/recovery-data` and `/api/auth/recovery-reset`
+- `lib/mosslet_web/routes/auth_routes.ex` — route for `/auth/recover-account`
+- `assets/js/hooks/recovery-key-setup-hook.js` — new: browser-side recovery key generation
+- `assets/js/hooks/account-recovery-hook.js` — new: browser-side account recovery via key
+- `assets/js/crypto/nacl.js` — exports generateRecoveryKey, encryptPrivateKeyForRecovery, decryptPrivateKeyWithRecovery, recoveryKeyToSecret
+- `lib/mosslet_web/live/user_settings/edit_forgot_password_live.ex` — rewritten for ZK recovery key setup
+- `lib/mosslet_web/live/user_account_recovery_live.ex` — new: account recovery page (unauthenticated)
+- `lib/mosslet_web/live/user_login_live.ex` — added link to recovery key page
+
 ### Key Implementation Details
 
 **Decrypt fallback pattern** (`Encrypted.Utils.decrypt/1`):
@@ -129,6 +144,7 @@ Conversations are now fully zero-knowledge with PQ support:
 - **Posts (write path)**: Non-public post body encryption browser-side via PostFormHook; multi-recipient key sealing remains server-side (pragmatic hybrid)
 - **Groups**: GroupMessage content encrypted/decrypted browser-side via GroupMessageFormHook + DecryptGroupMessage
 - **Registration**: Browser-side key generation via RegistrationHook — user_key, user_attributes_key, conn_key, X25519+PQ keypairs all generated in WASM; server receives only encrypted blobs and public keys. Graceful fallback to server-side key generation if WASM unavailable.
+- **Recovery key**: ZK recovery key setup (RecoveryKeySetupHook) + account recovery (AccountRecoveryHook). Browser generates recovery key, encrypts private key backup. Server stores only Argon2 hash + encrypted blob. Recovery key consumed on use. New fields: `recovery_key_hash`, `encrypted_recovery_private_key`, `recovery_key_created_at`. Coexists with legacy `is_forgot_pwd?` email-based reset.
 
 ### What Remains — Browser-Side ZK Roadmap
 
@@ -282,7 +298,8 @@ These can follow the same phased approach: first move the read path (decrypt in 
 4. ~~**Groups**~~ — DONE (read + write); Memories skipped (phasing out)
 5. **Profile data** — user_key/conn_key operations in browser
 6. ~~**RegistrationHook**~~ — DONE (browser-side key generation)
-7. **Recovery key + data export** — safety net features
+7. ~~**Recovery key**~~ — DONE (ZK setup + account recovery)
+8. **Data export** — client-side batch decryption + download
 
 ### Reference
 

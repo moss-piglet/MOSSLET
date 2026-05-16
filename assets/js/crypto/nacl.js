@@ -28,6 +28,10 @@ import wasmInit, {
   isHybridCiphertext as _isHybridCiphertext,
   encryptPrivateKey as _encryptPrivateKey,
   decryptPrivateKey as _decryptPrivateKey,
+  encryptPrivateKeyForRecovery as _encryptPrivateKeyForRecovery,
+  decryptPrivateKeyWithRecovery as _decryptPrivateKeyWithRecovery,
+  generateRecoveryKey as _generateRecoveryKey,
+  recoveryKeyToSecret as _recoveryKeyToSecret,
   parseSaltFromKeyHash as _parseSaltFromKeyHash,
   sealForUserWithLevel as _sealForUserWithLevel,
 } from "../../vendor/metamorphic-crypto/metamorphic_crypto.js";
@@ -227,6 +231,28 @@ export async function generateSalt() {
 export async function encryptPrivateKey(privateKeyBase64, sessionKeyBase64) {
   await ensureReady();
   return _encryptPrivateKey(privateKeyBase64, sessionKeyBase64);
+}
+
+// --- Recovery key ---
+
+export async function generateRecoveryKey() {
+  await ensureReady();
+  return _generateRecoveryKey();
+}
+
+export async function encryptPrivateKeyForRecovery(privateKeyBase64, recoverySecretBase64) {
+  await ensureReady();
+  return _encryptPrivateKeyForRecovery(privateKeyBase64, recoverySecretBase64);
+}
+
+export async function decryptPrivateKeyWithRecovery(ciphertextBase64, recoverySecretBase64) {
+  await ensureReady();
+  return _decryptPrivateKeyWithRecovery(ciphertextBase64, recoverySecretBase64);
+}
+
+export async function recoveryKeyToSecret(recoveryKey) {
+  await ensureReady();
+  return _recoveryKeyToSecret(recoveryKey);
 }
 
 // --- Utility ---

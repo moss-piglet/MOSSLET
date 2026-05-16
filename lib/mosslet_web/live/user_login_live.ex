@@ -167,16 +167,28 @@ defmodule MossletWeb.UserLoginLive do
         <%!-- Footer links with improved spacing and styling --%>
         <div class="pt-6 border-t border-slate-200/50 dark:border-slate-700/50">
           <div class="flex flex-col sm:flex-row items-center sm:justify-between gap-4 text-center sm:text-left">
-            <.link
-              navigate={~p"/auth/reset-password"}
-              class={[
-                "inline-flex items-center gap-2 text-sm font-medium",
-                "text-slate-600 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400",
-                "transition-colors duration-200"
-              ]}
-            >
-              <.icon name="hero-key" class="w-4 h-4" /> Forgot your password?
-            </.link>
+            <div class="flex flex-col gap-2">
+              <.link
+                navigate={~p"/auth/reset-password"}
+                class={[
+                  "inline-flex items-center gap-2 text-sm font-medium",
+                  "text-slate-600 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400",
+                  "transition-colors duration-200"
+                ]}
+              >
+                <.icon name="hero-envelope" class="w-4 h-4" /> Reset via email
+              </.link>
+              <.link
+                navigate={~p"/auth/recover-account"}
+                class={[
+                  "inline-flex items-center gap-2 text-sm font-medium",
+                  "text-slate-600 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400",
+                  "transition-colors duration-200"
+                ]}
+              >
+                <.icon name="hero-key" class="w-4 h-4" /> Use recovery key
+              </.link>
+            </div>
 
             <.link
               navigate={~p"/auth/register"}

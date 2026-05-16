@@ -626,6 +626,93 @@ defmodule MossletWeb.API.AuthController do
     fake_salt <> "$" <> fake_ct
   end
 
+  # --- ZK Recovery Key Endpoints ---
+
+  @min_recovery_response_ms 200
+
+  @doc """
+  Returns encrypted recovery data for a user whose recovery key has been verified.
+
+  POST /api/auth/recovery-data
+  Body: { email, recovery_secret }
+  Returns: { encrypted_recovery_private_key, public_key, encrypted_user_key }
+
+  Timing-normalized to prevent user enumeration. Rate-limited.
+  """
+  def recovery_data(conn, %{"email" => email, "recovery_secret" => recovery_secret})
+      when is_binary(email) and is_binary(recovery_secret) do
+    start = System.monotonic_time(:millisecond)
+
+    result = Accounts.verify_recovery_key(email, recovery_secret)
+
+    enforce_min_duration(start, @min_recovery_response_ms)
+
+    case result do
+      {:ok, data} ->
+        json(conn, %{
+          encrypted_recovery_private_key: data.encrypted_recovery_private_key,
+          public_key: data.public_key,
+          encrypted_user_key: data.encrypted_user_key
+        })
+
+      {:error, _reason} ->
+        conn |> put_status(:unauthorized) |> json(%{error: "Invalid recovery key or email."})
+    end
+  end
+
+  def recovery_data(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "email and recovery_secret are required"})
+  end
+
+  @doc """
+  Resets a user's password using a verified recovery key.
+
+  POST /api/auth/recovery-reset
+  Body: { email, recovery_secret, new_password, new_key_hash, new_encrypted_private_key }
+
+  The recovery key is consumed on use — all recovery fields are cleared.
+  The user must set up a new recovery key afterward.
+  """
+  def recovery_reset(conn, %{
+        "email" => email,
+        "recovery_secret" => recovery_secret,
+        "new_password" => new_password,
+        "new_key_hash" => new_key_hash,
+        "new_encrypted_private_key" => new_encrypted_private_key
+      })
+      when is_binary(email) and is_binary(recovery_secret) and is_binary(new_password) do
+    start = System.monotonic_time(:millisecond)
+
+    result =
+      Accounts.reset_password_with_recovery(
+        email,
+        recovery_secret,
+        new_password,
+        new_key_hash,
+        new_encrypted_private_key
+      )
+
+    enforce_min_duration(start, @min_recovery_response_ms)
+
+    case result do
+      {:ok, _user} ->
+        json(conn, %{ok: true})
+
+      {:error, :invalid_recovery_key} ->
+        conn |> put_status(:unauthorized) |> json(%{error: "Invalid recovery key or email."})
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        errors =
+          Ecto.Changeset.traverse_errors(changeset, fn {msg, _opts} -> msg end)
+
+        conn |> put_status(:unprocessable_entity) |> json(%{errors: errors})
+    end
+  end
+
+  def recovery_reset(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "all recovery reset fields are required"})
+  end
+
   defp enforce_min_duration(start, min_ms) do
     elapsed = System.monotonic_time(:millisecond) - start
     remaining = min_ms - elapsed

@@ -1,4 +1,5 @@
 import MossletFrameworkHooks from "../../_mosslet_framework/js/hooks";
+import AccountRecoveryHook from "./account-recovery-hook";
 import AutoResize from "./auto-resize";
 import BookPageFitHook from "./book-page-fit-hook";
 import BookReaderSwipe from "./book-reader-swipe";
@@ -38,6 +39,7 @@ import MentionPicker from "./mention-picker";
 import MessageReactions from "./message-reactions";
 import ModalPortal from "./modal-portal";
 import RegistrationHook from "./registration-hook";
+import RecoveryKeySetupHook from "./recovery-key-setup-hook";
 import ReplyComposer from "./reply-composer";
 import ReplyEmojiPicker from "./reply-emoji-picker";
 import TippyHook from "./tippy-hook";
@@ -74,6 +76,7 @@ import ConversationTouchReveal from "./conversation-touch-reveal";
 import StartConversation from "./start-conversation";
 
 export default {
+  AccountRecoveryHook,
   AutoResize,
   BookPageFitHook,
   BookReaderSwipe,
@@ -116,6 +119,7 @@ export default {
   ModalPortal,
   MossletFrameworkHooks,
   PostFormHook,
+  RecoveryKeySetupHook,
   RegistrationHook,
   ReplyComposer,
   ReplyEmojiPicker,
