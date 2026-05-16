@@ -118,7 +118,6 @@ defmodule MossletWeb.SubscribeLive do
             current_subscription={@current_subscription}
             has_active_billing={@has_active_billing}
             source={@source}
-            key={@key}
             referral_discount={@referral_discount}
           />
         </div>
@@ -250,7 +249,7 @@ defmodule MossletWeb.SubscribeLive do
   attr :current_subscription, :any, default: nil
   attr :has_active_billing, :boolean, default: false
   attr :source, :atom, required: true
-  attr :key, :string, required: true
+
   attr :referral_discount, :integer, default: nil
 
   defp pricing_cards(assigns) do
@@ -266,7 +265,6 @@ defmodule MossletWeb.SubscribeLive do
           current_subscription={@current_subscription}
           has_active_billing={@has_active_billing}
           source={@source}
-          key={@key}
           referral_discount={@referral_discount}
         />
       <% end %>
@@ -293,7 +291,6 @@ defmodule MossletWeb.SubscribeLive do
             product={product}
             current_payment_intent={@current_payment_intent}
             current_subscription={@current_subscription}
-            key={@key}
             referral_discount={@referral_discount}
           />
         <% end %>
@@ -305,7 +302,7 @@ defmodule MossletWeb.SubscribeLive do
   attr :product, :map, required: true
   attr :current_payment_intent, :any, default: nil
   attr :current_subscription, :any, default: nil
-  attr :key, :string, required: true
+
   attr :referral_discount, :integer, default: nil
 
   defp one_time_card(assigns) do
@@ -428,7 +425,6 @@ defmodule MossletWeb.SubscribeLive do
                       class="w-full mb-4"
                       phx-click="checkout"
                       phx-value-plan={@item.id}
-                      phx-value-key={@key}
                     >
                       {gettext("Upgrade to Lifetime")}
                     </DesignSystem.liquid_button>
@@ -441,7 +437,6 @@ defmodule MossletWeb.SubscribeLive do
                       class="w-full mb-4"
                       phx-click="checkout"
                       phx-value-plan={@item.id}
-                      phx-value-key={@key}
                     >
                       {gettext("Get Lifetime Access")}
                     </DesignSystem.liquid_button>
@@ -487,7 +482,7 @@ defmodule MossletWeb.SubscribeLive do
   attr :current_subscription, :any, default: nil
   attr :has_active_billing, :boolean, default: false
   attr :source, :atom, required: true
-  attr :key, :string, required: true
+
   attr :referral_discount, :integer, default: nil
 
   defp pricing_card(assigns) do
@@ -577,7 +572,6 @@ defmodule MossletWeb.SubscribeLive do
               is_most_popular={@is_most_popular}
               cancellation_pending={@cancellation_pending}
               current_subscription={@current_subscription}
-              key={@key}
             />
           </div>
 
@@ -703,7 +697,6 @@ defmodule MossletWeb.SubscribeLive do
   attr :is_most_popular, :boolean, required: true
   attr :cancellation_pending, :boolean, required: true
   attr :current_subscription, :any, default: nil
-  attr :key, :string, required: true
 
   defp action_button(assigns) do
     ~H"""
@@ -738,7 +731,6 @@ defmodule MossletWeb.SubscribeLive do
           icon="hero-arrow-up-circle"
           phx-click="switch_subscription"
           phx-value-plan={@item.id}
-          phx-value-key={@key}
         >
           {gettext("Switch Plan")}
         </DesignSystem.liquid_button>
@@ -759,7 +751,6 @@ defmodule MossletWeb.SubscribeLive do
           icon={button_icon(@item)}
           phx-click="checkout"
           phx-value-plan={@item.id}
-          phx-value-key={@key}
         >
           {button_label(@item)}
         </DesignSystem.liquid_button>
@@ -832,7 +823,7 @@ defmodule MossletWeb.SubscribeLive do
   end
 
   @impl true
-  def handle_event("checkout", %{"plan" => plan_id, "key" => _key}, socket) do
+  def handle_event("checkout", %{"plan" => plan_id}, socket) do
     source = socket.assigns.source
     checkout_url = checkout_url(socket, source, plan_id)
 
@@ -849,20 +840,18 @@ defmodule MossletWeb.SubscribeLive do
 
   def handle_event(
         "switch_plan",
-        %{"plan" => plan_id, "key" => key},
+        %{"plan" => plan_id},
         %{
           assigns: %{
             current_customer: customer,
-            current_payment_intent: payment_intent,
-            current_user: user,
-            key: key
+            current_payment_intent: payment_intent
           }
         } =
           socket
       ) do
     plan = Plans.get_plan_by_id!(plan_id)
 
-    case billing_provider().change_plan(customer, payment_intent, plan, user, key) do
+    case billing_provider().change_plan(customer, payment_intent, plan) do
       {:ok, session} ->
         url = billing_provider().checkout_url(session)
         {:noreply, redirect(socket, external: url)}
@@ -881,20 +870,18 @@ defmodule MossletWeb.SubscribeLive do
 
   def handle_event(
         "switch_subscription",
-        %{"plan" => plan_id, "key" => key},
+        %{"plan" => plan_id},
         %{
           assigns: %{
             current_customer: customer,
-            current_subscription: subscription,
-            current_user: user,
-            key: key
+            current_subscription: subscription
           }
         } =
           socket
       ) do
     plan = Plans.get_plan_by_id!(plan_id)
 
-    case billing_provider().change_plan(customer, subscription, plan, user, key) do
+    case billing_provider().change_plan(customer, subscription, plan) do
       {:ok, session} ->
         url = billing_provider().checkout_url(session)
         {:noreply, redirect(socket, external: url)}

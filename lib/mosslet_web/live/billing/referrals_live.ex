@@ -15,7 +15,6 @@ defmodule MossletWeb.ReferralsLive do
   @impl true
   def mount(_params, _session, socket) do
     user = socket.assigns.current_scope.user
-    session_key = socket.assigns.current_scope.key
 
     if Referrals.user_eligible_for_referrals?(user) do
       if connected?(socket) do
@@ -23,7 +22,7 @@ defmodule MossletWeb.ReferralsLive do
         schedule_refresh()
       end
 
-      {:ok, load_referral_data(socket, user, session_key)}
+      {:ok, load_referral_data(socket, user)}
     else
       in_free_trial = user_in_free_trial?(user)
 
@@ -37,18 +36,14 @@ defmodule MossletWeb.ReferralsLive do
     end
   end
 
-  defp load_referral_data(socket, user, session_key) do
-    {:ok, referral_code} = Referrals.get_or_create_code(user, session_key)
+  defp load_referral_data(socket, user) do
+    {:ok, referral_code} = Referrals.get_or_create_code(user)
     stats = Referrals.get_stats(user.id)
     payouts = Referrals.list_payouts(referral_code.id)
     referrals = Referrals.list_referrals_with_commissions(referral_code.id)
 
-    decrypted_code =
-      MossletWeb.Helpers.maybe_decrypt_user_data(
-        referral_code.code,
-        user,
-        session_key
-      )
+    # referral code is now Cloak-only — read directly
+    decrypted_code = referral_code.code
 
     socket
     |> assign(:page_title, gettext("Referrals"))
@@ -1114,9 +1109,10 @@ defmodule MossletWeb.ReferralsLive do
     session_key = socket.assigns.current_scope.key
     referral_code = socket.assigns.referral_code
 
+    # create_connect_account still needs session_key to decrypt user.email for Stripe
     case StripeConnect.create_connect_account(referral_code, user, session_key) do
       {:ok, _account} ->
-        case StripeConnect.create_account_link(referral_code, user, session_key) do
+        case StripeConnect.create_account_link(referral_code) do
           {:ok, url} ->
             {:noreply, redirect(socket, external: url)}
 
@@ -1132,11 +1128,9 @@ defmodule MossletWeb.ReferralsLive do
   end
 
   def handle_event("continue_connect_onboarding", _params, socket) do
-    user = socket.assigns.current_scope.user
-    session_key = socket.assigns.current_scope.key
     referral_code = socket.assigns.referral_code
 
-    case StripeConnect.create_account_link(referral_code, user, session_key) do
+    case StripeConnect.create_account_link(referral_code) do
       {:ok, url} ->
         {:noreply, redirect(socket, external: url)}
 
@@ -1147,11 +1141,9 @@ defmodule MossletWeb.ReferralsLive do
   end
 
   def handle_event("open_stripe_dashboard", _params, socket) do
-    user = socket.assigns.current_scope.user
-    session_key = socket.assigns.current_scope.key
     referral_code = socket.assigns.referral_code
 
-    case StripeConnect.create_login_link(referral_code, user, session_key) do
+    case StripeConnect.create_login_link(referral_code) do
       {:ok, url} ->
         {:noreply, push_event(socket, "open_external_url", %{url: url})}
 

@@ -11,11 +11,12 @@ defmodule Mosslet.Billing.Providers.Behaviour do
   @type source :: :user | :org
   @type source_id :: String.t()
   @type session :: term()
-  @type session_key :: binary()
+
+  @type session_key :: binary() | nil
 
   @callback checkout(user, plan, source, source_id, session_key) ::
               {:ok, customer, session} | {:error, term()}
-  @callback change_plan(customer, subscription, plan, user, session_key) ::
+  @callback change_plan(customer, subscription, plan) ::
               {:ok, session} | {:error, term()}
   @callback checkout_url(session) :: String.t()
   @callback retrieve_charge(id) :: {:ok, term()} | {:error, term()}
@@ -33,8 +34,8 @@ defmodule Mosslet.Billing.Providers.Behaviour do
   @callback cancel_subscription(id) :: {:ok, term()} | {:error, term()}
   @callback cancel_subscription_immediately(id) :: {:ok, term()} | {:error, term()}
   @callback resume_subscription(id) :: {:ok, term()} | {:error, term()}
-  @callback sync_subscription(customer, user, session_key) :: :ok
-  @callback sync_payment_intent(customer, user, session_key) :: :ok
+  @callback sync_subscription(customer) :: :ok
+  @callback sync_payment_intent(customer) :: :ok
 
   defmacro __using__(_) do
     quote do

@@ -40,9 +40,8 @@ defmodule MossletWeb.API.BillingController do
   """
   def validate_apple(conn, %{"transaction_id" => transaction_id}) do
     user = conn.assigns.current_user
-    session_key = conn.assigns[:session_key]
 
-    case AppleIAP.validate_and_process_purchase(user, transaction_id, session_key) do
+    case AppleIAP.validate_and_process_purchase(user, transaction_id) do
       {:ok, subscription_or_payment} ->
         conn
         |> put_status(:ok)
@@ -95,14 +94,12 @@ defmodule MossletWeb.API.BillingController do
         %{"product_id" => product_id, "purchase_token" => purchase_token} = params
       ) do
     user = conn.assigns.current_user
-    session_key = conn.assigns[:session_key]
     is_subscription = Map.get(params, "is_subscription", true)
 
     case GooglePlay.validate_and_process_purchase(
            user,
            product_id,
            purchase_token,
-           session_key,
            is_subscription: is_subscription
          ) do
       {:ok, subscription_or_payment} ->
@@ -219,11 +216,10 @@ defmodule MossletWeb.API.BillingController do
   def restore_purchases(conn, %{"platform" => "apple", "transactions" => transactions})
       when is_list(transactions) do
     user = conn.assigns.current_user
-    session_key = conn.assigns[:session_key]
 
     results =
       Enum.map(transactions, fn transaction_id ->
-        AppleIAP.validate_and_process_purchase(user, transaction_id, session_key)
+        AppleIAP.validate_and_process_purchase(user, transaction_id)
       end)
 
     successful = Enum.filter(results, &match?({:ok, _}, &1))
@@ -246,7 +242,6 @@ defmodule MossletWeb.API.BillingController do
   def restore_purchases(conn, %{"platform" => "google", "purchases" => purchases})
       when is_list(purchases) do
     user = conn.assigns.current_user
-    session_key = conn.assigns[:session_key]
 
     results =
       Enum.map(purchases, fn %{"product_id" => product_id, "purchase_token" => token} = purchase ->
@@ -256,7 +251,6 @@ defmodule MossletWeb.API.BillingController do
           user,
           product_id,
           token,
-          session_key,
           is_subscription: is_subscription
         )
       end)

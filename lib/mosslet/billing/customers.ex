@@ -26,76 +26,44 @@ defmodule Mosslet.Billing.Customers do
     |> Repo.one()
   end
 
-  def create_customer_for_source(
-        source,
-        source_id,
-        attrs \\ %{},
-        current_user \\ nil,
-        session_key \\ nil
-      ) do
+  def create_customer_for_source(source, source_id, attrs \\ %{}) do
     attrs =
       case source do
         :user -> Map.put(attrs, :user_id, source_id)
         :org -> Map.put(attrs, :org_id, source_id)
       end
 
-    create_customer_by_source(source, attrs, current_user, session_key)
+    create_customer_by_source(source, attrs)
   end
 
-  def create_customer_by_source(source, attrs \\ %{}, current_user \\ nil, session_key \\ nil) do
+  def create_customer_by_source(source, attrs \\ %{}) do
     {:ok, customer} =
-      if current_user && session_key do
-        Repo.transaction_on_primary(fn ->
-          %Customer{}
-          |> Customer.changeset_by_source(source, attrs, current_user, session_key)
-          |> Repo.insert!()
-          |> Repo.preload([:user, :org])
-        end)
-      else
-        Repo.transaction_on_primary(fn ->
-          %Customer{}
-          |> Customer.changeset_by_source(source, attrs)
-          |> Repo.insert!()
-          |> Repo.preload([:user, :org])
-        end)
-      end
+      Repo.transaction_on_primary(fn ->
+        %Customer{}
+        |> Customer.changeset_by_source(source, attrs)
+        |> Repo.insert!()
+        |> Repo.preload([:user, :org])
+      end)
 
     {:ok, customer}
   end
 
-  def update_customer_for_source(
-        source,
-        source_id,
-        attrs \\ %{},
-        current_user \\ nil,
-        session_key \\ nil
-      ) do
+  def update_customer_for_source(source, source_id, attrs \\ %{}) do
     attrs =
       case source do
         :user -> Map.put(attrs, :user_id, source_id)
         :org -> Map.put(attrs, :org_id, source_id)
       end
 
-    update_customer_by_source(source, attrs, current_user, session_key)
-  end
+    customer = get_customer_by_source(source, source_id)
 
-  def update_customer_by_source(source, attrs \\ %{}, current_user \\ nil, session_key \\ nil) do
     {:ok, customer} =
-      if current_user && session_key do
-        Repo.transaction_on_primary(fn ->
-          current_user.customer
-          |> Customer.changeset_by_source(source, attrs, current_user, session_key)
-          |> Repo.update!()
-          |> Repo.preload([:user, :org])
-        end)
-      else
-        Repo.transaction_on_primary(fn ->
-          current_user.customer
-          |> Customer.changeset_by_source(source, attrs)
-          |> Repo.update!()
-          |> Repo.preload([:user, :org])
-        end)
-      end
+      Repo.transaction_on_primary(fn ->
+        customer
+        |> Customer.changeset_by_source(source, attrs)
+        |> Repo.update!()
+        |> Repo.preload([:user, :org])
+      end)
 
     {:ok, customer}
   end

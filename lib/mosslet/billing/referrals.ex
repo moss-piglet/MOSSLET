@@ -146,22 +146,22 @@ defmodule Mosslet.Billing.Referrals do
     PaymentIntents.get_active_payment_intent_by_customer_id(customer_id) != nil
   end
 
-  def get_or_create_code(%User{} = user, session_key) do
+  def get_or_create_code(%User{} = user) do
     case get_referral_code_by_user(user.id) do
       %ReferralCode{} = code ->
         {:ok, code}
 
       nil ->
-        create_referral_code(user, session_key)
+        create_referral_code(user)
     end
   end
 
-  def create_referral_code(%User{} = user, session_key) do
+  def create_referral_code(%User{} = user) do
     code = generate_unique_code()
 
     Repo.transaction_on_primary(fn ->
       %ReferralCode{}
-      |> ReferralCode.changeset(%{code: code, user_id: user.id}, user, session_key)
+      |> ReferralCode.changeset(%{code: code, user_id: user.id})
       |> Repo.insert()
     end)
     |> handle_transaction_result()
@@ -331,37 +331,37 @@ defmodule Mosslet.Billing.Referrals do
 
   def get_payout(id), do: Repo.get(Payout, id)
 
-  def create_payout(attrs, current_user \\ nil, session_key \\ nil) do
+  def create_payout(attrs) do
     Repo.transaction_on_primary(fn ->
       %Payout{}
-      |> Payout.changeset(attrs, current_user, session_key)
+      |> Payout.changeset(attrs)
       |> Repo.insert()
     end)
     |> handle_transaction_result()
   end
 
-  def complete_payout(%Payout{} = payout, transfer_id, current_user, session_key) do
+  def complete_payout(%Payout{} = payout, transfer_id) do
     Repo.transaction_on_primary(fn ->
       payout
-      |> Payout.complete_changeset(transfer_id, current_user, session_key)
+      |> Payout.complete_changeset(transfer_id)
       |> Repo.update()
     end)
     |> handle_transaction_result()
   end
 
-  def fail_payout(%Payout{} = payout, reason, current_user, session_key) do
+  def fail_payout(%Payout{} = payout, reason) do
     Repo.transaction_on_primary(fn ->
       payout
-      |> Payout.fail_changeset(reason, current_user, session_key)
+      |> Payout.fail_changeset(reason)
       |> Repo.update()
     end)
     |> handle_transaction_result()
   end
 
-  def mark_payout_needs_review(%Payout{} = payout, reason, current_user, session_key) do
+  def mark_payout_needs_review(%Payout{} = payout, reason) do
     Repo.transaction_on_primary(fn ->
       payout
-      |> Payout.needs_review_changeset(reason, current_user, session_key)
+      |> Payout.needs_review_changeset(reason)
       |> Repo.update()
     end)
     |> handle_transaction_result()
@@ -473,10 +473,10 @@ defmodule Mosslet.Billing.Referrals do
     |> Kernel.||(0)
   end
 
-  def update_connect_account(%ReferralCode{} = code, attrs, current_user, session_key) do
+  def update_connect_account(%ReferralCode{} = code, attrs) do
     Repo.transaction_on_primary(fn ->
       code
-      |> ReferralCode.connect_changeset(attrs, current_user, session_key)
+      |> ReferralCode.connect_changeset(attrs)
       |> Repo.update()
     end)
     |> handle_transaction_result()
@@ -547,7 +547,7 @@ defmodule Mosslet.Billing.Referrals do
   Gets detailed account deletion info for a user who is a referrer.
   Returns info about their referral code, Connect account, and unpaid earnings.
   """
-  def get_referrer_deletion_info(user_id, current_user, session_key) do
+  def get_referrer_deletion_info(user_id) do
     case get_referral_code_by_user(user_id) do
       nil ->
         %{
@@ -560,12 +560,7 @@ defmodule Mosslet.Billing.Referrals do
         }
 
       %ReferralCode{} = code ->
-        connect_account_id =
-          MossletWeb.Helpers.maybe_decrypt_user_data(
-            code.stripe_connect_account_id,
-            current_user,
-            session_key
-          )
+        connect_account_id = code.stripe_connect_account_id
 
         available = sum_available_commissions(code.id)
         pending = sum_commissions_in_waiting_period(code.id)
@@ -616,19 +611,19 @@ defmodule Mosslet.Billing.Referrals do
   - Deactivates referral code
   - Does NOT delete Stripe Connect account (user retains access via Stripe directly)
   """
-  def handle_referrer_account_deletion(referrer_info, current_user, session_key) do
+  def handle_referrer_account_deletion(referrer_info) do
     require Logger
 
     results = %{payout_result: nil, code_deactivated: false}
 
     results =
       if referrer_info.available_for_payout > 0 and referrer_info.connect_payouts_enabled do
-        case attempt_final_payout(referrer_info, current_user, session_key) do
+        case attempt_final_payout(referrer_info) do
           {:ok, payout} ->
             %{results | payout_result: {:ok, payout}}
 
           {:error, reason} ->
-            Logger.warning("Final payout failed for user #{current_user.id}: #{inspect(reason)}")
+            Logger.warning("Final payout failed: #{inspect(reason)}")
             %{results | payout_result: {:error, reason}}
         end
       else
@@ -641,7 +636,7 @@ defmodule Mosslet.Billing.Referrals do
     end
   end
 
-  defp attempt_final_payout(referrer_info, current_user, session_key) do
+  defp attempt_final_payout(referrer_info) do
     alias Mosslet.Billing.Providers.Stripe.Services.StripeConnect
 
     code = referrer_info.referral_code
@@ -650,9 +645,7 @@ defmodule Mosslet.Billing.Referrals do
     case StripeConnect.create_transfer(
            code,
            amount,
-           "Final payout - account deletion",
-           current_user,
-           session_key
+           "Final payout - account deletion"
          ) do
       {:ok, transfer} ->
         commission_ids =
@@ -662,18 +655,14 @@ defmodule Mosslet.Billing.Referrals do
         mark_commissions_paid_out(commission_ids)
 
         {:ok, payout} =
-          create_payout(
-            %{
-              referral_code_id: code.id,
-              amount: amount,
-              status: "completed",
-              stripe_transfer_id: transfer.id,
-              period_start: Date.utc_today() |> Date.beginning_of_month(),
-              period_end: Date.utc_today()
-            },
-            current_user,
-            session_key
-          )
+          create_payout(%{
+            referral_code_id: code.id,
+            amount: amount,
+            status: "completed",
+            stripe_transfer_id: transfer.id,
+            period_start: Date.utc_today() |> Date.beginning_of_month(),
+            period_end: Date.utc_today()
+          })
 
         {:ok, payout}
 

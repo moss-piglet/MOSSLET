@@ -39,7 +39,7 @@ defmodule Mosslet.Billing.Providers.GooglePlay do
   end
 
   @impl true
-  def change_plan(_customer, _subscription, _plan, _user, _session_key) do
+  def change_plan(_customer, _subscription, _plan) do
     {:error, :not_supported_use_native_ui}
   end
 
@@ -65,7 +65,7 @@ defmodule Mosslet.Billing.Providers.GooglePlay do
     * `{:ok, subscription}` - Purchase validated and subscription created/updated
     * `{:error, reason}` - Validation failed
   """
-  def validate_and_process_purchase(user, product_id, purchase_token, session_key, opts \\ []) do
+  def validate_and_process_purchase(user, product_id, purchase_token, opts \\ []) do
     is_subscription = Keyword.get(opts, :is_subscription, true)
 
     validation_result =
@@ -77,7 +77,7 @@ defmodule Mosslet.Billing.Providers.GooglePlay do
 
     with {:ok, purchase_info} <- validation_result,
          {:ok, receipt_data} <- parse_purchase_info(purchase_info, product_id, purchase_token) do
-      result = MobileIAP.process_validated_receipt(user, receipt_data, :google, session_key)
+      result = MobileIAP.process_validated_receipt(user, receipt_data, :google)
 
       if is_subscription && purchase_info["acknowledgementState"] == 0 do
         acknowledge_subscription(product_id, purchase_token)
@@ -421,8 +421,8 @@ defmodule Mosslet.Billing.Providers.GooglePlay do
   end
 
   @impl true
-  def sync_subscription(_customer, _user, _session_key), do: :ok
+  def sync_subscription(_customer), do: :ok
 
   @impl true
-  def sync_payment_intent(_customer, _user, _session_key), do: :ok
+  def sync_payment_intent(_customer), do: :ok
 end

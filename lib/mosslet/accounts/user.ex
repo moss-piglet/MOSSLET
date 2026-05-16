@@ -1636,7 +1636,7 @@ defmodule Mosslet.Accounts.User do
 
   defp user_public_key(changeset) do
     case get_field(changeset, :key_pair) do
-      %{} = kp -> Map.get(kp, "public") || Map.get(kp, :public)
+      %{} = kp -> kp["public"]
       _ -> nil
     end
   end

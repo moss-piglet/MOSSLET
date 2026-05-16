@@ -10,7 +10,6 @@ defmodule Mosslet.Billing.Workers.ReferralPayoutWorker do
 
   require Logger
 
-  alias Mosslet.Accounts
   alias Mosslet.Billing.Referrals
   alias Mosslet.Billing.Referrals.{Payout, ReferralCode}
   alias Mosslet.Billing.Providers.Stripe.Services.StripeConnect
@@ -23,9 +22,8 @@ defmodule Mosslet.Billing.Workers.ReferralPayoutWorker do
       }) do
     with {:ok, code} <- get_referral_code(code_id),
          {:ok, payout} <- get_payout(payout_id),
-         {:ok, user, session_key} <- get_user_and_key(code),
-         {:ok, transfer} <- create_transfer(code, payout, user, session_key),
-         {:ok, _payout} <- complete_payout(payout, transfer, user, session_key),
+         {:ok, transfer} <- create_transfer(code, payout),
+         {:ok, _payout} <- complete_payout(payout, transfer),
          {:ok, _} <- mark_commissions_paid(code_id) do
       send_success_notification(code, payout)
       :ok
@@ -65,18 +63,13 @@ defmodule Mosslet.Billing.Workers.ReferralPayoutWorker do
     end
   end
 
-  defp get_user_and_key(%ReferralCode{user_id: user_id}) do
-    user = Accounts.get_user!(user_id)
-    {:ok, user, nil}
-  end
-
-  defp create_transfer(code, payout, user, session_key) do
+  defp create_transfer(code, payout) do
     description = "MOSSLET Referral Payout - #{format_period(payout)}"
-    StripeConnect.create_transfer(code, payout.amount, description, user, session_key)
+    StripeConnect.create_transfer(code, payout.amount, description)
   end
 
-  defp complete_payout(payout, transfer, user, session_key) do
-    Referrals.complete_payout(payout, transfer.id, user, session_key)
+  defp complete_payout(payout, transfer) do
+    Referrals.complete_payout(payout, transfer.id)
   end
 
   defp mark_commissions_paid(code_id) do
@@ -111,9 +104,9 @@ defmodule Mosslet.Billing.Workers.ReferralPayoutWorker do
 
   defp notify_admin_payout_failure(code_id, payout_id, error) do
     message = """
-    🚨 Referral payout failed after 5 attempts
-    Code ID: #{code_id}
-    Payout ID: #{payout_id}
+    🚨 Referral payout failed after max attempts!
+    Code: #{code_id}
+    Payout: #{payout_id}
     Error: #{inspect(error)}
     """
 
@@ -128,7 +121,7 @@ defmodule Mosslet.Billing.Workers.ReferralPayoutWorker do
         :ok
 
       payout ->
-        Referrals.mark_payout_needs_review(payout, reason, nil, nil)
+        Referrals.mark_payout_needs_review(payout, reason)
     end
   end
 

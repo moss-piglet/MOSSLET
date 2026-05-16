@@ -53,13 +53,14 @@ defmodule MossletWeb.SubscribeController do
   defp handle_checkout(conn, plan, source, source_id) do
     user = conn.assigns.current_user
     referral = Referrals.get_pending_referral_for_user(user.id)
+    session_key = conn.private.plug_session["key"]
 
     case billing_provider().checkout(
            user,
            plan,
            source,
            source_id,
-           conn.private.plug_session["key"],
+           session_key,
            referral
          ) do
       {:ok, _customer, session} ->

@@ -9,28 +9,38 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.FindOrCreateCustomer do
   alias Mosslet.Encrypted.Users.Utils
   alias Mosslet.Billing.Providers.Stripe.Provider
 
+  @doc """
+  Finds or creates a Stripe customer.
+
+  The `session_key` is needed temporarily to decrypt `user.email` (which is
+  still user-key encrypted until the profile ZK migration). Billing-specific
+  data (customer IDs, etc.) is stored as Cloak-only — no user-key layer.
+  """
   def call(current_user, source, source_id, session_key) do
     case Customers.get_customer_by_source(source, source_id) do
       nil ->
         Logger.debug("FindOrCreateCustomer: No local customer found, creating new one")
-        create_customer(current_user, source, source_id, session_key)
+        user_email = decrypt_email(current_user, session_key)
+        create_customer(user_email, source, source_id)
 
       customer ->
         Logger.debug(
           "FindOrCreateCustomer: Found local customer #{customer.id}, verifying with Stripe"
         )
 
-        verify_or_recreate_stripe_customer(customer, current_user, source, source_id, session_key)
+        verify_or_recreate_stripe_customer(
+          customer,
+          current_user,
+          source,
+          source_id,
+          session_key
+        )
     end
   end
 
   defp verify_or_recreate_stripe_customer(customer, current_user, source, source_id, session_key) do
-    provider_customer_id =
-      MossletWeb.Helpers.maybe_decrypt_user_data(
-        customer.provider_customer_id,
-        current_user,
-        session_key
-      )
+    # provider_customer_id is now Cloak-only — read directly
+    provider_customer_id = customer.provider_customer_id
 
     Logger.debug("FindOrCreateCustomer: Retrieving Stripe customer #{provider_customer_id}")
 
@@ -40,7 +50,8 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.FindOrCreateCustomer do
           "Stripe customer #{provider_customer_id} was deleted, recreating for source #{source}:#{source_id}"
         )
 
-        recreate_stripe_customer(customer, current_user, source, source_id, session_key)
+        user_email = decrypt_email(current_user, session_key)
+        recreate_stripe_customer(user_email, source, source_id)
 
       {:ok, _stripe_customer} ->
         Logger.debug("FindOrCreateCustomer: Stripe customer exists, returning local customer")
@@ -51,7 +62,8 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.FindOrCreateCustomer do
           "Stripe customer #{provider_customer_id} not found, recreating for source #{source}:#{source_id}. Error: #{inspect(error)}"
         )
 
-        recreate_stripe_customer(customer, current_user, source, source_id, session_key)
+        user_email = decrypt_email(current_user, session_key)
+        recreate_stripe_customer(user_email, source, source_id)
 
       {:error, error} ->
         Logger.error("Failed to retrieve Stripe customer: #{inspect(error)}")
@@ -59,24 +71,13 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.FindOrCreateCustomer do
     end
   end
 
-  defp recreate_stripe_customer(_customer, current_user, source, source_id, session_key) do
-    case Provider.create_customer(%{
-           email: Utils.decrypt_user_data(current_user.email, current_user, session_key)
-         }) do
+  defp recreate_stripe_customer(user_email, source, source_id) do
+    case Provider.create_customer(%{email: user_email}) do
       {:ok, stripe_customer} ->
         Customers.update_customer_for_source(
           source,
           source_id,
-          %{
-            provider_customer_id:
-              MossletWeb.Helpers.maybe_decrypt_user_data(
-                stripe_customer.id,
-                current_user,
-                session_key
-              )
-          },
-          current_user,
-          session_key
+          %{provider_customer_id: stripe_customer.id}
         )
 
       {:error, error} ->
@@ -85,31 +86,29 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.FindOrCreateCustomer do
     end
   end
 
-  defp create_customer(current_user, source, source_id, session_key) do
-    case Provider.create_customer(%{
-           email: Utils.decrypt_user_data(current_user.email, current_user, session_key)
-         }) do
+  defp create_customer(user_email, source, source_id) do
+    case Provider.create_customer(%{email: user_email}) do
       {:ok, stripe_customer} ->
         Customers.create_customer_for_source(
           source,
           source_id,
           %{
-            email: Utils.decrypt_user_data(current_user.email, current_user, session_key),
+            email: user_email,
             provider: "stripe",
-            provider_customer_id:
-              MossletWeb.Helpers.maybe_decrypt_user_data(
-                stripe_customer.id,
-                current_user,
-                session_key
-              )
-          },
-          current_user,
-          session_key
+            provider_customer_id: stripe_customer.id
+          }
         )
 
       {:error, error} ->
         Logger.error("Failed to create Stripe Customer: #{inspect(error)}")
         {:error, error}
     end
+  end
+
+  # Temporary: user.email is still user-key encrypted until profile ZK migration.
+  # Once profile data uses browser-side encryption, this can be replaced with
+  # direct field access.
+  defp decrypt_email(current_user, session_key) do
+    Utils.decrypt_user_data(current_user.email, current_user, session_key)
   end
 end

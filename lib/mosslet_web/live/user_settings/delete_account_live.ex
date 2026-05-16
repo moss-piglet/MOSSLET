@@ -556,10 +556,9 @@ defmodule MossletWeb.DeleteAccountLive do
 
   def mount(_params, _session, socket) do
     current_user = socket.assigns.current_scope.user
-    session_key = socket.assigns.current_scope.key
 
     referrer_info =
-      Referrals.get_referrer_deletion_info(current_user.id, current_user, session_key)
+      Referrals.get_referrer_deletion_info(current_user.id)
 
     referred_info = Referrals.get_referred_user_deletion_info(current_user.id)
     bluesky_account = Bluesky.get_account_for_user(current_user.id)
@@ -995,9 +994,9 @@ defmodule MossletWeb.DeleteAccountLive do
     end
   end
 
-  defp handle_referral_cleanup(referrer_info, referred_info, user_email, user, key) do
+  defp handle_referral_cleanup(referrer_info, referred_info, user_email, _user, _key) do
     if referrer_info.has_referral_code do
-      Referrals.handle_referrer_account_deletion(referrer_info, user, key)
+      Referrals.handle_referrer_account_deletion(referrer_info)
 
       if referrer_info.has_connect_account and user_email do
         send_referral_account_deletion_email(user_email, referrer_info)

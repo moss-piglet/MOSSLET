@@ -42,7 +42,7 @@ defmodule Mosslet.Billing.Providers.AppleIAP do
   end
 
   @impl true
-  def change_plan(_customer, _subscription, _plan, _user, _session_key) do
+  def change_plan(_customer, _subscription, _plan) do
     {:error, :not_supported_use_native_ui}
   end
 
@@ -65,10 +65,10 @@ defmodule Mosslet.Billing.Providers.AppleIAP do
     * `{:ok, subscription}` - Purchase validated and subscription created/updated
     * `{:error, reason}` - Validation failed
   """
-  def validate_and_process_purchase(user, transaction_id, session_key) do
+  def validate_and_process_purchase(user, transaction_id) do
     with {:ok, transaction_info} <- get_transaction_info(transaction_id),
          {:ok, receipt_data} <- parse_transaction_info(transaction_info) do
-      MobileIAP.process_validated_receipt(user, receipt_data, :apple, session_key)
+      MobileIAP.process_validated_receipt(user, receipt_data, :apple)
     end
   end
 
@@ -365,8 +365,8 @@ defmodule Mosslet.Billing.Providers.AppleIAP do
   end
 
   @impl true
-  def sync_subscription(_customer, _user, _session_key), do: :ok
+  def sync_subscription(_customer), do: :ok
 
   @impl true
-  def sync_payment_intent(_customer, _user, _session_key), do: :ok
+  def sync_payment_intent(_customer), do: :ok
 end

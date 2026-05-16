@@ -8,20 +8,16 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.CreatePortalSession do
   alias Mosslet.Billing.Providers.Stripe.Provider
   alias Mosslet.Billing.Subscriptions.Subscription
 
-  def call(%Customer{} = customer, %Subscription{} = subscription, items, user, session_key) do
+  def call(%Customer{} = customer, %Subscription{} = subscription, items) do
     subscription_item_id =
       subscription.provider_subscription_id
       |> Stripe.Subscription.retrieve()
       |> then(fn {:ok, stripe_subscription} -> stripe_subscription end)
       |> get_subscription_item()
 
+    # provider_customer_id is now Cloak-only — read directly
     Provider.create_portal_session(%{
-      customer:
-        MossletWeb.Helpers.maybe_decrypt_user_data(
-          customer.provider_customer_id,
-          user,
-          session_key
-        ),
+      customer: customer.provider_customer_id,
       flow_data: %{
         type: :subscription_update_confirm,
         subscription_update_confirm: %{

@@ -10,6 +10,13 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.StripeConnect do
   alias Mosslet.Billing.Referrals.ReferralCode
   alias Mosslet.Encrypted.Users.Utils, as: EncryptedUtils
 
+  @doc """
+  Creates a Stripe Connect Express account for the given referral code.
+
+  `session_key` is needed temporarily to decrypt `user.email` (still user-key
+  encrypted until profile ZK migration). Billing data (Connect account IDs)
+  is stored as Cloak-only.
+  """
   def create_connect_account(%ReferralCode{} = referral_code, current_user, session_key) do
     email = EncryptedUtils.decrypt_user_data(current_user.email, current_user, session_key)
 
@@ -21,7 +28,6 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.StripeConnect do
         transfers: %{requested: true}
       },
       metadata: %{
-        user_id: current_user.id,
         referral_code_id: referral_code.id
       },
       settings: %{
@@ -38,9 +44,7 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.StripeConnect do
         {:ok, _updated_code} =
           Referrals.update_connect_account(
             referral_code,
-            %{stripe_connect_account_id: account.id},
-            current_user,
-            session_key
+            %{stripe_connect_account_id: account.id}
           )
 
         {:ok, account}
@@ -51,13 +55,9 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.StripeConnect do
     end
   end
 
-  def create_account_link(%ReferralCode{} = referral_code, current_user, session_key) do
-    account_id =
-      MossletWeb.Helpers.maybe_decrypt_user_data(
-        referral_code.stripe_connect_account_id,
-        current_user,
-        session_key
-      )
+  def create_account_link(%ReferralCode{} = referral_code) do
+    # stripe_connect_account_id is now Cloak-only — read directly
+    account_id = referral_code.stripe_connect_account_id
 
     link_params = %{
       account: account_id,
@@ -76,13 +76,8 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.StripeConnect do
     end
   end
 
-  def create_login_link(%ReferralCode{} = referral_code, current_user, session_key) do
-    account_id =
-      MossletWeb.Helpers.maybe_decrypt_user_data(
-        referral_code.stripe_connect_account_id,
-        current_user,
-        session_key
-      )
+  def create_login_link(%ReferralCode{} = referral_code) do
+    account_id = referral_code.stripe_connect_account_id
 
     case Stripe.LoginLink.create(account_id, %{}) do
       {:ok, link} ->
@@ -94,13 +89,8 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.StripeConnect do
     end
   end
 
-  def get_account_status(%ReferralCode{} = referral_code, current_user, session_key) do
-    account_id =
-      MossletWeb.Helpers.maybe_decrypt_user_data(
-        referral_code.stripe_connect_account_id,
-        current_user,
-        session_key
-      )
+  def get_account_status(%ReferralCode{} = referral_code) do
+    account_id = referral_code.stripe_connect_account_id
 
     if account_id do
       case Stripe.Account.retrieve(account_id) do
@@ -124,16 +114,9 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.StripeConnect do
   def create_transfer(
         %ReferralCode{} = referral_code,
         amount_cents,
-        description,
-        current_user,
-        session_key
+        description
       ) do
-    account_id =
-      MossletWeb.Helpers.maybe_decrypt_user_data(
-        referral_code.stripe_connect_account_id,
-        current_user,
-        session_key
-      )
+    account_id = referral_code.stripe_connect_account_id
 
     transfer_params = %{
       amount: amount_cents,

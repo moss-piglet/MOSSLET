@@ -61,7 +61,7 @@ defmodule Mosslet.Billing.Providers.MobileIAP do
 
   This is called after the provider (Apple/Google) validates the receipt.
   """
-  def process_validated_receipt(user, receipt_data, provider, session_key) do
+  def process_validated_receipt(user, receipt_data, provider) do
     plan_id = get_plan_id_for_product(receipt_data.product_id)
 
     unless plan_id do
@@ -72,11 +72,11 @@ defmodule Mosslet.Billing.Providers.MobileIAP do
       source_id = get_source_id(user, source)
 
       with {:ok, customer} <-
-             find_or_create_customer(user, source, source_id, provider, session_key) do
+             find_or_create_customer(user, source, source_id, provider) do
         if plan && plan.interval == :one_time do
-          create_payment_intent(customer, receipt_data, plan_id, user, session_key)
+          create_payment_intent(customer, receipt_data, plan_id)
         else
-          create_or_update_subscription(customer, receipt_data, plan_id, user, session_key)
+          create_or_update_subscription(customer, receipt_data, plan_id)
         end
       end
     end
@@ -85,7 +85,7 @@ defmodule Mosslet.Billing.Providers.MobileIAP do
   defp get_source_id(user, :user), do: user.id
   defp get_source_id(user, :org), do: user.org_id
 
-  defp find_or_create_customer(user, source, source_id, provider, session_key) do
+  defp find_or_create_customer(user, source, source_id, provider) do
     case Customers.get_customer_by_source(source, source_id) do
       %Customer{} = customer ->
         {:ok, customer}
@@ -98,14 +98,12 @@ defmodule Mosslet.Billing.Providers.MobileIAP do
             email: user.email,
             provider: Atom.to_string(provider),
             provider_customer_id: "#{provider}_#{user.id}"
-          },
-          user,
-          session_key
+          }
         )
     end
   end
 
-  defp create_or_update_subscription(customer, receipt_data, plan_id, _user, _session_key) do
+  defp create_or_update_subscription(customer, receipt_data, plan_id) do
     transaction_id = receipt_data.original_transaction_id || receipt_data.transaction_id
 
     case Subscriptions.get_subscription_by(%{provider_subscription_id_hash: transaction_id}) do
@@ -129,24 +127,20 @@ defmodule Mosslet.Billing.Providers.MobileIAP do
     end
   end
 
-  defp create_payment_intent(customer, receipt_data, plan_id, user, session_key) do
+  defp create_payment_intent(customer, receipt_data, plan_id) do
     plan = Mosslet.Billing.Plans.get_plan_by_id!(plan_id)
 
-    PaymentIntents.create_payment_intent!(
-      %{
-        billing_customer_id: customer.id,
-        provider_payment_intent_id: receipt_data.transaction_id,
-        provider_customer_id: customer.id,
-        provider_latest_charge_id: receipt_data.transaction_id,
-        provider_payment_method_id: receipt_data.purchase_token,
-        provider_created_at: DateTime.utc_now(),
-        amount: plan.amount,
-        amount_received: plan.amount,
-        status: "succeeded"
-      },
-      user,
-      session_key
-    )
+    PaymentIntents.create_payment_intent!(%{
+      billing_customer_id: customer.id,
+      provider_payment_intent_id: receipt_data.transaction_id,
+      provider_customer_id: customer.id,
+      provider_latest_charge_id: receipt_data.transaction_id,
+      provider_payment_method_id: receipt_data.purchase_token,
+      provider_created_at: DateTime.utc_now(),
+      amount: plan.amount,
+      amount_received: plan.amount,
+      status: "succeeded"
+    })
   end
 
   defp subscription_status(receipt_data) do

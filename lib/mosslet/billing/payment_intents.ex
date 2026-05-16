@@ -39,11 +39,11 @@ defmodule Mosslet.Billing.PaymentIntents do
     |> Repo.count()
   end
 
-  def create_payment_intent!(attrs \\ %{}, current_user \\ nil, session_key \\ nil) do
+  def create_payment_intent!(attrs \\ %{}) do
     payment_intent =
       Repo.transaction_on_primary(fn ->
         %PaymentIntent{}
-        |> PaymentIntent.changeset(attrs, current_user, session_key)
+        |> PaymentIntent.changeset(attrs)
         |> Repo.insert!()
       end)
 
@@ -55,16 +55,11 @@ defmodule Mosslet.Billing.PaymentIntents do
     end
   end
 
-  def update_payment_intent(
-        %PaymentIntent{} = payment_intent,
-        attrs,
-        current_user \\ nil,
-        session_key \\ nil
-      ) do
+  def update_payment_intent(%PaymentIntent{} = payment_intent, attrs) do
     payment_intent =
       Repo.transaction_on_primary(fn ->
         payment_intent
-        |> PaymentIntent.changeset(attrs, current_user, session_key)
+        |> PaymentIntent.changeset(attrs)
         |> Repo.update()
       end)
 

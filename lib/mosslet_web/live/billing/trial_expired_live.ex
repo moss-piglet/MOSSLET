@@ -49,15 +49,9 @@ defmodule MossletWeb.TrialExpiredLive do
     socket = assign(socket, :loading, true)
 
     customer = socket.assigns.customer
-    user = socket.assigns.current_scope.user
-    key = socket.assigns.current_scope.key
 
-    provider_customer_id =
-      MossletWeb.Helpers.maybe_decrypt_user_data(
-        customer.provider_customer_id,
-        user,
-        key
-      )
+    # provider_customer_id is now Cloak-only — read directly
+    provider_customer_id = customer.provider_customer_id
 
     return_url = MossletWeb.Endpoint.url() <> ~p"/app"
 

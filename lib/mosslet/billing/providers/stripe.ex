@@ -21,16 +21,12 @@ defmodule Mosslet.Billing.Providers.Stripe do
     with {:ok, customer} <- FindOrCreateCustomer.call(user, source, source_id, session_key) do
       trial_days = determine_trial_days(plan, customer)
 
+      # provider_customer_id is now Cloak-only — read directly
       case CreateCheckoutSession.call(%CreateCheckoutSession{
              customer_id: customer.id,
              source: source,
              source_id: source_id,
-             provider_customer_id:
-               MossletWeb.Helpers.maybe_decrypt_user_data(
-                 customer.provider_customer_id,
-                 user,
-                 session_key
-               ),
+             provider_customer_id: customer.provider_customer_id,
              success_url: success_url(source, source_id, customer.id),
              cancel_url: cancel_url(source, source_id),
              allow_promotion_codes: Map.get(plan, :allow_promotion_codes, false),
@@ -78,13 +74,11 @@ defmodule Mosslet.Billing.Providers.Stripe do
 
   def checkout_url(session), do: session.url
 
-  def change_plan(%Customer{} = customer, %Subscription{} = subscription, plan, user, session_key) do
+  def change_plan(%Customer{} = customer, %Subscription{} = subscription, plan) do
     CreatePortalSession.call(
       customer,
       subscription,
-      Plans.plan_items(plan),
-      user,
-      session_key
+      Plans.plan_items(plan)
     )
   end
 
@@ -96,12 +90,12 @@ defmodule Mosslet.Billing.Providers.Stripe do
     Mosslet.Billing.Providers.Stripe.Adapters.SubscriptionAdapter
   end
 
-  def sync_payment_intent(%Customer{} = customer, user, session_key) do
-    SyncCustomer.call(customer, user, session_key)
+  def sync_payment_intent(%Customer{} = customer) do
+    SyncCustomer.call(customer)
   end
 
-  def sync_subscription(%Customer{} = customer, user, session_key) do
-    SyncCustomer.call(customer, user, session_key)
+  def sync_subscription(%Customer{} = customer) do
+    SyncCustomer.call(customer)
   end
 
   def get_subscription_product(stripe_subscription) do

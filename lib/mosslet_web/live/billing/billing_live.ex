@@ -270,11 +270,10 @@ defmodule MossletWeb.BillingLive do
   @impl true
   def handle_event("update_payment_method", _params, socket) do
     user = socket.assigns.current_scope.user
-    key = socket.assigns.current_scope.key
     customer = Repo.preload(user, :customer).customer
 
-    provider_customer_id =
-      maybe_decrypt_user_data(customer.provider_customer_id, user, key)
+    # provider_customer_id is now Cloak-only — read directly
+    provider_customer_id = customer.provider_customer_id
 
     return_path = billing_path(socket.assigns.source, socket.assigns)
     return_url = MossletWeb.Endpoint.url() <> return_path
@@ -854,11 +853,7 @@ defmodule MossletWeb.BillingLive do
                   Customer ID:
                 </span>
                 <code class="text-sm bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded font-mono text-slate-800 dark:text-slate-200 break-all max-w-full">
-                  {maybe_update_customer_provider_info_encryption(
-                    @current_scope.user.customer,
-                    @current_scope.user,
-                    @current_scope.key
-                  )}
+                  {@current_scope.user.customer.provider_customer_id}
                 </code>
               </div>
 
@@ -869,11 +864,7 @@ defmodule MossletWeb.BillingLive do
                   Payment Email:
                 </span>
                 <code class="text-sm bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded font-mono text-slate-800 dark:text-slate-200 break-all max-w-full">
-                  {maybe_update_customer_email_encryption(
-                    @current_scope.user.customer.email,
-                    @current_scope.user,
-                    @current_scope.key
-                  )}
+                  {@current_scope.user.customer.email}
                 </code>
               </div>
 
@@ -1198,11 +1189,7 @@ defmodule MossletWeb.BillingLive do
                   Customer ID:
                 </span>
                 <code class="text-sm bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded font-mono text-slate-800 dark:text-slate-200 break-all max-w-full">
-                  {maybe_update_customer_provider_info_encryption(
-                    @current_scope.user.customer,
-                    @current_scope.user,
-                    @current_scope.key
-                  )}
+                  {@current_scope.user.customer.provider_customer_id}
                 </code>
               </div>
 
@@ -1213,11 +1200,7 @@ defmodule MossletWeb.BillingLive do
                   Payment Email:
                 </span>
                 <code class="text-sm bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded font-mono text-slate-800 dark:text-slate-200 break-all max-w-full">
-                  {maybe_update_customer_email_encryption(
-                    @current_scope.user.customer.email,
-                    @current_scope.user,
-                    @current_scope.key
-                  )}
+                  {@current_scope.user.customer.email}
                 </code>
               </div>
             </div>
@@ -1337,74 +1320,9 @@ defmodule MossletWeb.BillingLive do
     """
   end
 
-  defp maybe_update_customer_email_encryption(email, current_user, key) do
-    case Mosslet.Encrypted.Users.Utils.decrypt_user_data(email, current_user, key) do
-      :failed_verification ->
-        {:ok, customer} = update_customer_for_source(email, current_user, key)
-
-        Mosslet.Encrypted.Users.Utils.decrypt_user_data(
-          customer.email,
-          current_user,
-          key
-        )
-
-      d_email ->
-        d_email
-    end
-  end
-
-  defp maybe_update_customer_provider_info_encryption(customer, current_user, key) do
-    case Mosslet.Encrypted.Users.Utils.decrypt_user_data(
-           customer.provider_customer_id,
-           current_user,
-           key
-         ) do
-      :failed_verification ->
-        {:ok, customer} =
-          update_customer_provider_info_for_source(
-            customer.provider_customer_id,
-            current_user,
-            key
-          )
-
-        Mosslet.Encrypted.Users.Utils.decrypt_user_data(
-          customer.provider_customer_id,
-          current_user,
-          key
-        )
-
-      d_provider_customer_id ->
-        d_provider_customer_id
-    end
-  end
-
-  defp update_customer_for_source(email, current_user, key) do
-    Mosslet.Billing.Customers.update_customer_for_source(
-      :user,
-      current_user.id,
-      %{
-        email: maybe_decrypt_user_data(email, current_user, key),
-        provider: "stripe",
-        provider_customer_id:
-          maybe_decrypt_user_data(current_user.customer.provider_customer_id, current_user, key)
-      },
-      current_user,
-      key
-    )
-  end
-
-  defp update_customer_provider_info_for_source(provider_customer_id, current_user, key) do
-    Mosslet.Billing.Customers.update_customer_for_source(
-      :user,
-      current_user.id,
-      %{
-        provider: "stripe",
-        provider_customer_id: maybe_decrypt_user_data(provider_customer_id, current_user, key)
-      },
-      current_user,
-      key
-    )
-  end
+  # Billing data is now Cloak-only (no user-key layer), so these legacy
+  # migration helpers that re-encrypted from plaintext to user-key format
+  # are no longer needed. Customer email/provider_customer_id are read directly.
 
   defp infer_billing_cycle_from_plan_id(nil), do: nil
 
