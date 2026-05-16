@@ -49,12 +49,10 @@ defmodule MossletWeb.API.BillingControllerTest do
           :user,
           user.id,
           %{
-            email: Mosslet.Encrypted.Users.Utils.decrypt_user_data(user.email, user, key),
+            email: "test@example.com",
             provider: "stripe",
             provider_customer_id: "cus_test_123"
-          },
-          user,
-          key
+          }
         )
 
       {:ok, subscription} =

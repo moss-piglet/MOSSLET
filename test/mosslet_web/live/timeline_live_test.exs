@@ -482,37 +482,31 @@ defmodule MossletWeb.TimelineLiveTest do
     })
   end
 
-  defp create_billing_customer(user, key) do
+  defp create_billing_customer(user, _key) do
     Mosslet.Billing.Customers.create_customer_for_source(
       :user,
       user.id,
       %{
-        email: Mosslet.Encrypted.Users.Utils.decrypt_user_data(user.email, user, key),
+        email: "test@example.com",
         provider: "stripe",
         provider_customer_id: @provider_customer_id,
         user_id: user.id
-      },
-      user,
-      key
+      }
     )
   end
 
-  defp create_payment_intent(customer, user, key) do
-    Mosslet.Billing.PaymentIntents.create_payment_intent!(
-      %{
-        provider_payment_intent_id: @provider_payment_intent_id,
-        provider_customer_id: @provider_customer_id,
-        provider_latest_charge_id: @provider_latest_charge_id,
-        provider_payment_method_id: @provider_payment_method_id,
-        provider_created_at: DateTime.utc_now(),
-        amount: 5900,
-        amount_received: 5900,
-        status: "succeeded",
-        billing_customer_id: customer.id
-      },
-      user,
-      key
-    )
+  defp create_payment_intent(customer, _user, _key) do
+    Mosslet.Billing.PaymentIntents.create_payment_intent!(%{
+      provider_payment_intent_id: @provider_payment_intent_id,
+      provider_customer_id: @provider_customer_id,
+      provider_latest_charge_id: @provider_latest_charge_id,
+      provider_payment_method_id: @provider_payment_method_id,
+      provider_created_at: DateTime.utc_now(),
+      amount: 5900,
+      amount_received: 5900,
+      status: "succeeded",
+      billing_customer_id: customer.id
+    })
   end
 
   defp get_key(user, password) do
