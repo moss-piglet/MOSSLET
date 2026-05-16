@@ -296,10 +296,31 @@ These can follow the same phased approach: first move the read path (decrypt in 
 2. ~~**Post decrypt in browser**~~ (read path) — DONE
 3. ~~**Post encrypt in browser**~~ (write path) — DONE (connections/private posts)
 4. ~~**Groups**~~ — DONE (read + write); Memories skipped (phasing out)
-5. **Profile data** — user_key/conn_key operations in browser
-6. ~~**RegistrationHook**~~ — DONE (browser-side key generation)
-7. ~~**Recovery key**~~ — DONE (ZK setup + account recovery)
-8. **Data export** — client-side batch decryption + download
+5. ~~**RegistrationHook**~~ — DONE (browser-side key generation)
+6. ~~**Recovery key**~~ — DONE (ZK setup + account recovery)
+7. **Profile data** — user_key/conn_key operations in browser (~288 decr_* call sites across ~40 files)
+8. **Subscription/billing ZK** — billing LiveViews + Stripe services depend on server-side `@key` for encrypting/decrypting customer IDs, emails, payment data. ~12 files affected.
+9. **Data export** — client-side batch decryption + download
+
+#### Phase 3f: Subscription/Billing ZK (NEW)
+
+The billing system has deep server-side encryption key dependency. The `@key` / `@current_scope.key` flows through:
+
+- `SubscribeController` — passes session key to Stripe checkout
+- `SubscribeLive` — passes `@key` via `phx-value-key` on checkout/switch buttons
+- `BillingLive` — decrypts customer IDs + emails for display, re-encrypts on format change
+- `ReferralsLive` — decrypts referral codes, connect account IDs for Stripe Connect
+- `TrialExpiredLive` — decrypts customer ID for Stripe portal
+- `Customer` schema — encrypts/decrypts email, provider, provider_customer_id with session key
+- Stripe service modules (checkout, portal, connect, sync) — all accept session_key parameter
+- Background workers (`referral_payout_worker`) — already pass `nil` for key (can't encrypt)
+
+**Decision needed**: Billing identifiers (Stripe customer IDs, payment intent IDs, invoice IDs) are **server-operational data** — the server needs them to call Stripe APIs. Options:
+1. **Encrypt billing data with server-side key** (not user key) — server can always decrypt, no ZK overhead for operational data
+2. **Keep billing data encrypted with user key** but decrypt in browser — complex, requires JS hooks on all billing pages
+3. **Store billing identifiers unencrypted** — they're Stripe-generated IDs, not user content. Only encrypt user-facing data (email on customer record)
+
+Option 1 is recommended: use a server-managed encryption key for billing operational data. This keeps Cloak defense-in-depth without requiring user keys for server→Stripe API calls.
 
 ### Reference
 
