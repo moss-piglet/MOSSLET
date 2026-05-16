@@ -91,11 +91,13 @@ defmodule Mosslet.Groups.UserGroup do
     name = get_field(changeset, :name)
 
     if changeset.valid? && opts[:user] && opts[:key] do
-      public_key =
+      {public_key, pq_opts} =
         if opts[:public?] do
-          Encrypted.Session.server_public_key()
+          # Public groups are sealed with the server's public key.
+          # The server has no PQ key pair, so PQ opts must be empty.
+          {Encrypted.Session.server_public_key(), []}
         else
-          opts[:user].key_pair["public"]
+          {opts[:user].key_pair["public"], Encrypted.Utils.pq_opts_for_user(opts[:user])}
         end
 
       changeset
@@ -111,7 +113,7 @@ defmodule Mosslet.Groups.UserGroup do
         Encrypted.Utils.encrypt_message_for_user_with_pk(
           get_field(changeset, :key),
           %{public: public_key},
-          Encrypted.Utils.pq_opts_for_user(opts[:user])
+          pq_opts
         )
       )
     else

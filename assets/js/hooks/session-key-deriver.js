@@ -77,7 +77,10 @@ const SessionKeyDeriver = {
     const existingUserKey = sessionStorage.getItem(SK.USER_KEY);
     if (existingUserKey) {
       const pk = await tryDecrypt(encryptedPrivateKey, existingUserKey);
-      if (pk) return; // Keys are valid, nothing to do
+      if (pk) {
+        window.dispatchEvent(new CustomEvent("mosslet:keys-ready"));
+        return; // Keys are valid, nothing to do
+      }
       // Stale keys (password changed?) — clear and re-derive
       this._clearSessionKeys();
     }
@@ -162,6 +165,7 @@ const SessionKeyDeriver = {
     if (pqPrivateKey) {
       sessionStorage.setItem(SK.PQ_PRIVATE_KEY, pqPrivateKey);
     }
+    window.dispatchEvent(new CustomEvent("mosslet:keys-ready"));
   },
 
   /**
@@ -172,12 +176,17 @@ const SessionKeyDeriver = {
   },
 
   /**
-   * Clean up on element removal (e.g. navigation to unauthenticated page).
-   * Clears sessionStorage keys as defense-in-depth.
+   * Clean up on element removal.
+   *
+   * We intentionally do NOT clear sessionStorage or the persistent key cache
+   * here. On LiveView navigate, the old LV is destroyed and a new one mounts
+   * — but the DecryptGroupMessage (and similar) hooks fire in between. If we
+   * wiped keys here, those hooks would find empty sessionStorage and fail.
+   *
+   * Keys are cleared on explicit logout (via the logout controller/hook).
    */
   destroyed() {
-    this._clearSessionKeys();
-    clearKeyCache();
+    // no-op — keys persist across LiveView navigations
   },
 };
 

@@ -115,18 +115,19 @@ defmodule Mosslet.Encrypted.Utils do
       ) do
     pq_secret_key = Keyword.get(opts, :pq_secret_key)
 
-    if pq_secret_key do
-      case MetamorphicCrypto.Seal.unseal_from_user(encrypted_message, public_key, private_key,
-             pq_secret_key: pq_secret_key
-           ) do
-        {:ok, plaintext} -> {:ok, plaintext}
-        {:error, _reason} -> {:error, :failed_verification}
-      end
-    else
-      case MetamorphicCrypto.BoxSeal.open(encrypted_message, public_key, private_key) do
-        {:ok, plaintext} -> {:ok, plaintext}
-        {:error, _reason} -> {:error, :failed_verification}
-      end
+    # Always use Seal.unseal_from_user — it auto-detects legacy (v1) vs hybrid (v2)
+    # ciphertext format. For legacy ciphertext, pq_secret_key is ignored even if present.
+    # For hybrid ciphertext, pq_secret_key is required.
+    unseal_opts = if pq_secret_key, do: [pq_secret_key: pq_secret_key], else: []
+
+    case MetamorphicCrypto.Seal.unseal_from_user(
+           encrypted_message,
+           public_key,
+           private_key,
+           unseal_opts
+         ) do
+      {:ok, plaintext} -> {:ok, plaintext}
+      {:error, _reason} -> {:error, :failed_verification}
     end
   end
 

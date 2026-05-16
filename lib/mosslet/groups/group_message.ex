@@ -29,35 +29,41 @@ defmodule Mosslet.Groups.GroupMessage do
   end
 
   defp encrypt_attrs(changeset, opts) do
-    if changeset.valid? && opts[:user_group_key] && opts[:user] && opts[:key] do
-      d_user_group_key =
-        if opts[:public?] do
-          Encrypted.Users.Utils.decrypt_public_item_key(opts[:user_group_key])
-        else
-          case Encrypted.Users.Utils.decrypt_user_attrs_key(
-                 opts[:user_group_key],
-                 opts[:user],
-                 opts[:key]
-               ) do
-            {:ok, key} -> key
-            _ -> nil
+    cond do
+      # Browser pre-encrypted content (ZK write path) — skip server-side encryption
+      opts[:encrypted_content] ->
+        put_change(changeset, :content, opts[:encrypted_content])
+
+      changeset.valid? && opts[:user_group_key] && opts[:user] && opts[:key] ->
+        d_user_group_key =
+          if opts[:public?] do
+            Encrypted.Users.Utils.decrypt_public_item_key(opts[:user_group_key])
+          else
+            case Encrypted.Users.Utils.decrypt_user_attrs_key(
+                   opts[:user_group_key],
+                   opts[:user],
+                   opts[:key]
+                 ) do
+              {:ok, key} -> key
+              _ -> nil
+            end
           end
+
+        if d_user_group_key do
+          changeset
+          |> put_change(
+            :content,
+            Utils.encrypt(%{
+              key: d_user_group_key,
+              payload: get_field(changeset, :content)
+            })
+          )
+        else
+          changeset
         end
 
-      if d_user_group_key do
+      true ->
         changeset
-        |> put_change(
-          :content,
-          Utils.encrypt(%{
-            key: d_user_group_key,
-            payload: get_field(changeset, :content)
-          })
-        )
-      else
-        changeset
-      end
-    else
-      changeset
     end
   end
 end

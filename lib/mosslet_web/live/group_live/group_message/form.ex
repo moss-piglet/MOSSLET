@@ -122,7 +122,7 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
         id="group-message-form"
         phx-hook="GroupMessageFormHook"
         data-public={to_string(@public?)}
-        data-sealed-group-key={not @public? && Base.encode64(@user_group_key)}
+        data-sealed-group-key={not @public? && @user_group_key}
         class="max-w-4xl mx-auto"
       >
         <div class="relative">
@@ -228,6 +228,45 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
 
       {:error, _changeset} ->
         {:noreply, socket}
+    end
+  end
+
+  # Browser-encrypted message for non-public groups (ZK write path).
+  # The content arrives pre-encrypted — store it directly.
+  def handle_event(
+        "save_encrypted",
+        %{
+          "encrypted_content" => encrypted_content,
+          "group_id" => group_id,
+          "sender_id" => sender_id
+        },
+        socket
+      ) do
+    if socket.assigns[:public?] do
+      {:noreply, socket}
+    else
+      case GroupMessages.create_message(
+             %{
+               content: encrypted_content,
+               group_id: group_id,
+               sender_id: sender_id
+             },
+             encrypted_content: encrypted_content
+           ) do
+        {:ok, message} ->
+          # Parse mentions from the original plaintext — but we don't have it.
+          # Mention tokens (@[uuid]) survive encryption round-trips since they're
+          # in the plaintext, so we'd need the plaintext. For now, skip mention
+          # detection on pre-encrypted messages. The browser could send mention
+          # IDs alongside the encrypted content in a future iteration.
+          GroupMessages.publish_message_created({:ok, message})
+
+          send(self(), {:message_sent, message})
+          {:noreply, assign_form(socket)}
+
+        {:error, _changeset} ->
+          {:noreply, socket}
+      end
     end
   end
 

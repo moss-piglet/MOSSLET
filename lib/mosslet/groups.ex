@@ -577,6 +577,16 @@ defmodule Mosslet.Groups do
   end
 
   @doc """
+  Updates only the sealed key on a user_group record.
+  Used to repair hybrid-sealed keys on public groups.
+  """
+  def update_user_group_key(%UserGroup{} = user_group, new_sealed_key) do
+    user_group
+    |> Ecto.Changeset.change(key: new_sealed_key)
+    |> Mosslet.Repo.update()
+  end
+
+  @doc """
   Deletes a user_group.
 
   ## Examples

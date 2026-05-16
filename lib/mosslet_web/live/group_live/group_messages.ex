@@ -181,7 +181,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
         id={"decrypt-msg-#{@message.id}"}
         phx-hook="DecryptGroupMessage"
         data-encrypted-content={@encrypted_content}
-        data-sealed-group-key={@sealed_group_key && Base.encode64(@sealed_group_key)}
+        data-sealed-group-key={@sealed_group_key}
       >
         <span class="text-slate-400 dark:text-slate-500 text-sm italic">Decrypting...</span>
       </div>

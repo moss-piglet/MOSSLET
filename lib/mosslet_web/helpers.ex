@@ -716,8 +716,17 @@ defmodule MossletWeb.Helpers do
     else
       if group.public? do
         case Encrypted.Users.Utils.decrypt_public_item_key(sealed_key) do
-          raw_key when is_binary(raw_key) -> {:ok, raw_key}
-          _ -> :error
+          raw_key when is_binary(raw_key) ->
+            {:ok, raw_key}
+
+          _ ->
+            # The sealed key may be hybrid (v2) if it was created before the
+            # public? guard was added to UserGroup.encrypt_attrs. In that case
+            # it was sealed to server_public_key + owner.pq_public_key. Try
+            # unsealing with the current user's full keypair and, on success,
+            # re-seal with BoxSeal to the server's public key so future reads
+            # work without this fallback.
+            repair_hybrid_public_group_key(sealed_key, group, current_user, session_key)
         end
       else
         case Encrypted.Users.Utils.decrypt_user_attrs_key(sealed_key, current_user, session_key) do
@@ -725,6 +734,31 @@ defmodule MossletWeb.Helpers do
           _ -> :error
         end
       end
+    end
+  end
+
+  defp repair_hybrid_public_group_key(sealed_key, group, current_user, session_key) do
+    case Encrypted.Users.Utils.decrypt_user_attrs_key(sealed_key, current_user, session_key) do
+      {:ok, raw_key} ->
+        # Re-seal with server's public key only (no PQ) so future reads work
+        new_sealed =
+          Encrypted.Utils.encrypt_message_for_user_with_pk(raw_key, %{
+            public: Encrypted.Session.server_public_key()
+          })
+
+        user_group =
+          Enum.find(group.user_groups, fn ug ->
+            ug.user_id == current_user.id
+          end)
+
+        if user_group do
+          Groups.update_user_group_key(user_group, new_sealed)
+        end
+
+        {:ok, raw_key}
+
+      _ ->
+        :error
     end
   end
 
@@ -763,13 +797,17 @@ defmodule MossletWeb.Helpers do
 
       :error ->
         decrypted = %{
-          content: "[Could not decrypt]",
+          content:
+            if(browser_decrypt?,
+              do: nil,
+              else: "[Could not decrypt]"
+            ),
           moniker: "member",
           avatar_img: nil,
           raw_key: nil,
-          sealed_group_key: nil,
-          encrypted_content: nil,
-          browser_decrypt?: false
+          sealed_group_key: if(browser_decrypt?, do: sealed_key),
+          encrypted_content: if(browser_decrypt?, do: message.content),
+          browser_decrypt?: browser_decrypt?
         }
 
         Map.put(message, :decrypted, decrypted)

@@ -89,8 +89,7 @@ defmodule Mosslet.Encrypted.Users.Utils do
          {:ok, d_payload} <- decrypt_payload(d_item_key, payload) do
       d_payload
     else
-      {:error, message} -> message
-      rest -> rest
+      _ -> "[Could not decrypt]"
     end
   end
 

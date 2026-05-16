@@ -17,6 +17,7 @@ import DeepLinkHook from "./deep-link-hook";
 import DeleteReadingEntry from "./delete-reading-entry";
 import EntryColumnFlow from "./entry-column-flow";
 import GroupMessageEmojiPicker from "./group-message-emoji-picker";
+import GroupMessageFormHook from "./group-message-form-hook";
 import HideCursorOnIdle from "./hide-cursor-on-idle";
 import KeywordFilterInput from "./keyword-filter-input";
 import ClearFlashHook from "./clear-flash-hook";
@@ -92,6 +93,7 @@ export default {
   DeleteReadingEntry,
   EntryColumnFlow,
   GroupMessageEmojiPicker,
+  GroupMessageFormHook,
   HideCursorOnIdle,
   KeywordFilterInput,
   ClearFlashHook,

@@ -47,11 +47,13 @@ defmodule Mosslet.Memories.UserMemory do
     if opts[:user] do
       temp_key = get_field(changeset, :key)
 
-      public_key =
+      {public_key, pq_opts} =
         if opts[:visibility] == "public" || opts[:visibility] == :public do
-          Encrypted.Session.server_public_key()
+          # Public memories are sealed with the server's public key.
+          # The server has no PQ key pair, so PQ opts must be empty.
+          {Encrypted.Session.server_public_key(), []}
         else
-          opts[:user].key_pair["public"]
+          {opts[:user].key_pair["public"], Encrypted.Utils.pq_opts_for_user(opts[:user])}
         end
 
       changeset
@@ -60,7 +62,7 @@ defmodule Mosslet.Memories.UserMemory do
         Encrypted.Utils.encrypt_message_for_user_with_pk(
           temp_key,
           %{public: public_key},
-          Encrypted.Utils.pq_opts_for_user(opts[:user])
+          pq_opts
         )
       )
     else
