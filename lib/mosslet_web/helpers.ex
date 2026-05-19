@@ -882,6 +882,67 @@ defmodule MossletWeb.Helpers do
 
   def pre_decrypt_user(user, _session_key), do: user
 
+  @doc """
+  Pre-decrypts a ConnectionProfile's fields and returns a map of plaintext values.
+
+  Unseals the profile_key once (1 asymmetric op) then decrypts all text fields
+  via cheap SecretBox ops. Handles public profiles (server-key sealed) and
+  private/connections profiles (user-key sealed).
+
+  Fields decrypted:
+    - :about, :alternate_email, :website_url, :website_label
+
+  Returns a map like `%{about: "...", alternate_email: "...", ...}` or
+  `%{about: nil, ...}` on failure.
+  """
+  def pre_decrypt_profile(nil, _user, _session_key), do: nil
+
+  def pre_decrypt_profile(profile, user, session_key) do
+    sealed_key = profile.profile_key
+
+    case unseal_profile_key(sealed_key, profile, user, session_key) do
+      {:ok, raw_key} ->
+        %{
+          about: decrypt_field(profile.about, raw_key, nil),
+          alternate_email: decrypt_field(profile.alternate_email, raw_key, nil),
+          website_url: decrypt_field(profile.website_url, raw_key, nil),
+          website_label: decrypt_field(profile.website_label, raw_key, nil),
+          raw_key: raw_key
+        }
+
+      :error ->
+        %{
+          about: nil,
+          alternate_email: nil,
+          website_url: nil,
+          website_label: nil,
+          raw_key: nil
+        }
+    end
+  end
+
+  @doc """
+  Unseals a profile_key from a ConnectionProfile.
+
+  Public profiles use the server keypair; private/connections profiles
+  use the current user's keypair.
+  """
+  def unseal_profile_key(nil, _profile, _user, _session_key), do: :error
+
+  def unseal_profile_key(sealed_key, profile, user, session_key) do
+    if profile.visibility == :public do
+      case Encrypted.Users.Utils.decrypt_public_item_key(sealed_key) do
+        raw_key when is_binary(raw_key) -> {:ok, raw_key}
+        _ -> :error
+      end
+    else
+      case Encrypted.Users.Utils.decrypt_user_attrs_key(sealed_key, user, session_key) do
+        {:ok, raw_key} -> {:ok, raw_key}
+        _ -> :error
+      end
+    end
+  end
+
   # Avatar URLs need special handling: nil/empty values are nil,
   # and :failed_verification becomes "failed_verification" string.
   defp decrypt_avatar_field(nil, _raw_key), do: nil

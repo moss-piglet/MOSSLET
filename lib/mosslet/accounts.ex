@@ -791,35 +791,12 @@ defmodule Mosslet.Accounts do
         )
 
         if updated_user.connection.profile do
-          profile_attrs = Map.put(attrs, "id", updated_user.connection.id)
-
           profile_attrs =
-            profile_attrs
-            |> Map.put("profile", %{
-              "username" =>
-                MossletWeb.Helpers.decr(updated_user.username, updated_user, opts[:key]),
-              "temp_username" =>
-                MossletWeb.Helpers.decr(updated_user.username, updated_user, opts[:key]),
-              "name" => attrs["name"],
-              "email" => MossletWeb.Helpers.decr(updated_user.email, updated_user, opts[:key]),
-              "visibility" => updated_user.visibility,
-              "about" => decrypt_profile_about(updated_user, opts[:key]),
-              "alternate_email" =>
-                decrypt_profile_field(updated_user, opts[:key], :alternate_email),
-              "website_url" => decrypt_profile_field(updated_user, opts[:key], :website_url),
-              "website_label" => decrypt_profile_field(updated_user, opts[:key], :website_label)
-            })
-
-          profile_attrs =
-            Map.put(
-              profile_attrs,
-              "profile",
-              Map.put(profile_attrs["profile"], "opts_map", %{
-                user: opts[:user],
-                key: opts[:key],
-                update_profile: true,
-                encrypt: true
-              })
+            build_profile_sync_attrs(
+              updated_user,
+              opts[:key],
+              %{"name" => attrs["name"]},
+              %{user: opts[:user]}
             )
 
           with {:ok, profile_conn} <-
@@ -874,33 +851,12 @@ defmodule Mosslet.Accounts do
     case adapter().update_user_username(user, conn, changeset, c_attrs) do
       {:ok, updated_user, updated_conn} ->
         if updated_user.connection.profile do
-          profile_attrs = Map.put(attrs, "id", updated_user.connection.id)
-
           profile_attrs =
-            profile_attrs
-            |> Map.put("profile", %{
-              "username" => attrs["username"],
-              "temp_username" => attrs["username"],
-              "name" => MossletWeb.Helpers.decr(updated_user.name, updated_user, opts[:key]),
-              "email" => MossletWeb.Helpers.decr(updated_user.email, updated_user, opts[:key]),
-              "visibility" => updated_user.visibility,
-              "about" => decrypt_profile_about(updated_user, opts[:key]),
-              "alternate_email" =>
-                decrypt_profile_field(updated_user, opts[:key], :alternate_email),
-              "website_url" => decrypt_profile_field(updated_user, opts[:key], :website_url),
-              "website_label" => decrypt_profile_field(updated_user, opts[:key], :website_label)
-            })
-
-          profile_attrs =
-            Map.put(
-              profile_attrs,
-              "profile",
-              Map.put(profile_attrs["profile"], "opts_map", %{
-                user: opts[:user],
-                key: opts[:key],
-                update_profile: true,
-                encrypt: true
-              })
+            build_profile_sync_attrs(
+              updated_user,
+              opts[:key],
+              %{"username" => attrs["username"], "temp_username" => attrs["username"]},
+              %{user: opts[:user]}
             )
 
           with {:ok, profile_conn} <-
@@ -933,33 +889,12 @@ defmodule Mosslet.Accounts do
     case adapter().update_user_visibility(user, attrs, opts) do
       {:ok, user} ->
         if user.connection.profile do
-          profile_attrs = Map.put(attrs, "id", user.connection.id)
-
           profile_attrs =
-            profile_attrs
-            |> Map.put("profile", %{
-              "username" => MossletWeb.Helpers.decr(user.username, user, opts[:key]),
-              "temp_username" => MossletWeb.Helpers.decr(user.username, user, opts[:key]),
-              "name" => MossletWeb.Helpers.decr(user.name, user, opts[:key]),
-              "email" => MossletWeb.Helpers.decr(user.email, user, opts[:key]),
-              "visibility" => attrs["visibility"],
-              "about" => decrypt_profile_about(user, opts[:key]),
-              "alternate_email" => decrypt_profile_field(user, opts[:key], :alternate_email),
-              "website_url" => decrypt_profile_field(user, opts[:key], :website_url),
-              "website_label" => decrypt_profile_field(user, opts[:key], :website_label)
-            })
-
-          profile_attrs =
-            Map.put(
-              profile_attrs,
-              "profile",
-              Map.put(profile_attrs["profile"], "opts_map", %{
-                user: user,
-                key: opts[:key],
-                update_profile: true,
-                encrypt: true,
-                visibility_changed: true
-              })
+            build_profile_sync_attrs(
+              user,
+              opts[:key],
+              %{"visibility" => attrs["visibility"]},
+              %{visibility_changed: true}
             )
 
           with {:ok, conn} <-
@@ -1516,34 +1451,15 @@ defmodule Mosslet.Accounts do
     case adapter().update_user_email(user, d_email, token, key) do
       {:ok, conn} ->
         if user.connection.profile do
-          email = MossletWeb.Helpers.decr(conn.email, user, key)
-
-          profile_attrs = Map.put(%{}, "id", user.connection.id)
-
-          profile_attrs =
-            profile_attrs
-            |> Map.put("profile", %{
-              "username" => MossletWeb.Helpers.decr(user.username, user, key),
-              "temp_username" => MossletWeb.Helpers.decr(user.username, user, key),
-              "name" => MossletWeb.Helpers.decr(user.username, user, key),
-              "email" => email,
-              "visibility" => user.visibility,
-              "about" => decrypt_profile_about(user, key),
-              "alternate_email" => decrypt_profile_field(user, key, :alternate_email),
-              "website_url" => decrypt_profile_field(user, key, :website_url),
-              "website_label" => decrypt_profile_field(user, key, :website_label)
-            })
+          decrypted_user = MossletWeb.Helpers.pre_decrypt_user(user, key)
+          email = decrypted_user.decrypted[:email] || MossletWeb.Helpers.decr(conn.email, user, key)
 
           profile_attrs =
-            Map.put(
-              profile_attrs,
-              "profile",
-              Map.put(profile_attrs["profile"], "opts_map", %{
-                user: user,
-                key: key,
-                update_profile: true,
-                encrypt: true
-              })
+            build_profile_sync_attrs(
+              user,
+              key,
+              # NOTE: "name" uses username here — preserving existing behavior
+              %{"email" => email, "name" => decrypted_user.decrypted[:username]}
             )
 
           with {:ok, conn} <-
@@ -2344,148 +2260,42 @@ defmodule Mosslet.Accounts do
     Mosslet.Orgs.sync_user_invitations(user)
   end
 
-  defp decrypt_profile_about(user, key) do
+  # Pre-decrypts user profile fields and builds the profile_attrs map needed
+  # by update_user_profile/3. Unseals user_key once and profile_key once,
+  # then does cheap SecretBox decrypts for all fields.
+  #
+  # `overrides` is a map of field names (strings) to override values,
+  # e.g. %{"name" => "new name"} when the caller already has the plaintext.
+  # `extra_opts` are merged into the opts_map (e.g. visibility_changed: true).
+  defp build_profile_sync_attrs(user, session_key, overrides, extra_opts \\ %{}) do
+    decrypted_user = MossletWeb.Helpers.pre_decrypt_user(user, session_key)
+    d = decrypted_user.decrypted
+
     profile = Map.get(user.connection, :profile)
+    profile_data = MossletWeb.Helpers.pre_decrypt_profile(profile, user, session_key)
 
-    cond do
-      profile && not is_nil(profile.about) ->
-        cond do
-          profile.visibility == :public ->
-            Encrypted.Users.Utils.decrypt_public_item(profile.about, profile.profile_key)
+    base_profile = %{
+      "username" => d[:username],
+      "temp_username" => d[:username],
+      "name" => d[:name],
+      "email" => d[:email],
+      "visibility" => user.visibility,
+      "about" => profile_data && profile_data[:about],
+      "alternate_email" => profile_data && profile_data[:alternate_email],
+      "website_url" => profile_data && profile_data[:website_url],
+      "website_label" => profile_data && profile_data[:website_label]
+    }
 
-          profile.visibility == :private ->
-            MossletWeb.Helpers.decr_item(profile.about, user, profile.profile_key, key, profile)
+    merged_profile = Map.merge(base_profile, overrides)
 
-          profile.visibility == :connections ->
-            MossletWeb.Helpers.decr_item(
-              profile.about,
-              user,
-              profile.profile_key,
-              key,
-              profile
-            )
+    opts_map =
+      Map.merge(
+        %{user: user, key: session_key, update_profile: true, encrypt: true},
+        extra_opts
+      )
 
-          true ->
-            profile.about
-        end
-
-      true ->
-        nil
-    end
-  end
-
-  defp decrypt_profile_field(user, key, field) do
-    profile = Map.get(user.connection, :profile)
-
-    case field do
-      :alternate_email ->
-        cond do
-          profile && not is_nil(profile.alternate_email) ->
-            cond do
-              profile.visibility == :public ->
-                Encrypted.Users.Utils.decrypt_public_item(
-                  profile.alternate_email,
-                  profile.profile_key
-                )
-
-              profile.visibility == :private ->
-                MossletWeb.Helpers.decr_item(
-                  profile.alternate_email,
-                  user,
-                  profile.profile_key,
-                  key,
-                  profile
-                )
-
-              profile.visibility == :connections ->
-                MossletWeb.Helpers.decr_item(
-                  profile.alternate_email,
-                  user,
-                  profile.profile_key,
-                  key,
-                  profile
-                )
-
-              true ->
-                profile.alternate_email
-            end
-
-          true ->
-            nil
-        end
-
-      :website_url ->
-        cond do
-          profile && not is_nil(profile.website_url) ->
-            cond do
-              profile.visibility == :public ->
-                Encrypted.Users.Utils.decrypt_public_item(
-                  profile.website_url,
-                  profile.profile_key
-                )
-
-              profile.visibility == :private ->
-                MossletWeb.Helpers.decr_item(
-                  profile.website_url,
-                  user,
-                  profile.profile_key,
-                  key,
-                  profile
-                )
-
-              profile.visibility == :connections ->
-                MossletWeb.Helpers.decr_item(
-                  profile.website_url,
-                  user,
-                  profile.profile_key,
-                  key,
-                  profile
-                )
-
-              true ->
-                profile.website_url
-            end
-
-          true ->
-            nil
-        end
-
-      :website_label ->
-        cond do
-          profile && not is_nil(profile.website_label) ->
-            cond do
-              profile.visibility == :public ->
-                Encrypted.Users.Utils.decrypt_public_item(
-                  profile.website_label,
-                  profile.profile_key
-                )
-
-              profile.visibility == :private ->
-                MossletWeb.Helpers.decr_item(
-                  profile.website_label,
-                  user,
-                  profile.profile_key,
-                  key,
-                  profile
-                )
-
-              profile.visibility == :connections ->
-                MossletWeb.Helpers.decr_item(
-                  profile.website_label,
-                  user,
-                  profile.profile_key,
-                  key,
-                  profile
-                )
-
-              true ->
-                profile.website_label
-            end
-
-          true ->
-            nil
-        end
-    end
+    %{"id" => user.connection.id}
+    |> Map.put("profile", Map.put(merged_profile, "opts_map", opts_map))
   end
 
   ## Blocking Management
