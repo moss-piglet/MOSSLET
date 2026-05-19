@@ -827,34 +827,36 @@ defmodule MossletWeb.Helpers do
   Pre-decrypts the current user's profile fields and attaches them as a
   `:decrypted` map on the user struct.
 
-  This replaces scattered `decr(user.email, user, key)` calls in templates
-  with a single decryption pass per page load. The user_key (user_attributes_key)
-  is unsealed once, then each profile field is a cheap SecretBox decrypt.
+  The user_key (user_attributes_key) is unsealed once, then each profile
+  field is a cheap SecretBox decrypt. Server-decrypted values are kept in the
+  map for backend code (profile sync, form handlers, etc.).
 
-  Fields decrypted:
+  With `browser_decrypt?: true`, templates should use the DecryptUserFields
+  JS hook to decrypt in the browser (true ZK for web users). The sealed
+  user_key and encrypted field blobs are included for the hook.
+
+  Fields:
     - :email, :username, :name, :avatar_url, :status_message
-
-  For browser-side ZK, the sealed user_key and encrypted fields are also
-  included so a JS hook can decrypt without server involvement.
   """
   def pre_decrypt_user(%User{} = user, session_key) do
     case Encrypted.Users.Utils.decrypt_user_attrs_key(user.user_key, user, session_key) do
       {:ok, raw_key} ->
         decrypted = %{
+          # Server-decrypted values (for backend code paths)
           email: decrypt_field(user.email, raw_key, nil),
           username: decrypt_field(user.username, raw_key, nil),
           name: decrypt_field(user.name, raw_key, nil),
           avatar_url: decrypt_avatar_field(user.avatar_url, raw_key),
           status_message: decrypt_field(user.status_message, raw_key, nil),
           raw_key: raw_key,
-          # For future browser-side decryption (ZK):
+          # Browser-side ZK decryption data (for DecryptUserFields hook)
           sealed_user_key: user.user_key,
           encrypted_email: user.email,
           encrypted_username: user.username,
           encrypted_name: user.name,
           encrypted_avatar_url: user.avatar_url,
           encrypted_status_message: user.status_message,
-          browser_decrypt?: false
+          browser_decrypt?: true
         }
 
         Map.put(user, :decrypted, decrypted)
@@ -873,7 +875,7 @@ defmodule MossletWeb.Helpers do
           encrypted_name: user.name,
           encrypted_avatar_url: user.avatar_url,
           encrypted_status_message: user.status_message,
-          browser_decrypt?: false
+          browser_decrypt?: true
         }
 
         Map.put(user, :decrypted, decrypted)

@@ -15,6 +15,22 @@
   >
   </div>
 <% end %>
+<%!-- DecryptUserFields — browser-side ZK decryption of user profile fields --%>
+<%= if assigns[:current_scope] && @current_scope.user && @current_scope.user.decrypted && @current_scope.user.decrypted[:browser_decrypt?] do %>
+  <div
+    id="decrypt-user-fields"
+    phx-hook="DecryptUserFields"
+    phx-update="ignore"
+    data-sealed-user-key={@current_scope.user.decrypted[:sealed_user_key]}
+    data-encrypted-email={@current_scope.user.decrypted[:encrypted_email]}
+    data-encrypted-username={@current_scope.user.decrypted[:encrypted_username]}
+    data-encrypted-name={@current_scope.user.decrypted[:encrypted_name]}
+    data-encrypted-avatar-url={@current_scope.user.decrypted[:encrypted_avatar_url]}
+    data-encrypted-status-message={@current_scope.user.decrypted[:encrypted_status_message]}
+    class="hidden"
+  >
+  </div>
+<% end %>
 <%!-- Flash notifications positioned relative to viewport --%>
 <div id="flash-notifications" class="fixed bottom-4 right-4 z-[100]">
   <.phx_flash_group flash={@flash} />

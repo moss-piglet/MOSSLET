@@ -8,6 +8,7 @@ import ConversationEmojiPicker from "./conversation-emoji-picker";
 import { ConversationComposer, DecryptMessage, ConversationScroll } from "./conversation-hooks";
 import DecryptGroupMessage from "./decrypt-group-message";
 import DecryptPost from "./decrypt-post";
+import DecryptUserFields from "./decrypt-user-fields";
 import PostFormHook from "./post-form-hook";
 import CharacterCounter from "./character-counter";
 import ClipboardHook from "./clipboard-hook";
@@ -94,6 +95,7 @@ export default {
   DecryptGroupMessage,
   DecryptMessage,
   DecryptPost,
+  DecryptUserFields,
   DeleteReadingEntry,
   EntryColumnFlow,
   GroupMessageEmojiPicker,
