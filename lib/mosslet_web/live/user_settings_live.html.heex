@@ -157,7 +157,7 @@
         field={@password_form[:email]}
         type="hidden"
         id="hidden_user_email"
-        value={decr(@current_email, @current_user, @key)}
+        value={@current_user.decrypted[:email]}
       />
       <.input field={@password_form[:password]} type="password" label="New password" required />
       <.input

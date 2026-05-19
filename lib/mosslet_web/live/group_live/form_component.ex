@@ -509,9 +509,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
               "private"
 
             is_nil(uconn) && user_group.user_id == current_user.id ->
-              if current_user.decrypted,
-                do: current_user.decrypted[:username],
-                else: decr(current_user.username, current_user, key)
+              current_user.decrypted[:username]
 
             true ->
               decr_uconn(connection.username, current_user, uconn.key, key)

@@ -1452,7 +1452,9 @@ defmodule Mosslet.Accounts do
       {:ok, conn} ->
         if user.connection.profile do
           decrypted_user = MossletWeb.Helpers.pre_decrypt_user(user, key)
-          email = decrypted_user.decrypted[:email] || MossletWeb.Helpers.decr(conn.email, user, key)
+
+          email =
+            decrypted_user.decrypted[:email] || MossletWeb.Helpers.decr(conn.email, user, key)
 
           profile_attrs =
             build_profile_sync_attrs(

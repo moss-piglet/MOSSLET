@@ -46,7 +46,7 @@ defmodule MossletWeb.EditEmailLive do
           <div
             :if={
               !@current_user.is_admin? &&
-                decr(@form[:email].value, @current_user, @key) === Encrypted.Session.admin_email() &&
+                @current_user.decrypted[:email] === Encrypted.Session.admin_email() &&
                 @current_user.confirmed_at
             }
             class="flex justify-center mb-8"
@@ -64,7 +64,7 @@ defmodule MossletWeb.EditEmailLive do
           <div
             :if={
               @current_user.is_admin? &&
-                decr(@form[:email].value, @current_user, @key) === Encrypted.Session.admin_email() &&
+                @current_user.decrypted[:email] === Encrypted.Session.admin_email() &&
                 @current_user.confirmed_at
             }
             class="flex justify-center mb-8"
@@ -96,7 +96,7 @@ defmodule MossletWeb.EditEmailLive do
                 type="email"
                 label="New Email Address"
                 placeholder="Enter your new email address"
-                value={decr(@form[:email].value, @current_user, @key)}
+                value={@current_user.decrypted[:email]}
                 required
                 help="We'll send a confirmation link to verify your new email address."
               />
