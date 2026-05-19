@@ -7,12 +7,16 @@ defmodule MossletWeb.EditPasswordLive do
   alias MossletWeb.DesignSystem
 
   def mount(_params, _session, socket) do
+    user = socket.assigns.current_scope.user
+    current_email = resolve_decrypted_field(user, :email)
+
     {:ok,
      assign(socket,
        page_title: "Settings",
        trigger_submit: false,
        current_password: "",
-       form: to_form(Accounts.change_user_password(socket.assigns.current_scope.user))
+       current_email: current_email || "",
+       form: to_form(Accounts.change_user_password(user))
      )}
   end
 
@@ -320,10 +324,9 @@ defmodule MossletWeb.EditPasswordLive do
                   variant="ghost"
                   color="slate"
                   phx-click="send_password_reset_email"
-                  phx-value-email={@current_user.decrypted[:email]}
                   data-confirm={
                     gettext("This will send a reset password link to the email '%{email}'. Continue?",
-                      email: @current_user.decrypted[:email]
+                      email: @current_email
                     )
                   }
                   icon="hero-envelope"
@@ -487,9 +490,12 @@ defmodule MossletWeb.EditPasswordLive do
     end
   end
 
-  def handle_event("send_password_reset_email", %{"email" => email}, socket) do
+  def handle_event("send_password_reset_email", _params, socket) do
+    user = socket.assigns.current_scope.user
+    email = resolve_decrypted_field(user, :email)
+
     Accounts.deliver_user_reset_password_instructions(
-      socket.assigns.current_scope.user,
+      user,
       email,
       &url(~p"/auth/reset-password/#{&1}")
     )

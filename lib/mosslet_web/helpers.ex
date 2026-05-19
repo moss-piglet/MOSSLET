@@ -575,6 +575,30 @@ defmodule MossletWeb.Helpers do
   end
 
   @doc """
+  Returns the plaintext value of a user profile field from the
+  pre-decrypted map. When `display?: true` was used at mount time the
+  value is already present; when `display?: false` the raw_key is used
+  to decrypt on demand. Avoids passing decrypted values through
+  `phx-value-*` template attributes.
+
+  Supported fields: `:email`, `:username`, `:name`, `:avatar_url`, `:status_message`.
+  """
+  def resolve_decrypted_field(%User{decrypted: %{} = d} = user, field)
+      when field in [:email, :username, :name, :avatar_url, :status_message] do
+    case Map.get(d, field) do
+      value when is_binary(value) ->
+        value
+
+      _ ->
+        raw_key = Map.get(d, :raw_key)
+        encrypted = Map.get(user, field)
+        decrypt_field(encrypted, raw_key, nil)
+    end
+  end
+
+  def resolve_decrypted_field(_user, _field), do: nil
+
+  @doc """
   Decrypts all renderable fields of a post in one pass, unsealing the
   post_key only once. Returns a map suitable for template rendering.
 

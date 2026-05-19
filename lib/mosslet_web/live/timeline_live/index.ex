@@ -3352,10 +3352,11 @@ defmodule MossletWeb.TimelineLive.Index do
      |> assign(:share_post_username, nil)}
   end
 
-  def handle_event("repost", %{"id" => id, "body" => body, "username" => username}, socket) do
+  def handle_event("repost", %{"id" => id, "body" => body} = _params, socket) do
     post = Timeline.get_post!(id)
     user = socket.assigns.current_user
     key = socket.assigns.key
+    username = resolve_decrypted_field(user, :username)
     encrypted_post_key = get_post_key(post, user)
 
     decrypted_post_key =

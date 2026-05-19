@@ -740,7 +740,7 @@ defmodule MossletWeb.UserConnectionLive.Show do
     end
   end
 
-  def handle_event("repost", %{"id" => id, "body" => body, "username" => username}, socket) do
+  def handle_event("repost", %{"id" => id, "body" => body} = _params, socket) do
     post = Timeline.get_post!(id)
     user = socket.assigns.current_user
     # Add the post_key to the opts as the trix_key.
@@ -754,6 +754,7 @@ defmodule MossletWeb.UserConnectionLive.Show do
     # and thus the duplicate use of the same key.
     post_key = get_post_key(post, user)
     key = socket.assigns.key
+    username = resolve_decrypted_field(user, :username)
     post_shared_users = socket.assigns.post_shared_users
     return_url = socket.assigns.return_url
 

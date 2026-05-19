@@ -566,7 +566,6 @@ window.addEventListener("phx:update_post_repost_count", (event) => {
       repostButton.removeAttribute("phx-click");
       repostButton.removeAttribute("phx-value-id");
       repostButton.removeAttribute("phx-value-body");
-      repostButton.removeAttribute("phx-value-username");
       repostButton.classList.add("cursor-not-allowed", "opacity-60");
       repostButton.classList.add(
         "text-emerald-600",

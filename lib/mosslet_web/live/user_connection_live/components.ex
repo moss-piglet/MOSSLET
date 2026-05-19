@@ -441,7 +441,6 @@ defmodule MossletWeb.UserConnectionLive.Components do
           "body"
         )
       }
-      phx-value-username={@current_user.decrypted[:username]}
       data-tippy-content="Repost this post"
       phx-hook="TippyHook"
     >

@@ -524,10 +524,11 @@ defmodule MossletWeb.PostLive.Index do
     end
   end
 
-  def handle_event("repost", %{"id" => id, "body" => body, "username" => username}, socket) do
+  def handle_event("repost", %{"id" => id, "body" => body} = _params, socket) do
     post = Timeline.get_post!(id)
     user = socket.assigns.current_user
     key = socket.assigns.key
+    username = resolve_decrypted_field(user, :username)
 
     if post.user_id != user.id && user.id not in post.reposts_list do
       {:ok, post} = Timeline.inc_reposts(post)
