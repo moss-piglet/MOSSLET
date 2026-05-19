@@ -35,19 +35,19 @@ defmodule MossletWeb.PostLive.FormComponent do
           :if={@action == :new}
           field={@form[:username]}
           type="hidden"
-          value={decr(@user.username, @user, @key)}
+          value={@user.decrypted[:username]}
         />
         <.field
           :if={@action == :new_group}
           field={@form[:username]}
           type="hidden"
-          value={decr(@user.username, @user, @key)}
+          value={@user.decrypted[:username]}
         />
         <.field
           :if={@action == :edit}
           field={@form[:username]}
           type="hidden"
-          value={decr(@user.username, @user, @key)}
+          value={@user.decrypted[:username]}
         />
         <.field
           :if={@action not in [:new_group, :edit]}
@@ -687,7 +687,7 @@ defmodule MossletWeb.PostLive.FormComponent do
 
       username =
         if is_nil(uconn) do
-          decr(user.username, user, key)
+          user.decrypted[:username]
         else
           decr_uconn(uconn.connection.username, user, uconn.key, key)
         end

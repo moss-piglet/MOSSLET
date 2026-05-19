@@ -211,23 +211,23 @@ defmodule MossletWeb.EditProfileLive do
                   <.input
                     field={f_nested[:email]}
                     type="hidden"
-                    value={decr(@current_user.email, @current_user, @key)}
+                    value={@current_user.decrypted[:email]}
                   />
                   <.input
                     :if={@current_user.name}
                     field={f_nested[:name]}
                     type="hidden"
-                    value={decr(@current_user.name, @current_user, @key)}
+                    value={@current_user.decrypted[:name]}
                   />
                   <.input
                     field={f_nested[:username]}
                     type="hidden"
-                    value={decr(@current_user.username, @current_user, @key)}
+                    value={@current_user.decrypted[:username]}
                   />
                   <.input
                     field={f_nested[:temp_username]}
                     type="hidden"
-                    value={decr(@current_user.username, @current_user, @key)}
+                    value={@current_user.decrypted[:username]}
                   />
                   <.input
                     field={f_nested[:visibility]}
@@ -251,11 +251,7 @@ defmodule MossletWeb.EditProfileLive do
                       >
                         {MossletWeb.Endpoint.url() <>
                           "/app/profile/" <>
-                          decr(
-                            @current_user.username,
-                            @current_user,
-                            @key
-                          )}
+                          (@current_user.decrypted[:username] || "")}
                       </span>
                       <button
                         type="button"

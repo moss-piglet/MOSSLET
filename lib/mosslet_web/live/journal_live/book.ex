@@ -473,12 +473,7 @@ defmodule MossletWeb.JournalLive.Book do
   attr :target_entry_id, :string, default: nil
 
   defp immersive_reading_layout(assigns) do
-    decrypted_username =
-      decr(
-        assigns.current_scope.user.username,
-        assigns.current_scope.user,
-        assigns.current_scope.key
-      )
+    decrypted_username = assigns.current_scope.user.decrypted[:username]
 
     assigns =
       assigns
@@ -925,12 +920,7 @@ defmodule MossletWeb.JournalLive.Book do
   attr :class, :string, default: nil
 
   defp immersive_back_cover(assigns) do
-    decrypted_username =
-      decr(
-        assigns.current_scope.user.username,
-        assigns.current_scope.user,
-        assigns.current_scope.key
-      )
+    decrypted_username = assigns.current_scope.user.decrypted[:username]
 
     assigns = assign(assigns, :decrypted_username, decrypted_username)
 

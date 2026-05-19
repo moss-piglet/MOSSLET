@@ -6874,7 +6874,7 @@ defmodule MossletWeb.DesignSystem do
           else: "/images/logo.svg"
       }
       word_limit={500}
-      username={decr(@current_scope.user.username, @current_scope.user, @current_scope.key)}
+      username={@current_scope.user.decrypted[:username]}
       class=""
     />
 

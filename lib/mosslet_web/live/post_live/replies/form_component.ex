@@ -52,13 +52,13 @@ defmodule MossletWeb.PostLive.Replies.FormComponent do
           :if={@action == :reply}
           field={@form[:username]}
           type="hidden"
-          value={decr(@user.username, @user, @key)}
+          value={@user.decrypted[:username]}
         />
         <.field
           :if={@action == :reply_edit}
           field={@form[:username]}
           type="hidden"
-          value={decr(@user.username, @user, @key)}
+          value={@user.decrypted[:username]}
         />
 
         <div :if={@action == :reply} id="ignore-trix-editor_reply" phx-update="ignore">

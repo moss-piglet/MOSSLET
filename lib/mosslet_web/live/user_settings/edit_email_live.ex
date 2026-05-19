@@ -302,8 +302,7 @@ defmodule MossletWeb.EditEmailLive do
 
   def handle_event("update_admin", _params, socket) do
     current_user = socket.assigns.current_scope.user
-    key = socket.assigns.current_scope.key
-    email = decr(current_user.email, current_user, key)
+    email = current_user.decrypted[:email]
 
     if email === Encrypted.Session.admin_email() && current_user.confirmed_at do
       case Accounts.update_user_admin(current_user) do

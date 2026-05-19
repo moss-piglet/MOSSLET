@@ -106,7 +106,7 @@ defmodule MossletWeb.EditPasswordLive do
               <input
                 type="hidden"
                 name="user[email]"
-                value={decr(@current_user.email, @current_user, @key)}
+                value={@current_user.decrypted[:email]}
               />
 
               <%!-- Current Password Section --%>
@@ -319,10 +319,10 @@ defmodule MossletWeb.EditPasswordLive do
                   variant="ghost"
                   color="slate"
                   phx-click="send_password_reset_email"
-                  phx-value-email={decr(@current_user.email, @current_user, @key)}
+                  phx-value-email={@current_user.decrypted[:email]}
                   data-confirm={
                     gettext("This will send a reset password link to the email '%{email}'. Continue?",
-                      email: decr(@current_user.email, @current_user, @key)
+                      email: @current_user.decrypted[:email]
                     )
                   }
                   icon="hero-envelope"

@@ -429,7 +429,9 @@ defmodule MossletWeb.Helpers do
         "Private"
 
       is_nil(uconn) && user_id == current_user.id ->
-        decr(current_user.username, current_user, key)
+        if current_user.decrypted,
+          do: current_user.decrypted[:username],
+          else: decr(current_user.username, current_user, key)
 
       true ->
         decr_uconn(uconn.connection.username, current_user, uconn.key, key)
@@ -821,6 +823,77 @@ defmodule MossletWeb.Helpers do
     )
   end
 
+  @doc """
+  Pre-decrypts the current user's profile fields and attaches them as a
+  `:decrypted` map on the user struct.
+
+  This replaces scattered `decr(user.email, user, key)` calls in templates
+  with a single decryption pass per page load. The user_key (user_attributes_key)
+  is unsealed once, then each profile field is a cheap SecretBox decrypt.
+
+  Fields decrypted:
+    - :email, :username, :name, :avatar_url, :status_message
+
+  For browser-side ZK, the sealed user_key and encrypted fields are also
+  included so a JS hook can decrypt without server involvement.
+  """
+  def pre_decrypt_user(%User{} = user, session_key) do
+    case Encrypted.Users.Utils.decrypt_user_attrs_key(user.user_key, user, session_key) do
+      {:ok, raw_key} ->
+        decrypted = %{
+          email: decrypt_field(user.email, raw_key, nil),
+          username: decrypt_field(user.username, raw_key, nil),
+          name: decrypt_field(user.name, raw_key, nil),
+          avatar_url: decrypt_avatar_field(user.avatar_url, raw_key),
+          status_message: decrypt_field(user.status_message, raw_key, nil),
+          raw_key: raw_key,
+          # For future browser-side decryption (ZK):
+          sealed_user_key: user.user_key,
+          encrypted_email: user.email,
+          encrypted_username: user.username,
+          encrypted_name: user.name,
+          encrypted_avatar_url: user.avatar_url,
+          encrypted_status_message: user.status_message,
+          browser_decrypt?: false
+        }
+
+        Map.put(user, :decrypted, decrypted)
+
+      _error ->
+        decrypted = %{
+          email: nil,
+          username: nil,
+          name: nil,
+          avatar_url: nil,
+          status_message: nil,
+          raw_key: nil,
+          sealed_user_key: user.user_key,
+          encrypted_email: user.email,
+          encrypted_username: user.username,
+          encrypted_name: user.name,
+          encrypted_avatar_url: user.avatar_url,
+          encrypted_status_message: user.status_message,
+          browser_decrypt?: false
+        }
+
+        Map.put(user, :decrypted, decrypted)
+    end
+  end
+
+  def pre_decrypt_user(user, _session_key), do: user
+
+  # Avatar URLs need special handling: nil/empty values are nil,
+  # and :failed_verification becomes "failed_verification" string.
+  defp decrypt_avatar_field(nil, _raw_key), do: nil
+  defp decrypt_avatar_field("", _raw_key), do: nil
+
+  defp decrypt_avatar_field(payload, raw_key) do
+    case Encrypted.Utils.decrypt(%{key: raw_key, payload: payload}) do
+      {:ok, plaintext} -> plaintext
+      _ -> "failed_verification"
+    end
+  end
+
   def decr_uconn_item(payload, user, uconn, key) do
     if is_nil(uconn) || is_nil(uconn.key) do
       # if the owner of the Memory is trying to decrypt their own data
@@ -905,11 +978,16 @@ defmodule MossletWeb.Helpers do
   def user_name(nil), do: nil
   def user_name(nil, nil), do: nil
   def user_name(nil, _key), do: nil
+  def user_name(%{decrypted: %{name: name}} = _user, _key) when not is_nil(name), do: name
   def user_name(user, key), do: decr(user.name, user, key)
 
   def username(nil), do: nil
   def username(nil, nil), do: nil
   def username(nil, _key), do: nil
+
+  def username(%{decrypted: %{username: username}} = _user, _key) when not is_nil(username),
+    do: username
+
   def username(user, key), do: decr(user.username, user, key)
 
   # Use this for decryping a username
@@ -917,7 +995,9 @@ defmodule MossletWeb.Helpers do
     cond do
       item.user_id == user.id ->
         # Current user's own item - use their username
-        case decr(user.username, user, key) do
+        d_username = if user.decrypted, do: user.decrypted[:username]
+
+        case d_username || decr(user.username, user, key) do
           username when is_binary(username) -> username
           # Graceful fallback for decryption issues
           :failed_verification -> "You"

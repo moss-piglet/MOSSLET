@@ -98,12 +98,12 @@ defmodule MossletWeb.UserConnectionLive.Invite do
               <DesignSystem.liquid_input
                 field={@form[:current_user_name]}
                 type="hidden"
-                value={decr(@current_scope.user.name, @current_scope.user, @current_scope.key)}
+                value={@current_scope.user.decrypted[:name]}
               />
               <DesignSystem.liquid_input
                 field={@form[:current_user_username]}
                 type="hidden"
-                value={decr(@current_scope.user.username, @current_scope.user, @current_scope.key)}
+                value={@current_scope.user.decrypted[:username]}
               />
               <DesignSystem.liquid_input
                 :if={@referral_code}

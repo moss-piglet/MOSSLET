@@ -368,7 +368,7 @@ defmodule MossletWeb.ManageDataLive do
               <input
                 type="hidden"
                 name="user[email]"
-                value={decr(@current_scope.user.email, @current_scope.user, @current_scope.key)}
+                value={@current_scope.user.decrypted[:email]}
               />
 
               <%!-- Data Selection Section --%>

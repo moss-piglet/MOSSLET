@@ -162,8 +162,8 @@
             </div>
             <p class="ml-8 text-sm font-medium text-slate-900 dark:text-slate-100">
               {if @current_scope.user.name,
-                do: decr(@current_scope.user.name, @current_scope.user, @current_scope.key),
-                else: decr(@current_scope.user.username, @current_scope.user, @current_scope.key)}
+                do: @current_scope.user.decrypted[:name],
+                else: @current_scope.user.decrypted[:username]}
             </p>
           </div>
 

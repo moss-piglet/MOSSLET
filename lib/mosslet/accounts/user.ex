@@ -52,6 +52,7 @@ defmodule Mosslet.Accounts.User do
 
     field :connection_map, :map, virtual: true
     field :password_reminder, :boolean, virtual: true
+    field :decrypted, :map, virtual: true
 
     field :stripe_id, :string
     field :trial_ends_at, :utc_datetime

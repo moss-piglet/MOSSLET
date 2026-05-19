@@ -95,6 +95,28 @@
 - `lib/mosslet_web/live/user_account_recovery_live.ex` — new: account recovery page (unauthenticated)
 - `lib/mosslet_web/live/user_login_live.ex` — added link to recovery key page
 
+### Phase 3 Files Changed (Profile pre_decrypt_user)
+
+- `lib/mosslet/accounts/user.ex` — adds `:decrypted` virtual field to User schema
+- `lib/mosslet_web/helpers.ex` — new `pre_decrypt_user/2` function: unseals user_key once, decrypts all profile fields (email, username, name, avatar_url, status_message), attaches as `.decrypted` map. Also adds `.decrypted` fast-path to `user_name/2`, `username/2,3`, `maybe_decr_username_for_user_group/3`
+- `lib/mosslet_web/user_auth.ex` — `mount_current_scope/2` now calls `pre_decrypt_user` on the current user at mount time, so all authenticated pages have `user.decrypted` populated
+- `lib/mosslet_web/components/design_system.ex` — `decr()` → `.decrypted[:username]`
+- `lib/mosslet_web/live/user_settings_live.html.heex` — 8 `decr()` → `.decrypted[:field]`
+- `lib/mosslet_web/live/user_settings/edit_profile_live.ex` — 5 `decr()` → `.decrypted[:field]`
+- `lib/mosslet_web/live/user_settings/edit_password_live.ex` — 3 `decr()` → `.decrypted[:field]`
+- `lib/mosslet_web/live/user_settings/edit_email_live.ex` — 1 `decr()` → `.decrypted[:field]`
+- `lib/mosslet_web/live/user_settings/edit_details_live.ex` — 2 `decr()` → `.decrypted[:field]`
+- `lib/mosslet_web/live/user_settings/manage_data_live.ex` — 1 `decr()` → `.decrypted[:field]`
+- `lib/mosslet_web/live/post_live/form_component.ex` — 4 `decr()` → `.decrypted[:field]`
+- `lib/mosslet_web/live/post_live/components.ex` — 2 `decr()` → `.decrypted[:field]`
+- `lib/mosslet_web/live/post_live/replies/form_component.ex` — 2 `decr()` → `.decrypted[:field]`
+- `lib/mosslet_web/live/group_live/form_component.ex` — 2 `decr()` → `.decrypted[:field]`
+- `lib/mosslet_web/live/group_live/show.html.heex` — 2 `decr()` → `.decrypted[:field]`
+- `lib/mosslet_web/live/group_live/replies/form_component.ex` — 2 `decr()` → `.decrypted[:field]`
+- `lib/mosslet_web/live/user_connection_live/components.ex` — 1 `decr()` → `.decrypted[:field]`
+- `lib/mosslet_web/live/user_connection_live/invite.ex` — 2 `decr()` → `.decrypted[:field]`
+- `lib/mosslet_web/live/journal_live/book.ex` — 2 `decr()` → `.decrypted[:field]`
+
 ### Key Implementation Details
 
 **Decrypt fallback pattern** (`Encrypted.Utils.decrypt/1`):
@@ -145,6 +167,7 @@ Conversations are now fully zero-knowledge with PQ support:
 - **Groups**: GroupMessage content encrypted/decrypted browser-side via GroupMessageFormHook + DecryptGroupMessage
 - **Registration**: Browser-side key generation via RegistrationHook — user_key, user_attributes_key, conn_key, X25519+PQ keypairs all generated in WASM; server receives only encrypted blobs and public keys. Graceful fallback to server-side key generation if WASM unavailable.
 - **Recovery key**: ZK recovery key setup (RecoveryKeySetupHook) + account recovery (AccountRecoveryHook). Browser generates recovery key, encrypts private key backup. Server stores only Argon2 hash + encrypted blob. Recovery key consumed on use. New fields: `recovery_key_hash`, `encrypted_recovery_private_key`, `recovery_key_created_at`. Coexists with legacy `is_forgot_pwd?` email-based reset.
+- **Profile data (phase 1 — pre_decrypt_user)**: Consolidated 41 scattered `decr()` template calls into a single `pre_decrypt_user/2` function that unseals the user_key once at mount time and decrypts all profile fields (email, username, name, avatar_url, status_message) in one pass. Results attached as `user.decrypted` map. 19 files updated. Performance improvement: 1 asymmetric unseal + N secretbox ops instead of N full decrypt chains. The decrypted map also carries sealed_user_key + encrypted field blobs for future browser-side ZK migration.
 
 ### What Remains — Browser-Side ZK Roadmap
 
@@ -298,7 +321,7 @@ These can follow the same phased approach: first move the read path (decrypt in 
 4. ~~**Groups**~~ — DONE (read + write); Memories skipped (phasing out)
 5. ~~**RegistrationHook**~~ — DONE (browser-side key generation)
 6. ~~**Recovery key**~~ — DONE (ZK setup + account recovery)
-7. **Profile data** — user_key/conn_key operations in browser (~288 decr_* call sites across ~40 files)
+7. ~~**Profile data**~~ — IN PROGRESS: `pre_decrypt_user` consolidates user profile field decryption. 41 `decr()` call sites migrated to `.decrypted[:field]` pattern across 19 files. Sealed user_key + encrypted blobs included in decrypted map for future browser-side ZK (DecryptUserField hook). Remaining: `decr_avatar`/`decr_banner` (conn_key fields), `decr_uconn` (connection-shared data), and `decr_item` calls for profile/post context keys.
 8. **Subscription/billing ZK** — billing LiveViews + Stripe services depend on server-side `@key` for encrypting/decrypting customer IDs, emails, payment data. ~12 files affected.
 9. **Data export** — client-side batch decryption + download
 

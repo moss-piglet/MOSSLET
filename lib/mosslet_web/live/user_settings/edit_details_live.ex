@@ -236,7 +236,6 @@ defmodule MossletWeb.EditDetailsLive do
   @impl true
   def mount(_params, _session, socket) do
     current_user = socket.assigns.current_scope.user
-    key = socket.assigns.current_scope.key
 
     socket =
       socket
@@ -257,15 +256,11 @@ defmodule MossletWeb.EditDetailsLive do
       |> assign(:avatar_editing_ref, nil)
       |> assign(
         :current_username,
-        decr(
-          current_user.username,
-          current_user,
-          key
-        )
+        current_user.decrypted[:username]
       )
       |> assign(
         :current_name,
-        decr(current_user.name, current_user, key)
+        current_user.decrypted[:name]
       )
       |> assign_avatar_form(current_user)
       |> assign_name_form(current_user)

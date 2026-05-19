@@ -126,7 +126,7 @@
         field={@email_form[:email]}
         type="email"
         label="Email"
-        value={decr(@current_user.email, @current_user, @key)}
+        value={@current_user.decrypted[:email]}
         required
       />
       <.input
@@ -185,7 +185,7 @@
         field={@name_form[:name]}
         type="text"
         label="Name"
-        value={decr(@current_user.name, @current_user, @key)}
+        value={@current_user.decrypted[:name]}
         required
       />
       <:actions>
@@ -199,7 +199,7 @@
         field={@username_form[:username]}
         type="text"
         label="Username"
-        value={decr(@current_user.username, @current_user, @key)}
+        value={@current_user.decrypted[:username]}
         required
       />
       <:actions>
@@ -300,13 +300,13 @@
           <.input
             field={f_nested[:email]}
             type="hidden"
-            value={decr(@current_user.email, @current_user, @key)}
+            value={@current_user.decrypted[:email]}
           />
           <.input
             :if={@current_user.name}
             field={f_nested[:name]}
             type="hidden"
-            value={decr(@current_user.name, @current_user, @key)}
+            value={@current_user.decrypted[:name]}
           />
 
           <div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
@@ -323,7 +323,7 @@
                     type="text"
                     field={f_nested[:username]}
                     apply_classes?={true}
-                    value={decr(@current_user.username, @current_user, @key)}
+                    value={@current_user.decrypted[:username]}
                     classes="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6"
                     placeholder="janesmith"
                     disabled
@@ -331,12 +331,12 @@
                   <.input
                     field={f_nested[:username]}
                     type="hidden"
-                    value={decr(@current_user.username, @current_user, @key)}
+                    value={@current_user.decrypted[:username]}
                   />
                   <.input
                     field={f_nested[:temp_username]}
                     type="hidden"
-                    value={decr(@current_user.username, @current_user, @key)}
+                    value={@current_user.decrypted[:username]}
                   />
                   <.input
                     field={f_nested[:visibility]}

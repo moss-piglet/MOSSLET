@@ -97,7 +97,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
         <.phx_input
           field={@form[:user_name]}
           type="hidden"
-          value={decr(@current_scope.user.name, @current_scope.user, @current_scope.key)}
+          value={@current_scope.user.decrypted[:name]}
         />
 
         <div class="p-4 -mx-1 sm:mx-0 rounded-xl bg-gradient-to-br from-slate-50/80 to-slate-100/50 dark:from-slate-800/50 dark:to-slate-900/30 border border-slate-200/60 dark:border-slate-700/40">
@@ -509,7 +509,9 @@ defmodule MossletWeb.GroupLive.FormComponent do
               "private"
 
             is_nil(uconn) && user_group.user_id == current_user.id ->
-              decr(current_user.username, current_user, key)
+              if current_user.decrypted,
+                do: current_user.decrypted[:username],
+                else: decr(current_user.username, current_user, key)
 
             true ->
               decr_uconn(connection.username, current_user, uconn.key, key)

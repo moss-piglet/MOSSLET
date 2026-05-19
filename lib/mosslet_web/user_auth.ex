@@ -653,8 +653,23 @@ defmodule MossletWeb.UserAuth do
     end)
     |> Phoenix.Component.assign_new(:key, fn -> session["key"] end)
     |> then(fn socket ->
-      Phoenix.Component.assign_new(socket, :current_scope, fn ->
-        Scope.for_user(socket.assigns.current_user, key: socket.assigns.key)
+      # Pre-decrypt user profile fields once (1 unseal + N secretbox ops).
+      # This populates user.decrypted with plaintext email, username, name,
+      # avatar_url, status_message — eliminating repeated NIF calls in templates.
+      user = socket.assigns.current_user
+      key = socket.assigns.key
+
+      pre_decrypted_user =
+        if user && key && !user.decrypted do
+          MossletWeb.Helpers.pre_decrypt_user(user, key)
+        else
+          user
+        end
+
+      socket
+      |> Phoenix.Component.assign(:current_user, pre_decrypted_user)
+      |> Phoenix.Component.assign_new(:current_scope, fn ->
+        Scope.for_user(pre_decrypted_user, key: key)
       end)
     end)
   end
