@@ -107,6 +107,7 @@ defmodule MossletWeb.EditPasswordLive do
                 type="hidden"
                 name="user[email]"
                 value={@current_user.decrypted[:email]}
+                data-decrypt-field="email"
               />
 
               <%!-- Current Password Section --%>

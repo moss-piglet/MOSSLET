@@ -661,7 +661,7 @@ defmodule MossletWeb.UserAuth do
 
       pre_decrypted_user =
         if user && key && !user.decrypted do
-          MossletWeb.Helpers.pre_decrypt_user(user, key)
+          MossletWeb.Helpers.pre_decrypt_user(user, key, display?: false)
         else
           user
         end

@@ -95,16 +95,20 @@ defmodule MossletWeb.UserConnectionLive.Invite do
 
             <.form for={@form} id="new-invite-form" phx-change="validate" phx-submit="send_invite">
               <%!-- Hidden fields --%>
-              <DesignSystem.liquid_input
-                field={@form[:current_user_name]}
-                type="hidden"
-                value={@current_scope.user.decrypted[:name]}
-              />
-              <DesignSystem.liquid_input
-                field={@form[:current_user_username]}
-                type="hidden"
-                value={@current_scope.user.decrypted[:username]}
-              />
+              <span data-decrypt-field="name">
+                <DesignSystem.liquid_input
+                  field={@form[:current_user_name]}
+                  type="hidden"
+                  value={@current_scope.user.decrypted[:name]}
+                />
+              </span>
+              <span data-decrypt-field="username">
+                <DesignSystem.liquid_input
+                  field={@form[:current_user_username]}
+                  type="hidden"
+                  value={@current_scope.user.decrypted[:username]}
+                />
+              </span>
               <DesignSystem.liquid_input
                 :if={@referral_code}
                 field={@form[:referral_code]}

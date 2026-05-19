@@ -160,7 +160,10 @@
                 Your Name
               </span>
             </div>
-            <p class="ml-8 text-sm font-medium text-slate-900 dark:text-slate-100">
+            <p
+              class="ml-8 text-sm font-medium text-slate-900 dark:text-slate-100"
+              data-decrypt-field={if @current_scope.user.name, do: "name", else: "username"}
+            >
               {if @current_scope.user.name,
                 do: @current_scope.user.decrypted[:name],
                 else: @current_scope.user.decrypted[:username]}

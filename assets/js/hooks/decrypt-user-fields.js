@@ -100,8 +100,12 @@ const DecryptUserFields = {
     if (!this._cache) return;
 
     for (const [field, value] of Object.entries(this._cache)) {
-      const targets = document.querySelectorAll(`[data-decrypt-field="${field}"]`);
-      for (const el of targets) {
+      const containers = document.querySelectorAll(`[data-decrypt-field="${field}"]`);
+      for (const container of containers) {
+        const el = container.matches("input, textarea, select")
+          ? container
+          : container.querySelector("input, textarea, select") || container;
+
         if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT") {
           if (!el.dataset.decryptApplied) {
             el.value = value;
@@ -110,7 +114,7 @@ const DecryptUserFields = {
         } else {
           el.textContent = value;
         }
-        el.classList.remove("animate-pulse");
+        container.classList.remove("animate-pulse");
       }
     }
   },

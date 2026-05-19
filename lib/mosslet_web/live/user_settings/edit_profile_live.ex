@@ -208,27 +208,33 @@ defmodule MossletWeb.EditProfileLive do
                       )
                     }
                   />
-                  <.input
-                    field={f_nested[:email]}
-                    type="hidden"
-                    value={@current_user.decrypted[:email]}
-                  />
-                  <.input
-                    :if={@current_user.name}
-                    field={f_nested[:name]}
-                    type="hidden"
-                    value={@current_user.decrypted[:name]}
-                  />
-                  <.input
-                    field={f_nested[:username]}
-                    type="hidden"
-                    value={@current_user.decrypted[:username]}
-                  />
-                  <.input
-                    field={f_nested[:temp_username]}
-                    type="hidden"
-                    value={@current_user.decrypted[:username]}
-                  />
+                  <span data-decrypt-field="email">
+                    <.input
+                      field={f_nested[:email]}
+                      type="hidden"
+                      value={@current_user.decrypted[:email]}
+                    />
+                  </span>
+                  <span data-decrypt-field="name">
+                    <.input
+                      :if={@current_user.name}
+                      field={f_nested[:name]}
+                      type="hidden"
+                      value={@current_user.decrypted[:name]}
+                    />
+                  </span>
+                  <span data-decrypt-field="username">
+                    <.input
+                      field={f_nested[:username]}
+                      type="hidden"
+                      value={@current_user.decrypted[:username]}
+                    />
+                    <.input
+                      field={f_nested[:temp_username]}
+                      type="hidden"
+                      value={@current_user.decrypted[:username]}
+                    />
+                  </span>
                   <.input
                     field={f_nested[:visibility]}
                     type="hidden"

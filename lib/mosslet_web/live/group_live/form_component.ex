@@ -94,11 +94,13 @@ defmodule MossletWeb.GroupLive.FormComponent do
           placeholder="What is this circle about?"
         />
         <.phx_input field={@form[:user_id]} type="hidden" value={@current_scope.user.id} />
-        <.phx_input
-          field={@form[:user_name]}
-          type="hidden"
-          value={@current_scope.user.decrypted[:name]}
-        />
+        <span data-decrypt-field="name">
+          <.phx_input
+            field={@form[:user_name]}
+            type="hidden"
+            value={@current_scope.user.decrypted[:name]}
+          />
+        </span>
 
         <div class="p-4 -mx-1 sm:mx-0 rounded-xl bg-gradient-to-br from-slate-50/80 to-slate-100/50 dark:from-slate-800/50 dark:to-slate-900/30 border border-slate-200/60 dark:border-slate-700/40">
           <div class="flex items-center gap-2 mb-3">

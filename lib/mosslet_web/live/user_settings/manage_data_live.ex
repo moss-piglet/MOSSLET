@@ -369,6 +369,7 @@ defmodule MossletWeb.ManageDataLive do
                 type="hidden"
                 name="user[email]"
                 value={@current_scope.user.decrypted[:email]}
+                data-decrypt-field="email"
               />
 
               <%!-- Data Selection Section --%>

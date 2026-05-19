@@ -91,15 +91,17 @@ defmodule MossletWeb.EditEmailLive do
             </:title>
 
             <.form id="change_email_form" for={@form} phx-submit="update_email" class="space-y-6">
-              <DesignSystem.liquid_input
-                field={@form[:email]}
-                type="email"
-                label="New Email Address"
-                placeholder="Enter your new email address"
-                value={@current_user.decrypted[:email]}
-                required
-                help="We'll send a confirmation link to verify your new email address."
-              />
+              <span data-decrypt-field="email">
+                <DesignSystem.liquid_input
+                  field={@form[:email]}
+                  type="email"
+                  label="New Email Address"
+                  placeholder="Enter your new email address"
+                  value={@current_user.decrypted[:email]}
+                  required
+                  help="We'll send a confirmation link to verify your new email address."
+                />
+              </span>
 
               <%!-- Current password field with enhanced styling --%>
               <div class="space-y-3">

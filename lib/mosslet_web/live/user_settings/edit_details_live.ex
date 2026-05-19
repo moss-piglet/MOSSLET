@@ -128,7 +128,7 @@ defmodule MossletWeb.EditDetailsLive do
               </div>
             </:title>
 
-            <div id="name-change-form">
+            <div id="name-change-form" data-decrypt-field="name">
               <.form
                 for={@name_form}
                 id="update_name_form"
@@ -169,7 +169,7 @@ defmodule MossletWeb.EditDetailsLive do
               </div>
             </:title>
 
-            <div id="username-change-form">
+            <div id="username-change-form" data-decrypt-field="username">
               <.form
                 for={@username_form}
                 id="update_username_form"
@@ -254,14 +254,8 @@ defmodule MossletWeb.EditDetailsLive do
       |> assign(:avatar_alt_text_modal_open, false)
       |> assign(:avatar_edit_modal_open, false)
       |> assign(:avatar_editing_ref, nil)
-      |> assign(
-        :current_username,
-        current_user.decrypted[:username]
-      )
-      |> assign(
-        :current_name,
-        current_user.decrypted[:name]
-      )
+      |> assign(:current_username, current_user.decrypted[:username] || "")
+      |> assign(:current_name, current_user.decrypted[:name] || "")
       |> assign_avatar_form(current_user)
       |> assign_name_form(current_user)
       |> assign_username_form(current_user)

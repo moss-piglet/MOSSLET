@@ -838,18 +838,15 @@ defmodule MossletWeb.Helpers do
   Fields:
     - :email, :username, :name, :avatar_url, :status_message
   """
-  def pre_decrypt_user(%User{} = user, session_key) do
+  def pre_decrypt_user(user, session_key, opts \\ [])
+
+  def pre_decrypt_user(%User{} = user, session_key, opts) do
+    display? = Keyword.get(opts, :display?, true)
+
     case Encrypted.Users.Utils.decrypt_user_attrs_key(user.user_key, user, session_key) do
       {:ok, raw_key} ->
         decrypted = %{
-          # Server-decrypted values (for backend code paths)
-          email: decrypt_field(user.email, raw_key, nil),
-          username: decrypt_field(user.username, raw_key, nil),
-          name: decrypt_field(user.name, raw_key, nil),
-          avatar_url: decrypt_avatar_field(user.avatar_url, raw_key),
-          status_message: decrypt_field(user.status_message, raw_key, nil),
           raw_key: raw_key,
-          # Browser-side ZK decryption data (for DecryptUserFields hook)
           sealed_user_key: user.user_key,
           encrypted_email: user.email,
           encrypted_username: user.username,
@@ -858,6 +855,19 @@ defmodule MossletWeb.Helpers do
           encrypted_status_message: user.status_message,
           browser_decrypt?: true
         }
+
+        decrypted =
+          if display? do
+            Map.merge(decrypted, %{
+              email: decrypt_field(user.email, raw_key, nil),
+              username: decrypt_field(user.username, raw_key, nil),
+              name: decrypt_field(user.name, raw_key, nil),
+              avatar_url: decrypt_avatar_field(user.avatar_url, raw_key),
+              status_message: decrypt_field(user.status_message, raw_key, nil)
+            })
+          else
+            decrypted
+          end
 
         Map.put(user, :decrypted, decrypted)
 
@@ -882,7 +892,7 @@ defmodule MossletWeb.Helpers do
     end
   end
 
-  def pre_decrypt_user(user, _session_key), do: user
+  def pre_decrypt_user(user, _session_key, _opts), do: user
 
   @doc """
   Pre-decrypts a ConnectionProfile's fields and returns a map of plaintext values.
