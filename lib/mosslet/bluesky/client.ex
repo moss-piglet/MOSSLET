@@ -1337,8 +1337,10 @@ defmodule Mosslet.Bluesky.Client do
   defp atomize_keys(value), do: value
 
   defp maybe_atomize_key(key) when is_binary(key) do
+    # Safe to use String.to_atom/1 here because we only convert keys
+    # that are explicitly allowlisted in @known_keys (bounded set).
     if MapSet.member?(@known_keys, key),
-      do: String.to_existing_atom(key),
+      do: String.to_atom(key),
       else: key
   end
 end
