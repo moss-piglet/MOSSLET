@@ -3,17 +3,15 @@ defmodule Mosslet.Journal.Export do
   Exports journal books and entries in various formats.
 
   All entries are decrypted before export using the user's session key.
-  Supported formats: :csv, :txt, :pdf, :markdown
+  Supported formats: :csv, :txt, :markdown
+
+  Note: PDF export has moved to browser-side generation via jsPDF
+  in the ZkExportHook (zero-knowledge, client-side decryption).
   """
 
   alias Mosslet.Journal
 
-  @page_width 595
-  @page_height 842
-  @margin 60
-  @content_width @page_width - 2 * @margin
-
-  def export(user, key, format) when format in [:csv, :txt, :pdf, :markdown] do
+  def export(user, key, format) when format in [:csv, :txt, :markdown] do
     books = Journal.list_books(user)
 
     decrypted_books =
@@ -44,7 +42,6 @@ defmodule Mosslet.Journal.Export do
     case format do
       :csv -> generate_csv(all_data)
       :txt -> generate_txt(all_data)
-      :pdf -> generate_pdf(all_data)
       :markdown -> generate_markdown(all_data)
     end
   end
@@ -204,169 +201,5 @@ defmodule Mosslet.Journal.Export do
     ]
 
     lines
-  end
-
-  defp generate_pdf({books, loose_entries}) do
-    doc =
-      PrawnEx.Document.new(page_size: :a4)
-      |> PrawnEx.add_page()
-      |> render_pdf_title_page()
-
-    doc =
-      Enum.reduce(books, doc, fn {book, entries}, acc ->
-        render_pdf_book(acc, book, entries)
-      end)
-
-    doc =
-      if loose_entries != [] do
-        render_pdf_loose_entries(doc, loose_entries)
-      else
-        doc
-      end
-
-    binary = PrawnEx.to_binary(doc)
-    {:ok, binary, "journal_export.pdf", "application/pdf"}
-  end
-
-  defp render_pdf_title_page(doc) do
-    doc
-    |> PrawnEx.set_font("Helvetica", 28)
-    |> PrawnEx.text_at({@margin, @page_height - 200}, "MOSSLET")
-    |> PrawnEx.set_font("Helvetica", 18)
-    |> PrawnEx.text_at({@margin, @page_height - 240}, "Journal Export")
-    |> PrawnEx.set_font("Helvetica", 11)
-    |> PrawnEx.text_at({@margin, @page_height - 280}, "Exported: #{Date.utc_today()}")
-  end
-
-  defp render_pdf_book(doc, book, entries) do
-    doc = doc |> PrawnEx.add_page()
-
-    doc =
-      doc
-      |> PrawnEx.set_font("Helvetica", 20)
-      |> PrawnEx.text_at(
-        {@margin, @page_height - 80},
-        truncate_text(book.title || "Untitled Book", 50)
-      )
-
-    y = @page_height - 110
-
-    {doc, y} =
-      if book.description do
-        doc = PrawnEx.set_font(doc, "Helvetica", 10)
-        doc = PrawnEx.text_at(doc, {@margin, y}, truncate_text(book.description, 80))
-        {doc, y - 20}
-      else
-        {doc, y}
-      end
-
-    doc = PrawnEx.set_font(doc, "Helvetica", 9)
-    doc = PrawnEx.text_at(doc, {@margin, y}, "#{length(entries)} entries")
-
-    Enum.reduce(entries, {doc, y - 30}, fn entry, {d, cur_y} ->
-      render_pdf_entry(d, entry, cur_y)
-    end)
-    |> elem(0)
-  end
-
-  defp render_pdf_loose_entries(doc, entries) do
-    doc = doc |> PrawnEx.add_page()
-
-    doc =
-      doc
-      |> PrawnEx.set_font("Helvetica", 20)
-      |> PrawnEx.text_at({@margin, @page_height - 80}, "Entries Without a Book")
-
-    doc = PrawnEx.set_font(doc, "Helvetica", 9)
-    doc = PrawnEx.text_at(doc, {@margin, @page_height - 110}, "#{length(entries)} entries")
-
-    Enum.reduce(entries, {doc, @page_height - 140}, fn entry, {d, cur_y} ->
-      render_pdf_entry(d, entry, cur_y)
-    end)
-    |> elem(0)
-  end
-
-  defp render_pdf_entry(doc, entry, y) when y < @margin + 100 do
-    doc = PrawnEx.add_page(doc)
-    render_pdf_entry(doc, entry, @page_height - @margin)
-  end
-
-  defp render_pdf_entry(doc, entry, y) do
-    title = entry.title || "Untitled"
-    date_str = to_string(entry.entry_date)
-    mood_str = if entry.mood, do: " · #{entry.mood}", else: ""
-    fav_str = if entry.is_favorite, do: " *", else: ""
-
-    doc = PrawnEx.set_font(doc, "Helvetica", 12)
-    doc = PrawnEx.text_at(doc, {@margin, y}, truncate_text("#{title}#{fav_str}", 60))
-    y = y - 16
-
-    doc = PrawnEx.set_font(doc, "Helvetica", 8)
-    doc = PrawnEx.text_at(doc, {@margin, y}, "#{date_str}#{mood_str}")
-    y = y - 14
-
-    body = entry.body || ""
-    lines = wrap_text(body, 85)
-    doc = PrawnEx.set_font(doc, "Helvetica", 9)
-
-    {doc, y} =
-      Enum.reduce(lines, {doc, y}, fn line, {d, cur_y} ->
-        if cur_y < @margin + 20 do
-          d = PrawnEx.add_page(d)
-          cur_y = @page_height - @margin
-          d = PrawnEx.set_font(d, "Helvetica", 9)
-          d = PrawnEx.text_at(d, {@margin, cur_y}, line)
-          {d, cur_y - 12}
-        else
-          d = PrawnEx.text_at(d, {@margin, cur_y}, line)
-          {d, cur_y - 12}
-        end
-      end)
-
-    y = y - 10
-
-    doc = PrawnEx.set_stroking_gray(doc, 0.85)
-    doc = PrawnEx.line(doc, {@margin, y}, {@margin + @content_width, y})
-    doc = PrawnEx.stroke(doc)
-    doc = PrawnEx.set_stroking_gray(doc, 0.0)
-
-    {doc, y - 10}
-  end
-
-  defp wrap_text(text, chars_per_line) do
-    text
-    |> String.split("\n")
-    |> Enum.flat_map(fn paragraph ->
-      if String.length(paragraph) <= chars_per_line do
-        [paragraph]
-      else
-        wrap_paragraph(paragraph, chars_per_line)
-      end
-    end)
-  end
-
-  defp wrap_paragraph(text, max) do
-    words = String.split(text, ~r/\s+/, trim: true)
-
-    {lines, current} =
-      Enum.reduce(words, {[], ""}, fn word, {lines, current} ->
-        candidate = if current == "", do: word, else: current <> " " <> word
-
-        if String.length(candidate) > max and current != "" do
-          {[current | lines], word}
-        else
-          {lines, candidate}
-        end
-      end)
-
-    Enum.reverse([current | lines])
-  end
-
-  defp truncate_text(text, max_len) do
-    if String.length(text) > max_len do
-      String.slice(text, 0, max_len - 3) <> "..."
-    else
-      text
-    end
   end
 end

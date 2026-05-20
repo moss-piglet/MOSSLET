@@ -17,6 +17,7 @@ defmodule MossletWeb.ManageDataLive do
        export_format: "txt",
        exporting: false,
        export_error: nil,
+       export_progress: 0,
        journal_entry_count: entry_count,
        form: to_form(Accounts.change_user_delete_data(socket.assigns.current_scope.user))
      )}
@@ -123,7 +124,7 @@ defmodule MossletWeb.ManageDataLive do
 
             <div class="space-y-5">
               <p class="text-indigo-700 dark:text-indigo-300 leading-relaxed">
-                Download a copy of all your journal books and entries. Your encrypted entries will be decrypted and exported in the format you choose.
+                Download a copy of all your journal books and entries. Your entries are decrypted securely in your browser and never leave your device in plaintext.
               </p>
 
               <div class="flex items-center gap-3 text-sm text-indigo-600 dark:text-indigo-400">
@@ -133,9 +134,10 @@ defmodule MossletWeb.ManageDataLive do
                 </span>
               </div>
 
+              <%!-- ZK export hook — all formats decrypted browser-side --%>
               <div
-                id="journal-export-download"
-                phx-hook="FileDownloadHook"
+                id="zk-export-hook"
+                phx-hook="ZkExportHook"
                 phx-update="ignore"
                 class="hidden"
               >
@@ -210,82 +212,34 @@ defmodule MossletWeb.ManageDataLive do
                   </div>
                 </div>
 
-                <div class="space-y-2">
-                  <label
-                    for="export-password"
-                    class="block text-sm font-medium text-indigo-800 dark:text-indigo-200"
-                  >
-                    Confirm Password
-                  </label>
-                  <p class="text-xs text-indigo-600/80 dark:text-indigo-400/80">
-                    Your password is required to decrypt and export your journal entries.
+                <%= if @export_error do %>
+                  <p class="text-sm text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                    <.phx_icon name="hero-exclamation-circle" class="h-4 w-4 flex-shrink-0" />
+                    {@export_error}
                   </p>
-                  <div class="group relative">
-                    <input
-                      type="password"
-                      id="export-password"
-                      name="export_password"
-                      required
-                      autocomplete="current-password"
-                      class={[
-                        "relative block w-full rounded-xl px-4 py-2.5 pr-12 text-slate-900 dark:text-slate-100",
-                        "bg-white dark:bg-slate-900 placeholder:text-slate-400 dark:placeholder:text-slate-500",
-                        "border-2 border-slate-200 dark:border-slate-700",
-                        "hover:border-indigo-300 dark:hover:border-indigo-600",
-                        "focus:border-indigo-500 dark:focus:border-indigo-400",
-                        "focus:outline-none focus:ring-0",
-                        "transition-all duration-200 ease-out",
-                        "text-sm shadow-sm focus:shadow-lg focus:shadow-indigo-500/10"
-                      ]}
-                      placeholder="Enter your password"
-                    />
-                    <div class="absolute inset-y-0 right-0 flex items-center pr-3">
-                      <button
-                        type="button"
-                        id="eye-export-password"
-                        aria-label="Show password"
-                        class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
-                        phx-click={
-                          JS.set_attribute({"type", "text"}, to: "#export-password")
-                          |> JS.remove_class("hidden", to: "#eye-slash-export-password")
-                          |> JS.add_class("hidden", to: "#eye-export-password")
-                        }
+                <% end %>
+
+                <%!-- Progress bar for chunked exports --%>
+                <%= if @exporting do %>
+                  <div class="space-y-2">
+                    <div class="flex items-center justify-between text-xs text-indigo-600 dark:text-indigo-400">
+                      <span>Decrypting entries...</span>
+                      <span>{@export_progress}%</span>
+                    </div>
+                    <div class="h-2 rounded-full bg-indigo-100 dark:bg-indigo-900/30 overflow-hidden">
+                      <div
+                        class="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-300 ease-out"
+                        style={"width: #{@export_progress}%"}
                       >
-                        <.phx_icon
-                          name="hero-eye"
-                          class="h-4 w-4 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                        />
-                      </button>
-                      <button
-                        type="button"
-                        id="eye-slash-export-password"
-                        aria-label="Hide password"
-                        class="hidden p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
-                        phx-click={
-                          JS.set_attribute({"type", "password"}, to: "#export-password")
-                          |> JS.add_class("hidden", to: "#eye-slash-export-password")
-                          |> JS.remove_class("hidden", to: "#eye-export-password")
-                        }
-                      >
-                        <.phx_icon
-                          name="hero-eye-slash"
-                          class="h-4 w-4 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                        />
-                      </button>
+                      </div>
                     </div>
                   </div>
-                  <%= if @export_error do %>
-                    <p class="text-sm text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
-                      <.phx_icon name="hero-exclamation-circle" class="h-4 w-4 flex-shrink-0" />
-                      {@export_error}
-                    </p>
-                  <% end %>
-                </div>
+                <% end %>
 
                 <div class="flex items-center justify-between pt-2">
                   <div class="flex items-start gap-2 text-xs text-indigo-600/80 dark:text-indigo-400/80">
                     <.phx_icon name="hero-lock-closed" class="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-                    <span>Entries are decrypted locally for export only</span>
+                    <span>Decrypted in your browser — zero-knowledge export</span>
                   </div>
 
                   <DesignSystem.liquid_button
@@ -818,32 +772,68 @@ defmodule MossletWeb.ManageDataLive do
     {:noreply, assign(socket, export_format: format)}
   end
 
-  def handle_event("export_journal", %{"format" => format, "export_password" => password}, socket)
-      when format in ~w(csv txt pdf markdown) do
+  # ZK export for all formats — sends encrypted blobs to browser for client-side decryption
+  def handle_event("export_journal", %{"format" => format}, socket)
+      when format in ~w(csv txt markdown pdf) do
     user = socket.assigns.current_scope.user
-    key = socket.assigns.current_scope.key
+    sealed_user_key = user.user_key
 
-    if Mosslet.Accounts.User.valid_password?(user, password) do
-      {:ok, data, filename, mime_type} =
-        Journal.Export.export(user, key, String.to_existing_atom(format))
+    socket =
+      socket
+      |> assign(exporting: true, export_error: nil, export_progress: 0)
 
-      encoded = Base.encode64(data)
+    # Fetch all books and entries (Cloak auto-unwraps AES, fields are NaCl secretbox blobs)
+    books = Journal.list_books(user)
 
+    book_data =
+      Enum.map(books, fn book ->
+        entries =
+          Journal.list_journal_entries(user, book_id: book.id, limit: 100_000, order: :asc)
+
+        %{
+          title: book.title,
+          description: book.description,
+          entries: Enum.map(entries, &entry_to_encrypted_map/1)
+        }
+      end)
+
+    loose_entries =
+      user
+      |> Journal.list_loose_entries(limit: 100_000)
+      |> Enum.map(&entry_to_encrypted_map/1)
+
+    total_entries =
+      Enum.reduce(book_data, length(loose_entries), fn b, acc -> acc + length(b.entries) end)
+
+    # Send all data in a single push_event for small-to-medium journals.
+    # For very large journals (1000+), chunk into batches.
+    chunk_size = 200
+
+    if total_entries <= chunk_size do
       {:noreply,
        socket
-       |> assign(export_error: nil)
-       |> push_event("download-export", %{
-         data: encoded,
-         filename: filename,
-         mime_type: mime_type
+       |> assign(export_progress: 100, exporting: false)
+       |> push_event("zk-export-data", %{
+         sealed_user_key: sealed_user_key,
+         format: format,
+         books: book_data,
+         loose_entries: loose_entries,
+         chunk: "only",
+         total_entries: total_entries
        })}
     else
-      {:noreply, assign(socket, export_error: "Incorrect password. Please try again.")}
+      # Chunked: send books first, then loose entries in batches
+      send(
+        self(),
+        {:export_chunks, sealed_user_key, format, book_data, loose_entries, chunk_size}
+      )
+
+      {:noreply, socket |> assign(export_progress: 5)}
     end
   end
 
   def handle_event("export_journal", _params, socket) do
-    {:noreply, assign(socket, export_error: "Password is required to export.")}
+    {:noreply, socket}
   end
 
   def handle_event("validate_password", params, socket) do
@@ -907,7 +897,97 @@ defmodule MossletWeb.ManageDataLive do
     {:noreply, socket |> put_flash(:success, info)}
   end
 
+  # Chunked ZK export — sends book_data + loose_entries in batches
+  def handle_info(
+        {:export_chunks, sealed_user_key, format, book_data, loose_entries, chunk_size},
+        socket
+      ) do
+    total_entries =
+      Enum.reduce(book_data, length(loose_entries), fn b, acc -> acc + length(b.entries) end)
+
+    # Split books into chunks of entries
+    {chunked_books, _} =
+      Enum.reduce(book_data, {[], 0}, fn book, {acc, sent} ->
+        book_entries = book.entries
+        chunks = Enum.chunk_every(book_entries, chunk_size)
+
+        {book_chunks, new_sent} =
+          Enum.reduce(chunks, {[], sent}, fn chunk, {chunk_acc, s} ->
+            progress = min(95, round((s + length(chunk)) / total_entries * 95))
+            {chunk_acc ++ [{%{book | entries: chunk}, progress}], s + length(chunk)}
+          end)
+
+        {acc ++ book_chunks, new_sent}
+      end)
+
+    # Send first chunk with metadata
+    socket =
+      case chunked_books do
+        [{first_book, progress} | rest_books] ->
+          socket
+          |> assign(export_progress: progress)
+          |> push_event("zk-export-data", %{
+            sealed_user_key: sealed_user_key,
+            format: format,
+            books: [first_book],
+            loose_entries: [],
+            chunk: "first",
+            total_entries: total_entries
+          })
+          |> then(fn socket ->
+            # Send remaining book chunks
+            Enum.reduce(rest_books, socket, fn {book, prog}, s ->
+              s
+              |> assign(export_progress: prog)
+              |> push_event("zk-export-data", %{
+                books: [book],
+                loose_entries: [],
+                chunk: "middle"
+              })
+            end)
+          end)
+
+        [] ->
+          socket
+      end
+
+    # Send loose entries in chunks
+    loose_chunks = Enum.chunk_every(loose_entries, chunk_size)
+
+    socket =
+      Enum.reduce(loose_chunks, socket, fn chunk, s ->
+        s
+        |> push_event("zk-export-data", %{
+          books: [],
+          loose_entries: chunk,
+          chunk: "middle"
+        })
+      end)
+
+    # Final signal
+    socket =
+      socket
+      |> assign(export_progress: 100, exporting: false)
+      |> push_event("zk-export-data", %{chunk: "last"})
+
+    {:noreply, socket}
+  end
+
   def handle_info(_message, socket) do
     {:noreply, socket}
+  end
+
+  # Converts a JournalEntry to a map of encrypted (NaCl secretbox) field values.
+  # Cloak auto-unwraps the AES at-rest layer on Ecto load, so these are
+  # base64-encoded NaCl secretbox blobs — exactly what the browser WASM expects.
+  defp entry_to_encrypted_map(entry) do
+    %{
+      title: entry.title,
+      body: entry.body,
+      mood: entry.mood,
+      entry_date: Date.to_iso8601(entry.entry_date),
+      is_favorite: entry.is_favorite,
+      word_count: entry.word_count || 0
+    }
   end
 end
