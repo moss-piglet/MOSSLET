@@ -14,7 +14,7 @@
  * multiple push_events before decrypting and formatting.
  */
 import { unsealContextKey, decryptWithKey, getPublicKey } from "../crypto/session";
-import { jsPDF } from "jspdf";
+import { jsPDF } from "../../vendor/jspdf.umd.min.js";
 
 /**
  * User keys are double-base64 wrapped (the NIF seals a base64-encoded key,
