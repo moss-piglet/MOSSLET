@@ -2664,11 +2664,16 @@ defmodule MossletWeb.UserHomeLive do
                         )
                       }
                       user_avatar={
-                        get_profile_post_author_avatar(
+                        get_profile_post_author_avatar_fallback(
                           post,
-                          @profile_user,
                           @current_scope.user,
-                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      encrypted_avatar_data={
+                        get_encrypted_profile_post_author_avatar_data(
+                          post,
+                          @current_scope.user,
                           @user_connection
                         )
                       }
@@ -2809,11 +2814,16 @@ defmodule MossletWeb.UserHomeLive do
                         )
                       }
                       user_avatar={
-                        get_profile_post_author_avatar(
+                        get_profile_post_author_avatar_fallback(
                           post,
-                          @profile_user,
                           @current_scope.user,
-                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      encrypted_avatar_data={
+                        get_encrypted_profile_post_author_avatar_data(
+                          post,
+                          @current_scope.user,
                           @user_connection
                         )
                       }
@@ -4000,11 +4010,16 @@ defmodule MossletWeb.UserHomeLive do
                         )
                       }
                       user_avatar={
-                        get_profile_post_author_avatar(
+                        get_profile_post_author_avatar_fallback(
                           post,
-                          @profile_user,
                           @current_scope.user,
-                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      encrypted_avatar_data={
+                        get_encrypted_profile_post_author_avatar_data(
+                          post,
+                          @current_scope.user,
                           @user_connection
                         )
                       }
@@ -4145,11 +4160,16 @@ defmodule MossletWeb.UserHomeLive do
                         )
                       }
                       user_avatar={
-                        get_profile_post_author_avatar(
+                        get_profile_post_author_avatar_fallback(
                           post,
-                          @profile_user,
                           @current_scope.user,
-                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      encrypted_avatar_data={
+                        get_encrypted_profile_post_author_avatar_data(
+                          post,
+                          @current_scope.user,
                           @user_connection
                         )
                       }
@@ -4778,24 +4798,32 @@ defmodule MossletWeb.UserHomeLive do
       end
   end
 
-  defp get_profile_post_author_avatar(post, _profile_user, current_user, key, user_connection) do
-    is_post_author? = post.user_id == current_user.id
-
-    if is_post_author? do
-      if current_user.connection.profile.show_avatar? do
-        maybe_get_user_avatar(current_user, key) || "/images/logo.svg"
-      else
-        "/images/logo.svg"
-      end
+  # Returns encrypted avatar data for browser-side ZK decryption on profile post cards.
+  # For current user: uses conn_key sealed key.
+  # For other users: uses UserConnection.key sealed key.
+  # Returns nil when avatar is hidden or data unavailable (component falls back to logo).
+  defp get_encrypted_profile_post_author_avatar_data(post, current_user, user_connection) do
+    if post.user_id == current_user.id do
+      if current_user.connection.profile.show_avatar?,
+        do: get_encrypted_avatar_data(current_user, nil),
+        else: nil
     else
-      if user_connection && show_avatar?(user_connection) do
-        case maybe_get_avatar_src(post, current_user, key, []) do
-          avatar when is_binary(avatar) and avatar != "" -> avatar
-          _ -> "/images/logo.svg"
-        end
-      else
-        "/images/logo.svg"
-      end
+      if user_connection && show_avatar?(user_connection),
+        do: get_encrypted_avatar_data(user_connection, nil),
+        else: nil
+    end
+  end
+
+  # Fallback avatar URL for profile post cards when ZK data is nil.
+  defp get_profile_post_author_avatar_fallback(post, current_user, user_connection) do
+    if post.user_id == current_user.id do
+      if current_user.connection.profile.show_avatar?,
+        do: mosslet_logo_for_theme(),
+        else: "/images/logo.svg"
+    else
+      if user_connection && show_avatar?(user_connection),
+        do: mosslet_logo_for_theme(),
+        else: "/images/logo.svg"
     end
   end
 

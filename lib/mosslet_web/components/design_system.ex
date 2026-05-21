@@ -32,7 +32,7 @@ defmodule MossletWeb.DesignSystem do
       user_name: 2,
       get_encrypted_avatar_data: 2,
       get_encrypted_banner_data: 2,
-      maybe_get_user_avatar: 2,
+      mosslet_logo_for_theme: 0,
       decr_item: 6,
       show_avatar?: 1,
       maybe_get_avatar_src: 4,
@@ -9453,7 +9453,10 @@ defmodule MossletWeb.DesignSystem do
           >
             <.liquid_avatar
               id={"liquid-avatar-#{@post_id}-#{@reply.id}-#{@current_scope.user.id}"}
-              src={get_reply_author_avatar(@reply, @current_scope.user, @current_scope.key)}
+              src={get_reply_author_avatar_fallback(@reply, @current_scope.user)}
+              encrypted_avatar_data={
+                get_encrypted_reply_author_avatar_data(@reply, @current_scope.user)
+              }
               name={get_safe_reply_author_name(@reply, @current_scope.user, @current_scope.key)}
               status={get_reply_author_status(@reply, @current_scope.user, @current_scope.key)}
               status_message={
@@ -9475,8 +9478,11 @@ defmodule MossletWeb.DesignSystem do
                 get_reply_author_profile_visibility(@reply, @current_scope.user)
               )
             }
-            id={"liquid-avatar-#{@post_id}-#{@reply.id}-#{@current_scope.user.id}"}
-            src={get_reply_author_avatar(@reply, @current_scope.user, @current_scope.key)}
+            id={"liquid-avatar-noprofile-#{@post_id}-#{@reply.id}-#{@current_scope.user.id}"}
+            src={get_reply_author_avatar_fallback(@reply, @current_scope.user)}
+            encrypted_avatar_data={
+              get_encrypted_reply_author_avatar_data(@reply, @current_scope.user)
+            }
             name={get_safe_reply_author_name(@reply, @current_scope.user, @current_scope.key)}
             status={get_reply_author_status(@reply, @current_scope.user, @current_scope.key)}
             status_message={
@@ -9702,12 +9708,34 @@ defmodule MossletWeb.DesignSystem do
     Timeline.get_user_post_by_post_id_and_user_id(post_id, user_id)
   end
 
-  defp get_reply_author_avatar(reply, current_user, key) do
+  # Returns encrypted avatar data for browser-side ZK decryption on reply avatars.
+  # For current user: uses conn_key sealed key.
+  # For other users: uses UserConnection.key sealed key.
+  # Returns nil when avatar is hidden or data unavailable (component falls back to logo).
+  defp get_encrypted_reply_author_avatar_data(reply, current_user) do
     cond do
       reply.user_id == current_user.id ->
         if show_avatar?(current_user),
-          do: maybe_get_user_avatar(current_user, key) || "/images/logo.svg",
-          else: "/images/logo.svg"
+          do: get_encrypted_avatar_data(current_user, nil),
+          else: nil
+
+      not is_connected_to_reply_author?(reply, current_user) ->
+        nil
+
+      true ->
+        user_connection = get_uconn_for_shared_item(reply, current_user)
+
+        if show_avatar?(user_connection),
+          do: get_encrypted_avatar_data(user_connection, nil),
+          else: nil
+    end
+  end
+
+  # Fallback avatar URL for reply avatars when ZK data is nil (avatar hidden or unavailable).
+  defp get_reply_author_avatar_fallback(reply, current_user) do
+    cond do
+      reply.user_id == current_user.id ->
+        if show_avatar?(current_user), do: mosslet_logo_for_theme(), else: "/images/logo.svg"
 
       not is_connected_to_reply_author?(reply, current_user) ->
         "/images/logo.svg"
@@ -9715,14 +9743,7 @@ defmodule MossletWeb.DesignSystem do
       true ->
         user_connection = get_uconn_for_shared_item(reply, current_user)
 
-        if show_avatar?(user_connection) do
-          case maybe_get_avatar_src(reply, current_user, key, []) do
-            avatar when is_binary(avatar) and avatar != "" -> avatar
-            _ -> "/images/logo.svg"
-          end
-        else
-          "/images/logo.svg"
-        end
+        if show_avatar?(user_connection), do: mosslet_logo_for_theme(), else: "/images/logo.svg"
     end
   end
 
