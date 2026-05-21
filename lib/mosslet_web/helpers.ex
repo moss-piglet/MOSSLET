@@ -9,6 +9,7 @@ defmodule MossletWeb.Helpers do
   alias Mosslet.Billing.{Plans, Subscriptions}
   alias Mosslet.Encrypted
   alias Mosslet.Extensions.AvatarProcessor
+  alias Mosslet.Extensions.BannerProcessor
   alias Mosslet.Groups
   alias Mosslet.Groups.{Group, UserGroup}
   alias Mosslet.Memories
@@ -872,6 +873,7 @@ defmodule MossletWeb.Helpers do
         decrypted = %{
           raw_key: raw_key,
           sealed_user_key: user.user_key,
+          sealed_conn_key: user.conn_key,
           encrypted_email: user.email,
           encrypted_username: user.username,
           encrypted_name: user.name,
@@ -904,6 +906,7 @@ defmodule MossletWeb.Helpers do
           status_message: nil,
           raw_key: nil,
           sealed_user_key: user.user_key,
+          sealed_conn_key: user.conn_key,
           encrypted_email: user.email,
           encrypted_username: user.username,
           encrypted_name: user.name,
@@ -3379,4 +3382,81 @@ defmodule MossletWeb.Helpers do
   def soft_like_text(_count, true), do: "You appreciate"
   def soft_like_text(_count, false), do: "People appreciate"
   def soft_like_text(count), do: soft_like_text(count, false)
+
+  @doc """
+  Returns encrypted avatar blob + sealed key for browser-side ZK decryption.
+
+  Fetches the encrypted avatar from ETS cache (already populated by the
+  existing avatar fetch/display flow) and returns the sealed conn_key
+  so the browser can unseal and decrypt without server involvement.
+
+  Returns `%{encrypted_blob_b64: string, sealed_key: string}` or `nil`.
+
+  Note: The ETS-cached avatar is already a base64 secretbox ciphertext
+  (output of MetamorphicCrypto.SecretBox.encrypt), so we pass it through
+  directly — no additional encoding needed.
+  """
+  def get_encrypted_avatar_data(%User{} = user, _key) do
+    user = preload_connection(user)
+
+    cond do
+      is_nil(user.avatar_url) ->
+        nil
+
+      encrypted_blob_b64 = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}") ->
+        %{
+          encrypted_blob_b64: encrypted_blob_b64,
+          sealed_key: user.conn_key
+        }
+
+      true ->
+        nil
+    end
+  end
+
+  def get_encrypted_avatar_data(%UserConnection{} = uconn, _key) do
+    conn = uconn.connection
+
+    cond do
+      is_nil(conn.avatar_url) ->
+        nil
+
+      encrypted_blob_b64 = AvatarProcessor.get_ets_avatar("profile-#{conn.id}") ->
+        %{
+          encrypted_blob_b64: encrypted_blob_b64,
+          sealed_key: uconn.key
+        }
+
+      true ->
+        nil
+    end
+  end
+
+  def get_encrypted_avatar_data(nil, _key), do: nil
+
+  @doc """
+  Returns encrypted banner blob + sealed key for browser-side ZK decryption.
+
+  Same as get_encrypted_avatar_data — the ETS value is already base64 ciphertext.
+  """
+  def get_encrypted_banner_data(%User{} = user, _key) do
+    user = preload_connection(user)
+    profile = Map.get(user.connection, :profile)
+
+    cond do
+      is_nil(profile) or is_nil(profile.custom_banner_url) ->
+        nil
+
+      encrypted_blob_b64 = BannerProcessor.get_banner(user.connection.id) ->
+        %{
+          encrypted_blob_b64: encrypted_blob_b64,
+          sealed_key: user.conn_key
+        }
+
+      true ->
+        nil
+    end
+  end
+
+  def get_encrypted_banner_data(_, _key), do: nil
 end

@@ -7,7 +7,9 @@ import BookScrollReader from "./book-scroll-reader";
 import ConversationEmojiPicker from "./conversation-emoji-picker";
 import { ConversationComposer, DecryptMessage, ConversationScroll } from "./conversation-hooks";
 import DecryptGroupMessage from "./decrypt-group-message";
+import DecryptAvatar from "./decrypt-avatar";
 import DecryptPost from "./decrypt-post";
+import NsfwCheck from "./nsfw-check";
 import DecryptUserFields from "./decrypt-user-fields";
 import PostFormHook from "./post-form-hook";
 import CharacterCounter from "./character-counter";
@@ -93,6 +95,7 @@ export default {
   CSSBookBackCoverClick,
   CSSBookCoverClick,
   DeepLinkHook,
+  DecryptAvatar,
   DecryptGroupMessage,
   DecryptMessage,
   DecryptPost,
@@ -121,6 +124,7 @@ export default {
   MessageReactions,
   ModalPortal,
   MossletFrameworkHooks,
+  NsfwCheck,
   PostFormHook,
   RecoveryKeySetupHook,
   RegistrationHook,

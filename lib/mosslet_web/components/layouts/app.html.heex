@@ -11,6 +11,7 @@
     data-encrypted-private-key={@current_scope.user.key_pair["private"]}
     data-pq-public-key={@current_scope.user.pq_public_key}
     data-encrypted-pq-private-key={@current_scope.user.encrypted_pq_private_key}
+    data-conn-key={@current_scope.user.conn_key}
     class="hidden"
   >
   </div>
@@ -22,6 +23,7 @@
     phx-hook="DecryptUserFields"
     phx-update="ignore"
     data-sealed-user-key={@current_scope.user.decrypted[:sealed_user_key]}
+    data-sealed-conn-key={@current_scope.user.decrypted[:sealed_conn_key]}
     data-encrypted-email={@current_scope.user.decrypted[:encrypted_email]}
     data-encrypted-username={@current_scope.user.decrypted[:encrypted_username]}
     data-encrypted-name={@current_scope.user.decrypted[:encrypted_name]}

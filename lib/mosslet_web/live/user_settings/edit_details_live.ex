@@ -57,6 +57,22 @@ defmodule MossletWeb.EditDetailsLive do
               phx-change="validate"
               class="space-y-6"
             >
+              <div id="nsfw-checker-avatar" phx-hook="NsfwCheck" phx-update="ignore"></div>
+
+              <div
+                :if={@nsfw_check_result && @nsfw_check_result.is_nsfw}
+                class="rounded-lg border border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/30 p-4"
+              >
+                <div class="flex items-center gap-2 text-red-700 dark:text-red-400">
+                  <.phx_icon name="hero-exclamation-triangle" class="h-5 w-5 shrink-0" />
+                  <p class="text-sm font-medium">
+                    {gettext(
+                      "This image was flagged as potentially explicit content and cannot be used as an avatar."
+                    )}
+                  </p>
+                </div>
+              </div>
+
               <DesignSystem.liquid_avatar_upload
                 upload={@uploads.avatar}
                 upload_stage={@avatar_upload_stage}
@@ -85,7 +101,10 @@ defmodule MossletWeb.EditDetailsLive do
                   :if={Enum.any?(@uploads.avatar.entries) && !is_processing?(@avatar_upload_stage)}
                   type="submit"
                   phx-disable-with="Updating..."
-                  disabled={!@uploads.avatar.entries || is_processing?(@avatar_upload_stage)}
+                  disabled={
+                    !@uploads.avatar.entries || is_processing?(@avatar_upload_stage) ||
+                      (@nsfw_check_result && @nsfw_check_result.is_nsfw)
+                  }
                   icon="hero-photo"
                 >
                   {gettext("Update avatar")}
@@ -254,6 +273,7 @@ defmodule MossletWeb.EditDetailsLive do
       |> assign(:avatar_alt_text_modal_open, false)
       |> assign(:avatar_edit_modal_open, false)
       |> assign(:avatar_editing_ref, nil)
+      |> assign(:nsfw_check_result, nil)
       |> assign(:current_username, current_user.decrypted[:username] || "")
       |> assign(:current_name, current_user.decrypted[:name] || "")
       |> assign_avatar_form(current_user)
@@ -300,7 +320,9 @@ defmodule MossletWeb.EditDetailsLive do
      |> assign(:avatar_temp_path, temp_path)
      |> assign(:avatar_preview_data_url, preview)
      |> assign(:avatar_original_preview_data_url, preview)
-     |> assign(:avatar_upload_stage, nil)}
+     |> assign(:avatar_upload_stage, nil)
+     |> assign(:nsfw_check_result, nil)
+     |> push_event("nsfw:check", %{data_url: preview, check_id: "avatar"})}
   end
 
   @impl true
@@ -380,6 +402,32 @@ defmodule MossletWeb.EditDetailsLive do
     {:noreply, socket}
   end
 
+  @impl true
+  def handle_event("nsfw:result", params, socket) do
+    result = %{
+      is_nsfw: params["is_nsfw"] == true,
+      reason: params["reason"],
+      source: params["source"],
+      error: params["error"]
+    }
+
+    socket =
+      if result.is_nsfw do
+        socket
+        |> assign(:nsfw_check_result, result)
+        |> put_flash(:warning, result.reason || gettext("Image flagged as explicit content."))
+      else
+        assign(socket, :nsfw_check_result, result)
+      end
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("nsfw:model_ready", _params, socket) do
+    {:noreply, socket}
+  end
+
   def handle_event("validate_name", params, socket) do
     %{"user" => user_params} = params
 
@@ -442,7 +490,8 @@ defmodule MossletWeb.EditDetailsLive do
      |> assign(:avatar_crop, nil)
      |> assign(:avatar_preview_data_url, nil)
      |> assign(:avatar_original_preview_data_url, nil)
-     |> assign(:avatar_temp_path, nil)}
+     |> assign(:avatar_temp_path, nil)
+     |> assign(:nsfw_check_result, nil)}
   end
 
   @impl true
@@ -535,13 +584,24 @@ defmodule MossletWeb.EditDetailsLive do
   def handle_event("update_avatar", _user_params, socket) do
     temp_path = socket.assigns.avatar_temp_path
     crop = socket.assigns.avatar_crop
+    nsfw_result = socket.assigns.nsfw_check_result
 
-    if is_nil(temp_path) do
-      {:noreply,
-       socket
-       |> put_flash(:warning, "No image selected. Please choose an image first.")}
-    else
-      process_and_upload_avatar(socket, temp_path, crop)
+    cond do
+      is_nil(temp_path) ->
+        {:noreply,
+         socket
+         |> put_flash(:warning, "No image selected. Please choose an image first.")}
+
+      nsfw_result && nsfw_result.is_nsfw ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :warning,
+           nsfw_result.reason || "Image flagged as explicit content."
+         )}
+
+      true ->
+        process_and_upload_avatar(socket, temp_path, crop)
     end
   end
 
@@ -698,11 +758,9 @@ defmodule MossletWeb.EditDetailsLive do
         with {:ok, image} <- Image.open(temp_path),
              send(lv_pid, {:avatar_upload_stage, {:converting, 30}}),
              {:ok, image} <- maybe_apply_crop(image, crop),
-             send(lv_pid, {:avatar_upload_stage, {:checking, 50}}),
-             {:ok, safe_image} <- check_for_safety(image),
              send(lv_pid, {:avatar_upload_stage, {:resizing, 60}}),
              {:ok, vix_image} <-
-               Image.avatar(safe_image,
+               Image.avatar(image,
                  crop: :attention,
                  shape: :square,
                  size: 360
@@ -728,9 +786,6 @@ defmodule MossletWeb.EditDetailsLive do
           Mosslet.FileUploads.TempStorage.cleanup(temp_path)
           {:ok, file_path, e_blob}
         else
-          {:nsfw, message} ->
-            {:error, message}
-
           {:error, message} ->
             {:error, message}
         end
@@ -755,10 +810,6 @@ defmodule MossletWeb.EditDetailsLive do
 
   defp maybe_apply_crop(image, %{x: x, y: y, width: w, height: h}) do
     Image.crop(image, x, y, w, h)
-  end
-
-  defp check_for_safety(image_binary) do
-    Mosslet.AI.Images.check_for_safety(image_binary)
   end
 
   defp assign_avatar_form(socket, user) do

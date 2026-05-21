@@ -7,7 +7,6 @@ defmodule MossletWeb.ModernSidebarLayout do
   use Phoenix.Component, global_prefixes: ~w(x-)
 
   import MossletWeb.ModernSidebarMenu
-  import MossletWeb.Helpers
 
   alias Phoenix.LiveView.JS, as: JS
 
@@ -324,10 +323,13 @@ defmodule MossletWeb.ModernSidebarLayout do
           "group-hover:opacity-100 group-hover:translate-x-full transform -translate-x-full"
         ]}>
         </div>
-        <MossletWeb.CoreComponents.phx_avatar
-          src={maybe_get_user_avatar(@current_scope.user, @current_scope.key)}
+        <MossletWeb.DesignSystem.zk_avatar_image
+          id="sidebar-user-avatar"
+          user={@current_scope.user}
+          key={@current_scope.key}
           class="h-8 w-8 rounded-full transition-all duration-300 ring-2 ring-transparent group-hover:ring-emerald-300 dark:group-hover:ring-emerald-400 group-hover:shadow-md group-hover:shadow-emerald-500/30"
           alt="User avatar"
+          placeholder_class="h-8 w-8 rounded-full"
         />
       </button>
 

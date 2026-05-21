@@ -13,7 +13,10 @@ import {
   decryptPrivateKey,
   unsealFromUser,
   decryptSecretboxToString,
+  decryptSecretbox,
 } from "./nacl";
+
+export { decryptSecretbox };
 import { SK } from "../hooks/session-key-deriver";
 
 const COMPOSER_SELECTOR = "#conversation-composer";
@@ -98,6 +101,17 @@ export function getEncryptedPqPrivateKey() {
     getComposerEl()?.dataset?.encryptedPqPrivateKey ||
     null
   );
+}
+
+/**
+ * Returns the user's sealed conn_key (connection key) from the DOM.
+ * The conn_key is sealed to the user's keypair and can be unsealed
+ * via unsealContextKey().
+ * @returns {string | null}
+ */
+export function getSealedConnKey() {
+  const deriverEl = document.querySelector("#session-key-deriver");
+  return deriverEl?.dataset?.connKey || null;
 }
 
 /**

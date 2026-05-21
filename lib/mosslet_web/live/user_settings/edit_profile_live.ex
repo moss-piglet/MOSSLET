@@ -33,6 +33,7 @@ defmodule MossletWeb.EditProfileLive do
       |> assign(:banner_alt_text_modal_open, false)
       |> assign(:banner_edit_modal_open, false)
       |> assign(:banner_editing_ref, nil)
+      |> assign(:nsfw_check_result, nil)
       |> assign_profile_about(current_user, socket.assigns.key)
       |> assign_profile_alternate_email(current_user, socket.assigns.key)
       |> assign_profile_website_url(current_user, socket.assigns.key)
@@ -388,6 +389,27 @@ defmodule MossletWeb.EditProfileLive do
                     </div>
 
                     <div :if={@banner_image == :custom && @profile} class="space-y-4">
+                      <div
+                        id="nsfw-checker-banner"
+                        phx-hook="NsfwCheck"
+                        phx-update="ignore"
+                      >
+                      </div>
+
+                      <div
+                        :if={@nsfw_check_result && @nsfw_check_result.is_nsfw}
+                        class="rounded-lg border border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/30 p-4"
+                      >
+                        <div class="flex items-center gap-2 text-red-700 dark:text-red-400">
+                          <.phx_icon name="hero-exclamation-triangle" class="h-5 w-5 shrink-0" />
+                          <p class="text-sm font-medium">
+                            {gettext(
+                              "This image was flagged as potentially explicit content and cannot be used as a banner."
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
                       <DesignSystem.liquid_banner_upload
                         upload={@uploads.banner}
                         upload_stage={@banner_upload_stage}
@@ -413,7 +435,9 @@ defmodule MossletWeb.EditProfileLive do
                       />
                       <div
                         :if={
-                          Enum.any?(@uploads.banner.entries) && !is_processing?(@banner_upload_stage)
+                          Enum.any?(@uploads.banner.entries) &&
+                            !is_processing?(@banner_upload_stage) &&
+                            !(@nsfw_check_result && @nsfw_check_result.is_nsfw)
                         }
                         class="flex justify-end"
                       >
@@ -673,6 +697,30 @@ defmodule MossletWeb.EditProfileLive do
      |> put_flash(:success, "Profile URL copied to clipboard successfully! #{emoji}")}
   end
 
+  def handle_event("nsfw:result", params, socket) do
+    result = %{
+      is_nsfw: params["is_nsfw"] == true,
+      reason: params["reason"],
+      source: params["source"],
+      error: params["error"]
+    }
+
+    socket =
+      if result.is_nsfw do
+        socket
+        |> assign(:nsfw_check_result, result)
+        |> put_flash(:warning, result.reason || gettext("Image flagged as explicit content."))
+      else
+        assign(socket, :nsfw_check_result, result)
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_event("nsfw:model_ready", _params, socket) do
+    {:noreply, socket}
+  end
+
   def handle_event("validate_profile", params, socket) do
     %{"connection" => profile_params} = params
     user = socket.assigns.current_scope.user
@@ -928,7 +976,8 @@ defmodule MossletWeb.EditProfileLive do
      |> assign(:banner_alt_text, nil)
      |> assign(:banner_crop, nil)
      |> assign(:banner_preview_data_url, nil)
-     |> assign(:banner_temp_path, nil)}
+     |> assign(:banner_temp_path, nil)
+     |> assign(:nsfw_check_result, nil)}
   end
 
   def handle_event("open_banner_alt_text_modal", %{"ref" => ref}, socket) do
@@ -1001,11 +1050,22 @@ defmodule MossletWeb.EditProfileLive do
   def handle_event("upload_banner", _params, socket) do
     entries = socket.assigns.uploads.banner.entries
     in_progress? = Enum.any?(entries, &(&1.progress < 100))
+    nsfw_result = socket.assigns.nsfw_check_result
 
-    if entries == [] or in_progress? do
-      {:noreply, socket}
-    else
-      do_upload_banner(socket)
+    cond do
+      entries == [] or in_progress? ->
+        {:noreply, socket}
+
+      nsfw_result && nsfw_result.is_nsfw ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :warning,
+           nsfw_result.reason || "Image flagged as explicit content."
+         )}
+
+      true ->
+        do_upload_banner(socket)
     end
   end
 
@@ -1063,7 +1123,9 @@ defmodule MossletWeb.EditProfileLive do
      |> assign(:banner_temp_path, temp_path)
      |> assign(:banner_preview_data_url, preview)
      |> assign(:banner_original_preview_data_url, preview)
-     |> assign(:banner_upload_stage, nil)}
+     |> assign(:banner_upload_stage, nil)
+     |> assign(:nsfw_check_result, nil)
+     |> push_event("nsfw:check", %{data_url: preview, check_id: "banner"})}
   end
 
   def handle_info({:banner_upload_error, _ref, reason}, socket) do
@@ -1173,10 +1235,8 @@ defmodule MossletWeb.EditProfileLive do
         with {:ok, image} <- Image.open(temp_path),
              send(lv_pid, {:banner_upload_stage, {:converting, 30}}),
              {:ok, image} <- maybe_apply_crop(image, crop),
-             send(lv_pid, {:banner_upload_stage, {:checking, 50}}),
-             {:ok, safe_image} <- check_for_safety(image),
              send(lv_pid, {:banner_upload_stage, {:resizing, 60}}),
-             {:ok, resized_image} <- resize_banner_image(safe_image),
+             {:ok, resized_image} <- resize_banner_image(image),
              {:ok, blob} <-
                Image.write(resized_image, :memory,
                  suffix: ".webp",
@@ -1199,9 +1259,6 @@ defmodule MossletWeb.EditProfileLive do
           Mosslet.FileUploads.TempStorage.cleanup(temp_path)
           {:ok, file_path, e_blob}
         else
-          {:nsfw, message} ->
-            {:error, message}
-
           {:error, message} ->
             {:error, message}
         end
@@ -1371,10 +1428,6 @@ defmodule MossletWeb.EditProfileLive do
       {:error, reason} ->
         {:error, "Failed to fetch banner: #{inspect(reason)}"}
     end
-  end
-
-  defp check_for_safety(image_binary) do
-    Mosslet.AI.Images.check_for_safety(image_binary)
   end
 
   defp resize_banner_image(image) do

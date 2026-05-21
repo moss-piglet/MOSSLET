@@ -30,6 +30,8 @@ defmodule MossletWeb.DesignSystem do
       get_safe_reply_author_name: 3,
       photos?: 1,
       user_name: 2,
+      get_encrypted_avatar_data: 2,
+      get_encrypted_banner_data: 2,
       maybe_get_user_avatar: 2,
       decr_item: 6,
       show_avatar?: 1,
@@ -15167,6 +15169,86 @@ defmodule MossletWeb.DesignSystem do
         </span>
       </div>
     </div>
+    """
+  end
+
+  @doc """
+  Zero-knowledge avatar image component.
+
+  Renders an `<img>` that decrypts the avatar client-side using the DecryptAvatar
+  hook. The server sends only the encrypted blob and the sealed conn_key — the
+  browser unseals the key and decrypts the image via WASM.
+
+  Falls back to a placeholder icon while decryption is pending or when no
+  encrypted avatar data is available (ETS miss or no avatar).
+  """
+  attr :user, :any, required: true, doc: "User or UserConnection struct"
+  attr :key, :string, required: true, doc: "session key"
+  attr :id, :string, required: true, doc: "unique DOM id"
+  attr :class, :string, default: "", doc: "CSS classes"
+  attr :alt, :string, default: "", doc: "alt text"
+  attr :placeholder_class, :string, default: "", doc: "CSS classes for the placeholder fallback"
+
+  def zk_avatar_image(assigns) do
+    encrypted_data = get_encrypted_avatar_data(assigns[:user], assigns[:key])
+
+    assigns =
+      assign(assigns, :encrypted_data, encrypted_data)
+      |> assign(:has_data?, not is_nil(encrypted_data))
+
+    ~H"""
+    <div class="relative inline-flex">
+      <div
+        :if={!@has_data?}
+        class={[
+          "inline-flex items-center justify-center bg-slate-200 dark:bg-slate-700",
+          @placeholder_class
+        ]}
+      >
+        <.phx_icon name="hero-user" class="w-1/2 h-1/2 text-slate-400 dark:text-slate-500" />
+      </div>
+      <img
+        :if={@has_data?}
+        id={@id}
+        phx-hook="DecryptAvatar"
+        data-encrypted-blob={@encrypted_data[:encrypted_blob_b64]}
+        data-sealed-key={@encrypted_data[:sealed_key]}
+        class={[@class]}
+        alt={@alt}
+      />
+    </div>
+    """
+  end
+
+  @doc """
+  Zero-knowledge banner image component.
+
+  Same pattern as zk_avatar_image but for banner images (3:1 aspect ratio).
+  The browser decrypts the banner client-side via DecryptAvatar hook.
+  """
+  attr :user, :any, required: true, doc: "User struct"
+  attr :key, :string, required: true, doc: "session key"
+  attr :id, :string, required: true, doc: "unique DOM id"
+  attr :class, :string, default: "", doc: "CSS classes"
+  attr :alt, :string, default: "Banner image"
+
+  def zk_banner_image(assigns) do
+    encrypted_data = get_encrypted_banner_data(assigns[:user], assigns[:key])
+
+    assigns =
+      assign(assigns, :encrypted_data, encrypted_data)
+      |> assign(:has_data?, not is_nil(encrypted_data))
+
+    ~H"""
+    <img
+      :if={@has_data?}
+      id={@id}
+      phx-hook="DecryptAvatar"
+      data-encrypted-blob={@encrypted_data[:encrypted_blob_b64]}
+      data-sealed-key={@encrypted_data[:sealed_key]}
+      class={["w-full h-full object-cover", @class]}
+      alt={@alt}
+    />
     """
   end
 end

@@ -18,7 +18,8 @@ defmodule MossletWeb do
   """
 
   def static_paths,
-    do: ~w(assets dictionary favicon favicon.ico fonts images robots.txt uploads wasm .well-known)
+    do:
+      ~w(assets dictionary favicon favicon.ico fonts images models robots.txt uploads wasm .well-known)
 
   def router do
     quote do
