@@ -225,7 +225,8 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
           />
           <.phx_avatar
             :if={@current_user_group.user_id == @user_group.user_id}
-            src={maybe_get_user_avatar(@current_scope.user, @current_scope.key)}
+            encrypted_avatar_data={get_encrypted_avatar_data(@current_scope.user, @current_scope.key)}
+            id={"edit-member-self-#{@user_group.id}"}
             alt=""
             class={"w-10 h-10 sm:w-12 sm:h-12 #{role_avatar_ring(@user_group.role)}"}
           />

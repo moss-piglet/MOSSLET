@@ -76,7 +76,7 @@ defmodule MossletWeb.EditDetailsLive do
               <DesignSystem.liquid_avatar_upload
                 upload={@uploads.avatar}
                 upload_stage={@avatar_upload_stage}
-                current_avatar_src={maybe_get_user_avatar(@current_user, @key)}
+                encrypted_avatar_data={get_encrypted_avatar_data(@current_user, @key)}
                 user={@current_user}
                 encryption_key={@key}
                 on_delete="delete_avatar"

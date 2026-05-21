@@ -1,15 +1,13 @@
 <div class="inline-flex w-full items-start space-x-4">
   <div class="flex-shrink-0">
-    <.avatar
+    <MossletWeb.DesignSystem.zk_avatar_image
       :if={not is_nil(@current_user)}
-      src={
-        maybe_get_user_avatar(
-          @current_user,
-          @key
-        )
-      }
-      size="md"
+      user={@current_user}
+      key={@key}
+      id="remark-form-avatar"
       class="h-10 w-10 rounded-full"
+      alt="Your avatar"
+      placeholder_class="h-10 w-10 rounded-full"
     />
   </div>
   <div class="flex-1 gap-x-3">

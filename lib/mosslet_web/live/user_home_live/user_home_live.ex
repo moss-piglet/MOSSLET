@@ -2269,8 +2269,12 @@ defmodule MossletWeb.UserHomeLive do
                   <div class="relative flex-shrink-0">
                     <MossletWeb.DesignSystem.liquid_avatar
                       src={
+                        if not @profile_user.connection.profile.show_avatar?,
+                          do: nil
+                      }
+                      encrypted_avatar_data={
                         if @profile_user.connection.profile.show_avatar?,
-                          do: maybe_get_user_avatar(@current_scope.user, @current_scope.key)
+                          do: get_encrypted_avatar_data(@current_scope.user, @current_scope.key)
                       }
                       name={
                         decr_item(
@@ -2294,6 +2298,7 @@ defmodule MossletWeb.UserHomeLive do
                         can_view_status?(@current_scope.user, @current_scope.user, @current_scope.key)
                       }
                       user_id={@current_scope.user.id}
+                      id="user-home-profile-avatar"
                       verified={@current_scope.user.connection.profile.visibility == "public"}
                     />
                   </div>
@@ -2455,8 +2460,12 @@ defmodule MossletWeb.UserHomeLive do
                 )
               }
               user_avatar={
+                if not @profile_user.connection.profile.show_avatar?,
+                  do: nil
+              }
+              encrypted_avatar_data={
                 if @profile_user.connection.profile.show_avatar?,
-                  do: maybe_get_user_avatar(@current_scope.user, @current_scope.key)
+                  do: get_encrypted_avatar_data(@current_scope.user, @current_scope.key)
               }
               placeholder="Share something meaningful with your community..."
               current_scope={@current_scope}

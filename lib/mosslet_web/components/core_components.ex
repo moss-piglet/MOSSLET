@@ -1783,52 +1783,77 @@ defmodule MossletWeb.CoreComponents do
   attr(:user, :any, default: nil, doc: "the current user struct")
   attr(:key, :string, default: nil, doc: "the current user session key")
 
+  attr(:encrypted_avatar_data, :map,
+    default: nil,
+    doc: "ZK mode: map with :encrypted_blob_b64 and :sealed_key for browser-side decryption"
+  )
+
+  attr(:id, :string, default: nil, doc: "unique DOM id (required for ZK mode)")
+
   attr(:rest, :global)
 
   def phx_avatar(assigns) do
+    zk_mode? = not is_nil(assigns.encrypted_avatar_data)
+    assigns = assign(assigns, :zk_mode?, zk_mode?)
+
     ~H"""
-    <%= if src_blank?(@src) && (!@name || @name == "") do %>
+    <%= if @zk_mode? do %>
       <img
+        id={"zk-avatar-#{@id}"}
+        phx-hook="DecryptAvatar"
+        data-encrypted-blob={@encrypted_avatar_data[:encrypted_blob_b64]}
+        data-sealed-key={@encrypted_avatar_data[:sealed_key]}
         class={
           if @class == "",
-            do: "inline-block #{@size} rounded-md bg-background-50 dark:bg-gray-900",
+            do: "inline-block #{@size} rounded-full bg-background-50 dark:bg-gray-900",
             else: @class
         }
-        src={~p"/images/logo.svg"}
-        alt="Mosslet egg logo"
+        alt={@alt}
       />
     <% else %>
-      <%= if src_nil?(@src) && @name do %>
-        <span class={
-          if @class == "",
-            do:
-              "inline-flex #{@size} items-center justify-center  rounded-md bg-background-50 dark:bg-gray-900",
-            else: "inline-flex #{@class} #{@size} items-center justify-center "
-        }>
-          <p class={"text-#{@text_size} font-semibold text-emerald-600 dark:text-emerald-400 leading-none"}>
-            {generate_initials(@name)}
-          </p>
-        </span>
+      <%= if src_blank?(@src) && (!@name || @name == "") do %>
+        <img
+          class={
+            if @class == "",
+              do: "inline-block #{@size} rounded-md bg-background-50 dark:bg-gray-900",
+              else: @class
+          }
+          src={~p"/images/logo.svg"}
+          alt="Mosslet egg logo"
+        />
       <% else %>
-        <%= if @src == "" && @name do %>
+        <%= if src_nil?(@src) && @name do %>
           <span class={
             if @class == "",
               do:
-                "inline-flex text-#{@size} items-center justify-center rounded-md bg-background-50 dark:bg-gray-900",
-              else: "inline-flex #{@class} #{@size} items-center justify-center"
+                "inline-flex #{@size} items-center justify-center  rounded-md bg-background-50 dark:bg-gray-900",
+              else: "inline-flex #{@class} #{@size} items-center justify-center "
           }>
-            <.spinner size="md" class="text-primary-500" />
+            <p class={"text-#{@text_size} font-semibold text-emerald-600 dark:text-emerald-400 leading-none"}>
+              {generate_initials(@name)}
+            </p>
           </span>
         <% else %>
-          <img
-            class={
+          <%= if @src == "" && @name do %>
+            <span class={
               if @class == "",
-                do: "inline-block #{@size} rounded-full bg-background-50 dark:bg-gray-900",
-                else: @class
-            }
-            src={@src}
-            alt={@alt}
-          />
+                do:
+                  "inline-flex text-#{@size} items-center justify-center rounded-md bg-background-50 dark:bg-gray-900",
+                else: "inline-flex #{@class} #{@size} items-center justify-center"
+            }>
+              <.spinner size="md" class="text-primary-500" />
+            </span>
+          <% else %>
+            <img
+              class={
+                if @class == "",
+                  do: "inline-block #{@size} rounded-full bg-background-50 dark:bg-gray-900",
+                  else: @class
+              }
+              src={@src}
+              alt={@alt}
+            />
+          <% end %>
         <% end %>
       <% end %>
     <% end %>
@@ -1844,52 +1869,77 @@ defmodule MossletWeb.CoreComponents do
   attr(:user, :any, default: nil, doc: "the current user struct")
   attr(:key, :string, default: nil, doc: "the current user session key")
 
+  attr(:encrypted_avatar_data, :map,
+    default: nil,
+    doc: "ZK mode: map with :encrypted_blob_b64 and :sealed_key for browser-side decryption"
+  )
+
+  attr(:id, :string, default: nil, doc: "unique DOM id (required for ZK mode)")
+
   attr(:rest, :global)
 
   def group_avatar(assigns) do
+    zk_mode? = not is_nil(assigns.encrypted_avatar_data)
+    assigns = assign(assigns, :zk_mode?, zk_mode?)
+
     ~H"""
-    <%= if src_blank?(@src) && (!@name || @name == "") do %>
+    <%= if @zk_mode? do %>
       <img
+        id={"zk-avatar-#{@id}"}
+        phx-hook="DecryptAvatar"
+        data-encrypted-blob={@encrypted_avatar_data[:encrypted_blob_b64]}
+        data-sealed-key={@encrypted_avatar_data[:sealed_key]}
         class={
           if @class == "",
-            do: "inline-block #{@size} rounded-md bg-white dark:bg-gray-900",
+            do: "inline-block #{@size} rounded-full bg-white dark:bg-gray-900",
             else: @class
         }
-        src={~p"/images/logo.svg"}
-        alt="Mosslet egg logo"
+        alt={@alt}
       />
     <% else %>
-      <%= if src_nil?(@src) && @name do %>
-        <span class={
-          if @class == "",
-            do:
-              "inline-flex #{@size} items-center justify-center overflow-hidden rounded-md bg-white dark:bg-gray-900",
-            else: "inline-flex #{@class} #{@size} items-center justify-center overflow-hidden"
-        }>
-          <span class={"text-#{@text_size} font-thin leading-none"}>
-            {generate_initials(@name)}
-          </span>
-        </span>
+      <%= if src_blank?(@src) && (!@name || @name == "") do %>
+        <img
+          class={
+            if @class == "",
+              do: "inline-block #{@size} rounded-md bg-white dark:bg-gray-900",
+              else: @class
+          }
+          src={~p"/images/logo.svg"}
+          alt="Mosslet egg logo"
+        />
       <% else %>
-        <%= if @src == "" && @name do %>
+        <%= if src_nil?(@src) && @name do %>
           <span class={
             if @class == "",
               do:
-                "inline-flex text-#{@size} items-center justify-center overflow-hidden rounded-md bg-white dark:bg-gray-900",
+                "inline-flex #{@size} items-center justify-center overflow-hidden rounded-md bg-white dark:bg-gray-900",
               else: "inline-flex #{@class} #{@size} items-center justify-center overflow-hidden"
           }>
-            <.spinner size="md" class="text-primary-500" />
+            <span class={"text-#{@text_size} font-thin leading-none"}>
+              {generate_initials(@name)}
+            </span>
           </span>
         <% else %>
-          <img
-            class={
+          <%= if @src == "" && @name do %>
+            <span class={
               if @class == "",
-                do: "inline-block #{@size} rounded-full bg-white dark:bg-gray-900",
-                else: @class
-            }
-            src={@src}
-            alt={@alt}
-          />
+                do:
+                  "inline-flex text-#{@size} items-center justify-center overflow-hidden rounded-md bg-white dark:bg-gray-900",
+                else: "inline-flex #{@class} #{@size} items-center justify-center overflow-hidden"
+            }>
+              <.spinner size="md" class="text-primary-500" />
+            </span>
+          <% else %>
+            <img
+              class={
+                if @class == "",
+                  do: "inline-block #{@size} rounded-full bg-white dark:bg-gray-900",
+                  else: @class
+              }
+              src={@src}
+              alt={@alt}
+            />
+          <% end %>
         <% end %>
       <% end %>
     <% end %>

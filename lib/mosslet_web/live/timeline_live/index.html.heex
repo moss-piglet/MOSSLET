@@ -574,9 +574,12 @@
               id={"timeline-composer-enhanced-#{@active_tab}"}
               user_name={user_name(@current_user, @key) || "Private Author"}
               user_avatar={
+                if not show_avatar?(@current_user),
+                  do: "/images/logo.svg"
+              }
+              encrypted_avatar_data={
                 if show_avatar?(@current_user),
-                  do: maybe_get_user_avatar(@current_user, @key) || "/images/logo.svg",
-                  else: "/images/logo.svg"
+                  do: get_encrypted_avatar_data(@current_user, @key)
               }
               placeholder="Share something meaningful..."
               word_limit={500}

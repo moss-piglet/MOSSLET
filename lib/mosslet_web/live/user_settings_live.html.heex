@@ -23,11 +23,14 @@
     >
       <div class="col-span-full">
         <label for={@uploads.avatar.ref}>Avatar</label>
-        <.avatar
+        <MossletWeb.DesignSystem.zk_avatar_image
           :if={@current_user.connection.avatar_url}
-          src={maybe_get_user_avatar(@current_user, @key)}
           user={@current_user}
           key={@key}
+          id="settings-current-avatar"
+          class="h-24 w-24 rounded-full"
+          alt="Your current avatar"
+          placeholder_class="h-24 w-24 rounded-full"
         />
         <div
           class="mt-2 flex justify-center rounded-lg border border-dashed border-zinc-900/25 px-6 py-10"

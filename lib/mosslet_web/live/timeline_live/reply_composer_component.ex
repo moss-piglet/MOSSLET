@@ -101,6 +101,7 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
                   }
                   class="flex-shrink-0"
                   user_id={@current_scope.user.id}
+                  encrypted_avatar_data={assigns[:encrypted_avatar_data]}
                 />
 
                 <div class="flex-1 min-w-0">

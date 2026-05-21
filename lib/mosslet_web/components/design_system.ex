@@ -2792,11 +2792,17 @@ defmodule MossletWeb.DesignSystem do
   @doc """
   Liquid metal avatar component with enhanced styling and status indicators.
 
+  Supports two modes:
+  - **Classic mode**: Pass `src` with a data URL or path (server-decrypted avatar)
+  - **ZK mode**: Pass `encrypted_avatar_data` (map with `:encrypted_blob_b64` and `:sealed_key`)
+    to render with the `DecryptAvatar` hook for browser-side decryption. Requires a unique `id`.
+
   ## Examples
 
       <.liquid_avatar src="/path/to/avatar.jpg" name="John Doe" size="md" />
       <.liquid_avatar src="/path/to/avatar.jpg" name="Jane" size="lg" status="online" />
       <.liquid_avatar name="Anonymous" size="sm" verified={true} />
+      <.liquid_avatar encrypted_avatar_data={get_encrypted_avatar_data(@user, @key)} id="my-avatar" name="John" />
   """
   attr :src, :string, default: nil
   attr :name, :string, required: true
@@ -2820,12 +2826,19 @@ defmodule MossletWeb.DesignSystem do
     default: nil,
     doc: "Custom alt text for the avatar image (e.g., decrypted avatar_alt_text)"
 
+  attr :encrypted_avatar_data, :map,
+    default: nil,
+    doc: "ZK mode: map with :encrypted_blob_b64 and :sealed_key for browser-side decryption"
+
   attr :rest, :global
 
   def liquid_avatar(assigns) do
+    zk_mode? = not is_nil(assigns.encrypted_avatar_data)
+
     assigns =
       assigns
-      |> assign(:avatar_url, assigns.src || "/images/logo.svg")
+      |> assign(:zk_mode?, zk_mode?)
+      |> assign(:avatar_url, if(zk_mode?, do: nil, else: assigns.src || "/images/logo.svg"))
       |> assign(:computed_alt, assigns.alt_text || "#{assigns.name} avatar")
 
     ~H"""
@@ -2871,8 +2884,18 @@ defmodule MossletWeb.DesignSystem do
         ]}>
         </div>
 
-        <%!-- Avatar image --%>
+        <%!-- Avatar image: ZK mode (browser-side decryption) or classic mode --%>
         <img
+          :if={@zk_mode?}
+          id={"zk-avatar-#{@id}"}
+          phx-hook="DecryptAvatar"
+          data-encrypted-blob={@encrypted_avatar_data[:encrypted_blob_b64]}
+          data-sealed-key={@encrypted_avatar_data[:sealed_key]}
+          alt={@computed_alt}
+          class="relative w-full h-full object-cover"
+        />
+        <img
+          :if={!@zk_mode?}
           src={@avatar_url}
           alt={@computed_alt}
           class="relative w-full h-full object-cover"
@@ -3263,6 +3286,10 @@ defmodule MossletWeb.DesignSystem do
   attr :show_status, :boolean, default: false
   attr :status_message, :string, default: nil
 
+  attr :encrypted_avatar_data, :map,
+    default: nil,
+    doc: "ZK mode: encrypted avatar data for browser-side decryption"
+
   def liquid_new_post_prompt(assigns) do
     assigns = assign_scope_fields(assigns)
 
@@ -3305,6 +3332,7 @@ defmodule MossletWeb.DesignSystem do
               status_message={@status_message}
               user_id={if @current_scope.user, do: @current_scope.user.id}
               show_status={@show_status}
+              encrypted_avatar_data={@encrypted_avatar_data}
               id={"#{@id}-avatar"}
             />
           </div>
@@ -3387,6 +3415,10 @@ defmodule MossletWeb.DesignSystem do
   attr :collapsed, :boolean, default: false
   attr :bluesky_sync_enabled, :boolean, default: false
 
+  attr :encrypted_avatar_data, :map,
+    default: nil,
+    doc: "ZK mode: encrypted avatar data for browser-side decryption"
+
   def liquid_timeline_composer_enhanced(assigns) do
     assigns = assign_scope_fields(assigns)
 
@@ -3453,6 +3485,7 @@ defmodule MossletWeb.DesignSystem do
             show_status={
               can_view_status?(@current_scope.user, @current_scope.user, @current_scope.key)
             }
+            encrypted_avatar_data={@encrypted_avatar_data}
             id={"composer-avatar-#{@id}"}
           />
 
@@ -4563,6 +4596,10 @@ defmodule MossletWeb.DesignSystem do
   attr :crop, :map, default: nil
   attr :preview_data_url, :string, default: nil
 
+  attr :encrypted_avatar_data, :map,
+    default: nil,
+    doc: "ZK mode: encrypted avatar data for browser-side decryption"
+
   def liquid_avatar_upload(assigns) do
     ~H"""
     <div class={["space-y-4", @class]}>
@@ -4576,6 +4613,7 @@ defmodule MossletWeb.DesignSystem do
               status={to_string(@user.status || "offline")}
               user_id={@user.id}
               show_status={false}
+              encrypted_avatar_data={@encrypted_avatar_data}
               id={"avatar-upload-preview-#{@user.id}"}
             />
             <button
@@ -6872,8 +6910,12 @@ defmodule MossletWeb.DesignSystem do
       user_name={user_name(@current_scope.user, @current_scope.key) || "You"}
       user_avatar={
         if show_avatar?(@current_scope.user),
-          do: maybe_get_user_avatar(@current_scope.user, @current_scope.key) || "/images/logo.svg",
+          do: nil,
           else: "/images/logo.svg"
+      }
+      encrypted_avatar_data={
+        if show_avatar?(@current_scope.user),
+          do: get_encrypted_avatar_data(@current_scope.user, @current_scope.key)
       }
       word_limit={500}
       username={@current_scope.user.decrypted[:username]}
