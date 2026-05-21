@@ -5529,6 +5529,12 @@ defmodule MossletWeb.DesignSystem do
   attr :user_name, :string, required: true
   attr :user_handle, :string, required: true
   attr :user_avatar, :string, default: nil
+
+  attr :encrypted_avatar_data, :map,
+    default: nil,
+    doc:
+      "ZK mode: map with :encrypted_blob_b64 and :sealed_key for browser-side avatar decryption"
+
   attr :user_status, :string, default: nil
   attr :user_status_message, :string, default: nil
   attr :timestamp, :string, required: true
@@ -6333,6 +6339,7 @@ defmodule MossletWeb.DesignSystem do
           >
             <.liquid_avatar
               src={@user_avatar}
+              encrypted_avatar_data={@encrypted_avatar_data}
               name={@user_name}
               size="md"
               verified={@verified}
@@ -6347,6 +6354,7 @@ defmodule MossletWeb.DesignSystem do
           <.liquid_avatar
             :if={!show_author_profile?(@author_profile_slug, @author_profile_visibility)}
             src={@user_avatar}
+            encrypted_avatar_data={@encrypted_avatar_data}
             name={@user_name}
             size="md"
             verified={@verified}
@@ -6355,7 +6363,7 @@ defmodule MossletWeb.DesignSystem do
             status_message={@user_status_message}
             show_status={@show_post_author_status}
             user_id={@post.user_id}
-            id={"avatar-#{@post.id}"}
+            id={"avatar-noprofile-#{@post.id}"}
           />
 
           <%!-- User info --%>

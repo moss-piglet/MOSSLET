@@ -289,7 +289,10 @@
                 <MossletWeb.DesignSystem.liquid_timeline_post
                   user_name={get_post_author_name(post, @current_user, @key)}
                   user_handle={"@" <> (post.decrypted[:username] || "author")}
-                  user_avatar={get_post_author_avatar(post, @current_user, @key)}
+                  user_avatar={get_post_author_avatar_fallback(post, @current_user)}
+                  encrypted_avatar_data={
+                    get_encrypted_post_author_avatar_data(post, @current_user, @key)
+                  }
                   user_status={get_cached_user_status(@user_statuses, post.user_id)}
                   user_status_message={
                     get_cached_user_status_message(@user_statuses, post.user_id)
@@ -381,7 +384,10 @@
                   <MossletWeb.DesignSystem.liquid_timeline_post
                     user_name={get_post_author_name(post, @current_user, @key)}
                     user_handle={"@" <> (post.decrypted[:username] || "author")}
-                    user_avatar={get_post_author_avatar(post, @current_user, @key)}
+                    user_avatar={get_post_author_avatar_fallback(post, @current_user)}
+                    encrypted_avatar_data={
+                      get_encrypted_post_author_avatar_data(post, @current_user, @key)
+                    }
                     user_status={get_cached_user_status(@user_statuses, post.user_id)}
                     user_status_message={
                       get_cached_user_status_message(@user_statuses, post.user_id)

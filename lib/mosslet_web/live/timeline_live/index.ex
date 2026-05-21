@@ -5530,27 +5530,31 @@ defmodule MossletWeb.TimelineLive.Index do
     |> List.first()
   end
 
-  # Helper function to get the post author's avatar
-  defp get_post_author_avatar(post, current_user, key) do
-    cond do
-      post.user_id == current_user.id ->
-        # Current user's own post - use their avatar
-        if show_avatar?(current_user),
-          do: maybe_get_user_avatar(current_user, key) || mosslet_logo_for_theme(),
-          else: "/images/logo.svg"
+  # Returns encrypted avatar data for browser-side ZK decryption on post cards.
+  # For current user: uses conn_key sealed key.
+  # For other users: uses UserConnection.key sealed key.
+  # Returns nil when avatar is hidden or data unavailable (component falls back to logo).
+  defp get_encrypted_post_author_avatar_data(post, current_user, _key) do
+    if post.user_id == current_user.id do
+      if show_avatar?(current_user),
+        do: get_encrypted_avatar_data(current_user, nil),
+        else: nil
+    else
+      user_connection = get_uconn_for_shared_item(post, current_user)
 
-      true ->
-        # Other user's post - get their avatar via connection
-        user_connection = get_uconn_for_shared_item(post, current_user)
+      if show_avatar?(user_connection),
+        do: get_encrypted_avatar_data(user_connection, nil),
+        else: nil
+    end
+  end
 
-        if show_avatar?(user_connection) do
-          case maybe_get_avatar_src(post, current_user, key, []) do
-            avatar when is_binary(avatar) and avatar != "" -> avatar
-            _ -> mosslet_logo_for_theme()
-          end
-        else
-          "/images/logo.svg"
-        end
+  # Fallback avatar URL for post cards when ZK data is nil (avatar hidden or unavailable).
+  defp get_post_author_avatar_fallback(post, current_user) do
+    if post.user_id == current_user.id do
+      if show_avatar?(current_user), do: mosslet_logo_for_theme(), else: "/images/logo.svg"
+    else
+      user_connection = get_uconn_for_shared_item(post, current_user)
+      if show_avatar?(user_connection), do: mosslet_logo_for_theme(), else: "/images/logo.svg"
     end
   end
 
