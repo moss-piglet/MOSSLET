@@ -523,6 +523,25 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
     end
   end
 
+  @doc """
+  Uploads an already-encrypted binary to cloud storage without re-encrypting.
+
+  Used by the ZK write path — the browser encrypts the image with the post_key
+  and sends the encrypted blob to the server, which stores it directly on S3.
+  The server never sees the encryption key or the plaintext image.
+
+  Returns `{:ok, file_path}` on success or `{:error, reason}` on failure.
+  """
+  def upload_pre_encrypted_to_storage(encrypted_binary) do
+    storage_key = Ecto.UUID.generate()
+    file_path = "#{@folder}/#{storage_key}.webp"
+
+    case put_object(file_path, encrypted_binary) do
+      {:ok, :uploaded} -> {:ok, file_path}
+      {:error, _} = error -> error
+    end
+  end
+
   defp generate_trix_key(_user, _visibility) do
     Encrypted.Utils.generate_key()
   end

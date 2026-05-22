@@ -408,20 +408,32 @@ defmodule MossletWeb.TimelineLive.Index do
     temp_path = write_upload_to_temp_file(binary, entry_ref)
     preview_data_url = generate_thumbnail_preview(binary)
 
+    visibility = socket.assigns.selector
+    is_zk_path = visibility not in ["public", :public]
+
     completed_upload = %{
       ref: entry_ref,
       client_name: (entry && entry.client_name) || "photo",
       temp_path: temp_path,
       trix_key: trix_key,
       preview_data_url: preview_data_url,
-      upload_visibility: socket.assigns.selector,
-      ai_generated: Map.get(upload_data, :ai_generated, false)
+      upload_visibility: visibility,
+      ai_generated: Map.get(upload_data, :ai_generated, false),
+      encrypted_path: nil
     }
 
     socket =
       socket
       |> assign(:upload_stages, upload_stages)
       |> assign(:completed_uploads, socket.assigns.completed_uploads ++ [completed_upload])
+
+    socket =
+      if is_zk_path do
+        blob_b64 = Base.encode64(binary)
+        push_event(socket, "encrypt_post_image", %{blob_b64: blob_b64, upload_ref: entry_ref})
+      else
+        socket
+      end
 
     {:noreply, socket}
   end
@@ -2708,6 +2720,44 @@ defmodule MossletWeb.TimelineLive.Index do
     else
       {:noreply, put_flash(socket, :warning, "Not connected. Please refresh and try again.")}
     end
+  end
+
+  # ZK write path: browser encrypted a post image with the post_key.
+  # Upload the already-encrypted blob directly to S3 — the server never
+  # decrypts it or sees the encryption key.
+  def handle_event(
+        "post_image_encrypted",
+        %{"encrypted_blob_b64" => encrypted_blob_b64, "upload_ref" => upload_ref},
+        socket
+      ) do
+    encrypted_binary = Base.decode64!(encrypted_blob_b64)
+
+    case Mosslet.FileUploads.ImageUploadWriter.upload_pre_encrypted_to_storage(encrypted_binary) do
+      {:ok, file_path} ->
+        completed_uploads =
+          Enum.map(socket.assigns.completed_uploads, fn upload ->
+            if upload.ref == upload_ref do
+              upload |> Map.put(:encrypted_path, file_path) |> Map.drop([:temp_path])
+            else
+              upload
+            end
+          end)
+
+        {:noreply, assign(socket, :completed_uploads, completed_uploads)}
+
+      {:error, reason} ->
+        Logger.error("Failed to upload pre-encrypted (ZK) image: #{inspect(reason)}")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event(
+        "post_image_encrypted_failed",
+        %{"upload_ref" => upload_ref, "reason" => reason},
+        socket
+      ) do
+    Logger.error("ZK image encryption failed for #{upload_ref}: #{reason}")
+    {:noreply, socket}
   end
 
   def handle_event("save_post", %{"post" => post_params}, socket) do
@@ -5874,10 +5924,21 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  # Helper function to process uploaded photos using Tigris.ex encryption
+  # Helper function to process uploaded photos.
+  #
+  # Two paths:
+  #   1. ZK path (encrypted_path present, non-public visibility): Image was
+  #      already encrypted by the browser and uploaded to S3 via the
+  #      post_image_encrypted event. Return the path directly — no server-side
+  #      encryption needed.
+  #   2. Legacy path (no encrypted_path, or public visibility): Server-side
+  #      encryption with trix_key (public posts, or ZK images that haven't
+  #      completed encryption yet).
+  #
   # Returns {upload_paths, alt_texts, trix_key} tuple for idiomatic Elixir/Phoenix
   defp process_uploaded_photos(socket, _current_user, _key) do
     completed_uploads = socket.assigns.completed_uploads
+    is_zk_path = socket.assigns.selector not in ["public", :public]
 
     if completed_uploads == [] do
       {[], [], nil}
@@ -5886,22 +5947,27 @@ defmodule MossletWeb.TimelineLive.Index do
 
       upload_results =
         Enum.map(completed_uploads, fn upload ->
-          actual_trix_key = trix_key || upload.trix_key
+          if upload.encrypted_path && is_zk_path do
+            # ZK path — already encrypted by browser, already on S3
+            {upload.encrypted_path, upload[:alt_text] || "", trix_key}
+          else
+            actual_trix_key = trix_key || upload.trix_key
 
-          binary = File.read!(upload.temp_path)
-          binary = maybe_apply_crop(binary, upload[:crop])
+            binary = File.read!(upload.temp_path)
+            binary = maybe_apply_crop(binary, upload[:crop])
 
-          case Mosslet.FileUploads.ImageUploadWriter.upload_to_storage(
-                 binary,
-                 actual_trix_key
-               ) do
-            {:ok, file_path} ->
-              cleanup_temp_upload(upload.temp_path)
-              {file_path, upload[:alt_text] || "", actual_trix_key}
+            case Mosslet.FileUploads.ImageUploadWriter.upload_to_storage(
+                   binary,
+                   actual_trix_key
+                 ) do
+              {:ok, file_path} ->
+                cleanup_temp_upload(upload.temp_path)
+                {file_path, upload[:alt_text] || "", actual_trix_key}
 
-            {:error, reason} ->
-              Logger.error("📷 PROCESS_UPLOADED_PHOTOS: Upload failed: #{inspect(reason)}")
-              nil
+              {:error, reason} ->
+                Logger.error("📷 PROCESS_UPLOADED_PHOTOS: Upload failed: #{inspect(reason)}")
+                nil
+            end
           end
         end)
 

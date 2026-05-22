@@ -357,10 +357,11 @@ These can follow the same phased approach: first move the read path (decrypt in 
 14. **Post images** — DONE. Post image display migrated to ZK browser-side decryption. `TrixContentPostHook` uses cached post_key from `DecryptPost` to decrypt image blobs in WASM. New `"fetch_encrypted_post_images"` server event returns raw encrypted S3 blobs (server never decrypts image content). Falls back to legacy server-side decrypt for public posts. Reply images remain server-side (future migration).
 15. **Remaining post data fields** — DONE. Extended `DecryptPost` hook to decrypt username, content_warning, content_warning_category, and url_preview browser-side. `decrypt_post_fields/3` passes encrypted blobs for non-public posts. `PostFormHook` extended to encrypt content_warning fields. Post schema `encrypt_content_warning_if_present/3` accepts pre-encrypted CW from browser.
 16. **True ZK Read (favs_list, reposts_list, share_note, image_alt_texts)** — DONE. All four fields moved to browser-side decryption for non-public posts. `raw_key` removed from `post.decrypted` map. `liked`/`can_repost` computed browser-side by DecryptPost hook after decrypting encrypted ID lists. Share note applied via DOM target. Image alt texts cached for future modal integration.
-17. **Full data structure audit** — Comprehensive review of ALL encrypted data structures (excl. memories) to identify any gaps.
-18. **ZK AI migration** — Journal insights, mood prompts, language filters → browser-based AI.
-19. **NSFW fail-open verification** — Document behavior for all failure modes.
-20. **Marketing updates** — Landing page, features, privacy policy reflecting fully ZK PQ architecture.
+17. **True ZK Write: Browser-side image encryption for post uploads** — DONE. When an image finishes processing on the server (NSFW check, resize, WebP conversion), the processed binary is sent to the browser via `push_event("encrypt_post_image")`. The `PostFormHook` generates (or reuses) a cached `postKey`, encrypts the image bytes with `encryptSecretbox`, and sends the encrypted blob back via `pushEvent("post_image_encrypted")`. The server stores the pre-encrypted blob directly to S3 via `upload_pre_encrypted_to_storage/1` — it never sees the encryption key or plaintext image. At form submit time, `process_uploaded_photos` returns the already-uploaded S3 paths, skipping server-side re-encryption. Public posts remain on the legacy server-encrypt path. Graceful degradation: if browser encryption fails, images fall back to server-side encryption.
+18. **Full data structure audit** — Comprehensive review of ALL encrypted data structures (excl. memories) to identify any gaps.
+19. **ZK AI migration** — Journal insights, mood prompts, language filters → browser-based AI.
+20. **NSFW fail-open verification** — Document behavior for all failure modes.
+21. **Marketing updates** — Landing page, features, privacy policy reflecting fully ZK PQ architecture.
 
 #### Phase 3f: Subscription/Billing ZK (NEW)
 

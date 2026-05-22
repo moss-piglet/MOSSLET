@@ -6,8 +6,10 @@
  * and seals the post_key for the author. The server receives only encrypted
  * ciphertext — it never sees the plaintext body or content warning.
  *
- * Public posts bypass encryption entirely — the server needs plaintext for
- * AI moderation, SEO rendering, and Bluesky federation.
+ * For images, the hook also handles server-sent "encrypt_post_image" events:
+ * processed image bytes are encrypted with the same post_key and sent back
+ * to the server, which stores them directly on S3 without ever seeing the
+ * encryption key or plaintext image.
  *
  * Hook element: the <.form> element with phx-submit="save_post"
  * Required data attributes:
@@ -16,6 +18,7 @@
 import {
   generateKey,
   encryptSecretboxString,
+  encryptSecretbox,
   sealForUser,
   b64Decode,
 } from "../crypto/nacl";
@@ -24,13 +27,47 @@ import { getPublicKey, getPqPublicKey } from "../crypto/session";
 const PostFormHook = {
   mounted() {
     this._fallback = false;
+    this._postKey = null;
+
+    this.handleEvent("encrypt_post_image", (payload) => {
+      this._encryptImage(payload);
+    });
+
     this.el.addEventListener("submit", (e) => this._onSubmit(e), true);
+  },
+
+  destroyed() {
+    this._postKey = null;
+  },
+
+  async _getOrCreatePostKey() {
+    if (this._postKey) return this._postKey;
+    this._postKey = await generateKey();
+    return this._postKey;
+  },
+
+  async _encryptImage({ blob_b64, upload_ref }) {
+    try {
+      const postKey = await this._getOrCreatePostKey();
+      const rawBytes = Uint8Array.from(atob(blob_b64), (c) => c.charCodeAt(0));
+      const encryptedBlobB64 = await encryptSecretbox(rawBytes, postKey);
+      this.pushEvent("post_image_encrypted", {
+        encrypted_blob_b64: encryptedBlobB64,
+        upload_ref,
+      });
+    } catch (e) {
+      console.error("PostFormHook: image encryption failed:", e);
+      this.pushEvent("post_image_encrypted_failed", {
+        upload_ref,
+        reason: e.message,
+      });
+    }
   },
 
   _onSubmit(e) {
     if (this._fallback) {
       this._fallback = false;
-      return; // let LiveView handle the re-dispatched submit
+      return;
     }
 
     const visibility = this.el.dataset.visibility;
@@ -41,21 +78,18 @@ const PostFormHook = {
     const body = bodyEl?.value?.trim();
     if (!body) return;
 
-    // Must preventDefault synchronously — async handlers run after the
-    // event has already propagated.
     e.preventDefault();
     e.stopImmediatePropagation();
 
     this._encryptAndSubmit(body).catch((err) => {
       console.error("PostFormHook: encryption failed, falling back to server-side:", err);
-      // Re-dispatch the submit so LiveView's phx-submit="save_post" fires
       this._fallback = true;
       this.el.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     });
   },
 
   async _encryptAndSubmit(body) {
-    const postKey = await generateKey();
+    const postKey = await this._getOrCreatePostKey();
     const encryptedBody = await encryptSecretboxString(body, postKey);
 
     const authorPk = getPublicKey();
@@ -63,7 +97,6 @@ const PostFormHook = {
     const keyBytes = b64Decode(postKey);
     const sealedPostKey = await sealForUser(keyBytes, authorPk, authorPqPk);
 
-    // Encrypt optional content warning fields if present
     const cwEl = this.el.querySelector('input[name="post[content_warning]"], textarea[name="post[content_warning]"]');
     const cwCatEl = this.el.querySelector('select[name="post[content_warning_category]"], input[name="post[content_warning_category]"]');
 
