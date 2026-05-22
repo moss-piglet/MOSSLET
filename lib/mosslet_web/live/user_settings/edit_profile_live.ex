@@ -34,6 +34,8 @@ defmodule MossletWeb.EditProfileLive do
       |> assign(:banner_edit_modal_open, false)
       |> assign(:banner_editing_ref, nil)
       |> assign(:nsfw_check_result, nil)
+      |> assign(:pending_banner_file_path, nil)
+      |> assign(:pending_banner_alt_text, nil)
       |> assign_profile_about(current_user, socket.assigns.key)
       |> assign_profile_alternate_email(current_user, socket.assigns.key)
       |> assign_profile_website_url(current_user, socket.assigns.key)
@@ -395,6 +397,8 @@ defmodule MossletWeb.EditProfileLive do
                         phx-update="ignore"
                       >
                       </div>
+                      <div id="encrypt-upload-banner" phx-hook="EncryptUpload" phx-update="ignore">
+                      </div>
 
                       <div
                         :if={@nsfw_check_result && @nsfw_check_result.is_nsfw}
@@ -719,6 +723,64 @@ defmodule MossletWeb.EditProfileLive do
 
   def handle_event("nsfw:model_ready", _params, socket) do
     {:noreply, socket}
+  end
+
+  # Phase 4 ZK: Browser encrypted the banner blob, now upload to S3
+  def handle_event(
+        "encrypted_upload_ready",
+        %{"encrypted_blob_b64" => encrypted_blob_b64, "upload_id" => "banner"},
+        socket
+      ) do
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+    file_path = socket.assigns.pending_banner_file_path
+    banner_alt_text = socket.assigns.pending_banner_alt_text
+    banners_bucket = Encrypted.Session.banners_bucket()
+    entry = List.first(socket.assigns.uploads.banner.entries)
+
+    e_blob = Base.decode64!(encrypted_blob_b64)
+
+    lv_pid = self()
+
+    Task.start(fn ->
+      send(lv_pid, {:banner_upload_stage, {:uploading, 85}})
+
+      case @upload_provider.make_banner_aws_requests(
+             entry,
+             banners_bucket,
+             file_path,
+             e_blob,
+             user,
+             key
+           ) do
+        {:ok, _} ->
+          encrypted_alt_text = maybe_encrypt_banner_alt_text(banner_alt_text, user, key)
+          send(lv_pid, {:banner_upload_complete, {:ok, {e_blob, file_path, encrypted_alt_text}}})
+
+        {:error, message} ->
+          send(lv_pid, {:banner_upload_complete, {:error, message}})
+      end
+    end)
+
+    socket =
+      socket
+      |> assign(:pending_banner_file_path, nil)
+      |> assign(:pending_banner_alt_text, nil)
+
+    {:noreply, socket}
+  end
+
+  def handle_event(
+        "encrypted_upload_failed",
+        %{"upload_id" => "banner", "reason" => reason},
+        socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:banner_upload_stage, {:error, reason})
+     |> assign(:pending_banner_file_path, nil)
+     |> assign(:pending_banner_alt_text, nil)
+     |> put_flash(:warning, "Banner encryption failed: #{reason}")}
   end
 
   def handle_event("validate_profile", params, socket) do
@@ -1208,6 +1270,20 @@ defmodule MossletWeb.EditProfileLive do
      |> put_flash(:warning, error)}
   end
 
+  # Phase 4 ZK: Server processed the banner image, now send bytes to browser for encryption
+  def handle_info({:banner_processed, blob, file_path, banner_alt_text}, socket) do
+    blob_b64 = Base.encode64(blob)
+
+    socket =
+      socket
+      |> assign(:banner_upload_stage, {:encrypting, 75})
+      |> assign(:pending_banner_file_path, file_path)
+      |> assign(:pending_banner_alt_text, banner_alt_text)
+      |> push_event("encrypt_upload", %{blob_b64: blob_b64, upload_id: "banner"})
+
+    {:noreply, socket}
+  end
+
   defp do_upload_banner(socket) do
     temp_path = socket.assigns.banner_temp_path
     crop = socket.assigns.banner_crop
@@ -1224,8 +1300,6 @@ defmodule MossletWeb.EditProfileLive do
   defp process_and_upload_banner(socket, temp_path, crop) do
     lv_pid = self()
     user = socket.assigns.current_scope.user
-    key = socket.assigns.current_scope.key
-    banners_bucket = Encrypted.Session.banners_bucket()
     entry = List.first(socket.assigns.uploads.banner.entries)
 
     socket = assign(socket, :banner_upload_stage, {:receiving, 10})
@@ -1242,32 +1316,19 @@ defmodule MossletWeb.EditProfileLive do
                  suffix: ".webp",
                  minimize_file_size: true
                ),
-             send(lv_pid, {:banner_upload_stage, {:encrypting, 75}}),
-             {:ok, e_blob} <- @upload_provider.prepare_encrypted_blob(blob, user, key),
              {:ok, file_path} <-
-               @upload_provider.prepare_banner_file_path(entry, user.connection.id),
-             send(lv_pid, {:banner_upload_stage, {:uploading, 85}}),
-             {:ok, _} <-
-               @upload_provider.make_banner_aws_requests(
-                 entry,
-                 banners_bucket,
-                 file_path,
-                 e_blob,
-                 user,
-                 key
-               ) do
+               @upload_provider.prepare_banner_file_path(entry, user.connection.id) do
           Mosslet.FileUploads.TempStorage.cleanup(temp_path)
-          {:ok, file_path, e_blob}
+          {:ok, blob, file_path}
         else
           {:error, message} ->
             {:error, message}
         end
 
       case result do
-        {:ok, file_path, e_blob} ->
+        {:ok, blob, file_path} ->
           banner_alt_text = socket.assigns.banner_alt_text
-          encrypted_alt_text = maybe_encrypt_banner_alt_text(banner_alt_text, user, key)
-          send(lv_pid, {:banner_upload_complete, {:ok, {e_blob, file_path, encrypted_alt_text}}})
+          send(lv_pid, {:banner_processed, blob, file_path, banner_alt_text})
 
         {:error, message} ->
           send(lv_pid, {:banner_upload_complete, {:error, message}})

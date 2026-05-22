@@ -58,6 +58,7 @@ defmodule MossletWeb.EditDetailsLive do
               class="space-y-6"
             >
               <div id="nsfw-checker-avatar" phx-hook="NsfwCheck" phx-update="ignore"></div>
+              <div id="encrypt-upload-avatar" phx-hook="EncryptUpload" phx-update="ignore"></div>
 
               <div
                 :if={@nsfw_check_result && @nsfw_check_result.is_nsfw}
@@ -274,6 +275,8 @@ defmodule MossletWeb.EditDetailsLive do
       |> assign(:avatar_edit_modal_open, false)
       |> assign(:avatar_editing_ref, nil)
       |> assign(:nsfw_check_result, nil)
+      |> assign(:pending_avatar_file_path, nil)
+      |> assign(:pending_avatar_alt_text, nil)
       |> assign(:current_username, current_user.decrypted[:username] || "")
       |> assign(:current_name, current_user.decrypted[:name] || "")
       |> assign_avatar_form(current_user)
@@ -382,6 +385,21 @@ defmodule MossletWeb.EditDetailsLive do
      |> put_flash(:warning, error)}
   end
 
+  # Phase 4 ZK: Server processed the image, now send bytes to browser for encryption
+  @impl true
+  def handle_info({:avatar_processed, blob, file_path, avatar_alt_text}, socket) do
+    blob_b64 = Base.encode64(blob)
+
+    socket =
+      socket
+      |> assign(:avatar_upload_stage, {:encrypting, 75})
+      |> assign(:pending_avatar_file_path, file_path)
+      |> assign(:pending_avatar_alt_text, avatar_alt_text)
+      |> push_event("encrypt_upload", %{blob_b64: blob_b64, upload_id: "avatar"})
+
+    {:noreply, socket}
+  end
+
   @impl true
   def handle_info({_ref, {_type, _result}}, socket) do
     {:noreply, socket}
@@ -400,6 +418,60 @@ defmodule MossletWeb.EditDetailsLive do
   @impl true
   def handle_event("validate", _params, socket) do
     {:noreply, socket}
+  end
+
+  # Phase 4 ZK: Browser encrypted the image blob, now upload to S3
+  @impl true
+  def handle_event(
+        "encrypted_upload_ready",
+        %{"encrypted_blob_b64" => encrypted_blob_b64, "upload_id" => "avatar"},
+        socket
+      ) do
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+    file_path = socket.assigns.pending_avatar_file_path
+    avatar_alt_text = socket.assigns.pending_avatar_alt_text
+    avatars_bucket = Encrypted.Session.avatars_bucket()
+
+    # The browser sent base64-encoded ciphertext; decode to raw binary for S3 storage + ETS
+    e_blob = Base.decode64!(encrypted_blob_b64)
+
+    lv_pid = self()
+
+    Task.start(fn ->
+      send(lv_pid, {:avatar_upload_stage, {:uploading, 85}})
+
+      case @upload_provider.upload_avatar(avatars_bucket, file_path, e_blob, user, key) do
+        {:ok, _} ->
+          encrypted_alt_text = maybe_encrypt_avatar_alt_text(avatar_alt_text, user, key)
+          user_params = %{avatar_url: file_path, avatar_alt_text: encrypted_alt_text}
+          send(lv_pid, {:avatar_upload_complete, {:ok, {e_blob, user_params}}})
+
+        {:error, message} ->
+          send(lv_pid, {:avatar_upload_complete, {:error, message}})
+      end
+    end)
+
+    socket =
+      socket
+      |> assign(:pending_avatar_file_path, nil)
+      |> assign(:pending_avatar_alt_text, nil)
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event(
+        "encrypted_upload_failed",
+        %{"upload_id" => "avatar", "reason" => reason},
+        socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:avatar_upload_stage, {:error, reason})
+     |> assign(:pending_avatar_file_path, nil)
+     |> assign(:pending_avatar_alt_text, nil)
+     |> put_flash(:warning, "Avatar encryption failed: #{reason}")}
   end
 
   @impl true
@@ -748,8 +820,6 @@ defmodule MossletWeb.EditDetailsLive do
   defp process_and_upload_avatar(socket, temp_path, crop) do
     lv_pid = self()
     user = socket.assigns.current_scope.user
-    key = socket.assigns.current_scope.key
-    avatars_bucket = Encrypted.Session.avatars_bucket()
 
     socket = assign(socket, :avatar_upload_stage, {:receiving, 10})
 
@@ -770,32 +840,19 @@ defmodule MossletWeb.EditDetailsLive do
                  suffix: ".webp",
                  minimize_file_size: true
                ),
-             send(lv_pid, {:avatar_upload_stage, {:encrypting, 75}}),
-             {:ok, e_blob} <- @upload_provider.prepare_encrypted_blob(blob, user, key),
              {:ok, file_path} <-
-               @upload_provider.prepare_file_path_for_avatar(user.connection.id),
-             send(lv_pid, {:avatar_upload_stage, {:uploading, 85}}),
-             {:ok, _} <-
-               @upload_provider.upload_avatar(
-                 avatars_bucket,
-                 file_path,
-                 e_blob,
-                 user,
-                 key
-               ) do
+               @upload_provider.prepare_file_path_for_avatar(user.connection.id) do
           Mosslet.FileUploads.TempStorage.cleanup(temp_path)
-          {:ok, file_path, e_blob}
+          {:ok, blob, file_path}
         else
           {:error, message} ->
             {:error, message}
         end
 
       case result do
-        {:ok, file_path, e_blob} ->
+        {:ok, blob, file_path} ->
           avatar_alt_text = socket.assigns.avatar_alt_text
-          encrypted_alt_text = maybe_encrypt_avatar_alt_text(avatar_alt_text, user, key)
-          user_params = %{avatar_url: file_path, avatar_alt_text: encrypted_alt_text}
-          send(lv_pid, {:avatar_upload_complete, {:ok, {e_blob, user_params}}})
+          send(lv_pid, {:avatar_processed, blob, file_path, avatar_alt_text})
 
         {:error, message} ->
           send(lv_pid, {:avatar_upload_complete, {:error, message}})

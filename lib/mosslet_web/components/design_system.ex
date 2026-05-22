@@ -2893,6 +2893,7 @@ defmodule MossletWeb.DesignSystem do
           data-sealed-key={@encrypted_avatar_data[:sealed_key]}
           alt={@computed_alt}
           class="relative w-full h-full object-cover"
+          loading="lazy"
         />
         <img
           :if={!@zk_mode?}
@@ -15286,6 +15287,7 @@ defmodule MossletWeb.DesignSystem do
         data-sealed-key={@encrypted_data[:sealed_key]}
         class={[@class]}
         alt={@alt}
+        loading="lazy"
       />
     </div>
     """

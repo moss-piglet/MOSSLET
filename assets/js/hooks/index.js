@@ -9,6 +9,7 @@ import { ConversationComposer, DecryptMessage, ConversationScroll } from "./conv
 import DecryptGroupMessage from "./decrypt-group-message";
 import DecryptAvatar from "./decrypt-avatar";
 import DecryptPost from "./decrypt-post";
+import EncryptUpload from "./encrypt-upload";
 import NsfwCheck from "./nsfw-check";
 import DecryptUserFields from "./decrypt-user-fields";
 import PostFormHook from "./post-form-hook";
@@ -101,6 +102,7 @@ export default {
   DecryptPost,
   DecryptUserFields,
   DeleteReadingEntry,
+  EncryptUpload,
   EntryColumnFlow,
   GroupMessageEmojiPicker,
   GroupMessageFormHook,

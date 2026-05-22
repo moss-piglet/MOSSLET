@@ -4804,7 +4804,7 @@ defmodule MossletWeb.UserHomeLive do
   # Returns nil when avatar is hidden or data unavailable (component falls back to logo).
   defp get_encrypted_profile_post_author_avatar_data(post, current_user, user_connection) do
     if post.user_id == current_user.id do
-      if current_user.connection.profile.show_avatar?,
+      if show_avatar?(current_user),
         do: get_encrypted_avatar_data(current_user, nil),
         else: nil
     else
@@ -4817,7 +4817,7 @@ defmodule MossletWeb.UserHomeLive do
   # Fallback avatar URL for profile post cards when ZK data is nil.
   defp get_profile_post_author_avatar_fallback(post, current_user, user_connection) do
     if post.user_id == current_user.id do
-      if current_user.connection.profile.show_avatar?,
+      if show_avatar?(current_user),
         do: mosslet_logo_for_theme(),
         else: "/images/logo.svg"
     else
