@@ -142,21 +142,21 @@ The same Rust crate (`metamorphic-crypto`) compiles to both the server-side NIF 
 
 ### Why Browser-Side?
 
-| Feature                    | Server-side (Posts, Groups)                                          | Browser-side (Conversations)                           |
-| -------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------ |
-| **Library**                | `metamorphic_crypto` (Rust NIF)                                      | `metamorphic-crypto` (Rust WASM)                       |
-| **Where encryption runs**  | Server (BEAM process)                                                | Browser (WASM)                                         |
-| **Zero-knowledge on web?** | No — server sees plaintext briefly                                   | **Yes** — server never sees plaintext                  |
-| **Algorithms**             | XSalsa20-Poly1305 (secretbox) + X25519 (box_seal) + ML-KEM-768 (PQ) | Identical — same Rust code                             |
-| **PQ support**             | Yes — `seal_for_user`/`unseal_from_user` with hybrid ML-KEM-768     | Yes — `sealForUser`/`unsealFromUser` with hybrid       |
-| **Key wrapping**           | Legacy (v1, box_seal) or Hybrid (v2, ML-KEM-768+X25519)             | Identical — auto-detects format                        |
+| Feature                    | Server-side (Public posts only)                                      | Browser-side (Private/connection posts, Conversations)  |
+| -------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------- |
+| **Library**                | `metamorphic_crypto` (Rust NIF)                                      | `metamorphic-crypto` (Rust WASM)                        |
+| **Where encryption runs**  | Server (BEAM process)                                                | Browser (WASM)                                          |
+| **Zero-knowledge on web?** | No — server needs plaintext for SEO/federation                       | **Yes** — server never sees plaintext                   |
+| **Algorithms**             | XSalsa20-Poly1305 (secretbox) + X25519 (box_seal) + ML-KEM-768 (PQ) | Identical — same Rust code                              |
+| **PQ support**             | Yes — `seal_for_user`/`unseal_from_user` with hybrid ML-KEM-768     | Yes — `sealForUser`/`unsealFromUser` with hybrid        |
+| **Key wrapping**           | Legacy (v1, box_seal) or Hybrid (v2, ML-KEM-768+X25519)             | Identical — auto-detects format                         |
 
 ### JS Crypto Modules
 
 | Module | Purpose |
 |--------|---------|
 | `assets/js/crypto/nacl.js` | WASM-backed crypto — secretbox, box_seal, sealForUser/unsealFromUser, key generation, KDF |
-| `assets/js/crypto/session.js` | Shared helpers — reads keys from `#conversation-composer` data attributes, provides `getConversationKey()` |
+| `assets/js/crypto/session.js` | Shared helpers — key accessors from sessionStorage, context key unsealing, post key cache, `getConversationKey()` |
 
 ### Data Attributes on `#conversation-composer`
 

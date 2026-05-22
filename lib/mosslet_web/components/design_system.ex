@@ -6294,16 +6294,30 @@ defmodule MossletWeb.DesignSystem do
                   <% end %>
                 </span>
                 <%= if @content_warning_category do %>
-                  <span class={[
-                    "text-xs px-2 py-0.5 rounded-full border",
-                    if(@post.mature_content && !(@content_warning? && @content_warning),
-                      do:
-                        "bg-amber-100 dark:bg-amber-800/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700",
-                      else:
-                        "bg-teal-100 dark:bg-teal-800/50 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-700"
-                    )
-                  ]}>
+                  <span
+                    data-decrypt-cw-category-target={@post.id}
+                    class={[
+                      "text-xs px-2 py-0.5 rounded-full border",
+                      if(@post.mature_content && !(@content_warning? && @content_warning),
+                        do:
+                          "bg-amber-100 dark:bg-amber-800/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700",
+                        else:
+                          "bg-teal-100 dark:bg-teal-800/50 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-700"
+                      )
+                    ]}
+                  >
                     {format_content_warning_category(@content_warning_category)}
+                  </span>
+                <% else %>
+                  <%!-- For browser_decrypt? posts, show placeholder badge that the hook will fill --%>
+                  <span
+                    :if={@post.decrypted[:browser_decrypt?] && @content_warning?}
+                    data-decrypt-cw-category-target={@post.id}
+                    class={[
+                      "text-xs px-2 py-0.5 rounded-full border",
+                      "bg-teal-100 dark:bg-teal-800/50 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-700"
+                    ]}
+                  >
                   </span>
                 <% end %>
                 <%= if @post.mature_content && !@content_warning_category do %>
@@ -6313,17 +6327,32 @@ defmodule MossletWeb.DesignSystem do
                 <% end %>
               </div>
               <%= if @content_warning? && @content_warning do %>
-                <p class={[
-                  "text-sm leading-relaxed line-clamp-2",
-                  if(@post.mature_content,
-                    do: "text-amber-600 dark:text-amber-400",
-                    else: "text-teal-600 dark:text-teal-400"
-                  )
-                ]}>
+                <p
+                  data-decrypt-cw-text-target={@post.id}
+                  class={[
+                    "text-sm leading-relaxed line-clamp-2",
+                    if(@post.mature_content,
+                      do: "text-amber-600 dark:text-amber-400",
+                      else: "text-teal-600 dark:text-teal-400"
+                    )
+                  ]}
+                >
                   {@content_warning}
                 </p>
               <% else %>
-                <p class="text-sm text-amber-600 dark:text-amber-400 leading-relaxed">
+                <%!-- For browser_decrypt? posts with CW, show placeholder for hook --%>
+                <p
+                  :if={@post.decrypted[:browser_decrypt?] && @content_warning?}
+                  data-decrypt-cw-text-target={@post.id}
+                  class="text-sm leading-relaxed line-clamp-2 text-teal-600 dark:text-teal-400"
+                >
+                </p>
+                <p
+                  :if={
+                    !(@post.decrypted[:browser_decrypt?] && @content_warning?) && @post.mature_content
+                  }
+                  class="text-sm text-amber-600 dark:text-amber-400 leading-relaxed"
+                >
                   This post contains mature content.
                 </p>
               <% end %>
@@ -6497,7 +6526,9 @@ defmodule MossletWeb.DesignSystem do
               </div>
             </div>
             <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-              <span class="truncate">{@user_handle}</span>
+              <span class="truncate" data-decrypt-handle-target={@post.id}>
+                {if(@post.decrypted[:browser_decrypt?], do: "@...", else: @user_handle)}
+              </span>
               <span class="text-slate-400 dark:text-slate-500">•</span>
               <time class="flex-shrink-0">{@timestamp}</time>
               <.bluesky_badge
@@ -6626,8 +6657,19 @@ defmodule MossletWeb.DesignSystem do
                   id={"decrypt-post-#{@post.id}"}
                   phx-hook="DecryptPost"
                   phx-update="ignore"
+                  data-post-id={@post.id}
                   data-sealed-post-key={@post.decrypted[:sealed_post_key]}
                   data-encrypted-body={@post.decrypted[:encrypted_body]}
+                  data-encrypted-username={@post.decrypted[:encrypted_username]}
+                  data-encrypted-content-warning={@post.decrypted[:encrypted_content_warning]}
+                  data-encrypted-content-warning-category={
+                    @post.decrypted[:encrypted_content_warning_category]
+                  }
+                  data-encrypted-url-preview={
+                    if(@post.decrypted[:encrypted_url_preview],
+                      do: Jason.encode!(@post.decrypted[:encrypted_url_preview])
+                    )
+                  }
                 >
                   <div
                     data-decrypt-target
@@ -6732,6 +6774,13 @@ defmodule MossletWeb.DesignSystem do
                 </p>
               </div>
             </a>
+          </div>
+          <%!-- URL Preview placeholder for ZK browser-decrypted posts --%>
+          <div
+            :if={!@decrypted_url_preview && @post.decrypted[:encrypted_url_preview]}
+            data-decrypt-url-preview-target={@post.id}
+            class="mt-4 hidden"
+          >
           </div>
         </div>
 

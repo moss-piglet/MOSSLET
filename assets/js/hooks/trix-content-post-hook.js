@@ -1,3 +1,13 @@
+import { getCachedPostKey, decryptSecretbox, decryptWithKey } from "../crypto/session";
+
+function b64Encode(uint8Array) {
+  let binary = "";
+  for (let i = 0; i < uint8Array.length; i++) {
+    binary += String.fromCharCode(uint8Array[i]);
+  }
+  return btoa(binary);
+}
+
 const TrixContentPostHook = {
   mounted() {
     this.eventListeners = [];
@@ -84,24 +94,99 @@ const TrixContentPostHook = {
   },
 
   load_and_decrypt_images(postId, userId) {
-    this.pushEvent(
-      "get_post_image_urls",
-      { post_id: postId },
-      (reply, _ref) => {
-        if (
-          reply.response === "success" &&
-          reply.image_urls &&
-          reply.image_urls.length > 0
-        ) {
-          this.show_loading_state();
-          const altTexts = reply.image_alt_texts || [];
-          this.decrypt_images(reply.image_urls, postId, userId, altTexts);
+    const cachedKey = getCachedPostKey(postId);
+
+    if (cachedKey) {
+      // ZK path: fetch encrypted blobs from server, decrypt browser-side.
+      // The server never sees the decrypted image content.
+      this.pushEvent(
+        "fetch_encrypted_post_images",
+        { post_id: postId },
+        (reply, _ref) => {
+          if (
+            reply.response === "success" &&
+            reply.encrypted_blobs &&
+            reply.encrypted_blobs.length > 0
+          ) {
+            this.show_loading_state();
+            const altTexts = reply.image_alt_texts || [];
+            this.decrypt_images_browser_side(
+              reply.encrypted_blobs,
+              cachedKey,
+              postId,
+              userId,
+              altTexts
+            );
+          } else {
+            this.show_error_state();
+          }
+        }
+      );
+    } else {
+      // Legacy path: server decrypts the images (for public posts or
+      // when the post_key hasn't been cached yet).
+      this.pushEvent(
+        "get_post_image_urls",
+        { post_id: postId },
+        (reply, _ref) => {
+          if (
+            reply.response === "success" &&
+            reply.image_urls &&
+            reply.image_urls.length > 0
+          ) {
+            this.show_loading_state();
+            const altTexts = reply.image_alt_texts || [];
+            this.decrypt_images(reply.image_urls, postId, userId, altTexts);
+          } else {
+            console.error("Failed to get image URLs for post", postId, reply);
+            this.show_error_state();
+          }
+        }
+      );
+    }
+  },
+
+  async decrypt_images_browser_side(
+    encryptedBlobs,
+    postKey,
+    postId,
+    userId,
+    altTexts = []
+  ) {
+    try {
+      const decryptedUrls = [];
+      for (const blob of encryptedBlobs) {
+        if (!blob) {
+          decryptedUrls.push(null);
+          continue;
+        }
+        // Same dual-path approach as DecryptAvatar:
+        //   Path B: plaintext is a base64 string of the image (encrypt wrapped Base.encode64)
+        //   Path A: plaintext is raw binary bytes (encrypt_string of raw bytes)
+        let imageBase64 = await decryptWithKey(blob, postKey);
+        if (!imageBase64) {
+          const rawBytes = await decryptSecretbox(blob, postKey);
+          if (rawBytes) {
+            imageBase64 = b64Encode(rawBytes);
+          }
+        }
+        if (imageBase64) {
+          decryptedUrls.push("data:image/webp;base64," + imageBase64);
         } else {
-          console.error("Failed to get image URLs for post", postId, reply);
-          this.show_error_state();
+          decryptedUrls.push(null);
         }
       }
-    );
+
+      const validUrls = decryptedUrls.filter((u) => u !== null);
+      if (validUrls.length > 0) {
+        this.display_decrypted_images(validUrls, postId, userId, false, altTexts);
+      } else {
+        this.show_error_state();
+      }
+    } catch (e) {
+      console.error("Browser-side image decryption failed:", e);
+      this.show_error_state();
+    }
   },
 
   show_loading_state() {

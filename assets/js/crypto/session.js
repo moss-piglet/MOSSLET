@@ -236,3 +236,29 @@ export function unwrapConnKey(unsealedB64) {
   }
   return unsealedB64;
 }
+
+// ---------------------------------------------------------------------------
+// Post key cache — allows DecryptPost to share the unsealed post_key with
+// other hooks (e.g. TrixContentPostHook for image decryption).
+// Keys are stored per post ID and cleared on page navigation.
+// ---------------------------------------------------------------------------
+
+const _postKeyCache = new Map();
+
+/**
+ * Stores a decrypted post_key for a given post ID.
+ * @param {string} postId
+ * @param {string} postKey - base64-encoded raw post_key
+ */
+export function cachePostKey(postId, postKey) {
+  _postKeyCache.set(postId, postKey);
+}
+
+/**
+ * Retrieves a cached post_key, or null if not yet decrypted.
+ * @param {string} postId
+ * @returns {string|null}
+ */
+export function getCachedPostKey(postId) {
+  return _postKeyCache.get(postId) || null;
+}

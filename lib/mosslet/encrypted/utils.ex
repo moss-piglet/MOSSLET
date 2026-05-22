@@ -17,8 +17,12 @@ defmodule Mosslet.Encrypted.Utils do
   @doc """
   Takes in a key and payload and encrypt payload with the key.
   map: %{key: key, payload: payload}
+
+  Returns `nil` if the payload is nil (nothing to encrypt).
   """
-  @spec encrypt(%{key: binary, payload: binary}) :: binary
+  @spec encrypt(%{key: binary, payload: binary | nil}) :: binary | nil
+  def encrypt(%{payload: nil}), do: nil
+
   def encrypt(%{key: key, payload: payload}) do
     if String.valid?(payload) do
       {:ok, ciphertext} = MetamorphicCrypto.SecretBox.encrypt_string(payload, key)

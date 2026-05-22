@@ -847,13 +847,21 @@ defmodule Mosslet.Timeline.Post do
   end
 
   # Encrypt content warning text with the same post_key (for consistency)
-  defp encrypt_content_warning_if_present(changeset, post_key, _opts) do
+  defp encrypt_content_warning_if_present(changeset, post_key, opts) do
     content_warning = get_field(changeset, :content_warning)
     content_warning_category = get_field(changeset, :content_warning_category)
+    visibility = get_field(changeset, :visibility)
 
     changeset =
       if content_warning && String.trim(content_warning) != "" do
-        encrypted_warning = Utils.encrypt(%{key: post_key, payload: content_warning})
+        # For non-public posts with browser-encrypted CW, use pre-encrypted
+        # ciphertext. The server never sees plaintext content warning.
+        encrypted_warning =
+          if opts[:encrypted_content_warning] && visibility != :public do
+            opts[:encrypted_content_warning]
+          else
+            Utils.encrypt(%{key: post_key, payload: content_warning})
+          end
 
         changeset
         |> put_change(:content_warning, encrypted_warning)
@@ -865,7 +873,12 @@ defmodule Mosslet.Timeline.Post do
 
     changeset =
       if content_warning_category && String.trim(content_warning_category) != "" do
-        encrypted_category = Utils.encrypt(%{key: post_key, payload: content_warning_category})
+        encrypted_category =
+          if opts[:encrypted_content_warning_category] && visibility != :public do
+            opts[:encrypted_content_warning_category]
+          else
+            Utils.encrypt(%{key: post_key, payload: content_warning_category})
+          end
 
         changeset
         |> put_change(:content_warning_category, encrypted_category)

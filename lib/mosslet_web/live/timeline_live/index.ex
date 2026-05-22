@@ -2094,6 +2094,70 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
+  # ZK image path: returns encrypted S3 blobs for browser-side decryption.
+  # The server never decrypts the image content — it only proxies the encrypted
+  # binary from S3 and base64-encodes it for transport. The browser decrypts
+  # using the post_key it already unsealed via the DecryptPost hook.
+  def handle_event(
+        "fetch_encrypted_post_images",
+        %{"post_id" => post_id},
+        socket
+      ) do
+    memories_bucket = Encrypted.Session.memories_bucket()
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+
+    case Timeline.get_post(post_id) do
+      %Post{} = post ->
+        post_key = get_post_key(post, current_user)
+
+        # Decrypt the image_urls (S3 file paths) server-side — these are
+        # operational metadata, not user content. The actual image blobs
+        # remain encrypted.
+        decrypted_paths =
+          (post.image_urls || [])
+          |> Enum.map(fn encrypted_url ->
+            decr_item(encrypted_url, current_user, post_key, key, post, "body")
+          end)
+          |> Enum.filter(&is_binary/1)
+
+        decrypted_alt_texts =
+          (post.image_alt_texts || [])
+          |> Enum.map(fn alt_text ->
+            decr_item(alt_text, current_user, post_key, key, post, "body")
+          end)
+          |> Enum.filter(&is_binary/1)
+
+        # Fetch encrypted blobs from S3 and return them as base64 (still
+        # encrypted with post_key — the browser will decrypt).
+        encrypted_blobs =
+          Enum.map(decrypted_paths, fn file_path ->
+            webp_path = normalize_to_webp(file_path)
+
+            case get_s3_object(memories_bucket, webp_path) do
+              {:ok, %{body: blob}} ->
+                Base.encode64(blob)
+
+              {:error, _} ->
+                case get_s3_object(memories_bucket, file_path) do
+                  {:ok, %{body: blob}} -> Base.encode64(blob)
+                  {:error, _} -> nil
+                end
+            end
+          end)
+
+        {:reply,
+         %{
+           response: "success",
+           encrypted_blobs: encrypted_blobs,
+           image_alt_texts: decrypted_alt_texts
+         }, socket}
+
+      nil ->
+        {:reply, %{response: "error", message: "Post not found"}, socket}
+    end
+  end
+
   def handle_event(
         "decrypt_reply_images",
         %{"sources" => sources, "reply_id" => reply_id} = _params,
@@ -2535,7 +2599,7 @@ defmodule MossletWeb.TimelineLive.Index do
   # the key for the author. The server never sees plaintext body content.
   def handle_event(
         "save_post_encrypted",
-        %{"encrypted_body" => encrypted_body, "sealed_post_key" => sealed_post_key},
+        %{"encrypted_body" => encrypted_body, "sealed_post_key" => sealed_post_key} = params,
         socket
       ) do
     if connected?(socket) do
@@ -2551,8 +2615,8 @@ defmodule MossletWeb.TimelineLive.Index do
         {:noreply, put_flash(socket, :warning, "Please submit your post again.")}
       else
         # Unseal the browser-provided post_key so we can encrypt other fields
-        # (username, avatar, content_warning, etc.) — the server sees the key
-        # but never the plaintext body.
+        # (username, avatar, image_urls, etc.) — the server sees the key
+        # but never the plaintext body or content warning.
         case unseal_browser_post_key(sealed_post_key, current_user, key) do
           {:ok, post_key} ->
             {uploaded_photo_urls, uploaded_alt_texts, _trix_key} =
@@ -2600,8 +2664,35 @@ defmodule MossletWeb.TimelineLive.Index do
                 key: key
               })
 
-            create_post_and_respond(socket, post_params, current_user, key, post_key,
-              encrypted_body: encrypted_body
+            # Pass browser-encrypted content warning fields alongside the body
+            encrypted_opts = [encrypted_body: encrypted_body]
+
+            encrypted_opts =
+              if params["encrypted_content_warning"] do
+                encrypted_opts ++
+                  [encrypted_content_warning: params["encrypted_content_warning"]]
+              else
+                encrypted_opts
+              end
+
+            encrypted_opts =
+              if params["encrypted_content_warning_category"] do
+                encrypted_opts ++
+                  [
+                    encrypted_content_warning_category:
+                      params["encrypted_content_warning_category"]
+                  ]
+              else
+                encrypted_opts
+              end
+
+            create_post_and_respond(
+              socket,
+              post_params,
+              current_user,
+              key,
+              post_key,
+              encrypted_opts
             )
 
           :error ->

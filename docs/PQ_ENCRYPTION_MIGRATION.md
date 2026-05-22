@@ -327,16 +327,28 @@ These can follow the same phased approach: first move the read path (decrypt in 
 10. ~~**Avatar/banner ZK display**~~ — DONE (Phases 1, 2, 2.5, 2.6, 2.7 — browser-side decryption of avatars/banners across all pages)
 11. ~~**Avatar/banner ZK upload**~~ — DONE (Phase 4 — browser-side encryption for upload path, server never unseals conn_key)
 12. ~~**Phase 4.5 cleanup**~~ — DONE (extracted shared upload helpers, fixed error handling, DRYed JS hooks, added timeout safety)
-13. **Phase 5: Avatar/banner display pipeline → ZK** — IN PROGRESS
+13. **Phase 5: Avatar/banner display pipeline → ZK** — DONE
     - Banner display: `user_home_live`, `timeline_live/index`, `edit_profile_live` now return encrypted data maps. `fetch_and_cache_banner` only stores encrypted binary in ETS. `liquid_timeline_header`, `liquid_banner_upload` support `encrypted_banner_data` attr.
     - Avatar display: `get_user_avatar` (~700 lines) replaced with `ensure_avatar_cached` (~50 lines). `decrypt_user_or_uconn_binary` removed. All display paths use `encrypted_avatar_data` + DecryptAvatar hook. ~600 lines removed from `helpers.ex`.
-    - Remaining: ~20 template callers need mechanical migration from `src={maybe_get_*(...)}`  to `encrypted_avatar_data={get_encrypted_avatar_data(...)}`. Legacy wrappers exist for compat.
+14. **Phase 6: Post images → ZK** — DONE
+    - `TrixContentPostHook` uses cached post_key from `DecryptPost` via `session.js` `cachePostKey/getCachedPostKey` to decrypt image blobs in WASM.
+    - New `"fetch_encrypted_post_images"` server event returns raw encrypted S3 blobs (base64-encoded). Server acts only as S3 proxy — never decrypts image content.
+    - Same dual-path decryption as `DecryptAvatar` (string path B / binary path A).
+    - Falls back to legacy server-side decrypt for public posts (server has server keypair).
+    - Reply images remain on legacy server-side path (future migration).
+15. **Phase 7: Post fields beyond body → ZK** — DONE
+    - `decrypt_post_fields/3` extended: for `browser_decrypt?` posts, passes encrypted blobs for username, content_warning, content_warning_category, and url_preview (as JSON map).
+    - `DecryptPost` hook extended to decrypt all fields and populate external DOM targets: `[data-decrypt-handle-target]` (username), `[data-decrypt-cw-text-target]` / `[data-decrypt-cw-category-target]` (content warnings), `[data-decrypt-url-preview-target]` (URL preview card).
+    - `PostFormHook` extended to encrypt content_warning text/category alongside body.
+    - `Post.encrypt_content_warning_if_present/3` accepts pre-encrypted CW ciphertext from browser.
+    - `favs_list`, `reposts_list`, `share_note` remain server-decrypted (operational data: server needs these for counting, display logic, and moderation).
+    - `image_alt_texts` decrypted server-side only when image modal is opened (short metadata strings, same security posture as S3 file paths).
 
 ### What Remains — ZK PQ Finalization Roadmap
 
-13. **Remaining `decr_avatar`/`decr_banner` server-side calls** — IN PROGRESS. Banner display pipeline fully migrated to ZK (user_home_live, timeline_live, edit_profile_live). Avatar `get_user_avatar` replaced with `ensure_avatar_cached` (~600 lines removed). Legacy wrappers (`maybe_get_user_avatar`, `maybe_get_avatar_src`) now return `nil` and only trigger ETS population — all display goes through `encrypted_avatar_data` + DecryptAvatar hook. ~20 template callers still use legacy wrappers and need mechanical migration to `encrypted_avatar_data={get_encrypted_avatar_data(...)}`. ~10 S3 deletion calls stay server-side (intentional — operational, not user content).
-14. **Post images audit** — Verify post image upload/display uses ZK PQ architecture (post body text is already ZK via DecryptPost hook, but images may still use server-side decrypt path via ImageUploadWriter).
-15. **Remaining post data fields** — Audit all post fields beyond body (alt text, location, content warnings, reply content, shared references) for ZK PQ coverage.
+13. **Remaining `decr_avatar`/`decr_banner` server-side calls** — DONE. Banner display pipeline fully migrated to ZK (user_home_live, timeline_live, edit_profile_live). Avatar `get_user_avatar` replaced with `ensure_avatar_cached` (~600 lines removed). Legacy wrappers (`maybe_get_user_avatar`, `maybe_get_avatar_src`) now return `nil` and only trigger ETS population — all display goes through `encrypted_avatar_data` + DecryptAvatar hook. ~10 S3 deletion calls stay server-side (intentional — operational, not user content).
+14. **Post images** — DONE. Post image display migrated to ZK browser-side decryption. `TrixContentPostHook` uses cached post_key from `DecryptPost` to decrypt image blobs in WASM. New `"fetch_encrypted_post_images"` server event returns raw encrypted S3 blobs (server never decrypts image content). Falls back to legacy server-side decrypt for public posts. Reply images remain server-side (future migration).
+15. **Remaining post data fields** — DONE. Extended `DecryptPost` hook to decrypt username, content_warning, content_warning_category, and url_preview browser-side. `decrypt_post_fields/3` passes encrypted blobs for non-public posts. `PostFormHook` extended to encrypt content_warning fields. Post schema `encrypt_content_warning_if_present/3` accepts pre-encrypted CW from browser. `favs_list`/`reposts_list` stay server-decrypted (operational data).
 16. **Full data structure audit** — Comprehensive review of ALL encrypted data structures (excl. memories) to identify any gaps.
 17. **ZK AI migration** — Journal insights, mood prompts, language filters → browser-based AI.
 18. **NSFW fail-open verification** — Document behavior for all failure modes.

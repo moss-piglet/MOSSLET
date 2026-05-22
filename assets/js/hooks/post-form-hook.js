@@ -1,10 +1,10 @@
 /**
- * PostFormHook — browser-side post body encryption (zero-knowledge write path).
+ * PostFormHook — browser-side post encryption (zero-knowledge write path).
  *
  * For non-public posts, this hook intercepts the form submit, generates a
- * post_key, encrypts the body with secretbox, and seals the post_key for the
- * author. The server receives only encrypted ciphertext — it never sees the
- * plaintext body.
+ * post_key, encrypts the body and content warning fields with secretbox,
+ * and seals the post_key for the author. The server receives only encrypted
+ * ciphertext — it never sees the plaintext body or content warning.
  *
  * Public posts bypass encryption entirely — the server needs plaintext for
  * AI moderation, SEO rendering, and Bluesky federation.
@@ -63,10 +63,26 @@ const PostFormHook = {
     const keyBytes = b64Decode(postKey);
     const sealedPostKey = await sealForUser(keyBytes, authorPk, authorPqPk);
 
-    this.pushEvent("save_post_encrypted", {
+    // Encrypt optional content warning fields if present
+    const cwEl = this.el.querySelector('input[name="post[content_warning]"], textarea[name="post[content_warning]"]');
+    const cwCatEl = this.el.querySelector('select[name="post[content_warning_category]"], input[name="post[content_warning_category]"]');
+
+    const payload = {
       encrypted_body: encryptedBody,
       sealed_post_key: sealedPostKey,
-    });
+    };
+
+    const cwText = cwEl?.value?.trim();
+    if (cwText) {
+      payload.encrypted_content_warning = await encryptSecretboxString(cwText, postKey);
+    }
+
+    const cwCat = cwCatEl?.value?.trim();
+    if (cwCat) {
+      payload.encrypted_content_warning_category = await encryptSecretboxString(cwCat, postKey);
+    }
+
+    this.pushEvent("save_post_encrypted", payload);
   },
 };
 
