@@ -20,17 +20,15 @@ defmodule MossletWeb.UserConnectionLive.Components do
         <div class="flex items-center space-x-4">
           <%!-- Avatar --%>
           <div class="flex-shrink-0">
-            <img
-              class="h-12 w-12 sm:h-16 sm:w-16 rounded-full border-2 border-emerald-100 dark:border-emerald-800 group-hover:border-emerald-200 dark:group-hover:border-emerald-700 transition-colors duration-200"
-              src={
-                if !show_avatar?(@user_connection) ||
-                     maybe_get_avatar_src(@user_connection, @current_user, @key, @user_connections) ==
-                       "",
-                   do: ~p"/images/logo.svg",
-                   else:
-                     maybe_get_avatar_src(@user_connection, @current_user, @key, @user_connections)
+            <.phx_avatar
+              encrypted_avatar_data={
+                if show_avatar?(@user_connection),
+                  do: get_encrypted_avatar_data(@user_connection, nil)
               }
+              id={"uconn-card-avatar-#{@user_connection.id}"}
+              src={~p"/images/logo.svg"}
               alt="Connection avatar"
+              class="h-12 w-12 sm:h-16 sm:w-16 rounded-full border-2 border-emerald-100 dark:border-emerald-800 group-hover:border-emerald-200 dark:group-hover:border-emerald-700 transition-colors duration-200"
             />
           </div>
 

@@ -435,6 +435,11 @@ defmodule MossletWeb.EditProfileLive do
                               ),
                             else: nil
                         }
+                        encrypted_banner_data={
+                          if @profile && Map.get(@profile, :custom_banner_url),
+                            do: get_encrypted_banner_data(@current_user, @key),
+                            else: nil
+                        }
                         alt_text={@banner_alt_text}
                         crop={@banner_crop}
                         preview_data_url={@banner_preview_data_url}

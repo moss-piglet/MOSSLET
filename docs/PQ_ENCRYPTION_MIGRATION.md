@@ -321,9 +321,26 @@ These can follow the same phased approach: first move the read path (decrypt in 
 4. ~~**Groups**~~ — DONE (read + write); Memories skipped (phasing out)
 5. ~~**RegistrationHook**~~ — DONE (browser-side key generation)
 6. ~~**Recovery key**~~ — DONE (ZK setup + account recovery)
-7. ~~**Profile data**~~ — IN PROGRESS: `pre_decrypt_user` consolidates user profile field decryption. 41 `decr()` call sites migrated to `.decrypted[:field]` pattern across 19 files. Sealed user_key + encrypted blobs included in decrypted map for future browser-side ZK (DecryptUserField hook). Remaining: `decr_avatar`/`decr_banner` (conn_key fields), `decr_uconn` (connection-shared data), and `decr_item` calls for profile/post context keys.
-8. **Subscription/billing ZK** — billing LiveViews + Stripe services depend on server-side `@key` for encrypting/decrypting customer IDs, emails, payment data. ~12 files affected.
-9. **Data export** — client-side batch decryption + download
+7. ~~**Profile data**~~ — DONE: `pre_decrypt_user` consolidates user profile field decryption. 41 `decr()` call sites migrated to `.decrypted[:field]` pattern across 19 files. Sealed user_key + encrypted blobs included in decrypted map for future browser-side ZK (DecryptUserField hook). Remaining: `decr_avatar`/`decr_banner` (conn_key fields), `decr_uconn` (connection-shared data), and `decr_item` calls for profile/post context keys.
+8. ~~**Subscription/billing ZK**~~ — DONE
+9. ~~**Data export**~~ — DONE (client-side batch decryption + download)
+10. ~~**Avatar/banner ZK display**~~ — DONE (Phases 1, 2, 2.5, 2.6, 2.7 — browser-side decryption of avatars/banners across all pages)
+11. ~~**Avatar/banner ZK upload**~~ — DONE (Phase 4 — browser-side encryption for upload path, server never unseals conn_key)
+12. ~~**Phase 4.5 cleanup**~~ — DONE (extracted shared upload helpers, fixed error handling, DRYed JS hooks, added timeout safety)
+13. **Phase 5: Avatar/banner display pipeline → ZK** — IN PROGRESS
+    - Banner display: `user_home_live`, `timeline_live/index`, `edit_profile_live` now return encrypted data maps. `fetch_and_cache_banner` only stores encrypted binary in ETS. `liquid_timeline_header`, `liquid_banner_upload` support `encrypted_banner_data` attr.
+    - Avatar display: `get_user_avatar` (~700 lines) replaced with `ensure_avatar_cached` (~50 lines). `decrypt_user_or_uconn_binary` removed. All display paths use `encrypted_avatar_data` + DecryptAvatar hook. ~600 lines removed from `helpers.ex`.
+    - Remaining: ~20 template callers need mechanical migration from `src={maybe_get_*(...)}`  to `encrypted_avatar_data={get_encrypted_avatar_data(...)}`. Legacy wrappers exist for compat.
+
+### What Remains — ZK PQ Finalization Roadmap
+
+13. **Remaining `decr_avatar`/`decr_banner` server-side calls** — IN PROGRESS. Banner display pipeline fully migrated to ZK (user_home_live, timeline_live, edit_profile_live). Avatar `get_user_avatar` replaced with `ensure_avatar_cached` (~600 lines removed). Legacy wrappers (`maybe_get_user_avatar`, `maybe_get_avatar_src`) now return `nil` and only trigger ETS population — all display goes through `encrypted_avatar_data` + DecryptAvatar hook. ~20 template callers still use legacy wrappers and need mechanical migration to `encrypted_avatar_data={get_encrypted_avatar_data(...)}`. ~10 S3 deletion calls stay server-side (intentional — operational, not user content).
+14. **Post images audit** — Verify post image upload/display uses ZK PQ architecture (post body text is already ZK via DecryptPost hook, but images may still use server-side decrypt path via ImageUploadWriter).
+15. **Remaining post data fields** — Audit all post fields beyond body (alt text, location, content warnings, reply content, shared references) for ZK PQ coverage.
+16. **Full data structure audit** — Comprehensive review of ALL encrypted data structures (excl. memories) to identify any gaps.
+17. **ZK AI migration** — Journal insights, mood prompts, language filters → browser-based AI.
+18. **NSFW fail-open verification** — Document behavior for all failure modes.
+19. **Marketing updates** — Landing page, features, privacy policy reflecting fully ZK PQ architecture.
 
 #### Phase 3f: Subscription/Billing ZK (NEW)
 

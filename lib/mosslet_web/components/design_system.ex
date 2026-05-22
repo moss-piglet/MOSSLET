@@ -35,7 +35,6 @@ defmodule MossletWeb.DesignSystem do
       mosslet_logo_for_theme: 0,
       decr_item: 6,
       show_avatar?: 1,
-      maybe_get_avatar_src: 4,
       get_uconn_for_shared_item: 2,
       soft_like_text: 2
     ]
@@ -4930,6 +4929,10 @@ defmodule MossletWeb.DesignSystem do
   attr :crop, :map, default: nil
   attr :preview_data_url, :string, default: nil
 
+  attr :encrypted_banner_data, :map,
+    default: nil,
+    doc: "ZK mode: encrypted banner data for browser-side decryption"
+
   def liquid_banner_upload(assigns) do
     ~H"""
     <div class={["space-y-4", @class]}>
@@ -4966,6 +4969,32 @@ defmodule MossletWeb.DesignSystem do
                   </div>
                   <p class="text-sm text-slate-500 dark:text-slate-400">Loading banner...</p>
                 </div>
+              </div>
+            <% @encrypted_banner_data -> %>
+              <div class="relative aspect-[3/1] bg-slate-100 dark:bg-slate-800">
+                <img
+                  id="current-banner-img"
+                  phx-hook="DecryptAvatar"
+                  data-encrypted-blob={@encrypted_banner_data[:encrypted_blob_b64]}
+                  data-sealed-key={@encrypted_banner_data[:sealed_key]}
+                  class="w-full h-full object-cover"
+                  alt="Current banner"
+                />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                <button
+                  :if={@on_delete}
+                  type="button"
+                  id="delete-banner-button"
+                  phx-click={@on_delete}
+                  phx-value-url={@url}
+                  data-confirm="Are you sure you want to remove your custom banner?"
+                  class="absolute top-3 right-3 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110"
+                  phx-hook="TippyHook"
+                  data-tippy-content="Remove banner"
+                  aria-label="Remove banner"
+                >
+                  <.phx_icon name="hero-x-mark" class="h-4 w-4" />
+                </button>
               </div>
             <% @current_banner_src -> %>
               <div class="relative aspect-[3/1] bg-slate-100 dark:bg-slate-800">
@@ -5122,7 +5151,11 @@ defmodule MossletWeb.DesignSystem do
             ]}
           >
             <.phx_icon name="hero-arrow-up-tray" class="h-4 w-4" />
-            <span>{if @current_banner_src, do: "Replace banner", else: "Upload banner"}</span>
+            <span>
+              {if @current_banner_src || @encrypted_banner_data,
+                do: "Replace banner",
+                else: "Upload banner"}
+            </span>
           </label>
           <.live_file_input upload={@upload} class="hidden" />
           <p class="text-xs text-slate-500 dark:text-slate-400">
@@ -7577,6 +7610,10 @@ defmodule MossletWeb.DesignSystem do
   attr :custom_banner_src, :any, default: nil, doc: "async result for custom banner data URL"
   attr :banner_loading, :boolean, default: false, doc: "whether custom banner is loading"
 
+  attr :encrypted_banner_data, :map,
+    default: nil,
+    doc: "ZK mode: encrypted banner data for browser-side decryption via DecryptAvatar hook"
+
   def liquid_timeline_header(assigns) do
     assigns = assign_scope_fields(assigns)
     banner_image = get_user_banner_image(assigns[:current_scope].user)
@@ -7595,6 +7632,37 @@ defmodule MossletWeb.DesignSystem do
           <div class="relative h-32 sm:h-40 lg:h-48 bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-700">
             <div class="absolute inset-0 flex items-center justify-center">
               <div class="w-10 h-10 border-3 border-purple-400 border-t-transparent rounded-full animate-spin">
+              </div>
+            </div>
+          </div>
+        <% @encrypted_banner_data -> %>
+          <div class="relative h-32 sm:h-40 lg:h-48">
+            <img
+              id={"#{@id}-banner-img"}
+              phx-hook="DecryptAvatar"
+              data-encrypted-blob={@encrypted_banner_data[:encrypted_blob_b64]}
+              data-sealed-key={@encrypted_banner_data[:sealed_key]}
+              alt=""
+              class="absolute inset-0 w-full h-full object-cover"
+            />
+            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+            <div class="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-transparent to-teal-500/10" />
+            <div class="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
+              <div class="flex items-center gap-3">
+                <div class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 backdrop-blur-md shadow-lg border border-white/30">
+                  <.phx_icon
+                    name="hero-book-open"
+                    class="w-5 h-5 sm:w-6 sm:h-6 text-white drop-shadow-sm"
+                  />
+                </div>
+                <div>
+                  <h1 class="text-lg sm:text-xl font-semibold text-white drop-shadow-sm">
+                    Timeline
+                  </h1>
+                  <p class="text-sm text-white/80 drop-shadow-sm">
+                    Your private feed
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -12340,16 +12408,10 @@ defmodule MossletWeb.DesignSystem do
 
   # Helper functions for decrypting connection data (using pattern matching)
 
-  def get_connection_avatar_src(connection, current_user, key) do
-    if !show_avatar?(connection) do
-      "/images/logo.svg"
-    else
-      case maybe_get_avatar_src(connection, current_user, key, []) do
-        "" -> "/images/logo.svg"
-        nil -> "/images/logo.svg"
-        result when is_binary(result) -> result
-      end
-    end
+  def get_connection_avatar_src(_connection, _current_user, _key) do
+    # Legacy function — avatar display now uses get_encrypted_avatar_data + DecryptAvatar hook.
+    # Returns logo fallback; callers should migrate to encrypted_avatar_data attr.
+    "/images/logo.svg"
   end
 
   def get_decrypted_connection_name(connection, current_user, key) do
@@ -15305,8 +15367,13 @@ defmodule MossletWeb.DesignSystem do
   attr :class, :string, default: "", doc: "CSS classes"
   attr :alt, :string, default: "Banner image"
 
+  attr :encrypted_data, :map,
+    default: nil,
+    doc: "override encrypted data (e.g. from async result)"
+
   def zk_banner_image(assigns) do
-    encrypted_data = get_encrypted_banner_data(assigns[:user], assigns[:key])
+    encrypted_data =
+      assigns[:encrypted_data] || get_encrypted_banner_data(assigns[:user], assigns[:key])
 
     assigns =
       assign(assigns, :encrypted_data, encrypted_data)

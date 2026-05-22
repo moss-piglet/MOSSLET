@@ -61,8 +61,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
 
     avatar_src =
       if assigns.user_group.id == assigns.message.sender_id do
-        maybe_get_user_avatar(assigns.current_scope.user, assigns.current_scope.key) ||
-          group_avatar_path
+        nil
       else
         if uconn do
           case maybe_get_avatar_src(
@@ -71,7 +70,6 @@ defmodule MossletWeb.GroupLive.GroupMessages do
                  assigns.current_scope.key,
                  assigns.messages_list
                ) do
-            "" -> group_avatar_path
             nil -> group_avatar_path
             src -> src
           end

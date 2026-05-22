@@ -10,7 +10,6 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
       get_user_from_user_group_id: 1,
       get_uconn_for_users: 2,
       maybe_get_avatar_src: 4,
-      maybe_get_user_avatar: 2,
       maybe_decr_username_for_user_group: 3
     ]
 
@@ -76,12 +75,10 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
 
           avatar_src =
             if is_self do
-              maybe_get_user_avatar(current_scope.user, current_scope.key) ||
-                group_avatar_fallback
+              nil
             else
               if is_connected do
                 case maybe_get_avatar_src(uconn, current_scope.user, current_scope.key, []) do
-                  "" -> group_avatar_fallback
                   nil -> group_avatar_fallback
                   src -> src
                 end

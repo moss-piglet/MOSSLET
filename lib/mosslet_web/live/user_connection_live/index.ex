@@ -1312,16 +1312,9 @@ defmodule MossletWeb.UserConnectionLive.Index do
     end
   end
 
-  defp get_arrival_avatar_src(arrival, current_user, key) do
-    if !show_avatar?(arrival) do
-      "/images/logo.svg"
-    else
-      case maybe_get_avatar_src(arrival, current_user, key, []) do
-        "" -> "/images/logo.svg"
-        nil -> "/images/logo.svg"
-        result when is_binary(result) -> result
-      end
-    end
+  defp get_arrival_avatar_src(_arrival, _current_user, _key) do
+    # Legacy function — avatar display now uses get_encrypted_avatar_data + DecryptAvatar hook.
+    "/images/logo.svg"
   end
 
   # Helper function to check if a connection is in a visibility group

@@ -2070,737 +2070,69 @@ defmodule MossletWeb.Helpers do
 
   ## Avatars
 
-  def get_user_avatar(user, key, item \\ nil, current_user \\ nil, item_list \\ [])
+  @doc """
+  Ensures the avatar for a user or connection is cached in ETS.
 
-  def get_user_avatar(nil, _key, _item, _current_user, _item_list), do: nil
+  If the avatar is already cached, returns `:ok`.
+  If it needs fetching from S3, kicks off an async task and returns the task.
+  The `callback_tuple` is the tuple returned to `handle_info` on completion
+  (e.g. `{"get_user_avatar", user.id}` or `{"get_user_avatar", item.id, item_list, user.id}`).
 
-  def get_user_avatar(%User{} = user, key, nil, nil, []) do
+  This function only fetches and caches the **encrypted** binary — it never
+  decrypts avatar image data. Display is handled by `get_encrypted_avatar_data/2`
+  which returns the encrypted blob + sealed key for browser-side ZK decryption.
+  """
+  def ensure_avatar_cached(%User{} = user, key, callback_tuple) do
     user = preload_connection(user)
+    connection_id = user.connection.id
 
     cond do
       is_nil(user.avatar_url) ->
-        nil
+        :ok
 
-      not is_nil(avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")) ->
-        image =
-          decr_avatar(
-            avatar_binary,
-            user,
-            user.conn_key,
-            key
-          )
-          |> Base.encode64()
+      not is_nil(AvatarProcessor.get_ets_avatar("profile-#{connection_id}")) ->
+        :ok
 
-        "data:image/webp;base64," <> image
-
-      is_nil(_avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")) ->
-        avatars_bucket = Encrypted.Session.avatars_bucket()
-
-        Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
-          with {:ok, %{body: obj}} <-
-                 ExAws.S3.get_object(
-                   avatars_bucket,
-                   decr_avatar(
-                     user.connection.avatar_url,
-                     user,
-                     user.conn_key,
-                     key
-                   )
-                 )
-                 |> ExAws.request(),
-               _decrypted_obj <-
-                 decr_avatar(
-                   obj,
-                   user,
-                   user.conn_key,
-                   key
-                 ) do
-            # Only cache if avatar wasn't recently updated (prevents replica lag issues)
-            unless AvatarProcessor.avatar_recently_updated?(user.connection.id) do
-              AvatarProcessor.put_ets_avatar("profile-#{user.connection.id}", obj)
-            end
-
-            # We return this tuple to pattern match on our handle info and
-            # pull the encrypted memory binary out of ets
-            # This is used for the current_user's menus (eg. sidebar, settings)
-            {"get_user_avatar", user.id}
-          else
-            {:error, _rest} ->
-              "error"
-          end
-        end)
+      true ->
+        fetch_and_cache_avatar(user.connection, user, user.conn_key, key, callback_tuple)
     end
   end
 
-  def get_user_avatar(%User{} = user, key, item, current_user, item_list) do
-    user = preload_connection(user)
+  def ensure_avatar_cached(%UserConnection{} = uconn, key, callback_tuple) do
+    connection_id = uconn.connection.id
 
-    case item do
-      %Memory{} = memory ->
-        cond do
-          is_nil(user.avatar_url) ->
-            ""
-
-          not is_nil(
-            avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")
-          ) ->
-            image =
-              decr_avatar(
-                avatar_binary,
-                user,
-                user.conn_key,
-                key
-              )
-              |> Base.encode64()
-
-            "data:image/webp;base64," <> image
-
-          is_nil(_avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")) ->
-            avatars_bucket = Encrypted.Session.avatars_bucket()
-
-            Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
-              with {:ok, %{body: obj}} <-
-                     ExAws.S3.get_object(
-                       avatars_bucket,
-                       decr_avatar(
-                         user.connection.avatar_url,
-                         user,
-                         user.conn_key,
-                         key
-                       )
-                     )
-                     |> ExAws.request(),
-                   _decrypted_obj <-
-                     decr_avatar(
-                       obj,
-                       user,
-                       user.conn_key,
-                       key
-                     ) do
-                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
-                unless AvatarProcessor.avatar_recently_updated?(user.connection.id) do
-                  AvatarProcessor.put_ets_avatar("profile-#{user.connection.id}", obj)
-                end
-
-                # We return this tuple to pattern match on our handle info and
-                # pull the encrypted avatar binary out of ets
-                {"get_user_avatar", memory.id, item_list, current_user.id}
-              else
-                {:error, _rest} ->
-                  "error"
-              end
-            end)
-        end
-
-      %Remark{} = remark ->
-        cond do
-          is_nil(user.avatar_url) ->
-            ""
-
-          not is_nil(
-            avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")
-          ) ->
-            image =
-              decr_avatar(
-                avatar_binary,
-                user,
-                user.conn_key,
-                key
-              )
-              |> Base.encode64()
-
-            "data:image/webp;base64," <> image
-
-          is_nil(_avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")) ->
-            avatars_bucket = Encrypted.Session.avatars_bucket()
-
-            Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
-              with {:ok, %{body: obj}} <-
-                     ExAws.S3.get_object(
-                       avatars_bucket,
-                       decr_avatar(
-                         user.connection.avatar_url,
-                         user,
-                         user.conn_key,
-                         key
-                       )
-                     )
-                     |> ExAws.request(),
-                   _decrypted_obj <-
-                     decr_avatar(
-                       obj,
-                       user,
-                       user.conn_key,
-                       key
-                     ) do
-                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
-                unless AvatarProcessor.avatar_recently_updated?(user.connection.id) do
-                  AvatarProcessor.put_ets_avatar("profile-#{user.connection.id}", obj)
-                end
-
-                # We return this tuple to pattern match on our handle info and
-                # pull the encrypted avatar binary out of ets
-                {"get_user_avatar", remark.id, item_list, current_user.id}
-              else
-                {:error, _rest} ->
-                  "error"
-              end
-            end)
-        end
-
-      %Reply{} = reply ->
-        cond do
-          is_nil(user.avatar_url) ->
-            ""
-
-          not is_nil(
-            avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")
-          ) ->
-            image =
-              decr_avatar(
-                avatar_binary,
-                user,
-                user.conn_key,
-                key
-              )
-              |> Base.encode64()
-
-            "data:image/webp;base64," <> image
-
-          is_nil(_avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")) ->
-            avatars_bucket = Encrypted.Session.avatars_bucket()
-
-            Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
-              with {:ok, %{body: obj}} <-
-                     ExAws.S3.get_object(
-                       avatars_bucket,
-                       decr_avatar(
-                         user.connection.avatar_url,
-                         user,
-                         user.conn_key,
-                         key
-                       )
-                     )
-                     |> ExAws.request(),
-                   _decrypted_obj <-
-                     decr_avatar(
-                       obj,
-                       user,
-                       user.conn_key,
-                       key
-                     ) do
-                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
-                unless AvatarProcessor.avatar_recently_updated?(user.connection.id) do
-                  AvatarProcessor.put_ets_avatar("profile-#{user.connection.id}", obj)
-                end
-
-                # We return this tuple to pattern match on our handle info and
-                # pull the encrypted avatar binary out of ets
-                {"get_user_avatar_reply", reply.id, item_list, current_user.id}
-              else
-                {:error, _rest} ->
-                  "error"
-              end
-            end)
-        end
-
-      %Post{} = post ->
-        cond do
-          is_nil(user.avatar_url) ->
-            ""
-
-          not is_nil(
-            avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")
-          ) ->
-            image =
-              decr_avatar(
-                avatar_binary,
-                user,
-                user.conn_key,
-                key
-              )
-              |> Base.encode64()
-
-            "data:image/webp;base64," <> image
-
-          is_nil(_avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")) ->
-            avatars_bucket = Encrypted.Session.avatars_bucket()
-
-            Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
-              with {:ok, %{body: obj}} <-
-                     ExAws.S3.get_object(
-                       avatars_bucket,
-                       decr_avatar(
-                         user.connection.avatar_url,
-                         user,
-                         user.conn_key,
-                         key
-                       )
-                     )
-                     |> ExAws.request(),
-                   _decrypted_obj <-
-                     decr_avatar(
-                       obj,
-                       user,
-                       user.conn_key,
-                       key
-                     ) do
-                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
-                unless AvatarProcessor.avatar_recently_updated?(user.connection.id) do
-                  AvatarProcessor.put_ets_avatar("profile-#{user.connection.id}", obj)
-                end
-
-                # We return this tuple to pattern match on our handle info and
-                # pull the encrypted avatar binary out of ets
-                {"get_user_avatar", post.id, item_list, current_user.id}
-              else
-                {:error, _rest} ->
-                  "error"
-              end
-            end)
-        end
-    end
-  end
-
-  def get_user_avatar(%UserConnection{} = uconn, key, item, current_user, item_list) do
-    case item do
-      nil ->
-        # Handle decrypting the avatar for the user connection.
-        cond do
-          is_nil(uconn.connection.avatar_url) ->
-            ""
-
-          not is_nil(
-            avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
-          ) ->
-            image = decrypt_user_or_uconn_binary(avatar_binary, uconn, nil, key, nil)
-            "data:image/webp;base64," <> image
-
-          is_nil(
-            _avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
-          ) ->
-            avatars_bucket = Encrypted.Session.avatars_bucket()
-
-            Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
-              with {:ok, %{body: obj}} <-
-                     ExAws.S3.get_object(
-                       avatars_bucket,
-                       decr_avatar(
-                         uconn.connection.avatar_url,
-                         uconn.user,
-                         uconn.key,
-                         key
-                       )
-                     )
-                     |> ExAws.request(),
-                   _decrypted_obj <-
-                     decr_avatar(
-                       obj,
-                       uconn.user,
-                       uconn.key,
-                       key
-                     ) do
-                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
-                unless AvatarProcessor.avatar_recently_updated?(uconn.connection.id) do
-                  AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
-                end
-
-                # We return this tuple to pattern match on our handle info and
-                # pull the encrypted memory binary out of ets
-                # there is no item when decrypting a uconn for a user_connection
-                # rather than, for example, a post or memory
-                # so we return the uconn's id
-                {"get_user_avatar", uconn.id, item_list, current_user.id}
-              else
-                {:error, _rest} ->
-                  "error"
-              end
-            end)
-        end
-
-      %Memory{} = memory ->
-        # we handle decrypting the avatar for the user connection and
-        # possibly the current user if the memory is their own.
-        cond do
-          is_nil(uconn.connection.avatar_url) ->
-            ""
-
-          not is_nil(
-            avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
-          ) ->
-            image = decrypt_user_or_uconn_binary(avatar_binary, uconn, memory, key, current_user)
-            "data:image/webp;base64," <> image
-
-          is_nil(
-            _avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
-          ) &&
-            not is_nil(current_user) && current_user != memory.user_id ->
-            avatars_bucket = Encrypted.Session.avatars_bucket()
-
-            Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
-              with {:ok, %{body: obj}} <-
-                     ExAws.S3.get_object(
-                       avatars_bucket,
-                       decr_avatar(
-                         uconn.connection.avatar_url,
-                         uconn.user,
-                         uconn.key,
-                         key
-                       )
-                     )
-                     |> ExAws.request(),
-                   _decrypted_obj <-
-                     decr_avatar(
-                       obj,
-                       uconn.user,
-                       uconn.key,
-                       key
-                     ) do
-                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
-                unless AvatarProcessor.avatar_recently_updated?(uconn.connection.id) do
-                  AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
-                end
-
-                # We return this tuple to pattern match on our handle info and
-                # pull the encrypted memory binary out of ets
-                {"get_user_avatar", memory.id, item_list, current_user.id}
-              else
-                {:error, _rest} ->
-                  "error"
-              end
-            end)
-        end
-
-      %Post{} = post ->
-        # we handle decrypting the avatar for the user connection and
-        # possibly the current user if the post is their own.
-        cond do
-          is_nil(uconn.connection.avatar_url) ->
-            ""
-
-          not is_nil(
-            avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
-          ) ->
-            image = decrypt_user_or_uconn_binary(avatar_binary, uconn, post, key, current_user)
-            "data:image/webp;base64," <> image
-
-          is_nil(
-            _avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
-          ) &&
-            not is_nil(current_user) && current_user != post.user_id ->
-            avatars_bucket = Encrypted.Session.avatars_bucket()
-
-            Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
-              with {:ok, %{body: obj}} <-
-                     ExAws.S3.get_object(
-                       avatars_bucket,
-                       decr_avatar(
-                         uconn.connection.avatar_url,
-                         uconn.user,
-                         uconn.key,
-                         key
-                       )
-                     )
-                     |> ExAws.request(),
-                   _decrypted_obj <-
-                     decr_avatar(
-                       obj,
-                       uconn.user,
-                       uconn.key,
-                       key
-                     ) do
-                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
-                unless AvatarProcessor.avatar_recently_updated?(uconn.connection.id) do
-                  AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
-                end
-
-                # We return this tuple to pattern match on our handle info and
-                # pull the encrypted memory binary out of ets
-                {"get_user_avatar", item.id, item_list, current_user.id}
-              else
-                {:error, _rest} ->
-                  "error"
-              end
-            end)
-
-          is_nil(
-            _avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
-          ) &&
-            not is_nil(current_user) && current_user.id == post.user_id ->
-            avatars_bucket = Encrypted.Session.avatars_bucket()
-
-            Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
-              with {:ok, %{body: obj}} <-
-                     ExAws.S3.get_object(
-                       avatars_bucket,
-                       decr_avatar(
-                         uconn.connection.avatar_url,
-                         current_user,
-                         uconn.key,
-                         key
-                       )
-                     )
-                     |> ExAws.request(),
-                   _decrypted_obj <-
-                     decr_avatar(
-                       obj,
-                       current_user,
-                       uconn.key,
-                       key
-                     ) do
-                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
-                unless AvatarProcessor.avatar_recently_updated?(uconn.connection.id) do
-                  AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
-                end
-
-                # We return this tuple to pattern match on our handle info and
-                # pull the encrypted memory binary out of ets
-                {"get_user_avatar", item.id, item_list, current_user.id}
-              else
-                {:error, _rest} ->
-                  "error"
-              end
-            end)
-        end
-
-      %Reply{} = reply ->
-        # we handle decrypting the avatar for the user connection and
-        # possibly the current user if the reply is their own.
-        cond do
-          is_nil(uconn.connection.avatar_url) ->
-            ""
-
-          not is_nil(
-            avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
-          ) ->
-            image = decrypt_user_or_uconn_binary(avatar_binary, uconn, reply, key, current_user)
-            "data:image/webp;base64," <> image
-
-          is_nil(
-            _avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
-          ) &&
-            not is_nil(current_user) && current_user != reply.user_id ->
-            avatars_bucket = Encrypted.Session.avatars_bucket()
-
-            Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
-              with {:ok, %{body: obj}} <-
-                     ExAws.S3.get_object(
-                       avatars_bucket,
-                       decr_avatar(
-                         uconn.connection.avatar_url,
-                         uconn.user,
-                         uconn.key,
-                         key
-                       )
-                     )
-                     |> ExAws.request(),
-                   _decrypted_obj <-
-                     decr_avatar(
-                       obj,
-                       uconn.user,
-                       uconn.key,
-                       key
-                     ) do
-                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
-                unless AvatarProcessor.avatar_recently_updated?(uconn.connection.id) do
-                  AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
-                end
-
-                # We return this tuple to pattern match on our handle info and
-                # pull the encrypted memory binary out of ets
-                {"get_user_avatar_reply", item.id, item_list, current_user.id}
-              else
-                {:error, _rest} ->
-                  "error"
-              end
-            end)
-
-          is_nil(
-            _avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
-          ) &&
-            not is_nil(current_user) && current_user.id == reply.user_id ->
-            avatars_bucket = Encrypted.Session.avatars_bucket()
-
-            Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
-              with {:ok, %{body: obj}} <-
-                     ExAws.S3.get_object(
-                       avatars_bucket,
-                       decr_avatar(
-                         uconn.connection.avatar_url,
-                         current_user,
-                         uconn.key,
-                         key
-                       )
-                     )
-                     |> ExAws.request(),
-                   _decrypted_obj <-
-                     decr_avatar(
-                       obj,
-                       current_user,
-                       uconn.key,
-                       key
-                     ) do
-                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
-                unless AvatarProcessor.avatar_recently_updated?(uconn.connection.id) do
-                  AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
-                end
-
-                # We return this tuple to pattern match on our handle info and
-                # pull the encrypted memory binary out of ets
-                {"get_user_avatar_reply", item.id, item_list, current_user.id}
-              else
-                {:error, _rest} ->
-                  "error"
-              end
-            end)
-        end
-
-      %Remark{} = _remark ->
-        # Handle decrypting the avatar for the user connection.
-        cond do
-          is_nil(uconn.connection.avatar_url) ->
-            ""
-
-          not is_nil(
-            avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
-          ) ->
-            image = decrypt_user_or_uconn_binary(avatar_binary, uconn, nil, key, nil)
-            "data:image/webp;base64," <> image
-
-          is_nil(
-            _avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
-          ) ->
-            avatars_bucket = Encrypted.Session.avatars_bucket()
-
-            Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
-              with {:ok, %{body: obj}} <-
-                     ExAws.S3.get_object(
-                       avatars_bucket,
-                       decr_avatar(
-                         uconn.connection.avatar_url,
-                         uconn.user,
-                         uconn.key,
-                         key
-                       )
-                     )
-                     |> ExAws.request(),
-                   _decrypted_obj <-
-                     decr_avatar(
-                       obj,
-                       uconn.user,
-                       uconn.key,
-                       key
-                     ) do
-                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
-                unless AvatarProcessor.avatar_recently_updated?(uconn.connection.id) do
-                  AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
-                end
-
-                # We return this tuple to pattern match on our handle info and
-                # pull the encrypted memory binary out of ets
-                {"get_user_avatar", item.id, item_list, current_user.id}
-              else
-                {:error, _rest} ->
-                  "error"
-              end
-            end)
-        end
-
-      %UserGroup{} = _user_group ->
-        # Handle decrypting the avatar for the user connection.
-        cond do
-          is_nil(uconn.connection.avatar_url) ->
-            ""
-
-          not is_nil(
-            avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
-          ) ->
-            image = decrypt_user_or_uconn_binary(avatar_binary, uconn, nil, key, nil)
-            "data:image/webp;base64," <> image
-
-          is_nil(
-            _avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
-          ) ->
-            avatars_bucket = Encrypted.Session.avatars_bucket()
-
-            Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
-              with {:ok, %{body: obj}} <-
-                     ExAws.S3.get_object(
-                       avatars_bucket,
-                       decr_avatar(
-                         uconn.connection.avatar_url,
-                         uconn.user,
-                         uconn.key,
-                         key
-                       )
-                     )
-                     |> ExAws.request(),
-                   _decrypted_obj <-
-                     decr_avatar(
-                       obj,
-                       uconn.user,
-                       uconn.key,
-                       key
-                     ) do
-                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
-                unless AvatarProcessor.avatar_recently_updated?(uconn.connection.id) do
-                  AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
-                end
-
-                # We return this tuple to pattern match on our handle info and
-                # pull the encrypted memory binary out of ets
-                {"get_user_avatar", item.id, item_list, current_user.id}
-              else
-                {:error, _rest} ->
-                  "error"
-              end
-            end)
-        end
-    end
-  end
-
-  def get_public_user_avatar(user, profile, current_user) when is_map(profile) do
     cond do
-      is_nil(profile.avatar_url) ->
-        ""
+      is_nil(uconn.connection.avatar_url) ->
+        :ok
 
-      not is_nil(avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")) ->
-        case decr_public_item(avatar_binary, profile.profile_key) do
-          :failed_verification -> ""
-          image when is_binary(image) -> "data:image/webp;base64," <> Base.encode64(image)
-          _ -> ""
+      not is_nil(AvatarProcessor.get_ets_avatar("profile-#{connection_id}")) ->
+        :ok
+
+      true ->
+        fetch_and_cache_avatar(uconn.connection, uconn.user, uconn.key, key, callback_tuple)
+    end
+  end
+
+  def ensure_avatar_cached(nil, _key, _callback_tuple), do: :ok
+
+  defp fetch_and_cache_avatar(connection, user, sealed_key, key, callback_tuple) do
+    avatars_bucket = Encrypted.Session.avatars_bucket()
+    connection_id = connection.id
+
+    Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
+      with d_url when is_binary(d_url) and d_url != "" and d_url != "failed_verification" <-
+             decr_avatar(connection.avatar_url, user, sealed_key, key),
+           {:ok, %{body: obj}} <-
+             ExAws.S3.get_object(avatars_bucket, d_url) |> ExAws.request() do
+        unless AvatarProcessor.avatar_recently_updated?(connection_id) do
+          AvatarProcessor.put_ets_avatar("profile-#{connection_id}", obj)
         end
 
-      is_nil(_avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")) ->
-        avatars_bucket = Encrypted.Session.avatars_bucket()
-        d_url = decr_public_item(profile.avatar_url, profile.profile_key)
-
-        Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
-          with {:ok, %{body: obj}} <-
-                 ExAws.S3.get_object(
-                   avatars_bucket,
-                   d_url
-                 )
-                 |> ExAws.request(),
-               _decrypted_obj <-
-                 decr_public_item(
-                   obj,
-                   profile.profile_key
-                 ) do
-            # Only cache if avatar wasn't recently updated (prevents replica lag issues)
-            unless AvatarProcessor.avatar_recently_updated?(user.connection.id) do
-              AvatarProcessor.put_ets_avatar("profile-#{user.connection.id}", obj)
-            end
-
-            # We return this tuple to pattern match on our handle info and
-            # pull the encrypted memory binary out of ets
-            {"get_user_avatar", current_user.id}
-          else
-            {:error, _rest} ->
-              ""
-          end
-        end)
-    end
+        callback_tuple
+      else
+        _ -> "error"
+      end
+    end)
   end
 
   ## Memories
@@ -2820,106 +2152,86 @@ defmodule MossletWeb.Helpers do
     end
   end
 
-  # Handle uconns differently.
-  # we want the other user than the current user
-  def maybe_get_avatar_src(%UserConnection{} = uconn, current_user, key, item_list) do
-    user_id = if current_user.id == uconn.user_id, do: uconn.reverse_user_id, else: uconn.user_id
-    user = Accounts.get_user_with_preloads(user_id)
-    upd_uconn = Accounts.get_user_connection_between_users(user.id, current_user.id)
+  # ---------------------------------------------------------------------------
+  # Legacy avatar helpers — deprecated, callers should migrate to
+  # encrypted_avatar_data + ensure_avatar_cached for ZK architecture.
+  # These wrappers exist only for backward compatibility during migration.
+  # ---------------------------------------------------------------------------
 
-    return =
-      get_user_avatar(
-        upd_uconn,
-        key,
-        nil,
-        current_user,
-        item_list
-      )
+  @doc false
+  def get_user_avatar(entity, key, item \\ nil, current_user \\ nil, item_list \\ [])
 
-    case return do
-      %Task{} = _return ->
-        ""
+  def get_user_avatar(nil, _key, _item, _current_user, _item_list), do: nil
 
-      _rest ->
-        return
+  def get_user_avatar(%User{} = user, key, nil, nil, []) do
+    user = preload_connection(user)
+    ensure_avatar_cached(user, key, {"get_user_avatar", user.id})
+    nil
+  end
+
+  def get_user_avatar(%User{} = user, key, item, current_user, item_list) do
+    user = preload_connection(user)
+    callback = item_callback_tuple(item, item_list, current_user)
+    ensure_avatar_cached(user, key, callback)
+    nil
+  end
+
+  def get_user_avatar(%UserConnection{} = uconn, key, item, current_user, item_list) do
+    callback = item_callback_tuple_for_uconn(uconn, item, item_list, current_user)
+    ensure_avatar_cached(uconn, key, callback)
+    nil
+  end
+
+  @doc false
+  def maybe_get_user_avatar(entity, key) do
+    case entity do
+      %User{} = user ->
+        user = preload_connection(user)
+        ensure_avatar_cached(user, key, {"get_user_avatar", user.id})
+
+      %UserConnection{} = uconn ->
+        ensure_avatar_cached(uconn, key, {"get_user_avatar", uconn.id})
+
+      _ ->
+        :ok
+    end
+
+    nil
+  end
+
+  @doc false
+  def maybe_get_avatar_src(entity, current_user, key, _item_list) do
+    case entity do
+      %UserConnection{} = uconn ->
+        ensure_avatar_cached(uconn, key, {"get_user_avatar", uconn.id})
+
+      %{user_id: _} = item ->
+        uconn = get_uconn_for_shared_item(item, current_user)
+        if uconn, do: ensure_avatar_cached(uconn, key, {"get_user_avatar", uconn.id})
+
+      _ ->
+        :ok
+    end
+
+    nil
+  end
+
+  @doc false
+  def maybe_get_public_profile_user_avatar(_user, _profile, _current_user), do: nil
+
+  defp item_callback_tuple(item, item_list, current_user) do
+    case item do
+      %Reply{id: id} -> {"get_user_avatar_reply", id, item_list, current_user.id}
+      %{id: id} -> {"get_user_avatar", id, item_list, current_user.id}
+      _ -> {"get_user_avatar", current_user.id}
     end
   end
 
-  def maybe_get_avatar_src(item, current_user, key, item_list) do
-    uconn = if item, do: get_uconn_for_shared_item(item, current_user)
-
-    return =
-      get_user_avatar(
-        uconn,
-        key,
-        item,
-        current_user,
-        item_list
-      )
-
-    case return do
-      %Task{} = _return ->
-        ""
-
-      _rest ->
-        return
-    end
-  end
-
-  # get the user's avatar when they're viz is public and it's their profile
-  def maybe_get_public_profile_user_avatar(user, profile, current_user) do
-    return = get_public_user_avatar(user, profile, current_user)
-
-    case return do
-      %Task{} = _return ->
-        ""
-
-      _rest ->
-        return
-    end
-  end
-
-  def maybe_get_user_avatar(current_user, key) do
-    return =
-      get_user_avatar(current_user, key)
-
-    case return do
-      %Task{} = _return ->
-        ""
-
-      _rest ->
-        return
-    end
-  end
-
-  defp decrypt_user_or_uconn_binary(avatar_binary, uconn, post, key, current_user) do
-    cond do
-      is_nil(current_user) ->
-        decr_avatar(
-          avatar_binary,
-          uconn.user,
-          uconn.key,
-          key
-        )
-        |> Base.encode64()
-
-      not is_nil(current_user) && post.user_id != current_user.id ->
-        decr_avatar(
-          avatar_binary,
-          uconn.user,
-          uconn.key,
-          key
-        )
-        |> Base.encode64()
-
-      not is_nil(current_user) && post.user_id == current_user.id ->
-        decr_avatar(
-          avatar_binary,
-          current_user,
-          current_user.conn_key,
-          key
-        )
-        |> Base.encode64()
+  defp item_callback_tuple_for_uconn(uconn, item, item_list, current_user) do
+    case item do
+      nil -> {"get_user_avatar", uconn.id, item_list, if(current_user, do: current_user.id)}
+      %Reply{id: id} -> {"get_user_avatar_reply", id, item_list, current_user.id}
+      %{id: id} -> {"get_user_avatar", id, item_list, current_user.id}
     end
   end
 
