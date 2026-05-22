@@ -614,6 +614,11 @@ defmodule MossletWeb.TimelineLive.Index do
         # Extract the post_key for encryption
         post_key = get_post_key(post, current_user)
 
+        # Ensure username is set server-side (hidden field may be empty if
+        # user.decrypted wasn't populated at render time)
+        reply_params =
+          Map.put(reply_params, "username", username(current_user, key) || "")
+
         # Create the reply using existing Timeline functions
         case Timeline.create_reply(reply_params,
                user: current_user,

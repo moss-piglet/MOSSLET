@@ -29,6 +29,7 @@ defmodule MossletWeb.DesignSystem do
       get_reply_post_key: 2,
       get_safe_reply_author_name: 3,
       photos?: 1,
+      username: 2,
       user_name: 2,
       get_encrypted_avatar_data: 2,
       get_encrypted_banner_data: 2,
@@ -7032,7 +7033,7 @@ defmodule MossletWeb.DesignSystem do
           do: get_encrypted_avatar_data(@current_scope.user, @current_scope.key)
       }
       word_limit={500}
-      username={@current_scope.user.decrypted[:username]}
+      username={username(@current_scope.user, @current_scope.key)}
       class=""
     />
 

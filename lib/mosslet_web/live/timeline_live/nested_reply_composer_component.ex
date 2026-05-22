@@ -24,7 +24,7 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
           "parent_reply_id" => assigns.parent_reply.id,
           "post_id" => assigns.post_id,
           "user_id" => current_user.id,
-          "username" => MossletWeb.Helpers.user_name(current_user, key),
+          "username" => MossletWeb.Helpers.username(current_user, key) || "",
           "visibility" => post.visibility
         })
 
@@ -63,7 +63,7 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
         "parent_reply_id" => parent_reply.id,
         "post_id" => post.id,
         "user_id" => current_user.id,
-        "username" => MossletWeb.Helpers.user_name(current_user, key),
+        "username" => MossletWeb.Helpers.username(current_user, key) || "",
         "visibility" => post.visibility
       })
 
@@ -85,7 +85,7 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
     reply_attrs =
       Map.merge(reply_params, %{
         "user_id" => current_user.id,
-        "username" => MossletWeb.Helpers.user_name(current_user, key),
+        "username" => MossletWeb.Helpers.username(current_user, key) || "",
         "post_id" => post.id,
         "parent_reply_id" => parent_reply.id,
         "visibility" => post.visibility
@@ -108,7 +108,7 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
             "parent_reply_id" => parent_reply.id,
             "post_id" => post.id,
             "user_id" => current_user.id,
-            "username" => MossletWeb.Helpers.user_name(current_user, key),
+            "username" => MossletWeb.Helpers.username(current_user, key) || "",
             "visibility" => post.visibility
           })
 
@@ -185,7 +185,7 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
           field={@form[:username]}
           type="hidden"
           id={"nested_reply_username_#{@parent_reply.id}"}
-          value={MossletWeb.Helpers.user_name(@current_scope.user, @current_scope.key)}
+          value={MossletWeb.Helpers.username(@current_scope.user, @current_scope.key)}
         />
         <.phx_input
           field={@form[:visibility]}

@@ -13,7 +13,9 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
   end
 
   def update(assigns, socket) do
-    form = get_or_create_reply_form(assigns)
+    # When send_update provides a pre-built form (e.g. from error handling),
+    # use it directly instead of trying to create a new one.
+    form = assigns[:form] || get_or_create_reply_form(assigns, socket)
 
     socket =
       socket
@@ -241,13 +243,16 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
   end
 
   def handle_event("cancel_reply", _params, socket) do
+    scope = socket.assigns.current_scope
+
     # Reset the form to empty state
     changeset =
       Timeline.change_reply(%Reply{}, %{
         "body" => "",
         "post_id" => socket.assigns.post_id,
-        "user_id" => socket.assigns.current_scope.user.id,
-        "username" => socket.assigns.username,
+        "user_id" => scope.user.id,
+        "username" =>
+          socket.assigns.username || MossletWeb.Helpers.username(scope.user, scope.key) || "",
         "visibility" => socket.assigns.visibility
       })
 
@@ -259,7 +264,8 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
   def handle_event("save_reply", %{"reply" => reply_params}, socket) do
     post_id = socket.assigns.post_id
     visibility = socket.assigns.visibility
-    current_user = socket.assigns.current_scope.user
+    scope = socket.assigns.current_scope
+    current_user = scope.user
 
     if can_reply?(Timeline.get_post!(post_id), current_user) do
       # Send the reply creation to the parent LiveView
@@ -271,7 +277,8 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
           "body" => "",
           "post_id" => post_id,
           "user_id" => current_user.id,
-          "username" => socket.assigns.username,
+          "username" =>
+            socket.assigns.username || MossletWeb.Helpers.username(scope.user, scope.key) || "",
           "visibility" => visibility
         })
 
@@ -283,24 +290,43 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
     end
   end
 
-  # Helper function to get or create reply form
-  defp get_or_create_reply_form(assigns) do
+  # Helper function to get or create reply form.
+  # Falls back to socket assigns when update assigns are partial
+  # (e.g. from send_update with only id + form).
+  defp get_or_create_reply_form(assigns, socket) do
+    scope = assigns[:current_scope] || socket.assigns[:current_scope]
+
     current_user =
-      case assigns[:current_scope] do
+      case scope do
         %{user: user} -> user
-        _ -> assigns[:current_scope].user
+        _ -> nil
       end
 
-    changeset =
-      Timeline.change_reply(%Reply{}, %{
-        "body" => "",
-        "post_id" => assigns.post_id,
-        "user_id" => current_user.id,
-        "username" => assigns.username,
-        "visibility" => assigns.visibility
-      })
+    post_id = assigns[:post_id] || socket.assigns[:post_id]
+    visibility = assigns[:visibility] || socket.assigns[:visibility]
 
-    to_form(changeset)
+    # Prefer the passed username assign, fall back to decrypting from scope
+    username =
+      case assigns[:username] || socket.assigns[:username] do
+        name when is_binary(name) and name != "" -> name
+        _ when not is_nil(scope) -> MossletWeb.Helpers.username(scope.user, scope.key)
+        _ -> nil
+      end
+
+    if current_user && post_id do
+      changeset =
+        Timeline.change_reply(%Reply{}, %{
+          "body" => "",
+          "post_id" => post_id,
+          "user_id" => current_user.id,
+          "username" => username || "",
+          "visibility" => visibility || "connections"
+        })
+
+      to_form(changeset)
+    else
+      to_form(Timeline.change_reply(%Reply{}))
+    end
   end
 
   defp word_count(nil), do: 0
