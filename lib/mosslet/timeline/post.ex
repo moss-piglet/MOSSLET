@@ -305,6 +305,19 @@ defmodule Mosslet.Timeline.Post do
     |> encrypt_favs_list_with_post_key(opts)
   end
 
+  # ZK path: accepts pre-encrypted favs_list directly from browser.
+  # The server never decrypts the favs_list — it stores the ciphertext as-is.
+  # The browser computed the modified list (decrypt → modify → re-encrypt)
+  # using the post_key cached from DecryptPost.
+  def favs_changeset_zk(post, attrs) do
+    post
+    |> cast(attrs, [
+      :favs_count,
+      :favs_list
+    ])
+    |> validate_required([:favs_count, :favs_list])
+  end
+
   # Encrypt favs list with post_key (same pattern as post.body)
   defp encrypt_favs_list_with_post_key(changeset, opts) do
     if changeset.valid? && opts[:user] && opts[:key] do
@@ -357,6 +370,13 @@ defmodule Mosslet.Timeline.Post do
     post
     |> cast(attrs, [:reposts_list])
     |> encrypt_reposts_list_with_post_key(opts)
+  end
+
+  # ZK path: accepts pre-encrypted reposts_list directly from browser.
+  # Same pattern as favs_changeset_zk — no server-side decryption.
+  def change_post_to_repost_changeset_zk(post, attrs) do
+    post
+    |> cast(attrs, [:reposts_list])
   end
 
   # Encrypt reposts list with post_key (same pattern as post.body)

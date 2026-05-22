@@ -359,10 +359,12 @@ These can follow the same phased approach: first move the read path (decrypt in 
 16. **True ZK Read (favs_list, reposts_list, share_note, image_alt_texts)** — DONE. All four fields moved to browser-side decryption for non-public posts. `raw_key` removed from `post.decrypted` map. `liked`/`can_repost` computed browser-side by DecryptPost hook after decrypting encrypted ID lists. Share note applied via DOM target. Image alt texts cached for future modal integration.
 17. **True ZK Write: Browser-side image encryption for post uploads** — DONE. Browser encrypts processed images with post_key before S3 upload. `upload_pre_encrypted_to_storage/1` added. Server never sees the key.
 18. **True ZK Write: Browser encrypts ALL post fields** — DONE. Two-phase commit eliminates `unseal_browser_post_key` entirely. Browser encrypts username, avatar_url, image_urls, image_alt_texts, url_preview with post_key. Browser seals post_key for all recipients via hybrid PQ KEM. Server receives and stores only ciphertext — the raw post_key never exists in server memory. `Post.encrypt_attrs` split into ZK and legacy paths. `UserPost.zk_changeset` accepts pre-sealed keys. Public posts unchanged (server-side encryption).
-19. **Full data structure audit** — Comprehensive review of ALL encrypted data structures (excl. memories) to identify any gaps.
-20. **ZK AI migration** — Journal insights, mood prompts, language filters → browser-based AI.
-21. **NSFW fail-open verification** — Document behavior for all failure modes.
-22. **Marketing updates** — Landing page, features, privacy policy reflecting fully ZK PQ architecture.
+19. **True ZK Ops: Browser-side fav/repost toggle** — DONE. Fav toggle now encrypts/decrypts favs_list entirely in the browser via DecryptPost hook. `Post.favs_changeset_zk` and `Post.change_post_to_repost_changeset_zk` accept pre-encrypted lists from the browser, eliminating server-side decryption. `Timeline.update_post_fav_zk/2` and `Timeline.update_post_repost_zk/2` store directly. `toggle_fav_zk` handler updates fav_count and stores encrypted list. The raw post_key never enters server memory during fav/repost operations.
+20. **True ZK Replies: Browser-side reply decryption via DecryptReply hook** — DONE. `assets/js/hooks/decrypt-reply.js` decrypts reply body and username using the cached parent post_key (from DecryptPost → `cachePostKey`). `Reply.encrypt_attrs_zk` path accepts pre-encrypted body/username from browser. Reply template renders DecryptReply hook for non-public posts, passing encrypted blobs via data attributes. Server-side `get_decrypted_reply_content` still used for public posts and fallback.
+21. **Full data structure audit** — Comprehensive review of ALL encrypted data structures (excl. memories) to identify any gaps.
+22. **ZK AI migration** — Journal insights, mood prompts, language filters → browser-based AI.
+23. **NSFW fail-open verification** — Document behavior for all failure modes.
+24. **Marketing updates** — Landing page, features, privacy policy reflecting fully ZK PQ architecture.
 
 #### Phase 3f: Subscription/Billing ZK (NEW)
 

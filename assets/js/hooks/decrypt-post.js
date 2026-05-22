@@ -34,7 +34,8 @@
  *   [data-decrypt-url-preview-target="{postId}"]  — URL preview container
  *   [data-decrypt-share-note-target="{postId}"]   — share note text
  */
-import { unsealContextKey, decryptWithKey, getPublicKey, cachePostKey } from "../crypto/session";
+import { unsealContextKey, decryptWithKey, getPublicKey, cachePostKey, getCachedPostKey } from "../crypto/session";
+import { encryptSecretboxString } from "../crypto/nacl";
 import { renderMarkdown } from "../utils/render-markdown";
 
 /**
@@ -102,6 +103,7 @@ const DecryptPost = {
     this._cached = null;
     this._cachedAttrs = null;
     this._keysReadyHandler = null;
+    this._favHandler = null;
     await this._decrypt();
   },
 
@@ -112,6 +114,7 @@ const DecryptPost = {
     } else {
       this._cached = null;
       this._cachedAttrs = null;
+      this._removeZkFavHandler();
       await this._decrypt();
     }
   },
@@ -119,9 +122,18 @@ const DecryptPost = {
   destroyed() {
     this._cached = null;
     this._cachedAttrs = null;
+    this._removeZkFavHandler();
     if (this._keysReadyHandler) {
       window.removeEventListener("mosslet:keys-ready", this._keysReadyHandler);
       this._keysReadyHandler = null;
+    }
+  },
+
+  _removeZkFavHandler() {
+    if (this._favHandler && this._favButton) {
+      this._favButton.removeEventListener("click", this._favHandler);
+      this._favButton = null;
+      this._favHandler = null;
     }
   },
 
@@ -315,7 +327,8 @@ const DecryptPost = {
 
   /**
    * Updates the like button state after decrypting the favs_list.
-   * Uses the same DOM update pattern as phx:update_post_fav_count.
+   * For ZK posts, replaces phx-click with a browser-side click handler
+   * that re-encrypts the modified favs_list before sending to the server.
    */
   _applyFavState(favsList) {
     if (!favsList) return;
@@ -334,7 +347,6 @@ const DecryptPost = {
 
     if (isLiked) {
       button.id = `hero-heart-solid-button-${postId}`;
-      button.setAttribute("phx-click", "unfav");
       button.setAttribute("data-tippy-content", "Remove love");
       button.classList.remove(
         "text-slate-500", "dark:text-slate-400",
@@ -351,6 +363,72 @@ const DecryptPost = {
       }
     }
     // If not liked, the default state (outline heart) is already correct
+
+    // For ZK posts, replace server-side phx-click with browser-side handler
+    if (this.el.dataset.encryptedFavsList && !button.dataset.zkFavReady) {
+      button.removeAttribute("phx-click");
+      button.dataset.zkFavReady = "true";
+      this._removeZkFavHandler();
+      this._favHandler = (e) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        this._handleZkFavClick(button, postId, currentUserId);
+      };
+      this._favButton = button;
+      button.addEventListener("click", this._favHandler);
+    }
+  },
+
+  /**
+   * Browser-side fav toggle for ZK posts.
+   * Decrypts the encrypted favs_list, modifies it, re-encrypts it,
+   * and sends the new encrypted list to the server.
+   */
+  async _handleZkFavClick(button, postId, currentUserId) {
+    const postKey = getCachedPostKey(postId);
+    if (!postKey) return;
+
+    const encFavsJson = this.el.dataset.encryptedFavsList;
+    if (!encFavsJson) return;
+
+    try {
+      const items = JSON.parse(encFavsJson);
+      const decrypted = [];
+      for (const item of items) {
+        if (typeof item === "string" && item !== "") {
+          const plain = await decryptWithKey(item, postKey);
+          if (plain) decrypted.push(plain);
+        }
+      }
+
+      const isCurrentlyLiked = decrypted.includes(currentUserId);
+
+      let newFavs;
+      if (isCurrentlyLiked) {
+        newFavs = decrypted.filter((id) => id !== currentUserId);
+      } else {
+        newFavs = [currentUserId, ...decrypted];
+      }
+
+      const encrypted = await Promise.all(
+        newFavs.map((id) => encryptSecretboxString(id, postKey))
+      );
+
+      // Update the cached favs list data attribute for next click
+      this.el.dataset.encryptedFavsList = JSON.stringify(encrypted);
+
+      this.pushEvent("toggle_fav_zk", {
+        id: postId,
+        encrypted_favs_list: JSON.stringify(encrypted),
+        is_liked: (!isCurrentlyLiked).toString(),
+      });
+    } catch (e) {
+      console.error("DecryptPost: ZK fav toggle failed:", e);
+      // Fallback: let the server handle it via the original phx-click
+      button.removeAttribute("data-zk-fav-ready");
+      button.setAttribute("phx-click", isCurrentlyLiked ? "unfav" : "fav");
+      button.click();
+    }
   },
 
   /**

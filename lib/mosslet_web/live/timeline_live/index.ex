@@ -3478,6 +3478,59 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_event("fav", %{"id" => id}, socket), do: do_toggle_fav(id, socket)
   def handle_event("unfav", %{"id" => id}, socket), do: do_toggle_fav(id, socket)
 
+  def handle_event(
+        "toggle_fav_zk",
+        %{"id" => id, "encrypted_favs_list" => encrypted_list, "is_liked" => is_liked},
+        socket
+      ) do
+    post = Timeline.get_post!(id)
+
+    if post do
+      is_liked_bool = is_liked == "true"
+
+      {count_delta, _action_label} =
+        if is_liked_bool do
+          {1, :fav}
+        else
+          {-1, :unfav}
+        end
+
+      # Update fav count
+      updated_post =
+        if is_liked_bool do
+          {:ok, p} = Timeline.inc_favs(post)
+          p
+        else
+          {:ok, p} = Timeline.decr_favs(post)
+          p
+        end
+
+      encrypted_favs =
+        if encrypted_list && encrypted_list != "" do
+          Jason.decode!(encrypted_list)
+        else
+          []
+        end
+
+      Timeline.update_post_fav_zk(post, %{
+        favs_list: encrypted_favs,
+        favs_count: post.favs_count + count_delta
+      })
+
+      Accounts.track_user_activity(socket.assigns.current_user, :interaction)
+
+      {:noreply,
+       socket
+       |> push_event("update_post_fav_count", %{
+         post_id: updated_post.id,
+         favs_count: updated_post.favs_count,
+         is_liked: is_liked_bool
+       })}
+    else
+      {:noreply, put_flash(socket, :error, "Post not found.")}
+    end
+  end
+
   def handle_event("fav_reply", %{"id" => id}, socket) do
     reply = Timeline.get_reply!(id)
     current_user = socket.assigns.current_user

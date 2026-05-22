@@ -2425,6 +2425,28 @@ defmodule Mosslet.Timeline do
     end
   end
 
+  # ZK path: stores pre-encrypted favs_list directly, no server-side decryption.
+  def update_post_fav_zk(%Post{} = post, attrs) do
+    {:ok, {:ok, post}} =
+      Repo.transaction_on_primary(fn ->
+        Post.favs_changeset_zk(post, attrs)
+        |> Repo.update()
+      end)
+
+    {:ok, post |> Repo.preload([:user_posts, :user, :replies, :user_post_receipts])}
+  end
+
+  # ZK path: stores pre-encrypted reposts_list directly, no server-side decryption.
+  def update_post_repost_zk(%Post{} = post, attrs) do
+    {:ok, {:ok, post}} =
+      Repo.transaction_on_primary(fn ->
+        Post.change_post_to_repost_changeset_zk(post, attrs)
+        |> Repo.update()
+      end)
+
+    {:ok, post |> Repo.preload([:user_posts, :user, :replies, :user_post_receipts])}
+  end
+
   def update_reply_fav(%Reply{} = reply, attrs, opts \\ []) do
     user = Accounts.get_user!(opts[:user].id)
 

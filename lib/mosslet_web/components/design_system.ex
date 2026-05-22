@@ -7044,6 +7044,8 @@ defmodule MossletWeb.DesignSystem do
       reply_count={Map.get(@stats, :replies, 0)}
       show={true}
       current_scope={@current_scope}
+      browser_decrypt={@post.decrypted[:browser_decrypt?] || false}
+      sealed_post_key={@post.decrypted[:sealed_post_key]}
       unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
       calm_notifications={@calm_notifications}
       class="mt-3"
@@ -9271,12 +9273,17 @@ defmodule MossletWeb.DesignSystem do
   attr :calm_notifications, :boolean, default: false
   attr :class, :any, default: ""
 
+  attr :browser_decrypt, :boolean, default: false
+  attr :sealed_post_key, :string, default: nil
+
   def liquid_collapsible_reply_thread(assigns) do
     assigns = assign_scope_fields(assigns)
 
     ~H"""
     <div
       id={"reply-thread-#{@post_id}"}
+      data-browser-decrypt={if @browser_decrypt, do: "true"}
+      data-sealed-post-key={@sealed_post_key}
       data-show-js={
         JS.show(
           to: "#reply-thread-#{@post_id}",
@@ -9325,6 +9332,8 @@ defmodule MossletWeb.DesignSystem do
               depth={0}
               max_depth={3}
               post_id={@post_id}
+              browser_decrypt={@browser_decrypt}
+              sealed_post_key={@sealed_post_key}
               unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
               calm_notifications={@calm_notifications}
             />
@@ -9357,6 +9366,8 @@ defmodule MossletWeb.DesignSystem do
   attr :depth, :integer, default: 0
   attr :max_depth, :integer, default: 3
   attr :post_id, :string, default: nil
+  attr :browser_decrypt, :boolean, default: false
+  attr :sealed_post_key, :string, default: nil
   attr :unread_nested_replies_by_parent, :map, default: %{}
   attr :calm_notifications, :boolean, default: false
   attr :class, :any, default: ""
@@ -9375,6 +9386,8 @@ defmodule MossletWeb.DesignSystem do
         current_scope={@current_scope}
         depth={@depth}
         post_id={@post_id}
+        browser_decrypt={@browser_decrypt}
+        sealed_post_key={@sealed_post_key}
       />
 
       <%!-- Collapse/Expand toggle for nested replies --%>
@@ -9489,6 +9502,8 @@ defmodule MossletWeb.DesignSystem do
               depth={@depth + 1}
               max_depth={@max_depth}
               post_id={@post_id}
+              browser_decrypt={@browser_decrypt}
+              sealed_post_key={@sealed_post_key}
               unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
               calm_notifications={@calm_notifications}
             />
@@ -9554,6 +9569,8 @@ defmodule MossletWeb.DesignSystem do
   attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
   attr :depth, :integer, default: 0
   attr :post_id, :string, default: nil
+  attr :browser_decrypt, :boolean, default: false
+  attr :sealed_post_key, :string, default: nil
   attr :class, :any, default: ""
 
   def liquid_reply_item(assigns) do
@@ -9672,11 +9689,29 @@ defmodule MossletWeb.DesignSystem do
             </div>
 
             <%!-- Reply content with markdown support --%>
-            <div class="prose prose-slate dark:prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-pre:my-1.5 prose-code:text-emerald-600 dark:prose-code:text-emerald-400 prose-a:text-emerald-600 dark:prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline [&_pre_code]:text-inherit [&_pre_*]:text-inherit">
-              {format_decrypted_content(
-                get_decrypted_reply_content(@reply, @current_scope.user, @current_scope.key)
-              )}
-            </div>
+            <%= if @browser_decrypt do %>
+              <div
+                id={"decrypt-reply-#{@reply.id}"}
+                phx-hook="DecryptReply"
+                phx-update="ignore"
+                data-post-id={@post_id}
+                data-sealed-post-key={@sealed_post_key}
+                data-encrypted-body={@reply.body}
+                data-encrypted-username={@reply.username}
+                class="prose prose-slate dark:prose-invert prose-sm max-w-none"
+              >
+                <div data-decrypt-reply-body>
+                  <div class="animate-pulse h-4 w-3/4 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                </div>
+                <span data-decrypt-reply-handle class="hidden"></span>
+              </div>
+            <% else %>
+              <div class="prose prose-slate dark:prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-pre:my-1.5 prose-code:text-emerald-600 dark:prose-code:text-emerald-400 prose-a:text-emerald-600 dark:prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline [&_pre_code]:text-inherit [&_pre_*]:text-inherit">
+                {format_decrypted_content(
+                  get_decrypted_reply_content(@reply, @current_scope.user, @current_scope.key)
+                )}
+              </div>
+            <% end %>
 
             <%!-- Reply actions (mobile-optimized) - only show for connected users or own replies --%>
             <div class="flex items-center justify-between mt-3 sm:mt-2">

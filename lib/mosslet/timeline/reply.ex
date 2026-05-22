@@ -137,22 +137,41 @@ defmodule Mosslet.Timeline.Reply do
   # from Trix.
   defp encrypt_attrs(changeset, opts) do
     if opts[:user] && opts[:key] do
-      post_key = decrypt_post_key(opts)
-      body = get_change(changeset, :body)
-      username = get_change(changeset, :username)
-      image_urls = get_field(changeset, :image_urls)
+      toggle_zk = opts[:zk_reply]
 
-      e_image_urls =
-        if image_urls && !Enum.empty?(image_urls) && post_key,
-          do: encrypt_image_urls(image_urls, post_key)
-
-      changeset
-      |> put_change(:body, Utils.encrypt(%{key: post_key, payload: body}))
-      |> put_change(:username, Utils.encrypt(%{key: post_key, payload: username}))
-      |> put_change(:image_urls, e_image_urls)
+      if toggle_zk do
+        encrypt_attrs_zk(changeset, opts)
+      else
+        encrypt_attrs_server(changeset, opts)
+      end
     else
       changeset
     end
+  end
+
+  # ZK path: reply fields pre-encrypted by browser with cached parent post_key.
+  # Server never sees the post_key or plaintext reply content.
+  defp encrypt_attrs_zk(changeset, opts) do
+    changeset
+    |> put_change(:body, opts[:encrypted_body])
+    |> put_change(:username, opts[:encrypted_username])
+  end
+
+  # Legacy path: server decrypts post_key and encrypts reply fields.
+  defp encrypt_attrs_server(changeset, opts) do
+    post_key = decrypt_post_key(opts)
+    body = get_change(changeset, :body)
+    username = get_change(changeset, :username)
+    image_urls = get_field(changeset, :image_urls)
+
+    e_image_urls =
+      if image_urls && !Enum.empty?(image_urls) && post_key,
+        do: encrypt_image_urls(image_urls, post_key)
+
+    changeset
+    |> put_change(:body, Utils.encrypt(%{key: post_key, payload: body}))
+    |> put_change(:username, Utils.encrypt(%{key: post_key, payload: username}))
+    |> put_change(:image_urls, e_image_urls)
   end
 
   defp encrypt_image_urls(image_urls, post_key) do
