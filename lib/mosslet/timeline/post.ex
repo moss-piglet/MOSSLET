@@ -696,52 +696,136 @@ defmodule Mosslet.Timeline.Post do
 
   defp encrypt_attrs(changeset, opts) do
     if changeset.valid? && opts[:user] && opts[:key] do
-      body = get_field(changeset, :body)
-      username = get_field(changeset, :username)
       visibility = get_field(changeset, :visibility)
-      group_id = get_field(changeset, :group_id)
-      post_key = maybe_generate_post_key(group_id, opts, visibility)
+      zk_fields = opts[:zk_fields]
 
-      e_avatar_url =
-        if is_binary(post_key), do: maybe_encrypt_avatar_url(opts[:user], post_key)
-
-      image_urls = get_field(changeset, :image_urls)
-      image_alt_texts = get_field(changeset, :image_alt_texts)
-
-      e_image_urls =
-        if image_urls && !Enum.empty?(image_urls) && post_key,
-          do: encrypt_image_urls(image_urls, post_key)
-
-      e_image_alt_texts =
-        if image_alt_texts && !Enum.empty?(image_alt_texts) && post_key,
-          do: encrypt_image_urls(image_alt_texts, post_key)
-
-      # For non-public posts with browser-encrypted body, use the pre-encrypted
-      # ciphertext directly instead of re-encrypting. The server never sees plaintext.
-      e_body =
-        if opts[:encrypted_body] && visibility != :public do
-          opts[:encrypted_body]
-        else
-          Utils.encrypt(%{key: post_key, payload: body})
-        end
-
-      if visibility in [:public, :private, :connections, :specific_groups, :specific_users] do
-        changeset
-        |> put_change(:avatar_url, e_avatar_url)
-        |> put_change(:image_urls, e_image_urls)
-        |> put_change(:image_alt_texts, e_image_alt_texts)
-        |> put_change(:body, e_body)
-        |> put_change(:username, Utils.encrypt(%{key: post_key, payload: username}))
-        |> put_change(:user_post_map, %{temp_key: post_key})
-        |> encrypt_favs_list(post_key, opts)
-        |> encrypt_reposts_list(post_key, opts)
-        |> encrypt_content_warning_if_present(post_key, opts)
-        |> encrypt_url_preview_if_present(post_key, opts)
+      # True ZK path: ALL fields pre-encrypted by browser, server never sees post_key.
+      # The browser encrypted username, avatar_url, image_urls, image_alt_texts,
+      # url_preview, body, and content warning — and sealed the post_key for
+      # each recipient. The server stores everything as-is.
+      if zk_fields && visibility != :public do
+        encrypt_attrs_zk(changeset, visibility, zk_fields, opts)
       else
-        changeset |> add_error(:body, "There was an error determining the visibility.")
+        encrypt_attrs_server(changeset, visibility, opts)
       end
     else
       changeset
+    end
+  end
+
+  # True ZK: all fields are pre-encrypted by the browser.
+  # The server never touches the post_key.
+  defp encrypt_attrs_zk(changeset, visibility, zk_fields, opts) do
+    if visibility in [:private, :connections, :specific_groups, :specific_users] do
+      e_body = opts[:encrypted_body]
+
+      changeset
+      |> put_change(:body, e_body)
+      |> put_change(:username, zk_fields.encrypted_username)
+      |> put_change(:avatar_url, zk_fields.encrypted_avatar_url)
+      |> put_change(:image_urls, non_empty_list(zk_fields.encrypted_image_urls))
+      |> put_change(:image_alt_texts, non_empty_list(zk_fields.encrypted_image_alt_texts))
+      # Store the sealed author key + sealed recipient keys so Timeline.create_post
+      # can use them. No raw post_key ever enters server memory.
+      |> put_change(:user_post_map, %{
+        sealed_author_key: zk_fields.sealed_author_key,
+        sealed_recipient_keys: zk_fields.sealed_recipient_keys
+      })
+      |> put_zk_content_warning(opts)
+      |> put_zk_url_preview(zk_fields)
+    else
+      changeset |> add_error(:body, "There was an error determining the visibility.")
+    end
+  end
+
+  defp non_empty_list([]), do: nil
+  defp non_empty_list(list) when is_list(list), do: list
+  defp non_empty_list(_), do: nil
+
+  defp put_zk_content_warning(changeset, opts) do
+    content_warning = get_field(changeset, :content_warning)
+
+    changeset =
+      if content_warning && String.trim(content_warning) != "" && opts[:encrypted_content_warning] do
+        changeset
+        |> put_change(:content_warning, opts[:encrypted_content_warning])
+        |> put_change(:content_warning?, true)
+      else
+        put_change(changeset, :content_warning?, get_field(changeset, :content_warning?) || false)
+      end
+
+    content_warning_category = get_field(changeset, :content_warning_category)
+
+    if content_warning_category && String.trim(content_warning_category) != "" &&
+         opts[:encrypted_content_warning_category] do
+      changeset
+      |> put_change(:content_warning_category, opts[:encrypted_content_warning_category])
+      |> put_change(:content_warning_category_hash, String.downcase(content_warning_category))
+    else
+      changeset
+    end
+  end
+
+  defp put_zk_url_preview(changeset, zk_fields) do
+    encrypted_url_preview = zk_fields.encrypted_url_preview
+
+    if encrypted_url_preview && is_map(encrypted_url_preview) &&
+         map_size(encrypted_url_preview) > 0 do
+      changeset
+      |> put_change(:url_preview, encrypted_url_preview)
+      |> put_change(
+        :url_preview_fetched_at,
+        NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+      )
+    else
+      changeset
+    end
+  end
+
+  # Legacy server-side encryption path (public posts and fallback).
+  defp encrypt_attrs_server(changeset, visibility, opts) do
+    body = get_field(changeset, :body)
+    username = get_field(changeset, :username)
+    group_id = get_field(changeset, :group_id)
+    post_key = maybe_generate_post_key(group_id, opts, visibility)
+
+    e_avatar_url =
+      if is_binary(post_key), do: maybe_encrypt_avatar_url(opts[:user], post_key)
+
+    image_urls = get_field(changeset, :image_urls)
+    image_alt_texts = get_field(changeset, :image_alt_texts)
+
+    e_image_urls =
+      if image_urls && !Enum.empty?(image_urls) && post_key,
+        do: encrypt_image_urls(image_urls, post_key)
+
+    e_image_alt_texts =
+      if image_alt_texts && !Enum.empty?(image_alt_texts) && post_key,
+        do: encrypt_image_urls(image_alt_texts, post_key)
+
+    # For non-public posts with browser-encrypted body, use the pre-encrypted
+    # ciphertext directly instead of re-encrypting. The server never sees plaintext.
+    e_body =
+      if opts[:encrypted_body] && visibility != :public do
+        opts[:encrypted_body]
+      else
+        Utils.encrypt(%{key: post_key, payload: body})
+      end
+
+    if visibility in [:public, :private, :connections, :specific_groups, :specific_users] do
+      changeset
+      |> put_change(:avatar_url, e_avatar_url)
+      |> put_change(:image_urls, e_image_urls)
+      |> put_change(:image_alt_texts, e_image_alt_texts)
+      |> put_change(:body, e_body)
+      |> put_change(:username, Utils.encrypt(%{key: post_key, payload: username}))
+      |> put_change(:user_post_map, %{temp_key: post_key})
+      |> encrypt_favs_list(post_key, opts)
+      |> encrypt_reposts_list(post_key, opts)
+      |> encrypt_content_warning_if_present(post_key, opts)
+      |> encrypt_url_preview_if_present(post_key, opts)
+    else
+      changeset |> add_error(:body, "There was an error determining the visibility.")
     end
   end
 

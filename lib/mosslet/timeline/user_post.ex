@@ -43,6 +43,16 @@ defmodule Mosslet.Timeline.UserPost do
     |> encrypt_attrs(opts)
   end
 
+  @doc """
+  Changeset for the true ZK write path — the key is already sealed by
+  the browser for this specific recipient. No server-side sealing needed.
+  """
+  def zk_changeset(user_post, attrs) do
+    user_post
+    |> cast(attrs, [:key, :post_id, :user_id])
+    |> validate_required([:key])
+  end
+
   def share_note_changeset(user_post \\ %__MODULE__{}, attrs) do
     user_post
     |> cast(attrs, [:share_note])

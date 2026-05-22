@@ -2611,12 +2611,13 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
-  # Browser-encrypted post submission (zero-knowledge write path).
-  # The browser generated a post_key, encrypted the body, and sealed
-  # the key for the author. The server never sees plaintext body content.
+  # True ZK write path — Phase 1: browser sends encrypted body + CW.
+  # Server gathers metadata (recipients, image paths, url_preview, avatar_url,
+  # username) and pushes it back for the browser to encrypt ALL fields and seal
+  # the post_key for every recipient. The server NEVER unseals the post_key.
   def handle_event(
         "save_post_encrypted",
-        %{"encrypted_body" => encrypted_body, "sealed_post_key" => sealed_post_key} = params,
+        %{"encrypted_body" => encrypted_body} = params,
         socket
       ) do
     if connected?(socket) do
@@ -2631,91 +2632,168 @@ defmodule MossletWeb.TimelineLive.Index do
       if visibility == "public" do
         {:noreply, put_flash(socket, :warning, "Please submit your post again.")}
       else
-        # Unseal the browser-provided post_key so we can encrypt other fields
-        # (username, avatar, image_urls, etc.) — the server sees the key
-        # but never the plaintext body or content warning.
-        case unseal_browser_post_key(sealed_post_key, current_user, key) do
-          {:ok, post_key} ->
-            {uploaded_photo_urls, uploaded_alt_texts, _trix_key} =
-              process_uploaded_photos(socket, current_user, key)
+        {uploaded_photo_urls, uploaded_alt_texts, _trix_key} =
+          process_uploaded_photos(socket, current_user, key)
 
-            any_ai_generated =
-              Enum.any?(socket.assigns.completed_uploads, fn upload ->
-                Map.get(upload, :ai_generated, false)
-              end)
+        any_ai_generated =
+          Enum.any?(socket.assigns.completed_uploads, fn upload ->
+            Map.get(upload, :ai_generated, false)
+          end)
 
-            # Build post_params from socket assigns — body comes from the
-            # last validate_post event (the form tracks it via phx-change).
-            body = Ecto.Changeset.get_field(socket.assigns.post_form.source, :body) || ""
+        body = Ecto.Changeset.get_field(socket.assigns.post_form.source, :body) || ""
 
-            post_params =
-              %{
-                "body" => body,
-                "username" => username(current_user, key) || "",
-                "image_urls" => socket.assigns.image_urls ++ uploaded_photo_urls,
-                "image_alt_texts" => uploaded_alt_texts,
-                "image_urls_updated_at" => NaiveDateTime.utc_now(),
-                "visibility" => visibility,
-                "user_id" => current_user.id,
-                "content_warning?" => socket.assigns.content_warning_enabled?,
-                "ai_generated" => any_ai_generated,
-                "allow_replies" => socket.assigns.allow_replies,
-                "allow_shares" => socket.assigns.allow_shares,
-                "allow_bookmarks" => socket.assigns.allow_bookmarks,
-                "is_ephemeral" => socket.assigns.is_ephemeral,
-                "require_follow_to_reply" => socket.assigns.require_follow_to_reply,
-                "mature_content" => socket.assigns.mature_content,
-                "local_only" => socket.assigns.local_only,
-                "expires_at_option" => socket.assigns.expires_at_option,
-                "visibility_groups" => socket.assigns.selected_visibility_groups || [],
-                "visibility_users" => socket.assigns.selected_visibility_users || []
-              }
-              |> maybe_put_url_preview(socket)
-              |> Map.put(
-                "url_preview_fetched_at",
-                if(socket.assigns.url_preview, do: NaiveDateTime.utc_now(), else: nil)
-              )
-              |> add_shared_users_list_for_new_post(post_shared_users, %{
-                visibility_setting: visibility,
-                current_user: current_user,
-                key: key
-              })
+        # Build partial post_params — fields that don't need encryption
+        post_params =
+          %{
+            "body" => body,
+            "username" => username(current_user, key) || "",
+            "image_urls" => socket.assigns.image_urls ++ uploaded_photo_urls,
+            "image_alt_texts" => uploaded_alt_texts,
+            "image_urls_updated_at" => NaiveDateTime.utc_now(),
+            "visibility" => visibility,
+            "user_id" => current_user.id,
+            "content_warning?" => socket.assigns.content_warning_enabled?,
+            "ai_generated" => any_ai_generated,
+            "allow_replies" => socket.assigns.allow_replies,
+            "allow_shares" => socket.assigns.allow_shares,
+            "allow_bookmarks" => socket.assigns.allow_bookmarks,
+            "is_ephemeral" => socket.assigns.is_ephemeral,
+            "require_follow_to_reply" => socket.assigns.require_follow_to_reply,
+            "mature_content" => socket.assigns.mature_content,
+            "local_only" => socket.assigns.local_only,
+            "expires_at_option" => socket.assigns.expires_at_option,
+            "visibility_groups" => socket.assigns.selected_visibility_groups || [],
+            "visibility_users" => socket.assigns.selected_visibility_users || []
+          }
+          |> maybe_put_url_preview(socket)
+          |> Map.put(
+            "url_preview_fetched_at",
+            if(socket.assigns.url_preview, do: NaiveDateTime.utc_now(), else: nil)
+          )
+          |> add_shared_users_list_for_new_post(post_shared_users, %{
+            visibility_setting: visibility,
+            current_user: current_user,
+            key: key
+          })
 
-            # Pass browser-encrypted content warning fields alongside the body
-            encrypted_opts = [encrypted_body: encrypted_body]
+        # Gather plaintext fields that the browser must encrypt with post_key.
+        # The server provides these values but never the post_key itself.
+        plaintext_username = username(current_user, key) || ""
 
-            encrypted_opts =
-              if params["encrypted_content_warning"] do
-                encrypted_opts ++
-                  [encrypted_content_warning: params["encrypted_content_warning"]]
-              else
-                encrypted_opts
-              end
+        plaintext_avatar_url =
+          if current_user.decrypted,
+            do: current_user.decrypted[:avatar_url],
+            else: nil
 
-            encrypted_opts =
-              if params["encrypted_content_warning_category"] do
-                encrypted_opts ++
-                  [
-                    encrypted_content_warning_category:
-                      params["encrypted_content_warning_category"]
-                  ]
-              else
-                encrypted_opts
-              end
+        plaintext_image_urls = post_params["image_urls"] || []
+        plaintext_image_alt_texts = post_params["image_alt_texts"] || []
 
-            create_post_and_respond(
-              socket,
-              post_params,
-              current_user,
-              key,
-              post_key,
-              encrypted_opts
-            )
+        plaintext_url_preview =
+          case post_params["url_preview"] do
+            preview when is_map(preview) and map_size(preview) > 0 ->
+              preview
+              |> Enum.map(fn {k, v} -> {to_string(k), v} end)
+              |> Enum.into(%{})
 
-          :error ->
-            {:noreply,
-             put_flash(socket, :error, "Could not process encrypted post. Please try again.")}
-        end
+            _ ->
+              nil
+          end
+
+        # Build recipient list with public keys for browser-side key sealing.
+        # The browser will seal the post_key for each recipient + the author.
+        shared_users = post_params["shared_users"] || []
+
+        recipient_keys =
+          Enum.map(shared_users, fn su ->
+            su = Map.new(su, fn {k, v} -> {to_string(k), v} end)
+            user = Accounts.get_user!(su["user_id"])
+
+            %{
+              user_id: user.id,
+              public_key: user.key_pair["public"],
+              pq_public_key: user.pq_public_key
+            }
+          end)
+
+        # Stash the post_params and encrypted fragments for finalize_post_encrypted.
+        # This avoids a second round of recipient resolution.
+        encrypted_opts = [encrypted_body: encrypted_body]
+
+        encrypted_opts =
+          if params["encrypted_content_warning"],
+            do:
+              encrypted_opts ++ [encrypted_content_warning: params["encrypted_content_warning"]],
+            else: encrypted_opts
+
+        encrypted_opts =
+          if params["encrypted_content_warning_category"],
+            do:
+              encrypted_opts ++
+                [encrypted_content_warning_category: params["encrypted_content_warning_category"]],
+            else: encrypted_opts
+
+        socket =
+          socket
+          |> assign(:pending_zk_post_params, post_params)
+          |> assign(:pending_zk_encrypted_opts, encrypted_opts)
+          |> push_event("encrypt_post_fields", %{
+            username: plaintext_username,
+            avatar_url: plaintext_avatar_url,
+            image_urls: plaintext_image_urls,
+            image_alt_texts: plaintext_image_alt_texts,
+            url_preview: plaintext_url_preview,
+            recipient_keys: recipient_keys
+          })
+
+        {:noreply, socket}
+      end
+    else
+      {:noreply, put_flash(socket, :warning, "Not connected. Please refresh and try again.")}
+    end
+  end
+
+  # True ZK write path — Phase 2: browser encrypted ALL fields and sealed
+  # the post_key for every recipient. The server stores everything as-is.
+  # The raw post_key NEVER exists in server memory.
+  def handle_event("finalize_post_encrypted", params, socket) do
+    if connected?(socket) do
+      current_user = socket.assigns.current_user
+      key = socket.assigns.key
+      post_params = socket.assigns[:pending_zk_post_params]
+      encrypted_opts = socket.assigns[:pending_zk_encrypted_opts] || []
+
+      if is_nil(post_params) do
+        {:noreply, put_flash(socket, :error, "No pending post to finalize. Please try again.")}
+      else
+        # Merge browser-encrypted fields into the post_params.
+        # The post creation pipeline will use these pre-encrypted values
+        # instead of encrypting server-side.
+        zk_fields = %{
+          encrypted_username: params["encrypted_username"],
+          encrypted_avatar_url: params["encrypted_avatar_url"],
+          encrypted_image_urls: params["encrypted_image_urls"] || [],
+          encrypted_image_alt_texts: params["encrypted_image_alt_texts"] || [],
+          encrypted_url_preview: params["encrypted_url_preview"],
+          sealed_recipient_keys: params["sealed_recipient_keys"] || [],
+          sealed_author_key: params["sealed_author_key"]
+        }
+
+        all_opts = encrypted_opts ++ [zk_fields: zk_fields]
+
+        socket =
+          socket
+          |> assign(:pending_zk_post_params, nil)
+          |> assign(:pending_zk_encrypted_opts, nil)
+
+        create_post_and_respond(
+          socket,
+          post_params,
+          current_user,
+          key,
+          # trix_key: nil — the server does not have the post_key
+          nil,
+          all_opts
+        )
       end
     else
       {:noreply, put_flash(socket, :warning, "Not connected. Please refresh and try again.")}
@@ -7301,22 +7379,4 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   defp generate_cropped_preview(_temp_path, _crop), do: {:error, :invalid_crop}
-
-  # Unseals a browser-provided sealed post_key. The browser sealed the key
-  # to the author's public key; we unseal it here so the server can encrypt
-  # the remaining fields (username, avatar, etc.) with the same key.
-  #
-  # The browser seals raw 32-byte key bytes (via b64Decode before sealForUser),
-  # so unseal returns raw bytes. We re-encode to base64 since that's the format
-  # MetamorphicCrypto.SecretBox expects for keys throughout the codebase.
-  defp unseal_browser_post_key(sealed_post_key_b64, current_user, session_key) do
-    case Encrypted.Users.Utils.decrypt_user_attrs_key(
-           sealed_post_key_b64,
-           current_user,
-           session_key
-         ) do
-      {:ok, raw_key_bytes} -> {:ok, Base.encode64(raw_key_bytes)}
-      other -> other
-    end
-  end
 end

@@ -1587,24 +1587,45 @@ defmodule Mosslet.Timeline do
   # wrap the create post in a function so that we can
   # match on a case statement for errors
   defp create_new_post(post, user, p_attrs, attrs) do
+    # ZK path: p_attrs has sealed_author_key (browser-sealed, no raw key).
+    # Legacy path: p_attrs has temp_key (raw post_key for server-side sealing).
+    is_zk = Map.has_key?(p_attrs, :sealed_author_key)
+
     Ecto.Multi.new()
     |> Ecto.Multi.insert(:insert_post, post)
     |> Ecto.Multi.run(:process_url_preview_image, fn _repo, %{insert_post: post} ->
-      process_url_preview_image_after_insert(post, p_attrs.temp_key)
+      # ZK posts: URL preview is already encrypted by browser — skip server-side
+      # image fetch/re-encrypt since we don't have the post_key.
+      if is_zk do
+        {:ok, post}
+      else
+        process_url_preview_image_after_insert(post, p_attrs.temp_key)
+      end
     end)
     |> Ecto.Multi.insert(:insert_user_post, fn %{insert_post: post} ->
-      UserPost.changeset(
-        %UserPost{},
-        %{
-          key: p_attrs.temp_key,
-          user_id: user.id,
-          post_id: post.id
-        },
-        user: user,
-        visibility: attrs["visibility"]
-      )
-      |> Ecto.Changeset.put_assoc(:post, post)
-      |> Ecto.Changeset.put_assoc(:user, user)
+      if is_zk do
+        # ZK path: use the pre-sealed author key directly.
+        # No call to encrypt_attrs — key is already sealed by the browser.
+        UserPost.zk_changeset(
+          %UserPost{},
+          %{key: p_attrs.sealed_author_key, post_id: post.id, user_id: user.id}
+        )
+        |> Ecto.Changeset.put_assoc(:post, post)
+        |> Ecto.Changeset.put_assoc(:user, user)
+      else
+        UserPost.changeset(
+          %UserPost{},
+          %{
+            key: p_attrs.temp_key,
+            user_id: user.id,
+            post_id: post.id
+          },
+          user: user,
+          visibility: attrs["visibility"]
+        )
+        |> Ecto.Changeset.put_assoc(:post, post)
+        |> Ecto.Changeset.put_assoc(:user, user)
+      end
     end)
     |> Ecto.Multi.insert(:inser_user_post_receipt, fn %{insert_user_post: user_post} ->
       {:ok, dt} = DateTime.now("Etc/UTC")
@@ -1715,25 +1736,60 @@ defmodule Mosslet.Timeline do
 
   defp create_shared_user_posts(post, attrs, p_attrs, current_user) do
     if attrs["shared_users"] && !Enum.empty?(attrs["shared_users"]) do
+      # ZK path: p_attrs has sealed_recipient_keys (map of user_id → sealed key).
+      # Legacy path: p_attrs has temp_key (raw post_key for server-side sealing).
+      is_zk = Map.has_key?(p_attrs, :sealed_recipient_keys)
+
+      sealed_recipient_keys =
+        if is_zk do
+          # Build a lookup map: user_id → sealed key
+          p_attrs.sealed_recipient_keys
+          |> Enum.map(fn entry ->
+            entry = Map.new(entry, fn {k, v} -> {to_string(k), v} end)
+            {entry["user_id"], entry["sealed_key"]}
+          end)
+          |> Enum.into(%{})
+        else
+          %{}
+        end
+
       for su <- attrs["shared_users"] do
         su = Map.new(su, fn {k, v} -> {to_string(k), v} end)
-        user = Mosslet.Accounts.get_user!(su["user_id"])
 
         user_post =
-          UserPost.sharing_changeset(
-            %UserPost{},
-            %{
-              key: p_attrs.temp_key,
-              post_id: post.id,
-              user_id: user.id
-            },
-            user: user,
-            visibility: attrs["visibility"]
-          )
+          if is_zk do
+            # ZK path: use pre-sealed key from browser, skip server-side sealing
+            sealed_key = Map.get(sealed_recipient_keys, su["user_id"])
 
-        # p_attrs.temp_key is not encrypted yet
-        # we also add a user_post_receipt to each person a post is shared with
-        # (we don't worry about a receipt for someone who created the post)
+            if sealed_key do
+              UserPost.zk_changeset(
+                %UserPost{},
+                %{key: sealed_key, post_id: post.id, user_id: su["user_id"]}
+              )
+            else
+              # Recipient key not provided — this shouldn't happen but fall back
+              # to fetching the user and sealing server-side for safety
+              user = Mosslet.Accounts.get_user!(su["user_id"])
+
+              UserPost.sharing_changeset(
+                %UserPost{},
+                %{key: p_attrs[:temp_key], post_id: post.id, user_id: user.id},
+                user: user,
+                visibility: attrs["visibility"]
+              )
+            end
+          else
+            # Legacy path: server seals the raw post_key for each recipient
+            user = Mosslet.Accounts.get_user!(su["user_id"])
+
+            UserPost.sharing_changeset(
+              %UserPost{},
+              %{key: p_attrs.temp_key, post_id: post.id, user_id: user.id},
+              user: user,
+              visibility: attrs["visibility"]
+            )
+          end
+
         {:ok, %{insert_user_post: _user_post}} =
           Ecto.Multi.new()
           |> Ecto.Multi.insert(:insert_user_post, user_post)
@@ -1750,13 +1806,12 @@ defmodule Mosslet.Timeline do
             UserPostReceipt.changeset(
               %UserPostReceipt{},
               %{
-                user_id: user.id,
+                user_id: su["user_id"],
                 user_post_id: user_post.id,
                 is_read?: is_read,
                 read_at: read_at
               }
             )
-            |> Ecto.Changeset.put_assoc(:user, user)
             |> Ecto.Changeset.put_assoc(:user_post, user_post)
           end)
           |> Repo.transaction_on_primary()
