@@ -626,56 +626,70 @@ defmodule MossletWeb.Helpers do
         # For non-public posts, pass encrypted blobs to the browser for ZK
         # decryption instead of decrypting server-side. The DecryptPost hook
         # unseals the post_key and decrypts all fields in WASM.
-        %{
-          body:
-            if(browser_decrypt?,
-              do: nil,
-              else: decrypt_field(post.body, raw_key, "[Could not decrypt content]")
-            ),
-          username:
-            if(browser_decrypt?,
-              do: nil,
-              else: decrypt_field(post.username, raw_key, "author")
-            ),
-          content_warning:
-            if(browser_decrypt? && post.content_warning?,
-              do: nil,
-              else:
-                if(post.content_warning?,
-                  do: decrypt_field(post.content_warning, raw_key, nil),
-                  else: nil
-                )
-            ),
-          content_warning_category:
-            if(browser_decrypt? && post.content_warning?,
-              do: nil,
-              else:
-                if(post.content_warning?,
-                  do: decrypt_field(post.content_warning_category, raw_key, nil),
-                  else: nil
-                )
-            ),
-          url_preview:
-            if(browser_decrypt?,
-              do: nil,
-              else: decrypt_url_preview(post.url_preview, raw_key)
-            ),
-          image_urls: decrypt_list(post.image_urls, raw_key),
-          image_alt_texts: decrypt_list(post.image_alt_texts, raw_key),
-          favs_list: decrypt_id_list(post.favs_list, raw_key),
-          reposts_list: decrypt_id_list(post.reposts_list, raw_key),
-          share_note: decrypt_share_note(post, current_user, raw_key),
-          raw_key: raw_key,
-          sealed_post_key: if(browser_decrypt?, do: sealed_key),
-          encrypted_body: if(browser_decrypt?, do: post.body),
-          encrypted_username: if(browser_decrypt?, do: post.username),
-          encrypted_content_warning:
-            if(browser_decrypt? && post.content_warning?, do: post.content_warning),
-          encrypted_content_warning_category:
-            if(browser_decrypt? && post.content_warning?, do: post.content_warning_category),
-          encrypted_url_preview: if(browser_decrypt?, do: post.url_preview),
-          browser_decrypt?: browser_decrypt?
-        }
+        #
+        # For public posts, decrypt everything server-side (server has the
+        # server keypair and needs plaintext for SEO/federation/moderation).
+        if browser_decrypt? do
+          # ZK path: server never sees plaintext for non-public posts.
+          # image_urls are still server-decrypted (S3 paths needed for proxy).
+          %{
+            body: nil,
+            username: nil,
+            content_warning: if(post.content_warning?, do: nil),
+            content_warning_category: if(post.content_warning?, do: nil),
+            url_preview: nil,
+            image_urls: decrypt_list(post.image_urls, raw_key),
+            image_alt_texts: nil,
+            favs_list: nil,
+            reposts_list: nil,
+            share_note: nil,
+            raw_key: nil,
+            sealed_post_key: sealed_key,
+            encrypted_body: post.body,
+            encrypted_username: post.username,
+            encrypted_content_warning: if(post.content_warning?, do: post.content_warning),
+            encrypted_content_warning_category:
+              if(post.content_warning?, do: post.content_warning_category),
+            encrypted_url_preview: post.url_preview,
+            encrypted_favs_list: post.favs_list,
+            encrypted_reposts_list: post.reposts_list,
+            encrypted_share_note: encrypted_share_note_blob(post, current_user),
+            encrypted_image_alt_texts: post.image_alt_texts,
+            browser_decrypt?: true
+          }
+        else
+          # Public post: server-side decryption for SEO/federation
+          %{
+            body: decrypt_field(post.body, raw_key, "[Could not decrypt content]"),
+            username: decrypt_field(post.username, raw_key, "author"),
+            content_warning:
+              if(post.content_warning?,
+                do: decrypt_field(post.content_warning, raw_key, nil)
+              ),
+            content_warning_category:
+              if(post.content_warning?,
+                do: decrypt_field(post.content_warning_category, raw_key, nil)
+              ),
+            url_preview: decrypt_url_preview(post.url_preview, raw_key),
+            image_urls: decrypt_list(post.image_urls, raw_key),
+            image_alt_texts: decrypt_list(post.image_alt_texts, raw_key),
+            favs_list: decrypt_id_list(post.favs_list, raw_key),
+            reposts_list: decrypt_id_list(post.reposts_list, raw_key),
+            share_note: decrypt_share_note(post, current_user, raw_key),
+            raw_key: raw_key,
+            sealed_post_key: nil,
+            encrypted_body: nil,
+            encrypted_username: nil,
+            encrypted_content_warning: nil,
+            encrypted_content_warning_category: nil,
+            encrypted_url_preview: nil,
+            encrypted_favs_list: nil,
+            encrypted_reposts_list: nil,
+            encrypted_share_note: nil,
+            encrypted_image_alt_texts: nil,
+            browser_decrypt?: false
+          }
+        end
 
       :error ->
         %{
@@ -696,6 +710,10 @@ defmodule MossletWeb.Helpers do
           encrypted_content_warning: nil,
           encrypted_content_warning_category: nil,
           encrypted_url_preview: nil,
+          encrypted_favs_list: nil,
+          encrypted_reposts_list: nil,
+          encrypted_share_note: nil,
+          encrypted_image_alt_texts: nil,
           browser_decrypt?: false
         }
     end
@@ -737,6 +755,14 @@ defmodule MossletWeb.Helpers do
       if user_post && user_post.share_note do
         decrypt_field(user_post.share_note, raw_key, nil)
       end
+    end
+  end
+
+  # Returns the encrypted share_note blob (without decrypting) for browser-side ZK.
+  defp encrypted_share_note_blob(post, current_user) do
+    if Ecto.assoc_loaded?(post.user_posts) do
+      user_post = Enum.find(post.user_posts, fn up -> up.user_id == current_user.id end)
+      if user_post, do: user_post.share_note
     end
   end
 

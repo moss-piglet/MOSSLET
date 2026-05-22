@@ -5856,7 +5856,9 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  # Same as can_repost_with_decryption? but uses pre-decrypted reposts_list
+  # Same as can_repost_with_decryption? but uses pre-decrypted reposts_list.
+  # For browser_decrypt? posts, reposts_list is nil (decrypted browser-side),
+  # so we do structural checks only — the JS hook corrects after decryption.
   defp can_repost_with_pre_decrypted?(post, current_user) do
     cond do
       !post.allow_shares -> false

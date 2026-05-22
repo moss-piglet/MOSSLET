@@ -12,18 +12,27 @@
  *
  * Data attributes (on this element):
  *   data-post-id                           — post UUID (for targeting external elements)
+ *   data-current-user-id                   — current user UUID (for fav/repost membership)
  *   data-sealed-post-key                   — base64 sealed post_key
  *   data-encrypted-body                    — base64 secretbox-encrypted post body
  *   data-encrypted-username                — base64 secretbox-encrypted username
  *   data-encrypted-content-warning         — base64 secretbox-encrypted CW text (optional)
  *   data-encrypted-content-warning-category — base64 secretbox-encrypted CW category (optional)
  *   data-encrypted-url-preview             — JSON object with encrypted string values (optional)
+ *   data-encrypted-favs-list               — JSON array of encrypted user IDs (optional)
+ *   data-encrypted-reposts-list            — JSON array of encrypted user IDs (optional)
+ *   data-encrypted-share-note              — base64 secretbox-encrypted share note (optional)
+ *   data-encrypted-image-alt-texts         — JSON array of encrypted alt text strings (optional)
+ *   data-post-user-id                      — post author user ID (for can_repost check)
+ *   data-allow-shares                      — "true"/"false" string
+ *   data-is-ephemeral                      — "true"/"false" string
  *
  * External DOM targets (outside this element, matched by data-* + post ID):
  *   [data-decrypt-handle-target="{postId}"]       — username/handle span
  *   [data-decrypt-cw-text-target="{postId}"]      — content warning text
  *   [data-decrypt-cw-category-target="{postId}"]  — content warning category badge
  *   [data-decrypt-url-preview-target="{postId}"]  — URL preview container
+ *   [data-decrypt-share-note-target="{postId}"]   — share note text
  */
 import { unsealContextKey, decryptWithKey, getPublicKey, cachePostKey } from "../crypto/session";
 import { renderMarkdown } from "../utils/render-markdown";
@@ -54,6 +63,38 @@ function formatCwCategory(raw) {
     .split("_")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+}
+
+/**
+ * Decrypt a JSON-encoded list of individually-encrypted items.
+ * Returns an array of plaintext strings.
+ */
+async function decryptList(jsonStr, postKey) {
+  if (!jsonStr) return null;
+  try {
+    const items = JSON.parse(jsonStr);
+    if (!Array.isArray(items) || items.length === 0) return [];
+    const results = [];
+    for (const item of items) {
+      if (typeof item === "string" && item !== "") {
+        const plain = await decryptWithKey(item, postKey);
+        if (plain != null) results.push(plain);
+      }
+    }
+    return results;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Cached image alt texts per post, accessible by TrixContentPostHook
+ * and the image modal open handler.
+ */
+const _imageAltTextsCache = new Map();
+
+export function getCachedImageAltTexts(postId) {
+  return _imageAltTextsCache.get(postId) || null;
 }
 
 const DecryptPost = {
@@ -112,8 +153,6 @@ const DecryptPost = {
 
       const postKey = unwrapPostKey(rawPostKey);
 
-      // Cache the unsealed key so other hooks (TrixContentPostHook for images)
-      // can decrypt without re-unsealing.
       const postId = this.el.dataset.postId;
       if (postId) cachePostKey(postId, postKey);
       const results = {};
@@ -154,6 +193,25 @@ const DecryptPost = {
         }
       }
 
+      // Decrypt favs_list — array of encrypted user IDs
+      results.favsList = await decryptList(this.el.dataset.encryptedFavsList, postKey);
+
+      // Decrypt reposts_list — array of encrypted user IDs
+      results.repostsList = await decryptList(this.el.dataset.encryptedRepostsList, postKey);
+
+      // Decrypt share_note — single encrypted string
+      const encShareNote = this.el.dataset.encryptedShareNote;
+      if (encShareNote) {
+        results.shareNote = await decryptWithKey(encShareNote, postKey);
+      }
+
+      // Decrypt image_alt_texts — array of encrypted strings
+      const altTexts = await decryptList(this.el.dataset.encryptedImageAltTexts, postKey);
+      if (altTexts) {
+        results.imageAltTexts = altTexts;
+        if (postId) _imageAltTextsCache.set(postId, altTexts);
+      }
+
       this._cached = results;
       this._cachedAttrs = this._attrFingerprint();
       this._apply(results);
@@ -167,6 +225,9 @@ const DecryptPost = {
     this._applyUsername(results.username);
     this._applyContentWarning(results.contentWarning, results.contentWarningCategory);
     this._applyUrlPreview(results.urlPreview);
+    this._applyFavState(results.favsList);
+    this._applyRepostState(results.repostsList);
+    this._applyShareNote(results.shareNote);
   },
 
   _applyCached() {
@@ -250,6 +311,103 @@ const DecryptPost = {
         </div>
       </a>`;
     container.classList.remove("hidden");
+  },
+
+  /**
+   * Updates the like button state after decrypting the favs_list.
+   * Uses the same DOM update pattern as phx:update_post_fav_count.
+   */
+  _applyFavState(favsList) {
+    if (!favsList) return;
+    const postId = this.el.dataset.postId;
+    const currentUserId = this.el.dataset.currentUserId;
+    if (!postId || !currentUserId) return;
+
+    const isLiked = favsList.includes(currentUserId);
+
+    const solidButton = document.getElementById(`hero-heart-solid-button-${postId}`);
+    const outlineButton = document.getElementById(`hero-heart-button-${postId}`);
+    const button = solidButton || outlineButton;
+    if (!button) return;
+
+    const iconEl = button.querySelector("[id^='hero-heart']");
+
+    if (isLiked) {
+      button.id = `hero-heart-solid-button-${postId}`;
+      button.setAttribute("phx-click", "unfav");
+      button.setAttribute("data-tippy-content", "Remove love");
+      button.classList.remove(
+        "text-slate-500", "dark:text-slate-400",
+        "hover:text-rose-600", "dark:hover:text-rose-400"
+      );
+      button.classList.add(
+        "text-rose-600", "dark:text-rose-400",
+        "bg-rose-50/50", "dark:bg-rose-900/20"
+      );
+      if (iconEl) {
+        iconEl.id = `hero-heart-solid-icon-${postId}`;
+        iconEl.classList.remove("hero-heart");
+        iconEl.classList.add("hero-heart-solid");
+      }
+    }
+    // If not liked, the default state (outline heart) is already correct
+  },
+
+  /**
+   * Updates the repost/share button state after decrypting the reposts_list.
+   * If the current user already shared, swaps the active share button to the
+   * "already shared" disabled state.
+   */
+  _applyRepostState(repostsList) {
+    if (!repostsList) return;
+    const postId = this.el.dataset.postId;
+    const currentUserId = this.el.dataset.currentUserId;
+    if (!postId || !currentUserId) return;
+
+    const hasReposted = repostsList.includes(currentUserId);
+    if (!hasReposted) return;
+
+    const shareButton = document.getElementById(`share-button-${postId}`);
+    if (!shareButton) return;
+
+    shareButton.id = `share-button-disabled-${postId}`;
+    shareButton.classList.add("cursor-not-allowed");
+    shareButton.removeAttribute("phx-click");
+    shareButton.removeAttribute("phx-value-id");
+    shareButton.removeAttribute("phx-value-body");
+    shareButton.removeAttribute("phx-value-username");
+    shareButton.setAttribute("data-tippy-content", "You have already shared this");
+
+    const iconEl = shareButton.querySelector("[id^='share-icon']");
+    if (iconEl) {
+      iconEl.id = `share-icon-disabled-${postId}`;
+      iconEl.classList.remove("hero-paper-airplane");
+      iconEl.classList.add("hero-paper-airplane-solid");
+    }
+
+    const softTextEl = shareButton.querySelector("[data-post-share-soft-text]");
+    if (softTextEl) softTextEl.textContent = "You shared";
+  },
+
+  /**
+   * Updates the share note display after decryption.
+   */
+  _applyShareNote(shareNote) {
+    if (!shareNote) return;
+    const postId = this.el.dataset.postId;
+    if (!postId) return;
+
+    const target = document.querySelector(`[data-decrypt-share-note-target="${postId}"]`);
+    if (!target) return;
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "flex-1 min-h-0 overflow-y-auto";
+    const p = document.createElement("p");
+    p.className = "text-sm text-slate-700 dark:text-slate-300 leading-relaxed break-words whitespace-pre-wrap";
+    p.textContent = shareNote;
+    wrapper.appendChild(p);
+
+    target.replaceWith(wrapper);
   },
 };
 

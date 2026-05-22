@@ -341,18 +341,26 @@ These can follow the same phased approach: first move the read path (decrypt in 
     - `DecryptPost` hook extended to decrypt all fields and populate external DOM targets: `[data-decrypt-handle-target]` (username), `[data-decrypt-cw-text-target]` / `[data-decrypt-cw-category-target]` (content warnings), `[data-decrypt-url-preview-target]` (URL preview card).
     - `PostFormHook` extended to encrypt content_warning text/category alongside body.
     - `Post.encrypt_content_warning_if_present/3` accepts pre-encrypted CW ciphertext from browser.
-    - `favs_list`, `reposts_list`, `share_note` remain server-decrypted (operational data: server needs these for counting, display logic, and moderation).
-    - `image_alt_texts` decrypted server-side only when image modal is opened (short metadata strings, same security posture as S3 file paths).
+16. **Phase 8: True ZK Read — favs_list, reposts_list, share_note, image_alt_texts → browser** — DONE
+    - `decrypt_post_fields/3` no longer decrypts `favs_list`, `reposts_list`, `share_note`, or `image_alt_texts` server-side for `browser_decrypt?` posts. Passes encrypted blobs as `encrypted_favs_list`, `encrypted_reposts_list`, `encrypted_share_note`, `encrypted_image_alt_texts`.
+    - `raw_key` removed from the `post.decrypted` map for non-public posts — the server no longer stores the plaintext post_key in process memory across renders.
+    - `DecryptPost` hook extended with `decryptList()` helper to decrypt encrypted ID lists and string lists. Computes `liked` (fav membership) and `can_repost` (repost membership) browser-side, updating button DOM via the same pattern as `phx:update_post_fav_count`.
+    - Share note decrypted browser-side, applied to `[data-decrypt-share-note-target]` DOM targets.
+    - Image alt texts decrypted and cached per-post via `getCachedImageAltTexts()` export for future image modal integration.
+    - `data-current-user-id`, `data-post-user-id`, `data-allow-shares`, `data-is-ephemeral` attributes added to DecryptPost element for browser-side membership and permission checks.
+    - For timeline template: `liked` defaults to `false`, `can_repost` uses structural checks only (allow_shares, user_id, is_ephemeral) — hook corrects after decryption.
+    - Image modal alt text decryption (`show_timeline_images` handler) still server-side (on-demand, not stored in assigns). Future: read from browser cache.
 
 ### What Remains — ZK PQ Finalization Roadmap
 
 13. **Remaining `decr_avatar`/`decr_banner` server-side calls** — DONE. Banner display pipeline fully migrated to ZK (user_home_live, timeline_live, edit_profile_live). Avatar `get_user_avatar` replaced with `ensure_avatar_cached` (~600 lines removed). Legacy wrappers (`maybe_get_user_avatar`, `maybe_get_avatar_src`) now return `nil` and only trigger ETS population — all display goes through `encrypted_avatar_data` + DecryptAvatar hook. ~10 S3 deletion calls stay server-side (intentional — operational, not user content).
 14. **Post images** — DONE. Post image display migrated to ZK browser-side decryption. `TrixContentPostHook` uses cached post_key from `DecryptPost` to decrypt image blobs in WASM. New `"fetch_encrypted_post_images"` server event returns raw encrypted S3 blobs (server never decrypts image content). Falls back to legacy server-side decrypt for public posts. Reply images remain server-side (future migration).
-15. **Remaining post data fields** — DONE. Extended `DecryptPost` hook to decrypt username, content_warning, content_warning_category, and url_preview browser-side. `decrypt_post_fields/3` passes encrypted blobs for non-public posts. `PostFormHook` extended to encrypt content_warning fields. Post schema `encrypt_content_warning_if_present/3` accepts pre-encrypted CW from browser. `favs_list`/`reposts_list` stay server-decrypted (operational data).
-16. **Full data structure audit** — Comprehensive review of ALL encrypted data structures (excl. memories) to identify any gaps.
-17. **ZK AI migration** — Journal insights, mood prompts, language filters → browser-based AI.
-18. **NSFW fail-open verification** — Document behavior for all failure modes.
-19. **Marketing updates** — Landing page, features, privacy policy reflecting fully ZK PQ architecture.
+15. **Remaining post data fields** — DONE. Extended `DecryptPost` hook to decrypt username, content_warning, content_warning_category, and url_preview browser-side. `decrypt_post_fields/3` passes encrypted blobs for non-public posts. `PostFormHook` extended to encrypt content_warning fields. Post schema `encrypt_content_warning_if_present/3` accepts pre-encrypted CW from browser.
+16. **True ZK Read (favs_list, reposts_list, share_note, image_alt_texts)** — DONE. All four fields moved to browser-side decryption for non-public posts. `raw_key` removed from `post.decrypted` map. `liked`/`can_repost` computed browser-side by DecryptPost hook after decrypting encrypted ID lists. Share note applied via DOM target. Image alt texts cached for future modal integration.
+17. **Full data structure audit** — Comprehensive review of ALL encrypted data structures (excl. memories) to identify any gaps.
+18. **ZK AI migration** — Journal insights, mood prompts, language filters → browser-based AI.
+19. **NSFW fail-open verification** — Document behavior for all failure modes.
+20. **Marketing updates** — Landing page, features, privacy policy reflecting fully ZK PQ architecture.
 
 #### Phase 3f: Subscription/Billing ZK (NEW)
 

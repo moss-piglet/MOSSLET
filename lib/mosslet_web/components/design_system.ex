@@ -5788,7 +5788,10 @@ defmodule MossletWeb.DesignSystem do
               </p>
             </div>
           <% else %>
-            <p class="text-sm text-slate-500 dark:text-slate-400">
+            <p
+              data-decrypt-share-note-target={@post.id}
+              class="text-sm text-slate-500 dark:text-slate-400"
+            >
               No message included
             </p>
           <% end %>
@@ -6658,6 +6661,7 @@ defmodule MossletWeb.DesignSystem do
                   phx-hook="DecryptPost"
                   phx-update="ignore"
                   data-post-id={@post.id}
+                  data-current-user-id={@current_user_id}
                   data-sealed-post-key={@post.decrypted[:sealed_post_key]}
                   data-encrypted-body={@post.decrypted[:encrypted_body]}
                   data-encrypted-username={@post.decrypted[:encrypted_username]}
@@ -6670,6 +6674,25 @@ defmodule MossletWeb.DesignSystem do
                       do: Jason.encode!(@post.decrypted[:encrypted_url_preview])
                     )
                   }
+                  data-encrypted-favs-list={
+                    if(@post.decrypted[:encrypted_favs_list],
+                      do: Jason.encode!(@post.decrypted[:encrypted_favs_list])
+                    )
+                  }
+                  data-encrypted-reposts-list={
+                    if(@post.decrypted[:encrypted_reposts_list],
+                      do: Jason.encode!(@post.decrypted[:encrypted_reposts_list])
+                    )
+                  }
+                  data-encrypted-share-note={@post.decrypted[:encrypted_share_note]}
+                  data-encrypted-image-alt-texts={
+                    if(@post.decrypted[:encrypted_image_alt_texts],
+                      do: Jason.encode!(@post.decrypted[:encrypted_image_alt_texts])
+                    )
+                  }
+                  data-post-user-id={@post.user_id}
+                  data-allow-shares={to_string(@post.allow_shares)}
+                  data-is-ephemeral={to_string(@post.is_ephemeral)}
                 >
                   <div
                     data-decrypt-target
