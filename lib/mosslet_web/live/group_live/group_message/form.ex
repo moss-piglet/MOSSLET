@@ -7,9 +7,9 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
   import MossletWeb.Helpers,
     only: [
       decr_item: 5,
+      get_encrypted_avatar_data: 2,
       get_user_from_user_group_id: 1,
       get_uconn_for_users: 2,
-      maybe_get_avatar_src: 4,
       maybe_decr_username_for_user_group: 3
     ]
 
@@ -78,13 +78,15 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
               nil
             else
               if is_connected do
-                case maybe_get_avatar_src(uconn, current_scope.user, current_scope.key, []) do
-                  nil -> group_avatar_fallback
-                  src -> src
-                end
+                nil
               else
                 group_avatar_fallback
               end
+            end
+
+          encrypted_avatar =
+            if is_connected && !is_self do
+              get_encrypted_avatar_data(uconn, current_scope.key)
             end
 
           %{
@@ -93,6 +95,7 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
             username: username,
             role: Atom.to_string(ug.role),
             avatar_src: avatar_src,
+            encrypted_avatar: encrypted_avatar,
             is_connected: is_connected || is_self
           }
         end)

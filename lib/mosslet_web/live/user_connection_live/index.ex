@@ -17,7 +17,6 @@ defmodule MossletWeb.UserConnectionLive.Index do
       get_decrypted_connection_name: 3,
       get_decrypted_connection_username: 3,
       get_decrypted_connection_label: 3,
-      get_connection_avatar_src: 3,
       connection_username_color_classes: 1
     ]
 
@@ -1312,10 +1311,7 @@ defmodule MossletWeb.UserConnectionLive.Index do
     end
   end
 
-  defp get_arrival_avatar_src(_arrival, _current_user, _key) do
-    # Legacy function — avatar display now uses get_encrypted_avatar_data + DecryptAvatar hook.
-    "/images/logo.svg"
-  end
+  # get_arrival_avatar_src removed — migrated to encrypted_avatar_data on liquid_arrival_card
 
   # Helper function to check if a connection is in a visibility group
   defp connection_in_group?(connection, editing_group, current_user, key) do

@@ -14,6 +14,12 @@ defmodule MossletWeb.UserDropdownMenu do
   attr :current_user_name, :string, doc: "the current signed in user's name"
   attr :avatar_src, :string, default: nil, doc: "the current signed in user's avatar image src"
 
+  attr :encrypted_avatar_data, :map,
+    default: nil,
+    doc: "ZK mode: encrypted avatar blob + sealed key for browser-side decryption"
+
+  attr :avatar_id, :string, default: nil, doc: "unique DOM id for ZK avatar"
+
   def user_menu_dropdown(%{user_menu_items: nil}), do: nil
   def user_menu_dropdown(%{user_menu_items: []}), do: nil
 
@@ -26,15 +32,25 @@ defmodule MossletWeb.UserDropdownMenu do
     >
       <:trigger_element>
         <div class="inline-flex items-center justify-center w-full align-middle focus:outline-none cursor-pointer">
-          <%= if @current_user_name || @avatar_src do %>
+          <%= if @encrypted_avatar_data do %>
             <MossletWeb.CoreComponents.phx_avatar
+              encrypted_avatar_data={@encrypted_avatar_data}
+              id={@avatar_id || "user-dropdown-avatar"}
               name={@current_user_name}
-              src={@avatar_src}
               size="size-8"
               text_size="2xl"
             />
           <% else %>
-            <MossletWeb.CoreComponents.phx_avatar size="size-8" />
+            <%= if @current_user_name || @avatar_src do %>
+              <MossletWeb.CoreComponents.phx_avatar
+                name={@current_user_name}
+                src={@avatar_src}
+                size="size-8"
+                text_size="2xl"
+              />
+            <% else %>
+              <MossletWeb.CoreComponents.phx_avatar size="size-8" />
+            <% end %>
           <% end %>
 
           <.icon

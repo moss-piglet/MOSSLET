@@ -2115,6 +2115,29 @@ defmodule MossletWeb.Helpers do
 
   def ensure_avatar_cached(nil, _key, _callback_tuple), do: :ok
 
+  @doc """
+  Ensures the avatar for any entity is cached in ETS.
+
+  Resolves the entity to a %User{} or %UserConnection{} and delegates
+  to `ensure_avatar_cached/3`. Works for Users, UserConnections, and
+  any struct with a :user_id field (posts, replies, user_groups, etc.).
+  """
+  def ensure_avatar_cached_for_item(%User{} = user, key) do
+    ensure_avatar_cached(user, key, {"get_user_avatar", user.id})
+  end
+
+  def ensure_avatar_cached_for_item(%UserConnection{} = uconn, key) do
+    ensure_avatar_cached(uconn, key, {"get_user_avatar", uconn.id})
+  end
+
+  def ensure_avatar_cached_for_item(nil, _key), do: :ok
+
+  def ensure_avatar_cached_for_item(%{user_id: _} = item, key, current_user) do
+    uconn = get_uconn_for_shared_item(item, current_user)
+    if uconn, do: ensure_avatar_cached(uconn, key, {"get_user_avatar", uconn.id})
+    :ok
+  end
+
   defp fetch_and_cache_avatar(connection, user, sealed_key, key, callback_tuple) do
     avatars_bucket = Encrypted.Session.avatars_bucket()
     connection_id = connection.id
@@ -2745,6 +2768,41 @@ defmodule MossletWeb.Helpers do
   end
 
   def get_encrypted_avatar_data(nil, _key), do: nil
+
+  @doc """
+  Resolves encrypted avatar data for any entity that references a user:
+  %User{}, %UserConnection{}, or any struct with a :user_id field (posts, replies, etc.).
+
+  For items with :user_id, resolves via `get_uconn_for_shared_item/2` and respects
+  `show_avatar?/1` privacy settings. Returns `nil` for non-connections and when
+  the avatar is hidden.
+
+  This is the single entry point for migrating all `maybe_get_avatar_src`,
+  `maybe_get_user_avatar`, and `get_user_avatar` callers to ZK architecture.
+  """
+  def get_encrypted_avatar_data_for_item(%User{} = user, _current_user) do
+    get_encrypted_avatar_data(user, nil)
+  end
+
+  def get_encrypted_avatar_data_for_item(%UserConnection{} = uconn, _current_user) do
+    if show_avatar?(uconn),
+      do: get_encrypted_avatar_data(uconn, nil),
+      else: nil
+  end
+
+  def get_encrypted_avatar_data_for_item(%{user_id: user_id} = item, %User{} = current_user) do
+    if user_id == current_user.id do
+      get_encrypted_avatar_data(current_user, nil)
+    else
+      uconn = get_uconn_for_shared_item(item, current_user)
+
+      if uconn && show_avatar?(uconn),
+        do: get_encrypted_avatar_data(uconn, nil),
+        else: nil
+    end
+  end
+
+  def get_encrypted_avatar_data_for_item(nil, _current_user), do: nil
 
   @doc """
   Returns encrypted banner blob + sealed key for browser-side ZK decryption.

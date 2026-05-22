@@ -15,7 +15,6 @@ defmodule MossletWeb.EditStatusLive do
     only: [
       get_decrypted_connection_label: 3,
       get_decrypted_connection_username: 3,
-      get_connection_avatar_src: 3,
       get_decrypted_group_name: 3,
       get_decrypted_group_description: 3
     ]
@@ -565,11 +564,11 @@ defmodule MossletWeb.EditStatusLive do
                           "from-slate-100 via-slate-50 to-slate-100 dark:from-slate-800/40 dark:via-slate-700/30 dark:to-slate-800/40"
                       end
                     ]}>
-                      <img
-                        src={get_connection_avatar_src(connection, @current_user, @key)}
+                      <.phx_avatar
+                        encrypted_avatar_data={get_encrypted_avatar_data(connection, @key)}
+                        id={"status-conn-#{connection.id}"}
                         alt="{get_decrypted_connection_label(connection, @current_user, @key)} avatar"
                         class="w-full h-full object-cover"
-                        loading="lazy"
                       />
                     </div>
 

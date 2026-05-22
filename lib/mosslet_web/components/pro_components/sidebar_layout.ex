@@ -269,7 +269,10 @@ defmodule MossletWeb.SidebarLayout do
                 <.user_menu_dropdown
                   :if={@user_menu_items != []}
                   user_menu_items={@user_menu_items}
-                  avatar_src={MossletWeb.Helpers.maybe_get_user_avatar(@current_user, @key)}
+                  encrypted_avatar_data={
+                    MossletWeb.Helpers.get_encrypted_avatar_data(@current_user, @key)
+                  }
+                  avatar_id="sidebar-dropdown-avatar"
                   current_user_name={@current_user_name}
                 />
               </div>

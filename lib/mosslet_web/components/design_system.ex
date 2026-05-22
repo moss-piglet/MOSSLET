@@ -10848,8 +10848,9 @@ defmodule MossletWeb.DesignSystem do
                                 class="h-4 w-4 text-amber-600 focus:ring-amber-500 border-amber-300 rounded"
                               />
                               <div class="flex-shrink-0">
-                                <img
-                                  src={get_connection_avatar_src(connection, @current_user, @key)}
+                                <MossletWeb.CoreComponents.phx_avatar
+                                  encrypted_avatar_data={get_encrypted_avatar_data(connection, @key)}
+                                  id={"vis-user-#{connection.id}"}
                                   alt={decrypted_name}
                                   class="w-8 h-8 rounded-full border border-amber-200 dark:border-amber-700"
                                 />
@@ -11566,10 +11567,12 @@ defmodule MossletWeb.DesignSystem do
                 checked={selected}
                 class="sr-only"
               />
-              <img
-                src={get_connection_avatar_src(connection, @current_scope.user, @current_scope.key)}
+              <MossletWeb.CoreComponents.phx_avatar
+                encrypted_avatar_data={get_encrypted_avatar_data(connection, @current_scope.key)}
+                id={"compact-vis-#{connection.id}"}
                 alt={decrypted_name}
                 class="w-4 h-4 rounded-full"
+                size="w-4 h-4"
               />
               <span>{decrypted_name}</span>
             </label>
@@ -11849,7 +11852,8 @@ defmodule MossletWeb.DesignSystem do
   attr :username, :string, required: true
   attr :label, :string, required: true
   attr :color, :atom, required: true
-  attr :avatar_src, :string, required: true
+  attr :avatar_src, :string, default: nil
+  attr :encrypted_avatar_data, :map, default: nil, doc: "ZK encrypted avatar blob + sealed key"
   attr :connected_at, :any, required: true
   attr :connection_id, :string, required: true
   attr :zen?, :boolean, default: false
@@ -11891,6 +11895,7 @@ defmodule MossletWeb.DesignSystem do
               <.liquid_avatar
                 id={"liquid-avatar-#{@connection_id}"}
                 src={@avatar_src}
+                encrypted_avatar_data={@encrypted_avatar_data}
                 name={@name}
                 size="lg"
                 status={@status}
@@ -12152,7 +12157,8 @@ defmodule MossletWeb.DesignSystem do
   attr :email, :string, required: true
   attr :label, :string, required: true
   attr :color, :atom, required: true
-  attr :avatar_src, :string, required: true
+  attr :avatar_src, :string, default: nil
+  attr :encrypted_avatar_data, :map, default: nil, doc: "ZK encrypted avatar blob + sealed key"
   attr :requested_at, :any, required: true
   attr :arrival_id, :string, required: true
   attr :status, :string, default: nil
@@ -12190,6 +12196,7 @@ defmodule MossletWeb.DesignSystem do
               <.liquid_avatar
                 id={"liquid-avatar-#{@arrival_id}"}
                 src={@avatar_src}
+                encrypted_avatar_data={@encrypted_avatar_data}
                 name={@name}
                 size="lg"
                 clickable={false}
@@ -13585,8 +13592,9 @@ defmodule MossletWeb.DesignSystem do
       </.liquid_chat_message>
   """
   attr :id, :string, required: true
-  attr :avatar_src, :string, required: true
+  attr :avatar_src, :string, default: nil
   attr :avatar_alt, :string, default: "User avatar"
+  attr :encrypted_avatar_data, :map, default: nil, doc: "ZK encrypted avatar blob + sealed key"
   attr :sender_name, :string, required: true
   attr :moniker, :string, required: true
   attr :role, :atom, default: :member
@@ -13643,7 +13651,27 @@ defmodule MossletWeb.DesignSystem do
                 "transition-all duration-200",
                 liquid_chat_avatar_ring(@role)
               ]}>
-                <img src={@avatar_src} alt={@avatar_alt} class="w-full h-full object-cover" />
+                <img
+                  :if={@encrypted_avatar_data}
+                  id={"zk-chat-avatar-#{@id}"}
+                  phx-hook="DecryptAvatar"
+                  data-encrypted-blob={@encrypted_avatar_data[:encrypted_blob_b64]}
+                  data-sealed-key={@encrypted_avatar_data[:sealed_key]}
+                  alt={@avatar_alt}
+                  class="w-full h-full object-cover"
+                />
+                <img
+                  :if={!@encrypted_avatar_data && @avatar_src}
+                  src={@avatar_src}
+                  alt={@avatar_alt}
+                  class="w-full h-full object-cover"
+                />
+                <img
+                  :if={!@encrypted_avatar_data && !@avatar_src}
+                  src={~p"/images/logo.svg"}
+                  alt={@avatar_alt}
+                  class="w-full h-full object-cover"
+                />
                 <div class={[
                   "absolute inset-0 rounded-full opacity-0 group-hover/msg:opacity-100",
                   "bg-gradient-to-br from-white/20 to-transparent",

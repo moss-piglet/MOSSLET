@@ -3730,15 +3730,11 @@ defmodule MossletWeb.UserHomeLive do
                   <%!-- Enhanced Avatar --%>
                   <div class="relative flex-shrink-0">
                     <MossletWeb.DesignSystem.liquid_avatar
-                      src={
+                      encrypted_avatar_data={
                         if @profile_user.connection.profile.show_avatar?,
-                          do:
-                            get_connection_avatar_src(
-                              @user_connection,
-                              @current_scope.user,
-                              @current_scope.key
-                            )
+                          do: get_encrypted_avatar_data(@user_connection, @current_scope.key)
                       }
+                      id={"profile-user-avatar-#{@profile_user.id}"}
                       name={
                         decr_item(
                           @profile_user.connection.profile.name,
@@ -4415,16 +4411,10 @@ defmodule MossletWeb.UserHomeLive do
     URLPreviewHelpers.decrypt_public_field(encrypted_value, encrypted_profile_key)
   end
 
-  defp get_public_avatar(profile_user, current_user) do
-    avatar_url = profile_user.connection.profile.avatar_url
-
-    if avatar_url && avatar_url != "" do
-      maybe_get_public_profile_user_avatar(
-        profile_user,
-        profile_user.connection.profile,
-        current_user
-      )
-    end
+  defp get_public_avatar(_profile_user, _current_user) do
+    # Public profile avatars are encrypted with profile_key, not conn_key.
+    # ZK browser-side decryption for public profiles is a future task.
+    nil
   end
 
   defp get_public_status(profile_user) do

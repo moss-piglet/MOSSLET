@@ -111,8 +111,9 @@ defmodule MossletWeb.ConversationLive.Index do
                 >
                   <div class="relative flex-shrink-0">
                     <div class="w-12 h-12 rounded-full overflow-hidden ring-2 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 ring-slate-200/60 dark:ring-slate-700/60 transition-all duration-200 group-hover/conv:ring-teal-300/60 dark:group-hover/conv:ring-teal-600/60">
-                      <img
-                        src={get_avatar_src(conv, @current_scope)}
+                      <.phx_avatar
+                        encrypted_avatar_data={get_encrypted_conv_avatar(conv, @current_scope)}
+                        id={"conv-list-#{conv.user_conversation.conversation_id}"}
                         alt="Avatar"
                         class="w-full h-full object-cover"
                       />
@@ -253,8 +254,9 @@ defmodule MossletWeb.ConversationLive.Index do
                 >
                   <div class="relative flex-shrink-0">
                     <div class="w-12 h-12 rounded-full overflow-hidden ring-2 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 ring-slate-200/60 dark:ring-slate-700/60">
-                      <img
-                        src={get_avatar_src(conv, @current_scope)}
+                      <.phx_avatar
+                        encrypted_avatar_data={get_encrypted_conv_avatar(conv, @current_scope)}
+                        id={"conv-archived-#{conv.user_conversation.conversation_id}"}
                         alt="Avatar"
                         class="w-full h-full object-cover opacity-75"
                       />
@@ -356,7 +358,12 @@ defmodule MossletWeb.ConversationLive.Index do
                 ]}
               >
                 <div class="w-10 h-10 rounded-full overflow-hidden ring-2 ring-offset-1 ring-offset-white dark:ring-offset-slate-800 ring-slate-200/60 dark:ring-slate-700/60 flex-shrink-0 transition-all duration-200 group-hover:ring-teal-300/60 dark:group-hover:ring-teal-600/60">
-                  <img src={conn.avatar_src} alt="Avatar" class="w-full h-full object-cover" />
+                  <.phx_avatar
+                    encrypted_avatar_data={conn.encrypted_avatar_data}
+                    id={"new-conv-#{conn.connection_id}"}
+                    alt="Avatar"
+                    class="w-full h-full object-cover"
+                  />
                 </div>
                 <div class="flex-1 min-w-0">
                   <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate group-hover:text-teal-700 dark:group-hover:text-teal-300 transition-colors duration-200">
@@ -502,7 +509,7 @@ defmodule MossletWeb.ConversationLive.Index do
           reverse_user_id: conn.reverse_user_id,
           name: get_decrypted_connection_name(conn, current_user, key),
           username: get_decrypted_connection_username(conn, current_user, key),
-          avatar_src: get_connection_avatar_src(conn, current_user, key),
+          encrypted_avatar_data: get_encrypted_avatar_data(conn, key),
           other_user_public_key: other_keys.public_key,
           other_user_pq_public_key: other_keys.pq_public_key
         }
@@ -752,10 +759,10 @@ defmodule MossletWeb.ConversationLive.Index do
     |> assign(:archived_conversations, Conversations.list_archived_conversations(current_user))
   end
 
-  defp get_avatar_src(conv, scope) do
+  defp get_encrypted_conv_avatar(conv, scope) do
     case conv.user_connection do
-      nil -> "/images/logo.svg"
-      uconn -> get_connection_avatar_src(uconn, scope.user, scope.key)
+      nil -> nil
+      uconn -> get_encrypted_avatar_data(uconn, scope.key)
     end
   end
 

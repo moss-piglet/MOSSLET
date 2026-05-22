@@ -133,28 +133,26 @@ defmodule MossletWeb.PostLive.FormComponent do
             <div class="flex">
               <.phx_avatar
                 class="mr-2 h-6 w-6 rounded-full"
-                src={
-                  maybe_get_avatar_src(
+                encrypted_avatar_data={
+                  get_encrypted_avatar_data(
                     get_uconn_for_users!(option.value.user_id, @user.id),
-                    @user,
-                    @key,
-                    []
+                    @key
                   )
                 }
+                id={"post-select-opt-#{option.value.user_id}"}
               />{option.label}
             </div>
           </:option>
           <:tag :let={option}>
             <.phx_avatar
               class="mr-2 h-6 w-6 rounded-full"
-              src={
-                maybe_get_avatar_src(
+              encrypted_avatar_data={
+                get_encrypted_avatar_data(
                   get_uconn_for_users!(option.value.user_id, @user.id),
-                  @user,
-                  @key,
-                  []
+                  @key
                 )
               }
+              id={"post-select-tag-#{option.value.user_id}"}
             />{option.label}
           </:tag>
         </.live_select>
@@ -197,15 +195,23 @@ defmodule MossletWeb.PostLive.FormComponent do
             class="inline-flex bg-gray-100 dark:bg-blue-600 rounded-md py-1 px-1.5"
           >
             <div :if={option.value.user_id != @user.id} class="flex text-gray-700 dark:text-gray-200">
-              <.avatar
+              <.phx_avatar
                 class="mr-2 h-6 w-6 rounded-full"
-                src={
-                  maybe_get_user_avatar(get_uconn_for_users!(option.value.user_id, @user.id), @key)
+                encrypted_avatar_data={
+                  get_encrypted_avatar_data(
+                    get_uconn_for_users!(option.value.user_id, @user.id),
+                    @key
+                  )
                 }
+                id={"post-shared-#{option.value.user_id}"}
               />{option.label}
             </div>
             <div :if={option.value.user_id == @user.id} class="flex text-gray-700 dark:text-gray-200">
-              <.avatar class="mr-2 h-6 w-6 rounded-full" src={maybe_get_user_avatar(@user, @key)} />{option.label}
+              <.phx_avatar
+                class="mr-2 h-6 w-6 rounded-full"
+                encrypted_avatar_data={get_encrypted_avatar_data(@user, @key)}
+                id="post-shared-self"
+              />{option.label}
             </div>
           </div>
         </div>

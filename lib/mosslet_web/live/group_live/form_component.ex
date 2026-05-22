@@ -123,14 +123,13 @@ defmodule MossletWeb.GroupLive.FormComponent do
               <div class="flex items-center gap-2">
                 <.phx_avatar
                   class="h-7 w-7 rounded-full ring-2 ring-white dark:ring-slate-700"
-                  src={
-                    maybe_get_avatar_src(
+                  encrypted_avatar_data={
+                    get_encrypted_avatar_data(
                       get_uconn_for_users!(option.value, @current_scope.user.id),
-                      @current_scope.user,
-                      @current_scope.key,
-                      []
+                      @current_scope.key
                     )
                   }
+                  id={"group-new-opt-#{option.value}"}
                 />
                 <span class="font-medium">{option.label}</span>
               </div>
@@ -139,14 +138,13 @@ defmodule MossletWeb.GroupLive.FormComponent do
               <.phx_avatar
                 class="h-5 w-5 rounded-full"
                 alt={option.label}
-                src={
-                  maybe_get_avatar_src(
+                encrypted_avatar_data={
+                  get_encrypted_avatar_data(
                     get_uconn_for_users!(option.value, @current_scope.user.id),
-                    @current_scope.user,
-                    @current_scope.key,
-                    []
+                    @current_scope.key
                   )
                 }
+                id={"group-new-tag-#{option.value}"}
               />
               <span>{option.label}</span>
             </:tag>
@@ -166,18 +164,17 @@ defmodule MossletWeb.GroupLive.FormComponent do
               <div class="flex items-center gap-2">
                 <.phx_avatar
                   class="h-7 w-7 rounded-full ring-2 ring-white dark:ring-slate-700"
-                  src={
+                  encrypted_avatar_data={
                     if option.value == @current_scope.user.id do
-                      maybe_get_user_avatar(@current_scope.user, @current_scope.key)
+                      get_encrypted_avatar_data(@current_scope.user, @current_scope.key)
                     else
-                      maybe_get_avatar_src(
+                      get_encrypted_avatar_data(
                         get_uconn_for_users!(option.value, @current_scope.user.id),
-                        @current_scope.user,
-                        @current_scope.key,
-                        @user_connections
+                        @current_scope.key
                       )
                     end
                   }
+                  id={"group-edit-opt-#{option.value}"}
                 />
                 <span class="font-medium">{option.label}</span>
               </div>
@@ -186,18 +183,17 @@ defmodule MossletWeb.GroupLive.FormComponent do
               <.phx_avatar
                 class="h-5 w-5 rounded-full"
                 alt={option.label}
-                src={
+                encrypted_avatar_data={
                   if option.value == @current_scope.user.id do
-                    maybe_get_user_avatar(@current_scope.user, @current_scope.key)
+                    get_encrypted_avatar_data(@current_scope.user, @current_scope.key)
                   else
-                    maybe_get_avatar_src(
+                    get_encrypted_avatar_data(
                       get_uconn_for_users!(option.value, @current_scope.user.id),
-                      @current_scope.user,
-                      @current_scope.key,
-                      @user_connections
+                      @current_scope.key
                     )
                   end
                 }
+                id={"group-edit-tag-#{option.value}"}
               />
               <span>{option.label}</span>
             </:tag>

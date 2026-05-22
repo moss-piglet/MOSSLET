@@ -433,16 +433,12 @@ defmodule MossletWeb.PublicProfileLive do
     URLPreviewHelpers.get_public_profile_key(profile_user.connection.profile.profile_key)
   end
 
-  defp get_public_avatar(profile_user, current_user) do
-    avatar_url = profile_user.connection.profile.avatar_url
-
-    if avatar_url && avatar_url != "" do
-      maybe_get_public_profile_user_avatar(
-        profile_user,
-        profile_user.connection.profile,
-        current_user
-      )
-    end
+  defp get_public_avatar(_profile_user, _current_user) do
+    # Public profile avatars are encrypted with profile_key, not conn_key.
+    # ZK browser-side decryption for public profiles is a future task.
+    # Returns nil to show placeholder; the profile_key-based avatar
+    # would need its own ETS cache + DecryptAvatar integration.
+    nil
   end
 
   defp get_public_status(profile_user) do

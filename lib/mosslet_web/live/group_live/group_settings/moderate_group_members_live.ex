@@ -150,8 +150,8 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
         <div class="relative flex-shrink-0 p-1">
           <.phx_avatar
             :if={@current_user_group.id != @user_group.id}
-            src={
-              get_user_avatar(
+            encrypted_avatar_data={
+              get_encrypted_avatar_data(
                 get_uconn_for_users(
                   get_user_from_user_group_id(@user_group.id),
                   @current_scope.user
@@ -159,6 +159,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
                 @current_scope.key
               )
             }
+            id={"moderate-member-#{@user_group.id}"}
             alt=""
             class={"w-10 h-10 sm:w-12 sm:h-12 #{role_avatar_ring(@user_group.role)}"}
           />

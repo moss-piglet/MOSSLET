@@ -30,7 +30,12 @@ defmodule MossletWeb.ConversationLive.Show do
 
           <div class="flex items-center gap-3 flex-1 min-w-0">
             <div class="w-10 h-10 rounded-full overflow-hidden ring-2 ring-offset-1 ring-offset-white dark:ring-offset-slate-800 ring-slate-200/60 dark:ring-slate-700/60 flex-shrink-0">
-              <img src={@partner_avatar} alt="Avatar" class="w-full h-full object-cover" />
+              <.phx_avatar
+                encrypted_avatar_data={@partner_encrypted_avatar}
+                id="conv-partner-avatar"
+                alt="Avatar"
+                class="w-full h-full object-cover"
+              />
             </div>
             <div class="min-w-0">
               <h1 class="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">
@@ -623,15 +628,15 @@ defmodule MossletWeb.ConversationLive.Show do
     else
       my_user_connection = find_my_user_connection(conversation, current_user)
 
-      {partner_name, partner_avatar, _partner_username} =
+      {partner_name, partner_encrypted_avatar, _partner_username} =
         case my_user_connection do
           nil ->
-            {"[Unknown]", "/images/logo.svg", "unknown"}
+            {"[Unknown]", nil, "unknown"}
 
           uconn ->
             {
               get_decrypted_connection_name(uconn, current_user, key),
-              get_connection_avatar_src(uconn, current_user, key),
+              get_encrypted_avatar_data(uconn, key),
               get_decrypted_connection_username(uconn, current_user, key)
             }
         end
@@ -667,7 +672,7 @@ defmodule MossletWeb.ConversationLive.Show do
        |> assign(:conversation, conversation)
        |> assign(:user_conversation, user_conversation)
        |> assign(:partner_name, partner_name)
-       |> assign(:partner_avatar, partner_avatar)
+       |> assign(:partner_encrypted_avatar, partner_encrypted_avatar)
        |> assign(:partner_user_id, partner_user_id)
        |> assign(:is_blocked, is_blocked)
        |> assign(:blocked_by_me, blocked_by_me)

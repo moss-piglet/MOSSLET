@@ -64,18 +64,15 @@ defmodule MossletWeb.GroupLive.GroupMessages do
         nil
       else
         if uconn do
-          case maybe_get_avatar_src(
-                 uconn,
-                 assigns.current_scope.user,
-                 assigns.current_scope.key,
-                 assigns.messages_list
-               ) do
-            nil -> group_avatar_path
-            src -> src
-          end
+          nil
         else
           group_avatar_path
         end
+      end
+
+    encrypted_avatar =
+      if uconn && assigns.user_group.id != assigns.message.sender_id do
+        get_encrypted_avatar_data(uconn, assigns.current_scope.key)
       end
 
     is_self = assigns.user_group.id == assigns.message.sender_id
@@ -142,6 +139,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
     assigns =
       assigns
       |> assign(:avatar_src, avatar_src)
+      |> assign(:encrypted_avatar, encrypted_avatar)
       |> assign(:sender_name, sender_name)
       |> assign(:moniker, moniker)
       |> assign(:content, content)
@@ -160,6 +158,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
     <DesignSystem.liquid_chat_message
       id={@message.id}
       avatar_src={@avatar_src}
+      encrypted_avatar_data={@encrypted_avatar}
       avatar_alt="circle member avatar"
       sender_name={@sender_name}
       moniker={@moniker}

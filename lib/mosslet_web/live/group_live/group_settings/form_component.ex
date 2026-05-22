@@ -38,8 +38,8 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive.FormComponent 
         "border border-slate-200/60 dark:border-slate-600/50"
       ]}>
         <.phx_avatar
-          src={
-            get_user_avatar(
+          encrypted_avatar_data={
+            get_encrypted_avatar_data(
               get_uconn_for_users(
                 get_user_from_user_group_id(@user_group.id),
                 @current_scope.user
@@ -47,6 +47,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive.FormComponent 
               @current_scope.key
             )
           }
+          id={"group-settings-member-#{@user_group.id}"}
           alt=""
           class={"w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0 " <> avatar_ring_for_role(@user_group.role)}
         />

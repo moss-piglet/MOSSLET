@@ -8,7 +8,7 @@ defmodule MossletWeb.TimelineContentFilter do
 
   use MossletWeb, :html
 
-  import MossletWeb.Helpers, only: [get_uconn_for_muted_users: 2]
+  import MossletWeb.Helpers, only: [get_encrypted_avatar_data: 2, get_uconn_for_muted_users: 2]
 
   @doc """
   Renders the main content filter interface.
@@ -451,13 +451,13 @@ defmodule MossletWeb.TimelineContentFilter do
           <MossletWeb.DesignSystem.liquid_avatar
             size="xs"
             name={user.username || "Unknown"}
-            src={
-              get_connection_avatar_src(
+            encrypted_avatar_data={
+              get_encrypted_avatar_data(
                 get_uconn_for_muted_users(user, @current_user),
-                @current_user,
                 @key
               )
             }
+            id={"muted-user-#{user.user_id}"}
             class="ring-1 ring-slate-200/60 dark:ring-slate-600/60"
           />
           <span class="flex-1 text-xs font-medium text-slate-700 dark:text-slate-300 truncate">

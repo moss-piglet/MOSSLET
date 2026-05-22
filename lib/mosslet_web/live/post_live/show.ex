@@ -49,7 +49,7 @@ defmodule MossletWeb.PostLive.Show do
   def handle_params(params, _url, socket) do
     current_user = socket.assigns.current_user
     post = socket.assigns.post
-    key = socket.assigns.key
+    _key = socket.assigns.key
 
     sort_by = valid_sort_by(params)
     sort_order = valid_sort_order(params)
@@ -87,7 +87,6 @@ defmodule MossletWeb.PostLive.Show do
           :post
         )
       )
-      |> assign(:src, maybe_get_avatar_src(post, current_user, key, loading_list))
       |> assign(:reply_count, Timeline.reply_count(post, options))
       |> assign(:loading_list, loading_list)
       |> assign(:options, options)

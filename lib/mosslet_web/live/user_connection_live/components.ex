@@ -132,11 +132,11 @@ defmodule MossletWeb.UserConnectionLive.Components do
             <div class="relative">
               <.phx_avatar
                 class="size-32 sm:size-48 rounded-full"
-                src={
-                  if !show_avatar?(@user_connection),
-                    do: "",
-                    else: maybe_get_avatar_src(@user_connection, @current_user, @key, [])
+                encrypted_avatar_data={
+                  if show_avatar?(@user_connection),
+                    do: get_encrypted_avatar_data(@user_connection, @key)
                 }
+                id={"conn-profile-#{@user_connection.id}"}
                 alt="Avatar for user connection"
               />
               <span class="absolute inset-0 rounded-full shadow-inner" aria-hidden="true"></span>
@@ -515,32 +515,20 @@ defmodule MossletWeb.UserConnectionLive.Components do
                 <div class="relative">
                   <.phx_avatar
                     :if={user_connection}
-                    src={
-                      if !show_avatar?(user_connection),
-                        do: "",
-                        else:
-                          maybe_get_avatar_src(
-                            reply,
-                            @current_user,
-                            @key,
-                            @post_loading_list
-                          )
+                    encrypted_avatar_data={
+                      if show_avatar?(user_connection),
+                        do: get_encrypted_avatar_data(user_connection, @key)
                     }
+                    id={"conn-reply-#{reply.id}-uconn"}
                     class="h-8 w-8 rounded-full"
                   />
                   <.phx_avatar
                     :if={!user_connection && reply.user_id == @current_user.id}
-                    src={
-                      if !show_avatar?(@current_user),
-                        do: "",
-                        else:
-                          maybe_get_avatar_src(
-                            reply,
-                            @current_user,
-                            @key,
-                            @post_loading_list
-                          )
+                    encrypted_avatar_data={
+                      if show_avatar?(@current_user),
+                        do: get_encrypted_avatar_data(@current_user, @key)
                     }
+                    id={"conn-reply-#{reply.id}-self"}
                     class="h-8 w-8 rounded-full"
                   />
                   <span class="absolute -bottom-0.5 -right-1 rounded-tl bg-gray-50 group-hover:bg-primary-50 dark:bg-gray-900 dark:group-hover:bg-gray-700 px-0.5 py-px">
@@ -848,11 +836,11 @@ defmodule MossletWeb.UserConnectionLive.Components do
           <div class="flex-shrink-0">
             <.phx_avatar
               class="h-12 w-12 sm:h-14 sm:w-14 rounded-full border-2 border-emerald-100 dark:border-emerald-800"
-              src={
-                if !show_avatar?(@uconn),
-                  do: "",
-                  else: maybe_get_avatar_src(@uconn, @current_user, @key, @loading_list)
+              encrypted_avatar_data={
+                if show_avatar?(@uconn),
+                  do: get_encrypted_avatar_data(@uconn, @key)
               }
+              id={"arrival-avatar-#{@uconn.id}"}
             />
           </div>
 
@@ -967,7 +955,11 @@ defmodule MossletWeb.UserConnectionLive.Components do
         else: get_user_with_preloads(@uconn.user_id) %>
 
     <div class="flex-shrink-0">
-      <.phx_avatar class="mx-auto h-10 w-10 rounded-full" src={maybe_get_user_avatar(@uconn, @key)} />
+      <.phx_avatar
+        class="mx-auto h-10 w-10 rounded-full"
+        encrypted_avatar_data={get_encrypted_avatar_data(@uconn, @key)}
+        id={"conn-list-#{@uconn.id}"}
+      />
     </div>
     <div class="min-w-0 flex-1">
       <a href="#" class="focus:outline-none">

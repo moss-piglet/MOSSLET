@@ -45,7 +45,8 @@ defmodule MossletWeb.GroupLive.PendingComponent do
 
                 <.phx_avatar
                   :if={user_group.user_id != @current_user.id && member_uconn}
-                  src={get_user_avatar(member_uconn, @key)}
+                  encrypted_avatar_data={get_encrypted_avatar_data(member_uconn, @key)}
+                  id={"pending-member-#{group.id}-#{user_group.id}"}
                   alt="group member"
                   class="h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-700"
                 />

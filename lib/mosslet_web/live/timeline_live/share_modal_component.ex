@@ -4,7 +4,7 @@ defmodule MossletWeb.TimelineLive.ShareModalComponent do
   import MossletWeb.CoreComponents, only: [phx_icon: 1, phx_input: 1]
 
   import MossletWeb.DesignSystem,
-    only: [liquid_button: 1, liquid_modal: 1, liquid_avatar: 1, get_connection_avatar_src: 3]
+    only: [liquid_button: 1, liquid_modal: 1, liquid_avatar: 1]
 
   alias Mosslet.Accounts.Scope
   alias Mosslet.Timeline.UserPost
@@ -262,9 +262,9 @@ defmodule MossletWeb.TimelineLive.ShareModalComponent do
                 <% else %>
                   <%= for conn <- @filtered_connections do %>
                     <% user_connection = find_user_connection(@user_connections, conn.user_id) %>
-                    <% avatar_src =
+                    <% encrypted_avatar =
                       if user_connection,
-                        do: get_connection_avatar_src(user_connection, @current_user, @key),
+                        do: get_encrypted_avatar_data(user_connection, @key),
                         else: nil %>
                     <button
                       type="button"
@@ -282,7 +282,8 @@ defmodule MossletWeb.TimelineLive.ShareModalComponent do
                     >
                       <.liquid_avatar
                         name={conn.username}
-                        src={avatar_src}
+                        encrypted_avatar_data={encrypted_avatar}
+                        id={"share-conn-#{conn.user_id}"}
                         size="sm"
                         show_status={false}
                       />

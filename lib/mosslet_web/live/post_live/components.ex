@@ -182,8 +182,8 @@ defmodule MossletWeb.PostLive.Components do
     assigns =
       assign(
         assigns,
-        :src,
-        maybe_get_avatar_src(assigns.post, assigns.current_user, assigns.key, assigns.post_list)
+        :encrypted_avatar,
+        get_encrypted_avatar_data_for_item(assigns.post, assigns.current_user)
       )
 
     ~H"""
@@ -192,32 +192,11 @@ defmodule MossletWeb.PostLive.Components do
       id={"post-avatar-#{@post.id}"}
       class="flex flex-col flex-shrink-0 space-y-1 items-center"
     >
-      <div
-        :if={
-          (not @post_loading && @src != "") ||
-            @post.id in @finished_loading_list
-        }
-        id={"post-[#{@loading_id}]-#{@post.id}"}
-      >
-        <.phx_avatar src={@src} />
-      </div>
-      <div
-        :if={
-          (@post_loading && @src == "" && not is_nil(get_user_from_post(@post).connection.avatar_url)) ||
-            (@post.id not in @finished_loading_list && @src == "" &&
-               not is_nil(get_user_from_post(@post).connection.avatar_url))
-        }
-        id={"post-[#{@loading_id}]-#{@post.id}"}
-        class="inline-block rounded-md h-12 w-12"
-      >
-        <.spinner size="md" class="text-primary-500" />
-      </div>
-      <div
-        :if={!@post_loading && @src == "" && is_nil(get_user_from_post(@post).connection.avatar_url)}
-        id={"post-[#{@loading_id}]-#{@post.id}"}
-        class="inline-block rounded-md h-12 w-12"
-      >
-        <.phx_avatar src={@src} />
+      <div id={"post-[#{@loading_id}]-#{@post.id}"}>
+        <.phx_avatar
+          encrypted_avatar_data={@encrypted_avatar}
+          id={"post-av-#{@post.id}"}
+        />
       </div>
       <span
         :if={@post.repost}
@@ -503,17 +482,11 @@ defmodule MossletWeb.PostLive.Components do
                 <div class="relative flex items-start space-x-3">
                   <div :if={reply.user_id == @current_user.id} class="relative">
                     <.phx_avatar
-                      src={
-                        if !show_avatar?(@current_user),
-                          do: "",
-                          else:
-                            maybe_get_avatar_src(
-                              reply,
-                              assigns.current_user,
-                              assigns.key,
-                              assigns.post_list
-                            )
+                      encrypted_avatar_data={
+                        if show_avatar?(@current_user),
+                          do: get_encrypted_avatar_data(@current_user, @key)
                       }
+                      id={"post-act-reply-self-#{reply.id}"}
                       class="h-8 w-8 rounded-full"
                     />
                     <span class="absolute -bottom-0.5 -right-1 rounded-tl bg-gray-50 group-hover:bg-primary-50 dark:bg-gray-900 dark:group-hover:bg-gray-700 px-0.5 py-px">
@@ -538,17 +511,11 @@ defmodule MossletWeb.PostLive.Components do
                         @current_user.id
                       ) %>
                     <.phx_avatar
-                      src={
-                        if user_connection && !show_avatar?(user_connection),
-                          do: "",
-                          else:
-                            maybe_get_avatar_src(
-                              reply,
-                              assigns.current_user,
-                              assigns.key,
-                              assigns.post_list
-                            )
+                      encrypted_avatar_data={
+                        if user_connection && show_avatar?(user_connection),
+                          do: get_encrypted_avatar_data(user_connection, @key)
                       }
+                      id={"post-act-reply-conn-#{reply.id}"}
                       class="h-8 w-8 rounded-full"
                     />
                     <span class="absolute -bottom-0.5 -right-1 rounded-tl bg-gray-50 group-hover:bg-primary-50 dark:bg-gray-900 dark:group-hover:bg-gray-700 px-0.5 py-px">
@@ -726,8 +693,8 @@ defmodule MossletWeb.PostLive.Components do
     assigns =
       assign(
         assigns,
-        :src,
-        maybe_get_avatar_src(assigns.post, assigns.current_user, assigns.key, nil)
+        :encrypted_avatar,
+        get_encrypted_avatar_data_for_item(assigns.post, assigns.current_user)
       )
 
     ~H"""
@@ -742,48 +709,11 @@ defmodule MossletWeb.PostLive.Components do
             id={"post-avatar-#{@post.id}"}
             class="flex flex-col flex-shrink-0 space-y-1 items-center"
           >
-            <div
-              :if={
-                (not @reply_loading && @src != "") ||
-                  @post.id in @finished_loading_list
-              }
-              id={"post-show-#{@post.id}"}
-            >
-              <% user_connection =
-                Accounts.get_user_connection_for_reply_shared_users(@post.user_id, @current_user.id) %>
-              <.phx_avatar src={
-                if user_connection && !show_avatar?(user_connection), do: "", else: @src
-              } />
+            <div id={"post-show-#{@post.id}"}>
               <.phx_avatar
-                :if={@post.user_id == @current_user.id}
-                src={if !show_avatar?(@current_user), do: "", else: @src}
+                encrypted_avatar_data={@encrypted_avatar}
+                id={"single-post-av-#{@post.id}"}
               />
-            </div>
-            <div
-              :if={
-                (@reply_loading && @src == "" &&
-                   not is_nil(get_user_from_post(@post).connection.avatar_url)) ||
-                  (@post.id not in @finished_loading_list && @src == "" &&
-                     not is_nil(get_user_from_post(@post).connection.avatar_url))
-              }
-              id={"post-show-#{@post.id}"}
-              class="inline-block rounded-md h-12 w-12"
-            >
-              <.spinner size="md" class="text-primary-500" />
-            </div>
-            <div
-              :if={
-                !@reply_loading && @src == "" &&
-                  is_nil(get_user_from_post(@post).connection.avatar_url)
-              }
-              id={"post-show-#{@post.id}"}
-              class="inline-block rounded-md h-12 w-12"
-            >
-              <% user_connection =
-                Accounts.get_user_connection_for_reply_shared_users(@post.user_id, @current_user.id) %>
-              <.phx_avatar src={
-                if user_connection && !show_avatar?(user_connection), do: "", else: @src
-              } />
             </div>
             <span
               :if={@post.repost}
@@ -1213,8 +1143,8 @@ defmodule MossletWeb.PostLive.Components do
     assigns =
       assign(
         assigns,
-        :src,
-        maybe_get_avatar_src(assigns.reply, assigns.current_user, assigns.key, assigns.reply_list)
+        :encrypted_avatar,
+        get_encrypted_avatar_data_for_item(assigns.reply, assigns.current_user)
       )
 
     ~H"""
@@ -1227,13 +1157,8 @@ defmodule MossletWeb.PostLive.Components do
               <div class="relative flex items-start space-x-3">
                 <div class="relative">
                   <.phx_avatar
-                    :if={@user_connection}
-                    src={if !show_avatar?(@user_connection), do: "", else: @src}
-                    class="h-8 w-8 rounded-full"
-                  />
-                  <.phx_avatar
-                    :if={!@user_connection}
-                    src={if !show_avatar?(@current_user), do: "", else: @src}
+                    encrypted_avatar_data={@encrypted_avatar}
+                    id={"reply-av-#{@reply.id}"}
                     class="h-8 w-8 rounded-full"
                   />
                   <span class="absolute -bottom-0.5 -right-1 rounded-tl bg-gray-50 group-hover:bg-primary-50 dark:bg-gray-900 dark:group-hover:bg-gray-700 px-0.5 py-px">
