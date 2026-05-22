@@ -1,21 +1,12 @@
 import { encryptSecretbox } from "../crypto/nacl";
-import { getSealedConnKey, unsealContextKey, getPublicKey } from "../crypto/session";
+import {
+  getSealedConnKey,
+  unsealContextKey,
+  unwrapConnKey,
+  getPublicKey,
+} from "../crypto/session";
 
-/**
- * Server-registered users have conn_key sealed as a 44-char base64 string,
- * so unsealFromUser returns those ASCII bytes re-encoded as base64 (~60 chars).
- * Browser-registered users seal raw 32 bytes → correct 44-char base64 directly.
- */
-function unwrapConnKey(unsealedB64) {
-  if (unsealedB64.length > 44) {
-    try {
-      return atob(unsealedB64);
-    } catch {
-      return unsealedB64;
-    }
-  }
-  return unsealedB64;
-}
+const KEY_WAIT_TIMEOUT_MS = 15_000;
 
 /**
  * EncryptUpload hook — browser-side ZK encryption for image uploads.
@@ -71,14 +62,12 @@ const EncryptUpload = {
       }
 
       const connKey = unwrapConnKey(rawKey);
-
       const rawBytes = Uint8Array.from(atob(blob_b64), (c) => c.charCodeAt(0));
-
       const encryptedBlobB64 = await encryptSecretbox(rawBytes, connKey);
 
       this.pushEvent("encrypted_upload_ready", {
         encrypted_blob_b64: encryptedBlobB64,
-        upload_id: upload_id,
+        upload_id,
       });
     } catch (e) {
       console.error("EncryptUpload failed:", e);
@@ -89,29 +78,37 @@ const EncryptUpload = {
   },
 
   _pushError(upload_id, reason) {
-    this.pushEvent("encrypted_upload_failed", {
-      upload_id: upload_id,
-      reason: reason,
-    });
+    this.pushEvent("encrypted_upload_failed", { upload_id, reason });
   },
 
   _waitForKeys() {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       if (getPublicKey()) {
         resolve();
         return;
       }
+
+      const timer = setTimeout(() => {
+        if (this._keysReadyHandler) {
+          window.removeEventListener("mosslet:keys-ready", this._keysReadyHandler);
+          this._keysReadyHandler = null;
+        }
+        reject(new Error("Timed out waiting for crypto keys"));
+      }, KEY_WAIT_TIMEOUT_MS);
 
       if (this._keysReadyHandler) {
         window.removeEventListener("mosslet:keys-ready", this._keysReadyHandler);
       }
 
       this._keysReadyHandler = () => {
+        clearTimeout(timer);
         this._keysReadyHandler = null;
         resolve();
       };
 
-      window.addEventListener("mosslet:keys-ready", this._keysReadyHandler, { once: true });
+      window.addEventListener("mosslet:keys-ready", this._keysReadyHandler, {
+        once: true,
+      });
     });
   },
 };

@@ -211,3 +211,28 @@ export async function decryptWithKey(ciphertext, rawKey) {
     return null;
   }
 }
+
+/**
+ * Unwraps a conn_key that may be double-base64-encoded.
+ *
+ * Server-registered users had their conn_key sealed as a 44-char base64 string,
+ * so unsealFromUser returns those ASCII bytes re-encoded as base64 (~60 chars,
+ * double-encoded). Browser-registered users seal raw 32 bytes, so unseal returns
+ * the correct 44-char base64 key directly.
+ *
+ * We detect double-encoding by length: 44 chars = correct base64 of 32 bytes;
+ * longer = double-encoded, needs one atob() unwrap to recover the original base64.
+ *
+ * @param {string} unsealedB64 - base64-encoded key, possibly double-encoded
+ * @returns {string} base64-encoded 32-byte key
+ */
+export function unwrapConnKey(unsealedB64) {
+  if (unsealedB64.length > 44) {
+    try {
+      return atob(unsealedB64);
+    } catch {
+      return unsealedB64;
+    }
+  }
+  return unsealedB64;
+}

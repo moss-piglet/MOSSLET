@@ -2,6 +2,8 @@ defmodule MossletWeb.EditProfileLive do
   @moduledoc false
   use MossletWeb, :live_view
 
+  import MossletWeb.Helpers.UploadHelpers
+
   alias Mosslet.Accounts
   alias Mosslet.Accounts.Connection
   alias Mosslet.Encrypted
@@ -440,7 +442,7 @@ defmodule MossletWeb.EditProfileLive do
                       <div
                         :if={
                           Enum.any?(@uploads.banner.entries) &&
-                            !is_processing?(@banner_upload_stage) &&
+                            !processing?(@banner_upload_stage) &&
                             !(@nsfw_check_result && @nsfw_check_result.is_nsfw)
                         }
                         class="flex justify-end"
@@ -666,7 +668,7 @@ defmodule MossletWeb.EditProfileLive do
       <DesignSystem.liquid_alt_text_modal
         show={@banner_alt_text_modal_open}
         upload={
-          build_banner_upload_map(
+          build_upload_map(
             List.first(@uploads.banner.entries),
             @banner_alt_text,
             @banner_preview_data_url
@@ -679,7 +681,7 @@ defmodule MossletWeb.EditProfileLive do
       <DesignSystem.liquid_image_edit_modal
         show={@banner_edit_modal_open}
         upload={
-          build_banner_upload_map(
+          build_upload_map(
             List.first(@uploads.banner.entries),
             @banner_alt_text,
             @banner_preview_data_url
@@ -754,7 +756,7 @@ defmodule MossletWeb.EditProfileLive do
              key
            ) do
         {:ok, _} ->
-          encrypted_alt_text = maybe_encrypt_banner_alt_text(banner_alt_text, user, key)
+          encrypted_alt_text = encrypt_alt_text(banner_alt_text, user, key)
           send(lv_pid, {:banner_upload_complete, {:ok, {e_blob, file_path, encrypted_alt_text}}})
 
         {:error, message} ->
@@ -920,6 +922,12 @@ defmodule MossletWeb.EditProfileLive do
            |> put_flash(:success, info)
            |> assign(profile_form: profile_form)
            |> push_navigate(to: ~p"/app/users/edit-profile")}
+
+        {:error, _changeset} ->
+          {:noreply,
+           socket
+           |> put_flash(:error, "Failed to update profile. Please try again.")
+           |> push_navigate(to: ~p"/app/users/edit-profile")}
       end
     else
       info = "Woops, you need to confirm your account first."
@@ -966,6 +974,12 @@ defmodule MossletWeb.EditProfileLive do
            |> put_flash(:success, info)
            |> assign(profile_form: profile_form)
            |> push_navigate(to: ~p"/app/users/edit-profile")}
+
+        {:error, _changeset} ->
+          {:noreply,
+           socket
+           |> put_flash(:error, "Failed to create profile. Please try again.")
+           |> push_navigate(to: ~p"/app/users/edit-profile")}
       end
     else
       info = "Woops, you need to confirm your account first."
@@ -1001,26 +1015,20 @@ defmodule MossletWeb.EditProfileLive do
                 key
               )
 
-            # Handle deleting the object storage avatar async.
             Storj.make_async_aws_requests(avatars_bucket, avatar_url, nil, nil)
-
-            info =
-              "Your profile has been deleted successfully."
-
-            {:noreply,
-             socket
-             |> put_flash(:success, info)
-             |> assign(profile_form: profile_form)
-             |> push_navigate(to: ~p"/app/users/edit-profile")}
-          else
-            info = "Your profile has been deleted successfully."
-
-            {:noreply,
-             socket
-             |> put_flash(:success, info)
-             |> assign(profile_form: profile_form)
-             |> push_navigate(to: ~p"/app/users/edit-profile")}
           end
+
+          {:noreply,
+           socket
+           |> put_flash(:success, "Your profile has been deleted successfully.")
+           |> assign(profile_form: profile_form)
+           |> push_navigate(to: ~p"/app/users/edit-profile")}
+
+        {:error, _changeset} ->
+          {:noreply,
+           socket
+           |> put_flash(:error, "Failed to delete profile. Please try again.")
+           |> push_navigate(to: ~p"/app/users/edit-profile")}
       end
     else
       info = "You don't have permission to do this."
@@ -1301,6 +1309,7 @@ defmodule MossletWeb.EditProfileLive do
     lv_pid = self()
     user = socket.assigns.current_scope.user
     entry = List.first(socket.assigns.uploads.banner.entries)
+    banner_alt_text = socket.assigns.banner_alt_text
 
     socket = assign(socket, :banner_upload_stage, {:receiving, 10})
 
@@ -1327,7 +1336,6 @@ defmodule MossletWeb.EditProfileLive do
 
       case result do
         {:ok, blob, file_path} ->
-          banner_alt_text = socket.assigns.banner_alt_text
           send(lv_pid, {:banner_processed, blob, file_path, banner_alt_text})
 
         {:error, message} ->
@@ -1336,13 +1344,6 @@ defmodule MossletWeb.EditProfileLive do
     end)
 
     {:noreply, socket}
-  end
-
-  defp maybe_apply_crop(image, nil), do: {:ok, image}
-  defp maybe_apply_crop(image, crop) when crop == %{}, do: {:ok, image}
-
-  defp maybe_apply_crop(image, %{x: x, y: y, width: w, height: h}) do
-    Image.crop(image, x, y, w, h)
   end
 
   defp maybe_decrypt_profile_about(user, key) do
@@ -1436,11 +1437,6 @@ defmodule MossletWeb.EditProfileLive do
     end
   end
 
-  defp is_processing?(nil), do: false
-  defp is_processing?({:ready, _}), do: false
-  defp is_processing?({:error, _}), do: false
-  defp is_processing?(_), do: true
-
   defp get_async_banner_src(%AsyncResult{ok?: true, result: result}), do: result
   defp get_async_banner_src(_), do: nil
 
@@ -1528,36 +1524,5 @@ defmodule MossletWeb.EditProfileLive do
         {:banner_deleted, user.connection.id}
       )
     end
-  end
-
-  defp build_banner_upload_map(nil, _alt_text, _preview_url), do: nil
-
-  defp build_banner_upload_map(entry, alt_text, preview_url) do
-    %{
-      ref: entry.ref,
-      alt_text: alt_text,
-      preview_data_url: preview_url,
-      entry: entry
-    }
-  end
-
-  defp generate_cropped_preview(nil, _crop), do: {:error, :no_path}
-
-  defp generate_cropped_preview(path, %{x: x, y: y, width: w, height: h}) do
-    with {:ok, image} <- Image.open(path),
-         {:ok, cropped} <- Image.crop(image, x, y, w, h),
-         {:ok, binary} <- Image.write(cropped, :memory, suffix: ".jpg", quality: 90) do
-      {:ok, "data:image/jpeg;base64,#{Base.encode64(binary)}"}
-    end
-  end
-
-  defp generate_cropped_preview(_path, _crop), do: {:error, :invalid_crop}
-
-  defp maybe_encrypt_banner_alt_text(nil, _user, _key), do: nil
-  defp maybe_encrypt_banner_alt_text("", _user, _key), do: nil
-
-  defp maybe_encrypt_banner_alt_text(alt_text, user, key) do
-    {:ok, d_conn_key} = Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key)
-    Encrypted.Utils.encrypt(%{key: d_conn_key, payload: alt_text})
   end
 end

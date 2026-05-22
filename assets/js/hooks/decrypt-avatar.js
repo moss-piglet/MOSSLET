@@ -1,24 +1,10 @@
-import { unsealContextKey, decryptWithKey, decryptSecretbox, getPublicKey } from "../crypto/session";
-
-/**
- * Server-registered users have conn_key sealed as a 44-char base64 string,
- * so unsealFromUser returns those ASCII bytes re-encoded as base64 (~60 chars,
- * double-encoded). Browser-registered users seal raw 32 bytes, so unseal
- * returns the correct 44-char base64 key directly.
- *
- * We detect double-encoding by length: 44 chars = correct base64 of 32 bytes;
- * longer = double-encoded, needs one atob() unwrap.
- */
-function unwrapConnKey(unsealedB64) {
-  if (unsealedB64.length > 44) {
-    try {
-      return atob(unsealedB64);
-    } catch {
-      return unsealedB64;
-    }
-  }
-  return unsealedB64;
-}
+import {
+  unsealContextKey,
+  unwrapConnKey,
+  decryptWithKey,
+  decryptSecretbox,
+  getPublicKey,
+} from "../crypto/session";
 
 function b64Encode(uint8Array) {
   let binary = "";

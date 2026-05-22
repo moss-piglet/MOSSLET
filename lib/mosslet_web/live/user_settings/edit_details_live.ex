@@ -4,6 +4,8 @@ defmodule MossletWeb.EditDetailsLive do
 
   require Logger
 
+  import MossletWeb.Helpers.UploadHelpers
+
   alias Mosslet.Accounts
   alias Mosslet.Encrypted
   alias Mosslet.Extensions.AvatarProcessor
@@ -99,11 +101,11 @@ defmodule MossletWeb.EditDetailsLive do
 
               <div class="flex flex-col sm:flex-row gap-3">
                 <DesignSystem.liquid_button
-                  :if={Enum.any?(@uploads.avatar.entries) && !is_processing?(@avatar_upload_stage)}
+                  :if={Enum.any?(@uploads.avatar.entries) && !processing?(@avatar_upload_stage)}
                   type="submit"
                   phx-disable-with="Updating..."
                   disabled={
-                    !@uploads.avatar.entries || is_processing?(@avatar_upload_stage) ||
+                    !@uploads.avatar.entries || processing?(@avatar_upload_stage) ||
                       (@nsfw_check_result && @nsfw_check_result.is_nsfw)
                   }
                   icon="hero-photo"
@@ -112,7 +114,7 @@ defmodule MossletWeb.EditDetailsLive do
                 </DesignSystem.liquid_button>
 
                 <DesignSystem.liquid_button
-                  :if={is_processing?(@avatar_upload_stage)}
+                  :if={processing?(@avatar_upload_stage)}
                   type="button"
                   disabled
                   variant="secondary"
@@ -123,7 +125,7 @@ defmodule MossletWeb.EditDetailsLive do
                 </DesignSystem.liquid_button>
 
                 <DesignSystem.liquid_button
-                  :if={@uploads.avatar.entries == [] && !is_processing?(@avatar_upload_stage)}
+                  :if={@uploads.avatar.entries == [] && !processing?(@avatar_upload_stage)}
                   type="button"
                   disabled
                   variant="secondary"
@@ -222,7 +224,7 @@ defmodule MossletWeb.EditDetailsLive do
       <DesignSystem.liquid_alt_text_modal
         show={@avatar_alt_text_modal_open}
         upload={
-          build_avatar_upload_map(
+          build_upload_map(
             List.first(@uploads.avatar.entries),
             @avatar_alt_text,
             @avatar_preview_data_url
@@ -235,7 +237,7 @@ defmodule MossletWeb.EditDetailsLive do
       <DesignSystem.liquid_image_edit_modal
         show={@avatar_edit_modal_open}
         upload={
-          build_avatar_upload_map(
+          build_upload_map(
             List.first(@uploads.avatar.entries),
             @avatar_alt_text,
             @avatar_preview_data_url
@@ -247,11 +249,6 @@ defmodule MossletWeb.EditDetailsLive do
     </.layout>
     """
   end
-
-  defp is_processing?(nil), do: false
-  defp is_processing?({:ready, _}), do: false
-  defp is_processing?({:error, _}), do: false
-  defp is_processing?(_), do: true
 
   @impl true
   def mount(_params, _session, socket) do
@@ -300,12 +297,8 @@ defmodule MossletWeb.EditDetailsLive do
     {:ok, socket}
   end
 
-  defp handle_progress(:avatar, entry, socket) do
-    if entry.done? do
-      {:noreply, socket}
-    else
-      {:noreply, socket}
-    end
+  defp handle_progress(:avatar, _entry, socket) do
+    {:noreply, socket}
   end
 
   @impl true
@@ -373,7 +366,7 @@ defmodule MossletWeb.EditDetailsLive do
          socket
          |> assign(:avatar_upload_stage, {:error, "Update failed"})
          |> put_flash(:error, gettext("Update failed. Please check the form for issues"))
-         |> assign(form: to_form(changeset))}
+         |> assign(avatar_form: to_form(changeset))}
     end
   end
 
@@ -443,7 +436,7 @@ defmodule MossletWeb.EditDetailsLive do
 
       case @upload_provider.upload_avatar(avatars_bucket, file_path, e_blob, user, key) do
         {:ok, _} ->
-          encrypted_alt_text = maybe_encrypt_avatar_alt_text(avatar_alt_text, user, key)
+          encrypted_alt_text = encrypt_alt_text(avatar_alt_text, user, key)
           user_params = %{avatar_url: file_path, avatar_alt_text: encrypted_alt_text}
           send(lv_pid, {:avatar_upload_complete, {:ok, {e_blob, user_params}}})
 
@@ -500,6 +493,7 @@ defmodule MossletWeb.EditDetailsLive do
     {:noreply, socket}
   end
 
+  @impl true
   def handle_event("validate_name", params, socket) do
     %{"user" => user_params} = params
 
@@ -516,6 +510,7 @@ defmodule MossletWeb.EditDetailsLive do
      |> assign(name_form: name_form)}
   end
 
+  @impl true
   def handle_event("validate_username", params, socket) do
     %{"user" => user_params} = params
 
@@ -784,6 +779,7 @@ defmodule MossletWeb.EditDetailsLive do
     end
   end
 
+  @impl true
   def handle_event("update_username", params, socket) do
     %{"user" => user_params} = params
     user = socket.assigns.current_scope.user
@@ -820,6 +816,7 @@ defmodule MossletWeb.EditDetailsLive do
   defp process_and_upload_avatar(socket, temp_path, crop) do
     lv_pid = self()
     user = socket.assigns.current_scope.user
+    avatar_alt_text = socket.assigns.avatar_alt_text
 
     socket = assign(socket, :avatar_upload_stage, {:receiving, 10})
 
@@ -851,7 +848,6 @@ defmodule MossletWeb.EditDetailsLive do
 
       case result do
         {:ok, blob, file_path} ->
-          avatar_alt_text = socket.assigns.avatar_alt_text
           send(lv_pid, {:avatar_processed, blob, file_path, avatar_alt_text})
 
         {:error, message} ->
@@ -860,13 +856,6 @@ defmodule MossletWeb.EditDetailsLive do
     end)
 
     {:noreply, socket}
-  end
-
-  defp maybe_apply_crop(image, nil), do: {:ok, image}
-  defp maybe_apply_crop(image, crop) when crop == %{}, do: {:ok, image}
-
-  defp maybe_apply_crop(image, %{x: x, y: y, width: w, height: h}) do
-    Image.crop(image, x, y, w, h)
   end
 
   defp assign_avatar_form(socket, user) do
@@ -879,36 +868,5 @@ defmodule MossletWeb.EditDetailsLive do
 
   defp assign_username_form(socket, user) do
     assign(socket, username_form: to_form(Accounts.change_user_username(user)))
-  end
-
-  defp build_avatar_upload_map(nil, _alt_text, _preview_url), do: nil
-
-  defp build_avatar_upload_map(entry, alt_text, preview_url) do
-    %{
-      ref: entry.ref,
-      alt_text: alt_text,
-      preview_data_url: preview_url,
-      entry: entry
-    }
-  end
-
-  defp generate_cropped_preview(nil, _crop), do: {:error, :no_path}
-
-  defp generate_cropped_preview(path, %{x: x, y: y, width: w, height: h}) do
-    with {:ok, image} <- Image.open(path),
-         {:ok, cropped} <- Image.crop(image, x, y, w, h),
-         {:ok, binary} <- Image.write(cropped, :memory, suffix: ".jpg", quality: 90) do
-      {:ok, "data:image/jpeg;base64,#{Base.encode64(binary)}"}
-    end
-  end
-
-  defp generate_cropped_preview(_path, _crop), do: {:error, :invalid_crop}
-
-  defp maybe_encrypt_avatar_alt_text(nil, _user, _key), do: nil
-  defp maybe_encrypt_avatar_alt_text("", _user, _key), do: nil
-
-  defp maybe_encrypt_avatar_alt_text(alt_text, user, key) do
-    {:ok, d_conn_key} = Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key)
-    Encrypted.Utils.encrypt(%{key: d_conn_key, payload: alt_text})
   end
 end
