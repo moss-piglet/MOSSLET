@@ -5,6 +5,15 @@
   type="sidebar"
 >
   <div class="h-full flex flex-col bg-white/60 dark:bg-slate-800/60">
+    <div
+      id="group-metadata"
+      phx-hook="DecryptGroupMetadata"
+      data-sealed-group-key={@group_metadata[:sealed_group_key]}
+      data-encrypted-name={@group_metadata[:encrypted_name]}
+      data-encrypted-moniker={@group_metadata[:encrypted_moniker]}
+      data-browser-decrypt={@group_metadata[:browser_decrypt?]}
+    >
+    </div>
     <div class="flex-shrink-0 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-b border-slate-200/60 dark:border-slate-700/60 bg-gradient-to-r from-slate-50/80 via-white/60 to-slate-50/80 dark:from-slate-800/80 dark:via-slate-700/60 dark:to-slate-800/80">
       <div class="flex items-center justify-between gap-3 max-w-4xl mx-auto">
         <div class="flex items-center gap-3 min-w-0">
@@ -25,14 +34,13 @@
 
           <div class="min-w-0">
             <div class="flex items-center gap-2">
-              <h1 class="text-sm sm:text-base font-semibold text-slate-900 dark:text-slate-100 truncate">
-                {decr_item(
-                  @group.name,
-                  @current_scope.user,
-                  @current_user_group.key,
-                  @current_scope.key,
-                  @group
-                )}
+              <h1
+                class="text-sm sm:text-base font-semibold text-slate-900 dark:text-slate-100 truncate"
+                data-decrypt-group-name
+              >
+                {if @group_metadata[:browser_decrypt?],
+                  do: "Decrypting...",
+                  else: @group_metadata[:name]}
               </h1>
               <span class="relative flex-shrink-0">
                 <span class="relative flex h-2 w-2">
@@ -138,14 +146,13 @@
 
       <div class="p-4 sm:p-6 space-y-4">
         <div class="p-4 rounded-xl bg-gradient-to-br from-teal-50/50 to-emerald-50/50 dark:from-teal-900/20 dark:to-emerald-900/20 border border-teal-200/40 dark:border-teal-700/40">
-          <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
-            {decr_item(
-              @group.name,
-              @current_scope.user,
-              @current_user_group.key,
-              @current_scope.key,
-              @group
-            )}
+          <h3
+            class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2"
+            data-decrypt-group-name
+          >
+            {if @group_metadata[:browser_decrypt?],
+              do: "Decrypting...",
+              else: @group_metadata[:name]}
           </h3>
           <MossletWeb.DesignSystem.liquid_badge color={role_badge_color(@current_user_group.role)}>
             {String.capitalize(Atom.to_string(@current_user_group.role))}
@@ -200,14 +207,13 @@
                 Circle Moniker
               </span>
             </div>
-            <p class="ml-8 text-sm text-slate-900 dark:text-slate-100">
-              {decr_item(
-                @current_user_group.moniker,
-                @current_scope.user,
-                @current_user_group.key,
-                @current_scope.key,
-                @group
-              )}
+            <p
+              class="ml-8 text-sm text-slate-900 dark:text-slate-100"
+              data-decrypt-group-moniker
+            >
+              {if @group_metadata[:browser_decrypt?],
+                do: "...",
+                else: @group_metadata[:moniker]}
             </p>
           </div>
         </div>

@@ -60,6 +60,10 @@ defmodule MossletWeb.GroupLive.Show do
        socket
        |> assign(:group, group)
        |> assign(:current_user_group, user_group)
+       |> assign(
+         :group_metadata,
+         pre_decrypt_group_metadata(group, user_group, current_scope.user, current_scope.key)
+       )
        |> assign(:page_title, page_title(socket.assigns.live_action))
        |> stream(:user_groups, Groups.list_user_groups(group))
        |> assign_active_group_messages()

@@ -904,6 +904,60 @@ defmodule MossletWeb.Helpers do
   end
 
   @doc """
+  Pre-decrypts group metadata (name, description, current user's moniker) and
+  returns a map with server-decrypted values for public groups and encrypted
+  blobs for browser-decrypt groups.
+
+  For non-public groups, the encrypted name/description/moniker are included
+  alongside the sealed group key so the DecryptGroupMetadata hook can decrypt
+  them browser-side. Server-decrypted values are set to nil.
+  """
+  def pre_decrypt_group_metadata(group, user_group, current_user, session_key) do
+    sealed_key = user_group.key
+    browser_decrypt? = not group.public?
+
+    case unseal_group_key(sealed_key, group, current_user, session_key) do
+      {:ok, raw_key} ->
+        %{
+          name:
+            if(browser_decrypt?,
+              do: nil,
+              else: decrypt_field(group.name, raw_key, "Unnamed Circle")
+            ),
+          description:
+            if(browser_decrypt?,
+              do: nil,
+              else: decrypt_field(group.description, raw_key, "")
+            ),
+          moniker:
+            if(browser_decrypt?,
+              do: nil,
+              else: decrypt_field(user_group.moniker, raw_key, "member")
+            ),
+          raw_key: raw_key,
+          sealed_group_key: if(browser_decrypt?, do: sealed_key),
+          encrypted_name: if(browser_decrypt?, do: group.name),
+          encrypted_description: if(browser_decrypt?, do: group.description),
+          encrypted_moniker: if(browser_decrypt?, do: user_group.moniker),
+          browser_decrypt?: browser_decrypt?
+        }
+
+      :error ->
+        %{
+          name: "Unnamed Circle",
+          description: "",
+          moniker: "member",
+          raw_key: nil,
+          sealed_group_key: if(browser_decrypt?, do: sealed_key),
+          encrypted_name: if(browser_decrypt?, do: group.name),
+          encrypted_description: if(browser_decrypt?, do: group.description),
+          encrypted_moniker: if(browser_decrypt?, do: user_group.moniker),
+          browser_decrypt?: browser_decrypt?
+        }
+    end
+  end
+
+  @doc """
   Pre-decrypts the current user's profile fields and attaches them as a
   `:decrypted` map on the user struct.
 
