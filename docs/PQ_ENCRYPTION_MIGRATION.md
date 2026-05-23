@@ -117,6 +117,17 @@
 - `lib/mosslet_web/live/user_connection_live/invite.ex` — 2 `decr()` → `.decrypted[:field]`
 - `lib/mosslet_web/live/journal_live/book.ex` — 2 `decr()` → `.decrypted[:field]`
 
+### Phase 3 Files Changed (DecryptUserFields browser-side ZK)
+
+- `assets/js/hooks/decrypt-user-fields.js` — new: unseals user_key via WASM, decrypts email/username/name/avatar_url/status_message, writes to all `[data-decrypt-field]` DOM targets
+- `assets/js/hooks/index.js` — registers DecryptUserFields hook
+- `lib/mosslet_web/components/layouts/app.html.heex` — renders `#decrypt-user-fields` element with sealed_user_key + encrypted field blobs as data attributes
+- `lib/mosslet_web/live/user_settings/edit_profile_live.ex` — Profile URL display: username extracted to `<span data-decrypt-field="username">`
+- `lib/mosslet_web/live/post_live/form_component.ex` — hidden username inputs wrapped with `<span data-decrypt-field="username">`
+- `lib/mosslet_web/live/post_live/replies/form_component.ex` — hidden username inputs wrapped with `<span data-decrypt-field="username">`
+- `lib/mosslet_web/live/group_live/replies/form_component.ex` — hidden username inputs wrapped with `<span data-decrypt-field="username">`
+- `lib/mosslet_web/live/journal_live/book.ex` — journal cover "A journal by" text: username extracted to `<span data-decrypt-field="username">`
+
 ### Key Implementation Details
 
 **Decrypt fallback pattern** (`Encrypted.Utils.decrypt/1`):
@@ -321,7 +332,7 @@ These can follow the same phased approach: first move the read path (decrypt in 
 4. ~~**Groups**~~ — DONE (read + write); Memories skipped (phasing out)
 5. ~~**RegistrationHook**~~ — DONE (browser-side key generation)
 6. ~~**Recovery key**~~ — DONE (ZK setup + account recovery)
-7. ~~**Profile data**~~ — DONE: `pre_decrypt_user` consolidates user profile field decryption. 41 `decr()` call sites migrated to `.decrypted[:field]` pattern across 19 files. Sealed user_key + encrypted blobs included in decrypted map for future browser-side ZK (DecryptUserField hook). Remaining: `decr_avatar`/`decr_banner` (conn_key fields), `decr_uconn` (connection-shared data), and `decr_item` calls for profile/post context keys.
+7. ~~**Profile data**~~ — DONE: `pre_decrypt_user` consolidates user profile field decryption. 41 `decr()` call sites migrated to `.decrypted[:field]` pattern across 19 files. Sealed user_key + encrypted blobs included in decrypted map. `DecryptUserFields` JS hook unseals user_key in WASM and writes decrypted values to all `[data-decrypt-field]` target elements. All user profile display/form templates now have `data-decrypt-field` targets, so the browser overwrites server-rendered fallback values with ZK-decrypted plaintext. Remaining: `decr_avatar`/`decr_banner` (conn_key fields), `decr_uconn` (connection-shared data), and `decr_item` calls for profile/post context keys.
 8. ~~**Subscription/billing ZK**~~ — DONE
 9. ~~**Data export**~~ — DONE (client-side batch decryption + download)
 10. ~~**Avatar/banner ZK display**~~ — DONE (Phases 1, 2, 2.5, 2.6, 2.7 — browser-side decryption of avatars/banners across all pages)

@@ -985,7 +985,7 @@ defmodule MossletWeb.JournalLive.Book do
             <div class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
             <div class="absolute bottom-0 left-0 right-0 p-5 text-center">
               <p class="text-sm text-white/70 font-light italic drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
-                A journal by {@decrypted_username}
+                A journal by <span data-decrypt-field="username">{@decrypted_username}</span>
               </p>
             </div>
           </div>
@@ -1005,7 +1005,7 @@ defmodule MossletWeb.JournalLive.Book do
                 <.phx_icon name="hero-book-open" class="h-10 w-10 text-white/80" />
               </div>
               <p class="text-sm text-white/70 font-light italic">
-                A journal by {@decrypted_username}
+                A journal by <span data-decrypt-field="username">{@decrypted_username}</span>
               </p>
             </div>
           </div>

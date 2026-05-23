@@ -260,9 +260,7 @@ defmodule MossletWeb.EditProfileLive do
                         id="mosslet-profile-url"
                         class="flex-1 px-4 py-3 text-sm text-slate-700 dark:text-slate-300 bg-transparent"
                       >
-                        {MossletWeb.Endpoint.url() <>
-                          "/app/profile/" <>
-                          (@current_user.decrypted[:username] || "")}
+                        {MossletWeb.Endpoint.url() <> "/app/profile/"}<span data-decrypt-field="username">{@current_user.decrypted[:username] || ""}</span>
                       </span>
                       <button
                         type="button"

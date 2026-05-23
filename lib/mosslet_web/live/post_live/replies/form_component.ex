@@ -48,18 +48,20 @@ defmodule MossletWeb.PostLive.Replies.FormComponent do
         <.field field={@form[:post_id]} type="hidden" value={@post.id} />
         <.field field={@form[:group_id]} type="hidden" value={@post.group_id} />
         <.field field={@form[:visibility]} type="hidden" value={@post.visibility} />
-        <.field
-          :if={@action == :reply}
-          field={@form[:username]}
-          type="hidden"
-          value={@user.decrypted[:username]}
-        />
-        <.field
-          :if={@action == :reply_edit}
-          field={@form[:username]}
-          type="hidden"
-          value={@user.decrypted[:username]}
-        />
+        <span data-decrypt-field="username">
+          <.field
+            :if={@action == :reply}
+            field={@form[:username]}
+            type="hidden"
+            value={@user.decrypted[:username]}
+          />
+          <.field
+            :if={@action == :reply_edit}
+            field={@form[:username]}
+            type="hidden"
+            value={@user.decrypted[:username]}
+          />
+        </span>
 
         <div :if={@action == :reply} id="ignore-trix-editor_reply" phx-update="ignore">
           <trix-editor

@@ -31,24 +31,26 @@ defmodule MossletWeb.PostLive.FormComponent do
         phx-submit="save"
       >
         <.field field={@form[:user_id]} type="hidden" value={@user.id} />
-        <.field
-          :if={@action == :new}
-          field={@form[:username]}
-          type="hidden"
-          value={@user.decrypted[:username]}
-        />
-        <.field
-          :if={@action == :new_group}
-          field={@form[:username]}
-          type="hidden"
-          value={@user.decrypted[:username]}
-        />
-        <.field
-          :if={@action == :edit}
-          field={@form[:username]}
-          type="hidden"
-          value={@user.decrypted[:username]}
-        />
+        <span data-decrypt-field="username">
+          <.field
+            :if={@action == :new}
+            field={@form[:username]}
+            type="hidden"
+            value={@user.decrypted[:username]}
+          />
+          <.field
+            :if={@action == :new_group}
+            field={@form[:username]}
+            type="hidden"
+            value={@user.decrypted[:username]}
+          />
+          <.field
+            :if={@action == :edit}
+            field={@form[:username]}
+            type="hidden"
+            value={@user.decrypted[:username]}
+          />
+        </span>
         <.field
           :if={@action not in [:new_group, :edit]}
           field={@form[:visibility]}
