@@ -2830,6 +2830,11 @@ defmodule MossletWeb.DesignSystem do
     default: nil,
     doc: "ZK mode: map with :encrypted_blob_b64 and :sealed_key for browser-side decryption"
 
+  attr :encrypted_status_data, :map,
+    default: nil,
+    doc:
+      "ZK mode: map with :encrypted_status_message and :sealed_key for browser-side status message decryption"
+
   attr :rest, :global
 
   def liquid_avatar(assigns) do
@@ -2933,6 +2938,7 @@ defmodule MossletWeb.DesignSystem do
           id={"status-card-#{@id}-#{@status}"}
           status={@status}
           message={@status_message}
+          encrypted_status_data={@encrypted_status_data}
           position="right"
           class=""
         />
@@ -5572,6 +5578,7 @@ defmodule MossletWeb.DesignSystem do
 
   attr :user_status, :string, default: nil
   attr :user_status_message, :string, default: nil
+  attr :encrypted_status_data, :map, default: nil, doc: "ZK encrypted status message + sealed key"
   attr :timestamp, :string, required: true
   attr :content, :string, required: true
   attr :images, :list, default: []
@@ -6422,6 +6429,7 @@ defmodule MossletWeb.DesignSystem do
               clickable={true}
               status={@user_status}
               status_message={@user_status_message}
+              encrypted_status_data={@encrypted_status_data}
               show_status={@show_post_author_status}
               user_id={@post.user_id}
               id={"avatar-#{@post.id}"}
@@ -6437,6 +6445,7 @@ defmodule MossletWeb.DesignSystem do
             clickable={true}
             status={@user_status}
             status_message={@user_status_message}
+            encrypted_status_data={@encrypted_status_data}
             show_status={@show_post_author_status}
             user_id={@post.user_id}
             id={"avatar-noprofile-#{@post.id}"}
@@ -8434,6 +8443,10 @@ defmodule MossletWeb.DesignSystem do
   attr :class, :any, default: ""
   attr :id, :string, required: true
 
+  attr :encrypted_status_data, :map,
+    default: nil,
+    doc: "ZK mode: map with :encrypted_status_message and :sealed_key for browser-side decryption"
+
   def liquid_status_message_card(assigns) do
     ~H"""
     <div
@@ -8446,6 +8459,19 @@ defmodule MossletWeb.DesignSystem do
       ]}
       data-status-message="true"
     >
+      <%!-- DecryptStatusMessage hook for browser-side ZK decryption --%>
+      <div
+        :if={@encrypted_status_data}
+        id={"decrypt-status-#{@id}"}
+        phx-hook="DecryptStatusMessage"
+        phx-update="ignore"
+        data-encrypted-status-message={@encrypted_status_data[:encrypted_status_message]}
+        data-sealed-key={@encrypted_status_data[:sealed_key]}
+        data-target-id={@id}
+        class="hidden"
+      >
+      </div>
+
       <%!-- Connecting line --%>
       <div class={[
         "absolute bg-gradient-to-r from-teal-400/60 to-transparent",
@@ -8494,18 +8520,21 @@ defmodule MossletWeb.DesignSystem do
             </span>
           </div>
 
-          <%!-- Custom message --%>
+          <%!-- Custom message (server-rendered or placeholder for ZK decrypt) --%>
           <div
-            :if={@message && String.trim(@message) != ""}
-            class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed"
+            :if={(@message && String.trim(@message) != "") || @encrypted_status_data}
+            class={[
+              "text-sm text-slate-600 dark:text-slate-300 leading-relaxed",
+              if(@encrypted_status_data && !@message, do: "animate-pulse", else: "")
+            ]}
             data-status-message-content="true"
           >
-            {@message}
+            {if @message && String.trim(@message) != "", do: @message, else: "\u00A0"}
           </div>
 
-          <%!-- Default message if no custom message --%>
+          <%!-- Default message if no custom message and no ZK data --%>
           <div
-            :if={!@message || String.trim(@message) == ""}
+            :if={(!@message || String.trim(@message) == "") && !@encrypted_status_data}
             class="text-xs text-slate-500 dark:text-slate-400"
             data-status-message-content="true"
           >
@@ -12036,6 +12065,7 @@ defmodule MossletWeb.DesignSystem do
   attr :show_profile?, :boolean, default: false
   attr :status, :string, default: nil
   attr :status_message, :string, default: nil
+  attr :encrypted_status_data, :map, default: nil, doc: "ZK encrypted status message + sealed key"
   attr :heading_level, :integer, default: 2, values: 1..6
   attr :class, :any, default: ""
 
@@ -12074,6 +12104,7 @@ defmodule MossletWeb.DesignSystem do
                 size="lg"
                 status={@status}
                 status_message={@status_message}
+                encrypted_status_data={@encrypted_status_data}
                 clickable={true}
               />
 
@@ -12337,6 +12368,7 @@ defmodule MossletWeb.DesignSystem do
   attr :arrival_id, :string, required: true
   attr :status, :string, default: nil
   attr :status_message, :string, default: nil
+  attr :encrypted_status_data, :map, default: nil, doc: "ZK encrypted status message + sealed key"
   attr :heading_level, :integer, default: 2, values: 1..6
   attr :class, :any, default: ""
 
@@ -12376,6 +12408,7 @@ defmodule MossletWeb.DesignSystem do
                 clickable={false}
                 status={@status}
                 status_message={@status_message}
+                encrypted_status_data={@encrypted_status_data}
               />
             </div>
 

@@ -22,8 +22,8 @@ defmodule MossletWeb.UserConnectionLive.Index do
 
   import MossletWeb.Helpers.StatusHelpers,
     only: [
-      get_connection_status_message: 3,
-      get_connection_user_status: 3
+      get_connection_user_status: 3,
+      get_encrypted_connection_status_data: 3
     ]
 
   @page_default 1

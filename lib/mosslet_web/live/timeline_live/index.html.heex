@@ -294,8 +294,8 @@
                     get_encrypted_post_author_avatar_data(post, @current_user, @key)
                   }
                   user_status={get_cached_user_status(@user_statuses, post.user_id)}
-                  user_status_message={
-                    get_cached_user_status_message(@user_statuses, post.user_id)
+                  encrypted_status_data={
+                    get_cached_encrypted_status_data(@user_statuses, post.user_id)
                   }
                   show_post_author_status={can_view_cached_status?(@user_statuses, post.user_id)}
                   author_profile_slug={get_post_author_profile_slug(post, @current_user, @key)}
@@ -391,8 +391,8 @@
                       get_encrypted_post_author_avatar_data(post, @current_user, @key)
                     }
                     user_status={get_cached_user_status(@user_statuses, post.user_id)}
-                    user_status_message={
-                      get_cached_user_status_message(@user_statuses, post.user_id)
+                    encrypted_status_data={
+                      get_cached_encrypted_status_data(@user_statuses, post.user_id)
                     }
                     show_post_author_status={
                       can_view_cached_status?(@user_statuses, post.user_id)

@@ -56,16 +56,23 @@ defmodule MossletWeb.Helpers.StatusHelpers do
   - A string status message or fallback message based on user status
   """
   def get_current_user_status_message(user, session_key) do
-    if user.status_message do
-      case Encrypted.Users.Utils.decrypt_user_data(user.status_message, user, session_key) do
-        decrypted_message when is_binary(decrypted_message) and decrypted_message != "" ->
-          decrypted_message
+    # Fast path: use pre-decrypted value from pre_decrypt_user (avoids redundant unseal)
+    case user do
+      %{decrypted: %{status_message: msg}} when is_binary(msg) and msg != "" ->
+        msg
 
-        :failed_verification ->
+      _ ->
+        if user.status_message do
+          case Encrypted.Users.Utils.decrypt_user_data(user.status_message, user, session_key) do
+            decrypted_message when is_binary(decrypted_message) and decrypted_message != "" ->
+              decrypted_message
+
+            :failed_verification ->
+              get_status_fallback_message(user.status)
+          end
+        else
           get_status_fallback_message(user.status)
-      end
-    else
-      get_status_fallback_message(user.status)
+        end
     end
   end
 
@@ -224,6 +231,95 @@ defmodule MossletWeb.Helpers.StatusHelpers do
           _rest ->
             %{status: nil, status_message: nil}
         end
+    end
+  end
+
+  @doc """
+  Builds encrypted status data for browser-side ZK decryption.
+
+  Returns a map with the encrypted status message blob and the sealed key
+  needed to decrypt it, or `nil` if no status message exists or the viewer
+  has no access.
+
+  ## Viewing contexts
+
+  - `:own` — current user viewing their own status. Uses the sealed user_key
+    (already available in the layout's `#decrypt-user-fields` element).
+  - `:connection` — viewing a connected user's status. The encrypted blob is
+    `connection.status_message` (encrypted with conn_key), and the sealed key
+    is the viewer's `user_connection.key`.
+  - `:public` — public profile. Server decrypts with server keypair (no ZK).
+
+  ## Returns
+
+  - `%{encrypted_status_message: binary, sealed_key: binary}` for browser decrypt
+  - `nil` if no status message or no access
+  """
+  def get_encrypted_status_data(target_user, current_user, session_key) do
+    cond do
+      is_nil(current_user) ->
+        nil
+
+      target_user.id == current_user.id ->
+        # Own status: DecryptUserFields already handles this via layout
+        # Return nil so the component uses the server-rendered pre_decrypt value
+        nil
+
+      true ->
+        case Statuses.can_view_user_status?(target_user, current_user, session_key) do
+          {:ok, :full_access} ->
+            build_connection_status_data(target_user, current_user)
+
+          {:error, :private} ->
+            nil
+        end
+    end
+  end
+
+  defp build_connection_status_data(target_user, current_user) do
+    connection = target_user.connection
+
+    if connection && connection.status_message do
+      case Accounts.get_user_connection_between_users(target_user.id, current_user.id) do
+        %{key: sealed_key} when is_binary(sealed_key) ->
+          %{
+            encrypted_status_message: connection.status_message,
+            sealed_key: sealed_key
+          }
+
+        _ ->
+          nil
+      end
+    else
+      nil
+    end
+  end
+
+  @doc """
+  Gets the encrypted status data for a connection card display.
+  Returns the encrypted blob + sealed key for browser-side decryption.
+
+  ## Parameters
+  - `connection` - The user_connection struct (with nested connection)
+  - `current_user` - The viewing user
+  - `session_key` - The session encryption key
+
+  ## Returns
+  - A map with :encrypted_status_message and :sealed_key, or `nil`
+  """
+  def get_encrypted_connection_status_data(connection, current_user, session_key) do
+    case connection.connection do
+      %{user_id: connected_user_id} ->
+        case Accounts.get_user_with_preloads(connected_user_id) do
+          %{} = connected_user ->
+            get_encrypted_status_data(connected_user, current_user, session_key)
+
+          nil ->
+            nil
+        end
+
+      _ ->
+        nil
     end
   end
 

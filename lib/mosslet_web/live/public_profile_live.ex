@@ -127,10 +127,7 @@ defmodule MossletWeb.PublicProfileLive do
                         color="cyan"
                         size="sm"
                       >
-                        @{URLPreviewHelpers.decrypt_public_field(
-                          @profile_user.connection.profile.username,
-                          @profile_user.connection.profile.profile_key
-                        )}
+                        @{get_public_username(@profile_user)}
                       </MossletWeb.DesignSystem.liquid_badge>
 
                       <MossletWeb.DesignSystem.liquid_badge
@@ -327,10 +324,7 @@ defmodule MossletWeb.PublicProfileLive do
               </:title>
               <div class="space-y-3">
                 <p class="text-sm text-slate-600 dark:text-slate-400">
-                  Create an account to connect with @{URLPreviewHelpers.decrypt_public_field(
-                    @profile_user.connection.profile.username,
-                    @profile_user.connection.profile.profile_key
-                  ) || "this user"} and protect your privacy online.
+                  Create an account to connect with @{get_public_username(@profile_user)} and protect your privacy online.
                 </p>
                 <MossletWeb.DesignSystem.liquid_button
                   navigate={~p"/auth/register"}
@@ -457,6 +451,15 @@ defmodule MossletWeb.PublicProfileLive do
       )
     else
       nil
+    end
+  end
+
+  defp get_public_username(profile_user) do
+    profile = profile_user.connection.profile
+
+    case URLPreviewHelpers.decrypt_public_field(profile.username, profile.profile_key) do
+      username when is_binary(username) and username != "" -> username
+      _ -> profile.slug
     end
   end
 

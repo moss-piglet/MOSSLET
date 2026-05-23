@@ -15,6 +15,7 @@ import DecryptBookmarkNote from "./decrypt-bookmark-note";
 import DecryptPost from "./decrypt-post";
 import DecryptProfileFields from "./decrypt-profile-fields";
 import DecryptReply from "./decrypt-reply";
+import DecryptStatusMessage from "./decrypt-status-message";
 import EncryptUpload from "./encrypt-upload";
 import NsfwCheck from "./nsfw-check";
 import DecryptUserFields from "./decrypt-user-fields";
@@ -113,6 +114,7 @@ export default {
   DecryptPost,
   DecryptProfileFields,
   DecryptReply,
+  DecryptStatusMessage,
   DecryptUserFields,
   DeleteReadingEntry,
   EncryptUpload,

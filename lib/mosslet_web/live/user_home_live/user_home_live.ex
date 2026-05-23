@@ -3926,8 +3926,8 @@ defmodule MossletWeb.UserHomeLive do
                       }
                       size="xxl"
                       status={to_string(@profile_user.status)}
-                      status_message={
-                        get_user_status_message(
+                      encrypted_status_data={
+                        get_encrypted_status_data(
                           @profile_user,
                           @current_scope.user,
                           @current_scope.key
@@ -4181,7 +4181,6 @@ defmodule MossletWeb.UserHomeLive do
                       :if={Map.get(post, :show_date_separator, false)}
                       id={"connections-date-sep-#{post.id}"}
                       datetime={post.inserted_at}
-                      first={Map.get(post, :first_separator, false)}
                     />
                     <MossletWeb.DesignSystem.liquid_timeline_post
                       user_name={
@@ -4225,8 +4224,8 @@ defmodule MossletWeb.UserHomeLive do
                           @user_connection
                         )
                       }
-                      user_status_message={
-                        get_profile_post_author_status_message(
+                      encrypted_status_data={
+                        get_profile_post_author_encrypted_status_data(
                           post,
                           @profile_user,
                           @current_scope.user,
@@ -4375,8 +4374,8 @@ defmodule MossletWeb.UserHomeLive do
                           @user_connection
                         )
                       }
-                      user_status_message={
-                        get_profile_post_author_status_message(
+                      encrypted_status_data={
+                        get_profile_post_author_encrypted_status_data(
                           post,
                           @profile_user,
                           @current_scope.user,
@@ -5043,6 +5042,22 @@ defmodule MossletWeb.UserHomeLive do
     case Accounts.get_user_with_preloads(post.user_id) do
       %{} = post_author ->
         get_user_status_message(post_author, current_user, key)
+
+      nil ->
+        nil
+    end
+  end
+
+  defp get_profile_post_author_encrypted_status_data(
+         post,
+         _profile_user,
+         current_user,
+         key,
+         _user_connection
+       ) do
+    case Accounts.get_user_with_preloads(post.user_id) do
+      %{} = post_author ->
+        get_encrypted_status_data(post_author, current_user, key)
 
       nil ->
         nil

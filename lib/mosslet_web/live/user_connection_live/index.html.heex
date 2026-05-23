@@ -307,7 +307,9 @@
                 zen?={connection.zen?}
                 photos?={connection.photos?}
                 status={get_connection_user_status(connection, @current_user, @key)}
-                status_message={get_connection_status_message(connection, @current_user, @key)}
+                encrypted_status_data={
+                  get_encrypted_connection_status_data(connection, @current_user, @key)
+                }
                 show_interactions?={
                   !blocked_by_connection?(connection, @current_user) &&
                     connection.connection.profile
@@ -462,7 +464,9 @@
                 requested_at={arrival.inserted_at}
                 arrival_id={arrival.id}
                 status={get_connection_user_status(arrival, @current_user, @key)}
-                status_message={get_connection_status_message(arrival, @current_user, @key)}
+                encrypted_status_data={
+                  get_encrypted_connection_status_data(arrival, @current_user, @key)
+                }
                 class="transition-all duration-300 min-h-[140px]"
               />
             </div>

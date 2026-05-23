@@ -10,7 +10,8 @@ defmodule MossletWeb.TimelineLive.Index do
   import MossletWeb.Helpers.StatusHelpers,
     only: [
       can_view_status?: 3,
-      get_user_status_info: 3
+      get_user_status_info: 3,
+      get_encrypted_status_data: 3
     ]
 
   alias Phoenix.LiveView.AsyncResult
@@ -489,6 +490,7 @@ defmodule MossletWeb.TimelineLive.Index do
           user_with_connection = Accounts.get_user_with_preloads(user.id)
           can_view = can_view_status?(user_with_connection, current_user, key)
           status_info = get_user_status_info(user_with_connection, current_user, key)
+          encrypted_data = get_encrypted_status_data(user_with_connection, current_user, key)
 
           new_status = status_info.status || "offline"
           new_status_message = status_info.status_message
@@ -497,6 +499,7 @@ defmodule MossletWeb.TimelineLive.Index do
             Map.put(socket.assigns.user_statuses, user.id, %{
               status: new_status,
               status_message: new_status_message,
+              encrypted_status_data: encrypted_data,
               can_view: can_view
             })
 
@@ -524,6 +527,7 @@ defmodule MossletWeb.TimelineLive.Index do
         user_with_connection = Accounts.get_user_with_preloads(user.id)
         can_view = can_view_status?(user_with_connection, current_user, key)
         status_info = get_user_status_info(user_with_connection, current_user, key)
+        encrypted_data = get_encrypted_status_data(user_with_connection, current_user, key)
 
         {new_status, new_status_message} =
           if can_view do
@@ -536,6 +540,7 @@ defmodule MossletWeb.TimelineLive.Index do
           Map.put(socket.assigns.user_statuses, user.id, %{
             status: new_status,
             status_message: new_status_message,
+            encrypted_status_data: if(can_view, do: encrypted_data),
             can_view: can_view
           })
 
@@ -6027,8 +6032,8 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  # Build a map of user_id => %{status: ..., status_message: ..., can_view: ...} for all post authors
-  # This is called once when timeline loads and then updated via PubSub events
+  # Build a map of user_id => %{status: ..., status_message: ..., encrypted_status_data: ..., can_view: ...}
+  # for all post authors. Called once when timeline loads, updated via PubSub events.
   defp build_user_statuses_map(posts, current_user, key) do
     posts
     |> Enum.map(& &1.user_id)
@@ -6038,15 +6043,22 @@ defmodule MossletWeb.TimelineLive.Index do
         %{} = user ->
           can_view = can_view_status?(user, current_user, key)
           status_info = get_user_status_info(user, current_user, key)
+          encrypted_data = get_encrypted_status_data(user, current_user, key)
 
           Map.put(acc, user_id, %{
             status: status_info.status,
             status_message: status_info.status_message,
+            encrypted_status_data: encrypted_data,
             can_view: can_view
           })
 
         nil ->
-          Map.put(acc, user_id, %{status: nil, status_message: nil, can_view: false})
+          Map.put(acc, user_id, %{
+            status: nil,
+            status_message: nil,
+            encrypted_status_data: nil,
+            can_view: false
+          })
       end
     end)
   end
@@ -6059,9 +6071,9 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  defp get_cached_user_status_message(user_statuses, user_id) do
+  defp get_cached_encrypted_status_data(user_statuses, user_id) do
     case Map.get(user_statuses, user_id) do
-      %{status_message: msg} -> msg
+      %{encrypted_status_data: data} -> data
       _ -> nil
     end
   end
@@ -6081,11 +6093,13 @@ defmodule MossletWeb.TimelineLive.Index do
         %{} = user ->
           can_view = can_view_status?(user, current_user, key)
           status_info = get_user_status_info(user, current_user, key)
+          encrypted_data = get_encrypted_status_data(user, current_user, key)
 
           updated_statuses =
             Map.put(socket.assigns.user_statuses, user_id, %{
               status: status_info.status,
               status_message: status_info.status_message,
+              encrypted_status_data: encrypted_data,
               can_view: can_view
             })
 
@@ -6096,6 +6110,7 @@ defmodule MossletWeb.TimelineLive.Index do
             Map.put(socket.assigns.user_statuses, user_id, %{
               status: nil,
               status_message: nil,
+              encrypted_status_data: nil,
               can_view: false
             })
 
