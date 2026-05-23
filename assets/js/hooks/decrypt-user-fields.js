@@ -31,19 +31,23 @@ import { unsealContextKey, decryptWithKey, getPublicKey } from "../crypto/sessio
 const FIELDS = ["email", "username", "name", "avatar_url", "status_message"];
 
 /**
- * User keys are sealed as base64 strings on the server (the NIF seals a
- * 44-char base64-encoded key). The WASM unsealFromUser returns raw plaintext
- * bytes re-encoded as base64, producing a double-encoded result. We decode
- * one layer so decryptWithKey receives the original base64 key string.
+ * Unwrap the user key from its sealed form.
  *
- * Same unwrap as DecryptPost's unwrapPostKey.
+ * Server-sealed keys: the NIF seals the 44-char base64 key string as-is,
+ * so unsealFromUser returns ~60 chars (double-encoded). Detect by length > 44.
+ *
+ * Browser-sealed keys: the WASM decodes base64 before sealing, so
+ * unsealFromUser returns exactly 44 chars. Already the correct format.
  */
 function unwrapUserKey(unsealedB64) {
-  try {
-    return atob(unsealedB64);
-  } catch {
-    return unsealedB64;
+  if (unsealedB64.length > 44) {
+    try {
+      return atob(unsealedB64);
+    } catch {
+      return unsealedB64;
+    }
   }
+  return unsealedB64;
 }
 
 function dataAttrName(field) {

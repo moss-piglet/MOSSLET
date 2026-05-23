@@ -130,10 +130,32 @@ defmodule Mosslet.Encrypted.Utils do
            private_key,
            unseal_opts
          ) do
-      {:ok, plaintext} -> {:ok, plaintext}
+      {:ok, plaintext} -> {:ok, normalize_unsealed_key(plaintext)}
       {:error, _reason} -> {:error, :failed_verification}
     end
   end
+
+  # The WASM sealForUser decodes its base64 input to raw bytes before sealing,
+  # while the NIF seal_for_user seals the UTF-8 string as-is.
+  #
+  # After unseal, server-sealed keys return the original base64 string (44 chars),
+  # while browser-sealed keys return raw 32 bytes.
+  #
+  # Normalize to always return a base64 string so callers (encrypt, decrypt)
+  # receive a consistent format.
+  defp normalize_unsealed_key(plaintext) when byte_size(plaintext) == 32 do
+    case Base.decode64(plaintext) do
+      {:ok, _} ->
+        # Already valid base64 (e.g. a 32-char base64 string that happens to decode)
+        plaintext
+
+      :error ->
+        # Raw 32 bytes from WASM-sealed key — encode to base64
+        Base.encode64(plaintext)
+    end
+  end
+
+  defp normalize_unsealed_key(plaintext), do: plaintext
 
   @spec encrypt_message_for_user_with_pk(
           binary,

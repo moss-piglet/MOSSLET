@@ -2,11 +2,14 @@ import { unsealContextKey, decryptWithKey, getPublicKey, unwrapConnKey } from ".
 import { decryptSecretbox } from "../crypto/session";
 
 function unwrapGroupKey(unsealedB64) {
-  try {
-    return atob(unsealedB64);
-  } catch {
-    return unsealedB64;
+  if (unsealedB64.length > 44) {
+    try {
+      return atob(unsealedB64);
+    } catch {
+      return unsealedB64;
+    }
   }
+  return unsealedB64;
 }
 
 let _cachedGroupKeyForMentions = null;

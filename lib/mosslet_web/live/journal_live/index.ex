@@ -6,7 +6,6 @@ defmodule MossletWeb.JournalLive.Index do
 
   alias Mosslet.Accounts
   alias Mosslet.Journal
-  alias Mosslet.Journal.AI, as: JournalAI
   alias Mosslet.Journal.JournalBook
   alias MossletWeb.DesignSystem
   alias MossletWeb.Helpers.JournalHelpers
@@ -115,6 +114,10 @@ defmodule MossletWeb.JournalLive.Index do
 
         <div
           :if={@entry_count >= 3 && @current_scope.user.mood_insights_enabled}
+          id="zk-mood-insights"
+          phx-hook="ZkMoodInsights"
+          phx-update="ignore"
+          data-sealed-user-key={@current_scope.user.user_key}
           class="mb-8 p-4 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 rounded-xl border border-violet-100 dark:border-violet-800"
         >
           <div class="flex items-start justify-between gap-3">
@@ -1105,6 +1108,7 @@ defmodule MossletWeb.JournalLive.Index do
       |> assign(:cached_insight, nil)
       |> assign(:can_refresh, true)
       |> assign(:hours_until_refresh, 0)
+      |> assign(:pending_insight_entries, nil)
       |> assign(:show_book_modal, false)
       |> assign(:book_form, nil)
       |> assign(:editing_book, nil)
@@ -1152,7 +1156,7 @@ defmodule MossletWeb.JournalLive.Index do
 
     if connected?(socket) && entry_count >= 3 && user.mood_insights_enabled do
       send(self(), :load_cached_insight)
-      {:ok, assign(socket, :loading_insights, true)}
+      {:ok, assign(socket, loading_insights: true)}
     else
       {:ok, socket}
     end
@@ -1215,11 +1219,52 @@ defmodule MossletWeb.JournalLive.Index do
   end
 
   @impl true
+  def handle_event("zk_insights:ready", _params, socket) do
+    # Browser hook is ready — if we have pending entries, push them
+    case socket.assigns[:pending_insight_entries] do
+      entries when is_list(entries) and entries != [] ->
+        {:noreply,
+         socket
+         |> assign(:pending_insight_entries, nil)
+         |> push_event("zk_insights:generate", %{entries: entries})}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("zk_insights:result", %{"insight" => insight_text}, socket) do
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    # Cache the browser-generated insight (encrypted server-side for persistence)
+    case Journal.upsert_insight(user, insight_text, key) do
+      {:ok, cached_insight} ->
+        {:noreply,
+         socket
+         |> assign(:mood_insight, insight_text)
+         |> assign(:cached_insight, cached_insight)
+         |> assign(:can_refresh, false)
+         |> assign(:hours_until_refresh, 24)
+         |> assign(:loading_insights, false)
+         |> assign(:pending_insight_entries, nil)}
+
+      {:error, _} ->
+        {:noreply,
+         socket
+         |> assign(:mood_insight, insight_text)
+         |> assign(:loading_insights, false)
+         |> assign(:pending_insight_entries, nil)}
+    end
+  end
+
+  @impl true
   def handle_event("refresh_insights", _params, socket) do
     cached_insight = socket.assigns.cached_insight
 
     if Journal.can_manually_refresh_insight?(cached_insight) do
-      send(self(), :generate_new_insight)
+      send(self(), :push_entries_for_zk_insight)
       {:noreply, assign(socket, :loading_insights, true)}
     else
       hours = Journal.hours_until_manual_refresh(cached_insight)
@@ -1922,12 +1967,12 @@ defmodule MossletWeb.JournalLive.Index do
 
     case Journal.get_insight(user) do
       nil ->
-        send(self(), :generate_new_insight)
+        send(self(), :push_entries_for_zk_insight)
         {:noreply, socket}
 
       cached_insight ->
         if Journal.insight_needs_auto_refresh?(cached_insight) do
-          send(self(), :generate_new_insight)
+          send(self(), :push_entries_for_zk_insight)
           {:noreply, assign(socket, :cached_insight, cached_insight)}
         else
           decrypted = Journal.decrypt_insight(cached_insight, user, key)
@@ -1946,37 +1991,27 @@ defmodule MossletWeb.JournalLive.Index do
   end
 
   @impl true
-  def handle_info(:generate_new_insight, socket) do
+  def handle_info(:push_entries_for_zk_insight, socket) do
     user = socket.assigns.current_scope.user
-    key = socket.assigns.current_scope.key
 
-    recent_entries =
+    # Send encrypted entry metadata to the browser for ZK insight generation.
+    # The browser decrypts moods client-side; date and word_count are plaintext.
+    # entry.mood is already a base64-encoded NaCl ciphertext string (Cloak-unwrapped).
+    entries =
       user
       |> Journal.list_journal_entries(limit: 14)
-      |> Enum.map(&Journal.decrypt_entry(&1, user, key))
+      |> Enum.map(fn entry ->
+        %{
+          encrypted_mood: entry.mood,
+          entry_date: Date.to_iso8601(entry.entry_date),
+          word_count: entry.word_count || 0
+        }
+      end)
 
-    insight_text =
-      case JournalAI.generate_mood_insights(recent_entries) do
-        {:ok, text} -> text
-        {:error, _} -> "Keep journaling! More entries help me understand your patterns better."
-      end
-
-    case Journal.upsert_insight(user, insight_text, key) do
-      {:ok, cached_insight} ->
-        {:noreply,
-         socket
-         |> assign(:mood_insight, insight_text)
-         |> assign(:cached_insight, cached_insight)
-         |> assign(:can_refresh, false)
-         |> assign(:hours_until_refresh, 24)
-         |> assign(:loading_insights, false)}
-
-      {:error, _} ->
-        {:noreply,
-         socket
-         |> assign(:mood_insight, insight_text)
-         |> assign(:loading_insights, false)}
-    end
+    {:noreply,
+     socket
+     |> assign(:pending_insight_entries, entries)
+     |> push_event("zk_insights:generate", %{entries: entries})}
   end
 
   @impl true

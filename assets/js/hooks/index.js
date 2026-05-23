@@ -82,6 +82,7 @@ import FileDownloadHook from "./file-download-hook";
 import ConversationTouchReveal from "./conversation-touch-reveal";
 import StartConversation from "./start-conversation";
 import ZkExportHook from "./zk-export-hook";
+import ZkMoodInsights from "./zk-mood-insights";
 
 export default {
   AccountRecoveryHook,
@@ -170,4 +171,5 @@ export default {
   FileDownloadHook,
   StartConversation,
   ZkExportHook,
+  ZkMoodInsights,
 };

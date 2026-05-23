@@ -20,11 +20,14 @@ import { encryptSecretboxString } from "../crypto/nacl";
 import { renderMarkdown } from "../utils/render-markdown";
 
 function unwrapPostKey(unsealedB64) {
-  try {
-    return atob(unsealedB64);
-  } catch {
-    return unsealedB64;
+  if (unsealedB64.length > 44) {
+    try {
+      return atob(unsealedB64);
+    } catch {
+      return unsealedB64;
+    }
   }
+  return unsealedB64;
 }
 
 async function decryptList(jsonStr, postKey) {

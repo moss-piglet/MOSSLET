@@ -6,10 +6,13 @@ let _cachedUserKey = null;
 /**
  * Unseal the user_key from its sealed form and unwrap the double-base64 encoding.
  *
- * Server-registered users had their user_key (a 32-byte symmetric key) stored as
- * a 44-char base64 string, then sealed via box_seal. The WASM unsealFromUser
- * returns those ASCII bytes re-encoded as base64, so we atob() once to recover
- * the original base64 key string that decryptWithKey expects.
+ * Server-sealed user_keys: the NIF seals the 44-char base64 key string as-is.
+ * unsealFromUser returns those 44 ASCII bytes re-encoded as base64 (~60 chars).
+ * We detect this by length > 44 and atob() once to recover the original key.
+ *
+ * Browser-sealed user_keys: the WASM decodes the base64 input before sealing.
+ * unsealFromUser returns the 32 raw bytes as base64 (exactly 44 chars).
+ * This is already the correct key format — no unwrapping needed.
  */
 async function getUserKey(sealedUserKey) {
   if (_cachedUserKey) return _cachedUserKey;
@@ -18,9 +21,13 @@ async function getUserKey(sealedUserKey) {
   if (!raw) return null;
 
   let unwrapped;
-  try {
-    unwrapped = atob(raw);
-  } catch {
+  if (raw.length > 44) {
+    try {
+      unwrapped = atob(raw);
+    } catch {
+      unwrapped = raw;
+    }
+  } else {
     unwrapped = raw;
   }
 

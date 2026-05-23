@@ -2848,6 +2848,15 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
+  def handle_event("client_moderation_blocked", %{"reason" => reason}, socket) do
+    {:noreply,
+     put_flash(
+       socket,
+       :warning,
+       "This post wasn't shared because it may violate community guidelines: '#{reason}' You can edit it or change visibility to not be public."
+     )}
+  end
+
   def handle_event("save_post", %{"post" => post_params}, socket) do
     if connected?(socket) do
       current_user = socket.assigns.current_user

@@ -21,11 +21,14 @@ import { jsPDF } from "../../vendor/jspdf.umd.min.js";
  * then WASM unseal returns it re-encoded). Decode one layer.
  */
 function unwrapUserKey(unsealedB64) {
-  try {
-    return atob(unsealedB64);
-  } catch {
-    return unsealedB64;
+  if (unsealedB64.length > 44) {
+    try {
+      return atob(unsealedB64);
+    } catch {
+      return unsealedB64;
+    }
   }
+  return unsealedB64;
 }
 
 function todayIso() {

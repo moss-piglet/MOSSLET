@@ -88,32 +88,6 @@ defmodule Mosslet.Journal.AI do
     end
   end
 
-  def check_content_appropriateness(content) do
-    system_prompt = """
-    You are a content moderation assistant. Analyze the following text that someone wants to share publicly.
-
-    Provide brief, helpful feedback on:
-    1. Whether it seems appropriate for public sharing
-    2. Any potentially sensitive information (personal details, locations, etc.)
-    3. Tone and how it might be perceived by others
-
-    Be supportive and non-judgmental. The goal is to help, not criticize.
-    Keep your response concise (2-4 sentences max).
-    """
-
-    case ReqLLM.generate_text(
-           Config.text_model(),
-           content,
-           Config.text_opts(system_prompt: system_prompt)
-         ) do
-      {:ok, response} ->
-        {:ok, ReqLLM.Response.text(response)}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
   @doc """
   Moderates content for public posts. Returns {:ok, :approved} if content is appropriate,
   or {:error, reason} if content violates community guidelines.

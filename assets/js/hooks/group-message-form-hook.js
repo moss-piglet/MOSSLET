@@ -23,11 +23,14 @@ const MENTION_TOKEN_RE = /@\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0
  * Group keys follow the same double-encoding pattern as post keys.
  */
 function unwrapGroupKey(unsealedB64) {
-  try {
-    return atob(unsealedB64);
-  } catch {
-    return unsealedB64;
+  if (unsealedB64.length > 44) {
+    try {
+      return atob(unsealedB64);
+    } catch {
+      return unsealedB64;
+    }
   }
+  return unsealedB64;
 }
 
 function extractMentionIds(text) {

@@ -39,17 +39,25 @@ import { encryptSecretboxString } from "../crypto/nacl";
 import { renderMarkdown } from "../utils/render-markdown";
 
 /**
- * Post keys are sealed as base64 strings on the server (the NIF seals a
- * 44-char base64-encoded key). The WASM unsealFromUser returns raw plaintext
- * bytes re-encoded as base64, producing a double-encoded result. We decode
- * one layer so decryptWithKey receives the original base64 key string.
+ * Unwrap the post key from its sealed form.
+ *
+ * Server-sealed keys: the NIF seals the 44-char base64 key string as-is.
+ * unsealFromUser returns those 44 ASCII bytes re-encoded as base64 (~60 chars,
+ * double-encoded). We detect this by length > 44 and atob() once.
+ *
+ * Browser-sealed keys: the WASM sealForUser decodes the base64 input to raw
+ * bytes before sealing. unsealFromUser returns those 32 raw bytes as base64
+ * (exactly 44 chars). This is already the correct key format for decryptWithKey.
  */
 function unwrapPostKey(unsealedB64) {
-  try {
-    return atob(unsealedB64);
-  } catch {
-    return unsealedB64;
+  if (unsealedB64.length > 44) {
+    try {
+      return atob(unsealedB64);
+    } catch {
+      return unsealedB64;
+    }
   }
+  return unsealedB64;
 }
 
 function escapeHtml(str) {

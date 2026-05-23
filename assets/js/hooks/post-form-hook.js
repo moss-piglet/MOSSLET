@@ -29,11 +29,16 @@ import {
   b64Decode,
 } from "../crypto/nacl";
 import { getPublicKey, getPqPublicKey } from "../crypto/session";
+import { moderateText, preloadTextModeration } from "../ai/text-moderation";
 
 const PostFormHook = {
   mounted() {
     this._fallback = false;
     this._postKey = null;
+    this._moderationBypassed = false;
+
+    // Pre-warm the toxic-bert model for public post moderation
+    preloadTextModeration();
 
     this.handleEvent("encrypt_post_image", (payload) => {
       this._encryptImage(payload);
@@ -48,6 +53,7 @@ const PostFormHook = {
 
   destroyed() {
     this._postKey = null;
+    this._moderationBypassed = false;
   },
 
   async _getOrCreatePostKey() {
@@ -81,6 +87,27 @@ const PostFormHook = {
     }
 
     const visibility = this.el.dataset.visibility;
+
+    // For public posts: run client-side text moderation before submitting
+    if (visibility === "public" && !this._moderationBypassed) {
+      const bodyEl = this.el.querySelector('textarea[name="post[body]"]');
+      const body = bodyEl?.value?.trim();
+
+      if (body) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        this._moderateAndSubmit(body).catch(() => {
+          // Moderation check failed — fall open, let server handle it
+          this._moderationBypassed = true;
+          this.el.dispatchEvent(
+            new Event("submit", { bubbles: true, cancelable: true }),
+          );
+        });
+        return;
+      }
+    }
+
     if (!visibility || visibility === "public") return;
     if (!getPublicKey()) return;
 
@@ -96,6 +123,25 @@ const PostFormHook = {
       this._fallback = true;
       this.el.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     });
+  },
+
+  async _moderateAndSubmit(body) {
+    const result = await moderateText(body);
+
+    if (!result.approved) {
+      // Client blocked it — push an event to show the warning flash
+      this.pushEvent("client_moderation_blocked", {
+        reason: result.reason || "Content may violate community guidelines",
+      });
+      return;
+    }
+
+    // Client approved — let the normal form submit proceed
+    // (server-side LLM provides additional backup moderation)
+    this._moderationBypassed = true;
+    this.el.dispatchEvent(
+      new Event("submit", { bubbles: true, cancelable: true }),
+    );
   },
 
   async _encryptAndSubmit(body) {
