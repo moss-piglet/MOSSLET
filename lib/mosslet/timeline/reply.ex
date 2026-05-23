@@ -25,7 +25,13 @@ defmodule Mosslet.Timeline.Reply do
       redact: true
 
     field :image_urls_updated_at, :naive_datetime
-    field :favs_list, {:array, :binary_id}, default: []
+
+    field :favs_list, Encrypted.StringList,
+      default: [],
+      skip_default_validation: true,
+      redact: true
+
+    field :favs_list_hash, Encrypted.HMAC, redact: true
     field :favs_count, :integer, default: 0
     field :thread_depth, :integer, default: 0
     field :read_at, :utc_datetime
@@ -82,13 +88,57 @@ defmodule Mosslet.Timeline.Reply do
     |> encrypt_attrs(opts)
   end
 
-  def favs_changeset(reply, attrs, _opts \\ []) do
+  @doc """
+  Server-side path: encrypts each user_id in favs_list with the parent
+  post's post_key. Mirrors `Post.favs_changeset/3`.
+  """
+  def favs_changeset(reply, attrs, opts \\ []) do
     reply
-    |> cast(attrs, [
-      :favs_count,
-      :favs_list
-    ])
+    |> cast(attrs, [:favs_count, :favs_list])
     |> validate_required([:favs_count, :favs_list])
+    |> encrypt_favs_list_with_post_key(opts)
+  end
+
+  @doc """
+  ZK path: accepts pre-encrypted favs_list directly from the browser.
+  The server never decrypts — it stores the ciphertext as-is.
+  Mirrors `Post.favs_changeset_zk/2`.
+  """
+  def favs_changeset_zk(reply, attrs) do
+    reply
+    |> cast(attrs, [:favs_count, :favs_list])
+    |> validate_required([:favs_count, :favs_list])
+  end
+
+  # Encrypt each user_id in favs_list with the parent post's post_key,
+  # same pattern as Post.encrypt_favs_list/3.
+  defp encrypt_favs_list_with_post_key(changeset, opts) do
+    if changeset.valid? && opts[:user] && opts[:key] do
+      favs_list = get_field(changeset, :favs_list)
+
+      if favs_list && favs_list != [] do
+        post_key = decrypt_post_key(opts)
+
+        if is_nil(post_key) do
+          add_error(changeset, :favs_list, "unable to decrypt post key for encryption")
+        else
+          encrypted_favs =
+            Enum.map(favs_list, fn user_id ->
+              Utils.encrypt(%{key: post_key, payload: user_id})
+            end)
+
+          favs_hash = Enum.join(favs_list, ",") |> String.downcase()
+
+          changeset
+          |> put_change(:favs_list, encrypted_favs)
+          |> put_change(:favs_list_hash, favs_hash)
+        end
+      else
+        changeset
+      end
+    else
+      changeset
+    end
   end
 
   def read_changeset(reply, attrs \\ %{}) do

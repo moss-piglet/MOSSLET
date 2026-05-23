@@ -893,7 +893,17 @@ defmodule MossletWeb.TimelineLive.Index do
     passes_content_filters = post_passes_content_filters?(post, content_filters)
 
     if should_show_post and passes_content_filters do
-      is_liked = current_user && current_user.id in reply.favs_list
+      # For non-public posts, favs_list is encrypted — only push count.
+      # The browser already knows its own liked state from the ZK toggle.
+      # For public posts, the server can determine membership.
+      is_liked =
+        if post.visibility == :public do
+          key = socket.assigns.current_scope.key
+          decrypted_favs = decrypt_reply_favs_list(reply, post, current_user, key)
+          current_user.id in decrypted_favs
+        else
+          nil
+        end
 
       {:noreply,
        push_event(socket, "update_reply_fav_count", %{
@@ -3531,79 +3541,153 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  def handle_event("fav_reply", %{"id" => id}, socket) do
+  # ZK path: browser encrypts/decrypts the favs_list using cached post_key.
+  # Mirrors the toggle_fav_zk pattern for posts.
+  def handle_event(
+        "toggle_reply_fav_zk",
+        %{"id" => id, "encrypted_favs_list" => encrypted_list, "is_liked" => is_liked},
+        socket
+      ) do
     reply = Timeline.get_reply!(id)
     current_user = socket.assigns.current_user
 
-    if current_user.id not in reply.favs_list do
-      case Timeline.inc_reply_favs(reply) do
-        {:ok, reply} ->
+    if reply do
+      is_liked_bool = is_liked == "true"
+
+      updated_reply =
+        if is_liked_bool do
+          {:ok, r} = Timeline.inc_reply_favs(reply)
+          r
+        else
+          {:ok, r} = Timeline.decr_reply_favs(reply)
+          r
+        end
+
+      encrypted_favs =
+        if encrypted_list && encrypted_list != "" do
+          Jason.decode!(encrypted_list)
+        else
+          []
+        end
+
+      Timeline.update_reply_fav_zk(
+        reply,
+        %{favs_list: encrypted_favs, favs_count: updated_reply.favs_count},
+        current_user
+      )
+
+      Accounts.track_user_activity(current_user, :interaction)
+
+      {:noreply,
+       socket
+       |> push_event("update_reply_fav_count", %{
+         reply_id: updated_reply.id,
+         favs_count: updated_reply.favs_count,
+         is_liked: is_liked_bool
+       })}
+    else
+      {:noreply, put_flash(socket, :error, "Reply not found.")}
+    end
+  end
+
+  # Server path: for public posts where the server has the post_key.
+  def handle_event("fav_reply", %{"id" => id}, socket) do
+    reply = Timeline.get_reply!(id)
+    current_user = socket.assigns.current_user
+    key = socket.assigns.current_scope.key
+
+    post = Timeline.get_post!(reply.post_id)
+    post_key = get_post_key(post)
+
+    case Timeline.inc_reply_favs(reply) do
+      {:ok, reply} ->
+        decrypted_favs = decrypt_reply_favs_list(reply, post, current_user, key)
+
+        if current_user.id not in decrypted_favs do
+          new_favs = [current_user.id | decrypted_favs]
+
           case Timeline.update_reply_fav(
                  reply,
-                 %{favs_list: List.insert_at(reply.favs_list, 0, current_user.id)},
-                 user: current_user
+                 %{favs_list: new_favs, favs_count: reply.favs_count},
+                 user: current_user,
+                 key: key,
+                 post_key: post_key,
+                 visibility: post.visibility,
+                 group_id: post.group_id
                ) do
             {:ok, updated_reply} ->
               Accounts.track_user_activity(current_user, :interaction)
 
-              socket =
-                socket
-                |> push_event("update_reply_fav_count", %{
-                  reply_id: updated_reply.id,
-                  favs_count: updated_reply.favs_count,
-                  is_liked: true
-                })
-                |> put_flash(:success, "You loved this reply!")
-
-              {:noreply, socket}
+              {:noreply,
+               socket
+               |> push_event("update_reply_fav_count", %{
+                 reply_id: updated_reply.id,
+                 favs_count: updated_reply.favs_count,
+                 is_liked: true
+               })
+               |> put_flash(:success, "You loved this reply!")}
 
             {:error, _changeset} ->
               {:noreply, put_flash(socket, :error, "Operation failed. Please try again.")}
           end
+        else
+          # Already liked — decrement back
+          Timeline.decr_reply_favs(reply)
+          {:noreply, socket}
+        end
 
-        {:error, _error} ->
-          {:noreply, put_flash(socket, :error, "Reply not found. Please try again.")}
-      end
-    else
-      {:noreply, socket}
+      {:error, _error} ->
+        {:noreply, put_flash(socket, :error, "Reply not found. Please try again.")}
     end
   end
 
   def handle_event("unfav_reply", %{"id" => id}, socket) do
     reply = Timeline.get_reply!(id)
     current_user = socket.assigns.current_user
+    key = socket.assigns.current_scope.key
 
-    if current_user.id in reply.favs_list do
-      case Timeline.decr_reply_favs(reply) do
-        {:ok, reply} ->
+    post = Timeline.get_post!(reply.post_id)
+    post_key = get_post_key(post)
+
+    case Timeline.decr_reply_favs(reply) do
+      {:ok, reply} ->
+        decrypted_favs = decrypt_reply_favs_list(reply, post, current_user, key)
+
+        if current_user.id in decrypted_favs do
+          new_favs = List.delete(decrypted_favs, current_user.id)
+
           case Timeline.update_reply_fav(
                  reply,
-                 %{favs_list: List.delete(reply.favs_list, current_user.id)},
-                 user: current_user
+                 %{favs_list: new_favs, favs_count: reply.favs_count},
+                 user: current_user,
+                 key: key,
+                 post_key: post_key,
+                 visibility: post.visibility,
+                 group_id: post.group_id
                ) do
             {:ok, updated_reply} ->
               Accounts.track_user_activity(current_user, :interaction)
 
-              socket =
-                socket
-                |> push_event("update_reply_fav_count", %{
-                  reply_id: updated_reply.id,
-                  favs_count: updated_reply.favs_count,
-                  is_liked: false
-                })
-                |> put_flash(:success, "You removed love from this reply.")
-
-              {:noreply, socket}
+              {:noreply,
+               socket
+               |> push_event("update_reply_fav_count", %{
+                 reply_id: updated_reply.id,
+                 favs_count: updated_reply.favs_count,
+                 is_liked: false
+               })
+               |> put_flash(:success, "You removed love from this reply.")}
 
             {:error, _changeset} ->
               {:noreply, put_flash(socket, :error, "Failed to remove love. Please try again.")}
           end
+        else
+          # Wasn't liked — increment back
+          Timeline.inc_reply_favs(reply)
+          {:noreply, socket}
+        end
 
-        {:error, _error} ->
-          {:noreply, put_flash(socket, :error, "Reply not found. Please try again.")}
-      end
-    else
-      {:noreply, socket}
+      {:error, _error} ->
+        {:noreply, put_flash(socket, :error, "Reply not found. Please try again.")}
     end
   end
 

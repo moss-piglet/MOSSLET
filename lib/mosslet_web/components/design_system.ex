@@ -9698,6 +9698,9 @@ defmodule MossletWeb.DesignSystem do
                 data-sealed-post-key={@sealed_post_key}
                 data-encrypted-body={@reply.body}
                 data-encrypted-username={@reply.username}
+                data-reply-id={@reply.id}
+                data-current-user-id={@current_scope.user.id}
+                data-encrypted-favs-list={Jason.encode!(@reply.favs_list || [])}
                 class="prose prose-slate dark:prose-invert prose-sm max-w-none"
               >
                 <div data-decrypt-reply-body>
@@ -9719,36 +9722,46 @@ defmodule MossletWeb.DesignSystem do
                 <.liquid_timeline_action
                   :if={can_interact_with_reply?(@reply, @current_scope.user)}
                   id={
-                    if @current_scope.user.id in @reply.favs_list,
+                    if !@browser_decrypt && @current_scope.user.id in (@reply.favs_list || []),
                       do: "hero-heart-solid-reply-button-#{@reply.id}",
                       else: "hero-heart-reply-button-#{@reply.id}"
                   }
                   icon_id={
-                    if @current_scope.user.id in @reply.favs_list,
+                    if !@browser_decrypt && @current_scope.user.id in (@reply.favs_list || []),
                       do: "hero-heart-solid-reply-icon-#{@reply.id}",
                       else: "hero-heart-reply-icon-#{@reply.id}"
                   }
                   icon={
-                    if @current_scope.user.id in @reply.favs_list,
+                    if !@browser_decrypt && @current_scope.user.id in (@reply.favs_list || []),
                       do: "hero-heart-solid",
                       else: "hero-heart"
                   }
                   soft_text={
-                    soft_like_text(@reply.favs_count, @current_scope.user.id in @reply.favs_list)
+                    if @browser_decrypt,
+                      do: soft_like_text(@reply.favs_count, false),
+                      else:
+                        soft_like_text(
+                          @reply.favs_count,
+                          @current_scope.user.id in (@reply.favs_list || [])
+                        )
                   }
-                  label={if @current_scope.user.id in @reply.favs_list, do: "Unlike", else: "Love"}
+                  label={
+                    if !@browser_decrypt && @current_scope.user.id in (@reply.favs_list || []),
+                      do: "Unlike",
+                      else: "Love"
+                  }
                   color="rose"
-                  active={@current_scope.user.id in @reply.favs_list}
+                  active={!@browser_decrypt && @current_scope.user.id in (@reply.favs_list || [])}
                   reply_id={@reply.id}
                   phx-click={
-                    if @current_scope.user.id in @reply.favs_list,
+                    if !@browser_decrypt && @current_scope.user.id in (@reply.favs_list || []),
                       do: "unfav_reply",
                       else: "fav_reply"
                   }
                   phx-value-id={@reply.id}
                   phx-hook="TippyHook"
                   data-tippy-content={
-                    if @current_scope.user.id in @reply.favs_list,
+                    if !@browser_decrypt && @current_scope.user.id in (@reply.favs_list || []),
                       do: "Remove love",
                       else: "Show love"
                   }

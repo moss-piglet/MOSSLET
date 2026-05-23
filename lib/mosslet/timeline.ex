@@ -2470,6 +2470,31 @@ defmodule Mosslet.Timeline do
     end
   end
 
+  @doc """
+  ZK path: stores pre-encrypted favs_list directly from browser.
+  The server never decrypts — mirrors `update_post_fav_zk/2`.
+  """
+  def update_reply_fav_zk(%Reply{} = reply, attrs, user) do
+    case Repo.transaction_on_primary(fn ->
+           Reply.favs_changeset_zk(reply, attrs)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, reply}} ->
+        conn = Accounts.get_connection_from_item(reply, user)
+
+        {:ok, conn, reply |> Repo.preload([:post, :user])}
+        |> broadcast_reply(:reply_updated_fav)
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      rest ->
+        Logger.warning("Error updating reply fav (ZK)")
+        Logger.debug("Error updating reply fav (ZK): #{inspect(rest)}")
+        {:error, "error"}
+    end
+  end
+
   def update_post_repost(%Post{} = post, attrs, opts \\ []) do
     user = Accounts.get_user!(opts[:user].id)
 
