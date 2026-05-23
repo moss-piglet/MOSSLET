@@ -11,7 +11,18 @@ const EntryColumnFlow = {
     this.el.dataset.mounted = "true";
     this.lastWidth = window.innerWidth;
     this.pagesCreated = false;
+    this._retryCount = 0;
+    this._maxRetries = 10;
     this.measureAndCreatePages();
+
+    this._retryBodyInterval = setInterval(() => {
+      if (this.pagesCreated || this._retryCount >= this._maxRetries) {
+        clearInterval(this._retryBodyInterval);
+        return;
+      }
+      this._retryCount++;
+      this.measureAndCreatePages();
+    }, 500);
 
     this.resizeObserver = new ResizeObserver(() => {
       if (Math.abs(window.innerWidth - this.lastWidth) > 50) {
@@ -38,6 +49,9 @@ const EntryColumnFlow = {
   updated() {},
 
   destroyed() {
+    if (this._retryBodyInterval) {
+      clearInterval(this._retryBodyInterval);
+    }
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
     }

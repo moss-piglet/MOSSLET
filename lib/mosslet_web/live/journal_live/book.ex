@@ -9,6 +9,7 @@ defmodule MossletWeb.JournalLive.Book do
   alias Mosslet.Journal.JournalBook
   alias MossletWeb.DesignSystem
   alias MossletWeb.Helpers.JournalHelpers
+  import MossletWeb.Helpers, only: [pre_decrypt_journal_entries: 2]
 
   @default_mobile_chars_per_page 1200
   @default_desktop_chars_per_page 1800
@@ -258,28 +259,42 @@ defmodule MossletWeb.JournalLive.Book do
               )
             }
           >
+            <div
+              :if={entry.decrypted}
+              id={"decrypt-book-entry-hook-#{entry.id}"}
+              phx-hook="DecryptJournalEntry"
+              phx-update="ignore"
+              data-entry-id={entry.id}
+              data-sealed-user-key={entry.decrypted[:sealed_user_key]}
+              data-encrypted-title={entry.decrypted[:encrypted_title]}
+              data-encrypted-body={entry.decrypted[:encrypted_body]}
+              data-encrypted-mood={entry.decrypted[:encrypted_mood]}
+              class="hidden"
+            />
             <div class="flex items-start justify-between gap-4">
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1">
-                  <h2 class="text-base font-medium text-slate-900 dark:text-slate-100 truncate">
-                    {entry.decrypted_title || "Untitled"}
+                  <h2
+                    data-decrypt-journal-title={entry.id}
+                    class="text-base font-medium text-slate-900 dark:text-slate-100 truncate"
+                  >
                   </h2>
                   <span :if={entry.is_favorite} class="text-amber-500" title="Favorite">
                     ★
                   </span>
                 </div>
-                <p class="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
-                  {truncate_body(entry.decrypted_body)}
+                <p
+                  data-decrypt-journal-body-preview={entry.id}
+                  class="text-sm text-slate-600 dark:text-slate-400 line-clamp-2"
+                >
                 </p>
               </div>
               <div class="flex flex-col items-end gap-1 flex-shrink-0">
                 <div class="flex items-center gap-2">
                   <span
-                    :if={entry.mood}
-                    class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1"
+                    data-decrypt-journal-mood-badge={entry.id}
+                    class="hidden text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1"
                   >
-                    <span class="lowercase">{DesignSystem.mood_label(entry.mood)}</span>
-                    <span class="text-sm">{DesignSystem.mood_emoji(entry.mood)}</span>
                   </span>
                   <time class="text-xs text-slate-500 dark:text-slate-400">
                     {format_date(entry.entry_date)}
@@ -705,22 +720,35 @@ defmodule MossletWeb.JournalLive.Book do
       x-bind:class="cursorVisible && 'group'"
       @click="actionsVisible = !actionsVisible"
     >
+      <div
+        :if={@entry.decrypted}
+        id={"decrypt-reading-hook-#{@entry.id}"}
+        phx-hook="DecryptJournalEntry"
+        phx-update="ignore"
+        data-entry-id={@entry.id}
+        data-sealed-user-key={@entry.decrypted[:sealed_user_key]}
+        data-encrypted-title={@entry.decrypted[:encrypted_title]}
+        data-encrypted-body={@entry.decrypted[:encrypted_body]}
+        data-encrypted-mood={@entry.decrypted[:encrypted_mood]}
+        data-body="true"
+        class="hidden"
+      />
       <div class="book-entry-header" data-header="true">
         <div class="flex items-start justify-between mb-4">
           <div class="flex-1 min-w-0 pr-4">
-            <h2 class="text-xl sm:text-2xl font-semibold text-slate-900 dark:text-slate-100">
-              {@entry.decrypted_title || "Untitled"}
+            <h2
+              data-decrypt-journal-title={@entry.id}
+              class="text-xl sm:text-2xl font-semibold text-slate-900 dark:text-slate-100"
+            >
             </h2>
             <div class="flex items-center gap-2 mt-1">
               <time class="text-sm text-slate-500 dark:text-slate-400">
                 {format_date(@entry.entry_date)}
               </time>
               <span
-                :if={@entry.mood}
-                class="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1"
+                data-decrypt-journal-mood-badge={@entry.id}
+                class="hidden text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1 lowercase"
               >
-                <span class="text-sm">{DesignSystem.mood_emoji(@entry.mood)}</span>
-                <span class="lowercase">{DesignSystem.mood_label(@entry.mood)}</span>
               </span>
             </div>
           </div>
@@ -741,12 +769,12 @@ defmodule MossletWeb.JournalLive.Book do
         </div>
       </div>
       <div
+        data-decrypt-journal-body-prose={@entry.id}
         class="book-entry-body prose prose-slate dark:prose-invert max-w-none text-base sm:text-lg leading-relaxed"
         data-body="true"
         data-entry-id={@entry.id}
         data-book-id={@book_id}
       >
-        {format_decrypted_content(@entry.decrypted_body)}
       </div>
     </div>
     """
@@ -1007,7 +1035,8 @@ defmodule MossletWeb.JournalLive.Book do
       book ->
         decrypted = Journal.decrypt_book(book, user, key)
         entries = Journal.list_journal_entries(user, book_id: book_id, limit: 20)
-        decrypted_entries = decrypt_entries(entries, user, key)
+        sealed_user_key = user.user_key
+        decrypted_entries = pre_decrypt_journal_entries(entries, sealed_user_key)
 
         cover_src =
           if decrypted.cover_image_url do
@@ -1096,7 +1125,6 @@ defmodule MossletWeb.JournalLive.Book do
 
   defp reload_entries_for_view_mode(socket, view_mode) do
     user = socket.assigns.current_scope.user
-    key = socket.assigns.current_scope.key
     book_id = socket.assigns.book.id
 
     {order, limit} =
@@ -1107,7 +1135,8 @@ defmodule MossletWeb.JournalLive.Book do
       end
 
     entries = Journal.list_journal_entries(user, book_id: book_id, limit: limit, order: order)
-    decrypted_entries = decrypt_entries(entries, user, key)
+    sealed_user_key = user.user_key
+    decrypted_entries = pre_decrypt_journal_entries(entries, sealed_user_key)
 
     socket
     |> assign(:entries, decrypted_entries)
@@ -1468,12 +1497,12 @@ defmodule MossletWeb.JournalLive.Book do
   @impl true
   def handle_event("load_more", _params, socket) do
     user = socket.assigns.current_scope.user
-    key = socket.assigns.current_scope.key
     book_id = socket.assigns.book.id
     offset = socket.assigns.offset
 
     new_entries = Journal.list_journal_entries(user, book_id: book_id, limit: 20, offset: offset)
-    decrypted_new = decrypt_entries(new_entries, user, key)
+    sealed_user_key = user.user_key
+    decrypted_new = pre_decrypt_journal_entries(new_entries, sealed_user_key)
 
     {:noreply,
      socket
@@ -1853,27 +1882,6 @@ defmodule MossletWeb.JournalLive.Book do
 
   defp load_cover_image_src(_, _, _), do: nil
 
-  defp decrypt_entries(entries, user, key) do
-    Enum.map(entries, fn entry ->
-      decrypted = Journal.decrypt_entry(entry, user, key)
-
-      entry
-      |> Map.put(:decrypted_title, decrypted.title)
-      |> Map.put(:decrypted_body, decrypted.body)
-      |> Map.put(:mood, decrypted.mood)
-    end)
-  end
-
-  defp truncate_body(nil), do: ""
-
-  defp truncate_body(body) do
-    if String.length(body) > 150 do
-      String.slice(body, 0, 150) <> "..."
-    else
-      body
-    end
-  end
-
   defp format_date(date) do
     today = Date.utc_today()
 
@@ -2130,18 +2138,34 @@ defmodule MossletWeb.JournalLive.Book do
           JS.navigate(~p"/app/journal/#{entry.id}?scope=book&book_id=#{@book_id}&view=#{@view_mode}")
         }
       >
+        <div
+          :if={entry.decrypted}
+          id={"decrypt-pages-entry-hook-#{entry.id}"}
+          phx-hook="DecryptJournalEntry"
+          phx-update="ignore"
+          data-entry-id={entry.id}
+          data-sealed-user-key={entry.decrypted[:sealed_user_key]}
+          data-encrypted-title={entry.decrypted[:encrypted_title]}
+          data-encrypted-body={entry.decrypted[:encrypted_body]}
+          data-encrypted-mood={entry.decrypted[:encrypted_mood]}
+          class="hidden"
+        />
         <div class="flex flex-col h-full min-h-[320px]">
           <div class="flex items-start justify-between mb-3">
             <div class="flex-1 min-w-0 pr-2">
-              <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                {entry.decrypted_title || "Untitled"}
+              <h2
+                data-decrypt-journal-title={entry.id}
+                class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"
+              >
               </h2>
               <div class="flex items-center gap-2">
                 <time class="text-xs text-slate-500 dark:text-slate-400">
                   {format_date(entry.entry_date)}
                 </time>
-                <span :if={entry.mood} class="text-xs text-slate-500 dark:text-slate-400">
-                  {DesignSystem.mood_emoji(entry.mood)} {entry.mood}
+                <span
+                  data-decrypt-journal-mood-badge={entry.id}
+                  class="hidden text-xs text-slate-500 dark:text-slate-400"
+                >
                 </span>
               </div>
             </div>
@@ -2180,8 +2204,10 @@ defmodule MossletWeb.JournalLive.Book do
           </div>
 
           <div class="relative flex-1 overflow-hidden">
-            <div class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-[12]">
-              {entry.decrypted_body || ""}
+            <div
+              data-decrypt-journal-body-prose={entry.id}
+              class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-[12]"
+            >
             </div>
             <div class="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white dark:from-slate-800/95 to-transparent pointer-events-none" />
           </div>
@@ -2320,11 +2346,24 @@ defmodule MossletWeb.JournalLive.Book do
         )
       }
     >
+      <div
+        :if={@entry.decrypted}
+        id={"decrypt-book-page-hook-#{@entry.id}"}
+        phx-hook="DecryptJournalEntry"
+        phx-update="ignore"
+        data-entry-id={@entry.id}
+        data-sealed-user-key={@entry.decrypted[:sealed_user_key]}
+        data-encrypted-title={@entry.decrypted[:encrypted_title]}
+        data-encrypted-body={@entry.decrypted[:encrypted_body]}
+        data-encrypted-mood={@entry.decrypted[:encrypted_mood]}
+        data-body="true"
+        class="hidden"
+      />
       <div class="flex flex-col h-full">
         <div class="flex items-start justify-between mb-4">
           <div class="flex-1 min-w-0">
             <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-              {@entry.decrypted_title || "Untitled"}
+              Untitled
             </h3>
             <time class="text-xs text-slate-500 dark:text-slate-400">
               {format_date(@entry.entry_date)}
@@ -2332,15 +2371,15 @@ defmodule MossletWeb.JournalLive.Book do
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
             <span :if={@entry.is_favorite} class="text-amber-500" title="Favorite">★</span>
-            <span :if={@entry.mood} class="text-lg" title={@entry.mood}>
-              {DesignSystem.mood_emoji(@entry.mood)}
-            </span>
+            <span class="text-lg" data-decrypt-journal-mood={@entry.id}></span>
           </div>
         </div>
 
         <div class="relative flex-1 overflow-hidden">
-          <div class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
-            {truncate_page_body(@entry.decrypted_body)}
+          <div
+            data-decrypt-journal-body={@entry.id}
+            class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap"
+          >
           </div>
           <div class="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white dark:from-slate-800/95 to-transparent pointer-events-none" />
         </div>
@@ -2357,16 +2396,6 @@ defmodule MossletWeb.JournalLive.Book do
       </div>
     </div>
     """
-  end
-
-  defp truncate_page_body(nil), do: ""
-
-  defp truncate_page_body(body) do
-    if String.length(body) > 1200 do
-      String.slice(body, 0, 1200)
-    else
-      body
-    end
   end
 
   defp find_matching_page(segments, old_segment) do
@@ -2395,13 +2424,18 @@ defmodule MossletWeb.JournalLive.Book do
   defp entries_to_page_segments(entries, chars_per_page) do
     entries
     |> Enum.flat_map(fn entry ->
-      body = entry.decrypted_body || ""
+      body = entry.decrypted_body || placeholder_body(entry.word_count || 0)
       split_entry_into_segments(entry, body, chars_per_page)
     end)
     |> Enum.with_index(1)
     |> Enum.map(fn {segment, page_num} ->
       Map.put(segment, :page_num, page_num)
     end)
+  end
+
+  defp placeholder_body(word_count) do
+    estimated_chars = word_count * 6
+    String.duplicate("x", estimated_chars)
   end
 
   defp split_entry_into_segments(entry, body, chars_per_page) do

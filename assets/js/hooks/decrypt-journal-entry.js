@@ -3,12 +3,29 @@ import { renderMarkdown } from "../utils/render-markdown";
 
 let _cachedUserKey = null;
 
+/**
+ * Unseal the user_key from its sealed form and unwrap the double-base64 encoding.
+ *
+ * Server-registered users had their user_key (a 32-byte symmetric key) stored as
+ * a 44-char base64 string, then sealed via box_seal. The WASM unsealFromUser
+ * returns those ASCII bytes re-encoded as base64, so we atob() once to recover
+ * the original base64 key string that decryptWithKey expects.
+ */
 async function getUserKey(sealedUserKey) {
   if (_cachedUserKey) return _cachedUserKey;
 
   const raw = await unsealContextKey(sealedUserKey);
-  if (raw) _cachedUserKey = raw;
-  return raw;
+  if (!raw) return null;
+
+  let unwrapped;
+  try {
+    unwrapped = atob(raw);
+  } catch {
+    unwrapped = raw;
+  }
+
+  _cachedUserKey = unwrapped;
+  return unwrapped;
 }
 
 window.addEventListener("mosslet:logout", () => {
@@ -42,29 +59,38 @@ const DecryptJournalEntry = {
       const encTitle = this.el.dataset.encryptedTitle;
       const encBody = this.el.dataset.encryptedBody;
       const encMood = this.el.dataset.encryptedMood;
+      const isForm = this.el.dataset.form === "true";
+
+      let decryptedTitle = null;
+      let decryptedBody = null;
+      let decryptedMood = null;
 
       if (encTitle) {
-        const title = await decryptWithKey(encTitle, userKey);
-        if (title) {
+        decryptedTitle = await decryptWithKey(encTitle, userKey);
+        if (decryptedTitle && !isForm) {
           this._applyToTargets(
             `[data-decrypt-journal-title="${entryId}"]`,
-            title
+            decryptedTitle
           );
         }
       }
 
       if (encBody) {
-        const body = await decryptWithKey(encBody, userKey);
-        if (body) {
-          this._applyBody(entryId, body);
+        decryptedBody = await decryptWithKey(encBody, userKey);
+        if (decryptedBody && !isForm) {
+          this._applyBody(entryId, decryptedBody);
         }
       }
 
       if (encMood) {
-        const mood = await decryptWithKey(encMood, userKey);
-        if (mood) {
-          this._applyMoodBadge(entryId, mood);
+        decryptedMood = await decryptWithKey(encMood, userKey);
+        if (decryptedMood && !isForm) {
+          this._applyMoodBadge(entryId, decryptedMood);
         }
+      }
+
+      if (isForm) {
+        this._applyFormFields(entryId, decryptedTitle, decryptedBody, decryptedMood);
       }
     } catch (e) {
       console.error("DecryptJournalEntry: decryption failed:", e);
@@ -114,6 +140,47 @@ const DecryptJournalEntry = {
       const emoji = moodEmoji(mood);
       el.textContent = `${emoji} ${mood}`;
       el.classList.remove("hidden");
+    }
+  },
+
+  _applyFormFields(entryId, title, body, mood) {
+    if (title) {
+      const titleInputs = document.querySelectorAll(
+        `[data-decrypt-journal-form-title="${entryId}"]`
+      );
+      for (const el of titleInputs) {
+        if (!el.dataset.decryptApplied) {
+          el.value = title;
+          el.dataset.decryptApplied = "1";
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      }
+    }
+
+    if (body) {
+      const bodyInputs = document.querySelectorAll(
+        `[data-decrypt-journal-form-body="${entryId}"]`
+      );
+      for (const el of bodyInputs) {
+        if (!el.dataset.decryptApplied) {
+          el.value = body;
+          el.dataset.decryptApplied = "1";
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      }
+    }
+
+    if (mood) {
+      const moodInputs = document.querySelectorAll(
+        `[data-decrypt-journal-form-mood="${entryId}"]`
+      );
+      for (const el of moodInputs) {
+        if (!el.dataset.decryptApplied) {
+          el.value = mood;
+          el.dataset.decryptApplied = "1";
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      }
     }
   },
 };

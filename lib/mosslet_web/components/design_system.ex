@@ -14723,6 +14723,7 @@ defmodule MossletWeb.DesignSystem do
   attr :value, :string, default: nil
   attr :id, :string, default: nil
   attr :on_change, :string, default: nil
+  attr :entry_id, :string, default: nil
 
   def mood_picker(assigns) do
     assigns =
@@ -14734,7 +14735,13 @@ defmodule MossletWeb.DesignSystem do
       class="mood-picker relative"
       x-data="{ open: false, search: '' }"
     >
-      <input type="hidden" name={@name} value={@value || ""} id={"#{@id}-input"} />
+      <input
+        type="hidden"
+        name={@name}
+        value={@value || ""}
+        id={"#{@id}-input"}
+        data-decrypt-journal-form-mood={@entry_id}
+      />
       <button
         type="button"
         @click="open = !open; $nextTick(() => open && $refs.searchInput.focus())"

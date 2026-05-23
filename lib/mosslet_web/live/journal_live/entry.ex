@@ -203,6 +203,20 @@ defmodule MossletWeb.JournalLive.Entry do
           <h1 class="sr-only">
             {if @live_action == :new, do: "New Journal Entry", else: "Edit Journal Entry"}
           </h1>
+          <%!-- DecryptJournalEntry hook for edit form — browser-side ZK decryption --%>
+          <div
+            :if={@live_action == :edit && @entry && @entry.decrypted}
+            id={"decrypt-journal-edit-#{@entry.id}"}
+            phx-hook="DecryptJournalEntry"
+            phx-update="ignore"
+            data-entry-id={@entry.id}
+            data-sealed-user-key={@entry.decrypted[:sealed_user_key]}
+            data-encrypted-title={@entry.decrypted[:encrypted_title]}
+            data-encrypted-body={@entry.decrypted[:encrypted_body]}
+            data-encrypted-mood={@entry.decrypted[:encrypted_mood]}
+            data-form="true"
+            class="hidden"
+          />
           <.form
             :if={@live_action in [:new, :edit]}
             for={@form}
@@ -232,7 +246,12 @@ defmodule MossletWeb.JournalLive.Entry do
             </div>
 
             <div class="mb-6">
-              <.mood_picker name="journal_entry[mood]" value={@form[:mood].value} id="entry-mood" />
+              <.mood_picker
+                name="journal_entry[mood]"
+                value={@form[:mood].value}
+                id="entry-mood"
+                entry_id={if(@entry, do: @entry.id, else: nil)}
+              />
             </div>
 
             <div
@@ -262,6 +281,7 @@ defmodule MossletWeb.JournalLive.Entry do
                 name="journal_entry[title]"
                 value={@form[:title].value}
                 placeholder="Title (optional)"
+                data-decrypt-journal-form-title={if(@entry, do: @entry.id, else: nil)}
                 class="w-full text-2xl font-semibold text-slate-900 dark:text-slate-100 bg-transparent border-none focus:ring-0 placeholder-slate-400 dark:placeholder-slate-500"
                 autocomplete="off"
               />
@@ -274,6 +294,7 @@ defmodule MossletWeb.JournalLive.Entry do
                 phx-hook="AutoResize"
                 phx-debounce="1500"
                 id="journal-body"
+                data-decrypt-journal-form-body={if(@entry, do: @entry.id, else: nil)}
                 class="w-full text-lg text-slate-700 dark:text-slate-300 bg-transparent border-none focus:ring-0 resize-none placeholder-slate-400 dark:placeholder-slate-500 leading-relaxed overflow-hidden"
               >{@form[:body].value}</textarea>
             </div>
@@ -375,7 +396,6 @@ defmodule MossletWeb.JournalLive.Entry do
 
   defp apply_action(socket, :edit, %{"id" => id}) do
     user = socket.assigns.user
-    key = socket.assigns.key
 
     case Journal.get_journal_entry(id, user) do
       nil ->
@@ -384,13 +404,14 @@ defmodule MossletWeb.JournalLive.Entry do
         |> push_navigate(to: ~p"/app/journal")
 
       entry ->
-        decrypted = Journal.decrypt_entry(entry, user, key)
+        sealed_user_key = user.user_key
+        entry = pre_decrypt_journal_entry(entry, sealed_user_key)
 
         changeset =
           Journal.change_journal_entry(entry, %{
-            title: decrypted.title,
-            body: decrypted.body,
-            mood: decrypted.mood
+            title: "",
+            body: "",
+            mood: nil
           })
 
         socket
