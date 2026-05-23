@@ -13,6 +13,7 @@ import DecryptJournalEntry from "./decrypt-journal-entry";
 import DecryptAvatar from "./decrypt-avatar";
 import DecryptBookmarkNote from "./decrypt-bookmark-note";
 import DecryptPost from "./decrypt-post";
+import DecryptProfileFields from "./decrypt-profile-fields";
 import DecryptReply from "./decrypt-reply";
 import EncryptUpload from "./encrypt-upload";
 import NsfwCheck from "./nsfw-check";
@@ -110,6 +111,7 @@ export default {
   DecryptJournalEntry,
   DecryptMessage,
   DecryptPost,
+  DecryptProfileFields,
   DecryptReply,
   DecryptUserFields,
   DeleteReadingEntry,

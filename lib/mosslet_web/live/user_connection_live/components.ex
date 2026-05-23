@@ -232,8 +232,28 @@ defmodule MossletWeb.UserConnectionLive.Components do
   end
 
   def user_connection_profile(assigns) do
+    assigns = assign_new(assigns, :profile_fields, fn -> nil end)
+
     ~H"""
-    <div class="bg-white dark:bg-gray-800 px-4 py-5 shadow dark:shadow-emerald-500/50 sm:rounded-lg sm:px-6">
+    <div
+      class="bg-white dark:bg-gray-800 px-4 py-5 shadow dark:shadow-emerald-500/50 sm:rounded-lg sm:px-6"
+      data-profile-scope="uconn-profile"
+    >
+      <%!-- DecryptProfileFields hook for browser-side ZK decryption --%>
+      <div
+        :if={@profile_fields && @profile_fields[:browser_decrypt?]}
+        id={"decrypt-uconn-profile-#{@user_connection.id}"}
+        phx-hook="DecryptProfileFields"
+        phx-update="ignore"
+        data-profile-id="uconn-profile"
+        data-sealed-profile-key={@profile_fields[:sealed_profile_key]}
+        data-encrypted-about={@profile_fields[:encrypted_about]}
+        data-encrypted-alternate-email={@profile_fields[:encrypted_alternate_email]}
+        data-encrypted-website-url={@profile_fields[:encrypted_website_url]}
+        data-encrypted-website-label={@profile_fields[:encrypted_website_label]}
+        class="hidden"
+      >
+      </div>
       <h2 id="profile-title" class="text-lg font-medium text-gray-900 dark:text-gray-100">Profile</h2>
       <div class="border-t border-gray-200 dark:border-gray-700 py-5">
         <dl class="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2">
@@ -296,13 +316,22 @@ defmodule MossletWeb.UserConnectionLive.Components do
             class="sm:col-span-2"
           >
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">About</dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
-              {decr_uconn(
-                @user_connection.connection.profile.about,
-                @current_user,
-                @user_connection.key,
-                @key
-              )}
+            <dd
+              data-decrypt-profile="about"
+              class={[
+                "mt-1 text-sm text-gray-900 dark:text-gray-100",
+                @profile_fields && @profile_fields[:browser_decrypt?] && "animate-pulse"
+              ]}
+            >
+              {if @profile_fields,
+                do: @profile_fields[:about],
+                else:
+                  decr_uconn(
+                    @user_connection.connection.profile.about,
+                    @current_user,
+                    @user_connection.key,
+                    @key
+                  )}
             </dd>
           </div>
         </dl>

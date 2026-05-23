@@ -71,11 +71,25 @@ defmodule MossletWeb.UserConnectionLive.Show do
     # create the return_url with memory and post pagination options
     url = construct_return_url(user_connection, options)
 
+    key = socket.assigns.current_scope.key
+
+    profile_fields =
+      if user_connection.connection && user_connection.connection.profile do
+        decrypt_profile_fields(
+          user_connection.connection.profile,
+          current_user,
+          key,
+          viewing: :connection,
+          uconn_key: user_connection.key
+        )
+      end
+
     socket =
       socket
       |> assign(:return_url, url)
       |> assign(:options, options)
       |> assign(:user_connection, user_connection)
+      |> assign(:profile_fields, profile_fields)
       |> assign(:post_form, socket.assigns[:post_form])
       |> start_async(:fetch_posts, fn ->
         Timeline.list_shared_posts(user_connection.reverse_user_id, current_user.id, options)

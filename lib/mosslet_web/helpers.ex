@@ -1138,6 +1138,109 @@ defmodule MossletWeb.Helpers do
     end
   end
 
+  @doc """
+  Decrypts connection profile fields with browser/server dual path.
+
+  For public profiles: server decrypts everything (needed for SEO/unauthenticated).
+  For private/connections profiles: returns encrypted blobs + sealed key for
+  browser-side ZK decryption via the DecryptProfileFields hook.
+
+  ## Viewing contexts
+
+    - `:own` — user views their own profile. The sealed key is `profile.profile_key`.
+    - `:connection` — user views a connection's profile. The sealed key is
+      `user_connection.key` (the profile owner's conn_key sealed to the viewer).
+    - `:public` — unauthenticated visitor. Always server-side.
+
+  Returns a map with plaintext values (server path) or encrypted blobs + sealed
+  key (browser path), plus a `browser_decrypt?` flag.
+  """
+  def decrypt_profile_fields(profile, user, session_key, opts \\ [])
+  def decrypt_profile_fields(nil, _user, _session_key, _opts), do: nil
+
+  def decrypt_profile_fields(profile, user, session_key, opts) do
+    viewing = Keyword.get(opts, :viewing, :own)
+    uconn_key = Keyword.get(opts, :uconn_key)
+
+    browser_decrypt? = profile.visibility != :public
+
+    sealed_key =
+      case viewing do
+        :public -> profile.profile_key
+        :connection -> uconn_key
+        :own -> profile.profile_key
+      end
+
+    case unseal_profile_key_for_context(sealed_key, profile, user, session_key, viewing) do
+      {:ok, raw_key} ->
+        if browser_decrypt? do
+          %{
+            about: nil,
+            alternate_email: nil,
+            website_url: nil,
+            website_label: nil,
+            sealed_profile_key: sealed_key,
+            encrypted_about: profile.about,
+            encrypted_alternate_email: profile.alternate_email,
+            encrypted_website_url: profile.website_url,
+            encrypted_website_label: profile.website_label,
+            browser_decrypt?: true
+          }
+        else
+          %{
+            about: decrypt_field(profile.about, raw_key, nil),
+            alternate_email: decrypt_field(profile.alternate_email, raw_key, nil),
+            website_url: decrypt_field(profile.website_url, raw_key, nil),
+            website_label: decrypt_field(profile.website_label, raw_key, nil),
+            sealed_profile_key: nil,
+            encrypted_about: nil,
+            encrypted_alternate_email: nil,
+            encrypted_website_url: nil,
+            encrypted_website_label: nil,
+            browser_decrypt?: false
+          }
+        end
+
+      :error ->
+        %{
+          about: nil,
+          alternate_email: nil,
+          website_url: nil,
+          website_label: nil,
+          sealed_profile_key: nil,
+          encrypted_about: nil,
+          encrypted_alternate_email: nil,
+          encrypted_website_url: nil,
+          encrypted_website_label: nil,
+          browser_decrypt?: false
+        }
+    end
+  end
+
+  defp unseal_profile_key_for_context(nil, _profile, _user, _key, _viewing), do: :error
+
+  defp unseal_profile_key_for_context(sealed_key, _profile, _user, _key, :public) do
+    case Encrypted.Users.Utils.decrypt_public_item_key(sealed_key) do
+      raw_key when is_binary(raw_key) -> {:ok, raw_key}
+      _ -> :error
+    end
+  end
+
+  # Own profile with public visibility: profile_key is sealed to the server keypair
+  defp unseal_profile_key_for_context(sealed_key, %{visibility: :public}, _user, _key, :own) do
+    case Encrypted.Users.Utils.decrypt_public_item_key(sealed_key) do
+      raw_key when is_binary(raw_key) -> {:ok, raw_key}
+      _ -> :error
+    end
+  end
+
+  defp unseal_profile_key_for_context(sealed_key, _profile, user, session_key, _viewing) do
+    case Encrypted.Users.Utils.decrypt_user_attrs_key(sealed_key, user, session_key) do
+      {:ok, raw_key} -> {:ok, raw_key}
+      _ -> :error
+    end
+  end
+
   # Avatar URLs need special handling: nil/empty values are nil,
   # and :failed_verification becomes "failed_verification" string.
   defp decrypt_avatar_field(nil, _raw_key), do: nil
