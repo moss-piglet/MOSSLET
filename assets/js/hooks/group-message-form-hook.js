@@ -17,6 +17,8 @@ import {
 } from "../crypto/nacl";
 import { unsealContextKey, getPublicKey } from "../crypto/session";
 
+const MENTION_TOKEN_RE = /@\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/gi;
+
 /**
  * Group keys follow the same double-encoding pattern as post keys.
  */
@@ -26,6 +28,16 @@ function unwrapGroupKey(unsealedB64) {
   } catch {
     return unsealedB64;
   }
+}
+
+function extractMentionIds(text) {
+  const ids = [];
+  let match;
+  while ((match = MENTION_TOKEN_RE.exec(text)) !== null) {
+    if (!ids.includes(match[1])) ids.push(match[1]);
+  }
+  MENTION_TOKEN_RE.lastIndex = 0;
+  return ids;
 }
 
 const GroupMessageFormHook = {
@@ -79,13 +91,22 @@ const GroupMessageFormHook = {
   },
 
   async _encryptAndSubmit(content) {
+    const mentionIds = extractMentionIds(content);
     const encryptedContent = await encryptSecretboxString(content, this._groupKey);
 
-    this.pushEvent("save_encrypted", {
+    const target = this.el.getAttribute("phx-target");
+    const payload = {
       encrypted_content: encryptedContent,
       group_id: this.el.querySelector('input[name="group_message[group_id]"]')?.value,
       sender_id: this.el.querySelector('input[name="group_message[sender_id]"]')?.value,
-    });
+      mention_ids: mentionIds,
+    };
+
+    if (target) {
+      this.pushEventTo(target, "save_encrypted", payload);
+    } else {
+      this.pushEvent("save_encrypted", payload);
+    }
   },
 };
 

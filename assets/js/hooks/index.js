@@ -8,6 +8,7 @@ import ConversationEmojiPicker from "./conversation-emoji-picker";
 import { ConversationComposer, DecryptMessage, ConversationScroll } from "./conversation-hooks";
 import DecryptGroupMessage from "./decrypt-group-message";
 import DecryptGroupMetadata from "./decrypt-group-metadata";
+import DecryptJournalEntry from "./decrypt-journal-entry";
 import DecryptAvatar from "./decrypt-avatar";
 import DecryptPost from "./decrypt-post";
 import DecryptReply from "./decrypt-reply";
@@ -101,6 +102,7 @@ export default {
   DecryptAvatar,
   DecryptGroupMessage,
   DecryptGroupMetadata,
+  DecryptJournalEntry,
   DecryptMessage,
   DecryptPost,
   DecryptReply,

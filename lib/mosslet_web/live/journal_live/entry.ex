@@ -11,6 +11,7 @@ defmodule MossletWeb.JournalLive.Entry do
   alias MossletWeb.DesignSystem
   alias Mosslet.Journal.JournalEntry
   alias MossletWeb.Helpers.JournalHelpers
+  import MossletWeb.Helpers, only: [pre_decrypt_journal_entry: 2]
 
   @auto_save_delay_ms 2_000
 
@@ -36,6 +37,19 @@ defmodule MossletWeb.JournalLive.Entry do
         privacy_active={@privacy_active}
         privacy_countdown={@privacy_countdown}
       >
+        <%!-- DecryptJournalEntry hook element — browser-side ZK decryption --%>
+        <div
+          :if={@entry.decrypted}
+          id={"decrypt-journal-entry-#{@entry.id}"}
+          phx-hook="DecryptJournalEntry"
+          phx-update="ignore"
+          data-entry-id={@entry.id}
+          data-sealed-user-key={@entry.decrypted[:sealed_user_key]}
+          data-encrypted-title={@entry.decrypted[:encrypted_title]}
+          data-encrypted-body={@entry.decrypted[:encrypted_body]}
+          data-encrypted-mood={@entry.decrypted[:encrypted_mood]}
+          class="hidden"
+        />
         <div
           class="max-w-2xl mx-auto"
           x-data="{ actionsVisible: false }"
@@ -50,10 +64,9 @@ defmodule MossletWeb.JournalLive.Entry do
                     {format_date(@entry.entry_date)}
                   </time>
                   <span
-                    :if={@decrypted_mood}
-                    class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-full"
+                    data-decrypt-journal-mood-badge={@entry.id}
+                    class="hidden inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-full"
                   >
-                    {mood_emoji(@decrypted_mood)} {@decrypted_mood}
                   </span>
                 </div>
                 <button
@@ -107,20 +120,15 @@ defmodule MossletWeb.JournalLive.Entry do
             </div>
 
             <h1
-              :if={@decrypted_title}
+              data-decrypt-journal-title={@entry.id}
               class="text-2xl font-semibold text-slate-900 dark:text-slate-100"
             >
-              {@decrypted_title}
-            </h1>
-            <h1
-              :if={!@decrypted_title}
-              class="sr-only"
-            >
-              Journal Entry
             </h1>
 
-            <div class="prose prose-slate dark:prose-invert max-w-none prose-lg prose-p:text-slate-700 dark:prose-p:text-slate-300 prose-p:leading-relaxed">
-              {format_decrypted_content(@decrypted_body)}
+            <div
+              data-decrypt-journal-body-prose={@entry.id}
+              class="prose prose-slate dark:prose-invert max-w-none prose-lg prose-p:text-slate-700 dark:prose-p:text-slate-300 prose-p:leading-relaxed"
+            >
             </div>
 
             <div class="pt-4 border-t border-slate-200 dark:border-slate-700 text-sm text-slate-500 dark:text-slate-400 print-hidden">
@@ -408,7 +416,8 @@ defmodule MossletWeb.JournalLive.Entry do
         |> push_navigate(to: ~p"/app/journal")
 
       entry ->
-        decrypted = Journal.decrypt_entry(entry, user, key)
+        sealed_user_key = user.user_key
+        entry = pre_decrypt_journal_entry(entry, sealed_user_key)
 
         books = Journal.list_books(user)
         has_loose_entries = Journal.count_loose_entries(user) > 0
@@ -525,11 +534,8 @@ defmodule MossletWeb.JournalLive.Entry do
           end
 
         socket
-        |> assign(:page_title, decrypted.title || "Journal Entry")
+        |> assign(:page_title, "Journal Entry")
         |> assign(:entry, entry)
-        |> assign(:decrypted_title, decrypted.title)
-        |> assign(:decrypted_body, decrypted.body)
-        |> assign(:decrypted_mood, decrypted.mood)
         |> assign(:prev_path, prev_path)
         |> assign(:next_path, next_path)
         |> assign(:back_path, back_path)

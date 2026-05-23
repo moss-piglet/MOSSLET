@@ -38,7 +38,7 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
     current_scope = assigns[:current_scope]
     user_group_key = assigns[:user_group_key]
     sender_id = assigns[:sender_id]
-    _public? = assigns[:public?]
+    public? = assigns[:public?]
 
     if group_id && current_scope do
       group = Groups.get_group(group_id)
@@ -47,57 +47,24 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
         Groups.list_user_groups(group)
         |> Enum.filter(& &1.confirmed_at)
         |> Enum.map(fn ug ->
-          moniker =
-            decr_item(
-              ug.moniker,
-              current_scope.user,
-              user_group_key,
-              current_scope.key,
-              group
-            )
-
           is_self = ug.id == sender_id
           user = get_user_from_user_group_id(ug.id)
           uconn = get_uconn_for_users(user, current_scope.user)
           is_connected = not is_nil(uconn)
 
-          username =
-            if is_self || is_connected do
-              maybe_decr_username_for_user_group(
-                ug.user_id,
-                current_scope.user,
-                current_scope.key
-              )
-            end
-
-          group_avatar_fallback =
-            ~p"/images/groups/#{decr_item(ug.avatar_img, current_scope.user, user_group_key, current_scope.key, group)}"
-
-          avatar_src =
-            if is_self do
-              nil
-            else
-              if is_connected do
-                nil
-              else
-                group_avatar_fallback
-              end
-            end
-
-          encrypted_avatar =
-            if is_connected && !is_self do
-              get_encrypted_avatar_data(uconn, current_scope.key)
-            end
-
-          %{
-            user_group_id: ug.id,
-            moniker: moniker,
-            username: username,
-            role: Atom.to_string(ug.role),
-            avatar_src: avatar_src,
-            encrypted_avatar: encrypted_avatar,
-            is_connected: is_connected || is_self
-          }
+          if public? do
+            build_public_member(
+              ug,
+              is_self,
+              is_connected,
+              uconn,
+              current_scope,
+              user_group_key,
+              group
+            )
+          else
+            build_private_member(ug, is_self, is_connected, uconn, current_scope)
+          end
         end)
       else
         []
@@ -105,6 +72,80 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
     else
       []
     end
+  end
+
+  # Public groups: server decrypts everything (no ZK needed)
+  defp build_public_member(ug, is_self, is_connected, uconn, current_scope, user_group_key, group) do
+    moniker =
+      decr_item(ug.moniker, current_scope.user, user_group_key, current_scope.key, group)
+
+    username =
+      if is_self || is_connected do
+        maybe_decr_username_for_user_group(ug.user_id, current_scope.user, current_scope.key)
+      end
+
+    group_avatar_fallback =
+      ~p"/images/groups/#{decr_item(ug.avatar_img, current_scope.user, user_group_key, current_scope.key, group)}"
+
+    avatar_src =
+      cond do
+        is_self -> nil
+        is_connected -> nil
+        true -> group_avatar_fallback
+      end
+
+    encrypted_avatar =
+      if is_connected && !is_self,
+        do: get_encrypted_avatar_data(uconn, current_scope.key)
+
+    %{
+      user_group_id: ug.id,
+      moniker: moniker,
+      username: username,
+      role: Atom.to_string(ug.role),
+      avatar_src: avatar_src,
+      encrypted_avatar: encrypted_avatar,
+      is_connected: is_connected || is_self,
+      browser_decrypt: false
+    }
+  end
+
+  # Non-public groups: pass encrypted blobs for browser-side ZK decryption
+  defp build_private_member(ug, is_self, is_connected, uconn, current_scope) do
+    encrypted_avatar =
+      if is_connected && !is_self,
+        do: get_encrypted_avatar_data(uconn, current_scope.key)
+
+    # For self, pass the username from the already-decrypted user struct.
+    # For connected members, pass the encrypted username + sealed conn_key
+    # so the browser can decrypt it.
+    {username, encrypted_username, sealed_conn_key} =
+      cond do
+        is_self ->
+          {current_scope.user.decrypted[:username], nil, nil}
+
+        is_connected ->
+          {nil, uconn.connection.username, uconn.key}
+
+        true ->
+          {nil, nil, nil}
+      end
+
+    %{
+      user_group_id: ug.id,
+      moniker: nil,
+      encrypted_moniker: ug.moniker,
+      encrypted_avatar_img: ug.avatar_img,
+      username: username,
+      encrypted_username: encrypted_username,
+      sealed_conn_key: sealed_conn_key,
+      role: Atom.to_string(ug.role),
+      avatar_src: nil,
+      encrypted_avatar: encrypted_avatar,
+      is_connected: is_connected || is_self,
+      is_self: is_self,
+      browser_decrypt: true
+    }
   end
 
   defp push_members_to_client(socket, members) do
@@ -233,13 +274,15 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
 
   # Browser-encrypted message for non-public groups (ZK write path).
   # The content arrives pre-encrypted — store it directly.
+  # The browser extracts mention IDs from plaintext before encryption and
+  # sends them alongside the ciphertext so the server can create records.
   def handle_event(
         "save_encrypted",
         %{
           "encrypted_content" => encrypted_content,
           "group_id" => group_id,
           "sender_id" => sender_id
-        },
+        } = params,
         socket
       ) do
     if socket.assigns[:public?] do
@@ -254,11 +297,18 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
              encrypted_content: encrypted_content
            ) do
         {:ok, message} ->
-          # Parse mentions from the original plaintext — but we don't have it.
-          # Mention tokens (@[uuid]) survive encryption round-trips since they're
-          # in the plaintext, so we'd need the plaintext. For now, skip mention
-          # detection on pre-encrypted messages. The browser could send mention
-          # IDs alongside the encrypted content in a future iteration.
+          mention_ids = Map.get(params, "mention_ids", [])
+
+          if mention_ids != [] do
+            GroupMessages.create_mentions_for_message(message, mention_ids)
+
+            queue_mention_email_notifications(
+              mention_ids,
+              group_id,
+              socket.assigns.current_scope.user.id
+            )
+          end
+
           GroupMessages.publish_message_created({:ok, message})
 
           send(self(), {:message_sent, message})

@@ -156,6 +156,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       |> assign(:browser_decrypt?, browser_decrypt?)
       |> assign(:encrypted_content, decrypted[:encrypted_content])
       |> assign(:sealed_group_key, decrypted[:sealed_group_key])
+      |> assign(:current_user_group_id, assigns.user_group.id)
 
     ~H"""
     <DesignSystem.liquid_chat_message
@@ -182,6 +183,8 @@ defmodule MossletWeb.GroupLive.GroupMessages do
         phx-hook="DecryptGroupMessage"
         data-encrypted-content={@encrypted_content}
         data-sealed-group-key={@sealed_group_key}
+        data-current-user-group-id={@current_user_group_id}
+        data-is-own-message={to_string(@is_own_message)}
       >
         <span class="text-slate-400 dark:text-slate-500 text-sm italic">Decrypting...</span>
       </div>

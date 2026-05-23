@@ -1,4 +1,30 @@
+import { unsealContextKey, decryptWithKey, getPublicKey, unwrapConnKey } from "../crypto/session";
+import { decryptSecretbox } from "../crypto/session";
+
+function unwrapGroupKey(unsealedB64) {
+  try {
+    return atob(unsealedB64);
+  } catch {
+    return unsealedB64;
+  }
+}
+
+let _cachedGroupKeyForMentions = null;
+
+async function getGroupKey(sealedKey) {
+  if (_cachedGroupKeyForMentions) return _cachedGroupKeyForMentions;
+  const raw = await unsealContextKey(sealedKey);
+  if (raw) _cachedGroupKeyForMentions = unwrapGroupKey(raw);
+  return _cachedGroupKeyForMentions;
+}
+
+window.addEventListener("mosslet:logout", () => {
+  _cachedGroupKeyForMentions = null;
+});
+
 const MentionPicker = {
+  _sharedMembers: [],
+
   safeUrl(src) {
     if (!src) return "";
     if (src.startsWith("data:image/")) return src;
@@ -46,8 +72,45 @@ const MentionPicker = {
       this.form.addEventListener("submit", this.handleFormSubmit);
     }
 
-    this.handleEvent("set_members", ({ members }) => {
-      this.members = members || [];
+    this.handleEvent("set_members", async ({ members }) => {
+      const raw = members || [];
+      const needsDecrypt = raw.some((m) => m.browser_decrypt);
+
+      if (needsDecrypt) {
+        const form = this.textarea.closest("form");
+        const sealedKey = form?.dataset?.sealedGroupKey;
+        if (sealedKey && getPublicKey()) {
+          const groupKey = await getGroupKey(sealedKey);
+          if (groupKey) {
+            const decrypted = await Promise.all(
+              raw.map((m) => this._decryptMember(m, groupKey))
+            );
+            this.members = decrypted;
+            MentionPicker._sharedMembers = this.members;
+            window.dispatchEvent(new CustomEvent("mosslet:members-ready"));
+            return;
+          }
+        }
+        // Keys not ready yet — listen and retry
+        const retry = async () => {
+          const form2 = this.textarea.closest("form");
+          const sk = form2?.dataset?.sealedGroupKey;
+          if (!sk) return;
+          const gk = await getGroupKey(sk);
+          if (!gk) return;
+          const dec = await Promise.all(
+            raw.map((m) => this._decryptMember(m, gk))
+          );
+          this.members = dec;
+          MentionPicker._sharedMembers = this.members;
+          window.dispatchEvent(new CustomEvent("mosslet:members-ready"));
+        };
+        window.addEventListener("mosslet:keys-ready", retry, { once: true });
+      } else {
+        this.members = raw;
+        MentionPicker._sharedMembers = this.members;
+        window.dispatchEvent(new CustomEvent("mosslet:members-ready"));
+      }
     });
   },
 
@@ -148,37 +211,10 @@ const MentionPicker = {
         const form = this.textarea.closest("form");
         if (form) {
           const convertedContent = this.convertMentionsToTokens(value);
-
-          const formData = new FormData(form);
-          const params = {};
-          for (const [key, val] of formData.entries()) {
-            const keys = key.match(/[^\[\]]+/g);
-            if (keys.length === 1) {
-              params[keys[0]] = val;
-            } else {
-              let obj = params;
-              for (let i = 0; i < keys.length - 1; i++) {
-                obj[keys[i]] = obj[keys[i]] || {};
-                obj = obj[keys[i]];
-              }
-              obj[keys[keys.length - 1]] = val;
-            }
-          }
-
-          if (params.group_message && params.group_message.content !== undefined) {
-            params.group_message.content = convertedContent;
-          }
-
-          this.textarea.value = "";
+          this.textarea.value = convertedContent;
           this.mentionMap = {};
-          this.textarea.dispatchEvent(new Event("input", { bubbles: true }));
 
-          const target = form.getAttribute("phx-target");
-          if (target) {
-            this.pushEventTo(target, "save", params);
-          } else {
-            this.pushEvent("save", params);
-          }
+          form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
         }
       }
     }
@@ -329,7 +365,7 @@ const MentionPicker = {
         >
           <div class="relative flex-shrink-0">
             <img 
-              src="${this.safeUrl(member.avatar_src)}" 
+              src="${this.safeUrl(member.avatar_src) || '/images/logo.svg'}" 
               alt="" 
               class="w-9 h-9 rounded-full object-cover ring-2 ring-offset-1 ring-offset-white dark:ring-offset-slate-800 ${this.getRoleRingColor(member.role)}"
             />
@@ -485,6 +521,77 @@ const MentionPicker = {
     const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
+  },
+
+  async _decryptMember(member, groupKey) {
+    if (!member.browser_decrypt) return member;
+
+    const result = { ...member };
+
+    try {
+      if (member.encrypted_moniker) {
+        result.moniker = await decryptWithKey(member.encrypted_moniker, groupKey) || "member";
+      }
+
+      if (member.encrypted_username && member.sealed_conn_key) {
+        const rawConnKey = await unsealContextKey(member.sealed_conn_key);
+        if (rawConnKey) {
+          const connKey = unwrapConnKey(rawConnKey);
+          const username = await decryptWithKey(member.encrypted_username, connKey);
+          if (username) result.username = username;
+        }
+      }
+
+      if (member.encrypted_avatar_img && !member.is_self) {
+        const avatarImg = await decryptWithKey(member.encrypted_avatar_img, groupKey);
+        if (avatarImg && avatarImg !== "") {
+          result.avatar_src = `/images/groups/${avatarImg}`;
+        }
+      }
+
+      if (member.encrypted_avatar && !member.is_self) {
+        const avatarDataUrl = await this._decryptConnectionAvatar(member.encrypted_avatar);
+        if (avatarDataUrl) {
+          result.avatar_src = avatarDataUrl;
+        }
+      }
+
+      if (!result.avatar_src && !member.is_self) {
+        result.avatar_src = "/images/groups/default.png";
+      }
+    } catch (e) {
+      console.error("MentionPicker: failed to decrypt member:", e);
+      result.moniker = result.moniker || "member";
+    }
+
+    return result;
+  },
+
+  async _decryptConnectionAvatar(encryptedData) {
+    if (!encryptedData?.encrypted_blob_b64 || !encryptedData?.sealed_key) return null;
+
+    try {
+      const rawKey = await unsealContextKey(encryptedData.sealed_key);
+      if (!rawKey) return null;
+
+      const connKey = unwrapConnKey(rawKey);
+      let imageBase64 = await decryptWithKey(encryptedData.encrypted_blob_b64, connKey);
+
+      if (!imageBase64) {
+        const rawBytes = await decryptSecretbox(encryptedData.encrypted_blob_b64, connKey);
+        if (!rawBytes) return null;
+        let binary = "";
+        for (let i = 0; i < rawBytes.length; i++) {
+          binary += String.fromCharCode(rawBytes[i]);
+        }
+        imageBase64 = btoa(binary);
+      }
+
+      return `data:image/webp;base64,${imageBase64}`;
+    } catch (e) {
+      console.error("MentionPicker: failed to decrypt connection avatar:", e);
+      return null;
+    }
   },
 };
 

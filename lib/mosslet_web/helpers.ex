@@ -958,6 +958,36 @@ defmodule MossletWeb.Helpers do
   end
 
   @doc """
+  Pre-decrypts a journal entry for browser-side ZK rendering.
+
+  Journal entries are encrypted with the user's personal key (user_key).
+  Instead of server-side decryption, we pass the encrypted blobs and the
+  sealed user_key so the `DecryptJournalEntry` JS hook can decrypt
+  client-side.
+
+  Returns the entry with a `:decrypted` map containing:
+    - `:encrypted_title`, `:encrypted_body`, `:encrypted_mood` — raw ciphertext blobs
+    - `:sealed_user_key` — the user_key sealed to the user's keypair
+    - `:browser_decrypt?` — always `true`
+  """
+  def pre_decrypt_journal_entry(entry, sealed_user_key) do
+    Map.put(entry, :decrypted, %{
+      encrypted_title: entry.title,
+      encrypted_body: entry.body,
+      encrypted_mood: entry.mood,
+      sealed_user_key: sealed_user_key,
+      browser_decrypt?: true
+    })
+  end
+
+  @doc """
+  Pre-decrypts a list of journal entries for browser-side ZK rendering.
+  """
+  def pre_decrypt_journal_entries(entries, sealed_user_key) do
+    Enum.map(entries, &pre_decrypt_journal_entry(&1, sealed_user_key))
+  end
+
+  @doc """
   Pre-decrypts the current user's profile fields and attaches them as a
   `:decrypted` map on the user struct.
 

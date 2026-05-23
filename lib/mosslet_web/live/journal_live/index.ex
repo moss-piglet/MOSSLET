@@ -10,6 +10,7 @@ defmodule MossletWeb.JournalLive.Index do
   alias Mosslet.Journal.JournalBook
   alias MossletWeb.DesignSystem
   alias MossletWeb.Helpers.JournalHelpers
+  import MossletWeb.Helpers, only: [pre_decrypt_journal_entries: 2]
 
   @impl true
   def render(assigns) do
@@ -305,35 +306,50 @@ defmodule MossletWeb.JournalLive.Index do
               class="group relative bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-600 transition-colors cursor-pointer"
               phx-click={JS.navigate(~p"/app/journal/#{entry.id}")}
             >
+              <div
+                :if={entry.decrypted}
+                id={"decrypt-fav-entry-hook-#{entry.id}"}
+                phx-hook="DecryptJournalEntry"
+                phx-update="ignore"
+                data-entry-id={entry.id}
+                data-sealed-user-key={entry.decrypted[:sealed_user_key]}
+                data-encrypted-title={entry.decrypted[:encrypted_title]}
+                data-encrypted-body={entry.decrypted[:encrypted_body]}
+                data-encrypted-mood={entry.decrypted[:encrypted_mood]}
+                class="hidden"
+              />
               <div class="flex items-start justify-between gap-4">
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 mb-1">
-                    <h3 class={[
-                      "text-base font-medium truncate transition-all duration-500",
-                      if(entry.id in @revealed_entries,
-                        do: "text-slate-900 dark:text-slate-100",
-                        else:
-                          "text-slate-400/70 dark:text-slate-500/70 privacy-placeholder rounded-md px-1 select-none"
-                      )
-                    ]}>
-                      {if entry.id in @revealed_entries,
-                        do: entry.decrypted_title || "Untitled",
-                        else: "████████████"}
+                    <h3
+                      data-decrypt-journal-title={entry.id}
+                      class={[
+                        "text-base font-medium truncate transition-all duration-500",
+                        if(entry.id in @revealed_entries,
+                          do: "text-slate-900 dark:text-slate-100",
+                          else:
+                            "text-slate-400/70 dark:text-slate-500/70 privacy-placeholder rounded-md px-1 select-none"
+                        )
+                      ]}
+                    >
+                      {unless entry.id in @revealed_entries, do: "████████████"}
                     </h3>
                     <span class="text-amber-500">★</span>
                   </div>
-                  <div class={[
-                    "text-sm line-clamp-2 transition-all duration-500",
-                    if(entry.id in @revealed_entries,
-                      do:
-                        "text-slate-600 dark:text-slate-400 prose prose-sm dark:prose-invert prose-p:m-0 prose-headings:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 max-w-none",
-                      else:
-                        "text-slate-400/60 dark:text-slate-500/60 privacy-placeholder rounded-md px-1 select-none"
-                    )
-                  ]}>
-                    {if entry.id in @revealed_entries,
-                      do: render_preview_markdown(entry.decrypted_body),
-                      else: "████████ ███████████ ██████ ████████████ ██████████"}
+                  <div
+                    data-decrypt-journal-body-preview={entry.id}
+                    class={[
+                      "text-sm line-clamp-2 transition-all duration-500",
+                      if(entry.id in @revealed_entries,
+                        do:
+                          "text-slate-600 dark:text-slate-400 prose prose-sm dark:prose-invert prose-p:m-0 prose-headings:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 max-w-none",
+                        else:
+                          "text-slate-400/60 dark:text-slate-500/60 privacy-placeholder rounded-md px-1 select-none"
+                      )
+                    ]}
+                  >
+                    {unless entry.id in @revealed_entries,
+                      do: "████████ ███████████ ██████ ████████████ ██████████"}
                   </div>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
@@ -361,10 +377,9 @@ defmodule MossletWeb.JournalLive.Index do
                         {format_date(entry.entry_date)}
                       </time>
                       <span
-                        :if={entry.decrypted_mood}
-                        class="text-xs text-slate-500 dark:text-slate-400"
+                        data-decrypt-journal-mood-badge={entry.id}
+                        class="hidden text-xs text-slate-500 dark:text-slate-400"
                       >
-                        {mood_emoji(entry.decrypted_mood)} {entry.decrypted_mood}
                       </span>
                     </div>
                   </div>
@@ -421,20 +436,33 @@ defmodule MossletWeb.JournalLive.Index do
               ]}
               phx-click={JS.navigate(~p"/app/journal/#{entry.id}")}
             >
+              <div
+                :if={entry.decrypted}
+                id={"decrypt-entry-hook-#{entry.id}"}
+                phx-hook="DecryptJournalEntry"
+                phx-update="ignore"
+                data-entry-id={entry.id}
+                data-sealed-user-key={entry.decrypted[:sealed_user_key]}
+                data-encrypted-title={entry.decrypted[:encrypted_title]}
+                data-encrypted-body={entry.decrypted[:encrypted_body]}
+                data-encrypted-mood={entry.decrypted[:encrypted_mood]}
+                class="hidden"
+              />
               <div class="flex items-start justify-between gap-4">
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 mb-1">
-                    <h3 class={[
-                      "text-base font-medium truncate transition-all duration-500",
-                      if(entry.id in @revealed_entries,
-                        do: "text-slate-900 dark:text-slate-100",
-                        else:
-                          "text-slate-400/70 dark:text-slate-500/70 privacy-placeholder rounded-md px-1 select-none"
-                      )
-                    ]}>
-                      {if entry.id in @revealed_entries,
-                        do: entry.decrypted_title || "Untitled",
-                        else: "████████████"}
+                    <h3
+                      data-decrypt-journal-title={entry.id}
+                      class={[
+                        "text-base font-medium truncate transition-all duration-500",
+                        if(entry.id in @revealed_entries,
+                          do: "text-slate-900 dark:text-slate-100",
+                          else:
+                            "text-slate-400/70 dark:text-slate-500/70 privacy-placeholder rounded-md px-1 select-none"
+                        )
+                      ]}
+                    >
+                      {unless entry.id in @revealed_entries, do: "████████████"}
                     </h3>
                     <span
                       :if={entry.is_favorite}
@@ -444,18 +472,20 @@ defmodule MossletWeb.JournalLive.Index do
                       ★
                     </span>
                   </div>
-                  <div class={[
-                    "text-sm line-clamp-2 transition-all duration-500",
-                    if(entry.id in @revealed_entries,
-                      do:
-                        "text-slate-600 dark:text-slate-400 prose prose-sm dark:prose-invert prose-p:m-0 prose-headings:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 max-w-none",
-                      else:
-                        "text-slate-400/60 dark:text-slate-500/60 privacy-placeholder rounded-md px-1 select-none"
-                    )
-                  ]}>
-                    {if entry.id in @revealed_entries,
-                      do: render_preview_markdown(entry.decrypted_body),
-                      else: "████████ ███████████ ██████ ████████████ ██████████"}
+                  <div
+                    data-decrypt-journal-body-preview={entry.id}
+                    class={[
+                      "text-sm line-clamp-2 transition-all duration-500",
+                      if(entry.id in @revealed_entries,
+                        do:
+                          "text-slate-600 dark:text-slate-400 prose prose-sm dark:prose-invert prose-p:m-0 prose-headings:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 max-w-none",
+                        else:
+                          "text-slate-400/60 dark:text-slate-500/60 privacy-placeholder rounded-md px-1 select-none"
+                      )
+                    ]}
+                  >
+                    {unless entry.id in @revealed_entries,
+                      do: "████████ ███████████ ██████ ████████████ ██████████"}
                   </div>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
@@ -495,10 +525,9 @@ defmodule MossletWeb.JournalLive.Index do
                         {format_date(entry.entry_date)}
                       </time>
                       <span
-                        :if={entry.decrypted_mood}
-                        class="text-xs text-slate-500 dark:text-slate-400"
+                        data-decrypt-journal-mood-badge={entry.id}
+                        class="hidden text-xs text-slate-500 dark:text-slate-400"
                       >
-                        {mood_emoji(entry.decrypted_mood)} {entry.decrypted_mood}
                       </span>
                     </div>
                   </div>
@@ -1040,14 +1069,15 @@ defmodule MossletWeb.JournalLive.Index do
     books = Journal.list_books(user)
     decrypted_books = decrypt_books(books, user, key)
 
+    sealed_user_key = user.user_key
     entries = Journal.list_loose_entries(user, limit: 20)
-    decrypted_entries = decrypt_entries(entries, user, key)
+    decrypted_entries = pre_decrypt_journal_entries(entries, sealed_user_key)
 
     entry_count = Journal.count_entries(user)
     loose_entry_count = Journal.count_loose_entries(user)
 
     favorites = Journal.list_favorite_entries(user, limit: 10)
-    decrypted_favorites = decrypt_entries(favorites, user, key)
+    decrypted_favorites = pre_decrypt_journal_entries(favorites, sealed_user_key)
 
     local_now = JournalHelpers.get_local_now(socket)
     local_today = DateTime.to_date(local_now)
@@ -1131,11 +1161,11 @@ defmodule MossletWeb.JournalLive.Index do
   @impl true
   def handle_event("load_more", _params, socket) do
     user = socket.assigns.current_scope.user
-    key = socket.assigns.current_scope.key
     offset = socket.assigns.offset
 
+    sealed_user_key = user.user_key
     new_entries = Journal.list_loose_entries(user, limit: 20, offset: offset)
-    decrypted_new = decrypt_entries(new_entries, user, key)
+    decrypted_new = pre_decrypt_journal_entries(new_entries, sealed_user_key)
     new_entry_ids = MapSet.new(Enum.map(decrypted_new, & &1.id))
 
     {:noreply,
@@ -1622,10 +1652,10 @@ defmodule MossletWeb.JournalLive.Index do
 
     case Journal.create_journal_entry(user, entry_params, key) do
       {:ok, entry} ->
+        sealed_user_key = user.user_key
+
         decrypted_entry =
-          entry
-          |> Map.put(:decrypted_title, params["title"])
-          |> Map.put(:decrypted_body, params["body"])
+          MossletWeb.Helpers.pre_decrypt_journal_entry(entry, sealed_user_key)
 
         updated_entries =
           if is_nil(entry.book_id) do
@@ -2049,34 +2079,6 @@ defmodule MossletWeb.JournalLive.Index do
   end
 
   defp load_cover_image_src(_, _, _), do: nil
-
-  defp decrypt_entries(entries, user, key) do
-    Enum.map(entries, fn entry ->
-      decrypted = Journal.decrypt_entry(entry, user, key)
-
-      entry
-      |> Map.put(:decrypted_title, decrypted.title)
-      |> Map.put(:decrypted_body, decrypted.body)
-      |> Map.put(:decrypted_mood, decrypted.mood)
-    end)
-  end
-
-  defp render_preview_markdown(nil), do: ""
-  defp render_preview_markdown(""), do: ""
-
-  defp render_preview_markdown(body) do
-    truncated =
-      if String.length(body) > 300 do
-        body
-        |> String.slice(0, 300)
-        |> String.replace(~r/\s+\S*$/, "")
-        |> Kernel.<>("...")
-      else
-        body
-      end
-
-    Mosslet.MarkdownRenderer.to_html(truncated) |> Phoenix.HTML.raw()
-  end
 
   defp upload_stage_text(:receiving, count) when count > 1, do: "Uploading images..."
   defp upload_stage_text(:receiving, _), do: "Uploading image..."
