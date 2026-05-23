@@ -2782,9 +2782,9 @@ defmodule MossletWeb.Helpers do
 
   Returns `%{encrypted_blob_b64: string, sealed_key: string}` or `nil`.
 
-  Note: The ETS-cached avatar is already a base64 secretbox ciphertext
-  (output of MetamorphicCrypto.SecretBox.encrypt), so we pass it through
-  directly — no additional encoding needed.
+  The ETS-cached avatar is a raw binary (secretbox ciphertext fetched from S3
+  or decoded from the browser's base64 upload). We base64-encode it here so
+  the template can safely embed it in an HTML data attribute.
   """
   def get_encrypted_avatar_data(%User{} = user, _key) do
     user = preload_connection(user)
@@ -2793,9 +2793,9 @@ defmodule MossletWeb.Helpers do
       is_nil(user.avatar_url) ->
         nil
 
-      encrypted_blob_b64 = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}") ->
+      blob = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}") ->
         %{
-          encrypted_blob_b64: encrypted_blob_b64,
+          encrypted_blob_b64: ensure_base64(blob),
           sealed_key: user.conn_key
         }
 
@@ -2811,9 +2811,9 @@ defmodule MossletWeb.Helpers do
       is_nil(conn.avatar_url) ->
         nil
 
-      encrypted_blob_b64 = AvatarProcessor.get_ets_avatar("profile-#{conn.id}") ->
+      blob = AvatarProcessor.get_ets_avatar("profile-#{conn.id}") ->
         %{
-          encrypted_blob_b64: encrypted_blob_b64,
+          encrypted_blob_b64: ensure_base64(blob),
           sealed_key: uconn.key
         }
 
@@ -2862,7 +2862,7 @@ defmodule MossletWeb.Helpers do
   @doc """
   Returns encrypted banner blob + sealed key for browser-side ZK decryption.
 
-  Same as get_encrypted_avatar_data — the ETS value is already base64 ciphertext.
+  Same as get_encrypted_avatar_data — ETS stores raw binary, we base64-encode.
   """
   def get_encrypted_banner_data(%User{} = user, _key) do
     user = preload_connection(user)
@@ -2872,9 +2872,9 @@ defmodule MossletWeb.Helpers do
       is_nil(profile) or is_nil(profile.custom_banner_url) ->
         nil
 
-      encrypted_blob_b64 = BannerProcessor.get_banner(user.connection.id) ->
+      blob = BannerProcessor.get_banner(user.connection.id) ->
         %{
-          encrypted_blob_b64: encrypted_blob_b64,
+          encrypted_blob_b64: ensure_base64(blob),
           sealed_key: user.conn_key
         }
 
@@ -2884,4 +2884,17 @@ defmodule MossletWeb.Helpers do
   end
 
   def get_encrypted_banner_data(_, _key), do: nil
+
+  # ETS stores raw binary blobs. HTML data attributes require UTF-8 text,
+  # so we base64-encode before embedding. If the value is already a valid
+  # base64 string (e.g. from an older code path), pass it through as-is.
+  defp ensure_base64(blob) when is_binary(blob) do
+    if String.valid?(blob) and match?({:ok, _}, Base.decode64(blob)) do
+      blob
+    else
+      Base.encode64(blob)
+    end
+  end
+
+  defp ensure_base64(nil), do: nil
 end
