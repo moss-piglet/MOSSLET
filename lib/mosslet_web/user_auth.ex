@@ -666,6 +666,18 @@ defmodule MossletWeb.UserAuth do
           user
         end
 
+      # Ensure the current user's avatar is cached in ETS so
+      # get_encrypted_avatar_data/2 can return it for ZK display.
+      # The async task populates ETS and sends a callback message;
+      # the LiveView's handle_info refreshes assigns on completion.
+      if pre_decrypted_user && key do
+        MossletWeb.Helpers.ensure_avatar_cached(
+          pre_decrypted_user,
+          key,
+          {"get_user_avatar", pre_decrypted_user.id}
+        )
+      end
+
       socket
       |> Phoenix.Component.assign(:current_user, pre_decrypted_user)
       |> Phoenix.Component.assign_new(:current_scope, fn ->
