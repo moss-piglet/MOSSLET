@@ -621,6 +621,10 @@ defmodule MossletWeb.Helpers do
 
     browser_decrypt? = post.visibility != :public
 
+    # Bookmark notes are attached by list_user_bookmarks when on the bookmarks tab.
+    # This is an encrypted blob (secretbox with post_key), or nil.
+    bookmark_notes_blob = Map.get(post, :bookmark_notes)
+
     case unseal_post_key(post, current_user, session_key) do
       {:ok, raw_key} ->
         # For non-public posts, pass encrypted blobs to the browser for ZK
@@ -643,6 +647,8 @@ defmodule MossletWeb.Helpers do
             favs_list: nil,
             reposts_list: nil,
             share_note: nil,
+            bookmark_notes: nil,
+            encrypted_bookmark_notes: bookmark_notes_blob,
             raw_key: nil,
             sealed_post_key: sealed_key,
             encrypted_body: post.body,
@@ -676,6 +682,8 @@ defmodule MossletWeb.Helpers do
             favs_list: decrypt_id_list(post.favs_list, raw_key),
             reposts_list: decrypt_id_list(post.reposts_list, raw_key),
             share_note: decrypt_share_note(post, current_user, raw_key),
+            bookmark_notes: decrypt_bookmark_notes(bookmark_notes_blob, raw_key),
+            encrypted_bookmark_notes: nil,
             raw_key: raw_key,
             sealed_post_key: nil,
             encrypted_body: nil,
@@ -703,6 +711,8 @@ defmodule MossletWeb.Helpers do
           favs_list: [],
           reposts_list: [],
           share_note: nil,
+          bookmark_notes: nil,
+          encrypted_bookmark_notes: nil,
           raw_key: nil,
           sealed_post_key: nil,
           encrypted_body: nil,
@@ -764,6 +774,13 @@ defmodule MossletWeb.Helpers do
       user_post = Enum.find(post.user_posts, fn up -> up.user_id == current_user.id end)
       if user_post, do: user_post.share_note
     end
+  end
+
+  # Decrypts bookmark notes blob with the post_key (public post path).
+  defp decrypt_bookmark_notes(nil, _raw_key), do: nil
+
+  defp decrypt_bookmark_notes(notes_blob, raw_key) do
+    decrypt_field(notes_blob, raw_key, nil)
   end
 
   @doc """

@@ -500,6 +500,8 @@ window.addEventListener("phx:update_post_bookmark", (event) => {
     if (is_bookmarked) {
       button.id = `hero-bookmark-solid-button-${post_id}`;
       button.setAttribute("data-tippy-content", "Remove bookmark");
+      button.dataset.bookmarked = "true";
+      button.setAttribute("phx-click", "bookmark_post");
       button.classList.remove(
         "text-slate-400",
         "hover:text-amber-600",
@@ -521,6 +523,8 @@ window.addEventListener("phx:update_post_bookmark", (event) => {
     } else {
       button.id = `hero-bookmark-button-${post_id}`;
       button.setAttribute("data-tippy-content", "Bookmark this post");
+      button.dataset.bookmarked = "false";
+      button.removeAttribute("phx-click");
       button.classList.remove(
         "text-amber-600",
         "dark:text-amber-400",

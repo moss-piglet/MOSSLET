@@ -128,6 +128,21 @@
 - `lib/mosslet_web/live/group_live/replies/form_component.ex` — hidden username inputs wrapped with `<span data-decrypt-field="username">`
 - `lib/mosslet_web/live/journal_live/book.ex` — journal cover "A journal by" text: username extracted to `<span data-decrypt-field="username">`
 
+### Phase 3 Files Changed (ZK Bookmark Notes)
+
+- `assets/js/hooks/decrypt-bookmark-note.js` — new: decrypts bookmark notes using cached post_key from DecryptPost
+- `assets/js/hooks/bookmark-note-hook.js` — new: inline notes dropdown on bookmark creation, encrypts with cached post_key for non-public posts
+- `assets/js/hooks/index.js` — registers DecryptBookmarkNote and BookmarkNoteHook
+- `assets/js/app.js` — `update_post_bookmark` handler now toggles `data-bookmarked` and `phx-click` for hook↔phx-click coexistence
+- `lib/mosslet/timeline/bookmark.ex` — added `changeset_zk/3` accepting pre-encrypted notes from browser
+- `lib/mosslet/timeline.ex` — added `create_bookmark_zk/3` and `update_bookmark_zk/2` for ZK write path
+- `lib/mosslet/timeline/adapters/web.ex` — `list_user_bookmarks` now attaches `bookmark.notes` to posts via `Map.put(:bookmark_notes, ...)`
+- `lib/mosslet_web/helpers.ex` — `decrypt_post_fields/3` includes `bookmark_notes` (public) and `encrypted_bookmark_notes` (ZK) in decrypted map; added `decrypt_bookmark_notes/2` helper
+- `lib/mosslet_web/components/design_system.ex` — `liquid_timeline_post` gains `bookmark_notes` and `encrypted_bookmark_notes` attrs; renders DecryptBookmarkNote hook element for ZK posts, plaintext notes for public posts; bookmark button uses BookmarkNoteHook for unbookmarked state
+- `lib/mosslet_web/live/timeline_live/index.html.heex` — passes `bookmark_notes` and `encrypted_bookmark_notes` to post component
+- `lib/mosslet_web/live/timeline_live/index.ex` — added `bookmark_post_with_notes` and `update_bookmark_notes` event handlers with ZK/public dual path
+- `lib/mosslet_web/live/user_home_live/user_home_live.ex` — added `bookmark_post_with_notes` and `update_bookmark_notes` event handlers
+
 ### Key Implementation Details
 
 **Decrypt fallback pattern** (`Encrypted.Utils.decrypt/1`):
@@ -372,6 +387,7 @@ These can follow the same phased approach: first move the read path (decrypt in 
 18. **True ZK Write: Browser encrypts ALL post fields** — DONE. Two-phase commit eliminates `unseal_browser_post_key` entirely. Browser encrypts username, avatar_url, image_urls, image_alt_texts, url_preview with post_key. Browser seals post_key for all recipients via hybrid PQ KEM. Server receives and stores only ciphertext — the raw post_key never exists in server memory. `Post.encrypt_attrs` split into ZK and legacy paths. `UserPost.zk_changeset` accepts pre-sealed keys. Public posts unchanged (server-side encryption).
 19. **True ZK Ops: Browser-side fav/repost toggle** — DONE. Fav toggle now encrypts/decrypts favs_list entirely in the browser via DecryptPost hook. `Post.favs_changeset_zk` and `Post.change_post_to_repost_changeset_zk` accept pre-encrypted lists from the browser, eliminating server-side decryption. `Timeline.update_post_fav_zk/2` and `Timeline.update_post_repost_zk/2` store directly. `toggle_fav_zk` handler updates fav_count and stores encrypted list. The raw post_key never enters server memory during fav/repost operations.
 20. **True ZK Replies: Browser-side reply decryption via DecryptReply hook** — DONE. `assets/js/hooks/decrypt-reply.js` decrypts reply body and username using the cached parent post_key (from DecryptPost → `cachePostKey`). `Reply.encrypt_attrs_zk` path accepts pre-encrypted body/username from browser. Reply template renders DecryptReply hook for non-public posts, passing encrypted blobs via data attributes. Server-side `get_decrypted_reply_content` still used for public posts and fallback.
+20a. **ZK Bookmark notes: browser-side decrypt/encrypt using cached post_key** — DONE. `list_user_bookmarks` now attaches encrypted `bookmark.notes` to posts. `decrypt_post_fields/3` includes `encrypted_bookmark_notes` (ZK) and `bookmark_notes` (public) in the decrypted map. `DecryptBookmarkNote` JS hook uses `getCachedPostKey(postId)` to decrypt notes browser-side. `BookmarkNoteHook` shows an inline notes dropdown on bookmark creation, encrypts with `encryptSecretboxString(notes, postKey)`, sends ciphertext via `bookmark_post_with_notes` event. `Bookmark.changeset_zk` accepts pre-encrypted notes. `Timeline.create_bookmark_zk/update_bookmark_zk` store directly. Server-side decryption remains for public posts. `update_post_bookmark` client handler updated to toggle `data-bookmarked` and `phx-click` for proper hook↔phx-click coexistence.
 21. **Full data structure audit** — Comprehensive review of ALL encrypted data structures (excl. memories) to identify any gaps.
 22. **ZK AI migration** — Journal insights, mood prompts, language filters → browser-based AI.
 23. **NSFW fail-open verification** — Document behavior for all failure modes.

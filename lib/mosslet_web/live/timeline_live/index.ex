@@ -3494,6 +3494,105 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
+  # ZK bookmark with notes: browser encrypts notes with cached post_key
+  def handle_event(
+        "bookmark_post_with_notes",
+        %{"id" => post_id, "encrypted_notes" => encrypted_notes},
+        socket
+      ) do
+    current_user = socket.assigns.current_user
+    current_tab = socket.assigns.active_tab || "home"
+    options = socket.assigns.options
+
+    case Timeline.get_post(post_id) do
+      %Post{} = post ->
+        result =
+          if post.visibility == :public do
+            # Public post: server encrypts the notes
+            Timeline.create_bookmark(current_user, post, %{notes: encrypted_notes})
+          else
+            # Non-public post: notes are already encrypted by browser
+            Timeline.create_bookmark_zk(current_user, post, encrypted_notes)
+          end
+
+        case result do
+          {:ok, _bookmark} ->
+            Accounts.track_user_activity(current_user, :interaction)
+            content_filter_prefs = socket.assigns.content_filters
+            options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
+            timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
+            unread_counts = calculate_unread_counts(current_user, options_with_filters)
+
+            socket =
+              socket
+              |> assign(:timeline_counts, timeline_counts)
+              |> assign(:unread_counts, unread_counts)
+              |> push_event("update_post_bookmark", %{
+                post_id: post_id,
+                is_bookmarked: true
+              })
+              |> put_flash(:success, "Post bookmarked with notes.")
+
+            socket =
+              if current_tab == "bookmarks" do
+                updated_post =
+                  get_post_with_reply_limit(post_id, current_user.id, socket.assigns)
+
+                stream_insert_post(socket, updated_post, current_user,
+                  at: 0,
+                  limit: @post_per_page_default
+                )
+              else
+                socket
+              end
+
+            {:noreply, socket}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Failed to bookmark post")}
+        end
+
+      nil ->
+        {:noreply, put_flash(socket, :error, "Post not found")}
+    end
+  end
+
+  # Update existing bookmark notes (ZK write path)
+  def handle_event(
+        "update_bookmark_notes",
+        %{"id" => post_id, "encrypted_notes" => encrypted_notes},
+        socket
+      ) do
+    current_user = socket.assigns.current_user
+
+    case Timeline.get_post(post_id) do
+      %Post{} = post ->
+        case Timeline.get_bookmark(current_user, post) do
+          nil ->
+            {:noreply, put_flash(socket, :error, "Bookmark not found")}
+
+          bookmark ->
+            result =
+              if post.visibility == :public do
+                Timeline.update_bookmark(bookmark, %{notes: encrypted_notes}, current_user)
+              else
+                Timeline.update_bookmark_zk(bookmark, encrypted_notes)
+              end
+
+            case result do
+              {:ok, _updated} ->
+                {:noreply, put_flash(socket, :success, "Bookmark notes updated.")}
+
+              {:error, _} ->
+                {:noreply, put_flash(socket, :error, "Failed to update bookmark notes")}
+            end
+        end
+
+      nil ->
+        {:noreply, put_flash(socket, :error, "Post not found")}
+    end
+  end
+
   def handle_event("fav", %{"id" => id}, socket), do: do_toggle_fav(id, socket)
   def handle_event("unfav", %{"id" => id}, socket), do: do_toggle_fav(id, socket)
 

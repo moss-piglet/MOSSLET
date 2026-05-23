@@ -3490,6 +3490,72 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
+  Creates a bookmark with pre-encrypted notes from the browser (ZK write path).
+
+  For non-public posts, the browser encrypts notes with the cached post_key.
+  The server stores the encrypted blob directly — it never sees plaintext notes.
+  """
+  def create_bookmark_zk(user, post, encrypted_notes) do
+    user_connection =
+      if user.id != post.user_id && post.visibility != :public,
+        do: Accounts.get_user_connection_between_users(post.user_id, user.id)
+
+    attrs = %{user_id: user.id, post_id: post.id}
+
+    attrs =
+      if user_connection,
+        do: Map.put(attrs, :user_connection_id, user_connection.id),
+        else: attrs
+
+    case Repo.transaction_on_primary(fn ->
+           %Bookmark{}
+           |> Bookmark.changeset_zk(attrs, encrypted_notes: encrypted_notes)
+           |> Repo.insert()
+         end) do
+      {:ok, {:ok, bookmark}} ->
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "bookmarks:#{user.id}",
+          {:bookmark_created, bookmark}
+        )
+
+        {:ok, bookmark}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Updates a bookmark's notes with pre-encrypted data from the browser (ZK write path).
+  """
+  def update_bookmark_zk(bookmark, encrypted_notes) do
+    case Repo.transaction_on_primary(fn ->
+           bookmark
+           |> Bookmark.changeset_zk(%{}, encrypted_notes: encrypted_notes)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, updated_bookmark}} ->
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "bookmarks:#{bookmark.user_id}",
+          {:bookmark_updated, updated_bookmark}
+        )
+
+        {:ok, updated_bookmark}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
   Deletes a bookmark.
   """
   def delete_bookmark(bookmark, user) do

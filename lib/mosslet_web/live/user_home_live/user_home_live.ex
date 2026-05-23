@@ -1263,6 +1263,82 @@ defmodule MossletWeb.UserHomeLive do
     end
   end
 
+  # ZK bookmark with notes: browser encrypts notes with cached post_key
+  def handle_event(
+        "bookmark_post_with_notes",
+        %{"id" => post_id, "encrypted_notes" => encrypted_notes},
+        socket
+      ) do
+    current_user = socket.assigns.current_scope.user
+
+    case Timeline.get_post(post_id) do
+      %Post{} = post ->
+        result =
+          if post.visibility == :public do
+            Timeline.create_bookmark(current_user, post, %{notes: encrypted_notes})
+          else
+            Timeline.create_bookmark_zk(current_user, post, encrypted_notes)
+          end
+
+        case result do
+          {:ok, _bookmark} ->
+            Accounts.track_user_activity(current_user, :interaction)
+
+            socket =
+              socket
+              |> push_event("update_post_bookmark", %{
+                post_id: post_id,
+                is_bookmarked: true
+              })
+              |> put_flash(:success, "Post bookmarked with notes.")
+
+            {:noreply, socket}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Failed to bookmark post")}
+        end
+
+      nil ->
+        {:noreply, put_flash(socket, :error, "Post not found")}
+    end
+  end
+
+  # Update existing bookmark notes (ZK write path)
+  def handle_event(
+        "update_bookmark_notes",
+        %{"id" => post_id, "encrypted_notes" => encrypted_notes},
+        socket
+      ) do
+    current_user = socket.assigns.current_scope.user
+
+    case Timeline.get_post(post_id) do
+      %Post{} = post ->
+        case Timeline.get_bookmark(current_user, post) do
+          nil ->
+            {:noreply, put_flash(socket, :error, "Bookmark not found")}
+
+          bookmark ->
+            result =
+              if post.visibility == :public do
+                Timeline.update_bookmark(bookmark, %{notes: encrypted_notes}, current_user)
+              else
+                Timeline.update_bookmark_zk(bookmark, encrypted_notes)
+              end
+
+            case result do
+              {:ok, _updated} ->
+                {:noreply, put_flash(socket, :success, "Bookmark notes updated.")}
+
+              {:error, _} ->
+                {:noreply, put_flash(socket, :error, "Failed to update bookmark notes")}
+            end
+        end
+
+      nil ->
+        {:noreply, put_flash(socket, :error, "Post not found")}
+    end
+  end
+
   # ZK path: browser encrypts/decrypts the favs_list using cached post_key.
   def handle_event(
         "toggle_reply_fav_zk",

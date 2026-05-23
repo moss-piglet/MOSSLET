@@ -70,6 +70,45 @@ defmodule Mosslet.Timeline.Bookmark do
     )
   end
 
+  @doc """
+  ZK changeset for bookmarks — accepts pre-encrypted notes from the browser.
+
+  Used when the browser encrypts notes with the cached post_key (non-public posts).
+  The `encrypted_notes` value is the base64 secretbox ciphertext produced by the
+  browser's `encryptSecretboxString(notes, postKey)`.
+
+  ## Options
+
+  - `:encrypted_notes` - Pre-encrypted notes blob (base64 string) from the browser
+  """
+  def changeset_zk(bookmark, attrs, opts \\ []) do
+    changeset =
+      bookmark
+      |> cast(attrs, [:user_id, :post_id, :category_id, :user_connection_id])
+      |> validate_required([:user_id, :post_id])
+      |> unique_constraint([:user_id, :post_id],
+        name: :bookmarks_user_post_index,
+        message: "You have already bookmarked this post"
+      )
+
+    case opts[:encrypted_notes] do
+      nil ->
+        changeset
+        |> put_change(:notes, nil)
+        |> put_change(:notes_hash, nil)
+
+      "" ->
+        changeset
+        |> put_change(:notes, nil)
+        |> put_change(:notes_hash, nil)
+
+      encrypted ->
+        changeset
+        |> put_change(:notes, encrypted)
+        |> put_change(:notes_hash, nil)
+    end
+  end
+
   # Use the SAME post_key that encrypts post.body for consistency
   defp encrypt_notes_with_post_key(changeset, opts) do
     if changeset.valid? && opts[:post_key] do

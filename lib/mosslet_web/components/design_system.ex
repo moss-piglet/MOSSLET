@@ -5601,6 +5601,15 @@ defmodule MossletWeb.DesignSystem do
   attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
   attr :is_repost, :boolean, default: false
   attr :share_note, :any, default: nil, doc: "Personal note from the sender when sharing"
+
+  attr :bookmark_notes, :any,
+    default: nil,
+    doc: "Decrypted bookmark notes (public posts) or nil (ZK posts)"
+
+  attr :encrypted_bookmark_notes, :any,
+    default: nil,
+    doc: "Encrypted bookmark notes blob for browser-side ZK decryption"
+
   # New: unread state
   attr :unread?, :boolean, default: false
   attr :unread_replies_count, :integer, default: 0
@@ -6808,6 +6817,47 @@ defmodule MossletWeb.DesignSystem do
           </div>
         </div>
 
+        <%!-- Bookmark notes display — shown when this post has notes attached --%>
+        <%= if @bookmark_notes do %>
+          <%!-- Public post: server-decrypted bookmark notes --%>
+          <div class="mx-1 mb-2 px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-900/15 border border-amber-200/40 dark:border-amber-700/30">
+            <div class="flex items-start gap-2">
+              <.phx_icon
+                name="hero-bookmark-solid"
+                class="h-3.5 w-3.5 mt-0.5 text-amber-500 dark:text-amber-400 shrink-0"
+              />
+              <p class="text-xs text-amber-800 dark:text-amber-200 leading-relaxed break-words whitespace-pre-wrap">
+                {@bookmark_notes}
+              </p>
+            </div>
+          </div>
+        <% end %>
+        <%= if @encrypted_bookmark_notes do %>
+          <%!-- Non-public post: browser-side ZK decryption of bookmark notes --%>
+          <div
+            id={"decrypt-bookmark-notes-#{@post.id}"}
+            phx-hook="DecryptBookmarkNote"
+            phx-update="ignore"
+            data-post-id={@post.id}
+            data-encrypted-notes={@encrypted_bookmark_notes}
+            class="mx-1 mb-2 hidden"
+          >
+            <div class="px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-900/15 border border-amber-200/40 dark:border-amber-700/30">
+              <div class="flex items-start gap-2">
+                <.phx_icon
+                  name="hero-bookmark-solid"
+                  class="h-3.5 w-3.5 mt-0.5 text-amber-500 dark:text-amber-400 shrink-0"
+                />
+                <p
+                  data-decrypt-notes-target
+                  class="text-xs text-amber-800 dark:text-amber-200 leading-relaxed break-words whitespace-pre-wrap"
+                >
+                </p>
+              </div>
+            </div>
+          </div>
+        <% end %>
+
         <div class="flex items-center justify-between pt-3 border-t border-slate-200/50 dark:border-slate-700/50">
           <div class="flex items-center gap-1">
             <button
@@ -6977,10 +7027,13 @@ defmodule MossletWeb.DesignSystem do
                   "text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20"
               )
             ]}
-            phx-click="bookmark_post"
+            phx-click={if(@bookmarked, do: "bookmark_post")}
             phx-value-id={@post_id}
-            phx-hook="TippyHook"
+            phx-hook={if(@bookmarked, do: "TippyHook", else: "BookmarkNoteHook")}
             data-tippy-content={if @bookmarked, do: "Remove bookmark", else: "Bookmark this post"}
+            data-post-id={@post_id}
+            data-bookmarked={to_string(@bookmarked)}
+            data-is-public={to_string(@post.visibility == :public)}
           >
             <.phx_icon
               id={

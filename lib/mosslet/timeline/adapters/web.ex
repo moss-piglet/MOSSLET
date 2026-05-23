@@ -1103,7 +1103,9 @@ defmodule Mosslet.Timeline.Adapters.Web do
     query
     |> Repo.all()
     |> filter_removed_bookmarks(options[:current_scope])
-    |> Enum.map(fn bookmark -> bookmark.post end)
+    |> Enum.map(fn bookmark ->
+      bookmark.post && Map.put(bookmark.post, :bookmark_notes, bookmark.notes)
+    end)
     |> Enum.filter(&(&1 != nil))
   end
 

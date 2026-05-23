@@ -2,6 +2,7 @@ import MossletFrameworkHooks from "../../_mosslet_framework/js/hooks";
 import AccountRecoveryHook from "./account-recovery-hook";
 import AutoResize from "./auto-resize";
 import BookPageFitHook from "./book-page-fit-hook";
+import BookmarkNoteHook from "./bookmark-note-hook";
 import BookReaderSwipe from "./book-reader-swipe";
 import BookScrollReader from "./book-scroll-reader";
 import ConversationEmojiPicker from "./conversation-emoji-picker";
@@ -10,6 +11,7 @@ import DecryptGroupMessage from "./decrypt-group-message";
 import DecryptGroupMetadata from "./decrypt-group-metadata";
 import DecryptJournalEntry from "./decrypt-journal-entry";
 import DecryptAvatar from "./decrypt-avatar";
+import DecryptBookmarkNote from "./decrypt-bookmark-note";
 import DecryptPost from "./decrypt-post";
 import DecryptReply from "./decrypt-reply";
 import EncryptUpload from "./encrypt-upload";
@@ -88,6 +90,7 @@ export default {
   AccountRecoveryHook,
   AutoResize,
   BookPageFitHook,
+  BookmarkNoteHook,
   BookReaderSwipe,
   BookScrollReader,
   CharacterCounter,
@@ -101,6 +104,7 @@ export default {
   CSSBookCoverClick,
   DeepLinkHook,
   DecryptAvatar,
+  DecryptBookmarkNote,
   DecryptGroupMessage,
   DecryptGroupMetadata,
   DecryptJournalEntry,
