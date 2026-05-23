@@ -105,19 +105,26 @@
                         get_user_from_user_group_id(user_group.id),
                         @current_user
                       ) %>
+                    <% conn_avatar =
+                      if uconn, do: get_encrypted_avatar_data(uconn, @key) %>
+                    <% group_avatar_path =
+                      ~p"/images/groups/#{decr_item(user_group.avatar_img, @current_user, get_user_group(group, @current_user).key, @key, group)}" %>
+                    <%!-- Connected member with connection avatar --%>
                     <.group_avatar
-                      :if={user_group.user_id != @current_user.id && uconn}
-                      encrypted_avatar_data={get_encrypted_avatar_data(uconn, @key)}
+                      :if={user_group.user_id != @current_user.id && uconn && conn_avatar}
+                      encrypted_avatar_data={conn_avatar}
                       id={"group-idx-#{group.id}-#{user_group.id}"}
                       alt="group member connection avatar"
                       class={group_avatar_role_style(user_group.role)}
                     />
+                    <%!-- Connected member without connection avatar, or not connected — use group avatar --%>
                     <.group_avatar
-                      :if={user_group.user_id != @current_user.id && !uconn}
-                      src={
-                        ~p"/images/groups/#{decr_item(user_group.avatar_img, @current_user, get_user_group(group, @current_user).key, @key, group)}"
+                      :if={
+                        user_group.user_id != @current_user.id &&
+                          ((uconn && !conn_avatar) || !uconn)
                       }
-                      alt="unknown group member avatar"
+                      src={group_avatar_path}
+                      alt="group member avatar"
                       class={group_avatar_role_style(user_group.role)}
                     />
                     <.group_avatar
@@ -182,20 +189,25 @@
                         get_user_from_user_group_id(ug.id),
                         @current_user
                       ) %>
+                    <% member_conn_avatar =
+                      if member_uconn, do: get_encrypted_avatar_data(member_uconn, @key) %>
+                    <% member_group_avatar_path =
+                      ~p"/images/groups/#{decr_item(ug.avatar_img, @current_user, get_user_group(group, @current_user).key, @key, group)}" %>
 
                     <.phx_avatar
-                      :if={ug.user_id != @current_user.id && member_uconn}
-                      encrypted_avatar_data={get_encrypted_avatar_data(member_uconn, @key)}
+                      :if={ug.user_id != @current_user.id && member_uconn && member_conn_avatar}
+                      encrypted_avatar_data={member_conn_avatar}
                       id={"group-member-#{group.id}-#{ug.id}"}
                       alt="group member"
                       class="h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-700"
                     />
 
                     <.phx_avatar
-                      :if={ug.user_id != @current_user.id && !member_uconn}
-                      src={
-                        ~p"/images/groups/#{decr_item(ug.avatar_img, @current_user, get_user_group(group, @current_user).key, @key, group)}"
+                      :if={
+                        ug.user_id != @current_user.id &&
+                          ((member_uconn && !member_conn_avatar) || !member_uconn)
                       }
+                      src={member_group_avatar_path}
                       alt="group member"
                       class="h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-700"
                     />

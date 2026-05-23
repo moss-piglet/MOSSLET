@@ -59,23 +59,26 @@ defmodule MossletWeb.GroupLive.GroupMessages do
         _ -> ~p"/images/groups/default.png"
       end
 
-    avatar_src =
-      if assigns.user_group.id == assigns.message.sender_id do
-        nil
-      else
-        if uconn do
-          nil
-        else
-          group_avatar_path
-        end
-      end
-
-    encrypted_avatar =
-      if uconn && assigns.user_group.id != assigns.message.sender_id do
-        get_encrypted_avatar_data(uconn, assigns.current_scope.key)
-      end
-
+    # Avatar resolution: connection avatar > group avatar > fallback logo
+    # For connected members, try their connection avatar first; if nil
+    # (e.g. they haven't uploaded one), fall back to the decrypted group avatar.
     is_self = assigns.user_group.id == assigns.message.sender_id
+
+    {avatar_src, encrypted_avatar} =
+      cond do
+        is_self ->
+          {nil, nil}
+
+        uconn ->
+          case get_encrypted_avatar_data(uconn, assigns.current_scope.key) do
+            nil -> {group_avatar_path, nil}
+            data -> {nil, data}
+          end
+
+        true ->
+          {group_avatar_path, nil}
+      end
+
     is_connected = not is_nil(uconn)
 
     sender_name =
