@@ -222,6 +222,46 @@ defmodule Mosslet.Accounts.Connection do
     |> add_avatar_hash(opts)
   end
 
+  @doc """
+  ZK changeset for profile about/bio fields. Accepts pre-encrypted ciphertext
+  from the browser and stores it directly — the server never sees plaintext.
+
+  Only handles the four text fields (about, alternate_email, website_url,
+  website_label) plus the non-encrypted display flags. All other profile
+  fields (avatar, name, email, username, slug, profile_key) remain unchanged.
+
+  Used for update only — the profile must already exist.
+  """
+  def profile_changeset_zk(conn, attrs) do
+    profile = conn.profile
+
+    updated_profile =
+      profile
+      |> maybe_put_zk(:about, attrs[:encrypted_about])
+      |> maybe_put_zk(:alternate_email, attrs[:encrypted_alternate_email])
+      |> maybe_put_zk(:website_url, attrs[:encrypted_website_url])
+      |> maybe_put_zk(:website_label, attrs[:encrypted_website_label])
+      |> maybe_put_plain(:banner_image, attrs[:banner_image])
+      |> maybe_put_plain(:show_avatar?, attrs[:show_avatar])
+      |> maybe_put_plain(:show_email?, attrs[:show_email])
+      |> maybe_put_plain(:show_name?, attrs[:show_name])
+
+    conn
+    |> change()
+    |> put_embed(:profile, updated_profile)
+  end
+
+  defp maybe_put_zk(struct, _field, nil), do: struct
+  defp maybe_put_zk(struct, field, value), do: Map.put(struct, field, value)
+
+  defp maybe_put_plain(struct, _field, nil), do: struct
+
+  defp maybe_put_plain(struct, :banner_image, value) when is_binary(value) do
+    Map.put(struct, :banner_image, String.to_existing_atom(value))
+  end
+
+  defp maybe_put_plain(struct, field, value), do: Map.put(struct, field, value)
+
   # The name_hash comes through as a temp clear text
   # so we go straight ahead and hash it. The `:name`
   # is coming through already encrypted correctly
@@ -398,6 +438,7 @@ defmodule Mosslet.Accounts.Connection do
       username = get_field(changeset, :username)
       visibility = opts_map.user.visibility
       profile_key = maybe_generate_key(opts_map)
+      zk = Map.get(opts_map, :zk_fields, %{})
 
       case visibility do
         :public ->
@@ -405,10 +446,19 @@ defmodule Mosslet.Accounts.Connection do
           |> put_change(:avatar_url, maybe_encrypt_avatar_url(changeset, profile_key, opts_map))
           |> put_change(:name, maybe_encrypt_name(changeset, profile_key))
           |> put_change(:email, maybe_encrypt_email(changeset, profile_key))
-          |> put_change(:about, maybe_encrypt_about(changeset, profile_key))
-          |> put_change(:alternate_email, maybe_encrypt_alternate_email(changeset, profile_key))
-          |> put_change(:website_url, maybe_encrypt_website_url(changeset, profile_key))
-          |> put_change(:website_label, maybe_encrypt_website_label(changeset, profile_key))
+          |> put_change(:about, zk[:about] || maybe_encrypt_about(changeset, profile_key))
+          |> put_change(
+            :alternate_email,
+            zk[:alternate_email] || maybe_encrypt_alternate_email(changeset, profile_key)
+          )
+          |> put_change(
+            :website_url,
+            zk[:website_url] || maybe_encrypt_website_url(changeset, profile_key)
+          )
+          |> put_change(
+            :website_label,
+            zk[:website_label] || maybe_encrypt_website_label(changeset, profile_key)
+          )
           |> put_change(:username, Utils.encrypt(%{key: profile_key, payload: username}))
           |> put_change(
             :profile_key,
@@ -422,10 +472,19 @@ defmodule Mosslet.Accounts.Connection do
           |> put_change(:avatar_url, maybe_encrypt_avatar_url(changeset, profile_key, opts_map))
           |> put_change(:name, maybe_encrypt_name(changeset, profile_key))
           |> put_change(:email, maybe_encrypt_email(changeset, profile_key))
-          |> put_change(:about, maybe_encrypt_about(changeset, profile_key))
-          |> put_change(:alternate_email, maybe_encrypt_alternate_email(changeset, profile_key))
-          |> put_change(:website_url, maybe_encrypt_website_url(changeset, profile_key))
-          |> put_change(:website_label, maybe_encrypt_website_label(changeset, profile_key))
+          |> put_change(:about, zk[:about] || maybe_encrypt_about(changeset, profile_key))
+          |> put_change(
+            :alternate_email,
+            zk[:alternate_email] || maybe_encrypt_alternate_email(changeset, profile_key)
+          )
+          |> put_change(
+            :website_url,
+            zk[:website_url] || maybe_encrypt_website_url(changeset, profile_key)
+          )
+          |> put_change(
+            :website_label,
+            zk[:website_label] || maybe_encrypt_website_label(changeset, profile_key)
+          )
           |> put_change(:username, Utils.encrypt(%{key: profile_key, payload: username}))
           |> put_change(
             :profile_key,
@@ -441,10 +500,19 @@ defmodule Mosslet.Accounts.Connection do
           |> put_change(:avatar_url, maybe_encrypt_avatar_url(changeset, profile_key, opts_map))
           |> put_change(:name, maybe_encrypt_name(changeset, profile_key))
           |> put_change(:email, maybe_encrypt_email(changeset, profile_key))
-          |> put_change(:about, maybe_encrypt_about(changeset, profile_key))
-          |> put_change(:alternate_email, maybe_encrypt_alternate_email(changeset, profile_key))
-          |> put_change(:website_url, maybe_encrypt_website_url(changeset, profile_key))
-          |> put_change(:website_label, maybe_encrypt_website_label(changeset, profile_key))
+          |> put_change(:about, zk[:about] || maybe_encrypt_about(changeset, profile_key))
+          |> put_change(
+            :alternate_email,
+            zk[:alternate_email] || maybe_encrypt_alternate_email(changeset, profile_key)
+          )
+          |> put_change(
+            :website_url,
+            zk[:website_url] || maybe_encrypt_website_url(changeset, profile_key)
+          )
+          |> put_change(
+            :website_label,
+            zk[:website_label] || maybe_encrypt_website_label(changeset, profile_key)
+          )
           |> put_change(:username, Utils.encrypt(%{key: profile_key, payload: username}))
           |> put_change(
             :profile_key,

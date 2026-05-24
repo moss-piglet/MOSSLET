@@ -799,6 +799,35 @@ defmodule Mosslet.Accounts do
     end
   end
 
+  @doc """
+  ZK write path for profile about/bio fields. Accepts pre-encrypted ciphertext
+  from the browser and stores it directly — the server never sees plaintext for
+  the four text fields (about, alternate_email, website_url, website_label).
+
+  Non-encrypted display flags (show_avatar?, show_email?, show_name?, banner_image)
+  pass through normally.
+  """
+  def update_user_profile_zk(user, attrs) do
+    conn = get_connection!(user.connection.id)
+
+    unless conn.profile do
+      raise "update_user_profile_zk requires an existing profile"
+    end
+
+    changeset = Connection.profile_changeset_zk(conn, attrs)
+
+    case Ecto.Multi.new()
+         |> Ecto.Multi.update(:update_connection, fn _ -> changeset end)
+         |> Mosslet.Repo.transaction_on_primary() do
+      {:ok, %{update_connection: updated_conn}} ->
+        broadcast_connection(updated_conn, :uconn_updated)
+        {:ok, updated_conn}
+
+      {:error, :update_connection, changeset, _} ->
+        {:error, changeset}
+    end
+  end
+
   def update_user_name(user, attrs \\ %{}, opts \\ []) do
     changeset = User.name_changeset(user, attrs, opts)
     conn = adapter().get_connection!(user.connection.id)

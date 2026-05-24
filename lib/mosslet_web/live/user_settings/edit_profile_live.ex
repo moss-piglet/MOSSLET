@@ -40,6 +40,7 @@ defmodule MossletWeb.EditProfileLive do
       |> assign(:nsfw_check_result, nil)
       |> assign(:pending_banner_file_path, nil)
       |> assign(:pending_banner_alt_text, nil)
+      |> assign(:sealed_profile_key, profile && profile.profile_key)
       |> assign_profile_about(current_user, socket.assigns.key)
       |> assign_profile_alternate_email(current_user, socket.assigns.key)
       |> assign_profile_website_url(current_user, socket.assigns.key)
@@ -139,12 +140,16 @@ defmodule MossletWeb.EditProfileLive do
             :if={@current_user.confirmed_at}
             for={@profile_form}
             id="profile_form"
+            phx-hook="ProfileAboutFormHook"
             phx-change="validate_profile"
             phx-submit={
               if Map.get(@current_user.connection, :profile),
                 do: "update_profile",
                 else: "create_profile"
             }
+            data-sealed-profile-key={@sealed_profile_key}
+            data-visibility={to_string(@current_user.visibility)}
+            data-action={if Map.get(@current_user.connection, :profile), do: "update", else: "create"}
             class="space-y-8"
           >
             <DesignSystem.liquid_input
@@ -953,6 +958,80 @@ defmodule MossletWeb.EditProfileLive do
     end
   end
 
+  # ZK write path: browser encrypted the four profile text fields
+  def handle_event("save_profile_zk", params, socket) do
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+    action = params["action"]
+
+    unless user && user.confirmed_at do
+      {:noreply,
+       socket
+       |> put_flash(:error, "Woops, you need to confirm your account first.")
+       |> push_navigate(to: ~p"/app/users/edit-profile")}
+    else
+      zk_attrs = %{
+        encrypted_about: params["encrypted_about"],
+        encrypted_alternate_email: params["encrypted_alternate_email"],
+        encrypted_website_url: params["encrypted_website_url"],
+        encrypted_website_label: params["encrypted_website_label"],
+        banner_image: params["banner_image"],
+        show_avatar: params["show_avatar"],
+        show_email: params["show_email"],
+        show_name: params["show_name"]
+      }
+
+      result =
+        if action == "update" && user.connection.profile do
+          Accounts.update_user_profile_zk(user, zk_attrs)
+        else
+          # Create path: use normal create flow with ZK overrides for the four fields
+          zk_fields =
+            Map.reject(
+              %{
+                about: params["encrypted_about"],
+                alternate_email: params["encrypted_alternate_email"],
+                website_url: params["encrypted_website_url"],
+                website_label: params["encrypted_website_label"]
+              },
+              fn {_k, v} -> is_nil(v) end
+            )
+
+          profile_params = build_create_params_with_zk(user, key, zk_fields, zk_attrs)
+
+          Accounts.create_user_profile(user, profile_params,
+            key: key,
+            user: user,
+            encrypt: true
+          )
+        end
+
+      case result do
+        {:ok, _conn} ->
+          msg =
+            if action == "update",
+              do: "Your profile has been updated successfully.",
+              else: "Your profile has been created successfully."
+
+          {:noreply,
+           socket
+           |> put_flash(:success, msg)
+           |> push_navigate(to: ~p"/app/users/edit-profile")}
+
+        {:error, _changeset} ->
+          msg =
+            if action == "update",
+              do: "Failed to update profile. Please try again.",
+              else: "Failed to create profile. Please try again."
+
+          {:noreply,
+           socket
+           |> put_flash(:error, msg)
+           |> push_navigate(to: ~p"/app/users/edit-profile")}
+      end
+    end
+  end
+
   def handle_event("create_profile", params, socket) do
     %{"connection" => profile_params} = params
     user = socket.assigns.current_scope.user
@@ -1538,5 +1617,45 @@ defmodule MossletWeb.EditProfileLive do
         {:banner_deleted, user.connection.id}
       )
     end
+  end
+
+  # Builds profile_params for the existing create_user_profile flow, injecting
+  # pre-encrypted ZK fields so maybe_encrypt_attrs skips re-encrypting them.
+  defp build_create_params_with_zk(user, key, zk_fields, zk_attrs) do
+    avatar_url =
+      if user.connection.avatar_url do
+        decr_avatar(
+          user.connection.avatar_url,
+          user,
+          user.conn_key,
+          key
+        )
+      end
+
+    %{
+      "profile" => %{
+        "user_id" => user.id,
+        "email" => user.decrypted[:email],
+        "name" => user.decrypted[:name],
+        "username" => user.decrypted[:username],
+        "temp_username" => user.decrypted[:username],
+        "avatar_url" => avatar_url,
+        "visibility" => to_string(user.visibility),
+        "about" => "",
+        "alternate_email" => "",
+        "website_url" => "",
+        "website_label" => "",
+        "banner_image" => zk_attrs[:banner_image] || "waves",
+        "show_avatar?" => to_string(zk_attrs[:show_avatar] || false),
+        "show_email?" => to_string(zk_attrs[:show_email] || false),
+        "show_name?" => to_string(zk_attrs[:show_name] || false),
+        "opts_map" => %{
+          user: user,
+          key: key,
+          encrypt: true,
+          zk_fields: zk_fields
+        }
+      }
+    }
   end
 end

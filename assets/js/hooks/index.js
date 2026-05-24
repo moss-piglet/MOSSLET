@@ -87,6 +87,7 @@ import BackgroundSyncHook from "./background-sync-hook";
 import BlockReasonFormHook from "./block-reason-form-hook";
 import PlatformDetector from "./platform-detector";
 import PostExpandHook from "./post-expand-hook";
+import ProfileAboutFormHook from "./profile-about-form-hook";
 import FileDownloadHook from "./file-download-hook";
 import ConnectionLabelFormHook from "./connection-label-form-hook";
 import ConversationTouchReveal from "./conversation-touch-reveal";
@@ -151,6 +152,7 @@ export default {
   MossletFrameworkHooks,
   NsfwCheck,
   PostFormHook,
+  ProfileAboutFormHook,
   ProfileFieldsFormHook,
   RecoveryKeySetupHook,
   RegistrationHook,
