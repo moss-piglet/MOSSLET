@@ -1,10 +1,28 @@
 defmodule Mosslet.AI.Images do
   @moduledoc """
-  Functions for processing images with AI.
+  Image moderation with a three-tier, fail-open architecture.
 
-  Image moderation strategy:
-  - Public posts: Full vision model moderation (comprehensive check)
-  - Private posts: Privacy-focused illegal content check with Bumblebee fallback
+  ## Moderation tiers
+
+  1. **Client-side (browser)** — NSFWJS + TensorFlow.js via NsfwCheck LiveView
+     hook. Runs entirely in the browser (zero-knowledge). Used for avatar and
+     banner uploads. The UI always implies the check is active to deter uploads
+     of inappropriate content, even when the model is unavailable. Failure is
+     silent to the user; model status is logged server-side via pushEvent.
+
+  2. **Server-side primary (LLM vision)** — OpenRouter vision model for both
+     private (illegal content only) and public (broader guidelines) moderation.
+     Runs during the ImageUploadWriter pipeline and Bluesky imports.
+
+  3. **Server-side fallback (Bumblebee)** — Falconsai/nsfw_image_detection via
+     FLAME ephemeral Fly machines. Used when the LLM is unavailable.
+
+  ## Fail-open design
+
+  All three tiers fail open — if every tier is down, the upload proceeds.
+  This is intentional: availability is prioritized over blocking. The
+  multi-tier design means all three would need to fail simultaneously for
+  an image to skip moderation entirely.
 
   Uses privacy-first providers via OpenRouter (Together AI).
   """

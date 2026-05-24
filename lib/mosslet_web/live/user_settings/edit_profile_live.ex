@@ -2,6 +2,8 @@ defmodule MossletWeb.EditProfileLive do
   @moduledoc false
   use MossletWeb, :live_view
 
+  require Logger
+
   import MossletWeb.Helpers.UploadHelpers
 
   alias Mosslet.Accounts
@@ -727,6 +729,15 @@ defmodule MossletWeb.EditProfileLive do
   end
 
   def handle_event("nsfw:model_ready", _params, socket) do
+    Logger.info("Client-side NSFW model loaded")
+    {:noreply, socket}
+  end
+
+  def handle_event("nsfw:model_unavailable", _params, socket) do
+    Logger.warning(
+      "Client-side NSFW model unavailable — uploads will rely on server-side moderation"
+    )
+
     {:noreply, socket}
   end
 

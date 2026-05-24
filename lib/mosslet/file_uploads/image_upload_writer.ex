@@ -393,6 +393,12 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
     end
   end
 
+  # Server-side safety check (tier 2/3 of the moderation pipeline).
+  #
+  # Tries LLM vision model first, falls back to Bumblebee via FLAME.
+  # Fail-open: if both are unavailable, check_for_safety_bumblebee/1
+  # approves the image with a Logger.warning. See Mosslet.AI.Images
+  # moduledoc for the full fail-open rationale.
   defp check_safety(image, state) do
     notify_progress(state, :validating, 50)
 

@@ -1,16 +1,38 @@
 /**
  * Client-side NSFW image classification using NSFWJS + TensorFlow.js.
  *
+ * Architecture:
  * - Lazy-loads NSFWJS (which bundles TF.js) from CDN via dynamic import()
  *   (CSP-safe under existing 'unsafe-eval' directive)
  * - Model weights served from our own /models/mobilenet_v2_mid/ (self-hosted)
  * - All inference runs entirely in the browser — zero-knowledge
  * - Model cached in IndexedDB after first load for instant subsequent visits
+ * - Uses MobileNetV2Mid (~4.1MB weights, ~93% accuracy, graph model)
+ *
+ * Fail-open design (intentional):
+ *
+ * Every public API (classifyImage, classifyDataUrl) catches all errors and
+ * returns {isNSFW: false} on failure. This means uploads always proceed when
+ * the model is unavailable. This is by design:
+ *
+ *   - The UI always implies NSFW checking is active, providing a deterrent
+ *     effect even when the model hasn't loaded.
+ *   - Server-side moderation (LLM vision model + Bumblebee/FLAME fallback)
+ *     provides a genuine safety net for all uploaded images regardless of
+ *     client-side model state.
+ *   - We intentionally do NOT inform the user when the model is unavailable
+ *     to preserve the deterrent effect.
+ *
+ * Failure modes (all silent, all fail-open):
+ *   1. CDN unreachable (no internet, CDN down) — import() rejects
+ *   2. Model download fails partway — nsfw.load() rejects
+ *   3. IndexedDB cache corrupted — validateModel() rejects, re-download
+ *      attempted; if that also fails, same as #2
+ *   4. Classification throws at runtime — caught in classifyImage
+ *   5. No WebGL/WASM backend (TF.js can't initialize) — loadModel throws
  *
  * Uses jsDelivr's +esm endpoint for fully resolved ESM bundles,
  * matching the existing privacy-first-ai.js pattern.
- *
- * Uses MobileNetV2Mid (~4.1MB weights, ~93% accuracy, graph model).
  */
 
 const NSFWJS_ESM = "https://cdn.jsdelivr.net/npm/nsfwjs@4.3.0/+esm";
@@ -141,7 +163,10 @@ export async function classifyImage(imageInput, options = {}) {
       source: "client",
     };
   } catch (error) {
-    console.warn("Client-side NSFW check failed:", error);
+    // Fail-open: any error (model not loaded, classification crash, WebGL
+    // failure, etc.) results in a "safe" verdict. Server-side moderation
+    // catches what the client misses. We intentionally do not surface this
+    // to the user to preserve the deterrent effect.
     return {
       isNSFW: false,
       predictions: [],
@@ -199,10 +224,11 @@ export async function classifyDataUrl(dataUrl, options = {}) {
 
 /**
  * Pre-warm the model by loading it in the background.
- * Call this when you know the user is about to upload an image.
+ * Returns a promise that resolves when the model is ready,
+ * or rejects if loading fails (CDN unreachable, no WebGL, etc.).
  */
 export function preloadModel(onProgress) {
-  loadModel(onProgress).catch(() => {});
+  return loadModel(onProgress);
 }
 
 /**

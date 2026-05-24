@@ -490,6 +490,16 @@ defmodule MossletWeb.EditDetailsLive do
 
   @impl true
   def handle_event("nsfw:model_ready", _params, socket) do
+    Logger.info("Client-side NSFW model loaded")
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("nsfw:model_unavailable", _params, socket) do
+    Logger.warning(
+      "Client-side NSFW model unavailable — uploads will rely on server-side moderation"
+    )
+
     {:noreply, socket}
   end
 

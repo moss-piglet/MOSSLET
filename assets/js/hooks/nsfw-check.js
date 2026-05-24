@@ -1,4 +1,4 @@
-import { classifyDataUrl, preloadModel, disposeModel } from "../ai/nsfw-check";
+import { classifyDataUrl, preloadModel } from "../ai/nsfw-check";
 
 /**
  * NsfwCheck hook — client-side NSFW image classification for upload flows.
@@ -7,7 +7,27 @@ import { classifyDataUrl, preloadModel, disposeModel } from "../ai/nsfw-check";
  * runs NSFWJS classification entirely in the browser, and pushes the result
  * back via "nsfw:result".
  *
- * Also pre-loads the model when mounted so it's ready when the user uploads.
+ * Model lifecycle events pushed to server (for Logger-based monitoring):
+ *   - "nsfw:model_ready" — model loaded successfully
+ *   - "nsfw:model_unavailable" — model failed to load (CDN, WebGL, etc.)
+ *
+ * ## Fail-open design
+ *
+ * All failure modes result in the upload proceeding (fail-open). This is
+ * intentional — the UI always implies NSFW checking is active (deterrent
+ * effect) while server-side moderation (LLM vision + Bumblebee fallback)
+ * provides a genuine safety net regardless of client-side model state.
+ *
+ * Failure modes (all fail-open, all silent to user):
+ *   1. CDN unreachable — dynamic import() of nsfwjs rejects
+ *   2. Model download fails partway — nsfw.load() rejects
+ *   3. IndexedDB cache corrupted — validateModel() rejects, re-download attempted
+ *   4. Classification throws at runtime — caught in classifyImage/classifyDataUrl
+ *   5. No WebGL/WASM backend — TF.js initialization fails
+ *
+ * When any failure occurs, classifyImage returns {isNSFW: false} and the
+ * hook pushes a "safe" nsfw:result. The user sees no indication that the
+ * check was skipped — this preserves the deterrent effect.
  *
  * Usage in HEEx:
  *   <div id="nsfw-checker" phx-hook="NsfwCheck" phx-update="ignore"></div>
@@ -20,6 +40,8 @@ const NsfwCheck = {
       if (stage === "model_ready") {
         this.pushEvent("nsfw:model_ready", {});
       }
+    }).catch(() => {
+      this.pushEvent("nsfw:model_unavailable", {});
     });
 
     this.handleEvent("nsfw:check", async ({ data_url, check_id }) => {
@@ -55,9 +77,7 @@ const NsfwCheck = {
     });
   },
 
-  destroyed() {
-    // Don't dispose model on destroy — it's cached and reusable across navigations
-  },
+  destroyed() {},
 };
 
 export default NsfwCheck;
