@@ -124,12 +124,41 @@ export async function generateKey() {
   return _generateKey();
 }
 
-// --- Hybrid PQ KEM (ML-KEM-768 + X25519, default Cat-3) ---
+// --- Hybrid PQ KEM (ML-KEM + X25519) ---
 
+/**
+ * Detect the PQ security level from a base64-encoded public key.
+ * Cat-3 (ML-KEM-768) keys are 1216 bytes raw; Cat-5 (ML-KEM-1024) are 1600 bytes.
+ *
+ * @param {string} pqPublicKeyBase64 - PQ public key (base64)
+ * @returns {"cat3"|"cat5"} detected security level
+ */
+export function detectPqLevel(pqPublicKeyBase64) {
+  if (!pqPublicKeyBase64) return "cat5";
+  const raw = b64Decode(pqPublicKeyBase64);
+  return raw.length === 1216 ? "cat3" : "cat5";
+}
+
+/**
+ * Seal plaintext to a user's keys with auto-detected PQ level.
+ *
+ * When a PQ public key is provided, the security level is detected
+ * from the key size (1216 bytes → Cat-3, 1600 bytes → Cat-5).
+ * This ensures correct KEM selection regardless of the recipient's key version.
+ *
+ * @param {Uint8Array} plaintextBytes - raw plaintext bytes
+ * @param {string} publicKeyBase64 - X25519 public key (base64)
+ * @param {string|null} pqPublicKeyBase64 - PQ public key (base64), or null for legacy
+ * @returns {Promise<string>} base64 ciphertext
+ */
 export async function sealForUser(plaintextBytes, publicKeyBase64, pqPublicKeyBase64) {
   await ensureReady();
   const ptB64 = b64Encode(plaintextBytes);
-  return _sealForUser(ptB64, publicKeyBase64, pqPublicKeyBase64 || null);
+  if (pqPublicKeyBase64) {
+    const level = detectPqLevel(pqPublicKeyBase64);
+    return _sealForUserWithLevel(ptB64, publicKeyBase64, pqPublicKeyBase64, level);
+  }
+  return _sealForUser(ptB64, publicKeyBase64, null);
 }
 
 export async function unsealFromUser(
@@ -147,9 +176,14 @@ export async function unsealFromUser(
   );
 }
 
+/**
+ * Generate a ML-KEM-1024 + X25519 hybrid keypair (Cat-5, default).
+ *
+ * @returns {Promise<{publicKey: string, secretKey: string}>} base64 keypair
+ */
 export async function generateHybridKeyPair() {
   await ensureReady();
-  const kp = _generateHybridKeyPair();
+  const kp = _generateHybridKeyPair1024();
   return { publicKey: kp.publicKey, secretKey: kp.secretKey };
 }
 
@@ -158,7 +192,21 @@ export async function isHybridCiphertext(ciphertextBase64) {
   return _isHybridCiphertext(ciphertextBase64);
 }
 
-// --- Hybrid PQ KEM Cat-5 (ML-KEM-1024 + X25519, opt-in) ---
+// --- Legacy Cat-3 keypair generation (for compatibility) ---
+
+/**
+ * Generate a ML-KEM-768 + X25519 hybrid keypair (Cat-3, legacy).
+ * Use generateHybridKeyPair() for the default Cat-5 keypair.
+ *
+ * @returns {Promise<{publicKey: string, secretKey: string}>} base64 keypair
+ */
+export async function generateHybridKeyPair768() {
+  await ensureReady();
+  const kp = _generateHybridKeyPair();
+  return { publicKey: kp.publicKey, secretKey: kp.secretKey };
+}
+
+// --- Explicit level seal (when caller wants to override auto-detection) ---
 
 /**
  * Seal plaintext to a user's keys at a specific security level.
@@ -187,13 +235,12 @@ export async function sealForUserWithLevel(
 
 /**
  * Generate a ML-KEM-1024 + X25519 hybrid keypair (Cat-5, NIST Category 5).
+ * Alias for generateHybridKeyPair() — both generate Cat-5 keypairs.
  *
  * @returns {Promise<{publicKey: string, secretKey: string}>} base64 keypair
  */
 export async function generateHybridKeyPair1024() {
-  await ensureReady();
-  const kp = _generateHybridKeyPair1024();
-  return { publicKey: kp.publicKey, secretKey: kp.secretKey };
+  return generateHybridKeyPair();
 }
 
 // --- Conversation helpers (preserved API for existing hooks) ---

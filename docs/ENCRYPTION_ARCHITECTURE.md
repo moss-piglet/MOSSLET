@@ -147,8 +147,8 @@ The same Rust crate (`metamorphic-crypto`) compiles to both the server-side NIF 
 | **Library**                | `metamorphic_crypto` (Rust NIF)                                      | `metamorphic-crypto` (Rust WASM)                        |
 | **Where encryption runs**  | Server (BEAM process)                                                | Browser (WASM)                                          |
 | **Zero-knowledge on web?** | No — server needs plaintext for SEO/federation                       | **Yes** — server never sees plaintext                   |
-| **Algorithms**             | XSalsa20-Poly1305 (secretbox) + X25519 (box_seal) + ML-KEM-768 (PQ) | Identical — same Rust code                              |
-| **PQ support**             | Yes — `seal_for_user`/`unseal_from_user` with hybrid ML-KEM-768     | Yes — `sealForUser`/`unsealFromUser` with hybrid        |
+| **Algorithms**             | XSalsa20-Poly1305 (secretbox) + X25519 (box_seal) + ML-KEM-1024 (PQ) | Identical — same Rust code                              |
+| **PQ support**             | Yes — `seal_for_user`/`unseal_from_user` with hybrid ML-KEM-1024    | Yes — `sealForUser`/`unsealFromUser` with hybrid        |
 | **Key wrapping**           | Legacy (v1, box_seal) or Hybrid (v2, ML-KEM-768+X25519)             | Identical — auto-detects format                         |
 
 ### JS Crypto Modules

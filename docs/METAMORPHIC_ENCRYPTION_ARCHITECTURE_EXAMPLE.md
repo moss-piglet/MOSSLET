@@ -24,8 +24,8 @@ Metamorphic is a **zero-knowledge, end-to-end encrypted** habit and self-improve
 | ----------------- | -------------------------- | -------------------------------- | ------------------------------------------ |
 | Symmetric encrypt | XSalsa20-Poly1305          | `metamorphic-crypto` (Rust/WASM) | Encrypt data with context key              |
 | Symmetric decrypt | XSalsa20-Poly1305          | `metamorphic-crypto` (Rust/WASM) | Decrypt data with context key              |
-| Hybrid seal       | ML-KEM-768+X25519+XSalsa20 | `metamorphic-crypto` (Rust/WASM) | PQ-resistant key encryption (default)      |
-| Hybrid open       | ML-KEM-768+X25519+XSalsa20 | `metamorphic-crypto` (Rust/WASM) | PQ-resistant key decryption (auto-detects) |
+| Hybrid seal       | ML-KEM-1024+X25519+XSalsa20 | `metamorphic-crypto` (Rust/WASM) | PQ-resistant key encryption (default, Cat-5)  |
+| Hybrid open       | ML-KEM-1024+X25519+XSalsa20 | `metamorphic-crypto` (Rust/WASM) | PQ-resistant key decryption (auto-detects)    |
 | Legacy seal       | X25519+XSalsa20            | `metamorphic-crypto` (Rust/WASM) | Encrypt key (legacy, pre-PQ migration)     |
 | Legacy open       | X25519+XSalsa20            | `metamorphic-crypto` (Rust/WASM) | Decrypt key (legacy, pre-PQ migration)     |
 | Key derivation    | Argon2id                   | `metamorphic-crypto` (Rust/WASM) | Derive session key from password           |

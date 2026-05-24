@@ -92,13 +92,13 @@ defmodule Mosslet.Encrypted.Utils do
 
   @spec generate_pq_key_pairs :: %{private: binary, public: binary}
   def generate_pq_key_pairs do
-    generate_pq_key_pairs(:cat3)
+    generate_pq_key_pairs(:cat5)
   end
 
   @doc """
   Generate a hybrid ML-KEM + X25519 keypair at the given security level.
 
-  Accepts `:cat3` (default, ML-KEM-768) or `:cat5` (ML-KEM-1024).
+  Accepts `:cat3` (ML-KEM-768) or `:cat5` (default, ML-KEM-1024).
 
   Returns `%{private: secret_key_b64, public: public_key_b64}`.
   """
@@ -165,7 +165,7 @@ defmodule Mosslet.Encrypted.Utils do
         ) :: binary
   def encrypt_message_for_user_with_pk(message, %{public: public_key}, opts \\ []) do
     pq_public_key = Keyword.get(opts, :pq_public_key)
-    level = Keyword.get(opts, :level, :cat3)
+    level = Keyword.get(opts, :level, :cat5)
 
     if pq_public_key do
       {:ok, ciphertext} =
@@ -184,23 +184,41 @@ defmodule Mosslet.Encrypted.Utils do
   @doc """
   Builds PQ opts keyword list from a user struct.
 
-  Returns `[pq_public_key: key]` if the user has a PQ public key,
+  Returns `[pq_public_key: key, level: level]` if the user has a PQ public key,
   or `[]` if not (which causes `encrypt_message_for_user_with_pk/3`
   to fall back to legacy box_seal).
 
-  An optional `:level` (`:cat3` or `:cat5`) can be passed and will
-  be included in the returned opts when a PQ key is present.
+  The security level is auto-detected from the PQ public key size:
+  - 1600 bytes (raw) → `:cat5` (ML-KEM-1024)
+  - 1216 bytes (raw) → `:cat3` (ML-KEM-768)
+
+  An explicit `:level` option overrides the auto-detection.
   """
   @spec pq_opts_for_user(map, keyword) :: keyword
   def pq_opts_for_user(user, opts \\ [])
 
   def pq_opts_for_user(%{pq_public_key: pq_pk}, opts)
       when is_binary(pq_pk) and pq_pk != "" do
-    level = Keyword.get(opts, :level, :cat3)
+    level = Keyword.get_lazy(opts, :level, fn -> detect_pq_level(pq_pk) end)
     [pq_public_key: pq_pk, level: level]
   end
 
   def pq_opts_for_user(_, _opts), do: []
+
+  @doc """
+  Detects the PQ security level from a base64-encoded public key.
+
+  Returns `:cat5` for 1600-byte keys (ML-KEM-1024) and `:cat3` for
+  1216-byte keys (ML-KEM-768). Defaults to `:cat5` if unrecognized.
+  """
+  @spec detect_pq_level(binary) :: :cat3 | :cat5
+  def detect_pq_level(pq_public_key_b64) when is_binary(pq_public_key_b64) do
+    case Base.decode64(pq_public_key_b64) do
+      {:ok, raw} when byte_size(raw) == 1216 -> :cat3
+      {:ok, raw} when byte_size(raw) == 1600 -> :cat5
+      _ -> :cat5
+    end
+  end
 
   # PRIVATE FUNCTIONS
 

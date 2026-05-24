@@ -15,9 +15,23 @@
 - PQ keypairs generated at registration via `MetamorphicCrypto.Hybrid.generate_keypair()`
 - All server-side seal/unseal operations accept PQ key options
 - `Encrypted.Utils.encrypt_message_for_user_with_pk/3` uses `MetamorphicCrypto.Seal.seal_for_user` when PQ key available
-- `Encrypted.Utils.decrypt_message_for_user/3` uses `MetamorphicCrypto.Seal.unseal_from_user` (auto-detects v1/v2)
+- `Encrypted.Utils.decrypt_message_for_user/3` uses `MetamorphicCrypto.Seal.unseal_from_user` (auto-detects v1/v2/v3)
 - PQ private key re-encrypted on password change
 - `changeset_for_pq_migration/2` exists for progressive migration of existing users
+
+**Phase 4 COMPLETE**: Cat-5 (ML-KEM-1024) upgrade.
+
+- Default security level changed from Cat-3 (ML-KEM-768) to Cat-5 (ML-KEM-1024)
+- Server: `generate_pq_key_pairs/0` now generates Cat-5 keypairs (1600-byte public keys)
+- Server: `pq_opts_for_user/2` auto-detects Cat-3 vs Cat-5 from PQ public key size
+- Server: `encrypt_message_for_user_with_pk/3` defaults to `:cat5` level
+- Browser: `generateHybridKeyPair()` now calls `generateHybridKeyPair1024()` (Cat-5)
+- Browser: `sealForUser()` auto-detects level from recipient's PQ key size via `detectPqLevel()`
+- Progressive migration: Cat-3 users get Cat-5 keypairs on next login (`needs_pq_migration?/1` detects 1216-byte keys)
+- `PqResealWorker` re-seals any key not already Cat-5 (version tag `0x03`)
+- `unsealFromUser` unchanged — auto-detects v1 (legacy), v2 (Cat-3), v3 (Cat-5) from version byte
+- No WASM rebuild needed — vendored v0.3.0 already exports all Cat-5 functions
+- No data migration needed — old Cat-3 ciphertext decrypts correctly via auto-detection
 
 **Phase 3 IN PROGRESS**: Browser-side WASM crypto + hybrid PQ for conversations.
 
@@ -178,7 +192,8 @@
 
 **Hybrid auto-detection**:
 - v1 (legacy): raw `crypto_box_seal` output — no version prefix
-- v2 (hybrid): `0x02 || ML-KEM-768+X25519 cipherText || nonce || secretbox`
+- v2 (Cat-3): `0x02 || ML-KEM-768+X25519 cipherText || nonce || secretbox`
+- v3 (Cat-5): `0x03 || ML-KEM-1024+X25519 cipherText || nonce || secretbox`
 - `unsealFromUser` checks first byte; both server NIF and browser WASM use the same detection logic
 
 ---
@@ -467,14 +482,15 @@ Note: `@noble/post-quantum` was the original browser-side PQ library (pure JS). 
 
 ### Upstream Monitoring
 
-- **`metamorphic-crypto`** (Rust crate): Our implementation. Uses `ml-kem` crate (RustCrypto group) for ML-KEM-768, which tracks FIPS-203 final.
+- **`metamorphic-crypto`** (Rust crate): Our implementation. Uses `ml-kem` crate (RustCrypto group) for ML-KEM-768 (Cat-3) and ML-KEM-1024 (Cat-5), which tracks FIPS-203 final.
 - **`metamorphic_crypto`** (Hex): Elixir NIF wrapper around the Rust crate.
 
 ### What to Watch
 
 | Concern | Status | Action Needed |
 |---------|--------|---------------|
-| ML-KEM-768 (FIPS-203) | **Final standard** (Aug 2024) | Stable. No changes expected. |
+| ML-KEM-1024 (FIPS-203) | **Final standard** (Aug 2024) | Stable. Cat-5 is our default. |
+| ML-KEM-768 (FIPS-203) | **Final standard** (Aug 2024) | Legacy. Existing Cat-3 ciphertext auto-detected on unseal. |
 | Hybrid KEM combiner | Draft (`irtf-cfrg-concrete-hybrid-kems`) | Monitor for breaking changes to the combiner construction |
 | `ml-kem` Rust crate | Stable, RustCrypto group | Track for FIPS-203 compliance updates |
 | FN-DSA (FIPS-206) | **Not final** — don't use yet | Wait for finalization if we ever need PQ signatures |
@@ -483,7 +499,6 @@ Note: `@noble/post-quantum` was the original browser-side PQ library (pure JS). 
 
 - If the hybrid KEM IETF draft has breaking changes to the combiner (SHA3-256 over both shared secrets)
 - If `ml-kem` Rust crate releases a security fix
-- If we want to bump security level (ML-KEM-1024 instead of 768)
 - Updates to the Rust crate automatically flow to both WASM and NIF builds
 
 ### Reference

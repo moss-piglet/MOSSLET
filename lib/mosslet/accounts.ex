@@ -2235,8 +2235,13 @@ defmodule Mosslet.Accounts do
     do: Map.replace!(changeset, :action, :validate)
 
   # Progressive PQ key migration for existing users logging in.
-  # Generates a hybrid ML-KEM-768 + X25519 keypair and re-seals
+  # Generates a hybrid ML-KEM-1024 + X25519 keypair (Cat-5) and re-seals
   # the existing user_key and conn_key under the new post-quantum wrapping.
+  #
+  # Also handles Cat-3 → Cat-5 upgrade: if the user's existing PQ public
+  # key is Cat-3 (1216 bytes raw), this regenerates a Cat-5 keypair and
+  # re-seals the user_key/conn_key. Old Cat-3 ciphertext continues to
+  # decrypt fine — unseal_from_user auto-detects from the version tag byte.
   defp migrate_user_to_pq_keys(%User{} = user, session_key) do
     %{public: pq_pk, private: pq_sk} = Encrypted.Utils.generate_pq_key_pairs()
     public_key = user.key_pair["public"]
@@ -2296,6 +2301,17 @@ defmodule Mosslet.Accounts do
     end
   end
 
+  # Returns true if the user needs PQ key migration:
+  # - No PQ keys at all (pre-PQ user)
+  # - Cat-3 PQ keys (1216-byte public key, needs upgrade to Cat-5)
+  defp needs_pq_migration?(%User{pq_public_key: nil}), do: true
+
+  defp needs_pq_migration?(%User{pq_public_key: pq_pk}) when is_binary(pq_pk) do
+    Encrypted.Utils.detect_pq_level(pq_pk) == :cat3
+  end
+
+  defp needs_pq_migration?(_), do: false
+
   # User lifecyle actions - these allow you to hook into certain user events and do secondary tasks like create logs, send Slack messages etc.
   def user_lifecycle_action(action, user, opts \\ %{})
 
@@ -2308,12 +2324,15 @@ defmodule Mosslet.Accounts do
     Logs.log_async("sign_in", %{user: user})
     {:ok, user} = update_last_signed_in_info(user, ip, key)
 
-    if key && is_nil(user.pq_public_key) do
+    # Progressive PQ key migration:
+    # 1. No PQ keys at all → generate Cat-5 keypair + re-seal user_key/conn_key
+    # 2. Cat-3 PQ keys (1216-byte public key) → upgrade to Cat-5 keypair
+    if key && needs_pq_migration?(user) do
       migrate_user_to_pq_keys(user, key)
     end
 
-    # Background re-seal of v1 context keys — runs in-memory so the
-    # session key never touches persistent storage (DB/logs).
+    # Background re-seal of v1/Cat-3 context keys to Cat-5 — runs in-memory
+    # so the session key never touches persistent storage (DB/logs).
     if key && user.pq_public_key do
       Mosslet.Workers.PqResealWorker.run_async(user, key)
     end
