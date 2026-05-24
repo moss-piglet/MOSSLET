@@ -1273,6 +1273,7 @@ defmodule MossletWeb.PostLive.Components do
                   <div
                     id={"reply-body-#{@reply.id}"}
                     phx-hook="TrixContentReplyHook"
+                    data-post-id={@post.id}
                     class="post-body"
                   >
                     {html_block(

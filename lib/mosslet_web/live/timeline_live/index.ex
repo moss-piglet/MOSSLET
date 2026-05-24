@@ -2316,6 +2316,28 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
+  # ZK path: browser re-encrypted the body with the cached post_key.
+  # Store the ciphertext directly — the raw body never enters server memory.
+  def handle_event(
+        "update_post_body_zk",
+        %{"encrypted_body" => encrypted_body, "id" => id},
+        socket
+      ) do
+    post = Timeline.get_post!(id)
+
+    socket =
+      socket
+      |> assign(:post_image_processing, AsyncResult.loading())
+      |> start_async(:update_post_body, fn ->
+        case Timeline.update_post_body_zk(post, Base.decode64!(encrypted_body)) do
+          {:ok, post} -> {"updated", post}
+          {:error, error} -> {"error", error}
+        end
+      end)
+
+    {:noreply, socket}
+  end
+
   def handle_event("update_reply_body", %{"body" => body, "id" => id}, socket) do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
@@ -2330,6 +2352,27 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:reply_image_processing, AsyncResult.loading())
       |> start_async(:update_reply_body, fn ->
         update_reply_body(reply, body, current_user, key)
+      end)
+
+    {:noreply, socket}
+  end
+
+  # ZK path: browser re-encrypted the reply body with the cached post_key.
+  def handle_event(
+        "update_reply_body_zk",
+        %{"encrypted_body" => encrypted_body, "id" => id},
+        socket
+      ) do
+    reply = Timeline.get_reply!(id)
+
+    socket =
+      socket
+      |> assign(:reply_image_processing, AsyncResult.loading())
+      |> start_async(:update_reply_body, fn ->
+        case Timeline.update_reply_body_zk(reply, Base.decode64!(encrypted_body)) do
+          {:ok, reply} -> {"updated", reply}
+          {:error, error} -> {"error", error}
+        end
       end)
 
     {:noreply, socket}
@@ -4536,39 +4579,6 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   # Image modal event handlers
-  def handle_event(
-        "show_timeline_images",
-        %{"post_id" => post_id, "image_index" => image_index, "images" => images},
-        socket
-      ) do
-    current_user = socket.assigns.current_user
-    key = socket.assigns.key
-
-    case Timeline.get_post(post_id) do
-      %Post{} = post ->
-        can_download = check_download_permission(post, current_user)
-        post_key = get_post_key(post, current_user)
-
-        decrypted_alt_texts =
-          (post.image_alt_texts || [])
-          |> Enum.map(fn alt_text ->
-            decr_item(alt_text, current_user, post_key, key, post, "body")
-          end)
-
-        {:noreply,
-         socket
-         |> assign(:show_image_modal, true)
-         |> assign(:current_images, images)
-         |> assign(:current_image_alt_texts, decrypted_alt_texts)
-         |> assign(:current_image_index, image_index)
-         |> assign(:current_post_for_images, post)
-         |> assign(:can_download_images, can_download)}
-
-      nil ->
-        {:noreply, put_flash(socket, :error, "Post not found")}
-    end
-  end
-
   def handle_event("show_timeline_images", %{"post_id" => post_id} = _params, socket) do
     current_user = socket.assigns.current_user
     key = socket.assigns.key

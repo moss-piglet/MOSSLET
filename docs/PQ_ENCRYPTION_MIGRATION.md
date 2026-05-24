@@ -399,6 +399,13 @@ These can follow the same phased approach: first move the read path (decrypt in 
     - For timeline template: `liked` defaults to `false`, `can_repost` uses structural checks only (allow_shares, user_id, is_ephemeral) — hook corrects after decryption.
     - Image modal alt text decryption (`show_timeline_images` handler) still server-side (on-demand, not stored in assigns). Future: read from browser cache.
 
+17. **Phase 9: Fix plaintext leakage — update_post_body, update_reply_body, show_timeline_images** — DONE
+    - `show_timeline_images` with images: Replaced server round-trip with client-side image modal (`client-image-modal.js`). The browser already has decrypted images; now opens a fully client-side modal with keyboard/touch nav, download, and dot pagination. Server-side handler clause accepting `images` param removed from `timeline_live/index.ex` and `user_home_live.ex`. Server-only handler (post_id only, for public/legacy posts) retained.
+    - `update_post_body`: JS hook now re-encrypts body with cached post_key (`encryptWithKey` via WASM) before pushing. New `update_post_body_zk` event accepts pre-encrypted ciphertext and stores directly via `Timeline.update_post_body_zk/2`. Legacy plaintext fallback retained for public posts (no cached post_key). Added to all three LiveViews: `timeline_live/index.ex`, `post_live/show.ex`, `user_connection_live/show.ex`.
+    - `update_reply_body`: Same approach. `TrixContentReplyHook` reads `data-post-id` from reply element to look up cached post_key. New `update_reply_body_zk` event + `Timeline.update_reply_body_zk/2`. `data-post-id` attribute added to reply body elements in `post_live/components.ex` and `user_connection_live/components.ex`.
+    - `session.js` extended with `encryptWithKey()` helper (secretbox encrypt counterpart to `decryptWithKey()`). `encryptSecretboxString` imported from `nacl.js` WASM module.
+    - Dead code removed: `showImageClickLoading`/`hideImageClickLoading` from `TrixContentPostHook`, loading overlay divs from image grid.
+
 ### What Remains — ZK PQ Finalization Roadmap
 
 13. **Remaining `decr_avatar`/`decr_banner` server-side calls** — DONE. Banner display pipeline fully migrated to ZK (user_home_live, timeline_live, edit_profile_live). Avatar `get_user_avatar` replaced with `ensure_avatar_cached` (~600 lines removed). Legacy wrappers (`maybe_get_user_avatar`, `maybe_get_avatar_src`) now return `nil` and only trigger ETS population — all display goes through `encrypted_avatar_data` + DecryptAvatar hook. ~10 S3 deletion calls stay server-side (intentional — operational, not user content).
@@ -527,9 +534,9 @@ Note: `@noble/post-quantum` was the original browser-side PQ library (pure JS). 
 - Status message updates — server encrypts on write
 
 **Plaintext leakage (browser sends decrypted content to server):**
-- `update_post_body` event — sends decrypted HTML for presigned URL refresh
-- `update_reply_body` event — same pattern for replies
-- `show_timeline_images` event — sends decrypted base64 images for modal display
+- ~~`update_post_body` event — sends decrypted HTML for presigned URL refresh~~ — DONE. Browser re-encrypts body with cached post_key before pushing. New `update_post_body_zk` event stores ciphertext directly. Legacy fallback retained for public posts.
+- ~~`update_reply_body` event — same pattern for replies~~ — DONE. Same approach as post body. `data-post-id` added to reply template elements for post_key lookup. New `update_reply_body_zk` event stores ciphertext directly.
+- ~~`show_timeline_images` event — sends decrypted base64 images for modal display~~ — DONE. Client-side image modal (`client-image-modal.js`) renders decrypted images entirely in the browser — no server round-trip. Server-side handler clause that accepted `images` param removed from `timeline_live/index.ex` and `user_home_live.ex`. The server-only `show_timeline_images` handler (post_id only, for public/legacy posts) retained.
 
 **Legitimate server-side decrypt (keep as-is):**
 - Public posts/profiles (SEO, federation, unauthenticated viewers)

@@ -2338,6 +2338,50 @@ defmodule Mosslet.Timeline do
     end
   end
 
+  @doc """
+  Updates only the post body with a pre-encrypted ciphertext from the browser.
+
+  Used for the presigned-URL-refresh flow: the browser decrypts the body,
+  replaces expired S3 URLs, re-encrypts with the cached post_key, and sends
+  the ciphertext. The server stores it directly — the raw body never enters
+  server memory.
+  """
+  def update_post_body_zk(%Post{} = post, encrypted_body) do
+    changeset =
+      post
+      |> Ecto.Changeset.change(%{
+        body: encrypted_body,
+        image_urls_updated_at: NaiveDateTime.utc_now()
+      })
+
+    case Repo.transaction_on_primary(fn -> Repo.update(changeset) end) do
+      {:ok, {:ok, updated_post}} -> {:ok, updated_post}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
+  end
+
+  @doc """
+  Updates only the reply body with a pre-encrypted ciphertext from the browser.
+
+  Same pattern as `update_post_body_zk/2` — the browser re-encrypts the reply
+  body with the parent post's cached post_key after refreshing presigned URLs.
+  """
+  def update_reply_body_zk(%Reply{} = reply, encrypted_body) do
+    changeset =
+      reply
+      |> Ecto.Changeset.change(%{
+        body: encrypted_body,
+        image_urls_updated_at: NaiveDateTime.utc_now()
+      })
+
+    case Repo.transaction_on_primary(fn -> Repo.update(changeset) end) do
+      {:ok, {:ok, updated_reply}} -> {:ok, updated_reply}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
+  end
+
   def update_user_post_receipt_read(id) do
     user_post_receipt = get_user_post_receipt!(id)
     {:ok, dt} = DateTime.now("Etc/UTC")

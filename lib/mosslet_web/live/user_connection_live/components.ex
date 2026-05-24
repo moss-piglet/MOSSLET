@@ -645,7 +645,12 @@ defmodule MossletWeb.UserConnectionLive.Components do
                       </time>
                     </span>
                   </div>
-                  <div id={"reply-body-#{reply.id}"} phx-hook="TrixContentReplyHook" class="post-body">
+                  <div
+                    id={"reply-body-#{reply.id}"}
+                    phx-hook="TrixContentReplyHook"
+                    data-post-id={@post.id}
+                    class="post-body"
+                  >
                     {html_block(
                       decr_item(
                         reply.body,

@@ -1,3 +1,5 @@
+import { getCachedPostKey, encryptWithKey } from "../crypto/session";
+
 const TrixContentReplyHook = {
   mounted() {
     this.eventListeners = [];
@@ -201,10 +203,27 @@ const TrixContentReplyHook = {
                       this.spinners.forEach((spinner) => {
                         this.removeSpinner(spinner);
                       });
-                      this.pushEvent("update_reply_body", {
-                        body: this.el.innerHTML,
-                        id: replyId,
-                      });
+                      const parentPostId = this.el.dataset.postId;
+                      const postKey = parentPostId ? getCachedPostKey(parentPostId) : null;
+                      if (postKey) {
+                        encryptWithKey(this.el.innerHTML, postKey).then((encrypted) => {
+                          if (encrypted) {
+                            this.pushEvent("update_reply_body_zk", {
+                              encrypted_body: encrypted,
+                              id: replyId,
+                            });
+                          } else {
+                            this.pushEvent("log_error", {
+                              error: "Failed to encrypt reply body for update_reply_body_zk",
+                            });
+                          }
+                        });
+                      } else {
+                        this.pushEvent("update_reply_body", {
+                          body: this.el.innerHTML,
+                          id: replyId,
+                        });
+                      }
                     } else {
                       this.pushEvent("log_error", {
                         error:

@@ -14,6 +14,7 @@ import {
   unsealFromUser,
   decryptSecretboxToString,
   decryptSecretbox,
+  encryptSecretboxString,
   b64Encode,
 } from "./nacl";
 
@@ -209,6 +210,23 @@ export async function decryptWithKey(ciphertext, rawKey) {
     return await decryptSecretboxToString(ciphertext, rawKey);
   } catch (e) {
     console.error("Failed to decrypt payload:", e);
+    return null;
+  }
+}
+
+/**
+ * Encrypts a plaintext string using a symmetric key (secretbox).
+ *
+ * @param {string} plaintext - the string to encrypt
+ * @param {string} rawKey - base64-encoded symmetric key
+ * @returns {Promise<string|null>} base64-encoded ciphertext, or null on failure
+ */
+export async function encryptWithKey(plaintext, rawKey) {
+  if (plaintext == null || !rawKey) return null;
+  try {
+    return await encryptSecretboxString(plaintext, rawKey);
+  } catch (e) {
+    console.error("Failed to encrypt payload:", e);
     return null;
   }
 }

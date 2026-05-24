@@ -835,6 +835,28 @@ defmodule MossletWeb.PostLive.Show do
     {:noreply, socket}
   end
 
+  # ZK path: browser re-encrypted the body with the cached post_key.
+  # Store the ciphertext directly — the raw body never enters server memory.
+  def handle_event(
+        "update_post_body_zk",
+        %{"encrypted_body" => encrypted_body, "id" => id},
+        socket
+      ) do
+    post = Timeline.get_post!(id)
+
+    socket =
+      socket
+      |> assign(:post_image_processing, AsyncResult.loading())
+      |> start_async(:update_post_body, fn ->
+        case Timeline.update_post_body_zk(post, Base.decode64!(encrypted_body)) do
+          {:ok, post} -> {"updated", post}
+          {:error, error} -> {"error", error}
+        end
+      end)
+
+    {:noreply, socket}
+  end
+
   def handle_event("update_reply_body", %{"body" => body, "id" => id}, socket) do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
@@ -849,6 +871,27 @@ defmodule MossletWeb.PostLive.Show do
       |> assign(:reply_image_processing, AsyncResult.loading())
       |> start_async(:update_reply_body, fn ->
         update_reply_body(reply, body, current_user, key)
+      end)
+
+    {:noreply, socket}
+  end
+
+  # ZK path: browser re-encrypted the reply body with the cached post_key.
+  def handle_event(
+        "update_reply_body_zk",
+        %{"encrypted_body" => encrypted_body, "id" => id},
+        socket
+      ) do
+    reply = Timeline.get_reply!(id)
+
+    socket =
+      socket
+      |> assign(:reply_image_processing, AsyncResult.loading())
+      |> start_async(:update_reply_body, fn ->
+        case Timeline.update_reply_body_zk(reply, Base.decode64!(encrypted_body)) do
+          {:ok, reply} -> {"updated", reply}
+          {:error, error} -> {"error", error}
+        end
       end)
 
     {:noreply, socket}

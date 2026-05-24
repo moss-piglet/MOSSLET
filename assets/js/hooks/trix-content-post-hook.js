@@ -1,4 +1,5 @@
-import { getCachedPostKey, decryptSecretbox, decryptWithKey, b64Encode } from "../crypto/session";
+import { getCachedPostKey, decryptSecretbox, decryptWithKey, encryptWithKey, b64Encode } from "../crypto/session";
+import ClientImageModal from "./client-image-modal";
 
 const TrixContentPostHook = {
   mounted() {
@@ -296,29 +297,15 @@ const TrixContentPostHook = {
           if (this.isModalOpening) return;
           this.isModalOpening = true;
 
-          this.showImageClickLoading(imageContainer);
-
           try {
-            this.pushEvent(
-              "show_timeline_images",
-              {
-                post_id: postId,
-                image_index: index,
-                images: decryptedBinaries,
-              },
-              () => {
-                this.hideImageClickLoading(imageContainer);
-                this.isModalOpening = false;
-              }
-            );
-
-            setTimeout(() => {
-              this.hideImageClickLoading(imageContainer);
-              this.isModalOpening = false;
-            }, 3000);
+            ClientImageModal.show(decryptedBinaries, {
+              index,
+              altTexts,
+              canDownload,
+            });
           } catch (error) {
             console.warn("Failed to open image modal:", error);
-            this.hideImageClickLoading(imageContainer);
+          } finally {
             this.isModalOpening = false;
           }
         });
@@ -352,13 +339,6 @@ const TrixContentPostHook = {
           </div>
         `;
 
-        const loadingOverlay = document.createElement("div");
-        loadingOverlay.className =
-          "image-click-loading absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200 z-10";
-        loadingOverlay.innerHTML = `
-          <div class="w-8 h-8 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
-        `;
-
         if (decryptedBinaries.length > 1) {
           const counter = document.createElement("div");
           counter.className =
@@ -370,7 +350,6 @@ const TrixContentPostHook = {
         link.appendChild(img);
         imageContainer.appendChild(link);
         imageContainer.appendChild(overlay);
-        imageContainer.appendChild(loadingOverlay);
         container.appendChild(imageContainer);
       });
 
@@ -387,22 +366,6 @@ const TrixContentPostHook = {
       if (loadingIndicator) {
         loadingIndicator.style.display = "none";
       }
-    }
-  },
-
-  showImageClickLoading(imageContainer) {
-    const loadingOverlay = imageContainer.querySelector(".image-click-loading");
-    if (loadingOverlay) {
-      loadingOverlay.style.opacity = "1";
-      loadingOverlay.style.pointerEvents = "auto";
-    }
-  },
-
-  hideImageClickLoading(imageContainer) {
-    const loadingOverlay = imageContainer.querySelector(".image-click-loading");
-    if (loadingOverlay) {
-      loadingOverlay.style.opacity = "0";
-      loadingOverlay.style.pointerEvents = "none";
     }
   },
 
@@ -574,10 +537,26 @@ const TrixContentPostHook = {
                       this.spinners.forEach((spinner) => {
                         this.removeSpinner(spinner);
                       });
-                      this.pushEvent("update_post_body", {
-                        body: this.el.innerHTML,
-                        id: postId,
-                      });
+                      const postKey = getCachedPostKey(postId);
+                      if (postKey) {
+                        encryptWithKey(this.el.innerHTML, postKey).then((encrypted) => {
+                          if (encrypted) {
+                            this.pushEvent("update_post_body_zk", {
+                              encrypted_body: encrypted,
+                              id: postId,
+                            });
+                          } else {
+                            this.pushEvent("log_error", {
+                              error: "Failed to encrypt post body for update_post_body_zk",
+                            });
+                          }
+                        });
+                      } else {
+                        this.pushEvent("update_post_body", {
+                          body: this.el.innerHTML,
+                          id: postId,
+                        });
+                      }
                     } else {
                       this.pushEvent("log_error", {
                         error:

@@ -2021,30 +2021,6 @@ defmodule MossletWeb.UserHomeLive do
     end
   end
 
-  def handle_event(
-        "show_timeline_images",
-        %{"post_id" => post_id, "image_index" => image_index, "images" => images},
-        socket
-      ) do
-    current_user = socket.assigns.current_scope.user
-
-    case Timeline.get_post(post_id) do
-      %Post{} = post ->
-        can_download = check_download_permission(post, current_user)
-
-        {:noreply,
-         socket
-         |> assign(:show_image_modal, true)
-         |> assign(:current_images, images)
-         |> assign(:current_image_index, image_index)
-         |> assign(:current_post_for_images, post)
-         |> assign(:can_download_images, can_download)}
-
-      nil ->
-        {:noreply, put_flash(socket, :error, "Post not found")}
-    end
-  end
-
   def handle_event("show_timeline_images", %{"post_id" => post_id} = _params, socket) do
     current_user = socket.assigns.current_scope.user
     key = socket.assigns.current_scope.key
