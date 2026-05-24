@@ -49,6 +49,27 @@ defmodule Mosslet.Groups.Group do
     |> validate_password(opts)
   end
 
+  @doc """
+  ZK changeset for updating group name and description from browser-encrypted fields.
+  The browser has already encrypted with the per-group key.
+  """
+  def metadata_changeset_zk(group, attrs) do
+    changes = %{}
+
+    changes =
+      if attrs.encrypted_name, do: Map.put(changes, :name, attrs.encrypted_name), else: changes
+
+    changes =
+      if attrs.encrypted_description,
+        do: Map.put(changes, :description, attrs.encrypted_description),
+        else: changes
+
+    changes =
+      if attrs.name_hash, do: Map.put(changes, :name_hash, attrs.name_hash), else: changes
+
+    change(group, changes)
+  end
+
   @doc false
   def join_changeset(group, attrs \\ %{}, _opts \\ []) do
     if group.require_password? do

@@ -351,6 +351,25 @@ defmodule Mosslet.Groups do
     end
   end
 
+  @doc """
+  Updates a group's name and description from browser-encrypted fields (ZK write path).
+  The browser has already encrypted with the per-group key.
+  """
+  def update_group_metadata_zk(%Group{} = group, attrs) do
+    changeset = Group.metadata_changeset_zk(group, attrs)
+
+    case Mosslet.Repo.update(changeset) do
+      {:ok, updated_group} ->
+        updated_group = Mosslet.Repo.preload(updated_group, [:user_groups])
+
+        {:ok, updated_group}
+        |> broadcast(:group_updated)
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
   defp do_update_group(group, attrs, opts, user, user_group, d_group_key) do
     opts =
       opts ++

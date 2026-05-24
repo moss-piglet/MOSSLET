@@ -863,7 +863,14 @@
           Update the label for this connection to better organize your network.
         </p>
 
-        <.form for={@edit_connection_form} phx-submit="save_edit_connection" class="space-y-6">
+        <.form
+          for={@edit_connection_form}
+          phx-submit="save_edit_connection"
+          phx-hook="ConnectionLabelFormHook"
+          id="edit-connection-label-form"
+          data-sealed-uconn-key={@editing_connection && @editing_connection.key}
+          class="space-y-6"
+        >
           <%!-- Label and Color in grid layout --%>
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <%!-- Label input --%>

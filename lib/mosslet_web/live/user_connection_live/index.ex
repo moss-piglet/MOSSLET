@@ -1057,6 +1057,33 @@ defmodule MossletWeb.UserConnectionLive.Index do
   end
 
   @impl true
+  def handle_event("save_edit_connection_zk", params, socket) do
+    editing_connection = socket.assigns.editing_connection
+
+    attrs = %{
+      encrypted_label: params["encrypted_label"],
+      label_hash: params["label_hash"],
+      color: params["color"]
+    }
+
+    case Accounts.update_user_connection_label_zk(editing_connection, attrs) do
+      {:ok, updated_connection} ->
+        send(self(), {:connection_updated})
+
+        {:noreply,
+         socket
+         |> assign(:edit_connection_form, to_form(%{}))
+         |> assign(:show_edit_connection_modal, false)
+         |> assign(:editing_connection, nil)
+         |> stream_insert(:user_connections, updated_connection)
+         |> push_event("restore-body-scroll", %{})}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to update connection")}
+    end
+  end
+
+  @impl true
   def handle_event("close_block_modal", _params, socket) do
     socket =
       socket

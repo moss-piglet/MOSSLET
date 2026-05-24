@@ -90,6 +90,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
               phx-submit="submit_block"
               phx-change="validate_block"
               phx-target={@myself}
+              phx-hook="BlockReasonFormHook"
               id={"block-form-#{@user_id}-#{@post_id}"}
               class="space-y-6"
             >

@@ -31,6 +31,7 @@ import DeleteReadingEntry from "./delete-reading-entry";
 import EntryColumnFlow from "./entry-column-flow";
 import GroupMessageEmojiPicker from "./group-message-emoji-picker";
 import GroupMessageFormHook from "./group-message-form-hook";
+import GroupMetadataFormHook from "./group-metadata-form-hook";
 import HideCursorOnIdle from "./hide-cursor-on-idle";
 import KeywordFilterInput from "./keyword-filter-input";
 import ClearFlashHook from "./clear-flash-hook";
@@ -83,9 +84,11 @@ import SessionKeyDeriver from "./session-key-deriver";
 import SyncStatusHook from "./sync-status-hook";
 import PushNotificationHook from "./push-notification-hook";
 import BackgroundSyncHook from "./background-sync-hook";
+import BlockReasonFormHook from "./block-reason-form-hook";
 import PlatformDetector from "./platform-detector";
 import PostExpandHook from "./post-expand-hook";
 import FileDownloadHook from "./file-download-hook";
+import ConnectionLabelFormHook from "./connection-label-form-hook";
 import ConversationTouchReveal from "./conversation-touch-reveal";
 import StartConversation from "./start-conversation";
 import ZkExportHook from "./zk-export-hook";
@@ -102,6 +105,7 @@ export default {
   ClipboardHook,
   ComposerEmojiPicker,
   ConversationComposer,
+  ConnectionLabelFormHook,
   ConversationEmojiPicker,
   ConversationScroll,
   ConversationTouchReveal,
@@ -124,6 +128,7 @@ export default {
   EntryColumnFlow,
   GroupMessageEmojiPicker,
   GroupMessageFormHook,
+  GroupMetadataFormHook,
   HideCursorOnIdle,
   KeywordFilterInput,
   ClearFlashHook,
@@ -180,6 +185,7 @@ export default {
   SyncStatusHook,
   PushNotificationHook,
   BackgroundSyncHook,
+  BlockReasonFormHook,
   PlatformDetector,
   PostExpandHook,
   FileDownloadHook,

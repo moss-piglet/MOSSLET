@@ -55,6 +55,29 @@ defmodule Mosslet.Accounts.UserBlock do
     )
   end
 
+  @doc """
+  ZK changeset for blocks with browser-encrypted reason.
+  The browser has already encrypted the reason with user_key.
+  """
+  def changeset_zk(block, attrs) do
+    block
+    |> cast(attrs, [:block_type, :blocker_id, :blocked_id])
+    |> validate_required([:blocker_id, :blocked_id])
+    |> validate_not_self_block()
+    |> maybe_put_encrypted_reason(attrs)
+    |> unique_constraint([:blocker_id, :blocked_id],
+      message: "You have already blocked this user"
+    )
+  end
+
+  defp maybe_put_encrypted_reason(changeset, attrs) do
+    if encrypted_reason = attrs[:encrypted_reason] do
+      put_change(changeset, :reason, encrypted_reason)
+    else
+      changeset
+    end
+  end
+
   # Ensure user cannot block themselves
   defp validate_not_self_block(changeset) do
     blocker_id = get_field(changeset, :blocker_id)

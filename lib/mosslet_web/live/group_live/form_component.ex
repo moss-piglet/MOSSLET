@@ -32,6 +32,10 @@ defmodule MossletWeb.GroupLive.FormComponent do
         phx-target={@myself}
         phx-change="validate"
         phx-submit="save"
+        phx-hook="GroupMetadataFormHook"
+        data-action={to_string(@action)}
+        data-public={to_string(@group.public?)}
+        data-sealed-group-key={@action == :edit && @sealed_group_key}
         class="space-y-6"
       >
         <.phx_input
@@ -263,12 +267,14 @@ defmodule MossletWeb.GroupLive.FormComponent do
       {:ok,
        socket
        |> assign(assigns)
+       |> assign(:sealed_group_key, nil)
        |> assign(:user_connections, user_connections)
        |> assign(:require_password?, false)
        |> assign_form(changeset)}
     else
       key = assigns.current_scope.key
       user_connections = convert_options_for_live_select(assigns.user_connections)
+      user_group = get_user_group(group, current_user)
 
       member_list =
         build_member_list_for_group(group, current_user, key)
@@ -285,7 +291,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
         decr_item(
           group.name,
           current_user,
-          get_user_group(group, current_user).key,
+          user_group.key,
           key,
           group
         )
@@ -294,7 +300,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
         decr_item(
           group.description,
           current_user,
-          get_user_group(group, current_user).key,
+          user_group.key,
           key,
           group
         )
@@ -303,6 +309,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
        socket
        |> assign(:group_name, decrypted_name)
        |> assign(:group_description, decrypted_description)
+       |> assign(:sealed_group_key, user_group.key)
        |> assign(assigns)
        |> assign(:user_connections, user_connections)
        |> assign(:require_password?, group.require_password?)
@@ -417,6 +424,41 @@ defmodule MossletWeb.GroupLive.FormComponent do
       end
 
     save_group(socket, socket.assigns.action, group_params)
+  end
+
+  def handle_event("save_group_zk", params, socket) do
+    user = socket.assigns.current_scope.user
+    group = socket.assigns.group
+
+    if can_edit_group?(get_user_group(group, user), user) do
+      attrs = %{
+        encrypted_name: params["encrypted_name"],
+        encrypted_description: params["encrypted_description"],
+        name_hash: params["name_hash"]
+      }
+
+      case Groups.update_group_metadata_zk(group, attrs) do
+        {:ok, updated_group} ->
+          notify_parent({:saved, updated_group})
+
+          {:noreply,
+           socket
+           |> put_flash(:success, "Circle updated successfully")
+           |> push_event("restore-body-scroll", %{})
+           |> push_patch(to: socket.assigns.patch)}
+
+        {:error, _changeset} ->
+          {:noreply,
+           socket
+           |> put_flash(:error, "Failed to update circle")}
+      end
+    else
+      {:noreply,
+       socket
+       |> put_flash(:info, "You do not have permission to edit this circle.")
+       |> push_event("restore-body-scroll", %{})
+       |> push_patch(to: socket.assigns.patch)}
+    end
   end
 
   defp save_group(socket, :edit, group_params) do

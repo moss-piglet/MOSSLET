@@ -117,6 +117,33 @@ defmodule Mosslet.Accounts.UserConnection do
   end
 
   @doc """
+  ZK changeset for updating connection labels from browser-encrypted fields.
+  The browser has already encrypted the label with the per-connection key (uconn.key).
+  """
+  def label_changeset_zk(uconn, attrs) do
+    color =
+      if is_binary(attrs.color), do: String.to_existing_atom(attrs.color), else: attrs.color
+
+    uconn
+    |> change()
+    |> put_change(:label, attrs.encrypted_label)
+    |> put_change(:label_hash, attrs.label_hash)
+    |> put_change(:color, color)
+    |> validate_inclusion(:color, [
+      :emerald,
+      :teal,
+      :orange,
+      :purple,
+      :rose,
+      :amber,
+      :yellow,
+      :cyan,
+      :indigo,
+      :pink
+    ])
+  end
+
+  @doc """
   Confirms the user_connection by setting `confirmed_at`.
   """
   def confirm_changeset(user_connection) do

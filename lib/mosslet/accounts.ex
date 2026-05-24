@@ -17,6 +17,7 @@ defmodule Mosslet.Accounts do
   alias Mosslet.Accounts.{
     Connection,
     User,
+    UserBlock,
     UserConnection,
     UserToken,
     UserNotifier
@@ -402,6 +403,25 @@ defmodule Mosslet.Accounts do
 
       {:error, error} ->
         {:error, error}
+    end
+  end
+
+  @doc """
+  Updates a connection label from browser-encrypted fields (ZK write path).
+  The browser has already encrypted the label with the per-connection key (uconn.key).
+  """
+  def update_user_connection_label_zk(uconn, attrs) do
+    changeset = UserConnection.label_changeset_zk(uconn, attrs)
+
+    case Mosslet.Repo.update(changeset) do
+      {:ok, updated_uconn} ->
+        updated_uconn = Mosslet.Repo.preload(updated_uconn, [:user, :connection])
+
+        {:ok, updated_uconn}
+        |> broadcast(:uconn_updated)
+
+      {:error, changeset} ->
+        {:error, changeset}
     end
   end
 
@@ -2365,7 +2385,15 @@ defmodule Mosslet.Accounts do
       |> Map.put("blocker_id", blocker.id)
       |> Map.put("blocked_id", blocked_user.id)
 
-    case adapter().block_user(blocker, blocked_user, attrs, opts) do
+    # Route to ZK path when browser has pre-encrypted the reason
+    result =
+      if attrs["encrypted_reason"] do
+        block_user_zk_impl(blocker, blocked_user, attrs)
+      else
+        adapter().block_user(blocker, blocked_user, attrs, opts)
+      end
+
+    case result do
       {:ok, block, was_update?} ->
         event = if was_update?, do: :user_block_updated, else: :user_blocked
 
@@ -2388,6 +2416,35 @@ defmodule Mosslet.Accounts do
 
       error ->
         error
+    end
+  end
+
+  # ZK block implementation — browser has already encrypted the reason with user_key.
+  defp block_user_zk_impl(blocker, blocked_user, attrs) do
+    zk_attrs = %{
+      blocker_id: blocker.id,
+      blocked_id: blocked_user.id,
+      block_type: String.to_existing_atom(attrs["block_type"] || "full"),
+      encrypted_reason: attrs["encrypted_reason"]
+    }
+
+    existing_block =
+      Mosslet.Repo.get_by(UserBlock, blocker_id: blocker.id, blocked_id: blocked_user.id)
+
+    result =
+      if existing_block do
+        existing_block
+        |> UserBlock.changeset_zk(zk_attrs)
+        |> Mosslet.Repo.update()
+      else
+        %UserBlock{}
+        |> UserBlock.changeset_zk(zk_attrs)
+        |> Mosslet.Repo.insert()
+      end
+
+    case result do
+      {:ok, block} -> {:ok, block, existing_block != nil}
+      {:error, changeset} -> {:error, changeset}
     end
   end
 

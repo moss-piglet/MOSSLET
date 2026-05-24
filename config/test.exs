@@ -1,5 +1,8 @@
 import Config
 
+# Override the env so BackgroundTask.run/1 executes synchronously in tests
+config :mosslet, env: :test
+
 # Only in tests, remove the complexity from the password hashing algorithm
 config :argon2_elixir, t_cost: 1, m_cost: 8
 
