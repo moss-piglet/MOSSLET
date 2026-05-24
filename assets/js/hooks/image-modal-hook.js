@@ -12,18 +12,21 @@ const ImageModalHook = {
     this.setupTouchHandlers();
     this.preloadAdjacentImages();
     this.setupNavigationButtons();
+    this.setupDownloadButton();
   },
 
   updated() {
     this.preloadAdjacentImages();
     this.hideAllLoadingStates();
     this.setupNavigationButtons();
+    this.setupDownloadButton();
   },
 
   destroyed() {
     window.removeEventListener("keydown", this.boundHandleKeydown);
     this.removeTouchHandlers();
     this.removeNavigationButtonListeners();
+    this.removeDownloadListener();
     this.preloadedImages.clear();
     this.preloadedImages = null;
     this.isNavigating = false;
@@ -187,6 +190,62 @@ const ImageModalHook = {
     if (prevBtn && !prevBtn.disabled) {
       this.showLoadingState(prevBtn);
       prevBtn.click();
+    }
+  },
+
+  setupDownloadButton() {
+    const btn = this.el.querySelector("[data-zk-download]");
+    if (!btn) return;
+
+    this.removeDownloadListener();
+    this._downloadHandler = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.downloadCurrentImage();
+    };
+    btn.addEventListener("click", this._downloadHandler);
+  },
+
+  removeDownloadListener() {
+    if (this._downloadHandler) {
+      const btn = this.el.querySelector("[data-zk-download]");
+      if (btn) btn.removeEventListener("click", this._downloadHandler);
+      this._downloadHandler = null;
+    }
+  },
+
+  downloadCurrentImage() {
+    const currentIndex = parseInt(this.el.dataset.currentIndex || "0", 10);
+    const imagesJson = this.el.dataset.images;
+    if (!imagesJson) return;
+
+    try {
+      const images = JSON.parse(imagesJson);
+      const dataUrl = images[currentIndex];
+      if (!dataUrl) return;
+
+      const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (!match) return;
+
+      const mimeType = match[1];
+      const base64 = match[2];
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: mimeType });
+
+      const ext = mimeType.split("/")[1] || "webp";
+      const filename = `mosslet-image-${currentIndex + 1}.${ext}`;
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      console.error("ImageModalHook: download failed", e);
     }
   },
 

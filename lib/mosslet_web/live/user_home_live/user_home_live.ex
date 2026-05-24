@@ -2116,40 +2116,6 @@ defmodule MossletWeb.UserHomeLive do
     {:noreply, assign(socket, :current_image_index, new_index)}
   end
 
-  def handle_event("download_timeline_image", %{"index" => index_str}, socket) do
-    index = String.to_integer(index_str)
-    current_user = socket.assigns.current_user
-
-    if socket.assigns.can_download_images do
-      case socket.assigns.current_post_for_images do
-        %Mosslet.Timeline.Post{} = post ->
-          token =
-            Phoenix.Token.sign(MossletWeb.Endpoint, "timeline_image_download", %{
-              "post_id" => post.id,
-              "image_index" => index,
-              "user_id" => current_user.id
-            })
-
-          download_url = ~p"/app/timeline/images/download/#{token}"
-
-          {:noreply,
-           socket
-           |> push_event("download-file", %{
-             url: download_url,
-             filename: "timeline-image-#{index + 1}"
-           })
-           |> push_event("restore-body-scroll", %{downloading_image: true})
-           |> put_flash(:info, "Downloading image...")}
-
-        nil ->
-          {:noreply, put_flash(socket, :error, "No post selected for image download")}
-      end
-    else
-      {:noreply,
-       put_flash(socket, :error, "You don't have permission to download images from this post")}
-    end
-  end
-
   def handle_event("restore-body-scroll", _params, socket) do
     # this flash only displays after image download sent
     socket =

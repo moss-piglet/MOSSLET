@@ -4648,42 +4648,6 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, assign(socket, :current_image_index, new_index)}
   end
 
-  def handle_event("download_timeline_image", %{"index" => index_str}, socket) do
-    index = String.to_integer(index_str)
-    current_user = socket.assigns.current_user
-
-    if socket.assigns.can_download_images do
-      case socket.assigns.current_post_for_images do
-        %Mosslet.Timeline.Post{} = post ->
-          # Generate a secure token for the download
-          token =
-            Phoenix.Token.sign(MossletWeb.Endpoint, "timeline_image_download", %{
-              "post_id" => post.id,
-              "image_index" => index,
-              "user_id" => current_user.id
-            })
-
-          # Generate download URL
-          download_url = ~p"/app/timeline/images/download/#{token}"
-
-          {:noreply,
-           socket
-           |> push_event("download-file", %{
-             url: download_url,
-             filename: "timeline-image-#{index + 1}"
-           })
-           |> push_event("restore-body-scroll", %{})
-           |> put_flash(:info, "Downloading image...")}
-
-        nil ->
-          {:noreply, put_flash(socket, :error, "No post selected for image download")}
-      end
-    else
-      {:noreply,
-       put_flash(socket, :error, "You don't have permission to download images from this post")}
-    end
-  end
-
   def handle_event("mark_replies_read", %{"post_id" => post_id}, socket) do
     current_user = socket.assigns.current_user
     Timeline.mark_top_level_replies_read_for_post(post_id, current_user.id)

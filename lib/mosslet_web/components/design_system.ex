@@ -12983,21 +12983,18 @@ defmodule MossletWeb.DesignSystem do
               </div>
 
               <div class="flex items-center gap-1.5 sm:space-x-2 flex-shrink-0">
-                <%!-- Download button - only show if user has photos permission --%>
-                <.liquid_button
+                <%!-- Download button — client-side ZK download (no server round-trip) --%>
+                <button
                   :if={@can_download && @images != []}
                   id={"download-photo-button-#{@id}"}
-                  size="sm"
-                  variant="ghost"
-                  color="emerald"
-                  icon="hero-arrow-down-tray"
-                  phx-click="download_timeline_image"
-                  phx-value-index={@current_index}
+                  type="button"
+                  data-zk-download
                   data-tippy-content="Download photo"
                   phx-hook="TippyHook"
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors duration-150"
                 >
-                  Download
-                </.liquid_button>
+                  <.phx_icon name="hero-arrow-down-tray" class="h-4 w-4" /> Download
+                </button>
 
                 <%!-- Close button --%>
                 <.liquid_button

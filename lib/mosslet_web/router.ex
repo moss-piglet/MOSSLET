@@ -415,9 +415,6 @@ defmodule MossletWeb.Router do
     get "/users/settings/confirm-email/:token", UserSettingsController, :confirm_email
     get "/users/totp", UserTOTPController, :new
     post "/users/totp", UserTOTPController, :create
-
-    # Timeline image downloads
-    get "/timeline/images/download/:token", TimelineImageDownloadController, :download_image
   end
 
   scope "/app", MossletWeb do
