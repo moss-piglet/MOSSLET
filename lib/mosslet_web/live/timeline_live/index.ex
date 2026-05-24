@@ -2302,18 +2302,26 @@ defmodule MossletWeb.TimelineLive.Index do
     key = socket.assigns.key
     post = Timeline.get_post!(id)
 
-    # Trim any added \n characters from the client html
-    body =
-      if body && is_list(body), do: List.to_string(body) |> String.trim(), else: String.trim(body)
+    # Only accept plaintext body updates for public posts (server has the key).
+    # Non-public posts must use the ZK path (update_post_body_zk).
+    if post.visibility != :public do
+      {:noreply, socket}
+    else
+      # Trim any added \n characters from the client html
+      body =
+        if body && is_list(body),
+          do: List.to_string(body) |> String.trim(),
+          else: String.trim(body)
 
-    socket =
-      socket
-      |> assign(:post_image_processing, AsyncResult.loading())
-      |> start_async(:update_post_body, fn ->
-        update_post_body(post, body, current_user, key)
-      end)
+      socket =
+        socket
+        |> assign(:post_image_processing, AsyncResult.loading())
+        |> start_async(:update_post_body, fn ->
+          update_post_body(post, body, current_user, key)
+        end)
 
-    {:noreply, socket}
+      {:noreply, socket}
+    end
   end
 
   # ZK path: browser re-encrypted the body with the cached post_key.
@@ -2342,19 +2350,28 @@ defmodule MossletWeb.TimelineLive.Index do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
     reply = Timeline.get_reply!(id)
+    post = Timeline.get_post!(reply.post_id)
 
-    # Trim any added \n characters from the client html
-    body =
-      if body && is_list(body), do: List.to_string(body) |> String.trim(), else: String.trim(body)
+    # Only accept plaintext body updates for public posts (server has the key).
+    # Non-public posts must use the ZK path (update_reply_body_zk).
+    if post.visibility != :public do
+      {:noreply, socket}
+    else
+      # Trim any added \n characters from the client html
+      body =
+        if body && is_list(body),
+          do: List.to_string(body) |> String.trim(),
+          else: String.trim(body)
 
-    socket =
-      socket
-      |> assign(:reply_image_processing, AsyncResult.loading())
-      |> start_async(:update_reply_body, fn ->
-        update_reply_body(reply, body, current_user, key)
-      end)
+      socket =
+        socket
+        |> assign(:reply_image_processing, AsyncResult.loading())
+        |> start_async(:update_reply_body, fn ->
+          update_reply_body(reply, body, current_user, key)
+        end)
 
-    {:noreply, socket}
+      {:noreply, socket}
+    end
   end
 
   # ZK path: browser re-encrypted the reply body with the cached post_key.

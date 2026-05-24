@@ -164,7 +164,6 @@ The same Rust crate (`metamorphic-crypto`) compiles to both the server-side NIF 
 |-----------|---------|--------|
 | `data-conversation-key` | Sealed conversation key (base64) | `user_conversation.key` |
 | `data-user-public-key` | User's X25519 public key (base64) | `user.key_pair["public"]` |
-| `data-session-key` | Session-derived key (base64) | `current_scope.key` |
 | `data-encrypted-private-key` | Encrypted X25519 private key (base64) | `user.key_pair["private"]` |
 | `data-pq-public-key` | User's hybrid PQ public key (base64) | `user.pq_public_key` |
 | `data-encrypted-pq-private-key` | Encrypted PQ private key (base64) | `user.encrypted_pq_private_key` |

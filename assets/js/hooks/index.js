@@ -20,6 +20,7 @@ import EncryptUpload from "./encrypt-upload";
 import NsfwCheck from "./nsfw-check";
 import DecryptUserFields from "./decrypt-user-fields";
 import PostFormHook from "./post-form-hook";
+import ProfileFieldsFormHook from "./profile-fields-form-hook";
 import CharacterCounter from "./character-counter";
 import ClipboardHook from "./clipboard-hook";
 import ComposerEmojiPicker from "./composer-emoji-picker";
@@ -70,10 +71,12 @@ import ImageErrorHook from "./image-error-hook";
 import ImageLightbox from "./image-lightbox-hook";
 import UnsavedChanges from "./unsaved-changes";
 import SortableUploadsHook from "./sortable-uploads-hook";
+import StatusFormHook from "./status-form-hook";
 import SortableBooksHook from "./sortable-books-hook";
 import ImageResizeUploadHook from "./image-resize-upload-hook";
 import ImageCropHook from "./image-crop-hook";
 import JournalDragDropHook from "./journal-drag-drop-hook";
+import JournalEntryFormHook from "./journal-entry-form-hook";
 import WordCounter from "./word-counter";
 import SubmitOnEnter from "./submit-on-enter";
 import SessionKeyDeriver from "./session-key-deriver";
@@ -143,6 +146,7 @@ export default {
   MossletFrameworkHooks,
   NsfwCheck,
   PostFormHook,
+  ProfileFieldsFormHook,
   RecoveryKeySetupHook,
   RegistrationHook,
   ReplyComposer,
@@ -165,10 +169,12 @@ export default {
   ImageLightbox,
   UnsavedChanges,
   SortableUploadsHook,
+  StatusFormHook,
   SortableBooksHook,
   ImageResizeUploadHook,
   ImageCropHook,
   JournalDragDropHook,
+  JournalEntryFormHook,
   WordCounter,
   SubmitOnEnter,
   SyncStatusHook,

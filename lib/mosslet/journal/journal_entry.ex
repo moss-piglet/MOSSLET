@@ -187,6 +187,18 @@ defmodule Mosslet.Journal.JournalEntry do
     |> encrypt_attrs(opts)
   end
 
+  @doc """
+  ZK changeset — accepts pre-encrypted fields from the browser.
+  The browser encrypts title/body/mood with the user_key via WASM.
+  Server stores ciphertext directly without seeing plaintext.
+  """
+  def changeset_zk(journal_entry, attrs) do
+    journal_entry
+    |> cast(attrs, [:is_favorite, :entry_date, :user_id, :book_id, :word_count])
+    |> set_entry_date()
+    |> put_encrypted_fields(attrs)
+  end
+
   defp validate_mood(changeset) do
     case get_change(changeset, :mood) do
       nil -> changeset
@@ -282,5 +294,22 @@ defmodule Mosslet.Journal.JournalEntry do
 
         put_change(changeset, :mood, encrypted_mood)
     end
+  end
+
+  defp put_encrypted_fields(changeset, attrs) do
+    changeset
+    |> then(fn cs ->
+      if enc = attrs["encrypted_title"],
+        do: cs |> put_change(:title, enc) |> put_change(:title_hash, attrs["title_hash"]),
+        else: cs
+    end)
+    |> then(fn cs ->
+      if enc = attrs["encrypted_body"], do: put_change(cs, :body, enc), else: cs
+    end)
+    |> then(fn cs ->
+      if enc = attrs["encrypted_mood"],
+        do: put_change(cs, :mood, enc),
+        else: put_change(cs, :mood, nil)
+    end)
   end
 end

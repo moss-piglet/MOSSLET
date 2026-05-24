@@ -119,6 +119,8 @@ defmodule MossletWeb.EditStatusLive do
               for={@status_form}
               phx-change="validate_status"
               phx-submit="update_status"
+              phx-hook="StatusFormHook"
+              id="status-form"
               class="space-y-6"
             >
               <%!-- Hidden status field to ensure status gets submitted --%>
@@ -1011,6 +1013,46 @@ defmodule MossletWeb.EditStatusLive do
          |> assign(
            status_form: status_form,
            status_message: get_decrypted_status_message(updated_user, key) || "",
+           auto_status: updated_user.auto_status
+         )}
+
+      {:error, _changeset} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "There was an error updating your status. Please try again.")}
+    end
+  end
+
+  def handle_event("update_status_zk", params, socket) do
+    user = socket.assigns.current_user
+
+    status_atom = String.to_existing_atom(params["status"] || "offline")
+
+    attrs = %{
+      status: status_atom,
+      auto_status: params["auto_status"] == true,
+      encrypted_status_message: params["encrypted_status_message"],
+      c_encrypted_status_message: params["c_encrypted_status_message"],
+      status_message_hash: params["status_message_hash"]
+    }
+
+    case Statuses.update_user_status_zk(user, attrs) do
+      {:ok, updated_user} ->
+        updated_user = Accounts.get_user_with_preloads(updated_user.id)
+
+        status_form =
+          to_form(%{
+            "status" => to_string(updated_user.status),
+            "status_message" => "",
+            "auto_status" => updated_user.auto_status
+          })
+
+        {:noreply,
+         socket
+         |> put_flash(:success, "Your status has been updated successfully!")
+         |> assign(
+           status_form: status_form,
+           status_message: "",
            auto_status: updated_user.auto_status
          )}
 

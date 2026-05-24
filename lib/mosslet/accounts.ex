@@ -821,6 +821,32 @@ defmodule Mosslet.Accounts do
     end
   end
 
+  @doc """
+  Updates a user's name from browser-encrypted fields (ZK write path).
+  The browser has already encrypted the name with both user_key and conn_key.
+  Profile sync is skipped — profile fields are handled separately.
+  """
+  def update_user_name_zk(user, attrs) do
+    changeset = User.name_changeset_zk(user, attrs)
+    conn = adapter().get_connection!(user.connection.id)
+    c_attrs = changeset.changes.connection_map
+
+    case adapter().update_user_name(user, conn, changeset, c_attrs) do
+      {:ok, updated_user, updated_conn} ->
+        Groups.maybe_update_name_for_user_groups(
+          updated_user,
+          %{encrypted_name: c_attrs.c_name},
+          []
+        )
+
+        broadcast_connection(updated_conn, :uconn_name_updated)
+        {:ok, updated_user}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
   # includes name updates and marketing notification changes
   # for onboarding
   def update_user_onboarding_profile(user, attrs \\ %{}, opts \\ []) do
@@ -875,6 +901,26 @@ defmodule Mosslet.Accounts do
 
           {:ok, updated_user}
         end
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  @doc """
+  Updates a user's username from browser-encrypted fields (ZK write path).
+  The browser has already encrypted the username with both user_key and conn_key.
+  Profile sync is skipped — profile fields are handled separately.
+  """
+  def update_user_username_zk(user, attrs) do
+    changeset = User.username_changeset_zk(user, attrs)
+    conn = adapter().get_connection!(user.connection.id)
+    c_attrs = changeset.changes.connection_map
+
+    case adapter().update_user_username(user, conn, changeset, c_attrs) do
+      {:ok, updated_user, updated_conn} ->
+        broadcast_connection(updated_conn, :uconn_username_updated)
+        {:ok, updated_user}
 
       {:error, changeset} ->
         {:error, changeset}

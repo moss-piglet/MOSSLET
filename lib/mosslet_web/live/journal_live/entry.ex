@@ -223,6 +223,8 @@ defmodule MossletWeb.JournalLive.Entry do
             id="journal-form"
             phx-change="validate"
             phx-submit="save"
+            phx-hook="JournalEntryFormHook"
+            data-sealed-user-key={@current_scope.user.user_key}
             class="space-y-6"
           >
             <div class="flex flex-wrap items-center gap-3 mb-6">
@@ -581,14 +583,21 @@ defmodule MossletWeb.JournalLive.Entry do
 
     socket = cancel_auto_save_timer(socket)
 
-    timer_ref = Process.send_after(self(), :auto_save, @auto_save_delay_ms)
+    # Only start server-side auto-save timer when ZK hook is NOT active.
+    # When the hook is active, it handles its own encrypted auto-save timer.
+    socket =
+      if connected?(socket) && not zk_form_active?(socket) do
+        timer_ref = Process.send_after(self(), :auto_save, @auto_save_delay_ms)
+        assign(socket, :auto_save_timer, timer_ref)
+      else
+        socket
+      end
 
     {:noreply,
      socket
      |> assign(:form, to_form(changeset, as: :journal_entry))
      |> assign(:word_count, word_count)
      |> assign(:has_unsaved_changes, true)
-     |> assign(:auto_save_timer, timer_ref)
      |> assign(:pending_params, params)}
   end
 
@@ -596,6 +605,18 @@ defmodule MossletWeb.JournalLive.Entry do
   def handle_event("save", %{"journal_entry" => params}, socket) do
     socket = cancel_auto_save_timer(socket)
     save_entry(socket, socket.assigns.live_action, params, navigate: true)
+  end
+
+  @impl true
+  def handle_event("save_zk", params, socket) do
+    socket = cancel_auto_save_timer(socket)
+    save_entry_zk(socket, socket.assigns.live_action, params, navigate: true)
+  end
+
+  @impl true
+  def handle_event("auto_save_zk", params, socket) do
+    socket = cancel_auto_save_timer(socket)
+    save_entry_zk(socket, socket.assigns.live_action, params, navigate: false)
   end
 
   @impl true
@@ -875,6 +896,101 @@ defmodule MossletWeb.JournalLive.Entry do
     end
 
     assign(socket, :auto_save_timer, nil)
+  end
+
+  # The JournalEntryFormHook is active when the user has a sealed user_key
+  # (all users with key material). When active, the JS hook handles auto-save
+  # with encrypted content, so the server-side plaintext auto-save is skipped.
+  defp zk_form_active?(socket) do
+    user = socket.assigns.current_scope.user
+    is_binary(user.user_key) and byte_size(user.user_key) > 0
+  end
+
+  # ---------------------------------------------------------------------------
+  # ZK save path — browser encrypts title/body/mood, server stores ciphertext
+  # ---------------------------------------------------------------------------
+
+  defp save_entry_zk(socket, :new, params, opts) do
+    user = socket.assigns.user
+    book_id = socket.assigns.book_id
+    entry_date = socket.assigns.entry_date
+
+    attrs =
+      params
+      |> Map.put("entry_date", entry_date)
+      |> then(fn p -> if book_id, do: Map.put(p, "book_id", book_id), else: p end)
+
+    socket = assign(socket, :saving, true)
+
+    case Journal.create_journal_entry_zk(user, attrs) do
+      {:ok, entry} ->
+        socket =
+          socket
+          |> assign(:saving, false)
+          |> assign(:has_unsaved_changes, false)
+          |> assign(:last_saved_at, DateTime.utc_now())
+          |> assign(:entry, entry)
+          |> assign(:pending_params, nil)
+
+        if opts[:navigate] do
+          return_view = socket.assigns.return_view
+
+          destination =
+            if return_view == "reading" && book_id do
+              total_entries = Journal.count_book_entries(book_id)
+              ~p"/app/journal/books/#{book_id}?view=reading&page=#{total_entries}"
+            else
+              ~p"/app/journal/#{entry.id}"
+            end
+
+          {:noreply,
+           socket
+           |> put_flash(:info, "Entry saved")
+           |> push_navigate(to: destination)}
+        else
+          {:noreply,
+           socket
+           |> push_patch(to: ~p"/app/journal/#{entry.id}/edit", replace: true)}
+        end
+
+      {:error, changeset} ->
+        {:noreply,
+         socket
+         |> assign(:saving, false)
+         |> assign(:form, to_form(changeset, as: :journal_entry))}
+    end
+  end
+
+  defp save_entry_zk(socket, :edit, params, opts) do
+    entry = socket.assigns.entry
+
+    socket = assign(socket, :saving, true)
+
+    case Journal.update_journal_entry_zk(entry, params) do
+      {:ok, updated_entry} ->
+        socket =
+          socket
+          |> assign(:saving, false)
+          |> assign(:has_unsaved_changes, false)
+          |> assign(:last_saved_at, DateTime.utc_now())
+          |> assign(:entry, updated_entry)
+          |> assign(:pending_params, nil)
+
+        if opts[:navigate] do
+          {:noreply,
+           socket
+           |> put_flash(:info, "Entry updated")
+           |> push_navigate(to: ~p"/app/journal/#{updated_entry.id}")}
+        else
+          {:noreply, socket}
+        end
+
+      {:error, changeset} ->
+        {:noreply,
+         socket
+         |> assign(:saving, false)
+         |> assign(:form, to_form(changeset, as: :journal_entry))}
+    end
   end
 
   defp format_date(date) do

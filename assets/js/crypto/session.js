@@ -1,12 +1,9 @@
 /**
  * Shared session key helpers for crypto operations.
  *
- * Key resolution order:
- *   1. sessionStorage (populated by SessionKeyDeriver on every authenticated page)
- *   2. DOM data attributes on #conversation-composer (legacy, conversation page only)
- *
- * The sessionStorage path is the standard path going forward. The DOM fallback
- * ensures existing conversation hooks continue working during the transition.
+ * Keys are read from sessionStorage (populated by SessionKeyDeriver on every
+ * authenticated page). Encrypted key blobs (public data, not secrets) may also
+ * be read from DOM data attributes on #session-key-deriver or #conversation-composer.
  */
 
 import {
@@ -20,6 +17,7 @@ import {
 
 export { decryptSecretbox, b64Encode };
 import { SK } from "../hooks/session-key-deriver";
+import { clearKeyCache } from "./key_cache";
 
 const COMPOSER_SELECTOR = "#conversation-composer";
 
@@ -34,38 +32,27 @@ function getComposerEl() {
 /**
  * Returns the user_key (decrypted symmetric key) and encrypted private key.
  *
- * Prefers sessionStorage (populated by SessionKeyDeriver), falls back to
- * the conversation composer DOM for backward compatibility.
+ * Uses sessionStorage (populated by SessionKeyDeriver on every authenticated page).
+ * Falls back to #session-key-deriver DOM element for the encrypted private key blob
+ * when it is not yet in sessionStorage.
  *
  * @returns {{ sessionKey: string, encryptedPrivateKey: string } | null}
  */
 export function getSessionKeys() {
-  // Fast path: sessionStorage (available on all authenticated pages)
   const userKey = sessionStorage.getItem(SK.USER_KEY);
-  if (userKey) {
-    // For the encrypted private key, check sessionStorage first (if already decrypted,
-    // we don't need it). But callers use this to decrypt the private key, so we need
-    // the encrypted form. Read from the deriver element or composer.
-    const deriverEl = document.querySelector("#session-key-deriver");
-    const composerEl = getComposerEl();
-    const encryptedPrivateKey =
-      deriverEl?.dataset?.encryptedPrivateKey ||
-      composerEl?.dataset?.encryptedPrivateKey;
+  if (!userKey) return null;
 
-    if (encryptedPrivateKey) {
-      return { sessionKey: userKey, encryptedPrivateKey };
-    }
-  }
+  // The encrypted private key is always read from DOM (it's the encrypted blob,
+  // not a secret — the session-key-deriver element or conversation composer has it).
+  const deriverEl = document.querySelector("#session-key-deriver");
+  const composerEl = getComposerEl();
+  const encryptedPrivateKey =
+    deriverEl?.dataset?.encryptedPrivateKey ||
+    composerEl?.dataset?.encryptedPrivateKey;
 
-  // Legacy fallback: read from conversation composer DOM
-  const el = getComposerEl();
-  if (!el) return null;
+  if (!encryptedPrivateKey) return null;
 
-  const sessionKey = el.dataset.sessionKey;
-  const encryptedPrivateKey = el.dataset.encryptedPrivateKey;
-  if (!sessionKey || !encryptedPrivateKey) return null;
-
-  return { sessionKey, encryptedPrivateKey };
+  return { sessionKey: userKey, encryptedPrivateKey };
 }
 
 /**
@@ -333,7 +320,74 @@ export function getCachedPostKey(postId) {
   return _postKeyCache.get(postId) || null;
 }
 
-// Clear all in-memory key caches on logout
+// ---------------------------------------------------------------------------
+// User key cache — allows any hook that needs the unsealed user_key to share
+// it across the page lifetime. Cleared on logout.
+// ---------------------------------------------------------------------------
+
+let _cachedUserKey = null;
+
+/**
+ * Unseals the user_key from its sealed form and unwraps any double-base64.
+ *
+ * Server-sealed user_keys: the NIF seals the 44-char base64 key string as-is.
+ * unsealFromUser returns those 44 ASCII bytes re-encoded as base64 (~60 chars).
+ * We detect this by length > 44 and atob() once to recover the original key.
+ *
+ * Browser-sealed user_keys: the WASM decodes the base64 input before sealing.
+ * unsealFromUser returns the 32 raw bytes as base64 (exactly 44 chars).
+ * This is already the correct key format — no unwrapping needed.
+ *
+ * @param {string} sealedUserKey - base64-encoded sealed user_key
+ * @returns {Promise<string|null>} unwrapped user_key, or null on failure
+ */
+export async function getUserKey(sealedUserKey) {
+  if (_cachedUserKey) return _cachedUserKey;
+
+  const raw = await unsealContextKey(sealedUserKey);
+  if (!raw) return null;
+
+  _cachedUserKey = unwrapKey(raw);
+  return _cachedUserKey;
+}
+
+/**
+ * Returns the sealed user_key (user attributes key) from the DOM.
+ * Available on #decrypt-user-fields (app layout) or journal entry decrypt elements.
+ * @returns {string|null}
+ */
+export function getSealedUserKey() {
+  const el = document.querySelector("#decrypt-user-fields");
+  return el?.dataset?.sealedUserKey || null;
+}
+
+let _cachedConnKey = null;
+
+/**
+ * Unseals the conn_key from its sealed form and unwraps any double-base64.
+ * The conn_key is sealed to the user's keypair, available on #session-key-deriver.
+ *
+ * @param {string} [sealedConnKey] - optional sealed conn_key; reads from DOM if omitted
+ * @returns {Promise<string|null>} unwrapped conn_key, or null on failure
+ */
+export async function getConnKey(sealedConnKey) {
+  if (_cachedConnKey) return _cachedConnKey;
+
+  const sealed = sealedConnKey || getSealedConnKey();
+  if (!sealed) return null;
+
+  const raw = await unsealContextKey(sealed);
+  if (!raw) return null;
+
+  _cachedConnKey = unwrapKey(raw);
+  return _cachedConnKey;
+}
+
+// Clear all in-memory key caches, sessionStorage keys, and persistent cache on logout
 window.addEventListener("mosslet:logout", () => {
   _postKeyCache.clear();
+  _cachedUserKey = null;
+  _cachedConnKey = null;
+  Object.values(SK).forEach((key) => sessionStorage.removeItem(key));
+  clearKeyCache();
 });

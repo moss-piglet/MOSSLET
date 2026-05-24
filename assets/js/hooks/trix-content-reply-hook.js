@@ -219,10 +219,18 @@ const TrixContentReplyHook = {
                           }
                         });
                       } else {
-                        this.pushEvent("update_reply_body", {
-                          body: this.el.innerHTML,
-                          id: replyId,
-                        });
+                        const decryptEl = parentPostId
+                          ? document.querySelector(`[id="decrypt-post-${parentPostId}"]`)
+                          : null;
+                        const isPublic = decryptEl?.dataset?.isPublic === "true";
+                        if (isPublic || !parentPostId) {
+                          this.pushEvent("update_reply_body", {
+                            body: this.el.innerHTML,
+                            id: replyId,
+                          });
+                        } else {
+                          console.warn("TrixContentReplyHook: no cached post_key for non-public reply", replyId);
+                        }
                       }
                     } else {
                       this.pushEvent("log_error", {

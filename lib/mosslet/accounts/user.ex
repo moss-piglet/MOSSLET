@@ -1480,6 +1480,21 @@ defmodule Mosslet.Accounts.User do
     end
   end
 
+  @doc """
+  ZK name changeset — accepts pre-encrypted name from the browser.
+  The browser encrypts with both user_key and conn_key.
+  """
+  def name_changeset_zk(user, attrs) do
+    user
+    |> change()
+    |> put_change(:name, attrs[:encrypted_user])
+    |> put_change(:name_hash, attrs[:hash])
+    |> put_change(:connection_map, %{
+      c_name: attrs[:encrypted_conn],
+      c_name_hash: attrs[:hash]
+    })
+  end
+
   def profile_changeset(user, attrs, opts \\ []) do
     user
     |> cast(attrs, [
@@ -1513,6 +1528,21 @@ defmodule Mosslet.Accounts.User do
       %{changes: %{username: _}} = changeset -> changeset
       %{} = changeset -> add_error(changeset, :username, "did not change")
     end
+  end
+
+  @doc """
+  ZK username changeset — accepts pre-encrypted username from the browser.
+  The browser encrypts with both user_key and conn_key.
+  """
+  def username_changeset_zk(user, attrs) do
+    user
+    |> change()
+    |> put_change(:username, attrs[:encrypted_user])
+    |> put_change(:username_hash, attrs[:hash])
+    |> put_change(:connection_map, %{
+      c_username: attrs[:encrypted_conn],
+      c_username_hash: attrs[:hash]
+    })
   end
 
   @doc """
@@ -1673,6 +1703,45 @@ defmodule Mosslet.Accounts.User do
         # no changes but we don't need to make it an error
         changeset
     end
+  end
+
+  @doc """
+  ZK status changeset — accepts pre-encrypted status_message from the browser.
+  The browser encrypts with both user_key and conn_key.
+  """
+  def status_changeset_zk(user, attrs) do
+    now = NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second)
+
+    changeset =
+      user
+      |> cast(attrs, [:status, :auto_status])
+
+    # Apply encrypted status_message if provided
+    changeset =
+      if enc = attrs[:encrypted_status_message] do
+        changeset
+        |> put_change(:status_message, enc)
+        |> put_change(:status_message_hash, attrs[:status_message_hash])
+        |> put_change(:connection_map, %{
+          c_status: attrs[:status],
+          c_status_message: attrs[:c_encrypted_status_message],
+          c_status_message_hash: attrs[:status_message_hash],
+          c_status_updated_at: now
+        })
+      else
+        changeset
+        |> put_change(:status_message, nil)
+        |> put_change(:status_message_hash, nil)
+        |> put_change(:connection_map, %{
+          c_status: attrs[:status],
+          c_status_message: nil,
+          c_status_message_hash: nil,
+          c_status_updated_at: now
+        })
+      end
+
+    changeset
+    |> put_change(:status_updated_at, now)
   end
 
   @doc """

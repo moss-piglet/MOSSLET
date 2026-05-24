@@ -516,6 +516,16 @@ Note: `@noble/post-quantum` was the original browser-side PQ library (pure JS). 
    - `user.ex` — `encrypt_connection_map_status_visibility_change` no longer crashes on conn_key decrypt failure (extracted to `do_encrypt_status_visibility` with graceful fallback)
    - `helpers.ex` — `get_ext_from_file_key/1` simplified (all branches returned "webp")
 
+### Fixed (May 2026 follow-up audit)
+
+6. **Dead vendor library removal** — Deleted `assets/vendor/libsodium-wrappers-sumo/`, `assets/vendor/libsodium-sumo/`, and `assets/vendor/tweetnacl/` (~1.1MB of dead code). These were the original libsodium JS libraries, fully replaced by the WASM build of `metamorphic-crypto`. No JS files imported them.
+
+7. **Plaintext fallback guard for trix-content hooks** — `trix-content-post-hook.js` and `trix-content-reply-hook.js` had a fallback path that sent decrypted HTML to the server via `update_post_body`/`update_reply_body` when no cached post_key was available. Now: JS side checks `data-is-public` from the DecryptPost element and only sends plaintext for public posts; non-public posts log a warning and skip. Server side: all three `update_post_body` and `update_reply_body` handlers (`timeline_live/index.ex`, `post_live/show.ex`, `user_connection_live/show.ex`) now reject plaintext updates for non-public posts (return `:noreply` if `post.visibility != :public`).
+
+8. **Removed `data-session-key` from conversation composer** — `conversation_live/show.ex` no longer renders `data-session-key={@current_scope.key}` on the `#conversation-composer` element. This was a legacy fallback that put the decrypted user_key directly into the HTML DOM, readable by browser extensions or XSS. The SessionKeyDeriver hook (sessionStorage) is now the only key source. `session.js` `getSessionKeys()` updated to remove the DOM `sessionKey` fallback path.
+
+9. **Logout cleanup: clear sessionStorage + persistent key cache** — `session.js` `mosslet:logout` handler now clears all sessionStorage keys (`_mosslet_user_key`, `_mosslet_private_key`, `_mosslet_pq_private_key`, etc.) and calls `clearKeyCache()` to wipe the IndexedDB wrapping key + localStorage ciphertext. `session-key-deriver.js` `_clearSessionKeys()` also calls `clearKeyCache()` when stale keys are detected (e.g., after password change).
+
 ### Remaining ZK Gaps (Known, Not Yet Addressed)
 
 **Read path (server decrypts for template rendering):**
@@ -526,12 +536,21 @@ Note: `@noble/post-quantum` was the original browser-side PQ library (pure JS). 
 - Journal entries — ~8 call sites in journal_live
 
 **Write path (browser sends plaintext, server encrypts):**
-- Profile update forms (email, username, name, about) — no EncryptUserFields hook
-- Journal entry create/update — no journal form encryption hook
-- Reply submission — no encryption in ReplyComposer
-- Group metadata updates — no group write-path encryption hook
-- Connection label/notes — no connection write-path encryption
-- Status message updates — server encrypts on write
+- ~~Journal entry create/update — no journal form encryption hook~~ — DONE. `JournalEntryFormHook` intercepts submit + handles JS-side auto-save (3s debounce), encrypts title/body/mood with user_key via WASM, pushes `save_zk`/`auto_save_zk`. Server-side auto-save disabled when hook active. `JournalEntry.changeset_zk/2` + `Journal.create_journal_entry_zk/2` + `Journal.update_journal_entry_zk/2` store ciphertext directly.
+- ~~Status message updates — server encrypts on write~~ — DONE. `StatusFormHook` encrypts status_message with both user_key and conn_key (dual-update pattern), pushes `update_status_zk`. `User.status_changeset_zk/2` + `Statuses.update_user_status_zk/2` store pre-encrypted blobs in both users and connections tables.
+- ~~Profile name/username update forms~~ — DONE. `ProfileFieldsFormHook` (generic, reusable) encrypts with both user_key and conn_key, pushes ZK events. `User.name_changeset_zk/2` + `User.username_changeset_zk/2` + `Accounts.update_user_name_zk/2` + `Accounts.update_user_username_zk/2` store ciphertext. Profile sync (re-encrypt with profile_key) skipped in ZK path — profile fields handled separately.
+- Profile about/bio — uses `profile_key` (context-specific, per-profile). Needs per-profile key unseal in browser. Deferred.
+- Connection label/notes — uses `conn_key` via `uconn.key` (per-connection sealed). Needs per-connection key unseal. Deferred.
+- Group metadata updates — uses `group_key` (per-group sealed). Needs per-group key unseal in browser. Deferred.
+- Block reasons — uses `user_key`. Straightforward but low priority. Deferred.
+- Reply submission — no encryption in ReplyComposer. Uses post_key. Deferred.
+- Email update — intentional: server must see plaintext email to send verification link
+- Profile update forms (about) — no EncryptProfileFields hook. Uses profile_key. Deferred.
+
+**Also done (shared infra):**
+- Extracted `getUserKey()` and `getConnKey()` into `session.js` — shared across all hooks, replaced duplicates in `decrypt-journal-entry.js` and `zk-mood-insights.js`
+- `getSealedUserKey()` and `getSealedConnKey()` exported from `session.js` for any hook that needs them
+- Cached user_key/conn_key cleared on logout alongside post_key cache
 
 **Plaintext leakage (browser sends decrypted content to server):**
 - ~~`update_post_body` event — sends decrypted HTML for presigned URL refresh~~ — DONE. Browser re-encrypts body with cached post_key before pushing. New `update_post_body_zk` event stores ciphertext directly. Legacy fallback retained for public posts.

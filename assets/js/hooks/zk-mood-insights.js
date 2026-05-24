@@ -18,35 +18,8 @@
  *        data-sealed-user-key={@sealed_user_key}
  *   ></div>
  */
-import { unsealContextKey, decryptWithKey, getPublicKey } from "../crypto/session";
+import { getUserKey, decryptWithKey, getPublicKey } from "../crypto/session";
 import { generateMoodInsight } from "../ai/mood-insights";
-
-let _cachedUserKey = null;
-
-async function getUserKey(sealedUserKey) {
-  if (_cachedUserKey) return _cachedUserKey;
-
-  const raw = await unsealContextKey(sealedUserKey);
-  if (!raw) return null;
-
-  let unwrapped;
-  if (raw.length > 44) {
-    try {
-      unwrapped = atob(raw);
-    } catch {
-      unwrapped = raw;
-    }
-  } else {
-    unwrapped = raw;
-  }
-
-  _cachedUserKey = unwrapped;
-  return unwrapped;
-}
-
-window.addEventListener("mosslet:logout", () => {
-  _cachedUserKey = null;
-});
 
 const ZkMoodInsights = {
   mounted() {

@@ -60,6 +60,32 @@ defmodule Mosslet.Statuses do
   end
 
   @doc """
+  Updates a user's status from browser-encrypted fields (ZK write path).
+  The browser has already encrypted the status_message with both user_key and conn_key.
+  """
+  def update_user_status_zk(user, attrs) do
+    conn = Accounts.get_connection!(user.connection.id)
+
+    changeset = User.status_changeset_zk(user, attrs)
+
+    c_attrs =
+      if Map.has_key?(changeset.changes, :connection_map) do
+        changeset.changes.connection_map
+      else
+        %{c_status: attrs[:status], c_status_updated_at: NaiveDateTime.utc_now()}
+      end
+
+    case adapter().update_user_status_multi(changeset, conn, c_attrs) do
+      {:ok, user} ->
+        {:ok, user}
+        |> Accounts.broadcast_user_status(:status_updated)
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  @doc """
   Updates a user's status visibility controls.
 
   Follows the dual-update pattern:

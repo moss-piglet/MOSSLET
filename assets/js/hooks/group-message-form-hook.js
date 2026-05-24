@@ -72,8 +72,13 @@ const GroupMessageFormHook = {
     e.preventDefault();
     e.stopImmediatePropagation();
 
+    // Clear textarea immediately to prevent phx-debounce from sending stale content
+    textarea.value = "";
+
     this._encryptAndSubmit(content).catch((err) => {
       console.error("GroupMessageFormHook: encryption failed, falling back:", err);
+      // Restore content so fallback submit has it
+      textarea.value = content;
       this._fallback = true;
       this.el.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     });

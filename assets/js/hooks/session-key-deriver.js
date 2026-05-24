@@ -169,10 +169,11 @@ const SessionKeyDeriver = {
   },
 
   /**
-   * Clear all session keys (used when keys are stale).
+   * Clear all session keys and persistent cache (used when keys are stale).
    */
   _clearSessionKeys() {
     Object.values(SK).forEach((key) => sessionStorage.removeItem(key));
+    clearKeyCache();
   },
 
   /**

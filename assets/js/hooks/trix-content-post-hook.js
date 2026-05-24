@@ -552,10 +552,16 @@ const TrixContentPostHook = {
                           }
                         });
                       } else {
-                        this.pushEvent("update_post_body", {
-                          body: this.el.innerHTML,
-                          id: postId,
-                        });
+                        const decryptEl = document.querySelector(`[id="decrypt-post-${postId}"]`);
+                        const isPublic = decryptEl?.dataset?.isPublic === "true";
+                        if (isPublic) {
+                          this.pushEvent("update_post_body", {
+                            body: this.el.innerHTML,
+                            id: postId,
+                          });
+                        } else {
+                          console.warn("TrixContentPostHook: no cached post_key for non-public post", postId);
+                        }
                       }
                     } else {
                       this.pushEvent("log_error", {

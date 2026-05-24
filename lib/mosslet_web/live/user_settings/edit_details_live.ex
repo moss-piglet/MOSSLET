@@ -156,6 +156,9 @@ defmodule MossletWeb.EditDetailsLive do
                 id="update_name_form"
                 phx-submit="update_name"
                 phx-change="validate_name"
+                phx-hook="ProfileFieldsFormHook"
+                data-zk-event="update_name_zk"
+                data-zk-field="name"
                 class="space-y-6"
               >
                 <DesignSystem.liquid_input
@@ -197,6 +200,9 @@ defmodule MossletWeb.EditDetailsLive do
                 id="update_username_form"
                 phx-submit="update_username"
                 phx-change="validate_username"
+                phx-hook="ProfileFieldsFormHook"
+                data-zk-event="update_username_zk"
+                data-zk-field="username"
                 class="space-y-6"
               >
                 <DesignSystem.liquid_input
@@ -790,6 +796,30 @@ defmodule MossletWeb.EditDetailsLive do
   end
 
   @impl true
+  def handle_event("update_name_zk", params, socket) do
+    user = socket.assigns.current_scope.user
+
+    attrs = %{
+      encrypted_user: params["encrypted_user"],
+      encrypted_conn: params["encrypted_conn"],
+      hash: params["hash"]
+    }
+
+    case Accounts.update_user_name_zk(user, attrs) do
+      {:ok, updated_user} ->
+        {:noreply,
+         socket
+         |> put_flash(:success, gettext("Your name has been updated successfully."))
+         |> assign_name_form(updated_user)}
+
+      {:error, _changeset} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, gettext("There was an error when trying to update your name."))}
+    end
+  end
+
+  @impl true
   def handle_event("update_username", params, socket) do
     %{"user" => user_params} = params
     user = socket.assigns.current_scope.user
@@ -820,6 +850,31 @@ defmodule MossletWeb.EditDetailsLive do
        |> put_flash(:info, gettext("Your username can't be blank."))
        |> assign_username_form(user)
        |> push_navigate(to: ~p"/app/users/edit-details")}
+    end
+  end
+
+  @impl true
+  def handle_event("update_username_zk", params, socket) do
+    user = socket.assigns.current_scope.user
+
+    attrs = %{
+      encrypted_user: params["encrypted_user"],
+      encrypted_conn: params["encrypted_conn"],
+      hash: params["hash"]
+    }
+
+    case Accounts.update_user_username_zk(user, attrs) do
+      {:ok, updated_user} ->
+        {:noreply,
+         socket
+         |> put_flash(:success, gettext("Your username has been updated successfully."))
+         |> assign_username_form(updated_user)
+         |> push_navigate(to: ~p"/app/users/edit-details")}
+
+      {:error, _changeset} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, gettext("That username may already be taken."))}
     end
   end
 

@@ -148,8 +148,28 @@ defmodule Mosslet.Journal do
     adapter().create_journal_entry(changeset)
   end
 
+  @doc """
+  Creates a journal entry from browser-encrypted fields (ZK write path).
+  The browser has already encrypted title/body/mood with the user_key.
+  """
+  def create_journal_entry_zk(user, attrs) do
+    changeset =
+      %JournalEntry{}
+      |> JournalEntry.changeset_zk(Map.put(attrs, "user_id", user.id))
+
+    adapter().create_journal_entry(changeset)
+  end
+
   def update_journal_entry(%JournalEntry{} = entry, attrs, user, key) do
     changeset = JournalEntry.changeset(entry, attrs, user: user, key: key)
+    adapter().update_journal_entry(changeset)
+  end
+
+  @doc """
+  Updates a journal entry from browser-encrypted fields (ZK write path).
+  """
+  def update_journal_entry_zk(%JournalEntry{} = entry, attrs) do
+    changeset = JournalEntry.changeset_zk(entry, attrs)
     adapter().update_journal_entry(changeset)
   end
 
