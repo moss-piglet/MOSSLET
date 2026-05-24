@@ -1,3 +1,5 @@
+/* @ts-self-types="./metamorphic_crypto.d.ts" */
+
 /**
  * Seal plaintext (base64) to a recipient's public key. Returns base64 ciphertext.
  * @param {string} plaintext_b64
