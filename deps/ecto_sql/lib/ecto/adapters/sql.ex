@@ -478,9 +478,8 @@ defmodule Ecto.Adapters.SQL do
   Forces all connections in the repo pool to disconnect within the given interval.
 
   Once this function is called, the pool will disconnect all of its connections
-  as they are checked in or as they are pinged. Checked in connections will be
-  randomly disconnected within the given time interval. Pinged connections are
-  immediately disconnected - as they are idle (according to `:idle_interval`).
+  as they are checked in or as they are pinged. Checked in and idle connections
+  will be randomly disconnected within the given time interval.
 
   If the connection has a backoff configured (which is the case by default),
   disconnecting means an attempt at a new connection will be done immediately
@@ -489,13 +488,22 @@ defmodule Ecto.Adapters.SQL do
   disconnecting all connections may cause the pool supervisor to restart
   depending on the max_restarts/max_seconds configuration of the pool,
   so you will want to set those carefully.
+
+  If you need connections to be restarted periodically, set the `:max_lifetime`
+  option in your repository configuration instead.
   """
 
   @doc @to_sql_doc
-  @spec to_sql(:all | :update_all | :delete_all, Ecto.Repo.t(), Ecto.Queryable.t()) ::
+  @spec to_sql(:all | :update_all | :delete_all, Ecto.Repo.t(), Ecto.Queryable.t(), Keyword.t()) ::
           {String.t(), query_params}
-  def to_sql(kind, repo, queryable) do
-    case Ecto.Adapter.Queryable.prepare_query(kind, repo, queryable) do
+  def to_sql(kind, repo, queryable, opts \\ []) do
+    prepare_opts =
+      case Keyword.fetch(opts, :counter) do
+        {:ok, counter} -> [counter: counter]
+        :error -> []
+      end
+
+    case Ecto.Adapter.Queryable.prepare_query(kind, repo, queryable, prepare_opts) do
       {{:cached, _update, _reset, {_id, cached}}, params} ->
         {String.Chars.to_string(cached), params}
 
@@ -509,7 +517,7 @@ defmodule Ecto.Adapters.SQL do
 
   @doc @explain_doc
   @spec explain(
-          pid() | Ecto.Repo.t() | Ecto.Adapter.adapter_meta(),
+          pid() | Ecto.Repo.t(),
           :all | :update_all | :delete_all,
           Ecto.Queryable.t(),
           opts :: Keyword.t()
@@ -521,7 +529,7 @@ defmodule Ecto.Adapters.SQL do
     explain(Ecto.Adapter.lookup_meta(repo), operation, queryable, wrap_in_transaction?, opts)
   end
 
-  def explain(%{repo: repo} = adapter_meta, operation, queryable, true, opts) do
+  defp explain(%{repo: repo} = adapter_meta, operation, queryable, true, opts) do
     Ecto.Multi.new()
     |> Ecto.Multi.run(:explain, fn _, _ ->
       {prepared, prepared_params} = to_sql(operation, repo, queryable)
@@ -538,7 +546,7 @@ defmodule Ecto.Adapters.SQL do
     end
   end
 
-  def explain(%{repo: repo} = adapter_meta, operation, queryable, false, opts) do
+  defp explain(%{repo: repo} = adapter_meta, operation, queryable, false, opts) do
     {prepared, prepared_params} = to_sql(operation, repo, queryable)
     sql_call(adapter_meta, :explain_query, [prepared], prepared_params, opts)
   end
@@ -704,7 +712,7 @@ defmodule Ecto.Adapters.SQL do
   The table is checked against the current database/schema in the connection.
   """
   @spec table_exists?(Ecto.Repo.t(), table :: String.t(), opts :: Keyword.t()) :: boolean
-  def table_exists?(repo, table, opts \\ []) when is_atom(repo) do
+  def table_exists?(repo, table, opts \\ []) when is_atom(repo) or is_pid(repo) do
     %{sql: sql} = adapter_meta = Ecto.Adapter.lookup_meta(repo)
     {query, params} = sql.table_exists_query(table)
     query!(adapter_meta, query, params, opts).num_rows != 0
@@ -825,10 +833,10 @@ defmodule Ecto.Adapters.SQL do
       end
 
       @doc unquote(to_sql_doc)
-      @spec to_sql(:all | :update_all | :delete_all, Ecto.Queryable.t()) ::
+      @spec to_sql(:all | :update_all | :delete_all, Ecto.Queryable.t(), Keyword.t()) ::
               {String.t(), Ecto.Adapters.SQL.query_params()}
-      def to_sql(operation, queryable) do
-        Ecto.Adapters.SQL.to_sql(operation, get_dynamic_repo(), queryable)
+      def to_sql(operation, queryable, opts \\ []) do
+        Ecto.Adapters.SQL.to_sql(operation, get_dynamic_repo(), queryable, opts)
       end
 
       @doc unquote(explain_doc)
@@ -895,7 +903,7 @@ defmodule Ecto.Adapters.SQL do
     {name, config} = Keyword.pop(config, :name, config[:repo])
     {pool_count, config} = Keyword.pop(config, :pool_count, 1)
     {pool, config} = pool_config(config)
-    child_spec = connection.child_spec(config)
+    child_spec = connection.child_spec([label: name] ++ config)
 
     meta = %{
       telemetry: telemetry,
@@ -970,7 +978,7 @@ defmodule Ecto.Adapters.SQL do
         rows -> unzip_inserts(header, rows)
       end
 
-    sql = conn.insert(prefix, source, header, rows, on_conflict, returning, placeholders)
+    sql = conn.insert(prefix, source, header, rows, on_conflict, returning, placeholders, opts)
 
     opts =
       if is_nil(Keyword.get(opts, :cache_statement)) do

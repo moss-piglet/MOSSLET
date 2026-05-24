@@ -2,18 +2,19 @@ defmodule EctoSQL.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/elixir-ecto/ecto_sql"
-  @version "3.13.5"
+  @version "3.14.0"
   @adapters ~w(pg myxql tds)
 
   def project do
     [
       app: :ecto_sql,
       version: @version,
-      elixir: "~> 1.14",
+      elixir: "~> 1.15",
       deps: deps(),
       test_paths: test_paths(System.get_env("ECTO_ADAPTER")),
-      xref: [
-        exclude: [
+      test_ignore_filters: [&String.starts_with?(&1, "test/support/")],
+      elixirc_options: [
+        no_warn_undefined: [
           MyXQL,
           Ecto.Adapters.MyXQL.Connection,
           Postgrex,
@@ -30,7 +31,6 @@ defmodule EctoSQL.MixProject do
         "test.adapters": &test_adapters/1,
         "test.as_a_dep": &test_as_a_dep/1
       ],
-      preferred_cli_env: ["test.all": :test, "test.adapters": :test],
 
       # Hex
       description: "SQL-based adapters for Ecto and database migrations",
@@ -50,25 +50,33 @@ defmodule EctoSQL.MixProject do
     ]
   end
 
+  def cli do
+    [preferred_envs: ["test.all": :test, "test.adapters": :test]]
+  end
+
   defp deps do
     [
       ecto_dep(),
       {:telemetry, "~> 0.4.0 or ~> 1.0"},
+      {:decimal, "~> 3.0"},
 
       # Drivers
-      {:db_connection, "~> 2.5 or ~> 2.4.1"},
+      {:db_connection, "~> 2.9"},
       postgrex_dep(),
       myxql_dep(),
       tds_dep(),
 
       # Bring something in for JSON during tests
-      {:jason, ">= 0.0.0", only: [:test, :docs]},
+      {:jason, "~> 1.0", only: [:test, :bench, :docs]},
 
       # Docs
-      {:ex_doc, "~> 0.21", only: :docs},
+      {:ex_doc, "~> 0.21", only: :docs, runtime: false, warn_if_outdated: true},
+      {:makeup_sql, ">= 0.1.3", only: :docs, runtime: false},
 
       # Benchmarks
-      {:benchee, "~> 1.0", only: :bench}
+      {:benchee, "~> 1.0", only: :bench},
+      {:benchee_html, "~> 1.0", only: :bench},
+      {:benchee_json, "~> 1.0", only: :bench}
     ]
   end
 
@@ -76,7 +84,7 @@ defmodule EctoSQL.MixProject do
     if path = System.get_env("ECTO_PATH") do
       {:ecto, path: path}
     else
-      {:ecto, "~> 3.13.0"}
+      {:ecto, "~> 3.14.0"}
     end
   end
 
@@ -92,7 +100,7 @@ defmodule EctoSQL.MixProject do
     if path = System.get_env("MYXQL_PATH") do
       {:myxql, path: path}
     else
-      {:myxql, "~> 0.7", optional: true}
+      {:myxql, "~> 0.8", optional: true}
     end
   end
 
@@ -110,7 +118,7 @@ defmodule EctoSQL.MixProject do
 
   defp package do
     [
-      maintainers: ["Eric Meadows-Jönsson", "José Valim", "James Fish", "Michał Muskała"],
+      maintainers: ["José Valim", "Greg Rychlewski", "Eric Meadows-Jönsson"],
       licenses: ["Apache-2.0"],
       links: %{"GitHub" => @source_url},
       files:
@@ -170,11 +178,36 @@ defmodule EctoSQL.MixProject do
 
   defp docs do
     [
+      search: [
+        %{
+          name: "Latest",
+          help: "Search latest versions of Ecto + Ecto.SQL",
+          packages: [:ecto, :ecto_sql]
+        },
+        %{
+          name: "Current version",
+          help: "Search only this project"
+        }
+      ],
       main: "Ecto.Adapters.SQL",
       source_ref: "v#{@version}",
       canonical: "http://hexdocs.pm/ecto_sql",
       source_url: @source_url,
-      extras: ["CHANGELOG.md"],
+      extras: [
+        "CHANGELOG.md",
+        "guides/migration_anatomy.md",
+        "guides/safe_migrations.md",
+        "guides/squashing_migrations.md",
+        "guides/backfilling_data.md"
+      ],
+      groups_for_extras: [
+        "Migration Guides": [
+          "guides/migration_anatomy.md",
+          "guides/safe_migrations.md",
+          "guides/squashing_migrations.md",
+          "guides/backfilling_data.md"
+        ]
+      ],
       skip_undefined_reference_warnings_on: ["CHANGELOG.md"],
       groups_for_modules: [
         # Ecto.Adapters.SQL,

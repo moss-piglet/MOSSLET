@@ -59,13 +59,13 @@ defmodule Floki.Selector.AttributeSelector do
 
   def match?(attributes, s = %AttributeSelector{match_type: :includes, flag: "i"}) do
     selector_value = String.downcase(s.value)
-    attribute_value = get_value(s.attribute, attributes)
+    attribute_value = String.downcase(get_value(s.attribute, attributes))
 
-    if String.contains?(String.downcase(attribute_value), selector_value) do
+    if String.contains?(attribute_value, selector_value) do
       attribute_value
       # Splits by whitespaces ("a  b c" -> ["a", "b", "c"])
       |> String.split([" ", "\t", "\n"], trim: true)
-      |> Enum.any?(fn v -> String.downcase(v) == selector_value end)
+      |> Enum.member?(selector_value)
     else
       false
     end
@@ -135,22 +135,13 @@ defmodule Floki.Selector.AttributeSelector do
     s.attribute |> get_value(attributes) |> String.contains?(s.value)
   end
 
-  defp get_value(attr_name, attributes) when is_list(attributes) do
-    case List.keyfind(attributes, attr_name, 0) do
-      {^attr_name, value} -> value
-      nil -> ""
-    end
-  end
+  defp get_value(attr_name, [{attr_name, value} | _]), do: value
+  defp get_value(attr_name, [_ | rest]), do: get_value(attr_name, rest)
+  defp get_value(attr_name, attrs) when is_map(attrs), do: Map.get(attrs, attr_name, "")
+  defp get_value(_, _), do: ""
 
-  defp get_value(attr_name, attributes) when is_map(attributes) do
-    Map.get(attributes, attr_name, "")
-  end
-
-  defp attribute_present?(name, attributes) when is_list(attributes) do
-    List.keymember?(attributes, name, 0)
-  end
-
-  defp attribute_present?(name, attributes) when is_map(attributes) do
-    Map.has_key?(attributes, name)
-  end
+  defp attribute_present?(name, [{name, _} | _]), do: true
+  defp attribute_present?(name, [_ | rest]), do: attribute_present?(name, rest)
+  defp attribute_present?(name, attrs) when is_map(attrs), do: Map.has_key?(attrs, name)
+  defp attribute_present?(_, _), do: false
 end

@@ -1,11 +1,9 @@
 if Code.ensure_loaded?(Tds) do
   defmodule Ecto.Adapters.Tds.Connection do
     @moduledoc false
-    require Logger
     alias Tds.Query
     alias Ecto.Query.Tagged
     alias Ecto.Adapters.SQL
-    require Ecto.Schema
 
     @behaviour Ecto.Adapters.SQL.Connection
 
@@ -220,7 +218,7 @@ if Code.ensure_loaded?(Tds) do
     end
 
     @impl true
-    def insert(prefix, table, header, rows, on_conflict, returning, placeholders) do
+    def insert(prefix, table, header, rows, on_conflict, returning, placeholders, _opts \\ []) do
       counter_offset = length(placeholders) + 1
       [] = on_conflict(on_conflict, header)
       returning = returning(returning, "INSERTED")
@@ -815,11 +813,11 @@ if Code.ensure_loaded?(Tds) do
     end
 
     defp expr({:fragment, _, parts}, sources, query) do
-      Enum.map(parts, fn
-        {:raw, part} -> part
-        {:expr, expr} -> expr(expr, sources, query)
-      end)
-      |> parens_for_select
+      fragment_expr(parts, sources, query)
+    end
+
+    defp expr({{:fragment, _, parts}, schema}, sources, query) when is_atom(schema) do
+      fragment_expr(parts, sources, query)
     end
 
     defp expr({:values, _, [types, idx, num_rows]}, _, _query) do
@@ -828,18 +826,6 @@ if Code.ensure_loaded?(Tds) do
 
     defp expr({:identifier, _, [literal]}, _sources, _query) do
       quote_name(literal)
-    end
-
-    defp expr({:constant, _, [literal]}, _sources, _query) when is_binary(literal) do
-      [?', escape_string(literal), ?']
-    end
-
-    defp expr({:constant, _, [literal]}, _sources, _query) when is_number(literal) do
-      [to_string(literal)]
-    end
-
-    defp expr({:splice, _, [{:^, _, [idx, length]}]}, _sources, _query) do
-      list_param_to_args(idx, length)
     end
 
     defp expr({:selected_as, _, [name]}, _sources, _query) do
@@ -1007,6 +993,14 @@ if Code.ensure_loaded?(Tds) do
       end)
     end
 
+    defp fragment_expr(parts, sources, query) do
+      Enum.map(parts, fn
+        {:raw, part} -> part
+        {:expr, expr} -> op_to_binary(expr, sources, query)
+      end)
+      |> parens_for_select()
+    end
+
     defp op_to_binary({op, _, [_, _]} = expr, sources, query) when op in @binary_ops do
       paren_expr(expr, sources, query)
     end
@@ -1032,6 +1026,9 @@ if Code.ensure_loaded?(Tds) do
     end
 
     defp returning([], _verb), do: []
+
+    defp returning({:unsafe_fragment, fragment}, _verb),
+      do: [" OUTPUT ", fragment]
 
     defp returning(returning, verb) when is_list(returning) do
       [" OUTPUT ", Enum.map_intersperse(returning, ", ", &[verb, ?., quote_name(&1)])]
@@ -1070,6 +1067,9 @@ if Code.ensure_loaded?(Tds) do
         {:fragment, _, _} ->
           {nil, as_prefix ++ [?f | Integer.to_string(pos)], nil}
 
+        {{:fragment, _, _}, schema, _} ->
+          {nil, as_prefix ++ [?f | Integer.to_string(pos)], schema}
+
         {:values, _, _} ->
           {nil, as_prefix ++ [?v | Integer.to_string(pos)], nil}
 
@@ -1098,6 +1098,10 @@ if Code.ensure_loaded?(Tds) do
 
     @impl true
     def execute_ddl({command, %Table{} = table, columns}) when command in @creates do
+      if table.modifiers do
+        error!(nil, "MSSQL adapter does not support :modifiers in the create table statement")
+      end
+
       prefix = table.prefix
 
       pk_name =

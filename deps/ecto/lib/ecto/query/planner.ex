@@ -133,9 +133,10 @@ defmodule Ecto.Query.Planner do
   The cache value is the compiled query by the adapter
   along-side the select expression.
   """
-  def query(query, operation, cache, adapter, counter) do
+  def query(query, operation, cache, adapter, counter, query_cache?) do
     {query, params, key} = plan(query, operation, adapter)
     {cast_params, dump_params} = Enum.unzip(params)
+    key = if query_cache? and key != :nocache, do: {key, counter}, else: :nocache
     query_with_cache(key, query, operation, cache, adapter, counter, cast_params, dump_params)
   end
 
@@ -323,9 +324,17 @@ defmodule Ecto.Query.Planner do
        when kind in [:fragment, :values],
        do: {expr, source}
 
+  defp plan_source(_query, %{source: {{:fragment, _, _} = source, schema}, prefix: nil} = expr, _adapter, _cte_names)
+       when is_atom(schema) do
+    {expr, {source, schema, nil}}
+  end
+
   defp plan_source(query, %{source: {kind, _, _}, prefix: prefix} = expr, _adapter, _cte_names)
        when kind in [:fragment, :values],
        do: error!(query, expr, "cannot set prefix: #{inspect(prefix)} option for #{kind} sources")
+
+  defp plan_source(query, %{source: {{:fragment, _, _}, _schema}, prefix: prefix} = expr, _adapter, _cte_names),
+       do: error!(query, expr, "cannot set prefix: #{inspect(prefix)} option for fragment sources")
 
   defp plan_subquery(subquery, query, prefix, adapter, source?, cte_names) do
     %{query: inner_query} = subquery
@@ -1633,18 +1642,6 @@ defmodule Ecto.Query.Planner do
     {{quantifier, meta, [subquery]}, acc}
   end
 
-  defp prewalk(
-         {:splice, splice_meta, [{:^, meta, [_]}, length]},
-         _kind,
-         _query,
-         _expr,
-         acc,
-         _adapter
-       ) do
-    param = {:^, meta, [acc, length]}
-    {{:splice, splice_meta, [param]}, acc + length}
-  end
-
   defp prewalk({{:., dot_meta, [left, field]}, meta, []}, kind, query, expr, acc, _adapter) do
     {ix, ix_expr, ix_query} = get_ix!(left, kind, query)
     extra = if kind == :select, do: [type: type!(kind, ix_query, expr, ix, field)], else: []
@@ -2212,10 +2209,14 @@ defmodule Ecto.Query.Planner do
         error!(query, "struct/2 in select expects a source with a schema")
 
       {{:ok, {kind, fields}}, {source, schema, prefix}} when is_binary(source) ->
-        dumper = if schema, do: schema.__schema__(:dump), else: %{}
+        {types, fields} = select_dump_for_schema(schema, List.wrap(fields), ix, drop)
         schema = if kind == :map, do: nil, else: schema
-        {types, fields} = select_dump(List.wrap(fields), dumper, ix, drop)
         {{:source, {source, schema}, prefix || query.prefix, types}, fields}
+
+      {{:ok, {kind, fields}}, {{:fragment, _, _} = source, schema, prefix}}  ->
+        {types, fields} = select_dump_for_schema(schema, List.wrap(fields), ix, drop)
+        schema = if kind == :map, do: nil, else: schema
+        {{:source, {source, schema}, prefix, types}, fields}
 
       {{:ok, {_, fields}}, _} ->
         {{:map, Enum.map(fields, &{&1, {:value, :any}})},
@@ -2248,6 +2249,11 @@ defmodule Ecto.Query.Planner do
         fields = subquery_source_fields(select)
         {select, Enum.map(fields, &select_field(&1, ix, :always))}
     end
+  end
+
+  defp select_dump_for_schema(schema, fields, ix, drop) do
+    dumper = if schema, do: schema.__schema__(:dump), else: %{}
+    select_dump(List.wrap(fields), dumper, ix, drop)
   end
 
   defp select_dump(fields, dumper, ix, drop) do

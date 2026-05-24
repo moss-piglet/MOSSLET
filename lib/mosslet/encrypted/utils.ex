@@ -106,7 +106,22 @@ defmodule Mosslet.Encrypted.Utils do
 
   @spec generate_pq_key_pairs :: %{private: binary, public: binary}
   def generate_pq_key_pairs do
-    {public, private} = MetamorphicCrypto.Hybrid.generate_keypair()
+    generate_pq_key_pairs(:cat3)
+  end
+
+  @doc """
+  Generate a hybrid ML-KEM + X25519 keypair at the given security level.
+
+  Accepts `:cat3` (default, ML-KEM-768) or `:cat5` (ML-KEM-1024).
+
+  Returns `%{private: secret_key_b64, public: public_key_b64}`.
+  """
+  @spec generate_pq_key_pairs(MetamorphicCrypto.Hybrid.security_level()) :: %{
+          private: binary,
+          public: binary
+        }
+  def generate_pq_key_pairs(level) when level in [:cat3, :cat5] do
+    {public, private} = MetamorphicCrypto.Hybrid.generate_keypair(level)
     %{private: private, public: public}
   end
 
@@ -164,10 +179,14 @@ defmodule Mosslet.Encrypted.Utils do
         ) :: binary
   def encrypt_message_for_user_with_pk(message, %{public: public_key}, opts \\ []) do
     pq_public_key = Keyword.get(opts, :pq_public_key)
+    level = Keyword.get(opts, :level, :cat3)
 
     if pq_public_key do
       {:ok, ciphertext} =
-        MetamorphicCrypto.Seal.seal_for_user(message, public_key, pq_public_key: pq_public_key)
+        MetamorphicCrypto.Seal.seal_for_user(message, public_key,
+          pq_public_key: pq_public_key,
+          level: level
+        )
 
       ciphertext
     else
@@ -182,12 +201,20 @@ defmodule Mosslet.Encrypted.Utils do
   Returns `[pq_public_key: key]` if the user has a PQ public key,
   or `[]` if not (which causes `encrypt_message_for_user_with_pk/3`
   to fall back to legacy box_seal).
-  """
-  @spec pq_opts_for_user(map) :: keyword
-  def pq_opts_for_user(%{pq_public_key: pq_pk}) when is_binary(pq_pk) and pq_pk != "",
-    do: [pq_public_key: pq_pk]
 
-  def pq_opts_for_user(_), do: []
+  An optional `:level` (`:cat3` or `:cat5`) can be passed and will
+  be included in the returned opts when a PQ key is present.
+  """
+  @spec pq_opts_for_user(map, keyword) :: keyword
+  def pq_opts_for_user(user, opts \\ [])
+
+  def pq_opts_for_user(%{pq_public_key: pq_pk}, opts)
+      when is_binary(pq_pk) and pq_pk != "" do
+    level = Keyword.get(opts, :level, :cat3)
+    [pq_public_key: pq_pk, level: level]
+  end
+
+  def pq_opts_for_user(_, _opts), do: []
 
   # PRIVATE FUNCTIONS
 

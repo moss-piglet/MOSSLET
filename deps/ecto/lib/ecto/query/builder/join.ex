@@ -81,6 +81,18 @@ defmodule Ecto.Query.Builder.Join do
     end
   end
 
+  def escape({{:fragment, _, _} = fragment, schema} = join, vars, env) do
+    {_, expr, _, _, params} = escape(fragment, vars, env)
+
+    case Macro.expand(schema, env) do
+      schema when is_atom(schema) ->
+        {:_, {expr, schema}, nil, nil, params}
+
+      _ ->
+        Builder.error!("malformed join `#{Macro.to_string(join)}` in query expression")
+    end
+  end
+
   def escape({:assoc, _, [{var, _, context}, field]}, vars, _env)
       when is_atom(var) and is_atom(context) do
     ensure_field!(field)
@@ -197,7 +209,7 @@ defmodule Ecto.Query.Builder.Join do
 
     {count_bind, query} =
       if is_nil(count_bind) do
-        var = Macro.unique_var(:query, __MODULE__)
+        var = Macro.unique_var(:query, env.module)
 
         query =
           quote do

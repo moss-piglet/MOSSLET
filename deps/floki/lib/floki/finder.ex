@@ -76,8 +76,8 @@ defmodule Floki.Finder do
 
   def find(%HTMLTree{} = tree, selectors) when is_list(selectors) do
     Enum.flat_map(selectors, fn s -> traverse_html_tree(tree.node_ids, s, tree, []) end)
+    |> Enum.uniq_by(& &1.node_id)
     |> Enum.sort_by(& &1.node_id)
-    |> Enum.uniq()
   end
 
   # some selectors can be applied with the raw html tree tuples instead of
@@ -319,7 +319,7 @@ defmodule Floki.Finder do
   end
 
   defp get_selector_nodes(%Selector.Combinator{match_type: :child}, html_node, _tree) do
-    Enum.reverse(html_node.children_nodes_ids)
+    html_node.children_nodes_ids
   end
 
   defp get_selector_nodes(%Selector.Combinator{match_type: :adjacent_sibling}, html_node, tree) do
@@ -372,8 +372,7 @@ defmodule Floki.Finder do
   defp get_descendant_ids(node_id, tree) do
     case get_node(node_id, tree) do
       %{children_nodes_ids: children} when children != [] ->
-        do_get_descendant_ids(Enum.reverse(children), tree, [])
-        |> Enum.reverse()
+        do_get_descendant_ids(children, tree, [])
 
       _ ->
         []
@@ -383,17 +382,16 @@ defmodule Floki.Finder do
   defp do_get_descendant_ids([], _tree, acc), do: acc
 
   defp do_get_descendant_ids([node_id | rest], tree, acc) do
-    acc = [node_id | acc]
-
     acc =
       case get_node(node_id, tree) do
         %{children_nodes_ids: children} when children != [] ->
-          do_get_descendant_ids(Enum.reverse(children), tree, acc)
+          do_get_descendant_ids(children, tree, acc)
 
         _ ->
           acc
       end
 
+    acc = [node_id | acc]
     do_get_descendant_ids(rest, tree, acc)
   end
 

@@ -172,7 +172,7 @@ defmodule Mosslet.MixProject do
       {:lazy_html, ">= 0.1.0", only: :test},
       {:live_select, "~> 1.4"},
       {:mdex, "~> 0.11"},
-      {:metamorphic_crypto, "~> 0.2"},
+      {:metamorphic_crypto, "~> 0.2.1"},
       {:mimic, "~> 1.7", only: :test},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:money, "~> 1.12.4"},

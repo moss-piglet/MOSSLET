@@ -69,9 +69,10 @@ defmodule Ecto.Repo.Schema do
     on_conflict = Keyword.get(opts, :on_conflict, :raise)
     conflict_target = Keyword.get(opts, :conflict_target, [])
     conflict_target = conflict_target(conflict_target, dumper)
+    replace_changed? = Keyword.get(opts, :replace_changed, true)
 
     {on_conflict, conflict_cast_params} =
-      on_conflict(on_conflict, conflict_target, schema_meta, counter, dumper, adapter)
+      on_conflict(on_conflict, conflict_target, replace_changed?, schema_meta, counter, dumper, adapter)
 
     opts =
       Keyword.put(
@@ -445,6 +446,7 @@ defmodule Ecto.Repo.Schema do
     on_conflict = Keyword.get(opts, :on_conflict, :raise)
     conflict_target = Keyword.get(opts, :conflict_target, [])
     conflict_target = conflict_target(conflict_target, dumper)
+    replace_changed? = Keyword.get(opts, :replace_changed, true)
 
     # On insert, we always merge the whole struct into the
     # changeset as changes, except the primary key if it is nil.
@@ -479,6 +481,7 @@ defmodule Ecto.Repo.Schema do
           on_conflict(
             on_conflict,
             conflict_target,
+            replace_changed?,
             schema_meta,
             fn -> length(dump_changes) end,
             dumper,
@@ -889,7 +892,7 @@ defmodule Ecto.Repo.Schema do
     end
   end
 
-  defp on_conflict(on_conflict, conflict_target, schema_meta, counter_fun, dumper, adapter) do
+  defp on_conflict(on_conflict, conflict_target, replace_changed?, schema_meta, counter_fun, dumper, adapter) do
     %{source: source, schema: schema, prefix: prefix} = schema_meta
 
     case on_conflict do
@@ -913,7 +916,7 @@ defmodule Ecto.Repo.Schema do
         # Remove the conflict targets from the replacing fields
         # since the values don't change and this allows postgres to
         # possibly perform a HOT optimization: https://www.postgresql.org/docs/current/storage-hot.html
-        to_remove = List.wrap(conflict_target)
+        to_remove = if replace_changed?, do: List.wrap(conflict_target), else: []
         replace = replace_all_fields!(:replace_all, schema, to_remove)
 
         if replace == [], do: raise(ArgumentError, "empty list of fields to update, use the `:replace` option instead")
@@ -921,7 +924,7 @@ defmodule Ecto.Repo.Schema do
         {{replace, [], conflict_target}, []}
 
       {:replace_all_except, fields} ->
-        to_remove = List.wrap(conflict_target) ++ fields
+        to_remove = if replace_changed?, do: List.wrap(conflict_target) ++ fields, else: fields
         replace = replace_all_fields!(:replace_all_except, schema, to_remove)
 
         if replace == [], do: raise(ArgumentError, "empty list of fields to update, use the `:replace` option instead")
@@ -963,10 +966,6 @@ defmodule Ecto.Repo.Schema do
   defp replace_all_fields!(_kind, schema, to_remove) do
     {updatable_fields, _} = schema.__schema__(:updatable_fields)
     Enum.map(updatable_fields -- to_remove, &field_source!(schema, &1))
-  end
-
-  defp field_source!(nil, field) do
-    field
   end
 
   defp field_source!(schema, field) do
@@ -1142,11 +1141,21 @@ defmodule Ecto.Repo.Schema do
   defp reset_parent?(changes, data, assoc) do
     %{field: field, owner_key: owner_key, related_key: related_key} = assoc
 
-    with %{^owner_key => owner_value} <- changes,
-         %{^field => %{^related_key => related_value}} when owner_value != related_value <- data do
-      true
-    else
-      _ -> false
+    case changes do
+      %{^owner_key => owner_value} ->
+        case data do
+          %{^field => %{^related_key => related_value}} when owner_value != related_value ->
+            true
+
+          %{^field => nil} when owner_value != nil ->
+            true
+
+          _ ->
+            false
+        end
+
+      _ ->
+        false
     end
   end
 

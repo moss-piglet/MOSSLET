@@ -235,7 +235,7 @@ if Code.ensure_loaded?(Postgrex) do
     end
 
     @impl true
-    def insert(prefix, table, header, rows, on_conflict, returning, placeholders) do
+    def insert(prefix, table, header, rows, on_conflict, returning, placeholders, _opts \\ []) do
       counter_offset = length(placeholders) + 1
 
       values =
@@ -980,11 +980,11 @@ if Code.ensure_loaded?(Postgrex) do
     end
 
     defp expr({:fragment, _, parts}, sources, query) do
-      Enum.map(parts, fn
-        {:raw, part} -> part
-        {:expr, expr} -> expr(expr, sources, query)
-      end)
-      |> parens_for_select
+      fragment_expr(parts, sources, query)
+    end
+
+    defp expr({{:fragment, _, parts}, schema}, sources, query) when is_atom(schema) do
+      fragment_expr(parts, sources, query)
     end
 
     defp expr({:values, _, [types, idx, num_rows]}, _, _query) do
@@ -993,18 +993,6 @@ if Code.ensure_loaded?(Postgrex) do
 
     defp expr({:identifier, _, [literal]}, _sources, _query) do
       quote_name(literal)
-    end
-
-    defp expr({:constant, _, [literal]}, _sources, _query) when is_binary(literal) do
-      [?', escape_string(literal), ?']
-    end
-
-    defp expr({:constant, _, [literal]}, _sources, _query) when is_number(literal) do
-      [to_string(literal)]
-    end
-
-    defp expr({:splice, _, [{:^, _, [idx, length]}]}, _sources, _query) do
-      Enum.map_join(1..length, ",", &"$#{idx + &1}")
     end
 
     defp expr({:selected_as, _, [name]}, _sources, _query) do
@@ -1168,6 +1156,14 @@ if Code.ensure_loaded?(Postgrex) do
       end)
     end
 
+    defp fragment_expr(parts, sources, query) do
+      Enum.map(parts, fn
+        {:raw, part} -> part
+        {:expr, expr} -> maybe_paren(expr, sources, query)
+      end)
+      |> parens_for_select()
+    end
+
     defp type_unless_typed(%Ecto.Query.Tagged{}, _type), do: []
     defp type_unless_typed(_, type), do: [?:, ?: | type]
 
@@ -1208,6 +1204,9 @@ if Code.ensure_loaded?(Postgrex) do
     defp returning([]),
       do: []
 
+    defp returning({:unsafe_fragment, fragment}),
+      do: [" RETURNING ", fragment]
+
     defp returning(returning),
       do: [" RETURNING " | quote_names(returning)]
 
@@ -1231,6 +1230,9 @@ if Code.ensure_loaded?(Postgrex) do
       case elem(sources, pos) do
         {:fragment, _, _} ->
           {nil, as_prefix ++ [?f | Integer.to_string(pos)], nil}
+
+        {{:fragment, _, _}, schema, _} ->
+          {nil, as_prefix ++ [?f | Integer.to_string(pos)], schema}
 
         {:values, _, _} ->
           {nil, as_prefix ++ [?v | Integer.to_string(pos)], nil}
@@ -1264,7 +1266,9 @@ if Code.ensure_loaded?(Postgrex) do
       table_name = quote_name(table.prefix, table.name)
 
       query = [
-        "CREATE TABLE ",
+        "CREATE ",
+        modifiers_expr(table.modifiers),
+        "TABLE ",
         if_do(command == :create_if_not_exists, "IF NOT EXISTS "),
         table_name,
         ?\s,
@@ -1755,6 +1759,16 @@ if Code.ensure_loaded?(Postgrex) do
     defp include_expr(literal),
       do: quote_name(literal)
 
+    defp modifiers_expr(nil), do: []
+    defp modifiers_expr(modifiers) when is_binary(modifiers), do: [modifiers, ?\s]
+
+    defp modifiers_expr(other),
+      do:
+        error!(
+          nil,
+          "PostgreSQL adapter expects :modifiers to be a string or nil, got #{inspect(other)}"
+        )
+
     defp options_expr(nil),
       do: []
 
@@ -1878,9 +1892,6 @@ if Code.ensure_loaded?(Postgrex) do
     defp drop_reference_if_exists_expr(%Reference{} = ref, table, name),
       do: ["DROP CONSTRAINT IF EXISTS ", reference_name(ref, table, name), ", "]
 
-    defp drop_reference_if_exists_expr(_, _, _),
-      do: []
-
     defp reference_name(%Reference{name: nil}, table, column),
       do: quote_name("#{table.name}_#{column}_fkey")
 
@@ -1980,7 +1991,7 @@ if Code.ensure_loaded?(Postgrex) do
 
     defp bitstring_literal(value) do
       size = bit_size(value)
-      <<val::size(size)>> = value
+      <<val::size(^size)>> = value
 
       [?b, ?', val |> Integer.to_string(2) |> String.pad_leading(size, ["0"]), ?']
     end

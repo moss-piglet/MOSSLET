@@ -39,8 +39,10 @@ defmodule Ecto.Repo.Queryable do
     {query, opts} = repo.prepare_query(:stream, query, opts)
     query = attach_prefix(query, opts)
 
+    query_cache? = Keyword.get(opts, :query_cache, true)
+
     {query_meta, prepared, cast_params, dump_params} =
-      Planner.query(query, :all, cache, adapter, 0)
+      Planner.query(query, :all, cache, adapter, 0, query_cache?)
 
     opts = [cast_params: cast_params] ++ opts
 
@@ -90,6 +92,8 @@ defmodule Ecto.Repo.Queryable do
     one!(name, query_for_get_by(queryable, clauses), opts)
   end
 
+  def reload(_name, [], _opts), do: []
+
   def reload(name, [head | _] = structs, opts) when is_list(structs) do
     results = all(name, query_for_reload(structs), opts)
 
@@ -104,6 +108,8 @@ defmodule Ecto.Repo.Queryable do
   def reload(name, struct, opts) do
     one(name, query_for_reload([struct]), opts)
   end
+
+  def reload!(_name, [], _opts), do: []
 
   def reload!(name, [head | _] = structs, opts) when is_list(structs) do
     query = query_for_reload(structs)
@@ -136,7 +142,6 @@ defmodule Ecto.Repo.Queryable do
     queryable =
       Query.exclude(queryable, :select)
       |> Query.exclude(:preload)
-      |> Query.exclude(:order_by)
       |> Query.exclude(:distinct)
       |> Query.select(1)
       |> Query.limit(1)
@@ -219,8 +224,10 @@ defmodule Ecto.Repo.Queryable do
     {query, opts} = repo.prepare_query(operation, query, opts)
     query = attach_prefix(query, opts)
 
+    query_cache? = Keyword.get(opts, :query_cache, true)
+
     {query_meta, prepared, cast_params, dump_params} =
-      Planner.query(query, operation, cache, adapter, 0)
+      Planner.query(query, operation, cache, adapter, 0, query_cache?)
 
     opts = [cast_params: cast_params] ++ opts
 

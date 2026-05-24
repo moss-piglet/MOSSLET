@@ -204,7 +204,7 @@ defmodule Ecto.Query.Builder do
     {{:{}, [], [:fragment, [], [expr]]}, params_acc}
   end
 
-  def escape({:fragment, _, [query | frags]}, _type, params_acc, vars, env) do
+  def escape({:fragment, _, [query | frags]}, _type, {params, acc}, vars, env) do
     pieces = expand_and_split_fragment(query, env)
 
     if length(pieces) != length(frags) + 1 do
@@ -214,8 +214,17 @@ defmodule Ecto.Query.Builder do
       )
     end
 
-    {frags, params_acc} = Enum.map_reduce(frags, params_acc, &escape_fragment(&1, &2, vars, env))
-    {{:{}, [], [:fragment, [], merge_fragments(pieces, frags)]}, params_acc}
+    {frags, {params, acc, compile_merge?}} =
+      Enum.map_reduce(frags, {params, acc, true}, &escape_fragment(&1, &2, vars, env))
+
+    merged =
+      if compile_merge? do
+        merge_fragments(pieces, frags, [])
+      else
+        quote do: Ecto.Query.Builder.merge_fragments(unquote(pieces), unquote(frags), [])
+      end
+
+    {{:{}, [], [:fragment, [], merged]}, {params, acc}}
   end
 
   # subqueries
@@ -638,7 +647,7 @@ defmodule Ecto.Query.Builder do
   def fragment_pieces(frag, args) do
     frag
     |> split_fragment("")
-    |> merge_fragments(args)
+    |> merge_fragments(args, [])
   end
 
   defp escape_window_description([], params_acc, _vars, _env),
@@ -781,8 +790,7 @@ defmodule Ecto.Query.Builder do
     case expr do
       {:^, _, [expr]} ->
         checked = quote do: Ecto.Query.Builder.constant!(unquote(expr))
-        escaped = {:{}, [], [:constant, [], [checked]]}
-        {escaped, params_acc}
+        {checked, params_acc}
 
       _ ->
         error!(
@@ -791,31 +799,49 @@ defmodule Ecto.Query.Builder do
     end
   end
 
-  defp escape_fragment({:splice, _meta, [splice]}, params_acc, vars, env) do
-    case splice do
-      {:^, _, [value]} = expr ->
-        checked = quote do: Ecto.Query.Builder.splice!(unquote(value))
-        length = quote do: length(unquote(checked))
-        {expr, params_acc} = escape(expr, {:splice, :any}, params_acc, vars, env)
-        escaped = {:{}, [], [:splice, [], [expr, length]]}
-        {escaped, params_acc}
-
-      _ ->
-        error!(
-          "splice/1 in fragment expects an interpolated value, such as splice(^value), got `#{Macro.to_string(splice)}`"
-        )
-    end
+  defp escape_fragment({:splice, _meta, [{:^, _, [value]}]}, {params, acc, _}, _vars, _env) do
+    checked = quote do: Ecto.Query.Builder.splice!(unquote(value), length(unquote(params)))
+    param = {value, {:splice, :any}}
+    {{:splice, checked}, {[param | params], acc, false}}
   end
 
-  defp escape_fragment(expr, params_acc, vars, env) do
-    escape(expr, :any, params_acc, vars, env)
+  defp escape_fragment({:splice, _meta, [exprs]}, params_acc, vars, env) when is_list(exprs) do
+    {escaped, params_acc} =
+      Enum.map_reduce(exprs, params_acc, &escape_fragment(&1, &2, vars, env))
+
+    {{:splice, escaped}, params_acc}
   end
 
-  defp merge_fragments([h1 | t1], [h2 | t2]),
-    do: [{:raw, h1}, {:expr, h2} | merge_fragments(t1, t2)]
+  defp escape_fragment({:splice, _meta, [other]}, _params_acc, _vars, _env) do
+    error!(
+      "splice/1 in fragment expects a compile-time list or interpolated value, got `#{Macro.to_string(other)}`"
+    )
+  end
 
-  defp merge_fragments([h1], []),
-    do: [{:raw, h1}]
+  defp escape_fragment(expr, {params, acc, compile_merge?}, vars, env) do
+    {expr, {params, acc}} =
+      escape(expr, :any, {params, acc}, vars, env)
+
+    {expr, {params, acc, compile_merge?}}
+  end
+
+  def merge_fragments([raw_h | raw_t], [{:splice, exprs} | expr_t], []),
+    do: [{:raw, raw_h} | merge_fragments(raw_t, expr_t, exprs)]
+
+  def merge_fragments([raw_h | raw_t], [expr_h | expr_t], []),
+    do: [{:raw, raw_h}, {:expr, expr_h} | merge_fragments(raw_t, expr_t, [])]
+
+  def merge_fragments([raw_h], [], []),
+    do: [{:raw, raw_h}]
+
+  def merge_fragments(raw, expr, [{:splice, exprs} | splice_t]),
+    do: merge_fragments(raw, expr, exprs ++ splice_t)
+
+  def merge_fragments(raw, expr, [splice_h]),
+    do: [{:expr, splice_h} | merge_fragments(raw, expr, [])]
+
+  def merge_fragments(raw, expr, [splice_h | splice_t]),
+    do: [{:expr, splice_h}, {:raw, ","} | merge_fragments(raw, expr, splice_t)]
 
   for {agg, arity} <- @dynamic_aggregates do
     defp call_type(unquote(agg), unquote(arity)), do: {:any, :any}
@@ -954,15 +980,15 @@ defmodule Ecto.Query.Builder do
 
   """
   @spec escape_binding(Macro.t(), list, Macro.Env.t()) :: {Macro.t(), Keyword.t()}
-  def escape_binding(query, binding, _env) when is_list(binding) do
+  def escape_binding(query, binding, env) when is_list(binding) do
     vars = binding |> Enum.with_index() |> Enum.map(&escape_bind/1)
     assert_no_duplicate_binding!(vars)
 
     {positional_vars, named_vars} = Enum.split_while(vars, &(not named_bind?(&1)))
     assert_named_binds_in_tail!(named_vars, binding)
 
-    {query, positional_binds} = calculate_positional_binds(query, positional_vars)
-    {query, named_binds} = calculate_named_binds(query, named_vars)
+    {query, positional_binds} = calculate_positional_binds(query, positional_vars, env)
+    {query, named_binds} = calculate_named_binds(query, named_vars, env)
     {query, positional_binds ++ named_binds}
   end
 
@@ -995,14 +1021,14 @@ defmodule Ecto.Query.Builder do
     end
   end
 
-  defp calculate_positional_binds(query, vars) do
+  defp calculate_positional_binds(query, vars, env) do
     case Enum.split_while(vars, &(elem(&1, 1) != :...)) do
       {vars, []} ->
         vars = for {:pos, var, count} <- vars, do: {var, count}
         {query, vars}
 
       {vars, [_ | tail]} ->
-        var = Macro.unique_var(:query, __MODULE__)
+        var = Macro.unique_var(:query, env.module)
 
         query =
           quote do
@@ -1023,10 +1049,10 @@ defmodule Ecto.Query.Builder do
     end
   end
 
-  defp calculate_named_binds(query, []), do: {query, []}
+  defp calculate_named_binds(query, [], _env), do: {query, []}
 
-  defp calculate_named_binds(query, vars) do
-    var = Macro.unique_var(:query, __MODULE__)
+  defp calculate_named_binds(query, vars, env) do
+    var = Macro.unique_var(:query, env.module)
 
     assignments =
       for {:named, key, name} <- vars do
@@ -1319,9 +1345,9 @@ defmodule Ecto.Query.Builder do
   @doc """
   Called by escaper at runtime to verify splice in fragments.
   """
-  def splice!(value) do
+  def splice!(value, param_num) do
     if is_list(value) do
-      value
+      Enum.map(value, fn _ -> {:^, [], [param_num]} end)
     else
       raise ArgumentError,
             "splice(^value) expects `value` to be a list, got `#{inspect(value)}`"
@@ -1449,7 +1475,7 @@ defmodule Ecto.Query.Builder do
   defp get_env(env), do: env
 
   defp normalize_type(value, :binary),
-    do: quote(do: (is_binary(unquote(value)) && :binary) || :bitstring)
+    do: quote(generated: true, do: (is_binary(unquote(value)) && :binary) || :bitstring)
 
   @doc """
   Raises a query building error.

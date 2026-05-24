@@ -2,7 +2,7 @@ defmodule Ecto.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/elixir-ecto/ecto"
-  @version "3.13.6"
+  @version "3.14.0"
 
   def project do
     [
@@ -19,7 +19,7 @@ defmodule Ecto.MixProject do
 
       # Docs
       name: "Ecto",
-      docs: docs()
+      docs: &docs/0
     ]
   end
 
@@ -33,7 +33,7 @@ defmodule Ecto.MixProject do
   defp deps do
     [
       {:telemetry, "~> 0.4 or ~> 1.0"},
-      {:decimal, "~> 2.0 or ~> 3.0"},
+      {:decimal, "~> 3.0"},
       {:jason, "~> 1.0", optional: true},
       {:ex_doc, "~> 0.38", only: :docs}
     ]
@@ -164,7 +164,8 @@ defmodule Ecto.MixProject do
       "guides/testing/Testing with Ecto.md",
       "guides/cheatsheets/crud.cheatmd",
       "guides/cheatsheets/associations.cheatmd",
-      "CHANGELOG.md"
+      "CHANGELOG.md",
+      {"Ecto SQL guides", %{url: "https://hexdocs.pm/ecto_sql"}}
     ]
   end
 

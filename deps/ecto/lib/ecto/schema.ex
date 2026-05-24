@@ -665,6 +665,7 @@ defmodule Ecto.Schema do
 
     * `:autogenerate` - a `{module, function, args}` tuple for a function
       to call to generate the field value before insertion if value is not set.
+      A list of options is passed as first argument `{type, :autogenerate, [options]}`.
       A shorthand value of `true` is equivalent to `{type, :autogenerate, []}`.
 
     * `:read_after_writes` - When true, the field is always read back
@@ -786,6 +787,8 @@ defmodule Ecto.Schema do
       For example, if you set `Post.has_many :comments, preload_order: [asc: :content]`,
       whenever the `:comments` associations is preloaded,
       the comments will be ordered by the `:content` field.
+      Note that if you provide a custom query with its own `order_by` clause,
+      the custom ordering will take precedence and the `:preload_order` will not be applied.
       See `Ecto.Query.order_by/3` to learn more about ordering expressions.
 
   ## Examples
@@ -1319,6 +1322,12 @@ defmodule Ecto.Schema do
       associated records. See `Ecto.Changeset`'s section on related data
       for more info.
 
+    * `:on_join_through_conflict` - If the association is part of an insert, Ecto
+      will automatically try to create the appropriate entry in the `:join_through`
+      table. This option allows you to configure the conflict resolution behaviour
+      when the record already exists. The allowed values are `:raise` or `:nothing`.
+      Defaults to `:raise`
+
     * `:defaults` - Default values to use when building the association.
       It may be a keyword list of options that override the association schema
       or an `atom`/`{module, function, args}` that receives the association struct
@@ -1352,6 +1361,8 @@ defmodule Ecto.Schema do
       It may be a keyword list/list of fields or an MFA tuple, such as `{Mod, fun, []}`.
       Both cases must resolve to a valid `order_by` expression. See `Ecto.Query.order_by/3`
       to learn more about ordering expressions.
+      Note that if you provide a custom query with its own `order_by` clause,
+      the custom ordering will take precedence and the `:preload_order` will not be applied.
       See the [preload order](#many_to_many/3-preload-order) section below to learn how
       this option can be utilized
 
@@ -1590,6 +1601,8 @@ defmodule Ecto.Schema do
       as `@primary_key` (see the [Schema attributes](#module-schema-attributes)
       section for more info). Primary keys are automatically set up for embedded
       schemas as well, defaulting to `{:id,  :binary_id, autogenerate: true}`.
+      This will generate the default UUID v4. You can use UUID v7 instead by setting
+      the primary key to `{:id, Ecto.UUID, autogenerate: [version: 7]}`
       Note `:primary_key`s are not automatically read back on `insert/2`,
       unless one of `autogenerate: true` or `read_after_writes: true` is set.
 
@@ -2038,6 +2051,9 @@ defmodule Ecto.Schema do
         {_, _, _} ->
           store_mfa_autogenerate!(mod, name, type, gen)
 
+        autogenerate_opts when is_list(autogenerate_opts) ->
+          store_mfa_autogenerate!(mod, name, type, {type, :autogenerate, [autogenerate_opts]})
+
         true ->
           store_type_autogenerate!(mod, name, source || name, type, pk?)
 
@@ -2092,7 +2108,7 @@ defmodule Ecto.Schema do
     :ok
   end
 
-  @valid_has_options [
+  @valid_has_many_options [
     :foreign_key,
     :references,
     :through,
@@ -2106,22 +2122,32 @@ defmodule Ecto.Schema do
   @doc false
   def __has_many__(mod, name, queryable, opts) do
     if is_list(queryable) and Keyword.has_key?(queryable, :through) do
-      check_options!(queryable, @valid_has_options, "has_many/3")
+      check_options!(queryable, @valid_has_many_options, "has_many/3")
       association(mod, :many, name, Ecto.Association.HasThrough, queryable)
     else
-      check_options!(opts, @valid_has_options, "has_many/3")
+      check_options!(opts, @valid_has_many_options, "has_many/3")
       struct = association(mod, :many, name, Ecto.Association.Has, [queryable: queryable] ++ opts)
       Module.put_attribute(mod, :ecto_changeset_fields, {name, {:assoc, struct}})
     end
   end
 
+  @valid_has_one_options [
+    :foreign_key,
+    :references,
+    :through,
+    :on_delete,
+    :defaults,
+    :on_replace,
+    :where
+  ]
+
   @doc false
   def __has_one__(mod, name, queryable, opts) do
     if is_list(queryable) and Keyword.has_key?(queryable, :through) do
-      check_options!(queryable, @valid_has_options, "has_one/3")
+      check_options!(queryable, @valid_has_one_options, "has_one/3")
       association(mod, :one, name, Ecto.Association.HasThrough, queryable)
     else
-      check_options!(opts, @valid_has_options, "has_one/3")
+      check_options!(opts, @valid_has_one_options, "has_one/3")
       struct = association(mod, :one, name, Ecto.Association.Has, [queryable: queryable] ++ opts)
       Module.put_attribute(mod, :ecto_changeset_fields, {name, {:assoc, struct}})
     end
@@ -2173,6 +2199,7 @@ defmodule Ecto.Schema do
     :on_delete,
     :defaults,
     :on_replace,
+    :on_join_through_conflict,
     :unique,
     :where,
     :join_where,

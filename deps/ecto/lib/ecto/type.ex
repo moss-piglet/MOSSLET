@@ -31,7 +31,6 @@ defmodule Ecto.Type do
     internal: Internal Data
     database: Database Data
     external --> internal: cast/1
-    external --> database: dump/1
     internal --> database: dump/1
     database --> internal: load/1
   ```
@@ -1000,9 +999,13 @@ defmodule Ecto.Type do
 
   defp same_duration(_), do: :error
 
-  @doc false
-  def empty_trimmed?(value, :binary), do: value == ""
-  def empty_trimmed?(value, _type), do: is_binary(value) and String.trim_leading(value) == ""
+  @doc """
+  Trims a value according to its type.
+
+  It currently trims all strings, unless the type is `:binary`.
+  """
+  def trim(type, value) when is_binary(value) and type != :binary, do: String.trim_leading(value)
+  def trim(_, value), do: value
 
   ## Adapter related
 

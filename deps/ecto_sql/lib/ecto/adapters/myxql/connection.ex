@@ -179,41 +179,61 @@ if Code.ensure_loaded?(MyXQL) do
     end
 
     @impl true
-    def insert(prefix, table, header, rows, on_conflict, [], []) do
+    def insert(prefix, table, header, rows, on_conflict, returning, placeholders, opts \\ [])
+
+    def insert(prefix, table, header, rows, on_conflict, [], [], opts) do
       fields = quote_names(header)
+      insert_mode = Keyword.get(opts, :insert_mode)
+      insert_keyword = insert_keyword(insert_mode)
 
       [
-        "INSERT INTO ",
+        insert_keyword,
         quote_table(prefix, table),
         " (",
         fields,
         ") ",
-        insert_all(rows) | on_conflict(on_conflict, header)
+        insert_all(rows) | on_conflict(on_conflict, header, opts)
       ]
     end
 
-    def insert(_prefix, _table, _header, _rows, _on_conflict, _returning, []) do
+    def insert(_prefix, _table, _header, _rows, _on_conflict, _returning, [], _opts) do
       error!(nil, ":returning is not supported in insert/insert_all by MySQL")
     end
 
-    def insert(_prefix, _table, _header, _rows, _on_conflict, _returning, _placeholders) do
+    def insert(_prefix, _table, _header, _rows, _on_conflict, _returning, _placeholders, _opts) do
       error!(nil, ":placeholders is not supported by MySQL")
     end
 
-    defp on_conflict({_, _, [_ | _]}, _header) do
+    # INSERT IGNORE when insert_mode: :ignore is passed, independent of on_conflict
+    defp insert_keyword(:ignore) do
+      "INSERT IGNORE INTO "
+    end
+
+    defp insert_keyword(_) do
+      "INSERT INTO "
+    end
+
+    defp on_conflict({_, _, [_ | _]}, _header, _opts) do
       error!(nil, ":conflict_target is not supported in insert/insert_all by MySQL")
     end
 
-    defp on_conflict({:raise, _, []}, _header) do
+    defp on_conflict({:raise, _, []}, _header, _opts) do
       []
     end
 
-    defp on_conflict({:nothing, _, []}, [field | _]) do
-      quoted = quote_name(field)
-      [" ON DUPLICATE KEY UPDATE ", quoted, " = " | quoted]
+    # When insert_mode: :ignore is used with on_conflict: :nothing,
+    # INSERT IGNORE already handles conflicts - no ON DUPLICATE KEY UPDATE needed
+    defp on_conflict({:nothing, _, []}, [field | _], opts) do
+      if Keyword.get(opts, :insert_mode) == :ignore do
+        []
+      else
+        # Default :nothing without INSERT IGNORE - uses workaround to simulate "do nothing" behavior
+        quoted = quote_name(field)
+        [" ON DUPLICATE KEY UPDATE ", quoted, " = " | quoted]
+      end
     end
 
-    defp on_conflict({fields, _, []}, _header) when is_list(fields) do
+    defp on_conflict({fields, _, []}, _header, _opts) when is_list(fields) do
       [
         " ON DUPLICATE KEY UPDATE "
         | Enum.map_intersperse(fields, ?,, fn field ->
@@ -223,11 +243,11 @@ if Code.ensure_loaded?(MyXQL) do
       ]
     end
 
-    defp on_conflict({%{wheres: []} = query, _, []}, _header) do
+    defp on_conflict({%{wheres: []} = query, _, []}, _header, _opts) do
       [" ON DUPLICATE KEY " | update_all(query, "UPDATE ")]
     end
 
-    defp on_conflict({_query, _, []}, _header) do
+    defp on_conflict({_query, _, []}, _header, _opts) do
       error!(
         nil,
         "Using a query with :where in combination with the :on_conflict option is not supported by MySQL"
@@ -347,7 +367,7 @@ if Code.ensure_loaded?(MyXQL) do
     defp distinct(%ByExpr{expr: false}, _sources, _query), do: []
 
     defp distinct(%ByExpr{expr: exprs}, _sources, query) when is_list(exprs) do
-      error!(query, "DISTINCT with multiple columns is not supported by MySQL")
+      error!(query, "to apply DISTINCT to multiple columns in MySQL, use distinct: true")
     end
 
     defp select([], _sources, _query),
@@ -735,11 +755,11 @@ if Code.ensure_loaded?(MyXQL) do
     end
 
     defp expr({:fragment, _, parts}, sources, query) do
-      Enum.map(parts, fn
-        {:raw, part} -> part
-        {:expr, expr} -> expr(expr, sources, query)
-      end)
-      |> parens_for_select
+      fragment_expr(parts, sources, query)
+    end
+
+    defp expr({{:fragment, _, parts}, schema}, sources, query) when is_atom(schema) do
+      fragment_expr(parts, sources, query)
     end
 
     defp expr({:values, _, [types, _idx, num_rows]}, _, query) do
@@ -748,18 +768,6 @@ if Code.ensure_loaded?(MyXQL) do
 
     defp expr({:identifier, _, [literal]}, _sources, _query) do
       quote_name(literal)
-    end
-
-    defp expr({:constant, _, [literal]}, _sources, _query) when is_binary(literal) do
-      [?', escape_string(literal), ?']
-    end
-
-    defp expr({:constant, _, [literal]}, _sources, _query) when is_number(literal) do
-      [to_string(literal)]
-    end
-
-    defp expr({:splice, _, [{:^, _, [_, length]}]}, _sources, _query) do
-      Enum.intersperse(List.duplicate(??, length), ?,)
     end
 
     defp expr({:selected_as, _, [name]}, _sources, _query) do
@@ -911,6 +919,14 @@ if Code.ensure_loaded?(MyXQL) do
       end)
     end
 
+    defp fragment_expr(parts, sources, query) do
+      Enum.map(parts, fn
+        {:raw, part} -> part
+        {:expr, expr} -> op_to_binary(expr, sources, query)
+      end)
+      |> parens_for_select()
+    end
+
     defp interval(count, "millisecond", sources, query) do
       ["INTERVAL (", expr(count, sources, query) | " * 1000) microsecond"]
     end
@@ -949,6 +965,9 @@ if Code.ensure_loaded?(MyXQL) do
         {:fragment, _, _} ->
           {nil, as_prefix ++ [?f | Integer.to_string(pos)], nil}
 
+        {{:fragment, _, _}, schema, _} ->
+          {nil, as_prefix ++ [?f | Integer.to_string(pos)], schema}
+
         {:values, _, _} ->
           {nil, as_prefix ++ [?v | Integer.to_string(pos)], nil}
 
@@ -984,7 +1003,9 @@ if Code.ensure_loaded?(MyXQL) do
 
       [
         [
-          "CREATE TABLE ",
+          "CREATE ",
+          modifiers_expr(table.modifiers),
+          "TABLE ",
           if_do(command == :create_if_not_exists, "IF NOT EXISTS "),
           quote_table(table.prefix, table.name),
           table_structure,
@@ -1365,6 +1386,16 @@ if Code.ensure_loaded?(MyXQL) do
     defp engine_expr(storage_engine),
       do: [" ENGINE = ", String.upcase(to_string(storage_engine || "INNODB"))]
 
+    defp modifiers_expr(nil), do: []
+    defp modifiers_expr(modifiers) when is_binary(modifiers), do: [modifiers, ?\s]
+
+    defp modifiers_expr(other),
+      do:
+        error!(
+          nil,
+          "MySQL adapter expects :modifiers to be a string or nil, got #{inspect(other)}"
+        )
+
     defp options_expr(nil),
       do: []
 
@@ -1461,9 +1492,6 @@ if Code.ensure_loaded?(MyXQL) do
 
     defp drop_constraint_if_exists_expr(%Reference{} = ref, table, name),
       do: ["DROP FOREIGN KEY IF EXISTS ", reference_name(ref, table, name), ", "]
-
-    defp drop_constraint_if_exists_expr(_, _, _),
-      do: []
 
     defp reference_name(%Reference{name: nil}, table, column),
       do: quote_name("#{table.name}_#{column}_fkey")

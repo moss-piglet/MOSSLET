@@ -230,7 +230,7 @@ defmodule Floki do
   defdelegate raw_html(html_tree, options \\ []), to: Floki.RawHTML
 
   @doc """
-  Find elements inside an HTML tree or string.
+  Find elements inside an HTML tree.
 
   ## Examples
 
@@ -488,7 +488,7 @@ defmodule Floki do
       should be considered as text. Defaults to `false`.
 
     * `:style` - A boolean to control if the contents of `<style>` tags
-      should be considered as text. Defaults to `false`.
+      should be considered as text. Defaults to `true`.
 
     * `:sep` - A separator string that is added between text nodes.
       Defaults to `""`.
@@ -496,9 +496,6 @@ defmodule Floki do
     * `:include_inputs` - A boolean to control if `<input>` or `<textarea>`
       values should be included in the resultant string.
       Defaults to `false`.
-
-    * `:html_parser` - The module of the backend that is responsible for parsing
-      the HTML string. By default it is set to `Floki.HTMLParser.Mochiweb`.
 
   ## Examples
 
@@ -541,14 +538,9 @@ defmodule Floki do
 
     opts = Keyword.validate!(opts, defaults)
 
-    cleaned_html_tree =
-      html
-      |> clean_html_tree(:js, opts[:js])
-      |> clean_html_tree(:style, opts[:style])
-
     search_strategy = if opts[:deep], do: Floki.DeepText, else: Floki.FlatText
 
-    search_strategy.get(cleaned_html_tree, opts[:sep], opts[:include_inputs])
+    search_strategy.get(html, opts)
   end
 
   @doc """
@@ -614,7 +606,7 @@ defmodule Floki do
       ["e.corp"]
   """
 
-  @spec attribute(binary | html_tree | html_node, binary, binary) :: list
+  @spec attribute(html_tree | html_node, binary, binary) :: list
 
   def attribute(html, selector, attribute_name) do
     html
@@ -644,42 +636,19 @@ defmodule Floki do
   end
 
   defp attribute_values(elements, attr_name) do
-    values =
-      Enum.reduce(
-        elements,
-        [],
-        fn
-          {_, attributes, _}, acc ->
-            case attribute_match?(attributes, attr_name) do
-              {_attr_name, value} ->
-                [value | acc]
-
-              _ ->
-                acc
-            end
-
-          _, acc ->
-            acc
-        end
-      )
-
-    Enum.reverse(values)
+    for {_, attributes, _} <- elements,
+        value = get_attribute_value(attributes, attr_name),
+        not is_nil(value),
+        do: value
   end
 
-  defp attribute_match?(attributes, attribute_name) do
-    Enum.find(
-      attributes,
-      fn {attr_name, _} ->
-        attr_name == attribute_name
-      end
-    )
+  defp get_attribute_value(attributes, attr_name) when is_map(attributes) do
+    Map.get(attributes, attr_name)
   end
 
-  defp clean_html_tree(html_tree, :js, true), do: html_tree
-  defp clean_html_tree(html_tree, :js, _), do: filter_out(html_tree, "script")
-
-  defp clean_html_tree(html_tree, :style, true), do: html_tree
-  defp clean_html_tree(html_tree, :style, _), do: filter_out(html_tree, "style")
+  defp get_attribute_value([{attr_name, value} | _], attr_name), do: value
+  defp get_attribute_value([_ | rest], attr_name), do: get_attribute_value(rest, attr_name)
+  defp get_attribute_value([], _attr_name), do: nil
 
   @doc """
   Returns the nodes from a HTML tree that don't match the filter selector.

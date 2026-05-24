@@ -136,6 +136,11 @@ defmodule Ecto.Repo do
       See the next section for more information
     * `:telemetry_options` - Extra options to attach to telemetry event name.
       See the next section for more information
+    * `:query_cache` - When set to `false`, bypasses the Ecto query cache for the current
+      operation. This means the query will not be looked up in the cache, it will not be stored
+      in the cache and no cache update function will not be passed to the adapter. Note that
+      this doesn't necessarily disable the database cache, it only affects Ecto's internal
+      cache of normalized queries and adapter prepared statements. Defaults to `true`.
 
   ## Adapter-Specific Errors
 
@@ -248,7 +253,7 @@ defmodule Ecto.Repo do
 
   @doc false
   defmacro __using__(opts) do
-    quote bind_quoted: [opts: opts] do
+    quote bind_quoted: [opts: opts], generated: true do
       @behaviour Ecto.Repo
 
       {otp_app, adapter, behaviours} =
@@ -319,6 +324,37 @@ defmodule Ecto.Repo do
         operation_name
         |> default_options()
         |> Keyword.merge(opts)
+      end
+
+      # Keyword list keys a user may try to pass to something like Repo.all/2, under
+      # the mistaken belief that the keyword arguments operate like the Ecto.Query DSL.
+      # We want to proactively raise an error on something like:
+      #
+      #     Repo.delete_all(User, where: [id: user.id])
+      #
+      # ...since the query will be unscoped in a way that the caller almost certainly
+      # did not intend.
+      @unsupported_query_opts [
+        :where,
+        :preload,
+        :order_by,
+        :limit,
+        :group_by,
+        :distinct,
+        :select,
+        :update
+      ]
+
+      defp validate_query_opts!(opts, function_name) do
+        Enum.each(opts, fn
+          {key, _} when key in @unsupported_query_opts ->
+            raise ArgumentError,
+                  "unsupported option #{inspect(key)} for Repo.#{function_name}. " <>
+                    "Instead, use Ecto.Query to build a query, and pass that query into this function."
+
+          _ ->
+            :ok
+        end)
       end
 
       ## Transactions
@@ -486,6 +522,8 @@ defmodule Ecto.Repo do
           end
 
           def delete_all(queryable, opts \\ []) do
+            validate_query_opts!(opts, :delete_all)
+
             repo = get_dynamic_repo()
 
             Ecto.Repo.Queryable.delete_all(
@@ -497,6 +535,8 @@ defmodule Ecto.Repo do
         end
 
         def all(queryable, opts \\ []) do
+          validate_query_opts!(opts, :all)
+
           repo = get_dynamic_repo()
 
           Ecto.Repo.Queryable.all(
@@ -507,6 +547,8 @@ defmodule Ecto.Repo do
         end
 
         def all_by(queryable, clauses, opts \\ []) do
+          validate_query_opts!(opts, :all_by)
+
           repo = get_dynamic_repo()
 
           Ecto.Repo.Queryable.all_by(
@@ -518,6 +560,8 @@ defmodule Ecto.Repo do
         end
 
         def stream(queryable, opts \\ []) do
+          validate_query_opts!(opts, :stream)
+
           repo = get_dynamic_repo()
 
           Ecto.Repo.Queryable.stream(
@@ -528,6 +572,8 @@ defmodule Ecto.Repo do
         end
 
         def get(queryable, id, opts \\ []) do
+          validate_query_opts!(opts, :get)
+
           repo = get_dynamic_repo()
 
           Ecto.Repo.Queryable.get(
@@ -550,6 +596,8 @@ defmodule Ecto.Repo do
         end
 
         def get_by(queryable, clauses, opts \\ []) do
+          validate_query_opts!(opts, :get_by)
+
           repo = get_dynamic_repo()
 
           Ecto.Repo.Queryable.get_by(
@@ -592,6 +640,8 @@ defmodule Ecto.Repo do
         end
 
         def one(queryable, opts \\ []) do
+          validate_query_opts!(opts, :one)
+
           repo = get_dynamic_repo()
 
           Ecto.Repo.Queryable.one(
@@ -652,6 +702,8 @@ defmodule Ecto.Repo do
         end
 
         def exists?(queryable, opts \\ []) do
+          validate_query_opts!(opts, :exists?)
+
           repo = get_dynamic_repo()
 
           Ecto.Repo.Queryable.exists?(
@@ -883,7 +935,7 @@ defmodule Ecto.Repo do
   >
   > ```elixir
   > Repo.start_link(name: :primary)
-  > AnalyticstRepo.start_link(name: :analytics)
+  > AnalyticsRepo.start_link(name: :analytics)
   >
   > # This works but may not be intended - queries will use AnalyticsRepo's connection
   > Repo.put_dynamic_repo(:analytics)
@@ -1650,6 +1702,8 @@ defmodule Ecto.Repo do
       returns all fields in the given schema. May be a list of
       fields, where a struct is still returned but only with the
       given fields. Or `false`, where nothing is returned (the default).
+      It also accepts `{:unsafe_fragment, fragment}` to pass a raw SQL
+      expression directly to the RETURNING clause (not escaped, use with caution).
       This option is not supported by all databases.
 
     * `:prefix` - The prefix to run the query on (such as the schema path
@@ -1670,6 +1724,11 @@ defmodule Ecto.Repo do
       `{:unsafe_fragment, "(coalesce(firstname, ''), coalesce(lastname, '')) WHERE middlename IS NULL"}` for
       `ON CONFLICT (coalesce(firstname, ''), coalesce(lastname, '')) WHERE middlename IS NULL` SQL query.
 
+    * `:replace_changed` - Whether to include `:conflict_target` fields when `:on_conflict`
+      is `:replace_all` or `{:replace_all_except, fields}`. If `true`, the conflict target
+      fields are not updated in order to enable optimizations such as HOT updates in PostgreSQL.
+      Defaults to `true`.
+
     * `:placeholders` - A map with placeholders. This feature is not supported
       by all databases. See the ["Placeholders" section](#c:insert_all/3-placeholders) for more information.
 
@@ -1679,7 +1738,7 @@ defmodule Ecto.Repo do
   ## Source query
 
   A query can be given instead of a list with entries. This query needs to select
-  into a map containing only keys that are available as writeable columns in the
+  into a map containing only keys that are available as writable columns in the
   schema. This will query and insert the values all inside one query, without
   another round trip to the application.
 
@@ -1713,7 +1772,9 @@ defmodule Ecto.Repo do
       such as IDs and autogenerated timestamps (`inserted_at` and `updated_at`).
       Do not use this option if you have auto-incrementing primary keys, as they
       will also be replaced. You most likely want to use `{:replace_all_except, [:id]}`
-      or `{:replace, fields}` explicitly instead. This option requires a schema
+      or `{:replace, fields}` explicitly instead. This option requires a schema. Fields
+      specified by `:conflict_target` will be ignored unless `:replace_changed` is
+      configured to be `false`
 
     * `{:replace_all_except, fields}` - same as above except the given fields
       (and the ones given as conflict target) are not replaced. This option
@@ -1810,8 +1871,10 @@ defmodule Ecto.Repo do
       of fields to be returned from the database. When `true`, returns
       all fields, including those marked as `load_in_query: false`. When
       `false`, no extra fields are returned. It will always include all
-      fields in `read_after_writes` as well as any autogenerated id. Be
-      aware that the fields returned from the database overwrite what was
+      fields in `read_after_writes` as well as any autogenerated id.
+      It also accepts `{:unsafe_fragment, fragment}` to pass a raw SQL
+      expression directly to the RETURNING clause (not escaped, use with caution).
+      Be aware that the fields returned from the database overwrite what was
       supplied by the user. Any field not returned by the database will be
       present with the original value supplied by the user. Not all databases
       support this option and it may not be available during upserts.
@@ -1836,6 +1899,11 @@ defmodule Ecto.Repo do
       for partial index or index with expressions, such as
       `{:unsafe_fragment, "(coalesce(firstname, ""), coalesce(lastname, "")) WHERE middlename IS NULL"}` for
       `ON CONFLICT (coalesce(firstname, ""), coalesce(lastname, "")) WHERE middlename IS NULL` SQL query.
+
+    * `:replace_changed` - Whether to include `:conflict_target` fields when `:on_conflict`
+      is `:replace_all` or `{:replace_all_except, fields}`. If `true`, the conflict fields
+      are not updated in order to enable optimizations such as HOT updates in PostgreSQL.
+      Defaults to `true`.
 
     * `:stale_error_field` - The field where stale errors will be added in
       the returning changeset. This option can be used to avoid raising
@@ -1875,7 +1943,9 @@ defmodule Ecto.Repo do
       such as IDs and autogenerated timestamps (`inserted_at` and `updated_at`).
       Do not use this option if you have auto-incrementing primary keys, as they
       will also be replaced. You most likely want to use `{:replace_all_except, [:id]}`
-      or `{:replace, fields}` explicitly instead. This option requires a schema
+      or `{:replace, fields}` explicitly instead. This option requires a schema.  Fields
+      specified by `:conflict_target` will be ignored unless `:replace_changed` is
+      configured to be `false`
 
     * `{:replace_all_except, fields}` - same as above except the given fields are
       not replaced. This option requires a schema
@@ -2021,10 +2091,12 @@ defmodule Ecto.Repo do
       of fields to be returned from the database. When `true`, returns
       all fields, including those marked as `load_in_query: false`. When
       `false`, no extra fields are returned. It will always include all
-      fields in `read_after_writes`. Be aware that the fields returned
-      from the database overwrite what was supplied by the user. Any field
-      not returned by the database will be present with the original value
-      supplied by the user. Not all databases support this option.
+      fields in `read_after_writes`. It also accepts `{:unsafe_fragment, fragment}`
+      to pass a raw SQL expression directly to the RETURNING clause (not escaped,
+      use with caution). Be aware that the fields returned from the database
+      overwrite what was supplied by the user. Any field not returned by the
+      database will be present with the original value supplied by the user.
+      Not all databases support this option.
 
     * `:force` - By default, if there are no changes in the changeset,
       `c:update/2` is a no-op. By setting this option to true, update
@@ -2139,10 +2211,12 @@ defmodule Ecto.Repo do
       of fields to be returned from the database. When `true`, returns
       all fields, including those marked as `load_in_query: false`. When
       `false`, no extra fields are returned. It will always include all
-      fields in `read_after_writes`. Be aware that the fields returned
-      from the database overwrite what was supplied by the user. Any field
-      not returned by the database will be present with the original value
-      supplied by the user. Not all databases support this option.
+      fields in `read_after_writes`. It also accepts `{:unsafe_fragment, fragment}`
+      to pass a raw SQL expression directly to the RETURNING clause (not escaped,
+      use with caution). Be aware that the fields returned from the database
+      overwrite what was supplied by the user. Any field not returned by the
+      database will be present with the original value supplied by the user.
+      Not all databases support this option.
 
     * `:prefix` - The prefix to run the query on (such as the schema path
       in Postgres or the database in MySQL). This overrides the prefix set

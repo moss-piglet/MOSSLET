@@ -108,7 +108,7 @@ defmodule Floki.Selector do
     namespace_size = byte_size(namespace)
 
     case type_maybe_with_namespace(node) do
-      <<^namespace::binary-size(namespace_size), ":", _::binary>> -> true
+      <<^namespace::binary-size(^namespace_size), ":", _::binary>> -> true
       _ -> false
     end
   end
@@ -125,7 +125,7 @@ defmodule Floki.Selector do
 
         Kernel.match?(
           <<
-            _ns::binary-size(expected_namespace_size),
+            _ns::binary-size(^expected_namespace_size),
             ":",
             ^type::binary
           >>,
@@ -168,9 +168,8 @@ defmodule Floki.Selector do
 
   defp do_classes_matches?(class_attr_value, classes) do
     if Enum.all?(classes, &String.contains?(class_attr_value, &1)) do
-      min_size = Enum.reduce(classes, -1, fn item, acc -> acc + 1 + bit_size(item) end)
-      can_match? = bit_size(class_attr_value) >= min_size
-      can_match? && classes -- String.split(class_attr_value, [" ", "\t", "\n"], trim: true) == []
+      class_list = String.split(class_attr_value, [" ", "\t", "\n"], trim: true)
+      Enum.all?(classes, &(&1 in class_list))
     else
       false
     end
@@ -284,11 +283,8 @@ defmodule Floki.Selector do
   defp attributes(%HTMLNode{type: :pi}), do: []
   defp attributes(%HTMLNode{attributes: attributes}), do: attributes
 
-  defp get_attribute_value(attributes, attribute_name) when is_list(attributes) do
-    :proplists.get_value(attribute_name, attributes, nil)
-  end
-
-  defp get_attribute_value(attributes, attribute_name) when is_map(attributes) do
-    Map.get(attributes, attribute_name)
-  end
+  defp get_attribute_value([{attr_name, value} | _], attr_name), do: value
+  defp get_attribute_value([_ | rest], attr_name), do: get_attribute_value(rest, attr_name)
+  defp get_attribute_value(attrs, attr_name) when is_map(attrs), do: Map.get(attrs, attr_name)
+  defp get_attribute_value(_, _), do: nil
 end
