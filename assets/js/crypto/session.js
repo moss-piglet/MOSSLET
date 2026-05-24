@@ -14,9 +14,10 @@ import {
   unsealFromUser,
   decryptSecretboxToString,
   decryptSecretbox,
+  b64Encode,
 } from "./nacl";
 
-export { decryptSecretbox };
+export { decryptSecretbox, b64Encode };
 import { SK } from "../hooks/session-key-deriver";
 
 const COMPOSER_SELECTOR = "#conversation-composer";
@@ -213,20 +214,22 @@ export async function decryptWithKey(ciphertext, rawKey) {
 }
 
 /**
- * Unwraps a conn_key that may be double-base64-encoded.
+ * Unwraps a context key that may be double-base64-encoded.
  *
- * Server-registered users had their conn_key sealed as a 44-char base64 string,
+ * Server-registered users had their context keys sealed as base64 strings,
  * so unsealFromUser returns those ASCII bytes re-encoded as base64 (~60 chars,
- * double-encoded). Browser-registered users seal raw 32 bytes, so unseal returns
- * the correct 44-char base64 key directly.
+ * double-encoded). Browser-registered users seal raw 32 bytes, so unseal
+ * returns the correct 44-char base64 key directly.
  *
- * We detect double-encoding by length: 44 chars = correct base64 of 32 bytes;
- * longer = double-encoded, needs one atob() unwrap to recover the original base64.
+ * Detect double-encoding by length: 44 chars = correct base64 of 32 bytes;
+ * longer = double-encoded, needs one atob() unwrap.
+ *
+ * Works for any context key type: post_key, group_key, conn_key, user_key, etc.
  *
  * @param {string} unsealedB64 - base64-encoded key, possibly double-encoded
  * @returns {string} base64-encoded 32-byte key
  */
-export function unwrapConnKey(unsealedB64) {
+export function unwrapKey(unsealedB64) {
   if (unsealedB64.length > 44) {
     try {
       return atob(unsealedB64);
@@ -237,6 +240,47 @@ export function unwrapConnKey(unsealedB64) {
   return unsealedB64;
 }
 
+export { unwrapKey as unwrapConnKey };
+
+/**
+ * Decrypt a JSON-encoded list of individually-encrypted items.
+ * Returns an array of plaintext strings.
+ *
+ * @param {string} jsonStr - JSON array of base64 secretbox ciphertexts
+ * @param {string} key - base64-encoded symmetric key
+ * @returns {Promise<string[]|null>}
+ */
+export async function decryptList(jsonStr, key) {
+  if (!jsonStr) return null;
+  try {
+    const items = JSON.parse(jsonStr);
+    if (!Array.isArray(items) || items.length === 0) return [];
+    const results = [];
+    for (const item of items) {
+      if (typeof item === "string" && item !== "") {
+        const plain = await decryptWithKey(item, key);
+        if (plain != null) results.push(plain);
+      }
+    }
+    return results;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Escapes HTML special characters in a string to prevent XSS when
+ * inserting decrypted user content into the DOM via innerHTML.
+ *
+ * @param {string} str
+ * @returns {string}
+ */
+export function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 // ---------------------------------------------------------------------------
 // Post key cache — allows DecryptPost to share the unsealed post_key with
 // other hooks (e.g. TrixContentPostHook for image decryption).
@@ -244,13 +288,21 @@ export function unwrapConnKey(unsealedB64) {
 // ---------------------------------------------------------------------------
 
 const _postKeyCache = new Map();
+const POST_KEY_CACHE_MAX = 200;
 
 /**
  * Stores a decrypted post_key for a given post ID.
+ * Evicts the oldest entry when the cache exceeds POST_KEY_CACHE_MAX.
  * @param {string} postId
  * @param {string} postKey - base64-encoded raw post_key
  */
 export function cachePostKey(postId, postKey) {
+  if (_postKeyCache.has(postId)) {
+    _postKeyCache.delete(postId);
+  } else if (_postKeyCache.size >= POST_KEY_CACHE_MAX) {
+    const oldest = _postKeyCache.keys().next().value;
+    _postKeyCache.delete(oldest);
+  }
   _postKeyCache.set(postId, postKey);
 }
 
@@ -262,3 +314,8 @@ export function cachePostKey(postId, postKey) {
 export function getCachedPostKey(postId) {
   return _postKeyCache.get(postId) || null;
 }
+
+// Clear all in-memory key caches on logout
+window.addEventListener("mosslet:logout", () => {
+  _postKeyCache.clear();
+});

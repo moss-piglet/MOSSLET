@@ -11,11 +11,17 @@ defmodule Mosslet.FileUploads.JournalCoverUploadWriter do
 
   Processing stages:
   1. Receiving chunks → temp file (0-30% progress)
-  2. MIME validation & safety check (30-50%)
+  2. MIME validation (30-50%)
   3. Image processing: resize, WebP conversion (50-70%)
   4. Encryption (70-85%)
   5. Upload to object storage (85-95%)
   6. Ready state with cleanup (95-100%)
+
+  ## ZK note
+
+  Journal covers are user-private content encrypted with user_key. No
+  server-side NSFW moderation — the server receives ciphertext under ZK.
+  Client-side NSFWJS (NsfwCheck hook) provides the content check.
   """
 
   @behaviour Phoenix.LiveView.UploadWriter
@@ -100,10 +106,8 @@ defmodule Mosslet.FileUploads.JournalCoverUploadWriter do
       with {:ok, mime_type} <- validate_mime_from_header(state.temp_path),
            {:ok, binary} <- File.read(state.temp_path),
            {:ok, image} <- load_image(binary, mime_type),
-           _ <- notify_progress(state, :checking, 35),
-           {:ok, safe_image} <- check_safety(image),
            _ <- notify_progress(state, :processing, 50),
-           {:ok, processed} <- process_image(safe_image),
+           {:ok, processed} <- process_image(image),
            {:ok, webp_binary} <- to_webp_binary(processed),
            _ <- notify_progress(state, :encrypting, 70),
            {:ok, encrypted} <- encrypt_binary(webp_binary, state.user, state.key),
@@ -242,14 +246,6 @@ defmodule Mosslet.FileUploads.JournalCoverUploadWriter do
     TempStorage.cleanup(tmp_heic)
     TempStorage.cleanup(tmp_png)
     result
-  end
-
-  defp check_safety(image) do
-    case Mosslet.AI.Images.check_for_safety(image) do
-      {:ok, _} -> {:ok, image}
-      {:nsfw, message} -> {:nsfw, message}
-      {:error, reason} -> {:error, reason}
-    end
   end
 
   defp process_image(image) do

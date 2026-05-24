@@ -26,29 +26,9 @@
  * Dispatches `mosslet:user-decrypted` CustomEvent on window with the
  * decrypted fields map as `detail` once complete.
  */
-import { unsealContextKey, decryptWithKey, getPublicKey } from "../crypto/session";
+import { unsealContextKey, decryptWithKey, getPublicKey, unwrapKey } from "../crypto/session";
 
 const FIELDS = ["email", "username", "name", "avatar_url", "status_message"];
-
-/**
- * Unwrap the user key from its sealed form.
- *
- * Server-sealed keys: the NIF seals the 44-char base64 key string as-is,
- * so unsealFromUser returns ~60 chars (double-encoded). Detect by length > 44.
- *
- * Browser-sealed keys: the WASM decodes base64 before sealing, so
- * unsealFromUser returns exactly 44 chars. Already the correct format.
- */
-function unwrapUserKey(unsealedB64) {
-  if (unsealedB64.length > 44) {
-    try {
-      return atob(unsealedB64);
-    } catch {
-      return unsealedB64;
-    }
-  }
-  return unsealedB64;
-}
 
 function dataAttrName(field) {
   return "encrypted" + field.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join("");
@@ -80,7 +60,7 @@ const DecryptUserFields = {
       const rawUserKey = await unsealContextKey(sealedKey);
       if (!rawUserKey) return;
 
-      const userKey = unwrapUserKey(rawUserKey);
+      const userKey = unwrapKey(rawUserKey);
       const decrypted = {};
 
       for (const field of FIELDS) {

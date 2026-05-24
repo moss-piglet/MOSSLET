@@ -21,9 +21,8 @@ defmodule Mosslet.Encrypted.Users.Utils do
         current_user,
         current_user_session_key
       ) do
-    with session_key <- current_user_session_key,
-         {:ok, d_private_key} <- decrypt_private_key(current_user, session_key),
-         {:ok, d_pq_private_key} <- decrypt_pq_private_key(current_user, session_key),
+    with {:ok, d_private_key} <- decrypt_private_key(current_user, current_user_session_key),
+         {:ok, d_pq_private_key} <- decrypt_pq_private_key(current_user, current_user_session_key),
          {:ok, d_user_key} <-
            decrypt_user_key(current_user, current_user.user_key, d_private_key,
              pq_secret_key: d_pq_private_key
@@ -117,9 +116,8 @@ defmodule Mosslet.Encrypted.Users.Utils do
         current_user,
         current_user_session_key
       ) do
-    with session_key <- current_user_session_key,
-         {:ok, d_private_key} <- decrypt_private_key(current_user, session_key),
-         {:ok, d_pq_private_key} <- decrypt_pq_private_key(current_user, session_key),
+    with {:ok, d_private_key} <- decrypt_private_key(current_user, current_user_session_key),
+         {:ok, d_pq_private_key} <- decrypt_pq_private_key(current_user, current_user_session_key),
          {:ok, d_user_key} <-
            decrypt_user_key(current_user, user_key, d_private_key,
              pq_secret_key: d_pq_private_key
@@ -140,9 +138,8 @@ defmodule Mosslet.Encrypted.Users.Utils do
         current_user,
         current_user_session_key
       ) do
-    with session_key <- current_user_session_key,
-         {:ok, d_private_key} <- decrypt_private_key(current_user, session_key),
-         {:ok, d_pq_private_key} <- decrypt_pq_private_key(current_user, session_key),
+    with {:ok, d_private_key} <- decrypt_private_key(current_user, current_user_session_key),
+         {:ok, d_pq_private_key} <- decrypt_pq_private_key(current_user, current_user_session_key),
          {:ok, d_user_key} <-
            decrypt_user_key(current_user, user_key, d_private_key,
              pq_secret_key: d_pq_private_key
@@ -166,15 +163,13 @@ defmodule Mosslet.Encrypted.Users.Utils do
         current_user,
         current_user_session_key
       ) do
-    with session_key <- current_user_session_key,
-         {:ok, d_private_key} <- decrypt_private_key(current_user, session_key),
-         {:ok, d_pq_private_key} <- decrypt_pq_private_key(current_user, session_key),
+    with {:ok, d_private_key} <- decrypt_private_key(current_user, current_user_session_key),
+         {:ok, d_pq_private_key} <- decrypt_pq_private_key(current_user, current_user_session_key),
          {:ok, d_user_key} <-
            decrypt_user_key(current_user, current_user.user_key, d_private_key,
              pq_secret_key: d_pq_private_key
-           ),
-         e_payload <- encrypt_payload(d_user_key, payload) do
-      e_payload
+           ) do
+      encrypt_payload(d_user_key, payload)
     else
       {:error_private_key, message} -> message
       {:error_user_key, message} -> message

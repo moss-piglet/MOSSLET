@@ -13,23 +13,8 @@
  * Supports chunked transfer for large journals — accumulates data across
  * multiple push_events before decrypting and formatting.
  */
-import { unsealContextKey, decryptWithKey, getPublicKey } from "../crypto/session";
+import { unsealContextKey, decryptWithKey, getPublicKey, unwrapKey } from "../crypto/session";
 import { jsPDF } from "../../vendor/jspdf.umd.min.js";
-
-/**
- * User keys are double-base64 wrapped (the NIF seals a base64-encoded key,
- * then WASM unseal returns it re-encoded). Decode one layer.
- */
-function unwrapUserKey(unsealedB64) {
-  if (unsealedB64.length > 44) {
-    try {
-      return atob(unsealedB64);
-    } catch {
-      return unsealedB64;
-    }
-  }
-  return unsealedB64;
-}
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -421,7 +406,7 @@ const ZkExportHook = {
           console.error("ZkExportHook: failed to unseal user_key");
           return;
         }
-        this._userKey = unwrapUserKey(rawUserKey);
+        this._userKey = unwrapKey(rawUserKey);
       } catch (e) {
         console.error("ZkExportHook: unseal error:", e);
         return;

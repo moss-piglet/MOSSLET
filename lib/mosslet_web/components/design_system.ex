@@ -20,7 +20,6 @@ defmodule MossletWeb.DesignSystem do
       alpine_autofocus: 0,
       contains_html?: 1,
       format_decrypted_content: 1,
-      format_decrypted_content_orange: 1,
       decr: 3,
       decr_uconn: 4,
       html_block: 1,
@@ -14708,7 +14707,7 @@ defmodule MossletWeb.DesignSystem do
     ~H"""
     <div class="space-y-3">
       <div class="prose prose-slate dark:prose-invert prose-sm max-w-none prose-p:my-1.5 prose-headings:mt-3 prose-headings:mb-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-pre:my-2 prose-code:text-orange-600 dark:prose-code:text-orange-400 prose-a:text-orange-600 dark:prose-a:text-orange-400 prose-a:no-underline hover:prose-a:underline">
-        {format_decrypted_content_orange(@content)}
+        {format_decrypted_content(@content)}
       </div>
 
       <div

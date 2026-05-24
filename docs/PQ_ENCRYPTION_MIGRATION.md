@@ -415,7 +415,8 @@ These can follow the same phased approach: first move the read path (decrypt in 
 21. **Full data structure audit** — Comprehensive review of ALL encrypted data structures (excl. memories) to identify any gaps.
 22. **ZK AI migration** — Journal insights, mood prompts, language filters → browser-based AI.
 23. **NSFW fail-open verification** — DONE. Verified all five failure modes (CDN unreachable, model download fails, IndexedDB cache corrupted, classification throws at runtime, no WebGL backend) result in fail-open behavior — uploads proceed without client-side NSFW checks. This is by design: the UI always implies NSFW checking is active (deterrent effect); server-side moderation (LLM vision + Bumblebee/FLAME fallback) provides a genuine safety net. Model lifecycle events (`nsfw:model_ready`, `nsfw:model_unavailable`) pushed from NsfwCheck JS hook to server for Logger-based operational monitoring. No user-visible indicator when model is unavailable — preserves deterrent. `Mosslet.AI.Images` moduledoc updated with full three-tier fail-open architecture documentation.
-24. **Marketing updates** — Landing page, features, privacy policy reflecting fully ZK PQ architecture.
+24. **ZK NSFW migration** — DONE. Removed server-side LLM vision calls (`moderate_private_image`) for all non-public content. For ZK-encrypted uploads the server receives ciphertext — running vision models on it is impossible and wasteful. Client-side NSFWJS (NsfwCheck hook, already deployed for avatars/banners) is the moderation tier for non-public images. Public images retain server-side `moderate_public_image` (LLM vision + Bumblebee fallback) for community guidelines enforcement. Bluesky imports retain `moderate_private_image` (server already has content from API). `check_for_safety/1` removed (dead code). Files changed: `image_upload_writer.ex` (simplified `check_safety/2` to public-only), `journal_cover_upload_writer.ex` (removed safety check + updated moduledoc), `journal_live/book.ex` and `journal_live/index.ex` (removed `check_cover_safety` from pipelines), `ai/images.ex` (removed dead `check_for_safety/1`, updated moduledoc to two-tier architecture).
+25. **Marketing updates** — Landing page, features, privacy policy reflecting fully ZK PQ architecture.
 
 #### Phase 3f: Subscription/Billing ZK (NEW)
 
@@ -483,3 +484,58 @@ Note: `@noble/post-quantum` was the original browser-side PQ library (pure JS). 
 - Standalone crate: `github.com/moss-piglet/metamorphic-crypto` (source of truth)
 - Hex wrapper: `github.com/moss-piglet/metamorphic_crypto`
 - Mosslet Dockerfile: `libsodium-dev` already removed, ready to deploy
+
+---
+
+## May 2026 Full ZK PQ Audit
+
+### Fixed (this audit)
+
+1. **CRITICAL: Session key in Oban job args** — `PqResealWorker` stored the user's session key in plaintext JSON in `oban_jobs` table. Refactored from Oban worker to `BackgroundTask.run/1` (in-memory fire-and-forget). Session key never touches persistent storage. Re-seal is idempotent (retries on next login if interrupted).
+
+2. **Dead code removal** — Removed ~17 unused functions from `helpers.ex` (preview_url_expired?, assign_ai_tokens, maybe_update_user_ai_tokens, total_ai_tokens, total_ai_tokens_used, monthly_tokens, maybe_decrypt_user_data, maybe_show_remark_username, maybe_show_remark_body, now, mosslet_logo_dark, get_user_avatar (all 5 clauses), maybe_get_user_avatar, maybe_get_avatar_src, maybe_get_public_profile_user_avatar, item_callback_tuple, item_callback_tuple_for_uconn, format_decrypted_content_orange), `status_helpers.ex` (get_connection_status_message, has_custom_status_message?), and `encrypted/utils.ex` (update_key_hash). Removed unused `Plans` alias.
+
+3. **JS crypto helper consolidation** — Consolidated duplicated helpers across ~10 hooks into `session.js`:
+   - `unwrapKey()` — replaces unwrapPostKey, unwrapGroupKey, unwrapUserKey (10 copies removed)
+   - `decryptList()` — extracted from decrypt-post.js and decrypt-reply.js (2 copies removed)
+   - `escapeHtml()` — extracted from decrypt-post.js, decrypt-group-message.js (2 copies removed)
+   - `b64Encode()` — exported from nacl.js, imported in decrypt-avatar.js and trix-content-post-hook.js (2 copies removed)
+
+4. **Post key cache LRU eviction** — `_postKeyCache` in session.js now has a 200-entry cap with LRU eviction and clears on `mosslet:logout` event.
+
+5. **Elixir code quality fixes:**
+   - `encrypted/users/utils.ex` — removed 4 no-op `with session_key <- var` clauses
+   - `encrypted/utils.ex` — `decrypt(_)` now returns `{:error, :invalid_input}` instead of `nil`
+   - `user.ex` — `encrypt_connection_map_status_visibility_change` no longer crashes on conn_key decrypt failure (extracted to `do_encrypt_status_visibility` with graceful fallback)
+   - `helpers.ex` — `get_ext_from_file_key/1` simplified (all branches returned "webp")
+
+### Remaining ZK Gaps (Known, Not Yet Addressed)
+
+**Read path (server decrypts for template rendering):**
+- `decr_item` — ~112 rendering call sites across 22 files (post, group, reply content)
+- `decr_uconn` — ~42 rendering call sites across 12 files (connection names, emails)
+- `decr_avatar`/`decr_banner` — ~11 template uses (6 avatar, 5 banner)
+- Group metadata — ~30 call sites in group_live templates
+- Journal entries — ~8 call sites in journal_live
+
+**Write path (browser sends plaintext, server encrypts):**
+- Profile update forms (email, username, name, about) — no EncryptUserFields hook
+- Journal entry create/update — no journal form encryption hook
+- Reply submission — no encryption in ReplyComposer
+- Group metadata updates — no group write-path encryption hook
+- Connection label/notes — no connection write-path encryption
+- Status message updates — server encrypts on write
+
+**Plaintext leakage (browser sends decrypted content to server):**
+- `update_post_body` event — sends decrypted HTML for presigned URL refresh
+- `update_reply_body` event — same pattern for replies
+- `show_timeline_images` event — sends decrypted base64 images for modal display
+
+**Legitimate server-side decrypt (keep as-is):**
+- Public posts/profiles (SEO, federation, unauthenticated viewers)
+- Bluesky export workers
+- Email delivery (transient plaintext)
+- Stripe billing API integration
+- S3 file cleanup (decrypt URL to delete object)
+- Content filtering (mute keywords require plaintext)
+- RSS feeds

@@ -675,13 +675,20 @@ defmodule Mosslet.Accounts.User do
 
   defp encrypt_connection_map_status_visibility_change(changeset, opts) do
     # Update connection table with status visibility settings
-    {:ok, d_conn_key} =
-      Encrypted.Users.Utils.decrypt_user_attrs_key(
-        opts[:user].conn_key,
-        opts[:user],
-        opts[:key]
-      )
+    case Encrypted.Users.Utils.decrypt_user_attrs_key(
+           opts[:user].conn_key,
+           opts[:user],
+           opts[:key]
+         ) do
+      {:ok, d_conn_key} ->
+        do_encrypt_status_visibility(changeset, opts, d_conn_key)
 
+      _error ->
+        changeset
+    end
+  end
+
+  defp do_encrypt_status_visibility(changeset, opts, d_conn_key) do
     # Encrypt status visibility lists for sharing via connections
     connection_map_updates = %{
       c_status_visibility: get_field(changeset, :status_visibility),

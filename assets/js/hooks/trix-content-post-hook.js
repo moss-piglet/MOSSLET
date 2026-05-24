@@ -1,12 +1,4 @@
-import { getCachedPostKey, decryptSecretbox, decryptWithKey } from "../crypto/session";
-
-function b64Encode(uint8Array) {
-  let binary = "";
-  for (let i = 0; i < uint8Array.length; i++) {
-    binary += String.fromCharCode(uint8Array[i]);
-  }
-  return btoa(binary);
-}
+import { getCachedPostKey, decryptSecretbox, decryptWithKey, b64Encode } from "../crypto/session";
 
 const TrixContentPostHook = {
   mounted() {

@@ -393,33 +393,23 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
     end
   end
 
-  # Server-side safety check (tier 2/3 of the moderation pipeline).
+  # Server-side safety check for the upload pipeline.
   #
-  # Tries LLM vision model first, falls back to Bumblebee via FLAME.
-  # Fail-open: if both are unavailable, check_for_safety_bumblebee/1
-  # approves the image with a Logger.warning. See Mosslet.AI.Images
-  # moduledoc for the full fail-open rationale.
+  # For non-public uploads: skipped entirely. Client-side NSFWJS (NsfwCheck
+  # hook) handles moderation in the browser before upload. Under ZK, the
+  # server receives encrypted ciphertext and cannot run LLM vision on it.
+  #
+  # For public uploads: runs moderate_public_image (LLM vision) to enforce
+  # community guidelines. Public content must remain server-readable for
+  # SEO, federation, and moderation.
+  #
+  # See Mosslet.AI.Images moduledoc for the full fail-open rationale.
   defp check_safety(image, state) do
     notify_progress(state, :validating, 50)
 
-    case Mosslet.AI.Images.moderate_private_image(image, "image/webp") do
-      {:ok, :approved} ->
-        case maybe_moderate_public_image(image, state) do
-          :ok -> {:ok, image}
-          error -> error
-        end
-
-      {:error, :service_unavailable} ->
-        Logger.warning("LLM moderation unavailable, falling back to Bumblebee")
-
-        with {:ok, binary} <- Image.write(image, :memory, suffix: ".webp"),
-             {:ok, _} <- Mosslet.AI.Images.check_for_safety_bumblebee(binary),
-             :ok <- maybe_moderate_public_image(image, state) do
-          {:ok, image}
-        end
-
-      {:error, reason} ->
-        {:nsfw, reason}
+    case maybe_moderate_public_image(image, state) do
+      :ok -> {:ok, image}
+      error -> error
     end
   end
 

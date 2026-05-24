@@ -2217,10 +2217,10 @@ defmodule Mosslet.Accounts do
       migrate_user_to_pq_keys(user, key)
     end
 
-    # Enqueue background re-seal of v1 context keys if user has PQ keys
+    # Background re-seal of v1 context keys — runs in-memory so the
+    # session key never touches persistent storage (DB/logs).
     if key && user.pq_public_key do
-      Mosslet.Workers.PqResealWorker.new(%{user_id: user.id, session_key: key})
-      |> Oban.insert()
+      Mosslet.Workers.PqResealWorker.run_async(user, key)
     end
 
     Mosslet.MailBluster.sync_user_async(user)

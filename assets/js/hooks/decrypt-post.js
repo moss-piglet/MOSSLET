@@ -34,37 +34,9 @@
  *   [data-decrypt-url-preview-target="{postId}"]  — URL preview container
  *   [data-decrypt-share-note-target="{postId}"]   — share note text
  */
-import { unsealContextKey, decryptWithKey, getPublicKey, cachePostKey, getCachedPostKey } from "../crypto/session";
+import { unsealContextKey, decryptWithKey, getPublicKey, cachePostKey, getCachedPostKey, unwrapKey, decryptList, escapeHtml } from "../crypto/session";
 import { encryptSecretboxString } from "../crypto/nacl";
 import { renderMarkdown } from "../utils/render-markdown";
-
-/**
- * Unwrap the post key from its sealed form.
- *
- * Server-sealed keys: the NIF seals the 44-char base64 key string as-is.
- * unsealFromUser returns those 44 ASCII bytes re-encoded as base64 (~60 chars,
- * double-encoded). We detect this by length > 44 and atob() once.
- *
- * Browser-sealed keys: the WASM sealForUser decodes the base64 input to raw
- * bytes before sealing. unsealFromUser returns those 32 raw bytes as base64
- * (exactly 44 chars). This is already the correct key format for decryptWithKey.
- */
-function unwrapPostKey(unsealedB64) {
-  if (unsealedB64.length > 44) {
-    try {
-      return atob(unsealedB64);
-    } catch {
-      return unsealedB64;
-    }
-  }
-  return unsealedB64;
-}
-
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
-}
 
 function formatCwCategory(raw) {
   if (!raw) return "";
@@ -72,28 +44,6 @@ function formatCwCategory(raw) {
     .split("_")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
-}
-
-/**
- * Decrypt a JSON-encoded list of individually-encrypted items.
- * Returns an array of plaintext strings.
- */
-async function decryptList(jsonStr, postKey) {
-  if (!jsonStr) return null;
-  try {
-    const items = JSON.parse(jsonStr);
-    if (!Array.isArray(items) || items.length === 0) return [];
-    const results = [];
-    for (const item of items) {
-      if (typeof item === "string" && item !== "") {
-        const plain = await decryptWithKey(item, postKey);
-        if (plain != null) results.push(plain);
-      }
-    }
-    return results;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -171,7 +121,7 @@ const DecryptPost = {
       const rawPostKey = await unsealContextKey(sealedKey);
       if (!rawPostKey) return;
 
-      const postKey = unwrapPostKey(rawPostKey);
+      const postKey = unwrapKey(rawPostKey);
 
       const postId = this.el.dataset.postId;
       if (postId) cachePostKey(postId, postKey);

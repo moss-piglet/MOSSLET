@@ -1,15 +1,4 @@
-import { unsealContextKey, decryptWithKey, getPublicKey } from "../crypto/session";
-
-function unwrapGroupKey(unsealedB64) {
-  if (unsealedB64.length > 44) {
-    try {
-      return atob(unsealedB64);
-    } catch {
-      return unsealedB64;
-    }
-  }
-  return unsealedB64;
-}
+import { unsealContextKey, decryptWithKey, getPublicKey, unwrapKey } from "../crypto/session";
 
 const DecryptGroupMetadata = {
   async mounted() {
@@ -28,7 +17,7 @@ const DecryptGroupMetadata = {
       const rawGroupKey = await unsealContextKey(sealedKey);
       if (!rawGroupKey) return;
 
-      const groupKey = unwrapGroupKey(rawGroupKey);
+      const groupKey = unwrapKey(rawGroupKey);
 
       const encryptedName = this.el.dataset.encryptedName;
       const encryptedMoniker = this.el.dataset.encryptedMoniker;

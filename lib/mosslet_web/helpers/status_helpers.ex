@@ -108,26 +108,7 @@ defmodule MossletWeb.Helpers.StatusHelpers do
   - `current_user` - The viewing user
   - `session_key` - The session encryption key
 
-  ## Returns
-  - A string status message or `nil` if not accessible
-  """
-  def get_connection_status_message(connection, current_user, session_key) do
-    case connection.connection do
-      %{user_id: connected_user_id} ->
-        case Accounts.get_user_with_preloads(connected_user_id) do
-          %{} = connected_user ->
-            get_user_status_message(connected_user, current_user, session_key)
-
-          nil ->
-            nil
-        end
-
-      _ ->
-        nil
-    end
-  end
-
-  @doc """
+  @doc \"""
   Gets the status (not message) for a connected user, handling privacy settings.
 
   ## Parameters
@@ -191,16 +172,7 @@ defmodule MossletWeb.Helpers.StatusHelpers do
   - `session_key` - The session encryption key
 
   ## Returns
-  - `true` if user has a custom status message, `false` otherwise
-  """
-  def has_custom_status_message?(user, current_user, session_key) do
-    status_message = get_user_status_message(user, current_user, session_key)
-    fallback_message = get_status_fallback_message(user.status)
-
-    status_message != nil and status_message != fallback_message
-  end
-
-  @doc """
+  @doc \"""
   Gets both status and status message for a user in a single call,
   optimized for components that need both pieces of information.
 

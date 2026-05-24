@@ -1,30 +1,33 @@
 defmodule Mosslet.AI.Images do
   @moduledoc """
-  Image moderation with a three-tier, fail-open architecture.
+  Image moderation with a two-tier architecture split by visibility.
 
-  ## Moderation tiers
+  ## Non-public content (connections, private, groups)
 
-  1. **Client-side (browser)** — NSFWJS + TensorFlow.js via NsfwCheck LiveView
-     hook. Runs entirely in the browser (zero-knowledge). Used for avatar and
-     banner uploads. The UI always implies the check is active to deter uploads
-     of inappropriate content, even when the model is unavailable. Failure is
-     silent to the user; model status is logged server-side via pushEvent.
+  Moderated **client-side only** via NSFWJS + TensorFlow.js (NsfwCheck hook).
+  Under ZK, the server receives encrypted ciphertext and cannot run vision
+  models on it. The UI always implies the check is active (deterrent effect).
+  Fail-open: if the model is unavailable, uploads proceed silently.
 
-  2. **Server-side primary (LLM vision)** — OpenRouter vision model for both
-     private (illegal content only) and public (broader guidelines) moderation.
-     Runs during the ImageUploadWriter pipeline and Bluesky imports.
+  ## Public content
 
-  3. **Server-side fallback (Bumblebee)** — Falconsai/nsfw_image_detection via
-     FLAME ephemeral Fly machines. Used when the LLM is unavailable.
+  Moderated **server-side** because the server must read public content for
+  SEO, federation, and community guidelines enforcement.
 
-  ## Fail-open design
+  1. **Primary** — LLM vision model via OpenRouter (Together AI, privacy-first).
+     `moderate_public_image/2` runs during ImageUploadWriter for public posts.
+  2. **Fallback** — Bumblebee (Falconsai/nsfw_image_detection) via FLAME
+     ephemeral Fly machines. Used when the LLM is unavailable.
 
-  All three tiers fail open — if every tier is down, the upload proceeds.
-  This is intentional: availability is prioritized over blocking. The
-  multi-tier design means all three would need to fail simultaneously for
-  an image to skip moderation entirely.
+  ## Bluesky imports
 
-  Uses privacy-first providers via OpenRouter (Together AI).
+  Server-side moderation via `moderate_private_image/2` — the server already
+  has the content from the Bluesky API, so ZK doesn't apply.
+
+  ## AI-generated detection
+
+  `detect_ai_generated/1` is metadata-only (EXIF/XMP), no content inspection.
+  Runs server-side for all uploads regardless of visibility.
   """
 
   require Logger
@@ -49,51 +52,6 @@ defmodule Mosslet.AI.Images do
       {:error, reason} ->
         Logger.warning("FLAME Bumblebee fallback failed: #{inspect(reason)}, approving image")
         {:ok, image_binary}
-    end
-  end
-
-  @doc """
-  Privacy-focused safety check for private/non-public posts.
-  Only blocks truly illegal content (CSAM, etc.) - minimal false positives.
-
-  Uses LLM with Bumblebee as fallback if LLM is unavailable.
-  The LLM check is designed to discard the image immediately and not store it.
-
-  Accepts either a Vix.Vips.Image struct or raw binary data.
-  """
-  def check_for_safety(%Vix.Vips.Image{} = image) do
-    case moderate_private_image(image, "image/webp") do
-      {:ok, :approved} ->
-        {:ok, image}
-
-      {:error, :service_unavailable} ->
-        Logger.warning("LLM moderation unavailable, falling back to Bumblebee")
-
-        with {:ok, binary} <- Image.write(image, :memory, suffix: ".webp") do
-          case check_for_safety_bumblebee(binary) do
-            {:ok, _binary} -> {:ok, image}
-            {:nsfw, message} -> {:nsfw, message}
-          end
-        else
-          {:error, reason} -> {:error, "Failed to convert image: #{inspect(reason)}"}
-        end
-
-      {:error, reason} ->
-        {:nsfw, reason}
-    end
-  end
-
-  def check_for_safety(image_binary) when is_binary(image_binary) do
-    case moderate_private_image_binary(image_binary, "image/webp") do
-      {:ok, :approved} ->
-        {:ok, image_binary}
-
-      {:error, :service_unavailable} ->
-        Logger.warning("LLM moderation unavailable, falling back to Bumblebee")
-        check_for_safety_bumblebee(image_binary)
-
-      {:error, reason} ->
-        {:nsfw, reason}
     end
   end
 

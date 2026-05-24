@@ -13,25 +13,9 @@
  *   data-current-user-group-id — the current user's user_group_id (for self-mention styling)
  *   data-is-own-message     — "true" if the message is from the current user
  */
-import { unsealContextKey, decryptWithKey, getPublicKey } from "../crypto/session";
+import { unsealContextKey, decryptWithKey, getPublicKey, unwrapKey, escapeHtml } from "../crypto/session";
 import { renderMarkdown } from "../utils/render-markdown";
 import MentionPicker from "./mention-picker";
-
-/**
- * Group keys follow the same double-encoding pattern as post keys:
- * the NIF seals a base64-encoded symmetric key, and unsealFromUser
- * returns the plaintext re-encoded as base64. Decode one layer.
- */
-function unwrapGroupKey(unsealedB64) {
-  if (unsealedB64.length > 44) {
-    try {
-      return atob(unsealedB64);
-    } catch {
-      return unsealedB64;
-    }
-  }
-  return unsealedB64;
-}
 
 const MENTION_TOKEN_RE = /@\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/gi;
 
@@ -71,12 +55,6 @@ function mentionTextClass(role, isOwnMessage) {
     case "moderator": return "text-blue-600 dark:text-blue-400";
     default: return "text-teal-600 dark:text-teal-400";
   }
-}
-
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
 }
 
 const FAILED_MARKUP =
@@ -131,7 +109,7 @@ const DecryptGroupMessage = {
         return true;
       }
 
-      const groupKey = unwrapGroupKey(rawGroupKey);
+      const groupKey = unwrapKey(rawGroupKey);
       const plaintext = await decryptWithKey(encryptedContent, groupKey);
       if (!plaintext) {
         this.el.innerHTML = FAILED_MARKUP;

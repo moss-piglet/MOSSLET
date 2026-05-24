@@ -1,15 +1,19 @@
 defmodule Mosslet.Workers.PqResealWorker do
   @moduledoc """
-  Oban worker that progressively re-seals a user's context keys from
-  legacy v1 (X25519 box_seal) to hybrid v2 (ML-KEM-768 + X25519).
+  Progressively re-seals a user's context keys from legacy v1 (X25519
+  box_seal) to hybrid v2 (ML-KEM-768 + X25519).
 
   Triggered on login after PQ key migration is confirmed. Processes
   user_posts, user_groups, user_memories, and user_connections keys.
 
   Re-seal changes the wrapping only — the underlying symmetric key
   does not change, so no data migration is needed.
+
+  Runs as an in-memory background task via `Mosslet.BackgroundTask`
+  so the session key never touches persistent storage (DB, logs, etc.).
+  If the BEAM restarts mid-reseal, remaining keys are picked up on
+  the next login — the `hybrid_ciphertext?` check makes this idempotent.
   """
-  use Oban.Worker, queue: :security, max_attempts: 3, unique: [period: 300]
 
   alias Mosslet.Accounts
   alias Mosslet.Encrypted
@@ -17,17 +21,25 @@ defmodule Mosslet.Workers.PqResealWorker do
 
   require Logger
 
-  @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"user_id" => user_id, "session_key" => session_key}}) do
-    user = Accounts.get_user!(user_id)
+  @doc """
+  Starts a background re-seal for the given user.
 
-    # User must have PQ keys — otherwise nothing to re-seal to
-    if is_nil(user.pq_public_key) do
-      Logger.debug("[PqResealWorker] User #{user_id} has no PQ keys, skipping")
-      :ok
-    else
-      reseal_user_context_keys(user, session_key)
-    end
+  The session key is held only in process memory — it is never
+  persisted to the database or Oban job args.
+  """
+  def run_async(user, session_key) do
+    user_id = user.id
+
+    Mosslet.BackgroundTask.run(fn ->
+      user = Accounts.get_user!(user_id)
+
+      if is_nil(user.pq_public_key) do
+        Logger.debug("[PqResealWorker] User #{user_id} has no PQ keys, skipping")
+        :ok
+      else
+        reseal_user_context_keys(user, session_key)
+      end
+    end)
   end
 
   defp reseal_user_context_keys(user, session_key) do

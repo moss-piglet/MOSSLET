@@ -15,38 +15,9 @@
  *   data-current-user-id     — current user UUID (for fav membership check)
  *   data-reply-id            — reply UUID (for targeting fav button DOM)
  */
-import { unsealContextKey, decryptWithKey, getCachedPostKey } from "../crypto/session";
+import { unsealContextKey, decryptWithKey, getCachedPostKey, unwrapKey, decryptList } from "../crypto/session";
 import { encryptSecretboxString } from "../crypto/nacl";
 import { renderMarkdown } from "../utils/render-markdown";
-
-function unwrapPostKey(unsealedB64) {
-  if (unsealedB64.length > 44) {
-    try {
-      return atob(unsealedB64);
-    } catch {
-      return unsealedB64;
-    }
-  }
-  return unsealedB64;
-}
-
-async function decryptList(jsonStr, postKey) {
-  if (!jsonStr) return null;
-  try {
-    const items = JSON.parse(jsonStr);
-    if (!Array.isArray(items) || items.length === 0) return [];
-    const results = [];
-    for (const item of items) {
-      if (typeof item === "string" && item !== "") {
-        const plain = await decryptWithKey(item, postKey);
-        if (plain != null) results.push(plain);
-      }
-    }
-    return results;
-  } catch {
-    return null;
-  }
-}
 
 const DecryptReply = {
   mounted() {
@@ -76,7 +47,7 @@ const DecryptReply = {
         if (!sealedKey) return;
         const raw = await unsealContextKey(sealedKey);
         if (!raw) return;
-        postKey = unwrapPostKey(raw);
+        postKey = unwrapKey(raw);
       }
 
       const body = await decryptWithKey(encryptedBody, postKey);

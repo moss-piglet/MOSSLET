@@ -49,7 +49,7 @@ async function ensureReady() {
 
 // --- Base64 helpers ---
 
-function b64Encode(uint8Array) {
+export function b64Encode(uint8Array) {
   let binary = "";
   for (let i = 0; i < uint8Array.length; i++) {
     binary += String.fromCharCode(uint8Array[i]);
@@ -262,4 +262,4 @@ export async function parseSaltFromKeyHash(keyHash) {
   return _parseSaltFromKeyHash(keyHash);
 }
 
-export { b64Encode, b64Decode };
+export { b64Decode };

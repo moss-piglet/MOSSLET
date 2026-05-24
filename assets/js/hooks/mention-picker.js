@@ -1,23 +1,12 @@
-import { unsealContextKey, decryptWithKey, getPublicKey, unwrapConnKey } from "../crypto/session";
+import { unsealContextKey, decryptWithKey, getPublicKey, unwrapConnKey, unwrapKey } from "../crypto/session";
 import { decryptSecretbox } from "../crypto/session";
-
-function unwrapGroupKey(unsealedB64) {
-  if (unsealedB64.length > 44) {
-    try {
-      return atob(unsealedB64);
-    } catch {
-      return unsealedB64;
-    }
-  }
-  return unsealedB64;
-}
 
 let _cachedGroupKeyForMentions = null;
 
 async function getGroupKey(sealedKey) {
   if (_cachedGroupKeyForMentions) return _cachedGroupKeyForMentions;
   const raw = await unsealContextKey(sealedKey);
-  if (raw) _cachedGroupKeyForMentions = unwrapGroupKey(raw);
+  if (raw) _cachedGroupKeyForMentions = unwrapKey(raw);
   return _cachedGroupKeyForMentions;
 }
 

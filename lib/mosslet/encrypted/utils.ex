@@ -52,21 +52,7 @@ defmodule Mosslet.Encrypted.Utils do
 
   def decrypt(%{key: _key, payload: nil}), do: {:ok, nil}
   def decrypt(%{key: _key, payload: ""}), do: {:ok, ""}
-  def decrypt(_), do: nil
-
-  @spec update_key_hash(binary, binary, binary) :: {:error, binary} | %{key_hash: binary}
-  def update_key_hash(old_password, key_hash, new_password) do
-    case decrypt_key_hash(old_password, key_hash) do
-      {:ok, user_key} ->
-        %{key: password_derived_key, salt: salt} = derive_pwd_key(new_password)
-        new_encrypted_key = encrypt(%{key: password_derived_key, payload: user_key})
-        # combine hash and encrypted key to get key hash
-        %{key_hash: salt <> "$" <> new_encrypted_key}
-
-      {:error, error} ->
-        {:error, error}
-    end
-  end
+  def decrypt(_), do: {:error, :invalid_input}
 
   @spec decrypt_key_hash(
           binary,

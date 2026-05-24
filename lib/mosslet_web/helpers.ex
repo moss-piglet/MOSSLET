@@ -6,7 +6,7 @@ defmodule MossletWeb.Helpers do
 
   alias Mosslet.Accounts
   alias Mosslet.Accounts.{User, UserConnection}
-  alias Mosslet.Billing.{Plans, Subscriptions}
+  alias Mosslet.Billing.Subscriptions
   alias Mosslet.Encrypted
   alias Mosslet.Extensions.AvatarProcessor
   alias Mosslet.Extensions.BannerProcessor
@@ -29,10 +29,6 @@ defmodule MossletWeb.Helpers do
     DateTime.before?(offset_time, DateTime.utc_now())
   end
 
-  def preview_url_expired?(url_preview_fetched_at) do
-    url_expired?(url_preview_fetched_at)
-  end
-
   @doc """
   The `src` is coming from our trix-content-hook and is the old
   presigned_url on the `a` and `img` html tags. We force the .webp
@@ -47,24 +43,10 @@ defmodule MossletWeb.Helpers do
   end
 
   @doc """
-  The `src` is coming from our trix-content-hook and is the old
-  presigned_url on the `a` and `img` html tags.
+  Returns the file extension for a given file key.
+  All uploads are stored as webp files.
   """
-  def get_ext_from_file_key(src) do
-    ext =
-      src
-      |> String.split(".")
-      |> List.last()
-      |> String.split("?")
-      |> List.first()
-
-    case ext do
-      "jpg" -> "webp"
-      "jpeg" -> "webp"
-      "png" -> "webp"
-      _rest -> "webp"
-    end
-  end
+  def get_ext_from_file_key(_src), do: "webp"
 
   @doc """
   Returns the file_path for an object in object storage where
@@ -277,76 +259,6 @@ defmodule MossletWeb.Helpers do
 
   def number_to_string(number), do: to_string(number)
 
-  ## Conversations
-
-  def assign_ai_tokens(user) do
-    customer = Mosslet.Billing.Customers.get_customer_by_source(:user, user.id)
-
-    subscription =
-      Mosslet.Billing.Subscriptions.get_subscription_by(%{
-        status: "active",
-        billing_customer_id: customer.id
-      }) ||
-        Subscriptions.get_subscription_by(%{
-          status: "trialing",
-          billing_customer_id: customer.id
-        })
-
-    plan = Plans.get_plan_by_subscription!(subscription)
-
-    case plan.name do
-      "Starter" ->
-        maybe_update_user_ai_tokens(user, 0)
-        0
-
-      "Lite" ->
-        maybe_update_user_ai_tokens(user, 2_500)
-        2_500
-
-      "Plus" ->
-        maybe_update_user_ai_tokens(user, 25_000)
-        25_000
-
-      "Pro" ->
-        maybe_update_user_ai_tokens(user, 50_000)
-        50_000
-
-      "Pro AI" ->
-        maybe_update_user_ai_tokens(user, 100_000)
-        100_000
-
-      _rest ->
-        maybe_update_user_ai_tokens(user, 0)
-        0
-    end
-  end
-
-  def maybe_update_user_ai_tokens(user, tokens) do
-    if user.ai_tokens == tokens do
-      :ok
-    else
-      Accounts.update_user_tokens(user, %{ai_tokens: tokens})
-    end
-  end
-
-  def total_ai_tokens(user) do
-    user.ai_tokens
-  end
-
-  def total_ai_tokens_used(user) do
-    user.ai_tokens_used
-  end
-
-  def monthly_tokens(ai_tokens, user) do
-    case user.ai_tokens_used do
-      nil ->
-        ai_tokens - 0
-
-      _rest ->
-        Decimal.sub(ai_tokens, user.ai_tokens_used)
-    end
-  end
-
   ## Encryption
 
   def decr(_payload, _user, _key)
@@ -406,19 +318,6 @@ defmodule MossletWeb.Helpers do
           decrypted_payload ->
             decrypted_payload
         end
-    end
-  end
-
-  # currently being used to handle stripe encryption changeover
-  def maybe_decrypt_user_data(payload, user, key) do
-    case Encrypted.Users.Utils.decrypt_user_data(payload, user, key) do
-      :failed_verification ->
-        # user data hasn't been asymetrically encrypted yet (due to legacy account)
-        # so we return the payload as is
-        payload
-
-      decrypted_payload ->
-        decrypted_payload
     end
   end
 
@@ -1263,26 +1162,6 @@ defmodule MossletWeb.Helpers do
     end
   end
 
-  def maybe_show_remark_username(data) do
-    case data do
-      :failed_verification ->
-        "mystery"
-
-      _rest ->
-        data
-    end
-  end
-
-  def maybe_show_remark_body(data) do
-    case data do
-      :failed_verification ->
-        "mystery"
-
-      _rest ->
-        data
-    end
-  end
-
   def decr_public_item(payload, item_key) do
     Encrypted.Users.Utils.decrypt_public_item(payload, item_key)
   end
@@ -1441,16 +1320,6 @@ defmodule MossletWeb.Helpers do
     |> Phoenix.HTML.raw()
   end
 
-  def format_decrypted_content_orange(:failed_verification), do: "[Could not decrypt content]"
-  def format_decrypted_content_orange(nil), do: ""
-  def format_decrypted_content_orange(""), do: ""
-
-  def format_decrypted_content_orange(content) when is_binary(content) do
-    content
-    |> Mosslet.MarkdownRenderer.to_html()
-    |> Phoenix.HTML.raw()
-  end
-
   def initials(name) do
     case HumanName.initials(name) do
       {:ok, name} ->
@@ -1465,10 +1334,6 @@ defmodule MossletWeb.Helpers do
             error
         end
     end
-  end
-
-  def now() do
-    Date.utc_today()
   end
 
   def can_edit?(user, item) when is_struct(item) do
@@ -1677,13 +1542,6 @@ defmodule MossletWeb.Helpers do
     # In a real implementation, this could check user theme preference from the database
     # or use JavaScript to detect the current theme
     "/images/logo.svg"
-  end
-
-  @doc """
-  Returns the dark theme Mosslet logo.
-  """
-  def mosslet_logo_dark() do
-    "/images/logo_icon_dark.svg"
   end
 
   def can_repost?(user, post) do
@@ -2431,89 +2289,6 @@ defmodule MossletWeb.Helpers do
 
       true ->
         false
-    end
-  end
-
-  # ---------------------------------------------------------------------------
-  # Legacy avatar helpers — deprecated, callers should migrate to
-  # encrypted_avatar_data + ensure_avatar_cached for ZK architecture.
-  # These wrappers exist only for backward compatibility during migration.
-  # ---------------------------------------------------------------------------
-
-  @doc false
-  def get_user_avatar(entity, key, item \\ nil, current_user \\ nil, item_list \\ [])
-
-  def get_user_avatar(nil, _key, _item, _current_user, _item_list), do: nil
-
-  def get_user_avatar(%User{} = user, key, nil, nil, []) do
-    user = preload_connection(user)
-    ensure_avatar_cached(user, key, {"get_user_avatar", user.id})
-    nil
-  end
-
-  def get_user_avatar(%User{} = user, key, item, current_user, item_list) do
-    user = preload_connection(user)
-    callback = item_callback_tuple(item, item_list, current_user)
-    ensure_avatar_cached(user, key, callback)
-    nil
-  end
-
-  def get_user_avatar(%UserConnection{} = uconn, key, item, current_user, item_list) do
-    callback = item_callback_tuple_for_uconn(uconn, item, item_list, current_user)
-    ensure_avatar_cached(uconn, key, callback)
-    nil
-  end
-
-  @doc false
-  def maybe_get_user_avatar(entity, key) do
-    case entity do
-      %User{} = user ->
-        user = preload_connection(user)
-        ensure_avatar_cached(user, key, {"get_user_avatar", user.id})
-
-      %UserConnection{} = uconn ->
-        ensure_avatar_cached(uconn, key, {"get_user_avatar", uconn.id})
-
-      _ ->
-        :ok
-    end
-
-    nil
-  end
-
-  @doc false
-  def maybe_get_avatar_src(entity, current_user, key, _item_list) do
-    case entity do
-      %UserConnection{} = uconn ->
-        ensure_avatar_cached(uconn, key, {"get_user_avatar", uconn.id})
-
-      %{user_id: _} = item ->
-        uconn = get_uconn_for_shared_item(item, current_user)
-        if uconn, do: ensure_avatar_cached(uconn, key, {"get_user_avatar", uconn.id})
-
-      _ ->
-        :ok
-    end
-
-    nil
-  end
-
-  @doc false
-  def maybe_get_public_profile_user_avatar(_user, _profile, _current_user), do: nil
-
-  defp item_callback_tuple(item, item_list, current_user) do
-    case item do
-      %Reply{id: id} -> {"get_user_avatar_reply", id, item_list, current_user.id}
-      %{id: id} -> {"get_user_avatar", id, item_list, current_user.id}
-      _ -> {"get_user_avatar", current_user.id}
-    end
-  end
-
-  defp item_callback_tuple_for_uconn(uconn, item, item_list, current_user) do
-    case item do
-      nil -> {"get_user_avatar", uconn.id, item_list, if(current_user, do: current_user.id)}
-      %Reply{id: id} -> {"get_user_avatar_reply", id, item_list, current_user.id}
-      %{id: id} -> {"get_user_avatar", id, item_list, current_user.id}
     end
   end
 

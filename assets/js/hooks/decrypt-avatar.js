@@ -4,15 +4,8 @@ import {
   decryptWithKey,
   decryptSecretbox,
   getPublicKey,
+  b64Encode,
 } from "../crypto/session";
-
-function b64Encode(uint8Array) {
-  let binary = "";
-  for (let i = 0; i < uint8Array.length; i++) {
-    binary += String.fromCharCode(uint8Array[i]);
-  }
-  return btoa(binary);
-}
 
 const DecryptAvatar = {
   mounted() {

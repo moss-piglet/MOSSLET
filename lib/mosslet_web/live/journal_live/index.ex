@@ -2226,10 +2226,8 @@ defmodule MossletWeb.JournalLive.Index do
 
             with {:ok, image} <- load_image_for_cover(path, mime_type),
                  {:ok, image} <- autorotate_cover_image(image),
-                 _ <- send(lv_pid, {:cover_upload_stage, {:checking, 50}}),
-                 {:ok, safe_image} <- check_cover_safety(image),
                  _ <- send(lv_pid, {:cover_upload_stage, {:resizing, 60}}),
-                 {:ok, resized_image} <- resize_cover_image(safe_image),
+                 {:ok, resized_image} <- resize_cover_image(image),
                  {:ok, blob} <-
                    Image.write(resized_image, :memory,
                      suffix: ".webp",
@@ -2251,10 +2249,6 @@ defmodule MossletWeb.JournalLive.Index do
                   {:postpone, {:error, reason}}
               end
             else
-              {:nsfw, message} ->
-                send(lv_pid, {:cover_upload_stage, {:error, message}})
-                {:postpone, {:nsfw, message}}
-
               {:error, message} ->
                 send(lv_pid, {:cover_upload_stage, {:error, message}})
                 {:postpone, {:error, message}}
@@ -2267,12 +2261,6 @@ defmodule MossletWeb.JournalLive.Index do
       )
 
     case cover_results do
-      [nsfw: message] ->
-        {:noreply,
-         socket
-         |> assign(:cover_upload_stage, {:error, message})
-         |> put_flash(:warning, message)}
-
       [error: message] ->
         {:noreply,
          socket
@@ -2378,10 +2366,6 @@ defmodule MossletWeb.JournalLive.Index do
 
     File.rm(tmp_png)
     result
-  end
-
-  defp check_cover_safety(image) do
-    Mosslet.AI.Images.check_for_safety(image)
   end
 
   defp autorotate_cover_image(image) do
