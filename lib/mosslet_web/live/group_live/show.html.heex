@@ -35,6 +35,8 @@
           <div class="min-w-0">
             <div class="flex items-center gap-2">
               <h1
+                id="group-name-header"
+                phx-update={if @group_metadata[:browser_decrypt?], do: "ignore"}
                 class="text-sm sm:text-base font-semibold text-slate-900 dark:text-slate-100 truncate"
                 data-decrypt-group-name
               >
@@ -147,6 +149,8 @@
       <div class="p-4 sm:p-6 space-y-4">
         <div class="p-4 rounded-xl bg-gradient-to-br from-teal-50/50 to-emerald-50/50 dark:from-teal-900/20 dark:to-emerald-900/20 border border-teal-200/40 dark:border-teal-700/40">
           <h3
+            id="group-name-info"
+            phx-update={if @group_metadata[:browser_decrypt?], do: "ignore"}
             class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2"
             data-decrypt-group-name
           >
@@ -208,6 +212,8 @@
               </span>
             </div>
             <p
+              id="group-moniker-info"
+              phx-update={if @group_metadata[:browser_decrypt?], do: "ignore"}
               class="ml-8 text-sm text-slate-900 dark:text-slate-100"
               data-decrypt-group-moniker
             >

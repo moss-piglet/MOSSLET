@@ -2,14 +2,10 @@ import { unsealContextKey, decryptWithKey, getPublicKey, unwrapKey } from "../cr
 
 const DecryptGroupMetadata = {
   async mounted() {
-    this._decrypted = false;
-
-    if (!getPublicKey()) {
-      window.addEventListener("mosslet:keys-ready", () => this._decrypt(), { once: true });
-      return;
+    if (!await this._decrypt()) {
+      this._onKeysReady = () => this._decrypt();
+      window.addEventListener("mosslet:keys-ready", this._onKeysReady, { once: true });
     }
-
-    await this._decrypt();
   },
 
   async updated() {
@@ -17,15 +13,22 @@ const DecryptGroupMetadata = {
     await this._decrypt();
   },
 
+  destroyed() {
+    if (this._onKeysReady) {
+      window.removeEventListener("mosslet:keys-ready", this._onKeysReady);
+    }
+  },
+
   async _decrypt() {
-    if (this._decrypted) return;
+    if (this._decrypted) return true;
 
     const sealedKey = this.el.dataset.sealedGroupKey;
-    if (!sealedKey) return;
+    if (!sealedKey) return true;
+    if (!getPublicKey()) return false;
 
     try {
       const rawGroupKey = await unsealContextKey(sealedKey);
-      if (!rawGroupKey) return;
+      if (!rawGroupKey) return true;
 
       const groupKey = unwrapKey(rawGroupKey);
 
@@ -38,7 +41,6 @@ const DecryptGroupMetadata = {
           document.querySelectorAll("[data-decrypt-group-name]").forEach(el => {
             el.textContent = name;
           });
-          this._decrypted = true;
         }
       }
 
@@ -50,8 +52,12 @@ const DecryptGroupMetadata = {
           });
         }
       }
+
+      this._decrypted = true;
+      return true;
     } catch (e) {
       console.error("DecryptGroupMetadata: decryption failed:", e);
+      return true;
     }
   },
 };
