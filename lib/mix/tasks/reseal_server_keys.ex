@@ -63,7 +63,6 @@ defmodule Mix.Tasks.ResealServerKeys do
       {Mosslet.Timeline.UserPost, :key, "user_posts"},
       {Mosslet.Groups.UserGroup, :key, "user_groups"},
       {Mosslet.Memories.UserMemory, :key, "user_memories"},
-      {Mosslet.Accounts.Connection, :profile_key, "connections (profile_key)"},
       {Mosslet.Timeline.UserPostReport, :key, "user_post_reports"}
     ]
 
@@ -73,6 +72,12 @@ defmodule Mix.Tasks.ResealServerKeys do
         Mix.shell().info("  #{label}: #{count} re-sealed")
         acc + count
       end)
+
+    # Connection profile_key is inside an embedded schema (profile.profile_key),
+    # so it can't use the generic reseal_table helper.
+    conn_count = reseal_connection_profile_keys(server_keys, pq_opts, dry_run?)
+    Mix.shell().info("  connections (profile_key): #{conn_count} re-sealed")
+    total = total + conn_count
 
     # Post report admin_notes are sealed differently (they're the plaintext,
     # not a context key). We re-seal those too for consistency.
@@ -105,6 +110,40 @@ defmodule Mix.Tasks.ResealServerKeys do
         {:error, reason} ->
           Logger.warning(
             "[ResealServerKeys] Failed to re-seal #{inspect(schema)} #{id}: #{inspect(reason)}"
+          )
+
+          count
+      end
+    end)
+  end
+
+  defp reseal_connection_profile_keys(server_keys, pq_opts, dry_run?) do
+    records =
+      from(c in Mosslet.Accounts.Connection,
+        where: not is_nil(c.profile),
+        select: {c.id, c.profile}
+      )
+      |> Repo.all()
+
+    records
+    |> Enum.filter(fn {_id, profile} ->
+      profile && profile.profile_key && needs_reseal?(profile.profile_key)
+    end)
+    |> Enum.reduce(0, fn {id, profile}, count ->
+      case reseal_key(profile.profile_key, server_keys, pq_opts) do
+        {:ok, new_sealed} ->
+          unless dry_run? do
+            new_profile = %{profile | profile_key: new_sealed}
+
+            from(c in Mosslet.Accounts.Connection, where: c.id == ^id)
+            |> Repo.update_all(set: [profile: new_profile])
+          end
+
+          count + 1
+
+        {:error, reason} ->
+          Logger.warning(
+            "[ResealServerKeys] Failed to re-seal Connection #{id} profile_key: #{inspect(reason)}"
           )
 
           count
