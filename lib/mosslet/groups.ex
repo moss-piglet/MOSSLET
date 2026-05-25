@@ -358,15 +358,18 @@ defmodule Mosslet.Groups do
   def update_group_metadata_zk(%Group{} = group, attrs) do
     changeset = Group.metadata_changeset_zk(group, attrs)
 
-    case Mosslet.Repo.update(changeset) do
-      {:ok, updated_group} ->
+    case Mosslet.Repo.transaction_on_primary(fn -> Mosslet.Repo.update(changeset) end) do
+      {:ok, {:ok, updated_group}} ->
         updated_group = Mosslet.Repo.preload(updated_group, [:user_groups])
 
         {:ok, updated_group}
         |> broadcast(:group_updated)
 
-      {:error, changeset} ->
+      {:ok, {:error, changeset}} ->
         {:error, changeset}
+
+      error ->
+        error
     end
   end
 
@@ -600,9 +603,15 @@ defmodule Mosslet.Groups do
   Used to repair hybrid-sealed keys on public groups.
   """
   def update_user_group_key(%UserGroup{} = user_group, new_sealed_key) do
-    user_group
-    |> Ecto.Changeset.change(key: new_sealed_key)
-    |> Mosslet.Repo.update()
+    changeset =
+      user_group
+      |> Ecto.Changeset.change(key: new_sealed_key)
+
+    case Mosslet.Repo.transaction_on_primary(fn -> Mosslet.Repo.update(changeset) end) do
+      {:ok, {:ok, updated}} -> {:ok, updated}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
   end
 
   @doc """

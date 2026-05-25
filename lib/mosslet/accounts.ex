@@ -413,15 +413,18 @@ defmodule Mosslet.Accounts do
   def update_user_connection_label_zk(uconn, attrs) do
     changeset = UserConnection.label_changeset_zk(uconn, attrs)
 
-    case Mosslet.Repo.update(changeset) do
-      {:ok, updated_uconn} ->
+    case Mosslet.Repo.transaction_on_primary(fn -> Mosslet.Repo.update(changeset) end) do
+      {:ok, {:ok, updated_uconn}} ->
         updated_uconn = Mosslet.Repo.preload(updated_uconn, [:user, :connection])
 
         {:ok, updated_uconn}
         |> broadcast(:uconn_updated)
 
-      {:error, changeset} ->
+      {:ok, {:error, changeset}} ->
         {:error, changeset}
+
+      error ->
+        error
     end
   end
 
@@ -2479,20 +2482,20 @@ defmodule Mosslet.Accounts do
     existing_block =
       Mosslet.Repo.get_by(UserBlock, blocker_id: blocker.id, blocked_id: blocked_user.id)
 
-    result =
-      if existing_block do
-        existing_block
-        |> UserBlock.changeset_zk(zk_attrs)
-        |> Mosslet.Repo.update()
-      else
-        %UserBlock{}
-        |> UserBlock.changeset_zk(zk_attrs)
-        |> Mosslet.Repo.insert()
-      end
-
-    case result do
-      {:ok, block} -> {:ok, block, existing_block != nil}
-      {:error, changeset} -> {:error, changeset}
+    case Mosslet.Repo.transaction_on_primary(fn ->
+           if existing_block do
+             existing_block
+             |> UserBlock.changeset_zk(zk_attrs)
+             |> Mosslet.Repo.update()
+           else
+             %UserBlock{}
+             |> UserBlock.changeset_zk(zk_attrs)
+             |> Mosslet.Repo.insert()
+           end
+         end) do
+      {:ok, {:ok, block}} -> {:ok, block, existing_block != nil}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
     end
   end
 
