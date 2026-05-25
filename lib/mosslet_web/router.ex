@@ -452,9 +452,6 @@ defmodule MossletWeb.Router do
       # Onboarding
       live "/users/onboarding", UserOnboardingLive
 
-      # invitations
-      live "/users/connections/invite/new-invite", UserConnectionLive.Invite, :new_invite
-
       # Settings
       live "/users/edit-details", EditDetailsLive
       live "/users/edit-profile", EditProfileLive

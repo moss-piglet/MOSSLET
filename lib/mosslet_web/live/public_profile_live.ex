@@ -161,7 +161,7 @@ defmodule MossletWeb.PublicProfileLive do
                     class="flex flex-col sm:flex-row items-center gap-3"
                   >
                     <MossletWeb.DesignSystem.liquid_button
-                      navigate={~p"/app/users/connections/invite/new-invite"}
+                      navigate={~p"/app/users/connections"}
                       variant="primary"
                       color="teal"
                       icon="hero-user-plus"

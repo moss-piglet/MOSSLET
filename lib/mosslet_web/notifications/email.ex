@@ -65,19 +65,6 @@ defmodule Mosslet.Notifications.Email do
     |> premail()
   end
 
-  def new_user_invitation(user, invitation, url, referral_code \\ nil) do
-    base_email()
-    |> to(invitation.email)
-    |> subject(gettext("Invitation to join %{name} on MOSSLET 🌿", name: user.name))
-    |> render_body("new_user_invite.html", %{
-      user: user,
-      invitation: invitation,
-      url: url,
-      referral_code: referral_code
-    })
-    |> premail()
-  end
-
   def unread_posts_notification_with_email(email, unread_count, timeline_url) do
     new()
     |> to(email)

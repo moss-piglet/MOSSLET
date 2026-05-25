@@ -30,16 +30,6 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
       </:logo_icon>
 
       <:top_right>
-        <.link
-          id="invite-connection-link-settings"
-          navigate={~p"/app/users/connections/invite/new-invite"}
-          phx-hook="TippyHook"
-          data-tippy-content="Invite people to join you on Mosslet!"
-          class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-emerald-300 dark:hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 transition-all duration-200"
-        >
-          <MossletWeb.CoreComponents.phx_icon name="hero-paper-airplane" class="size-4" />
-          <span class="sr-only">Invite people to join you on Mosslet</span>
-        </.link>
         <MossletWeb.Layouts.theme_toggle />
       </:top_right>
 
@@ -80,16 +70,6 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
       </:logo_icon>
 
       <:top_right>
-        <.link
-          id="invite-connection-link-group-settings"
-          navigate={~p"/app/users/connections/invite/new-invite"}
-          phx-hook="TippyHook"
-          data-tippy-content="Invite people to join you on Mosslet!"
-          class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-emerald-300 dark:hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 transition-all duration-200"
-        >
-          <MossletWeb.CoreComponents.phx_icon name="hero-paper-airplane" class="size-4" />
-          <span class="sr-only">Invite people to join you on Mosslet</span>
-        </.link>
         <MossletWeb.Layouts.theme_toggle />
       </:top_right>
 

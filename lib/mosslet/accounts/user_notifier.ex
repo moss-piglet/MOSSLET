@@ -58,15 +58,6 @@ defmodule Mosslet.Accounts.UserNotifier do
   end
 
   @doc """
-  Deliver instructions to accept a new user invite to Mosslet.
-  """
-  def deliver_new_user_invitation(user, invitation, url, referral_code \\ nil) do
-    user
-    |> Email.new_user_invitation(invitation, url, referral_code)
-    |> deliver()
-  end
-
-  @doc """
   Deliver a pin code to sign in without a password.
   """
   def deliver_passwordless_pin(user, pin) do

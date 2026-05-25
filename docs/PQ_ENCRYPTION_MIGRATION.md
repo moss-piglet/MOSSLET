@@ -128,7 +128,6 @@
 - `lib/mosslet_web/live/group_live/show.html.heex` — 2 `decr()` → `.decrypted[:field]`
 - `lib/mosslet_web/live/group_live/replies/form_component.ex` — 2 `decr()` → `.decrypted[:field]`
 - `lib/mosslet_web/live/user_connection_live/components.ex` — 1 `decr()` → `.decrypted[:field]`
-- `lib/mosslet_web/live/user_connection_live/invite.ex` — 2 `decr()` → `.decrypted[:field]`
 - `lib/mosslet_web/live/journal_live/book.ex` — 2 `decr()` → `.decrypted[:field]`
 
 ### Phase 3 Files Changed (DecryptUserFields browser-side ZK)

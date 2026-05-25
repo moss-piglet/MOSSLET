@@ -146,7 +146,6 @@ config :mosslet, Oban,
   queues: [
     default: 10,
     tokens: 10,
-    invites: 10,
     storage: 10,
     timeline: 5,
     cache_maintenance: 2,
