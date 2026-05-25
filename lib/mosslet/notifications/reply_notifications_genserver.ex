@@ -2,17 +2,24 @@ defmodule Mosslet.Notifications.ReplyNotificationsGenServer do
   @moduledoc """
   Rate-limited GenServer for processing reply email notifications with backpressure.
 
-  🔐 PRIVACY COMPLIANT: Processes data in-memory only.
-  - ✅ No sensitive data persisted in GenServer state
-  - ✅ Queue contains only metadata (user IDs, post IDs, operation types)
-  - ✅ All sensitive content (emails, session keys) fetched during processing
-  - ✅ Zero knowledge maintained - no server-side decryption in state
+  SECURITY: The GenServer queue contains only metadata (user IDs, reply IDs) and
+  pre-decrypted recipient emails. Session keys are NEVER stored in the queue —
+  email decryption happens at queue time in the calling process.
+
+  QUEUE DATA:
+  - User IDs (UUIDs — not sensitive)
+  - Reply IDs (UUIDs — not sensitive)
+  - Pre-decrypted recipient email (transient, discarded after send)
+
+  NEVER IN QUEUE:
+  - Session keys or private keys
+  - Encrypted blobs or decryption keys
 
   RATE LIMITING:
-  - 📧 30 emails per minute (prevents spam detection)
-  - ⏱️ 5-second batch delays (natural spacing)
-  - 🔄 Automatic backpressure (queue size limits)
-  - 🌙 Max 1 reply notification email per user per day
+  - 30 emails per minute (prevents spam detection)
+  - 5-second batch delays (natural spacing)
+  - Automatic backpressure (queue size limits)
+  - Max 1 reply notification email per user per day
   """
 
   use GenServer
@@ -32,14 +39,17 @@ defmodule Mosslet.Notifications.ReplyNotificationsGenServer do
   end
 
   @doc """
-  Queue a reply notification for processing.
+  Queue a reply notification with a pre-decrypted recipient email.
+
+  The session key is never stored — the caller must decrypt the email
+  before calling this function.
   """
-  def queue_reply_notification(post_owner_id, reply_id, replier_id, session_key_ref) do
+  def queue_reply_notification(post_owner_id, reply_id, replier_id, recipient_email) do
     notification = %{
       post_owner_id: post_owner_id,
       reply_id: reply_id,
       replier_id: replier_id,
-      session_key_ref: session_key_ref,
+      recipient_email: recipient_email,
       operation: "reply_notification",
       queued_at: DateTime.utc_now()
     }
@@ -128,8 +138,7 @@ defmodule Mosslet.Notifications.ReplyNotificationsGenServer do
   end
 
   defp take_batch_from_queue(queue) do
-    {batch, remaining} = Enum.split(queue, @batch_size)
-    {batch, remaining}
+    Enum.split(queue, @batch_size)
   end
 
   defp process_email_batch(batch) do
@@ -140,7 +149,7 @@ defmodule Mosslet.Notifications.ReplyNotificationsGenServer do
             :success
 
           {:error, reason} ->
-            Logger.error("❌ Failed to process reply notification: #{inspect(reason)}")
+            Logger.error("Failed to process reply notification: #{inspect(reason)}")
             :failure
 
           :skip ->
@@ -158,18 +167,15 @@ defmodule Mosslet.Notifications.ReplyNotificationsGenServer do
     post_owner_id = notification.post_owner_id
     reply_id = notification.reply_id
     replier_id = notification.replier_id
-    session_key_ref = notification.session_key_ref
+    recipient_email = notification.recipient_email
 
     with {:ok, post_owner} <- get_user(post_owner_id),
-         {:ok, replier} <- get_user(replier_id),
+         {:ok, _replier} <- get_user(replier_id),
          {:ok, _reply} <- get_reply(reply_id),
          {:ok, should_process} <- should_process_reply_email?(post_owner, replier_id),
          true <- should_process,
          {:ok, reply_count} <- get_unread_reply_count(post_owner),
-         {:ok, user_connection} <- get_user_connection(post_owner_id, replier_id),
-         {:ok, session_key} <- get_session_key(session_key_ref),
-         {:ok, decrypted_email} <- decrypt_user_email(user_connection, replier, session_key),
-         {:ok, _result} <- send_reply_email_notification(decrypted_email, reply_count, post_owner) do
+         {:ok, _result} <- send_reply_email_notification(recipient_email, reply_count, post_owner) do
       :ok
     else
       {:skip, _reason} ->
@@ -177,7 +183,7 @@ defmodule Mosslet.Notifications.ReplyNotificationsGenServer do
 
       {:error, reason} ->
         Logger.error(
-          "❌ Failed to process reply notification for user #{post_owner_id}: #{inspect(reason)}"
+          "Failed to process reply notification for user #{post_owner_id}: #{inspect(reason)}"
         )
 
         {:error, reason}
@@ -186,7 +192,7 @@ defmodule Mosslet.Notifications.ReplyNotificationsGenServer do
         :skip
 
       error ->
-        Logger.error("❌ Unexpected error for user #{post_owner_id}: #{inspect(error)}")
+        Logger.error("Unexpected error for user #{post_owner_id}: #{inspect(error)}")
         {:error, "Unexpected error: #{inspect(error)}"}
     end
   end
@@ -246,33 +252,6 @@ defmodule Mosslet.Notifications.ReplyNotificationsGenServer do
     end
   end
 
-  defp get_user_connection(post_owner_id, replier_id) do
-    case Accounts.get_user_connection_between_users(post_owner_id, replier_id) do
-      nil -> {:error, "User connection not found"}
-      user_connection -> {:ok, user_connection}
-    end
-  end
-
-  defp get_session_key(session_key_ref) do
-    case session_key_ref do
-      nil -> {:error, "No session key reference provided"}
-      key when is_binary(key) -> {:ok, key}
-      _ -> {:error, "Invalid session key reference"}
-    end
-  end
-
-  defp decrypt_user_email(user_connection, replier, session_key) do
-    case Mosslet.Encrypted.Users.Utils.decrypt_user_item(
-           user_connection.connection.email,
-           replier,
-           user_connection.key,
-           session_key
-         ) do
-      :failed_verification -> {:error, "Failed to decrypt email"}
-      decrypted_email -> {:ok, decrypted_email}
-    end
-  end
-
   defp send_reply_email_notification(decrypted_email, reply_count, post_owner) do
     timeline_url = url(~p"/app/timeline")
 
@@ -290,7 +269,7 @@ defmodule Mosslet.Notifications.ReplyNotificationsGenServer do
             :ok
 
           {:error, changeset} ->
-            Logger.error("❌ Failed to update reply email timestamp: #{inspect(changeset.errors)}")
+            Logger.error("Failed to update reply email timestamp: #{inspect(changeset.errors)}")
         end
 
         {:ok, result}

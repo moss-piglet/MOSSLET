@@ -6911,13 +6911,16 @@ defmodule MossletWeb.TimelineLive.Index do
 
   # Email notification helper function
   defp process_email_notifications_for_offline_users(post, current_user, session_key) do
-    # Simply pass the post data to the EmailNotificationsProcessor
-    # It will handle all filtering, offline checking, and processing
-    Mosslet.Notifications.EmailNotificationsProcessor.process_post_notifications(
-      post,
-      current_user,
-      session_key
-    )
+    # Run in a short-lived task so the LiveView isn't blocked.
+    # The session key exists only in this task's process memory and is
+    # discarded when the task completes (typically < 1 second).
+    Task.start(fn ->
+      Mosslet.Notifications.EmailNotificationsProcessor.process_post_notifications(
+        post,
+        current_user,
+        session_key
+      )
+    end)
   end
 
   defp normalize_to_webp(file_path) do

@@ -96,7 +96,6 @@ defmodule Mosslet.Application do
       Mosslet.Extensions.MemoryProcessor,
       Mosslet.Extensions.URLPreviewServer,
       Mosslet.Timeline.Performance.TimelineCache,
-      Mosslet.Notifications.EmailNotificationsProcessor,
       {Mosslet.Notifications.EmailNotificationsGenServer, []},
       {Mosslet.Notifications.MentionEmailNotificationsGenServer, []},
       {Mosslet.Notifications.ReplyNotificationsGenServer, []},

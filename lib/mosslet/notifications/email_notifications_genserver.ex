@@ -2,28 +2,25 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
   @moduledoc """
   Rate-limited GenServer for processing email notifications with backpressure.
 
-  🔐 PRIVACY COMPLIANT: Processes data in-memory only.
-  - ✅ No sensitive data persisted in GenServer state
-  - ✅ Queue contains only metadata (user IDs, post IDs, operation types)
-  - ✅ All sensitive content (emails, session keys) fetched during processing
-  - ✅ Zero knowledge maintained - no server-side decryption in state
+  SECURITY: The GenServer queue contains only metadata (user IDs, post IDs) and
+  pre-decrypted recipient emails. Session keys are NEVER stored in the queue —
+  email decryption happens at queue time in the calling process (while the
+  sender's session key is still available in the LiveView), and only the
+  plaintext email enters the queue.
 
-  SAFE QUEUE DATA:
-  - ✅ User IDs (UUIDs - not sensitive)
-  - ✅ Post IDs (UUIDs - not sensitive)
-  - ✅ Operation types ("post_notification" - not sensitive)
-  - ✅ Sender user ID (UUID - not sensitive)
+  The decrypted emails are transient — they exist in process memory only for
+  the duration of the batch window (5 seconds) and are discarded after the
+  email is sent.
+
+  QUEUE DATA:
+  - User IDs (UUIDs — not sensitive)
+  - Post IDs (UUIDs — not sensitive)
+  - Operation types (not sensitive)
+  - Pre-decrypted recipient email (transient, discarded after send)
 
   NEVER IN QUEUE:
-  - ❌ Encrypted emails or decryption keys
-  - ❌ Session keys or decrypted content
-  - ❌ Personal user information
-  - ❌ Post content or sensitive metadata
-
-  RATE LIMITING:
-  - 📧 30 emails per minute (prevents spam detection)
-  - ⏱️ 5-second batch delays (natural spacing)
-  - 🔄 Automatic backpressure (queue size limits)
+  - Session keys or private keys
+  - Encrypted blobs or decryption keys
   """
 
   use GenServer
@@ -34,7 +31,7 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
   alias Mosslet.Notifications.Email
 
   @batch_size 5
-  # 10 seconds between batches
+  # 5 seconds between batches
   @batch_interval_ms 5_000
   # Backpressure: reject if queue too big
   @max_queue_size 1000
@@ -47,17 +44,17 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
   end
 
   @doc """
-  Queue an email notification for processing.
+  Queue an email notification with a pre-decrypted recipient email.
 
-  This preserves the same API as the Broadway version but uses a GenServer queue.
-  Only metadata is queued - all sensitive data is fetched during processing.
+  The session key is never stored — the caller must decrypt the email
+  before calling this function.
   """
-  def queue_email_notification(target_user_id, post_id, sender_user_id, session_key_ref) do
+  def queue_email_notification(target_user_id, post_id, sender_user_id, recipient_email) do
     notification = %{
       target_user_id: target_user_id,
       post_id: post_id,
       sender_user_id: sender_user_id,
-      session_key_ref: session_key_ref,
+      recipient_email: recipient_email,
       operation: "post_notification",
       queued_at: DateTime.utc_now()
     }
@@ -66,18 +63,19 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
   end
 
   @doc """
-  Queue multiple email notifications for a post to multiple users.
+  Queue multiple email notifications for a post.
 
-  This preserves the batch functionality from Broadway.
+  Accepts a list of `{target_user_id, decrypted_email}` tuples.
+  No session key is stored — emails are pre-decrypted by the caller.
   """
-  def queue_post_notifications(post, target_user_ids, sender_user, session_key_ref) do
+  def queue_post_notifications(post, notifications_with_emails, sender_user) do
     notifications =
-      Enum.map(target_user_ids, fn target_user_id ->
+      Enum.map(notifications_with_emails, fn {target_user_id, email} ->
         %{
           target_user_id: target_user_id,
           post_id: post.id,
           sender_user_id: sender_user.id,
-          session_key_ref: session_key_ref,
+          recipient_email: email,
           operation: "post_notification",
           queued_at: DateTime.utc_now()
         }
@@ -158,7 +156,6 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
     {batch, remaining_queue} = take_batch_from_queue(state.queue)
 
     if batch != [] and can_send_emails?(state, length(batch)) do
-      # Process the batch (same logic as Broadway)
       {successful, failed} = process_email_batch(batch)
 
       new_state = %{
@@ -192,13 +189,10 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
   end
 
   defp take_batch_from_queue(queue) do
-    {batch, remaining} = Enum.split(queue, @batch_size)
-    {batch, remaining}
+    Enum.split(queue, @batch_size)
   end
 
   defp process_email_batch(batch) do
-    # Process each email notification in the batch
-    # This preserves ALL the logic from the Broadway version
     results =
       Enum.map(batch, fn notification ->
         case process_email_notification_safely(notification) do
@@ -206,11 +200,10 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
             :success
 
           {:error, reason} ->
-            Logger.error("❌ Failed to process email notification: #{inspect(reason)}")
+            Logger.error("Failed to process email notification: #{inspect(reason)}")
             :failure
 
           :skip ->
-            # Count skips as successful (not failures)
             :success
         end
       end)
@@ -221,12 +214,11 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
     {successful, failed}
   end
 
-  # This preserves ALL the email processing logic from Broadway
   defp process_email_notification_safely(notification) do
     target_user_id = notification.target_user_id
     post_id = notification.post_id
     sender_user_id = notification.sender_user_id
-    session_key_ref = notification.session_key_ref
+    recipient_email = notification.recipient_email
 
     with {:ok, target_user_connection} <- get_user_connection(target_user_id, sender_user_id),
          {:ok, post} <- get_post(post_id),
@@ -234,11 +226,8 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
          {:ok, should_process} <- should_process_email?(target_user_connection, post, sender_user),
          true <- should_process,
          {:ok, unread_count} <- get_unread_count_for_connection(target_user_connection),
-         {:ok, session_key} <- get_session_key(session_key_ref),
-         {:ok, decrypted_email} <-
-           decrypt_user_email(target_user_connection, sender_user, session_key),
          {:ok, _result} <-
-           send_email_notification(decrypted_email, unread_count, target_user_connection) do
+           send_email_notification(recipient_email, unread_count, target_user_connection) do
       :ok
     else
       {:skip, _reason} ->
@@ -246,7 +235,7 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
 
       {:error, reason} ->
         Logger.error(
-          "❌ Failed to process email notification for user #{target_user_id}: #{inspect(reason)}"
+          "Failed to process email notification for user #{target_user_id}: #{inspect(reason)}"
         )
 
         {:error, reason}
@@ -255,12 +244,10 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
         :skip
 
       error ->
-        Logger.error("❌ Unexpected error for user #{target_user_id}: #{inspect(error)}")
+        Logger.error("Unexpected error for user #{target_user_id}: #{inspect(error)}")
         {:error, "Unexpected error: #{inspect(error)}"}
     end
   end
-
-  # All the helper functions from Broadway (EXACTLY THE SAME LOGIC)
 
   defp get_user_connection(target_user_id, sender_user_id) do
     case Accounts.get_user_connection_between_users(target_user_id, sender_user_id) do
@@ -314,11 +301,8 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
         last_sent_date = DateTime.to_date(last_sent_at)
 
         case Date.compare(last_sent_date, today) do
-          :eq ->
-            true
-
-          _ ->
-            false
+          :eq -> true
+          _ -> false
         end
     end
   end
@@ -333,26 +317,6 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
       {:ok, unread_count}
     else
       {:skip, "no unread posts"}
-    end
-  end
-
-  defp get_session_key(session_key_ref) do
-    case session_key_ref do
-      nil -> {:error, "No session key reference provided"}
-      key when is_binary(key) -> {:ok, key}
-      _ -> {:error, "Invalid session key reference"}
-    end
-  end
-
-  defp decrypt_user_email(user_connection, sender_user, session_key) do
-    case Mosslet.Encrypted.Users.Utils.decrypt_user_item(
-           user_connection.connection.email,
-           sender_user,
-           user_connection.key,
-           session_key
-         ) do
-      :failed_verification -> {:error, "Failed to decrypt email"}
-      decrypted_email -> {:ok, decrypted_email}
     end
   end
 
@@ -375,7 +339,7 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
             :ok
 
           {:error, changeset} ->
-            Logger.error("❌ Failed to update email timestamp: #{inspect(changeset.errors)}")
+            Logger.error("Failed to update email timestamp: #{inspect(changeset.errors)}")
         end
 
         {:ok, result}

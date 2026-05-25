@@ -164,7 +164,6 @@ defmodule Mosslet.Platform.Config do
       {DNSCluster, query: Application.get_env(:mosslet, :dns_cluster_query) || :ignore},
       Mosslet.Extensions.URLPreviewServer,
       Mosslet.Timeline.Performance.TimelineCache,
-      Mosslet.Notifications.EmailNotificationsProcessor,
       {Mosslet.Notifications.EmailNotificationsGenServer, []},
       {Mosslet.Notifications.ReplyNotificationsGenServer, []},
       {Mosslet.Timeline.Performance.TimelineGenServer, []},

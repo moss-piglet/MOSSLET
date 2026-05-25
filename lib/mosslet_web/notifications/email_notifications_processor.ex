@@ -1,99 +1,92 @@
 defmodule Mosslet.Notifications.EmailNotificationsProcessor do
   @moduledoc """
-  Coordinator for email notifications that now delegates to the Broadway pipeline.
+  Coordinator for email notifications that delegates to the GenServer pipeline.
 
-  This processor handles all filtering, offline checking, and coordinates with the
-  Broadway-based email processing system for better backpressure and rate limiting.
+  This module handles filtering logic (visibility, offline, preferences) and
+  decrypts recipient emails at the call site (while the sender's session key
+  is still available in the LiveView process). Only metadata + pre-decrypted
+  emails are queued to the GenServer for rate-limited sending.
 
-  🔄 UPDATED: Now uses Broadway for actual email processing
-  🔐 PRIVACY: Maintains session-based decryption approach
-  📧 RATE LIMITED: 30 emails per minute via Broadway
+  SECURITY: The session key never leaves the calling process. Email decryption
+  happens synchronously in the caller, and the GenServer queue receives only
+  pre-decrypted emails (transient in-memory data).
   """
 
-  use GenServer
-  use MossletWeb, :verified_routes
   require Logger
 
   alias Mosslet.Accounts
+  alias Mosslet.Encrypted.Users.Utils, as: EncryptedUtils
   alias Mosslet.Notifications.EmailNotificationsGenServer
-
-  ## Client API
-
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-  end
 
   @doc """
   Process email notifications for a new post.
 
-  This handles all filtering logic including visibility, offline checking,
-  and user preferences before delegating to the Broadway pipeline.
+  Decrypts recipient emails immediately (while the session key is available),
+  then queues only metadata + pre-decrypted emails to the GenServer.
+  The session key never enters the GenServer queue.
+
+  This runs synchronously in the caller's process — the session key stays
+  in the LiveView process and is discarded after this function returns.
   """
   def process_post_notifications(post, current_user, session_key) do
-    GenServer.cast(__MODULE__, {:process_post_notifications, post, current_user, session_key})
+    target_user_ids = get_target_user_ids_for_post(post, current_user)
+
+    if target_user_ids != [] do
+      eligible_users = filter_eligible_users(target_user_ids, current_user)
+
+      if eligible_users != [] do
+        # Decrypt recipient emails NOW while session key is available.
+        # Only users whose email we can successfully decrypt get queued.
+        notifications_with_emails =
+          eligible_users
+          |> Enum.map(fn target_user_id ->
+            case decrypt_recipient_email(target_user_id, current_user, session_key) do
+              {:ok, email} ->
+                {target_user_id, email}
+
+              {:error, reason} ->
+                Logger.warning(
+                  "Skipping email notification for user #{target_user_id}: #{inspect(reason)}"
+                )
+
+                nil
+            end
+          end)
+          |> Enum.reject(&is_nil/1)
+
+        if notifications_with_emails != [] do
+          EmailNotificationsGenServer.queue_post_notifications(
+            post,
+            notifications_with_emails,
+            current_user
+          )
+        end
+      end
+    end
   end
 
   @doc """
-  Process email notification for a specific user (legacy method - kept for compatibility).
+  Decrypt a recipient's email using the sender's session key and their connection.
+
+  Returns `{:ok, email}` or `{:error, reason}`.
+  Used by both post and reply notification flows.
   """
-  def process_email_notification(user_id, post_id, current_user, session_key) do
-    GenServer.cast(__MODULE__, {:process_email, user_id, post_id, current_user, session_key})
-  end
+  def decrypt_recipient_email(target_user_id, sender_user, session_key) do
+    case Accounts.get_user_connection_between_users(target_user_id, sender_user.id) do
+      nil ->
+        {:error, :no_connection}
 
-  ## Server Callbacks
-
-  @impl true
-  def init(_opts) do
-    Logger.info("EmailNotificationsProcessor GenServer started")
-    {:ok, %{}}
-  end
-
-  @impl true
-  def handle_cast({:process_post_notifications, post, current_user, session_key}, state) do
-    process_post_notifications_with_broadway(post, current_user, session_key)
-
-    {:noreply, state}
-  end
-
-  @impl true
-  def handle_cast({:process_email, user_id, post_id, current_user, session_key}, state) do
-    # For individual emails, we'll push directly to Broadway
-    push_single_email_to_broadway(user_id, post_id, current_user, session_key)
-
-    {:noreply, state}
-  end
-
-  ## Private Functions
-
-  defp push_single_email_to_broadway(user_id, post_id, current_user, session_key) do
-    EmailNotificationsGenServer.queue_email_notification(
-      user_id,
-      post_id,
-      current_user.id,
-      session_key
-    )
-  end
-
-  defp process_post_notifications_with_broadway(post, current_user, session_key) do
-    # Get target user IDs based on post visibility
-    target_user_ids = get_target_user_ids_for_post(post, current_user)
-
-    if target_user_ids == [] do
-      # No users to notify
-      :ok
-    else
-      # Filter and process each user
-      eligible_users = filter_eligible_users(target_user_ids, current_user)
-
-      # 🔄 NEW: Push all eligible users to GenServer for rate-limited processing
-      if eligible_users != [] do
-        EmailNotificationsGenServer.queue_post_notifications(
-          post,
-          eligible_users,
-          current_user,
-          session_key
-        )
-      end
+      user_connection ->
+        case EncryptedUtils.decrypt_user_item(
+               user_connection.connection.email,
+               sender_user,
+               user_connection.key,
+               session_key
+             ) do
+          :failed_verification -> {:error, :decrypt_failed}
+          email when is_binary(email) -> {:ok, email}
+          _ -> {:error, :decrypt_failed}
+        end
     end
   end
 
@@ -107,36 +100,16 @@ defmodule Mosslet.Notifications.EmailNotificationsProcessor do
         |> Enum.map(& &1.reverse_user_id)
 
       :specific_groups ->
-        # For group posts, get users from the shared_users list
         Enum.map(post.shared_users, & &1.user_id)
 
       _ ->
-        # No email notifications for public or private posts
         []
     end
   end
 
   defp filter_eligible_users(user_ids, current_user) do
-    user_ids
-    |> Enum.reject(fn user_id ->
-      is_online = MossletWeb.Presence.user_active_in_app?(user_id)
-      is_creator = user_id == current_user.id
-
-      is_creator || is_online
+    Enum.reject(user_ids, fn user_id ->
+      MossletWeb.Presence.user_active_in_app?(user_id) || user_id == current_user.id
     end)
   end
-
-  # 🔄 NOTE: The following functions have been moved to EmailNotificationsGenServer
-  # for better rate limiting and backpressure control:
-  # - process_email_safely/4
-  # - get_user_connection/2
-  # - get_post/1
-  # - should_process_email?/3
-  # - already_sent_email_today?/1
-  # - get_unread_count_for_connection/1
-  # - decrypt_user_email/3
-  # - send_email_notification/3
-  #
-  # These functions are now handled by the GenServer with proper
-  # backpressure and rate limiting (30 emails per minute).
 end

@@ -2711,12 +2711,24 @@ defmodule Mosslet.Timeline do
     if post_owner_id != replier.id && session_key do
       case GenServer.whereis(Mosslet.Notifications.ReplyNotificationsGenServer) do
         pid when is_pid(pid) ->
-          Mosslet.Notifications.ReplyNotificationsGenServer.queue_reply_notification(
-            post_owner_id,
-            reply.id,
-            replier.id,
-            session_key
-          )
+          # Decrypt the post owner's email NOW while the session key is available.
+          # The session key never enters the GenServer queue.
+          case Mosslet.Notifications.EmailNotificationsProcessor.decrypt_recipient_email(
+                 post_owner_id,
+                 replier,
+                 session_key
+               ) do
+            {:ok, recipient_email} ->
+              Mosslet.Notifications.ReplyNotificationsGenServer.queue_reply_notification(
+                post_owner_id,
+                reply.id,
+                replier.id,
+                recipient_email
+              )
+
+            {:error, _reason} ->
+              :ok
+          end
 
         nil ->
           :ok

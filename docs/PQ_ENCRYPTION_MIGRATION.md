@@ -593,6 +593,14 @@ Note: `@noble/post-quantum` was the original browser-side PQ library (pure JS). 
 
     **Bug fix:** Group name search (`list_public_groups`, `public_group_count` in `groups/adapters/web.ex`) was using `==` with `"%search_term%"` LIKE-style pattern, but HMAC equality check hashes the `%` characters into the digest — effectively breaking all partial-match group searches. Fixed to exact-match on the normalized term (HMAC blind indexes inherently only support exact match).
 
+11. **SECURITY: Session key removed from email notification GenServer queues** — `EmailNotificationsGenServer` and `ReplyNotificationsGenServer` stored the sender's raw session key as `session_key_ref` in their in-memory queue. The key persisted in process memory for the batch window (5+ seconds) and was used to decrypt the recipient's email from `user_connection.connection.email`. Refactored: recipient emails are now decrypted at queue time (in the calling process while the session key is still available), and only the pre-decrypted email enters the GenServer queue. The session key never touches the GenServer process.
+    - `EmailNotificationsProcessor` converted from GenServer to plain module — no longer supervised, no persistent state, decryption runs synchronously in caller's process via `Task.start/1`
+    - `EmailNotificationsGenServer.queue_post_notifications/3` now accepts `{target_user_id, decrypted_email}` tuples instead of raw user IDs + session key
+    - `ReplyNotificationsGenServer.queue_reply_notification/4` now accepts pre-decrypted email instead of session key
+    - `timeline.ex` `maybe_queue_reply_notification/3` decrypts post owner's email before queueing
+    - Dead `EmailNotificationsBroadway` module removed (not supervised, never called — replaced by GenServer)
+    - Files: `email_notifications_processor.ex`, `email_notifications_genserver.ex`, `reply_notifications_genserver.ex`, `timeline.ex`, `timeline_live/index.ex`, `application.ex`, `platform/config.ex`
+
 ### Remaining ZK Gaps (Known, Not Yet Addressed)
 
 **Read path (server decrypts for template rendering):**
