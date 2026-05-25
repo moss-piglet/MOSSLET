@@ -66,13 +66,26 @@ defmodule MossletWeb.PublicLive.Blog.Blog17 do
         </p>
 
         <div class="my-8">
-          <div class="relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
+          <div class="relative overflow-hidden rounded-xl">
             <div class="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-slate-950/10 ring-inset dark:ring-white/10">
             </div>
-            <div class="flex items-center justify-center p-12 text-slate-400 dark:text-slate-500">
-              <span class="text-sm italic">image placeholder</span>
-            </div>
+            <img
+              src={~p"/images/blog/may_25_2026_zkpq.jpg"}
+              class="w-full"
+              alt="Person falling through the floor with social icons around them."
+            />
           </div>
+          <figcaption class="flex justify-end text-sm text-slate-500 dark:text-slate-400 mt-2">
+            artwork by
+            <.link
+              target="_blank"
+              rel="noopener noreferrer"
+              href="https://unsplash.com/@triwiranto/illustrations"
+              class="ml-1"
+            >
+              Tri wiranto
+            </.link>
+          </figcaption>
         </div>
 
         <hr />
