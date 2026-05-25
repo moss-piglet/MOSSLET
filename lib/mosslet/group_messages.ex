@@ -64,8 +64,8 @@ defmodule Mosslet.GroupMessages do
     adapter().create_message(attrs, opts)
   end
 
-  def update_message(%GroupMessage{} = message, attrs) do
-    adapter().update_message(message, attrs)
+  def update_message(%GroupMessage{} = message, attrs, opts \\ []) do
+    adapter().update_message(message, attrs, opts)
     |> publish_message_updated()
   end
 

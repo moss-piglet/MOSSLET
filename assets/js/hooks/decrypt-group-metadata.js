@@ -2,14 +2,24 @@ import { unsealContextKey, decryptWithKey, getPublicKey, unwrapKey } from "../cr
 
 const DecryptGroupMetadata = {
   async mounted() {
+    this._decrypted = false;
+
     if (!getPublicKey()) {
-      window.addEventListener("mosslet:keys-ready", () => this.decrypt(), { once: true });
+      window.addEventListener("mosslet:keys-ready", () => this._decrypt(), { once: true });
       return;
     }
-    await this.decrypt();
+
+    await this._decrypt();
   },
 
-  async decrypt() {
+  async updated() {
+    this._decrypted = false;
+    await this._decrypt();
+  },
+
+  async _decrypt() {
+    if (this._decrypted) return;
+
     const sealedKey = this.el.dataset.sealedGroupKey;
     if (!sealedKey) return;
 
@@ -25,20 +35,19 @@ const DecryptGroupMetadata = {
       if (encryptedName) {
         const name = await decryptWithKey(encryptedName, groupKey);
         if (name) {
-          const targets = document.querySelectorAll("[data-decrypt-group-name]");
-          for (const el of targets) {
+          document.querySelectorAll("[data-decrypt-group-name]").forEach(el => {
             el.textContent = name;
-          }
+          });
+          this._decrypted = true;
         }
       }
 
       if (encryptedMoniker) {
         const moniker = await decryptWithKey(encryptedMoniker, groupKey);
         if (moniker) {
-          const targets = document.querySelectorAll("[data-decrypt-group-moniker]");
-          for (const el of targets) {
+          document.querySelectorAll("[data-decrypt-group-moniker]").forEach(el => {
             el.textContent = moniker;
-          }
+          });
         }
       }
     } catch (e) {

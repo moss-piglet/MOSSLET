@@ -680,9 +680,7 @@ defmodule MossletWeb.UserAuth do
 
       socket
       |> Phoenix.Component.assign(:current_user, pre_decrypted_user)
-      |> Phoenix.Component.assign_new(:current_scope, fn ->
-        Scope.for_user(pre_decrypted_user, key: key)
-      end)
+      |> Phoenix.Component.assign(:current_scope, Scope.for_user(pre_decrypted_user, key: key))
     end)
   end
 

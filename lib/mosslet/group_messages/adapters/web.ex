@@ -51,11 +51,11 @@ defmodule Mosslet.GroupMessages.Adapters.Web do
   end
 
   @impl true
-  def update_message(message, attrs) do
+  def update_message(message, attrs, opts \\ []) do
     {:ok, return} =
       Repo.transaction_on_primary(fn ->
         message
-        |> GroupMessage.changeset(attrs)
+        |> GroupMessage.changeset(attrs, opts)
         |> Repo.update()
       end)
 

@@ -38,7 +38,7 @@ defmodule Mosslet.GroupMessages.Adapter do
   @callback create_message(attrs :: map(), options :: keyword()) ::
               {:ok, GroupMessage.t()} | {:error, Ecto.Changeset.t()}
 
-  @callback update_message(message :: GroupMessage.t(), attrs :: map()) ::
+  @callback update_message(message :: GroupMessage.t(), attrs :: map(), opts :: keyword()) ::
               {:ok, GroupMessage.t()} | {:error, Ecto.Changeset.t()}
 
   @callback delete_message(message :: GroupMessage.t()) ::

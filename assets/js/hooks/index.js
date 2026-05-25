@@ -26,6 +26,7 @@ import CSSBookBackCoverClick from "./css-book-back-cover-click";
 import CSSBookCoverClick from "./css-book-cover-click";
 import EntryColumnFlow from "./entry-column-flow";
 import GroupMessageEmojiPicker from "./group-message-emoji-picker";
+import GroupMessageEditFormHook from "./group-message-edit-form-hook";
 import GroupMessageFormHook from "./group-message-form-hook";
 import GroupMetadataFormHook from "./group-metadata-form-hook";
 import ClearFlashHook from "./clear-flash-hook";
@@ -109,6 +110,7 @@ export default {
   EncryptUpload,
   EntryColumnFlow,
   GroupMessageEmojiPicker,
+  GroupMessageEditFormHook,
   GroupMessageFormHook,
   GroupMetadataFormHook,
   ClearFlashHook,

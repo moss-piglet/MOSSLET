@@ -258,7 +258,14 @@
     </div>
   </div>
 
-  <.live_component module={EditForm} message={@message} id="message-edit-form" />
+  <.live_component
+    module={EditForm}
+    message={@message}
+    id="message-edit-form"
+    current_scope={@current_scope}
+    user_group_key={if(@current_user_group, do: @current_user_group.key)}
+    public?={@group.public?}
+  />
 
   <MossletWeb.DesignSystem.liquid_modal
     :if={@live_action in [:edit]}

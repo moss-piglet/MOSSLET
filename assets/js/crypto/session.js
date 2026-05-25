@@ -177,7 +177,17 @@ export async function unsealContextKey(sealedKey) {
       }
     }
 
-    return await unsealFromUser(sealedKey, userPublicKey, privateKey, pqPrivateKey);
+    try {
+      return await unsealFromUser(sealedKey, userPublicKey, privateKey, pqPrivateKey);
+    } catch {
+      // If the PQ key is corrupt/wrong size, retry without it — the WASM
+      // unseal auto-detects v1 (legacy) ciphertext and can succeed without PQ.
+      // This handles users whose PQ key migration was incomplete.
+      if (pqPrivateKey) {
+        return await unsealFromUser(sealedKey, userPublicKey, privateKey, null);
+      }
+      throw new Error("unseal failed");
+    }
   } catch (e) {
     console.error("Failed to unseal context key:", e);
     return null;

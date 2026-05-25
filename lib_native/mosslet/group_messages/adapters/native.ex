@@ -121,7 +121,7 @@ defmodule Mosslet.GroupMessages.Adapters.Native do
   end
 
   @impl true
-  def update_message(message, attrs) do
+  def update_message(message, attrs, _opts \\ []) do
     if Sync.online?() do
       with {:ok, token} <- NativeSession.get_token(),
            {:ok, %{"message" => message_data}} <-
