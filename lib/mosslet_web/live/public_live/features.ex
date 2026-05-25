@@ -43,7 +43,7 @@ defmodule MossletWeb.PublicLive.Features do
 
                   <%!-- Enhanced subtitle focused on connection --%>
                   <p class="mt-8 text-pretty text-lg font-medium sm:text-xl/8 text-slate-600 dark:text-slate-400 transition-colors duration-300 ease-out">
-                    Share moments with the people who matter most. MOSSLET keeps your connections private, your experience calm, and puts you in control.
+                    Share moments with the people who matter most. MOSSLET encrypts your data in your browser with post-quantum protection — even we can't read it.
                   </p>
 
                   <%!-- Decorative accent line matching other pages --%>
@@ -132,13 +132,13 @@ defmodule MossletWeb.PublicLive.Features do
                         <.phx_icon name="hero-shield-check" class="h-5 w-5 text-white" />
                       </div>
                       <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        Your Privacy Protected
+                        Zero-Knowledge Privacy
                       </span>
                     </div>
                   </:title>
 
                   <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Control who sees what with simple privacy settings. Your moments stay between you and the people you choose.
+                    Your data is encrypted and decrypted entirely in your browser. Our servers only ever see encrypted blobs — we genuinely cannot read your content.
                   </p>
                 </.liquid_card>
 
@@ -178,7 +178,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </:title>
 
                   <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Privacy-first moderation keeps our community healthy. Public posts are checked for content and images, while non-public posts have image-only checks. AI-generated images are clearly labeled.
+                    Public posts are moderated server-side for content and images. Private content runs image safety checks entirely in your browser — your encrypted data is never decrypted for moderation. AI-generated images are clearly labeled.
                   </p>
                 </.liquid_card>
 
@@ -218,7 +218,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </:title>
 
                   <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    AI requests route through OpenRouter with data collection disabled — your content is never stored or used for training. After processing, everything is asymmetrically encrypted. Safety without surveillance.
+                    Public content uses server-side AI via OpenRouter with data collection disabled. Private content safety checks run entirely in your browser — your encrypted data never leaves your device for AI processing.
                   </p>
                 </.liquid_card>
 
@@ -514,7 +514,8 @@ defmodule MossletWeb.PublicLive.Features do
                         </div>
                       </div>
                       <div class="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400 font-medium">
-                        <.phx_icon name="hero-shield-check" class="h-3 w-3" /> End-to-end encrypted
+                        <.phx_icon name="hero-shield-check" class="h-3 w-3" />
+                        Zero-knowledge encrypted
                       </div>
                     </div>
                   </div>
@@ -1276,7 +1277,7 @@ defmodule MossletWeb.PublicLive.Features do
                             Encrypted After
                           </p>
                           <p class="text-xs text-slate-600 dark:text-slate-400">
-                            All content is asymmetrically encrypted after passing safety checks
+                            All content is zero-knowledge encrypted — your browser encrypts before our servers ever see it
                           </p>
                         </div>
                       </div>
@@ -1307,7 +1308,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </:title>
                   <div class="space-y-4">
                     <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Every image uploaded to MOSSLET — whether for posts, memories, or profile photos — passes through our safety check to protect our community from harmful content.
+                      Public images are checked server-side via AI. Private image safety checks run entirely in your browser using an on-device model — your encrypted content is never decrypted for moderation.
                     </p>
                     <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
                       <p class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
@@ -1321,7 +1322,7 @@ defmodule MossletWeb.PublicLive.Features do
                             class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
                           />
                           <span>
-                            Images are analyzed via OpenRouter with data collection disabled — with a local Bumblebee model as fallback
+                            Public images: server-side AI via OpenRouter (data collection disabled) with local Bumblebee fallback
                           </span>
                         </li>
                         <li class="flex items-start gap-2">
@@ -1330,7 +1331,7 @@ defmodule MossletWeb.PublicLive.Features do
                             class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
                           />
                           <span>
-                            Public posts get full moderation; private posts only check for illegal content
+                            Private images: client-side NSFWJS model runs in your browser — the server never sees the unencrypted image
                           </span>
                         </li>
                         <li class="flex items-start gap-2">
@@ -1348,7 +1349,7 @@ defmodule MossletWeb.PublicLive.Features do
                             class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
                           />
                           <span>
-                            Once approved, images are asymmetrically encrypted and stored securely
+                            Images are encrypted in your browser with your post key before upload — our servers store only ciphertext
                           </span>
                         </li>
                       </ul>
@@ -1650,13 +1651,15 @@ defmodule MossletWeb.PublicLive.Features do
                         <code class="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 rounded text-xs text-slate-800 dark:text-slate-200">
                           data_collection: "deny"
                         </code>
-                        in provider preferences — meaning your content is never logged, stored, or used for training. Your data is then encrypted using
+                        in provider preferences — meaning your content is never logged, stored, or used for training.                         Your data is then encrypted using
                         <strong class="text-slate-900 dark:text-slate-100">
-                          asymmetric encryption
+                          zero-knowledge encryption
                         </strong>
-                        via libsodium (enacl) with your password-derived key, then wrapped in an additional layer of
+                        — an open-source Rust cryptography library (metamorphic-crypto) compiled to WebAssembly encrypts your data directly in your browser, with post-quantum protection via
+                        <strong class="text-slate-900 dark:text-slate-100">ML-KEM-1024</strong>
+                        (NIST FIPS 203, Cat-5). Data is then wrapped in an additional layer of
                         <strong class="text-slate-900 dark:text-slate-100">AES-256-GCM</strong>
-                        symmetric encryption at rest. Even our team cannot access your encrypted data — and we can't see your data as it flows through our automated, privacy-first AI safety checks.
+                        symmetric encryption at rest. Even our team cannot access your encrypted data.
                       </p>
                     </div>
                   </div>
@@ -1693,7 +1696,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  Your posts and messages are asymmetrically encrypted using libsodium with your password-derived key. SHA-512 HMAC for searchable data, plus AES-256-GCM encryption at rest provides double-layer protection.
+                  Your data is encrypted in your browser using an open-source Rust cryptography library compiled to WebAssembly. Post-quantum key wrapping (ML-KEM-1024, NIST Cat-5) protects against future quantum attacks, plus AES-256-GCM at rest provides double-layer protection.
                 </p>
               </.liquid_card>
 
@@ -1862,7 +1865,7 @@ defmodule MossletWeb.PublicLive.Features do
                   Zero-knowledge direct messages
                 </h2>
                 <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-                  Private conversations that are truly private. Every message is end-to-end encrypted before it leaves your device — we store only encrypted blobs and never have access to your plaintext.
+                  Private conversations that are truly private. Every message is encrypted in your browser with post-quantum protection before it reaches our servers — we store only encrypted blobs and never have access to your plaintext.
                 </p>
               </div>
 
@@ -2025,7 +2028,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </:title>
 
                   <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Share photos in your conversations with the same end-to-end encryption protecting every pixel. Images are privately checked for safety before being encrypted with the conversation key and uploaded — we never store or view unencrypted content.
+                    Share photos in your conversations with the same zero-knowledge encryption protecting every pixel. Images are encrypted in your browser with the conversation key and uploaded — our servers never see unencrypted content.
                   </p>
                 </.liquid_card>
 
@@ -2296,7 +2299,7 @@ defmodule MossletWeb.PublicLive.Features do
                   Bluesky Interoperability
                 </h2>
                 <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
-                  Mosslet becomes your private "source of truth" for social posts. Import from Bluesky, export to Bluesky, and maintain true data ownership with asymmetric encryption that means we can't read your private content.
+                  Mosslet becomes your private "source of truth" for social posts. Import from Bluesky, export to Bluesky, and maintain true data ownership with zero-knowledge encryption that means we can't read your private content.
                 </p>
               </div>
 

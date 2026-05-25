@@ -43,7 +43,7 @@ defmodule MossletWeb.PublicLive.Privacy do
 
                   <%!-- Enhanced subtitle --%>
                   <p class="mt-8 text-pretty text-lg font-medium sm:text-xl/8 text-slate-600 dark:text-slate-400 transition-colors duration-300 ease-out">
-                    We do not log or share personal information. Your privacy isn't a feature to us — it's a fundamental right that guides everything we do.
+                    Your data is encrypted in your browser — even we can't read it. Zero-knowledge architecture means your privacy isn't a feature, it's a mathematical guarantee.
                   </p>
 
                   <%!-- Decorative accent line matching other pages --%>
@@ -70,12 +70,12 @@ defmodule MossletWeb.PublicLive.Privacy do
                         <.phx_icon name="hero-lock-closed" class="size-6 text-white" />
                       </div>
                       <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent font-semibold">
-                        Asymmetric
+                        Zero-Knowledge
                       </span>
                     </div>
                   </:title>
                   <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Your data is encrypted to your account password so that only you can access it.
+                    Your data is encrypted and decrypted entirely in your browser. Our servers only ever store encrypted blobs — we genuinely cannot read your content.
                   </p>
                 </.liquid_card>
 
@@ -150,10 +150,10 @@ defmodule MossletWeb.PublicLive.Privacy do
                   Originally published November 9, 2021
                 </p>
                 <p class="text-sm text-rose-600 dark:text-rose-400">
-                  (updated September 17, 2025)
+                  (updated May 2026)
                 </p>
                 <p class="mt-8 text-xl text-gray-600 dark:text-gray-400 leading-8">
-                  We do not log or share personal information. That is our privacy policy in a nutshell. The rest of this policy tries to explain what information we may have, why we have it, how we protect it, and why you should care.
+                  We cannot read your data — that is our privacy policy in a nutshell. Your content is encrypted in your browser before it ever reaches our servers. The rest of this policy explains our zero-knowledge architecture, what minimal information we do have, and why you should care.
                 </p>
               </div>
 
@@ -185,7 +185,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                           name="hero-check-badge"
                           class="text-emerald-600 dark:text-emerald-400 mr-2 lg:mr-0 lg:mb-2 h-6 w-6 flex-shrink-0"
                         />
-                        <span class="text-sm lg:text-xs">Your data is encrypted</span>
+                        <span class="text-sm lg:text-xs">Your data is zero-knowledge encrypted</span>
                       </div>
                       <div class="flex items-center lg:flex-col lg:text-center lg:items-center">
                         <.icon
@@ -330,16 +330,16 @@ defmodule MossletWeb.PublicLive.Privacy do
                   >
                     <div class="pt-4">
                       <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                        Object Data (avatars, files)
+                        Object Data (avatars, images)
                       </h4>
                       <p>
                         Your <em>object data</em>
-                        (think avatars) is stored on a decentralized cloud network by <.link
+                        (avatars, photos, images) is encrypted in your browser before upload using our open-source Rust cryptography library (compiled to WebAssembly). The encrypted blob is then stored on a decentralized cloud network by <.link
                           navigate="https://tigrisdata.com"
                           target="_blank"
                           rel="_noopener"
                           class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
-                        >Tigris</.link>. It is asymmetrically encrypted to your password-derived key and then encrypted again at rest with Tigris' AES 256-bit symmetric encryption. Each file is then split into 80 pieces and stored on different nodes — all with different operators, power supplies, networks, and geographies.
+                        >Tigris</.link>. Our servers never see the unencrypted content. Each file is then split into 80 pieces and stored on different nodes — all with different operators, power supplies, networks, and geographies.
                       </p>
                     </div>
                     <div>
@@ -348,16 +348,16 @@ defmodule MossletWeb.PublicLive.Privacy do
                       </h4>
                       <p>
                         Your <em>non-object data</em>
-                        (think text, messages, email, name, etc.) is currently stored on databases managed by our hosting provider on an internal and private network encrypted with <.link
+                        (text, messages, email, name, etc.) is encrypted in your browser using our open-source Rust WASM cryptography module before being sent to our servers. The encrypted data is stored on databases managed by our hosting provider on an internal and private network encrypted with <.link
                           navigate="https://en.wikipedia.org/wiki/WireGuard"
                           target="_blank"
                           rel="_noopener"
                           class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
-                        >WireGuard</.link>. This data is first asymmetrically encrypted (your email is also hashed as well for look-up functionality), then wrapped in another layer of symmetric encryption by our server, before being stored in the database.
+                        >WireGuard</.link>. The data arrives already encrypted (zero-knowledge), is then wrapped in another layer of symmetric encryption by our server, and stored in the database. Your email is also hashed for look-up functionality.
                       </p>
                     </div>
                     <p>
-                      By asymmetrically encrypting your data, we ensure that your data remains private and protected — only you can unlock your data with your password.
+                      With our zero-knowledge architecture, your data is encrypted in your browser before it ever reaches our servers. Only you can unlock your data — we never have access to the plaintext.
                     </p>
                     <p>
                       Your
@@ -371,7 +371,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                     </p>
                     <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-l-4 border-blue-500">
                       <p class="font-semibold text-blue-800 dark:text-blue-200">
-                        It is important to know that your data is asymmetrically encrypted before it is uploaded to any cloud storage locations, is only decryptable by you (the person who knows your password), and is deleted from the cloud location when you delete the file on your end. Data that is not asymmetrically encrypted nor simple boolean data (true/false), is still encrypted with strong symmetric encryption and would be protected against data breaches.
+                        It is important to know that your data is encrypted in your browser (zero-knowledge) before it is uploaded to any cloud storage locations, is only decryptable by you (the person who knows your password), and is deleted from the cloud location when you delete the file on your end. The encryption keys are further protected with post-quantum key wrapping (ML-KEM-1024, NIST Cat-5 standard), which guards against future quantum computer attacks. Data that is not zero-knowledge encrypted nor simple boolean data (true/false), is still encrypted with strong symmetric encryption and would be protected against data breaches.
                       </p>
                     </div>
                   </div>
@@ -455,7 +455,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                   >
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
-                        Your data is encrypted
+                        Your data is zero-knowledge encrypted
                         <span class="text-sm opacity-70 line-through ml-2">backdoors</span>
                       </h3>
                       <.icon
@@ -471,15 +471,20 @@ defmodule MossletWeb.PublicLive.Privacy do
                     class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
                   >
                     <p class="pt-4">
-                      We use encryption algorithms that are recommended by leading security and cryptography experts like Matthew Green, Niels Ferguson, and Bruce Schneier.
+                      We use encryption algorithms that are recommended by leading security and cryptography experts, implemented in our open-source Rust cryptography library (<.link
+                        navigate="https://github.com/moss-piglet/metamorphic-crypto"
+                        class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
+                        target="_blank"
+                        rel="_noopener"
+                      >metamorphic-crypto</.link>), which compiles to both WebAssembly (for your browser) and native code (for our server) — the same auditable code everywhere.
                     </p>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                         <h4 class="font-semibold text-blue-800 dark:text-blue-200 mb-2">
-                          Data Encryption
+                          Zero-Knowledge Encryption
                         </h4>
                         <p class="text-sm">
-                          Your data is asymmetrically encrypted in-app by your password-derived key. This means that only you can ever decrypt your data (for sharing or for yourself). We then wrap that encryption in a second layer of symmetric encryption before sending it to the database for storage, and those encryption keys are stored separately and rotated periodically.
+                          Your data is encrypted in your browser before it ever reaches our servers. Encryption keys are derived from your password using Argon2id and protected with hybrid post-quantum key wrapping (ML-KEM-1024 + X25519, NIST FIPS 203 Cat-5 standard). A second layer of AES-256-GCM encryption is added at rest. Our servers genuinely cannot decrypt your content.
                         </p>
                       </div>
                       <div class="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
@@ -487,7 +492,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                           Password Security
                         </h4>
                         <p class="text-sm">
-                          Your account password, and any password used for securing your content, is protected with an industry leading hashing algorithm that makes it virtually impossible to ever know your password. You may see this concept being referred to as an "irreversible password hash".
+                          Your account password is protected with Argon2id, an industry-leading hashing algorithm that makes it virtually impossible to recover your password. Your password is used to derive encryption keys in your browser — the raw password never touches persistent storage.
                         </p>
                       </div>
                     </div>
@@ -627,11 +632,11 @@ defmodule MossletWeb.PublicLive.Privacy do
                       <ul class="space-y-1 text-sm">
                         <li>
                           • <strong>Your personal content:</strong>
-                          Profile, posts, messages, and connections (asymmetrically encrypted - only you can decrypt)
+                          Profile, posts, messages, and connections (zero-knowledge encrypted in your browser - our servers cannot decrypt)
                         </li>
                         <li>
                           • <strong>Payment information:</strong>
-                          Processed and stored by Stripe, not by us (we only store your asymmetrically encrypted Stripe customer ID so you can view your billing page - we can't decrypt it ourselves)
+                          Processed and stored by Stripe, not by us (we only store your encrypted Stripe customer ID — we can't decrypt it ourselves)
                         </li>
                         <li>
                           • <strong>Security logs:</strong>
@@ -643,7 +648,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                         </li>
                       </ul>
                       <p class="text-sm mt-2">
-                        All asymmetrically encrypted data (your personal content) is wrapped in a second layer of symmetric encryption when stored in our database. Service operation data consists of non-sensitive boolean flags and UI preferences needed for the app to function - things like your preferred number of posts per page or whether your account is confirmed.
+                        All zero-knowledge encrypted data (your personal content) is encrypted in your browser and wrapped in a second layer of symmetric encryption when stored in our database. Service operation data consists of non-sensitive boolean flags and UI preferences needed for the app to function - things like your preferred number of posts per page or whether your account is confirmed.
                       </p>
                     </div>
                   </div>
@@ -685,7 +690,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                         <span class="px-2 py-1 bg-rose-200 dark:bg-rose-300 text-rose-900 rounded text-sm">
                           subscription or payment
                         </span>
-                        to synchronize with Stripe (<span class="px-2 py-1 bg-rose-200 dark:bg-rose-300 text-rose-900 rounded text-sm">asymmetrically encrypted - only you can decrypt them, not us</span> and deterministically hashed for lookups on our end), and subscription information (like dates and status).
+                        to synchronize with Stripe (<span class="px-2 py-1 bg-rose-200 dark:bg-rose-300 text-rose-900 rounded text-sm">zero-knowledge encrypted - our servers cannot decrypt them</span> and deterministically hashed for lookups on our end), and subscription information (like dates and status).
                       </p>
                       <div class="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border-l-4 border-orange-500 mt-4">
                         <p class="font-semibold text-orange-800 dark:text-orange-200">
@@ -738,7 +743,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                           <p class="text-sm mb-3">
                             It may be possible, with legal court orders, to sift through our database records, in conjunction with Stripe's, and determine if you are using MOSSLET.
                             <span class="px-2 py-1 bg-rose-200 dark:bg-rose-300 text-rose-900 rounded text-xs">
-                              However, we have made this even more difficult by asymmetrically encrypting any Stripe IDs in our database, meaning that even we cannot see what your Stripe ID is in our MOSSLET database.
+                              However, we have made this even more difficult with our zero-knowledge architecture — any Stripe IDs in our database are encrypted, meaning that even we cannot see what your Stripe ID is in our MOSSLET database.
                             </span>
                           </p>
                           <div class="pl-4 border-l-2 border-blue-300">
@@ -937,7 +942,7 @@ defmodule MossletWeb.PublicLive.Privacy do
      |> assign_new(:max_width, fn -> "full" end)
      |> assign(:page_title, "Privacy")
      |> assign_new(:meta_description, fn ->
-       "Privacy is the standard on MOSSLET. We do not log or share personal information. That is our privacy policy in a nutshell. The rest of this policy tries to explain what information we may have, why we have it, how we protect it, and why you should care."
+       "Privacy is the standard on MOSSLET. Your data is encrypted in your browser — even we can't read it. Zero-knowledge architecture with post-quantum protection means your privacy is a mathematical guarantee, not just a promise."
      end)
      |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/privacy/privacy_og.png")
      |> assign(:og_image_type, "image/png")

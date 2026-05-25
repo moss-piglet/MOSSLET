@@ -20,7 +20,7 @@ config :mosslet,
   logo_url_for_emails:
     "https://res.cloudinary.com/metamorphic/image/upload/v1717007234/Mosslet_Stacked_OnLight_pjn9w8.png",
   seo_description:
-    "A social alternative that's simple and privacy-first. Connect with friends and family, or simply yourself through our encrypted journal. Bluesky interop, no ads, no algorithms — just your people and your thoughts.",
+    "A zero-knowledge, post-quantum encrypted social network. Your data is encrypted in your browser — even we can't read it. Connect with friends and family, no ads, no algorithms — just your people and your thoughts.",
   github_url: "https://github.com/moss-piglet/mosslet",
   discord_url: "https://discord.gg/hjeUW39ytd",
   env: :dev

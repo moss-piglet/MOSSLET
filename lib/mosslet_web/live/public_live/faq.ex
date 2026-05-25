@@ -17,7 +17,7 @@ defmodule MossletWeb.PublicLive.Faq do
       <.liquid_faq_simple
         title="Frequently Asked Questions"
         subtitle="Everything you need to know about MOSSLET"
-        description="Our privacy-first social network prioritizes your data security and human dignity. Find answers to common questions below."
+        description="A zero-knowledge, post-quantum encrypted social network that prioritizes your data security and human dignity. Find answers to common questions below."
         sections={@faq_sections}
       />
     </.layout>

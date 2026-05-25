@@ -567,16 +567,18 @@ const MentionPicker = {
       if (!rawKey) return null;
 
       const connKey = unwrapConnKey(rawKey);
-      let imageBase64 = await decryptWithKey(encryptedData.encrypted_blob_b64, connKey);
 
-      if (!imageBase64) {
-        const rawBytes = await decryptSecretbox(encryptedData.encrypted_blob_b64, connKey);
-        if (!rawBytes) return null;
+      const rawBytes = await decryptSecretbox(encryptedData.encrypted_blob_b64, connKey);
+      let imageBase64;
+      if (rawBytes) {
         let binary = "";
         for (let i = 0; i < rawBytes.length; i++) {
           binary += String.fromCharCode(rawBytes[i]);
         }
         imageBase64 = btoa(binary);
+      } else {
+        imageBase64 = await decryptWithKey(encryptedData.encrypted_blob_b64, connKey);
+        if (!imageBase64) return null;
       }
 
       return `data:image/webp;base64,${imageBase64}`;

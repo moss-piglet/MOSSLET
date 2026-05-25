@@ -685,32 +685,95 @@ defmodule MossletWeb.PostLive.Show do
         else: post_id
 
     post = Timeline.get_post!(post_id)
-    post_key = get_post_key(post, current_user)
 
-    images =
-      Enum.map(sources, fn source ->
-        file_key = get_file_key_from_remove_event(source)
-        ext = ext(get_ext_from_file_key(source))
-        file_path = "#{@folder}/#{file_key}.#{ext}"
-
-        case get_s3_object(memories_bucket, file_path) do
-          {:ok, %{body: e_obj}} ->
-            decrypt_image_for_trix(e_obj, current_user, post_key, key, post, "body", ext)
-
-          {:error, error} ->
-            Logger.info("Error getting Post images from cloud in TimelineLive.Index")
-            Logger.debug(inspect(error))
-            Logger.error(error)
-            nil
-        end
-      end)
-      |> List.flatten()
-      |> Enum.filter(fn source -> !is_nil(source) end)
-
-    if decrypted_image_binaries_for_trix?(images) do
-      {:reply, %{response: "success", decrypted_binaries: images}, socket}
-    else
+    # Non-public posts use browser-side ZK decryption via TrixContentPostHook —
+    # the server cannot decrypt sealed post keys.
+    if post.visibility != :public do
       {:reply, %{response: "failed", decrypted_binaries: []}, socket}
+    else
+      post_key = get_post_key(post, current_user)
+
+      images =
+        Enum.map(sources, fn source ->
+          file_key = get_file_key_from_remove_event(source)
+          ext = ext(get_ext_from_file_key(source))
+          file_path = "#{@folder}/#{file_key}.#{ext}"
+
+          case get_s3_object(memories_bucket, file_path) do
+            {:ok, %{body: e_obj}} ->
+              decrypt_image_for_trix(e_obj, current_user, post_key, key, post, "body", ext)
+
+            {:error, error} ->
+              Logger.info("Error getting Post images from cloud in TimelineLive.Index")
+              Logger.debug(inspect(error))
+              Logger.error(error)
+              nil
+          end
+        end)
+        |> List.flatten()
+        |> Enum.filter(fn source -> !is_nil(source) end)
+
+      if decrypted_image_binaries_for_trix?(images) do
+        {:reply, %{response: "success", decrypted_binaries: images}, socket}
+      else
+        {:reply, %{response: "failed", decrypted_binaries: []}, socket}
+      end
+    end
+  end
+
+  # ZK image path: returns encrypted S3 blobs for browser-side decryption.
+  def handle_event(
+        "fetch_encrypted_post_images",
+        %{"post_id" => post_id},
+        socket
+      ) do
+    memories_bucket = Encrypted.Session.memories_bucket()
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+
+    case Timeline.get_post(post_id) do
+      %Timeline.Post{} = post ->
+        post_key = get_post_key(post, current_user)
+
+        decrypted_paths =
+          (post.image_urls || [])
+          |> Enum.map(fn encrypted_url ->
+            decr_item(encrypted_url, current_user, post_key, key, post, "body")
+          end)
+          |> Enum.filter(&is_binary/1)
+
+        decrypted_alt_texts =
+          (post.image_alt_texts || [])
+          |> Enum.map(fn alt_text ->
+            decr_item(alt_text, current_user, post_key, key, post, "body")
+          end)
+          |> Enum.filter(&is_binary/1)
+
+        encrypted_blobs =
+          Enum.map(decrypted_paths, fn file_path ->
+            webp_path = normalize_to_webp(file_path)
+
+            case get_s3_object(memories_bucket, webp_path) do
+              {:ok, %{body: blob}} ->
+                Base.encode64(blob)
+
+              {:error, _} ->
+                case get_s3_object(memories_bucket, file_path) do
+                  {:ok, %{body: blob}} -> Base.encode64(blob)
+                  {:error, _} -> nil
+                end
+            end
+          end)
+
+        {:reply,
+         %{
+           response: "success",
+           encrypted_blobs: encrypted_blobs,
+           image_alt_texts: decrypted_alt_texts
+         }, socket}
+
+      nil ->
+        {:reply, %{response: "error", message: "Post not found"}, socket}
     end
   end
 
@@ -1200,6 +1263,11 @@ defmodule MossletWeb.PostLive.Show do
 
   defp get_file_key(url) do
     url |> String.split("/") |> List.last()
+  end
+
+  defp normalize_to_webp(file_path) do
+    base = Path.rootname(file_path)
+    "#{base}.webp"
   end
 
   defp get_file_key_from_remove_event(url) do

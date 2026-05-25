@@ -2092,37 +2092,45 @@ defmodule MossletWeb.TimelineLive.Index do
         else: post_id
 
     post = Timeline.get_post!(post_id)
-    post_key = get_post_key(post, current_user)
 
-    images =
-      Enum.map(sources, fn file_path ->
-        webp_path = normalize_to_webp(file_path)
-
-        case get_s3_object(memories_bucket, webp_path) do
-          {:ok, %{body: e_obj}} ->
-            decrypt_image_for_trix(e_obj, current_user, post_key, key, post, "body", "webp")
-
-          {:error, _} ->
-            case get_s3_object(memories_bucket, file_path) do
-              {:ok, %{body: e_obj}} ->
-                ext = Path.extname(file_path) |> String.trim_leading(".")
-                ext = if ext == "", do: "webp", else: ext
-                decrypt_image_for_trix(e_obj, current_user, post_key, key, post, "body", ext)
-
-              {:error, error} ->
-                Logger.info("Error getting Post images from cloud in TimelineLive.Index")
-                Logger.debug(inspect(error))
-                nil
-            end
-        end
-      end)
-      |> List.flatten()
-      |> Enum.filter(fn source -> !is_nil(source) end)
-
-    if decrypted_image_binaries_for_trix?(images) do
-      {:reply, %{response: "success", decrypted_binaries: images}, socket}
-    else
+    # Non-public posts use browser-side ZK decryption via TrixContentPostHook —
+    # the server cannot decrypt sealed post keys. Return early so the browser
+    # falls back to the ZK image decryption path.
+    if post.visibility != :public do
       {:reply, %{response: "failed", decrypted_binaries: []}, socket}
+    else
+      post_key = get_post_key(post, current_user)
+
+      images =
+        Enum.map(sources, fn file_path ->
+          webp_path = normalize_to_webp(file_path)
+
+          case get_s3_object(memories_bucket, webp_path) do
+            {:ok, %{body: e_obj}} ->
+              decrypt_image_for_trix(e_obj, current_user, post_key, key, post, "body", "webp")
+
+            {:error, _} ->
+              case get_s3_object(memories_bucket, file_path) do
+                {:ok, %{body: e_obj}} ->
+                  ext = Path.extname(file_path) |> String.trim_leading(".")
+                  ext = if ext == "", do: "webp", else: ext
+                  decrypt_image_for_trix(e_obj, current_user, post_key, key, post, "body", ext)
+
+                {:error, error} ->
+                  Logger.info("Error getting Post images from cloud in TimelineLive.Index")
+                  Logger.debug(inspect(error))
+                  nil
+              end
+          end
+        end)
+        |> List.flatten()
+        |> Enum.filter(fn source -> !is_nil(source) end)
+
+      if decrypted_image_binaries_for_trix?(images) do
+        {:reply, %{response: "success", decrypted_binaries: images}, socket}
+      else
+        {:reply, %{response: "failed", decrypted_binaries: []}, socket}
+      end
     end
   end
 

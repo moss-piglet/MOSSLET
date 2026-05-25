@@ -195,8 +195,17 @@ defmodule MossletWeb.UserHomeLive do
         is_post_unread?(post, current_user)
       end)
 
-    unread_posts_with_dates = add_date_grouping_context(unread_posts)
-    read_posts_with_dates = add_date_grouping_context(read_posts)
+    session_key = socket.assigns.current_scope.key
+
+    unread_posts_with_dates =
+      unread_posts
+      |> add_date_grouping_context()
+      |> pre_decrypt_posts(current_user, session_key)
+
+    read_posts_with_dates =
+      read_posts
+      |> add_date_grouping_context()
+      |> pre_decrypt_posts(current_user, session_key)
 
     socket
     |> assign(:posts_count, posts_count)
@@ -1245,6 +1254,54 @@ defmodule MossletWeb.UserHomeLive do
     end
   end
 
+  # ZK fav toggle: browser encrypts the updated favs_list and sends it pre-encrypted.
+  def handle_event(
+        "toggle_fav_zk",
+        %{"id" => id, "encrypted_favs_list" => encrypted_list, "is_liked" => is_liked},
+        socket
+      ) do
+    post = Timeline.get_post!(id)
+
+    if post do
+      is_liked_bool = is_liked == "true"
+
+      count_delta = if is_liked_bool, do: 1, else: -1
+
+      updated_post =
+        if is_liked_bool do
+          {:ok, p} = Timeline.inc_favs(post)
+          p
+        else
+          {:ok, p} = Timeline.decr_favs(post)
+          p
+        end
+
+      encrypted_favs =
+        if encrypted_list && encrypted_list != "" do
+          Jason.decode!(encrypted_list)
+        else
+          []
+        end
+
+      Timeline.update_post_fav_zk(post, %{
+        favs_list: encrypted_favs,
+        favs_count: post.favs_count + count_delta
+      })
+
+      Accounts.track_user_activity(socket.assigns.current_scope.user, :interaction)
+
+      {:noreply,
+       socket
+       |> push_event("update_post_fav_count", %{
+         post_id: updated_post.id,
+         favs_count: updated_post.favs_count,
+         is_liked: is_liked_bool
+       })}
+    else
+      {:noreply, socket}
+    end
+  end
+
   def handle_event("bookmark_post", %{"id" => post_id}, socket) do
     current_user = socket.assigns.current_scope.user
 
@@ -1938,37 +1995,103 @@ defmodule MossletWeb.UserHomeLive do
         else: post_id
 
     post = Timeline.get_post!(post_id)
-    post_key = get_post_key(post, current_user)
 
-    images =
-      Enum.map(sources, fn file_path ->
-        webp_path = normalize_to_webp(file_path)
-
-        case get_s3_object(memories_bucket, webp_path) do
-          {:ok, %{body: e_obj}} ->
-            decrypt_image_for_trix(e_obj, current_user, post_key, key, post, "body", "webp")
-
-          {:error, _} ->
-            case get_s3_object(memories_bucket, file_path) do
-              {:ok, %{body: e_obj}} ->
-                ext = Path.extname(file_path) |> String.trim_leading(".")
-                ext = if ext == "", do: "webp", else: ext
-                decrypt_image_for_trix(e_obj, current_user, post_key, key, post, "body", ext)
-
-              {:error, error} ->
-                Logger.info("Error getting Post images from cloud in UserHomeLive")
-                Logger.debug(inspect(error))
-                nil
-            end
-        end
-      end)
-      |> List.flatten()
-      |> Enum.filter(fn source -> !is_nil(source) end)
-
-    if decrypted_image_binaries_for_trix?(images) do
-      {:reply, %{response: "success", decrypted_binaries: images}, socket}
-    else
+    # Non-public posts use browser-side ZK decryption via TrixContentPostHook —
+    # the server cannot decrypt sealed post keys. Return early so the browser
+    # falls back to the ZK image decryption path.
+    if post.visibility != :public do
       {:reply, %{response: "failed", decrypted_binaries: []}, socket}
+    else
+      post_key = get_post_key(post, current_user)
+
+      images =
+        Enum.map(sources, fn file_path ->
+          webp_path = normalize_to_webp(file_path)
+
+          case get_s3_object(memories_bucket, webp_path) do
+            {:ok, %{body: e_obj}} ->
+              decrypt_image_for_trix(e_obj, current_user, post_key, key, post, "body", "webp")
+
+            {:error, _} ->
+              case get_s3_object(memories_bucket, file_path) do
+                {:ok, %{body: e_obj}} ->
+                  ext = Path.extname(file_path) |> String.trim_leading(".")
+                  ext = if ext == "", do: "webp", else: ext
+                  decrypt_image_for_trix(e_obj, current_user, post_key, key, post, "body", ext)
+
+                {:error, error} ->
+                  Logger.info("Error getting Post images from cloud in UserHomeLive")
+                  Logger.debug(inspect(error))
+                  nil
+              end
+          end
+        end)
+        |> List.flatten()
+        |> Enum.filter(fn source -> !is_nil(source) end)
+
+      if decrypted_image_binaries_for_trix?(images) do
+        {:reply, %{response: "success", decrypted_binaries: images}, socket}
+      else
+        {:reply, %{response: "failed", decrypted_binaries: []}, socket}
+      end
+    end
+  end
+
+  # ZK image path: returns encrypted S3 blobs for browser-side decryption.
+  # The server never decrypts the image content — it only proxies the encrypted
+  # binary from S3 and base64-encodes it for transport.
+  def handle_event(
+        "fetch_encrypted_post_images",
+        %{"post_id" => post_id},
+        socket
+      ) do
+    memories_bucket = Mosslet.Encrypted.Session.memories_bucket()
+    current_user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    case Timeline.get_post(post_id) do
+      %Post{} = post ->
+        post_key = get_post_key(post, current_user)
+
+        decrypted_paths =
+          (post.image_urls || [])
+          |> Enum.map(fn encrypted_url ->
+            decr_item(encrypted_url, current_user, post_key, key, post, "body")
+          end)
+          |> Enum.filter(&is_binary/1)
+
+        decrypted_alt_texts =
+          (post.image_alt_texts || [])
+          |> Enum.map(fn alt_text ->
+            decr_item(alt_text, current_user, post_key, key, post, "body")
+          end)
+          |> Enum.filter(&is_binary/1)
+
+        encrypted_blobs =
+          Enum.map(decrypted_paths, fn file_path ->
+            webp_path = normalize_to_webp(file_path)
+
+            case get_s3_object(memories_bucket, webp_path) do
+              {:ok, %{body: blob}} ->
+                Base.encode64(blob)
+
+              {:error, _} ->
+                case get_s3_object(memories_bucket, file_path) do
+                  {:ok, %{body: blob}} -> Base.encode64(blob)
+                  {:error, _} -> nil
+                end
+            end
+          end)
+
+        {:reply,
+         %{
+           response: "success",
+           encrypted_blobs: encrypted_blobs,
+           image_alt_texts: decrypted_alt_texts
+         }, socket}
+
+      nil ->
+        {:reply, %{response: "error", message: "Post not found"}, socket}
     end
   end
 
@@ -2856,20 +2979,12 @@ defmodule MossletWeb.UserHomeLive do
                       }
                       timestamp={format_profile_post_timestamp(post.inserted_at)}
                       verified={false}
-                      content_warning?={false}
-                      content_warning={nil}
-                      content_warning_category={nil}
-                      content={
-                        get_profile_post_content(
-                          post,
-                          @profile_user,
-                          @current_scope.user,
-                          @current_scope.key,
-                          @user_connection
-                        )
-                      }
-                      images={[]}
-                      decrypted_url_preview={nil}
+                      content_warning?={post.content_warning?}
+                      content_warning={post.decrypted[:content_warning]}
+                      content_warning_category={post.decrypted[:content_warning_category]}
+                      content={post.decrypted[:body] || ""}
+                      images={post.decrypted[:image_urls] || []}
+                      decrypted_url_preview={post.decrypted[:url_preview]}
                       stats={
                         %{
                           replies: Map.get(post, :total_reply_count, count_all_replies(post.replies)),
@@ -2885,10 +3000,10 @@ defmodule MossletWeb.UserHomeLive do
                       post={post}
                       current_scope={@current_scope}
                       is_repost={post.repost || false}
-                      share_note={nil}
-                      liked={get_post_liked_status(post, @current_scope.user, @current_scope.key)}
+                      share_note={post.decrypted[:share_note]}
+                      liked={@current_scope.user.id in (post.decrypted[:favs_list] || [])}
                       bookmarked={get_post_bookmarked_status(post, @current_scope.user)}
-                      can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
+                      can_repost={can_repost_profile?(post, @current_scope.user)}
                       can_reply?={can_reply?(post, @current_scope.user)}
                       can_bookmark?={can_bookmark?(post, @current_scope.user)}
                       unread?={is_post_unread?(post, @current_scope.user)}
@@ -3006,20 +3121,12 @@ defmodule MossletWeb.UserHomeLive do
                       }
                       timestamp={format_profile_post_timestamp(post.inserted_at)}
                       verified={false}
-                      content_warning?={false}
-                      content_warning={nil}
-                      content_warning_category={nil}
-                      content={
-                        get_profile_post_content(
-                          post,
-                          @profile_user,
-                          @current_scope.user,
-                          @current_scope.key,
-                          @user_connection
-                        )
-                      }
-                      images={[]}
-                      decrypted_url_preview={nil}
+                      content_warning?={post.content_warning?}
+                      content_warning={post.decrypted[:content_warning]}
+                      content_warning_category={post.decrypted[:content_warning_category]}
+                      content={post.decrypted[:body] || ""}
+                      images={post.decrypted[:image_urls] || []}
+                      decrypted_url_preview={post.decrypted[:url_preview]}
                       stats={
                         %{
                           replies: Map.get(post, :total_reply_count, count_all_replies(post.replies)),
@@ -3035,10 +3142,10 @@ defmodule MossletWeb.UserHomeLive do
                       post={post}
                       current_scope={@current_scope}
                       is_repost={post.repost || false}
-                      share_note={nil}
-                      liked={get_post_liked_status(post, @current_scope.user, @current_scope.key)}
+                      share_note={post.decrypted[:share_note]}
+                      liked={@current_scope.user.id in (post.decrypted[:favs_list] || [])}
                       bookmarked={get_post_bookmarked_status(post, @current_scope.user)}
-                      can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
+                      can_repost={can_repost_profile?(post, @current_scope.user)}
                       can_reply?={can_reply?(post, @current_scope.user)}
                       can_bookmark?={can_bookmark?(post, @current_scope.user)}
                       unread?={is_post_unread?(post, @current_scope.user)}
@@ -3547,14 +3654,12 @@ defmodule MossletWeb.UserHomeLive do
                       }
                       timestamp={format_profile_post_timestamp(post.inserted_at)}
                       verified={false}
-                      content_warning?={false}
-                      content_warning={nil}
-                      content_warning_category={nil}
-                      content={
-                        get_public_profile_post_content(post, @current_scope.user, @current_scope.key)
-                      }
-                      images={[]}
-                      decrypted_url_preview={nil}
+                      content_warning?={post.content_warning?}
+                      content_warning={post.decrypted[:content_warning]}
+                      content_warning_category={post.decrypted[:content_warning_category]}
+                      content={post.decrypted[:body] || ""}
+                      images={post.decrypted[:image_urls] || []}
+                      decrypted_url_preview={post.decrypted[:url_preview]}
                       stats={
                         %{
                           replies: Map.get(post, :total_reply_count, count_all_replies(post.replies)),
@@ -3570,10 +3675,10 @@ defmodule MossletWeb.UserHomeLive do
                       post={post}
                       current_scope={@current_scope}
                       is_repost={post.repost || false}
-                      share_note={nil}
-                      liked={get_post_liked_status(post, @current_scope.user, @current_scope.key)}
+                      share_note={post.decrypted[:share_note]}
+                      liked={@current_scope.user.id in (post.decrypted[:favs_list] || [])}
                       bookmarked={get_post_bookmarked_status(post, @current_scope.user)}
-                      can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
+                      can_repost={can_repost_profile?(post, @current_scope.user)}
                       can_reply?={can_reply?(post, @current_scope.user)}
                       can_bookmark?={can_bookmark?(post, @current_scope.user)}
                       unread?={is_post_unread?(post, @current_scope.user)}
@@ -3637,14 +3742,12 @@ defmodule MossletWeb.UserHomeLive do
                       }
                       timestamp={format_profile_post_timestamp(post.inserted_at)}
                       verified={false}
-                      content_warning?={false}
-                      content_warning={nil}
-                      content_warning_category={nil}
-                      content={
-                        get_public_profile_post_content(post, @current_scope.user, @current_scope.key)
-                      }
-                      images={[]}
-                      decrypted_url_preview={nil}
+                      content_warning?={post.content_warning?}
+                      content_warning={post.decrypted[:content_warning]}
+                      content_warning_category={post.decrypted[:content_warning_category]}
+                      content={post.decrypted[:body] || ""}
+                      images={post.decrypted[:image_urls] || []}
+                      decrypted_url_preview={post.decrypted[:url_preview]}
                       stats={
                         %{
                           replies: Map.get(post, :total_reply_count, count_all_replies(post.replies)),
@@ -3660,10 +3763,10 @@ defmodule MossletWeb.UserHomeLive do
                       post={post}
                       current_scope={@current_scope}
                       is_repost={post.repost || false}
-                      share_note={nil}
-                      liked={get_post_liked_status(post, @current_scope.user, @current_scope.key)}
+                      share_note={post.decrypted[:share_note]}
+                      liked={@current_scope.user.id in (post.decrypted[:favs_list] || [])}
                       bookmarked={get_post_bookmarked_status(post, @current_scope.user)}
-                      can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
+                      can_repost={can_repost_profile?(post, @current_scope.user)}
                       can_reply?={can_reply?(post, @current_scope.user)}
                       can_bookmark?={can_bookmark?(post, @current_scope.user)}
                       unread?={is_post_unread?(post, @current_scope.user)}
@@ -4204,20 +4307,12 @@ defmodule MossletWeb.UserHomeLive do
                       }
                       timestamp={format_profile_post_timestamp(post.inserted_at)}
                       verified={false}
-                      content_warning?={false}
-                      content_warning={nil}
-                      content_warning_category={nil}
-                      content={
-                        get_profile_post_content(
-                          post,
-                          @profile_user,
-                          @current_scope.user,
-                          @current_scope.key,
-                          @user_connection
-                        )
-                      }
-                      images={[]}
-                      decrypted_url_preview={nil}
+                      content_warning?={post.content_warning?}
+                      content_warning={post.decrypted[:content_warning]}
+                      content_warning_category={post.decrypted[:content_warning_category]}
+                      content={post.decrypted[:body] || ""}
+                      images={post.decrypted[:image_urls] || []}
+                      decrypted_url_preview={post.decrypted[:url_preview]}
                       stats={
                         %{
                           replies: Map.get(post, :total_reply_count, count_all_replies(post.replies)),
@@ -4233,10 +4328,10 @@ defmodule MossletWeb.UserHomeLive do
                       post={post}
                       current_scope={@current_scope}
                       is_repost={post.repost || false}
-                      share_note={nil}
-                      liked={get_post_liked_status(post, @current_scope.user, @current_scope.key)}
+                      share_note={post.decrypted[:share_note]}
+                      liked={@current_scope.user.id in (post.decrypted[:favs_list] || [])}
                       bookmarked={get_post_bookmarked_status(post, @current_scope.user)}
-                      can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
+                      can_repost={can_repost_profile?(post, @current_scope.user)}
                       can_reply?={can_reply?(post, @current_scope.user)}
                       can_bookmark?={can_bookmark?(post, @current_scope.user)}
                       unread?={is_post_unread?(post, @current_scope.user)}
@@ -4354,20 +4449,12 @@ defmodule MossletWeb.UserHomeLive do
                       }
                       timestamp={format_profile_post_timestamp(post.inserted_at)}
                       verified={false}
-                      content_warning?={false}
-                      content_warning={nil}
-                      content_warning_category={nil}
-                      content={
-                        get_profile_post_content(
-                          post,
-                          @profile_user,
-                          @current_scope.user,
-                          @current_scope.key,
-                          @user_connection
-                        )
-                      }
-                      images={[]}
-                      decrypted_url_preview={nil}
+                      content_warning?={post.content_warning?}
+                      content_warning={post.decrypted[:content_warning]}
+                      content_warning_category={post.decrypted[:content_warning_category]}
+                      content={post.decrypted[:body] || ""}
+                      images={post.decrypted[:image_urls] || []}
+                      decrypted_url_preview={post.decrypted[:url_preview]}
                       stats={
                         %{
                           replies: Map.get(post, :total_reply_count, count_all_replies(post.replies)),
@@ -4383,10 +4470,10 @@ defmodule MossletWeb.UserHomeLive do
                       post={post}
                       current_scope={@current_scope}
                       is_repost={post.repost || false}
-                      share_note={nil}
-                      liked={get_post_liked_status(post, @current_scope.user, @current_scope.key)}
+                      share_note={post.decrypted[:share_note]}
+                      liked={@current_scope.user.id in (post.decrypted[:favs_list] || [])}
                       bookmarked={get_post_bookmarked_status(post, @current_scope.user)}
-                      can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
+                      can_repost={can_repost_profile?(post, @current_scope.user)}
                       can_reply?={can_reply?(post, @current_scope.user)}
                       can_bookmark?={can_bookmark?(post, @current_scope.user)}
                       unread?={is_post_unread?(post, @current_scope.user)}
@@ -4582,26 +4669,6 @@ defmodule MossletWeb.UserHomeLive do
 
   defp get_public_post_author_avatar(_post, profile_user, current_user) do
     get_public_avatar(profile_user, current_user)
-  end
-
-  defp get_public_profile_post_content(post, current_user, key) do
-    post_key = get_post_key(post, current_user)
-
-    if is_nil(post_key) do
-      "[Could not decrypt content]"
-    else
-      if post.visibility == :public do
-        case decrypt_public_field(post.body, post_key) do
-          content when is_binary(content) -> content
-          _ -> "[Could not decrypt content]"
-        end
-      else
-        case decr_item(post.body, current_user, post_key, key, post, "body") do
-          content when is_binary(content) -> content
-          _ -> "[Could not decrypt content]"
-        end
-      end
-    end
   end
 
   defp get_public_profile_post_handle(post, _profile_user, current_user, key) do
@@ -4944,23 +5011,6 @@ defmodule MossletWeb.UserHomeLive do
     end
   end
 
-  defp get_profile_post_key(post, _profile_user, current_user, _user_connection) do
-    get_post_key(post, current_user)
-  end
-
-  defp get_profile_post_content(post, profile_user, current_user, key, user_connection) do
-    post_key = get_profile_post_key(post, profile_user, current_user, user_connection)
-
-    if is_nil(post_key) do
-      "[Could not decrypt content]"
-    else
-      case decr_item(post.body, current_user, post_key, key, post, "body") do
-        content when is_binary(content) -> content
-        rest -> "#{rest}"
-      end
-    end
-  end
-
   defp get_profile_post_author_status(post, _profile_user, current_user, key, _user_connection) do
     case Accounts.get_user_with_preloads(post.user_id) do
       %{} = post_author ->
@@ -5257,12 +5307,13 @@ defmodule MossletWeb.UserHomeLive do
     end
   end
 
-  defp can_repost?(user, post, key) do
+  # Uses pre-decrypted reposts_list from decrypt_post_fields (ZK profile path).
+  defp can_repost_profile?(post, current_user) do
     cond do
       !post.allow_shares -> false
-      post.user_id == user.id -> false
+      post.user_id == current_user.id -> false
       post.is_ephemeral -> false
-      user.id in decrypt_post_reposts_list(post, user, key) -> false
+      current_user.id in (post.decrypted[:reposts_list] || []) -> false
       true -> post.allow_shares
     end
   end

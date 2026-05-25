@@ -1,4 +1,4 @@
-import { getCachedPostKey, decryptSecretbox, decryptWithKey, encryptWithKey, b64Encode } from "../crypto/session";
+import { getCachedPostKey, cachePostKey, unsealContextKey, unwrapKey, getPublicKey, decryptSecretbox, decryptWithKey, encryptWithKey, b64Encode } from "../crypto/session";
 import ClientImageModal from "./client-image-modal";
 
 const TrixContentPostHook = {
@@ -90,53 +90,80 @@ const TrixContentPostHook = {
     const cachedKey = getCachedPostKey(postId);
 
     if (cachedKey) {
-      // ZK path: fetch encrypted blobs from server, decrypt browser-side.
-      // The server never sees the decrypted image content.
-      this.pushEvent(
-        "fetch_encrypted_post_images",
-        { post_id: postId },
-        (reply, _ref) => {
-          if (
-            reply.response === "success" &&
-            reply.encrypted_blobs &&
-            reply.encrypted_blobs.length > 0
-          ) {
-            this.show_loading_state();
-            const altTexts = reply.image_alt_texts || [];
-            this.decrypt_images_browser_side(
-              reply.encrypted_blobs,
-              cachedKey,
-              postId,
-              userId,
-              altTexts
-            );
-          } else {
-            this.show_error_state();
-          }
-        }
-      );
+      this._fetchAndDecryptZk(postId, userId, cachedKey);
     } else {
-      // Legacy path: server decrypts the images (for public posts or
-      // when the post_key hasn't been cached yet).
-      this.pushEvent(
-        "get_post_image_urls",
-        { post_id: postId },
-        (reply, _ref) => {
-          if (
-            reply.response === "success" &&
-            reply.image_urls &&
-            reply.image_urls.length > 0
-          ) {
-            this.show_loading_state();
-            const altTexts = reply.image_alt_texts || [];
-            this.decrypt_images(reply.image_urls, postId, userId, altTexts);
-          } else {
-            console.error("Failed to get image URLs for post", postId, reply);
-            this.show_error_state();
-          }
-        }
-      );
+      const decryptEl = document.querySelector(`[id="decrypt-post-${postId}"]`);
+      const sealedKey = decryptEl?.dataset?.sealedPostKey;
+
+      if (sealedKey && getPublicKey()) {
+        this._unsealAndDecryptZk(postId, userId, sealedKey);
+      } else {
+        this._legacyServerDecrypt(postId, userId);
+      }
     }
+  },
+
+  async _unsealAndDecryptZk(postId, userId, sealedKey) {
+    try {
+      const raw = await unsealContextKey(sealedKey);
+      if (!raw) {
+        this._legacyServerDecrypt(postId, userId);
+        return;
+      }
+      const postKey = unwrapKey(raw);
+      cachePostKey(postId, postKey);
+      this._fetchAndDecryptZk(postId, userId, postKey);
+    } catch (e) {
+      console.error("TrixContentPostHook: failed to unseal post key:", e);
+      this._legacyServerDecrypt(postId, userId);
+    }
+  },
+
+  _fetchAndDecryptZk(postId, userId, postKey) {
+    this.pushEvent(
+      "fetch_encrypted_post_images",
+      { post_id: postId },
+      (reply, _ref) => {
+        if (
+          reply.response === "success" &&
+          reply.encrypted_blobs &&
+          reply.encrypted_blobs.length > 0
+        ) {
+          this.show_loading_state();
+          const altTexts = reply.image_alt_texts || [];
+          this.decrypt_images_browser_side(
+            reply.encrypted_blobs,
+            postKey,
+            postId,
+            userId,
+            altTexts
+          );
+        } else {
+          this.show_error_state();
+        }
+      }
+    );
+  },
+
+  _legacyServerDecrypt(postId, userId) {
+    this.pushEvent(
+      "get_post_image_urls",
+      { post_id: postId },
+      (reply, _ref) => {
+        if (
+          reply.response === "success" &&
+          reply.image_urls &&
+          reply.image_urls.length > 0
+        ) {
+          this.show_loading_state();
+          const altTexts = reply.image_alt_texts || [];
+          this.decrypt_images(reply.image_urls, postId, userId, altTexts);
+        } else {
+          console.error("Failed to get image URLs for post", postId, reply);
+          this.show_error_state();
+        }
+      }
+    );
   },
 
   async decrypt_images_browser_side(
@@ -153,15 +180,13 @@ const TrixContentPostHook = {
           decryptedUrls.push(null);
           continue;
         }
-        // Same dual-path approach as DecryptAvatar:
-        //   Path B: plaintext is a base64 string of the image (encrypt wrapped Base.encode64)
-        //   Path A: plaintext is raw binary bytes (encrypt_string of raw bytes)
-        let imageBase64 = await decryptWithKey(blob, postKey);
-        if (!imageBase64) {
-          const rawBytes = await decryptSecretbox(blob, postKey);
-          if (rawBytes) {
-            imageBase64 = b64Encode(rawBytes);
-          }
+        // Dual-path: try binary first (Path A, raw image bytes), then string (Path B, base64 string).
+        let imageBase64;
+        const rawBytes = await decryptSecretbox(blob, postKey);
+        if (rawBytes) {
+          imageBase64 = b64Encode(rawBytes);
+        } else {
+          imageBase64 = await decryptWithKey(blob, postKey);
         }
         if (imageBase64) {
           decryptedUrls.push("data:image/webp;base64," + imageBase64);
@@ -374,11 +399,19 @@ const TrixContentPostHook = {
     if (container) {
       this.el.classList.remove("photos-loading");
 
+      const postId = this.el.id.replace("post-body-", "");
       const loadingIndicator = document.querySelector(
-        `#${this.el.id.replace("post-body-", "post-")}-loading-indicator`
+        `#post-${postId}-loading-indicator`
       );
       if (loadingIndicator) {
         loadingIndicator.style.display = "none";
+      }
+
+      const viewButton = document.querySelector(
+        `[id^="post-${postId}-show-photos-"]`
+      );
+      if (viewButton) {
+        viewButton.style.display = "";
       }
 
       container.innerHTML = `

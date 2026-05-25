@@ -23,17 +23,17 @@ defmodule MossletWeb.Components.LandingPage do
       |> assign_new(:features, fn ->
         [
           %{
-            title: "Circles",
+            title: "Zero-Knowledge",
             description:
-              "Share and remember with the people in your life, no one else. Your memories are yours.",
-            icon: :user_group,
+              "Your data is encrypted and decrypted in your browser. Our servers store only opaque ciphertext — we genuinely cannot read your content.",
+            icon: :lock_closed,
             early_access: true
           },
           %{
-            title: "Memories",
+            title: "Post-Quantum",
             description:
-              "Share and remember with the people in your life, no one else. Your memories are yours.",
-            icon: :photo,
+              "Protected against future quantum computers with ML-KEM-1024 (NIST Cat-5 standard). Your data is safe today and tomorrow.",
+            icon: :shield_check,
             early_access: true
           },
           %{
@@ -44,16 +44,16 @@ defmodule MossletWeb.Components.LandingPage do
             early_access: true
           },
           %{
-            title: "Roadmap",
+            title: "Open-Source Crypto",
             description:
-              "See what's in store, vote, request new features, and help shape the future.",
-            icon: :map,
+              "Our encryption library is open-source Rust compiled to both WebAssembly and native code — the same code runs in your browser and on our server, fully auditable.",
+            icon: :code_bracket,
             early_access: true
           },
           %{
             title: "Breach Alerts",
             description:
-              "Private and secure checks against the HaveIBeenPwned database, and from your settings, let you know if your email or password has been compromised.",
+              "Private and secure checks against the HaveIBeenPwned database let you know if your email or password has been compromised.",
             icon: :exclamation,
             early_access: false
           },
@@ -123,7 +123,9 @@ defmodule MossletWeb.Components.LandingPage do
                 </div>
 
                 <div class="relative flex flex-col sm:flex-row items-center gap-1 sm:gap-0">
-                  <span class="text-center sm:text-left">Built for meaningful connections</span>
+                  <span class="text-center sm:text-left">
+                    Zero-knowledge encrypted, post-quantum protected
+                  </span>
                   <.link
                     id="mosslet-demo-video-beta"
                     href="https://www.loom.com/share/e088294ed8c043978e239dcca8e82e5f"
@@ -147,11 +149,11 @@ defmodule MossletWeb.Components.LandingPage do
             <div class="text-center relative z-10">
               <%!-- Enhanced Heading with Better Liquid Metal Effect --%>
               <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent drop-shadow-sm">
-                A social alternative that's simple and privacy-first
+                Zero-knowledge social, built for the future
               </h1>
               <%!-- Enhanced Description with Better Typography --%>
               <p class="mt-6 text-lg leading-8 text-slate-600 text-balance dark:text-slate-400 max-w-2xl mx-auto">
-                Connect with friends and family — or simply with yourself through our private journal. No ads, no algorithms, just your people and your thoughts. MOSSLET makes it easy to share moments, memories, and reflections with the people who matter most.
+                Your data is encrypted in your browser — even we can't read it. Post-quantum protection keeps your connections safe today and against future threats. No ads, no algorithms, just your people and your thoughts.
               </p>
               <%!-- Liquid Metal CTA Buttons --%>
               <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-x-6">
@@ -287,13 +289,13 @@ defmodule MossletWeb.Components.LandingPage do
                       />
                     </div>
                     <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                      Your Privacy Protected
+                      Zero-Knowledge Privacy
                     </span>
                   </div>
                 </:title>
 
                 <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Control who sees what with simple privacy settings. Your moments stay between you and the people you choose.
+                  Your data is encrypted in your browser before it ever reaches our servers. Even we can't read your content — that's what zero-knowledge means.
                 </p>
               </MossletWeb.DesignSystem.liquid_card>
 
@@ -499,7 +501,7 @@ defmodule MossletWeb.Components.LandingPage do
                 </:title>
 
                 <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Every image is checked for safety via OpenRouter with data collection disabled. A local Bumblebee model serves as fallback — your data is never collected, logged, stored, or used for training and analysis.
+                  Public images are checked server-side via AI with data collection disabled. Private images run safety checks entirely in your browser — your encrypted content never leaves your device for moderation.
                 </p>
               </MossletWeb.DesignSystem.liquid_card>
 
@@ -539,13 +541,13 @@ defmodule MossletWeb.Components.LandingPage do
                       />
                     </div>
                     <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                      Zero Data Collection
+                      Client-Side AI
                     </span>
                   </div>
                 </:title>
 
                 <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  AI requests pass through OpenRouter with data collection disabled. Your content is never stored or used to train models — then it's asymmetrically encrypted.
+                  Image safety for private content runs entirely in your browser using an on-device model. Public content uses server-side AI with data collection disabled — nothing is stored or used for training.
                 </p>
               </MossletWeb.DesignSystem.liquid_card>
             </div>

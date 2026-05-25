@@ -75,14 +75,15 @@ const DecryptAvatar = {
       //   Path A: encrypt_string(raw_image_bytes, key) — plaintext is raw binary
       //   Path B: encrypt(Base.encode64(raw_image), key) — plaintext is base64 string
       //
-      // Try decryptSecretboxToString first (Path B, plaintext is UTF-8 base64).
-      // If that fails with UTF-8 error, fall back to decryptSecretbox (Path A).
-      let imageBase64 = await decryptWithKey(encryptedBlob, connKey);
-
-      if (!imageBase64) {
-        const rawBytes = await decryptSecretbox(encryptedBlob, connKey);
-        if (!rawBytes) return;
+      // Try binary path first (Path A) since avatars are image data.
+      // Fall back to string path (Path B) for legacy base64-encoded images.
+      let imageBase64;
+      const rawBytes = await decryptSecretbox(encryptedBlob, connKey);
+      if (rawBytes) {
         imageBase64 = b64Encode(rawBytes);
+      } else {
+        imageBase64 = await decryptWithKey(encryptedBlob, connKey);
+        if (!imageBase64) return;
       }
 
       this._cached = imageBase64;
