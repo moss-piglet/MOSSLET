@@ -29,6 +29,13 @@ defmodule MossletWeb.PublicLive.Blog.Index do
             <%!-- Blog entries --%>
             <div class="space-y-8">
               <.blog_entry
+                id="blog_17"
+                date="May 25, 2026"
+                title="We Can't Read Your Data. Here's How."
+                preview="Every post, message, journal entry, and image on MOSSLET is now encrypted and decrypted entirely in your browser. With post-quantum protection, your data is safe today and against future quantum computers. Our servers genuinely cannot read your content."
+                link={~p"/blog/articles/17"}
+              />
+              <.blog_entry
                 id="blog_16"
                 date="April 27, 2026"
                 title="The Floor Is Collapsing"

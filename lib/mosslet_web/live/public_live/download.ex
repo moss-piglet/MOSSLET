@@ -189,7 +189,9 @@ defmodule MossletWeb.PublicLive.Download do
                           name="hero-check-circle"
                           class="h-5 w-5 text-teal-500 mt-0.5 flex-shrink-0"
                         />
-                        <span>Open-source encryption libraries (NaCl/libsodium)</span>
+                        <span>
+                          Open-source Rust encryption library (metamorphic-crypto, compiled to WASM + native)
+                        </span>
                       </li>
                     </ul>
                   </div>

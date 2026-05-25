@@ -96,13 +96,13 @@ defmodule MossletWeb.PublicLive.Press do
                   icon="hero-shield-check"
                   gradient="from-teal-500 to-emerald-500"
                   title="Zero-Knowledge by Design"
-                  description="Posts and journal entries are encrypted using password-derived asymmetric keys. Only you and explicitly chosen recipients can decrypt your content."
+                  description="All encryption and decryption happens in your browser using our open-source Rust cryptographic library compiled to WebAssembly. Our servers store only encrypted blobs — we genuinely cannot read your content."
                 />
                 <.press_fact_card
                   icon="hero-lock-closed"
                   gradient="from-blue-500 to-cyan-500"
-                  title="Layered Encryption at Rest"
-                  description="We use enacl (libsodium, with built-in Argon2id for key derivation) and cloak/cloak_ecto to combine asymmetric public-key cryptography with a second AES-256-GCM layer at rest — designed with future quantum attacks in mind."
+                  title="Post-Quantum Protection"
+                  description="Hybrid key encapsulation using ML-KEM-1024 + X25519 (NIST FIPS 203, Cat-5 — the highest security level) protects against both current threats and future quantum computers. Data at rest is wrapped in an additional AES-256-GCM layer."
                 />
                 <.press_fact_card
                   icon="hero-key"
@@ -140,24 +140,30 @@ defmodule MossletWeb.PublicLive.Press do
               <div class="mt-8 space-y-6">
                 <.press_detail_section title="Where Data Is Stored">
                   <p>
-                    MOSSLET runs on Fly.io with object storage on Tigris, hosted in the United States. All infrastructure communicates over a private, encrypted WireGuard network. Data at rest is protected by layered encryption — asymmetric public-key cryptography wrapped in AES-256-GCM symmetric encryption.
+                    MOSSLET runs on Fly.io with object storage on Tigris, hosted in the United States. All infrastructure communicates over a private, encrypted WireGuard network. Data at rest is protected by two layers of encryption — zero-knowledge encryption from your browser (the server never sees plaintext) plus AES-256-GCM symmetric encryption in the database.
                   </p>
                 </.press_detail_section>
 
                 <.press_detail_section title="Encryption Approach">
                   <p>
-                    MOSSLET uses password-derived asymmetric key cryptography (via enacl/libsodium, which uses Argon2id internally for key derivation) so that only you — and the people you explicitly share with — can decrypt your content. This is then wrapped in a second layer of AES-256-GCM symmetric encryption at rest (via cloak/cloak_ecto), designed to add protection even against potential future quantum attacks.
+                    MOSSLET uses zero-knowledge encryption powered by an open-source Rust cryptographic library (metamorphic-crypto) that compiles to both WebAssembly (for your browser) and a native module (for our server) — the same auditable code runs everywhere. Your browser derives keys from your password via Argon2id, generates your key pair, and encrypts all content before it leaves your device. Key distribution uses hybrid post-quantum key encapsulation (ML-KEM-1024 + X25519, NIST FIPS 203, Cat-5). All stored data is wrapped in a second layer of AES-256-GCM symmetric encryption at rest.
                   </p>
                 </.press_detail_section>
 
-                <.press_detail_section title="Server Trust & Open Source">
+                <.press_detail_section title="Zero-Knowledge & Open Source">
                   <p>
-                    Today, asymmetric encryption happens on the server, so there is a theoretical trust assumption: you trust that the server encrypts your data before doing anything with it. We narrow that gap in two ways:
+                    MOSSLET is zero-knowledge — all encryption and decryption of private content happens in your browser. Our servers only ever handle encrypted blobs, never plaintext. We verify this through:
                   </p>
                   <ul class="mt-3 list-disc list-inside space-y-2 text-slate-600 dark:text-slate-400">
                     <li>
+                      <strong class="text-slate-800 dark:text-slate-200">
+                        Open-source cryptography:
+                      </strong>
+                      Our encryption library (metamorphic-crypto) is open-source Rust, compiled to both WebAssembly and native code. Anyone can audit the same code that runs in your browser and on our server.
+                    </li>
+                    <li>
                       <strong class="text-slate-800 dark:text-slate-200">Open-source backend:</strong>
-                      The full codebase is public so anyone can verify we encrypt before processing and don't retain plaintext.
+                      The full application codebase is public so anyone can verify we store only ciphertext.
                     </li>
                     <li>
                       <strong class="text-slate-800 dark:text-slate-200">Redacted schemas:</strong>
@@ -169,7 +175,7 @@ defmodule MossletWeb.PublicLive.Press do
                     </li>
                   </ul>
                   <p class="mt-3">
-                    Our next major step is native desktop and mobile apps, where encryption moves fully onto the device — so the server only ever sees ciphertext. That's when MOSSLET becomes truly zero-knowledge in the strictest sense.
+                    Public posts are the one exception — they use server-side encryption so they can be rendered for unauthenticated visitors, search engines, and Bluesky federation.
                   </p>
                 </.press_detail_section>
 

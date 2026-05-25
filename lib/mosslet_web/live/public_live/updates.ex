@@ -73,10 +73,42 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.18.0"
-                  date="February 2026"
+                  version="0.19.0"
+                  date="May 2026"
                   tag="Latest"
                   tag_color="emerald"
+                >
+                  <:title>Full Zero-Knowledge Post-Quantum Architecture</:title>
+                  <:description>
+                    Every piece of private content on MOSSLET is now encrypted and decrypted entirely in your browser. Our servers store only opaque ciphertext — we genuinely cannot read your data. Combined with post-quantum protection (ML-KEM-1024, NIST Cat-5), your content is safe today and against future quantum computers.
+                  </:description>
+                  <:items>
+                    <.changelog_item icon="hero-lock-closed" color="emerald">
+                      Zero-knowledge encryption for all private content — posts, messages, journal entries, profiles, images, and group data are encrypted in your browser before reaching our servers
+                    </.changelog_item>
+                    <.changelog_item icon="hero-shield-check" color="teal">
+                      Post-quantum protection via ML-KEM-1024 + X25519 hybrid key encapsulation (NIST FIPS 203, Cat-5 — the highest security level)
+                    </.changelog_item>
+                    <.changelog_item icon="hero-code-bracket" color="purple">
+                      Open-source Rust crypto library (metamorphic-crypto) compiled to WebAssembly — the same auditable code runs in your browser and on our server
+                    </.changelog_item>
+                    <.changelog_item icon="hero-cpu-chip" color="blue">
+                      Client-side AI safety checks — image moderation for non-public content runs in your browser, never sending your images to external services
+                    </.changelog_item>
+                    <.changelog_item icon="hero-arrow-path" color="cyan">
+                      Progressive migration — existing users are automatically upgraded to post-quantum protection on their next login, with no action needed
+                    </.changelog_item>
+                    <.changelog_item icon="hero-key" color="amber">
+                      Recovery key system — zero-knowledge account recovery without compromising encryption, because we can't reset your password for you
+                    </.changelog_item>
+                  </:items>
+                </.changelog_entry>
+
+                <.changelog_entry
+                  version="0.18.0"
+                  date="February 2026"
+                  tag="Security"
+                  tag_color="blue"
                 >
                   <:title>Zero-Knowledge Direct Messages 🔐</:title>
                   <:description>

@@ -17,7 +17,7 @@ defmodule MossletWeb.PublicLive.Faq do
       <.liquid_faq_simple
         title="Frequently Asked Questions"
         subtitle="Everything you need to know about MOSSLET"
-        description="A zero-knowledge, post-quantum encrypted social network that prioritizes your data security and human dignity. Find answers to common questions below."
+        description="A zero-knowledge, post-quantum encrypted social network that keeps your data private by encrypting everything in your browser. Find answers to common questions below."
         sections={@faq_sections}
       />
     </.layout>
@@ -53,12 +53,22 @@ defmodule MossletWeb.PublicLive.Faq do
           %{
             q: "How does MOSSLET protect my privacy?",
             a:
-              "MOSSLET employs end-to-end encryption to ensure your data remains private and secure. Only you and your intended recipients can access your messages and information, keeping your interactions confidential."
+              "MOSSLET uses zero-knowledge encryption — your data is encrypted and decrypted entirely in your browser using our open-source Rust cryptographic library compiled to WebAssembly. Our servers store only encrypted data that we genuinely cannot read. Only you and your intended recipients can access your content."
+          },
+          %{
+            q: "What does 'zero-knowledge' mean?",
+            a:
+              "Zero-knowledge means our servers never see your data in plaintext. All encryption and decryption happens in your browser. Even if our database were breached, attackers would find only encrypted blobs — useless without your password-derived key."
+          },
+          %{
+            q: "What is post-quantum encryption?",
+            a:
+              "Post-quantum encryption protects your data against future quantum computers that could break today's standard encryption. MOSSLET uses ML-KEM-1024 (NIST Cat-5, the highest security level) combined with classical X25519, so your data is safe both now and in the future."
           },
           %{
             q: "What data does MOSSLET collect?",
             a:
-              "We collect only the minimal data necessary to provide our service: your email (for account access), encrypted messages and posts you create, and basic account settings. We never track your browsing habits or sell your information."
+              "We store only encrypted blobs and blind-index hashes needed for lookups (like finding your account by email). We never track your browsing habits or sell your information. Your plaintext email is used only transiently for sending emails — only the encrypted version and a one-way hash are stored."
           },
           %{
             q: "Can I delete my account and data?",
@@ -68,7 +78,12 @@ defmodule MossletWeb.PublicLive.Faq do
           %{
             q: "Where is my data stored?",
             a:
-              "Your encrypted data is stored on secure servers provided by Fly.io, protected with industry-standard security measures. All data is encrypted before storage and transmission."
+              "Your encrypted data is stored on secure servers provided by Fly.io, protected by a private WireGuard network. All data has two layers of encryption: zero-knowledge encryption from your browser plus AES-256-GCM at-rest encryption in the database."
+          },
+          %{
+            q: "Is my data encrypted?",
+            a:
+              "Yes! Your data is encrypted in your browser before it ever reaches our servers, using the same open-source Rust code that runs on both your browser (via WebAssembly) and our server (as a native module). On top of that, all stored data is wrapped in a second layer of AES-256-GCM encryption. Key distribution uses hybrid post-quantum key encapsulation (ML-KEM-1024 + X25519)."
           }
         ]
       },
@@ -78,27 +93,27 @@ defmodule MossletWeb.PublicLive.Faq do
           %{
             q: "How do AI safety checks work on MOSSLET?",
             a:
-              "We use privacy-first AI to help keep our community healthy. Public posts are checked for both content and images, while non-public posts only have image safety checks — your private text stays between you and your connections. All checks happen in real-time without storing your content."
+              "For non-public content, image safety checks run entirely in your browser using a lightweight AI model — your private images are never sent to our servers or any external service. Public posts have both content and image checks server-side using our own models. This ensures community safety while preserving zero-knowledge privacy for your personal content."
           },
           %{
             q: "Is my content used to train AI models?",
             a:
-              "Absolutely not. Your content is never stored or used for AI training. We route requests through OpenRouter with all data retention and training options disabled. The AI processes your content, returns a result, and that's it — nothing is kept."
+              "Absolutely not. Your content is never stored or used for AI training. For public content that goes through server-side checks, we route requests through OpenRouter with all data retention and training options disabled. The AI processes your content, returns a result, and that's it — nothing is kept."
           },
           %{
             q: "Can the AI provider see who I am?",
             a:
-              "No. When we send content for safety checks, no account information is included. The AI provider only sees that a request came from OpenRouter (who only sees that it came from mosslet.com) — they have no way to know whose content it is or link it to any user account."
+              "No. For non-public content, the AI model runs locally in your browser — no external service is involved at all. For public content checks routed through OpenRouter, no account information is included. The AI provider only sees that a request came from OpenRouter — they have no way to know whose content it is."
           },
           %{
             q: "What happens to my content after an AI check?",
             a:
-              "After the safety check completes, your content remains asymmetrically encrypted on our servers. The AI never sees your encrypted data — we only decrypt temporarily for the check, get the result, and your content stays protected. Nothing is logged or stored from the AI interaction."
+              "For non-public content, the check happens entirely in your browser — your data never leaves your device. For public posts, the check runs server-side on our own infrastructure, the result is stored, and no content is retained from the AI interaction."
           },
           %{
             q: "Why do you check images on private posts but not text?",
             a:
-              "We believe in minimal intervention. Image safety checks help prevent harmful visual content from spreading, even in private contexts. But your private conversations and written thoughts are yours — we don't read them, and neither does AI. Public posts have full checks because they're visible to everyone."
+              "We believe in minimal intervention. Image safety checks for private content run in your browser to help prevent harmful visual content — your images never leave your device during this process. But your private conversations and written thoughts are yours — we don't read them, and neither does AI. Public posts have full checks because they're visible to everyone."
           },
           %{
             q: "How do you detect AI-generated images?",
@@ -108,7 +123,7 @@ defmodule MossletWeb.PublicLive.Faq do
           %{
             q: "What is OpenRouter and why do you use it?",
             a:
-              "OpenRouter is a privacy-focused AI routing service that lets us access AI capabilities while maintaining strict data protection. We've disabled all data retention and model training options. It acts as a secure intermediary that never stores your content or links requests to user identities."
+              "OpenRouter is a privacy-focused AI routing service that we use for public content checks only. We've disabled all data retention and model training options. For non-public content, AI checks run locally in your browser — OpenRouter is never involved."
           }
         ]
       },
@@ -143,7 +158,7 @@ defmodule MossletWeb.PublicLive.Faq do
           %{
             q: "What features does MOSSLET include?",
             a:
-              "MOSSLET includes private messaging, group conversations, photo sharing (Memories), friend connections, and a clean, ad-free interface. We're continuously adding features based on user feedback."
+              "MOSSLET includes private and public posting, direct messaging, group conversations (Circles), photo sharing, friend connections, an encrypted journal, Bluesky integration, and a clean, ad-free interface. We're continuously adding features based on user feedback."
           },
           %{
             q: "Is there a mobile app?",
@@ -153,7 +168,7 @@ defmodule MossletWeb.PublicLive.Faq do
           %{
             q: "Can I make public posts?",
             a:
-              "Currently, all posts on MOSSLET are private and shared only with your chosen connections. We're considering public posting features for future releases based on user demand."
+              "Yes! You can create public posts visible to everyone, or share privately with your connections, specific groups, or specific people. Public posts can also be cross-posted to Bluesky."
           },
           %{
             q: "How do I connect with friends?",
@@ -168,12 +183,12 @@ defmodule MossletWeb.PublicLive.Faq do
           %{
             q: "What if I forget my password?",
             a:
-              "You can enable our optional password recovery feature in your settings. If disabled for maximum security, we cannot recover your account - your privacy is that protected! We recommend using a password manager."
+              "You can set up a recovery key in your settings — a one-time code that lets you reset your password without losing access to your encrypted data. If you haven't set up a recovery key and forget your password, your data cannot be recovered by design (zero-knowledge). We recommend using a password manager and setting up your recovery key."
           },
           %{
             q: "Is my data encrypted?",
             a:
-              "Yes! Your personal data is encrypted with your password-derived key, meaning only you can access it. We then add an additional layer of encryption before storing it on our servers."
+              "Yes! Your data is encrypted in your browser before it ever reaches our servers — that's what zero-knowledge means. We then add a second layer of AES-256-GCM encryption at rest. Key distribution uses hybrid post-quantum encryption (ML-KEM-1024, NIST Cat-5) to protect against future quantum computers."
           },
           %{
             q: "How do I get help or report issues?",

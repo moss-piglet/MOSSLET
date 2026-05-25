@@ -899,7 +899,7 @@ defmodule MossletWeb.Components.LandingPage do
                 Circles, Memories, Posts, and more.
               </dt>
               <dd class="inline">
-                Make Circles to chat live, store photos for yourself or share with others in Memories, and express your thoughts with Posts — always in real-time with the privacy you need. All images are checked for safety via OpenRouter with data collection disabled, with a local Bumblebee model as fallback.
+                Make Circles to chat live, store photos for yourself or share with others in Memories, and express your thoughts with Posts — always in real-time with the privacy you need. Non-public images are checked for safety right in your browser; public images are checked server-side with a local AI model.
               </dd>
             </div>
             <div class="relative pl-9">
@@ -938,10 +938,10 @@ defmodule MossletWeb.Components.LandingPage do
                     clip-rule="evenodd"
                   />
                 </svg>
-                Asymmetric encryption.
+                Zero-knowledge encryption.
               </dt>
               <dd class="inline">
-                Strong public-key cryptography with a password-derived key keeps your data private to you. Only your password can unlock your account, its data, and enable you to share with others. Our databases are on a closed, private network protected with the secure WireGuard protocol.
+                Your data is encrypted and decrypted in your browser using our open-source Rust cryptographic library compiled to WebAssembly. Our servers store only opaque ciphertext — we genuinely cannot read your content. Post-quantum protection (ML-KEM-1024, NIST Cat-5) keeps your data safe against future quantum computers too.
               </dd>
             </div>
           </dl>
@@ -3601,10 +3601,10 @@ defmodule MossletWeb.Components.LandingPage do
                     Privacy First
                   </div>
                   <h3 class="mt-3 text-lg font-semibold leading-6 text-gray-800 dark:text-white">
-                    End-to-End Encryption
+                    Zero-Knowledge Encryption
                   </h3>
                   <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                    Your data is encrypted so only you can access it. We can't see it, and neither can anyone else.
+                    Your data is encrypted in your browser before it ever reaches our servers. We genuinely can't read your content.
                   </p>
                 </div>
               </div>
@@ -3718,7 +3718,7 @@ defmodule MossletWeb.Components.LandingPage do
                     How does MOSSLET protect my privacy?
                   </dt>
                   <dd class="mt-3 text-base/7 text-gray-600 dark:text-gray-400">
-                    MOSSLET employs asymmetric encryption (end-to-end) to ensure that your data remains private and secure. This means that only you and the intended recipient can access your messages and information, keeping your interactions confidential.
+                    MOSSLET uses zero-knowledge encryption — your data is encrypted and decrypted entirely in your browser, so our servers never see your content in plaintext. With hybrid post-quantum protection (ML-KEM-1024, NIST Cat-5), your data is safe from both today's threats and future quantum computers. Only you and the people you choose can access your content.
                   </dd>
                 </div>
 
@@ -3887,10 +3887,10 @@ defmodule MossletWeb.Components.LandingPage do
                   How is my data encrypted?
                 </dt>
                 <dd class="mt-2 text-base leading-7 text-gray-600 dark:text-gray-400">
-                  Your personal data is asymmetrically encrypted with a password-derived key, making it so that only you can access and unlock your data. Without your password, no one else can — not even us! We then wrap that encrypted data in an extra layer of symmetric encryption before storing it at rest ("at rest" meaning in the database when you are not using it).
+                  Your data is encrypted and decrypted entirely in your browser — our servers never see your content in plaintext. We use an open-source Rust cryptographic library (metamorphic-crypto) compiled to WebAssembly that runs the same code in your browser and on our server, fully auditable. Your browser derives a key from your password, generates your key pair, and encrypts everything before it leaves your device.
                 </dd>
                 <dd class="mt-2 text-base leading-7 text-gray-600 dark:text-gray-400">
-                  In more detail it looks like this: each person has a (1) password-derived key, (2) public-private key pair, and (3) their private key is encrypted with their password-derived key.
+                  On top of that, all data is wrapped in a second layer of AES-256-GCM encryption at rest. Key distribution uses hybrid post-quantum key encapsulation (ML-KEM-1024 + X25519, NIST Cat-5) so your data is protected against both current threats and future quantum computers.
                 </dd>
               </div>
               <div>
@@ -3924,7 +3924,7 @@ defmodule MossletWeb.Components.LandingPage do
                     target="_blank"
                     class="text-emerald-600 hover:text-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300"
                   >
-                    Tigris</.link>. Your data is asymmetrically encrypted and then sent to Tigris where it is distributed around the world for faster speeds and optimal availability.
+                    Tigris</.link>. Your data is encrypted in your browser before it's uploaded, then distributed around the world for faster speeds and optimal availability.
                 </dd>
               </div>
 
@@ -3933,7 +3933,7 @@ defmodule MossletWeb.Components.LandingPage do
                   Does MOSSLET use my image or data to train its AI?
                 </dt>
                 <dd class="mt-2 text-base leading-7 text-gray-600 dark:text-gray-400">
-                  Nope! We are using a pre-trained, open source model from the machine learning community. This means it was trained on other image data (~80,000 images). We then run this model on our own private, internal servers — ensuring your data remains private and secure.
+                  Nope! For non-public content, image safety checks run directly in your browser using a lightweight AI model — your images are never sent to external services. For public posts, we use a pre-trained, open-source model on our own private servers. In all cases, your content is never stored or used for AI training.
                 </dd>
               </div>
             </dl>
@@ -4066,7 +4066,7 @@ defmodule MossletWeb.Components.LandingPage do
                   Can I make a public Post?
                 </dt>
                 <dd class="mt-2 text-base leading-7 text-gray-600 dark:text-gray-400">
-                  No. This is a feature we are considering for the future.
+                  Yes! You can create public posts visible to everyone, or share privately with your connections, specific groups, or specific people. Public posts use server-side encryption for discoverability, while all private posts are zero-knowledge encrypted in your browser.
                 </dd>
               </div>
 
@@ -4169,10 +4169,10 @@ defmodule MossletWeb.Components.LandingPage do
                     Privacy First
                   </div>
                   <h3 class="mt-3 text-lg font-semibold leading-6 text-gray-800 dark:text-white">
-                    End-to-End Encryption
+                    Zero-Knowledge Encryption
                   </h3>
                   <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                    Your data is encrypted so only you can access it. We can't see it, and neither can anyone else.
+                    Your data is encrypted in your browser before it ever reaches our servers. We genuinely can't read your content.
                   </p>
                 </div>
               </div>
@@ -4262,7 +4262,7 @@ defmodule MossletWeb.Components.LandingPage do
                     How does MOSSLET protect my privacy?
                   </dt>
                   <dd class="mt-3 text-base/7 text-gray-600 dark:text-gray-400">
-                    MOSSLET employs asymmetric encryption (end-to-end) to ensure that your data remains private and secure. This means that only you and the intended recipient can access your messages and information, keeping your interactions confidential.
+                    MOSSLET uses zero-knowledge encryption — your data is encrypted and decrypted entirely in your browser, so our servers never see your content in plaintext. With hybrid post-quantum protection (ML-KEM-1024, NIST Cat-5), your data is safe from both today's threats and future quantum computers. Only you and the people you choose can access your content.
                   </dd>
                 </div>
 
@@ -4431,10 +4431,10 @@ defmodule MossletWeb.Components.LandingPage do
                   How is my data encrypted?
                 </dt>
                 <dd class="mt-2 text-base leading-7 text-gray-600 dark:text-gray-400">
-                  Your personal data is asymmetrically encrypted with a password-derived key, making it so that only you can access and unlock your data. Without your password, no one else can — not even us! We then wrap that encrypted data in an extra layer of symmetric encryption before storing it at rest ("at rest" meaning in the database when you are not using it).
+                  Your data is encrypted and decrypted entirely in your browser — our servers never see your content in plaintext. We use an open-source Rust cryptographic library (metamorphic-crypto) compiled to WebAssembly that runs the same code in your browser and on our server, fully auditable. Your browser derives a key from your password, generates your key pair, and encrypts everything before it leaves your device.
                 </dd>
                 <dd class="mt-2 text-base leading-7 text-gray-600 dark:text-gray-400">
-                  In more detail it looks like this: each person has a (1) password-derived key, (2) public-private key pair, and (3) their private key is encrypted with their password-derived key.
+                  On top of that, all data is wrapped in a second layer of AES-256-GCM encryption at rest. Key distribution uses hybrid post-quantum key encapsulation (ML-KEM-1024 + X25519, NIST Cat-5) so your data is protected against both current threats and future quantum computers.
                 </dd>
               </div>
               <div>
@@ -4468,7 +4468,7 @@ defmodule MossletWeb.Components.LandingPage do
                     target="_blank"
                     class="text-emerald-600 hover:text-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300"
                   >
-                    Tigris</.link>. Your data is asymmetrically encrypted and then sent to Tigris where it is distributed around the world for faster speeds and optimal availability.
+                    Tigris</.link>. Your data is encrypted in your browser before it's uploaded, then distributed around the world for faster speeds and optimal availability.
                 </dd>
               </div>
 
@@ -4477,7 +4477,7 @@ defmodule MossletWeb.Components.LandingPage do
                   Does MOSSLET use my image or data to train its AI?
                 </dt>
                 <dd class="mt-2 text-base leading-7 text-gray-600 dark:text-gray-400">
-                  Nope! We are using a pre-trained, open source model from the machine learning community. This means it was trained on other image data (~80,000 images). We then run this model on our own private, internal servers — ensuring your data remains private and secure.
+                  Nope! For non-public content, image safety checks run directly in your browser using a lightweight AI model — your images are never sent to external services. For public posts, we use a pre-trained, open-source model on our own private servers. In all cases, your content is never stored or used for AI training.
                 </dd>
               </div>
             </dl>
@@ -4610,7 +4610,7 @@ defmodule MossletWeb.Components.LandingPage do
                   Can I make a public Post?
                 </dt>
                 <dd class="mt-2 text-base leading-7 text-gray-600 dark:text-gray-400">
-                  No. This is a feature we are considering for the future.
+                  Yes! You can create public posts visible to everyone, or share privately with your connections, specific groups, or specific people. Public posts use server-side encryption for discoverability, while all private posts are zero-knowledge encrypted in your browser.
                 </dd>
               </div>
 

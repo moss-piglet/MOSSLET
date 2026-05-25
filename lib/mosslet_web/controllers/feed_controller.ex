@@ -8,6 +8,14 @@ defmodule MossletWeb.FeedController do
 
   @blog_entries [
     %{
+      id: "17",
+      date: "May 25, 2026",
+      title: "We Can't Read Your Data. Here's How.",
+      preview:
+        "Every post, message, journal entry, and image on MOSSLET is now encrypted and decrypted entirely in your browser. With post-quantum protection (ML-KEM-1024, NIST Cat-5), your data is safe today and against future quantum computers.",
+      path: "/blog/articles/17"
+    },
+    %{
       id: "16",
       date: "April 27, 2026",
       title: "The Floor Is Collapsing",

@@ -99,7 +99,7 @@ config :mosslet, :billing_products, [
       "Unlimited new features",
       "Streamlined settings",
       "Own your data",
-      "Advanced asymmetric encryption",
+      "Zero-knowledge, post-quantum encryption",
       "Email support"
     ],
     line_items: [
@@ -130,7 +130,7 @@ config :mosslet, :billing_products, [
       "Unlimited new features",
       "Streamlined settings",
       "Own your data",
-      "Advanced asymmetric encryption",
+      "Zero-knowledge, post-quantum encryption",
       "Email support"
     ],
     line_items: [
@@ -161,7 +161,7 @@ config :mosslet, :billing_products, [
       "Unlimited new features",
       "Streamlined settings",
       "Own your data",
-      "Advanced asymmetric encryption",
+      "Zero-knowledge, post-quantum encryption",
       "Email support",
       "Supports Affirm Payment Plans"
     ],
