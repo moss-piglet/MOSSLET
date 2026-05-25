@@ -1062,7 +1062,7 @@ defmodule MossletWeb.UserConnectionLive.Index do
 
     attrs = %{
       encrypted_label: params["encrypted_label"],
-      label_hash: params["label_hash"],
+      label_blind_index: params["label_blind_index"],
       color: params["color"]
     }
 

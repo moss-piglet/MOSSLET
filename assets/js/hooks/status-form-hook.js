@@ -87,14 +87,12 @@ const StatusFormHook = {
 
     let encUserMessage = null;
     let encConnMessage = null;
-    let messageHash = null;
 
     if (statusMessage && statusMessage.trim() !== "") {
       [encUserMessage, encConnMessage] = await Promise.all([
         encryptWithKey(statusMessage, this._userKey),
         encryptWithKey(statusMessage, this._connKey),
       ]);
-      messageHash = statusMessage.toLowerCase();
     }
 
     this.pushEvent("update_status_zk", {
@@ -102,7 +100,6 @@ const StatusFormHook = {
       auto_status: autoStatus,
       encrypted_status_message: encUserMessage,
       c_encrypted_status_message: encConnMessage,
-      status_message_hash: messageHash,
     });
   },
 };

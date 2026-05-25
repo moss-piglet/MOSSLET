@@ -127,7 +127,7 @@ defmodule Mosslet.Accounts.UserConnection do
     uconn
     |> change()
     |> put_change(:label, attrs.encrypted_label)
-    |> put_change(:label_hash, attrs.label_hash)
+    |> put_change(:label_hash, attrs.label_blind_index)
     |> put_change(:color, color)
     |> validate_inclusion(:color, [
       :emerald,

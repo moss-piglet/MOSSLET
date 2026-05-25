@@ -88,8 +88,12 @@ defmodule Mosslet.Groups.Adapters.Web do
 
     query =
       if search_term && String.trim(search_term) != "" do
-        search_pattern = "%#{String.downcase(search_term)}%"
-        from(g in query, where: g.name_hash == ^search_pattern)
+        # HMAC blind indexes only support exact match — partial/fuzzy search is
+        # not possible with deterministic hashing. The Cloak.Ecto.HMAC type
+        # hashes the pre-image before comparison, so we pass the downcased term
+        # directly (no LIKE wildcards).
+        normalized_term = String.downcase(String.trim(search_term))
+        from(g in query, where: g.name_hash == ^normalized_term)
       else
         query
       end
@@ -120,8 +124,8 @@ defmodule Mosslet.Groups.Adapters.Web do
 
     query =
       if search_term && String.trim(search_term) != "" do
-        search_pattern = "%#{String.downcase(search_term)}%"
-        from(g in query, where: g.name_hash == ^search_pattern)
+        normalized_term = String.downcase(String.trim(search_term))
+        from(g in query, where: g.name_hash == ^normalized_term)
       else
         query
       end

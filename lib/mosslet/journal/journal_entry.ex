@@ -300,7 +300,7 @@ defmodule Mosslet.Journal.JournalEntry do
     changeset
     |> then(fn cs ->
       if enc = attrs["encrypted_title"],
-        do: cs |> put_change(:title, enc) |> put_change(:title_hash, attrs["title_hash"]),
+        do: put_change(cs, :title, enc),
         else: cs
     end)
     |> then(fn cs ->

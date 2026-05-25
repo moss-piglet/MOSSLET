@@ -15,15 +15,21 @@ defmodule Mosslet.Statuses.Adapters.Web do
 
   @impl true
   def update_user_status_multi(user_changeset, connection, connection_attrs) do
+    conn_attrs = %{
+      status: connection_attrs.c_status,
+      status_message: connection_attrs[:c_status_message],
+      status_updated_at: connection_attrs.c_status_updated_at
+    }
+
+    conn_attrs =
+      if Map.has_key?(connection_attrs, :c_status_message_hash),
+        do: Map.put(conn_attrs, :status_message_hash, connection_attrs.c_status_message_hash),
+        else: conn_attrs
+
     case Ecto.Multi.new()
          |> Ecto.Multi.update(:user, user_changeset)
          |> Ecto.Multi.update(:update_connection, fn %{user: _user} ->
-           Connection.update_status_changeset(connection, %{
-             status: connection_attrs.c_status,
-             status_message: connection_attrs.c_status_message,
-             status_message_hash: connection_attrs.c_status_message_hash,
-             status_updated_at: connection_attrs.c_status_updated_at
-           })
+           Connection.update_status_changeset(connection, conn_attrs)
          end)
          |> Repo.transaction_on_primary() do
       {:ok, %{update_connection: _connection, user: user}} ->

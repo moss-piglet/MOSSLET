@@ -1488,10 +1488,8 @@ defmodule Mosslet.Accounts.User do
     user
     |> change()
     |> put_change(:name, attrs[:encrypted_user])
-    |> put_change(:name_hash, attrs[:hash])
     |> put_change(:connection_map, %{
-      c_name: attrs[:encrypted_conn],
-      c_name_hash: attrs[:hash]
+      c_name: attrs[:encrypted_conn]
     })
   end
 
@@ -1538,10 +1536,10 @@ defmodule Mosslet.Accounts.User do
     user
     |> change()
     |> put_change(:username, attrs[:encrypted_user])
-    |> put_change(:username_hash, attrs[:hash])
+    |> put_change(:username_hash, attrs[:blind_index])
     |> put_change(:connection_map, %{
       c_username: attrs[:encrypted_conn],
-      c_username_hash: attrs[:hash]
+      c_username_hash: attrs[:blind_index]
     })
   end
 
@@ -1721,21 +1719,17 @@ defmodule Mosslet.Accounts.User do
       if enc = attrs[:encrypted_status_message] do
         changeset
         |> put_change(:status_message, enc)
-        |> put_change(:status_message_hash, attrs[:status_message_hash])
         |> put_change(:connection_map, %{
           c_status: attrs[:status],
           c_status_message: attrs[:c_encrypted_status_message],
-          c_status_message_hash: attrs[:status_message_hash],
           c_status_updated_at: now
         })
       else
         changeset
         |> put_change(:status_message, nil)
-        |> put_change(:status_message_hash, nil)
         |> put_change(:connection_map, %{
           c_status: attrs[:status],
           c_status_message: nil,
-          c_status_message_hash: nil,
           c_status_updated_at: now
         })
       end

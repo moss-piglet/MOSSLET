@@ -85,12 +85,21 @@ const ProfileFieldsFormHook = {
       encryptWithKey(plaintext, this._connKey),
     ]);
 
-    this.pushEvent(eventName, {
+    const payload = {
       field: fieldName,
       encrypted_user: encUser,
       encrypted_conn: encConn,
-      hash: plaintext.toLowerCase(),
-    });
+    };
+
+    // Only username needs a blind-index pre-image (server uses it for
+    // HMAC-SHA512 lookups and uniqueness). Other profile fields (name, about)
+    // have no server-side search queries, so sending the plaintext would be
+    // gratuitous ZK leakage.
+    if (fieldName === "username") {
+      payload.blind_index = plaintext.toLowerCase();
+    }
+
+    this.pushEvent(eventName, payload);
   },
 };
 

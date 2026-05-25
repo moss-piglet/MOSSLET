@@ -1032,8 +1032,7 @@ defmodule MossletWeb.EditStatusLive do
       status: status_atom,
       auto_status: params["auto_status"] == true,
       encrypted_status_message: params["encrypted_status_message"],
-      c_encrypted_status_message: params["c_encrypted_status_message"],
-      status_message_hash: params["status_message_hash"]
+      c_encrypted_status_message: params["c_encrypted_status_message"]
     }
 
     case Statuses.update_user_status_zk(user, attrs) do

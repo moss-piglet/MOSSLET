@@ -90,7 +90,7 @@ const GroupMetadataFormHook = {
     const payload = {
       encrypted_name: encryptedName,
       encrypted_description: encryptedDescription,
-      name_hash: name.toLowerCase(),
+      name_blind_index: name.toLowerCase(),
       user_connections: userConnections,
       user_id: userId,
       user_name: userName,

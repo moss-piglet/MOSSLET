@@ -434,7 +434,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
       attrs = %{
         encrypted_name: params["encrypted_name"],
         encrypted_description: params["encrypted_description"],
-        name_hash: params["name_hash"]
+        name_blind_index: params["name_blind_index"]
       }
 
       case Groups.update_group_metadata_zk(group, attrs) do

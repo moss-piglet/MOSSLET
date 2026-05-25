@@ -70,7 +70,7 @@ const ConnectionLabelFormHook = {
 
     this.pushEvent("save_edit_connection_zk", {
       encrypted_label: encryptedLabel,
-      label_hash: label.toLowerCase(),
+      label_blind_index: label.toLowerCase(),
       color: color,
     });
   },

@@ -541,6 +541,23 @@ Note: `@noble/post-quantum` was the original browser-side PQ library (pure JS). 
 
 9. **Logout cleanup: clear sessionStorage + persistent key cache** — `session.js` `mosslet:logout` handler now clears all sessionStorage keys (`_mosslet_user_key`, `_mosslet_private_key`, `_mosslet_pq_private_key`, etc.) and calls `clearKeyCache()` to wipe the IndexedDB wrapping key + localStorage ciphertext. `session-key-deriver.js` `_clearSessionKeys()` also calls `clearKeyCache()` when stale keys are detected (e.g., after password change).
 
+10. **Plaintext hash leakage in ZK form hooks** — Five JS form hooks were sending `plaintext.toLowerCase()` as "hash" values alongside encrypted fields, fully revealing plaintext to the server. Investigation found 3 hashes are **never queried** (pure leakage) and 3 are **actively used** for HMAC blind-index search/lookup.
+
+    **Removed (eliminated plaintext leakage for unqueried fields):**
+    - `profile-fields-form-hook.js` — stopped sending `hash` for name/about updates (`User.name_hash`, `Connection.name_hash` never queried)
+    - `status-form-hook.js` — stopped sending `status_message_hash` (`User.status_message_hash`, `Connection.status_message_hash` never queried)
+    - `journal-entry-form-hook.js` — stopped sending `title_hash` (`JournalEntry.title_hash` never queried)
+    - Server-side: `name_changeset_zk`, `status_changeset_zk`, `put_encrypted_fields` no longer write these hash columns in the ZK path. Adapter functions (`update_user_name`, `update_user_onboarding_profile`, `update_user_status_multi`) made defensive with `Map.has_key?` checks for both ZK and legacy compatibility.
+
+    **Kept with rename (active blind indexes — inherent ZK tradeoff):**
+    - `username_hash` — JS param renamed `hash` → `blind_index` (critical: user lookup, profile slugs, uniqueness constraint)
+    - `label_hash` — JS param renamed `label_hash` → `label_blind_index` (active: connection search/filtering)
+    - `name_hash` (Group) — JS param renamed `name_hash` → `name_blind_index` (active: public group search)
+
+    These 3 active blind indexes require the server to see the lowercased pre-image — this is a fundamental property of `Cloak.Ecto.HMAC` (HMAC-SHA512 computed server-side with `HMAC_SECRET`). Same pattern as Metamorphic's email blind index. The pre-image is case-folded text only, discarded after HMAC computation.
+
+    **Bug fix:** Group name search (`list_public_groups`, `public_group_count` in `groups/adapters/web.ex`) was using `==` with `"%search_term%"` LIKE-style pattern, but HMAC equality check hashes the `%` characters into the digest — effectively breaking all partial-match group searches. Fixed to exact-match on the normalized term (HMAC blind indexes inherently only support exact match).
+
 ### Remaining ZK Gaps (Known, Not Yet Addressed)
 
 **Read path (server decrypts for template rendering):**

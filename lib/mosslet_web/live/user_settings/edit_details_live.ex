@@ -801,8 +801,7 @@ defmodule MossletWeb.EditDetailsLive do
 
     attrs = %{
       encrypted_user: params["encrypted_user"],
-      encrypted_conn: params["encrypted_conn"],
-      hash: params["hash"]
+      encrypted_conn: params["encrypted_conn"]
     }
 
     case Accounts.update_user_name_zk(user, attrs) do
@@ -860,7 +859,7 @@ defmodule MossletWeb.EditDetailsLive do
     attrs = %{
       encrypted_user: params["encrypted_user"],
       encrypted_conn: params["encrypted_conn"],
-      hash: params["hash"]
+      blind_index: params["blind_index"]
     }
 
     case Accounts.update_user_username_zk(user, attrs) do

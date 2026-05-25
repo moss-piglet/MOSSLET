@@ -632,13 +632,18 @@ defmodule Mosslet.Accounts.Adapters.Web do
 
   @impl true
   def update_user_name(_user, conn, user_changeset, c_attrs) do
+    conn_attrs =
+      %{name: c_attrs.c_name}
+      |> then(fn attrs ->
+        if Map.has_key?(c_attrs, :c_name_hash),
+          do: Map.put(attrs, :name_hash, c_attrs.c_name_hash),
+          else: attrs
+      end)
+
     case Ecto.Multi.new()
          |> Ecto.Multi.update(:update_user, fn _ -> user_changeset end)
          |> Ecto.Multi.update(:update_connection, fn %{update_user: _user} ->
-           Connection.update_name_changeset(conn, %{
-             name: c_attrs.c_name,
-             name_hash: c_attrs.c_name_hash
-           })
+           Connection.update_name_changeset(conn, conn_attrs)
          end)
          |> Repo.transaction_on_primary() do
       {:ok, %{update_user: user, update_connection: conn}} ->
@@ -1046,13 +1051,18 @@ defmodule Mosslet.Accounts.Adapters.Web do
 
   @impl true
   def update_user_onboarding_profile(_user, conn, user_changeset, c_attrs) do
+    conn_attrs =
+      %{name: c_attrs.c_name}
+      |> then(fn attrs ->
+        if Map.has_key?(c_attrs, :c_name_hash),
+          do: Map.put(attrs, :name_hash, c_attrs.c_name_hash),
+          else: attrs
+      end)
+
     case Ecto.Multi.new()
          |> Ecto.Multi.update(:update_user, fn _ -> user_changeset end)
          |> Ecto.Multi.update(:update_connection, fn %{update_user: _user} ->
-           Connection.update_name_changeset(conn, %{
-             name: c_attrs.c_name,
-             name_hash: c_attrs.c_name_hash
-           })
+           Connection.update_name_changeset(conn, conn_attrs)
          end)
          |> Repo.transaction_on_primary() do
       {:ok, %{update_user: user, update_connection: conn}} ->

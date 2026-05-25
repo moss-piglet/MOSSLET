@@ -65,7 +65,9 @@ defmodule Mosslet.Groups.Group do
         else: changes
 
     changes =
-      if attrs.name_hash, do: Map.put(changes, :name_hash, attrs.name_hash), else: changes
+      if attrs[:name_blind_index],
+        do: Map.put(changes, :name_hash, attrs.name_blind_index),
+        else: changes
 
     change(group, changes)
   end

@@ -112,7 +112,6 @@ const JournalEntryFormHook = {
       encrypted_body: encBody,
       encrypted_mood: encMood,
       word_count: wordCount,
-      title_hash: title.trim() ? title.toLowerCase() : null,
     });
   },
 };
