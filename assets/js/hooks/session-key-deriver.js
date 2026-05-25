@@ -15,7 +15,9 @@
  *   1. sessionStorage (already derived this tab session)
  *   2. Persistent cache (IndexedDB-wrapped, survives browser restart)
  *   3. Temp key from LoginHook (browser-side Argon2id KDF on login)
- *   4. DOM data attributes (server-rendered user_key, transitional fallback)
+ *
+ * If no key source is available, individual features handle missing keys
+ * gracefully (e.g. showing placeholder text for encrypted content).
  *
  * Storage keys:
  *   _mosslet_user_key       — decrypted user_key (base64)
@@ -60,7 +62,6 @@ const SessionKeyDeriver = {
     const el = this.el;
 
     // Read server-rendered data attributes
-    const userKey = el.dataset.userKey;
     const publicKey = el.dataset.publicKey;
     const encryptedPrivateKey = el.dataset.encryptedPrivateKey;
     const pqPublicKey = el.dataset.pqPublicKey || null;
@@ -97,7 +98,7 @@ const SessionKeyDeriver = {
         });
         return;
       }
-      // Cache stale — fall through to DOM derivation
+      // Cache stale — fall through
     }
 
     // --- Source 3: temp key from LoginHook (browser-derived on login) ---
@@ -122,38 +123,9 @@ const SessionKeyDeriver = {
       // Temp key didn't work (wrong password submitted to fake salt) — fall through
     }
 
-    // --- Source 4: server-provided user_key from DOM data attribute (transitional) ---
-    // The server still derives and passes the user_key during the transition period.
-    // Once all clients support LoginHook, this fallback can be removed.
-    if (!userKey) {
-      // No user_key available — user needs to re-authenticate.
-      // Don't redirect here; let individual features handle missing keys
-      // gracefully (e.g. showing placeholder text for encrypted content).
-      return;
-    }
-
-    // Decrypt private key with user_key
-    const privateKey = await tryDecrypt(encryptedPrivateKey, userKey);
-    if (!privateKey) {
-      console.error("SessionKeyDeriver: failed to decrypt private key");
-      return;
-    }
-
-    // Decrypt PQ private key if available
-    let pqPrivateKey = null;
-    if (encryptedPqPrivateKey) {
-      try {
-        pqPrivateKey = await decryptSecretboxToString(encryptedPqPrivateKey, userKey);
-      } catch (e) {
-        console.warn("SessionKeyDeriver: PQ private key decryption failed:", e);
-      }
-    }
-
-    // Store derived keys
-    this._storeKeys({ userKey, privateKey, pqPrivateKey });
-
-    // Persist to encrypted cache for browser restart survival
-    await cacheKeys({ userKey, privateKey, pqPrivateKey });
+    // No key source available — user needs to re-authenticate.
+    // Don't redirect here; let individual features handle missing keys
+    // gracefully (e.g. showing placeholder text for encrypted content).
   },
 
   /**
