@@ -33,6 +33,28 @@
 - No WASM rebuild needed — vendored v0.3.0 already exports all Cat-5 functions
 - No data migration needed — old Cat-3 ciphertext decrypts correctly via auto-detection
 
+**Phase 4b COMPLETE**: Server PQ keypair for hybrid-sealing public content keys.
+
+- Server-side ML-KEM-1024 (Cat-5) keypair: `SERVER_PQ_PUBLIC_KEY`, `SERVER_PQ_SECRET_KEY` env vars
+- `Encrypted.Session.server_pq_public_key/0` and `server_pq_secret_key/0` (graceful nil when not configured)
+- `Encrypted.Utils.pq_opts_for_server/0` — builds PQ opts keyword list for seal operations
+- `Encrypted.Utils.server_pq_unseal_opts/0` — builds PQ unseal opts for `decrypt_public_item_key/1`
+- All seal points for public-visibility content updated to use hybrid PQ:
+  - `UserPost.encrypt_attrs` (public posts)
+  - `UserGroup.encrypt_attrs` (public groups)
+  - `UserMemory.encrypt_attrs` (public memories)
+  - `Connection.encrypt_profile_data` (public profiles)
+  - `helpers.ex` `generate_and_encrypt_trix_key` (public trix keys)
+  - `helpers.ex` `repair_hybrid_public_group_key` (re-seal repair)
+  - `PostReport.encrypt_admin_notes` (admin notes)
+  - `UserPostReport.encrypt_report_key` (report keys)
+- All unseal points updated to pass PQ secret key:
+  - `Encrypted.Users.Utils.decrypt_public_item_key/1`
+  - `Encrypted.Users.Utils.decrypt_public_item/2`
+- `PostReport` and `UserPostReport` migrated from `Application.get_env` to `Encrypted.Session`
+- `mix reseal_server_keys` task for batch re-sealing existing v1-sealed public keys to Cat-5 hybrid
+- Backward compatible: auto-detects v1 (legacy) and v3 (Cat-5) on unseal; gracefully falls back to legacy box_seal when PQ env vars not set
+
 **Phase 3 IN PROGRESS**: Browser-side WASM crypto + hybrid PQ for conversations.
 
 - `metamorphic-crypto` Rust crate compiled to WASM, vendored in `assets/vendor/metamorphic-crypto/`
@@ -62,6 +84,20 @@
 - `lib/mosslet/accounts/user.ex` — PQ fields on schema, PQ keypair at registration, PQ re-encrypt on password change
 - `lib/mosslet/encrypted/utils.ex` — `generate_pq_key_pairs/0`, hybrid seal/unseal with PQ opts
 - `lib/mosslet/encrypted/users/utils.ex` — all decrypt paths pass PQ opts when available
+
+### Phase 4b Files Changed (Server PQ Keypair)
+
+- `lib/mosslet/encrypted/session.ex` — added `server_pq_public_key/0`, `server_pq_secret_key/0` (graceful nil)
+- `lib/mosslet/encrypted/utils.ex` — added `pq_opts_for_server/0`, `server_pq_unseal_opts/0`
+- `lib/mosslet/encrypted/users/utils.ex` — `decrypt_public_item_key/1` and `decrypt_public_item/2` pass PQ unseal opts
+- `lib/mosslet/timeline/user_post.ex` — public visibility seal uses server PQ opts
+- `lib/mosslet/groups/user_group.ex` — public groups seal uses server PQ opts
+- `lib/mosslet/memories/user_memory.ex` — public memories seal uses server PQ opts
+- `lib/mosslet/accounts/connection.ex` — public profile_key seal uses server PQ opts
+- `lib/mosslet_web/helpers.ex` — `generate_and_encrypt_trix_key` and `repair_hybrid_public_group_key` use server PQ opts
+- `lib/mosslet/timeline/post_report.ex` — migrated from `Application.get_env` to `Encrypted.Session`, uses PQ opts
+- `lib/mosslet/timeline/user_post_report.ex` — migrated from `Application.get_env` to `Encrypted.Session`, uses PQ opts
+- `lib/mix/tasks/reseal_server_keys.ex` — new: batch re-seal mix task for existing public keys
 
 ### Phase 3 Files Changed (Conversations + Server-Side PQ Seal)
 

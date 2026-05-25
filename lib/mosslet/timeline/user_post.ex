@@ -74,9 +74,8 @@ defmodule Mosslet.Timeline.UserPost do
 
       {public_key, pq_opts} =
         if opts[:visibility] == "public" || opts[:visibility] == :public do
-          # Public posts are sealed with the server's public key.
-          # The server has no PQ key pair, so PQ opts must be empty.
-          {Encrypted.Session.server_public_key(), []}
+          # Public posts are sealed with the server's key pair (hybrid PQ when available).
+          {Encrypted.Session.server_public_key(), Encrypted.Utils.pq_opts_for_server()}
         else
           {opts[:user].key_pair["public"], Encrypted.Utils.pq_opts_for_user(opts[:user])}
         end

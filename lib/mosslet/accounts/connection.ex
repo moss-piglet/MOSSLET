@@ -462,9 +462,11 @@ defmodule Mosslet.Accounts.Connection do
           |> put_change(:username, Utils.encrypt(%{key: profile_key, payload: username}))
           |> put_change(
             :profile_key,
-            Encrypted.Utils.encrypt_message_for_user_with_pk(profile_key, %{
-              public: Encrypted.Session.server_public_key()
-            })
+            Encrypted.Utils.encrypt_message_for_user_with_pk(
+              profile_key,
+              %{public: Encrypted.Session.server_public_key()},
+              Encrypted.Utils.pq_opts_for_server()
+            )
           )
 
         :private ->

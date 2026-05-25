@@ -5,6 +5,8 @@ defmodule Mosslet.Encrypted.Session do
   def encryption_salt, do: System.fetch_env!("SESSION_ENCRYPTION_SALT")
   def server_public_key, do: System.fetch_env!("SERVER_PUBLIC_KEY")
   def server_private_key, do: System.fetch_env!("SERVER_PRIVATE_KEY")
+  def server_pq_public_key, do: System.get_env("SERVER_PQ_PUBLIC_KEY")
+  def server_pq_secret_key, do: System.get_env("SERVER_PQ_SECRET_KEY")
   def avatars_bucket, do: System.fetch_env!("AVATARS_BUCKET")
   def banners_bucket, do: System.fetch_env!("AVATARS_BUCKET")
   def memories_bucket, do: System.fetch_env!("MEMORIES_BUCKET")

@@ -208,19 +208,17 @@ defmodule Mosslet.Timeline.PostReport do
     end
   end
 
-  # Encrypt admin notes with server public key for admin access
+  # Encrypt admin notes with server key pair for admin access
   defp encrypt_admin_notes(changeset, _opts) do
     if changeset.valid? do
       admin_notes = get_field(changeset, :admin_notes)
 
       if admin_notes && String.trim(admin_notes) != "" do
-        # Get server public key for admin-accessible encryption
-        server_public_key = Application.get_env(:mosslet, :server_public_key)
-
         encrypted_notes =
           Mosslet.Encrypted.Utils.encrypt_message_for_user_with_pk(
             String.trim(admin_notes),
-            %{public: server_public_key}
+            %{public: Mosslet.Encrypted.Session.server_public_key()},
+            Mosslet.Encrypted.Utils.pq_opts_for_server()
           )
 
         changeset

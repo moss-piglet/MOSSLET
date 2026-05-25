@@ -206,6 +206,39 @@ defmodule Mosslet.Encrypted.Utils do
   def pq_opts_for_user(_, _opts), do: []
 
   @doc """
+  Builds PQ opts keyword list for the server's PQ keypair.
+
+  Returns `[pq_public_key: key, level: :cat5]` when the `SERVER_PQ_PUBLIC_KEY`
+  env var is set, or `[]` otherwise (falls back to legacy `box_seal`).
+
+  Used when sealing context keys for public-visibility content (posts, groups,
+  memories, profiles, reports) with the server's public key.
+  """
+  @spec pq_opts_for_server() :: keyword
+  def pq_opts_for_server do
+    case Mosslet.Encrypted.Session.server_pq_public_key() do
+      nil -> []
+      "" -> []
+      pq_pk -> [pq_public_key: pq_pk, level: :cat5]
+    end
+  end
+
+  @doc """
+  Returns the server's PQ secret key for unsealing, or `nil` if not configured.
+
+  Used by `decrypt_public_item_key/1` and `decrypt_public_item/2` to unseal
+  hybrid-sealed public content keys.
+  """
+  @spec server_pq_unseal_opts() :: keyword
+  def server_pq_unseal_opts do
+    case Mosslet.Encrypted.Session.server_pq_secret_key() do
+      nil -> []
+      "" -> []
+      pq_sk -> [pq_secret_key: pq_sk]
+    end
+  end
+
+  @doc """
   Detects the PQ security level from a base64-encoded public key.
 
   Returns `:cat5` for 1600-byte keys (ML-KEM-1024) and `:cat3` for

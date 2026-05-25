@@ -33,16 +33,14 @@ defmodule Mosslet.Timeline.UserPostReport do
     |> encrypt_report_key(opts)
   end
 
-  # Encrypt report key with server public key for admin access
+  # Encrypt report key with server key pair for admin access
   defp encrypt_report_key(changeset, opts) do
     if changeset.valid? && opts[:report_key] do
-      # Get server public key for admin-accessible encryption
-      server_public_key = Application.get_env(:mosslet, :server_public_key)
-
       encrypted_key =
         Mosslet.Encrypted.Utils.encrypt_message_for_user_with_pk(
           opts[:report_key],
-          %{public: server_public_key}
+          %{public: Mosslet.Encrypted.Session.server_public_key()},
+          Mosslet.Encrypted.Utils.pq_opts_for_server()
         )
 
       put_change(changeset, :key, encrypted_key)

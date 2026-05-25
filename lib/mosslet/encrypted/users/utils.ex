@@ -78,10 +78,14 @@ defmodule Mosslet.Encrypted.Users.Utils do
 
   def decrypt_public_item(payload, e_item_key) do
     with {:ok, d_item_key} <-
-           Encrypted.Utils.decrypt_message_for_user(e_item_key, %{
-             public: Encrypted.Session.server_public_key(),
-             private: Encrypted.Session.server_private_key()
-           }),
+           Encrypted.Utils.decrypt_message_for_user(
+             e_item_key,
+             %{
+               public: Encrypted.Session.server_public_key(),
+               private: Encrypted.Session.server_private_key()
+             },
+             Encrypted.Utils.server_pq_unseal_opts()
+           ),
          {:ok, d_payload} <- decrypt_payload(d_item_key, payload) do
       d_payload
     else
@@ -90,10 +94,14 @@ defmodule Mosslet.Encrypted.Users.Utils do
   end
 
   def decrypt_public_item_key(payload) do
-    case Encrypted.Utils.decrypt_message_for_user(payload, %{
-           public: Encrypted.Session.server_public_key(),
-           private: Encrypted.Session.server_private_key()
-         }) do
+    case Encrypted.Utils.decrypt_message_for_user(
+           payload,
+           %{
+             public: Encrypted.Session.server_public_key(),
+             private: Encrypted.Session.server_private_key()
+           },
+           Encrypted.Utils.server_pq_unseal_opts()
+         ) do
       {:ok, d_item_key} -> d_item_key
       {:error, _message} -> nil
     end

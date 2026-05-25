@@ -122,9 +122,11 @@ defmodule MossletWeb.Helpers do
       post_key = Encrypted.Utils.generate_key()
 
       if visibility in [:public, "public"] do
-        Encrypted.Utils.encrypt_message_for_user_with_pk(post_key, %{
-          public: Encrypted.Session.server_public_key()
-        })
+        Encrypted.Utils.encrypt_message_for_user_with_pk(
+          post_key,
+          %{public: Encrypted.Session.server_public_key()},
+          Encrypted.Utils.pq_opts_for_server()
+        )
       else
         public_key = current_user.key_pair["public"]
 
@@ -744,11 +746,13 @@ defmodule MossletWeb.Helpers do
   defp repair_hybrid_public_group_key(sealed_key, group, current_user, session_key) do
     case Encrypted.Users.Utils.decrypt_user_attrs_key(sealed_key, current_user, session_key) do
       {:ok, raw_key} ->
-        # Re-seal with server's public key only (no PQ) so future reads work
+        # Re-seal with server's key pair (hybrid PQ when available)
         new_sealed =
-          Encrypted.Utils.encrypt_message_for_user_with_pk(raw_key, %{
-            public: Encrypted.Session.server_public_key()
-          })
+          Encrypted.Utils.encrypt_message_for_user_with_pk(
+            raw_key,
+            %{public: Encrypted.Session.server_public_key()},
+            Encrypted.Utils.pq_opts_for_server()
+          )
 
         user_group =
           Enum.find(group.user_groups, fn ug ->
