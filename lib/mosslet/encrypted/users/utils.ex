@@ -48,34 +48,31 @@ defmodule Mosslet.Encrypted.Users.Utils do
   end
 
   def decrypt_group_item(payload, d_item_key) do
-    {:ok, d_payload} = decrypt_payload(d_item_key, payload)
-    d_payload
+    case decrypt_payload(d_item_key, payload) do
+      {:ok, d_payload} -> d_payload
+      _error -> "[encrypted]"
+    end
   end
 
   def decrypt_item(payload, user, e_item_key, key) do
-    {:ok, private_key} = decrypt_private_key(user, key)
-    {:ok, pq_private_key} = decrypt_pq_private_key(user, key)
-
-    pq_opts = if pq_private_key, do: [pq_secret_key: pq_private_key], else: []
-
-    {:ok, decr_item_key} =
-      Encrypted.Utils.decrypt_message_for_user(
-        e_item_key,
-        %{
-          public: user.key_pair["public"],
-          private: private_key
-        },
-        pq_opts
-      )
-
-    return = Encrypted.Utils.decrypt(%{key: decr_item_key, payload: payload})
-
-    case return do
-      {:ok, return} ->
-        return
-
-      {:error, error} ->
-        "#{error}"
+    with {:ok, private_key} <- decrypt_private_key(user, key),
+         {:ok, pq_private_key} <- decrypt_pq_private_key(user, key),
+         pq_opts = if(pq_private_key, do: [pq_secret_key: pq_private_key], else: []),
+         {:ok, decr_item_key} <-
+           Encrypted.Utils.decrypt_message_for_user(
+             e_item_key,
+             %{
+               public: user.key_pair["public"],
+               private: private_key
+             },
+             pq_opts
+           ),
+         {:ok, d_payload} <- Encrypted.Utils.decrypt(%{key: decr_item_key, payload: payload}) do
+      d_payload
+    else
+      {:error, error} -> "#{error}"
+      {:error_private_key, _} -> "[encrypted]"
+      _ -> "[encrypted]"
     end
   end
 

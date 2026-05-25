@@ -379,10 +379,13 @@ defmodule MossletWeb.Helpers do
                 group = Groups.get_group!(reply.post.group_id)
                 user_group = get_user_group(group, user)
 
-                {:ok, d_group_key} =
-                  Encrypted.Users.Utils.decrypt_user_attrs_key(user_group.key, user, key)
+                case Encrypted.Users.Utils.decrypt_user_attrs_key(user_group.key, user, key) do
+                  {:ok, d_group_key} ->
+                    Encrypted.Users.Utils.decrypt_group_item(payload, d_group_key)
 
-                Encrypted.Users.Utils.decrypt_group_item(payload, d_group_key)
+                  _error ->
+                    "[encrypted]"
+                end
               end
 
             _rest ->
@@ -409,10 +412,13 @@ defmodule MossletWeb.Helpers do
                 group = Groups.get_group!(reply.post.group_id)
                 user_group = get_user_group(group, user)
 
-                {:ok, d_group_key} =
-                  Encrypted.Users.Utils.decrypt_user_attrs_key(user_group.key, user, key)
+                case Encrypted.Users.Utils.decrypt_user_attrs_key(user_group.key, user, key) do
+                  {:ok, d_group_key} ->
+                    Encrypted.Users.Utils.decrypt_group_item(payload, d_group_key)
 
-                Encrypted.Users.Utils.decrypt_group_item(payload, d_group_key)
+                  _error ->
+                    "[encrypted]"
+                end
               end
 
             _rest ->
@@ -1185,8 +1191,10 @@ defmodule MossletWeb.Helpers do
   end
 
   def decr_attrs_key(payload_key, user, key) do
-    {:ok, d_attrs_key} = Encrypted.Users.Utils.decrypt_user_attrs_key(payload_key, user, key)
-    d_attrs_key
+    case Encrypted.Users.Utils.decrypt_user_attrs_key(payload_key, user, key) do
+      {:ok, d_attrs_key} -> d_attrs_key
+      _error -> nil
+    end
   end
 
   ## General (and mix of e1 repo functions)
