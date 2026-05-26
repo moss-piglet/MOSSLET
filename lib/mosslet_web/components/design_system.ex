@@ -4648,7 +4648,7 @@ defmodule MossletWeb.DesignSystem do
                 <%= for entry <- @upload.entries do %>
                   <div class="relative shrink-0">
                     <div
-                      id={"phx-preview-#{entry.ref}"}
+                      id={"avatar-preview-wrap-#{entry.ref}"}
                       class={[
                         "w-20 h-20 rounded-xl overflow-hidden",
                         "border-2 transition-all duration-300",

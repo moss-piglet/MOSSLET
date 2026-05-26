@@ -48,6 +48,7 @@ import ReplyEmojiPicker from "./reply-emoji-picker";
 import ReplyFormHook from "./reply-form-hook";
 import RepostFormHook from "./repost-form-hook";
 import TippyHook from "./tippy-hook";
+import UnlockHook from "./unlock-hook";
 import TrixContentPostHook from "./trix-content-post-hook";
 import TrixContentReplyHook from "./trix-content-reply-hook";
 import ScrollDown from "./scroll";
@@ -145,6 +146,7 @@ export default {
   TippyHook,
   TrixContentPostHook,
   TrixContentReplyHook,
+  UnlockHook,
   ImageDownloadHook,
   DisableContextMenu,
   ImageModalHook,

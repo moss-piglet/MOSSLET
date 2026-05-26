@@ -6,6 +6,7 @@ defmodule MossletWeb.AuthRoutes do
         pipe_through [:browser]
 
         delete "/sign_out", UserSessionController, :delete
+        post "/unlock", UnlockSessionController, :create
 
         live_session :current_user,
           on_mount: [
@@ -14,8 +15,7 @@ defmodule MossletWeb.AuthRoutes do
           live "/confirm/:token", UserConfirmationLive, :edit
           live "/confirm", UserConfirmationInstructionsLive, :new
           live "/reset-password/:token", UserResetPasswordLive, :edit
-          get "/unlock", UnlockSessionController, :new
-          post "/unlock", UnlockSessionController, :create
+          live "/unlock", UnlockSessionLive, :new
         end
       end
 
