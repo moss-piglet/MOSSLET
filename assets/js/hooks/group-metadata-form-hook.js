@@ -83,17 +83,12 @@ const GroupMetadataFormHook = {
         ).map((i) => i.value)
       : [];
 
-    const userId = this.el.querySelector('input[name="group[user_id]"]')?.value;
-    const userName = this.el.querySelector('input[name="group[user_name]"]')?.value;
-
     const target = this.el.getAttribute("phx-target");
     const payload = {
       encrypted_name: encryptedName,
       encrypted_description: encryptedDescription,
       name_blind_index: name.toLowerCase(),
       user_connections: userConnections,
-      user_id: userId,
-      user_name: userName,
     };
 
     if (target) {
