@@ -121,12 +121,20 @@ defmodule Mosslet.Billing.Providers.Stripe do
     Util.unix_to_naive_datetime(period_end)
   end
 
+  # In stripity_stripe 3.3.1, `charges` was removed from PaymentIntent.
+  # `latest_charge` is now a charge ID string — retrieve the full Charge.
   def get_payment_intent_charge_price(payment_intent) do
-    get_payment_intent_charge(payment_intent).amount
+    case get_payment_intent_charge(payment_intent) do
+      {:ok, charge} -> charge.amount
+      _ -> nil
+    end
   end
 
   def get_payment_intent_charge_created(payment_intent) do
-    get_payment_intent_charge(payment_intent).created
+    case get_payment_intent_charge(payment_intent) do
+      {:ok, charge} -> charge.created
+      _ -> nil
+    end
   end
 
   defp get_subscription_item(stripe_subscription) do
@@ -134,7 +142,7 @@ defmodule Mosslet.Billing.Providers.Stripe do
   end
 
   defp get_payment_intent_charge(payment_intent) do
-    List.first(payment_intent.charges.data)
+    Provider.retrieve_charge(payment_intent.latest_charge)
   end
 
   defdelegate retrieve_charge(id), to: Provider
