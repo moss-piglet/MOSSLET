@@ -61,6 +61,37 @@ defmodule Mosslet.Journal.JournalBook do
     end
   end
 
+  @doc """
+  ZK changeset — accepts pre-encrypted title/description from browser.
+  The server stores the ciphertext directly without re-encrypting.
+  """
+  def changeset_zk(book, attrs) do
+    book
+    |> cast(attrs, [:cover_color, :user_id])
+    |> validate_required([:user_id])
+    |> validate_inclusion(:cover_color, @cover_colors)
+    |> put_zk_title(attrs)
+    |> put_zk_description(attrs)
+  end
+
+  defp put_zk_title(changeset, %{"encrypted_title" => ct, "title_blind_index" => idx})
+       when is_binary(ct) and ct != "" do
+    changeset
+    |> put_change(:title, ct)
+    |> put_change(:title_hash, idx)
+  end
+
+  defp put_zk_title(changeset, _attrs) do
+    add_error(changeset, :title, "is required")
+  end
+
+  defp put_zk_description(changeset, %{"encrypted_description" => ct})
+       when is_binary(ct) and ct != "" do
+    put_change(changeset, :description, ct)
+  end
+
+  defp put_zk_description(changeset, _attrs), do: changeset
+
   defp encrypt_attrs(changeset, opts) do
     if changeset.valid? && opts[:user] && opts[:key] do
       changeset

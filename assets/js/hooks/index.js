@@ -15,6 +15,7 @@ import DecryptProfileFields from "./decrypt-profile-fields";
 import DecryptReply from "./decrypt-reply";
 import DecryptStatusMessage from "./decrypt-status-message";
 import EncryptUpload from "./encrypt-upload";
+import ExtractedEntryFormHook from "./extracted-entry-form-hook";
 import NsfwCheck from "./nsfw-check";
 import DecryptUserFields from "./decrypt-user-fields";
 import PostFormHook from "./post-form-hook";
@@ -69,6 +70,7 @@ import StatusFormHook from "./status-form-hook";
 import SortableBooksHook from "./sortable-books-hook";
 import ImageResizeUploadHook from "./image-resize-upload-hook";
 import ImageCropHook from "./image-crop-hook";
+import JournalBookFormHook from "./journal-book-form-hook";
 import JournalDragDropHook from "./journal-drag-drop-hook";
 import JournalEntryFormHook from "./journal-entry-form-hook";
 import WordCounter from "./word-counter";
@@ -116,6 +118,7 @@ export default {
   DecryptUserFields,
   EncryptUpload,
   EntryColumnFlow,
+  ExtractedEntryFormHook,
   GroupMessageEmojiPicker,
   GroupMessageEditFormHook,
   GroupMessageFormHook,
@@ -166,6 +169,7 @@ export default {
   SortableBooksHook,
   ImageResizeUploadHook,
   ImageCropHook,
+  JournalBookFormHook,
   JournalDragDropHook,
   JournalEntryFormHook,
   WordCounter,

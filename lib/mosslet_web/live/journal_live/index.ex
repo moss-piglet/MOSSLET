@@ -558,7 +558,14 @@ defmodule MossletWeb.JournalLive.Index do
         size="md"
       >
         <:title>{if @editing_book, do: "Edit Book", else: "New Book"}</:title>
-        <.form for={@book_form} id="book-form" phx-change="validate_book" phx-submit="save_book">
+        <.form
+          for={@book_form}
+          id="book-form"
+          phx-change="validate_book"
+          phx-submit="save_book"
+          phx-hook="JournalBookFormHook"
+          data-sealed-user-key={@current_scope.user.user_key}
+        >
           <div class="space-y-6">
             <p class="text-sm text-slate-600 dark:text-slate-400">
               Create a book to organize related journal entries
@@ -940,7 +947,13 @@ defmodule MossletWeb.JournalLive.Index do
           <% end %>
 
           <%= if @upload_step == :preview do %>
-            <.form for={@extracted_form} id="extracted-form" phx-submit="save_extracted_entry">
+            <.form
+              for={@extracted_form}
+              id="extracted-form"
+              phx-submit="save_extracted_entry"
+              phx-hook="ExtractedEntryFormHook"
+              data-sealed-user-key={@current_scope.user.user_key}
+            >
               <div class="space-y-4">
                 <div>
                   <.phx_input
@@ -1312,6 +1325,54 @@ defmodule MossletWeb.JournalLive.Index do
     consume_uploaded_entries(socket, :book_cover, fn _meta, _entry -> {:ok, nil} end)
 
     case Journal.create_book(user, params, key) do
+      {:ok, book} ->
+        book =
+          if cover_file_path do
+            case Journal.update_book_cover_image(book, cover_file_path, user, key) do
+              {:ok, updated} -> updated
+              {:error, _} -> book
+            end
+          else
+            book
+          end
+
+        decrypted_book =
+          book
+          |> Map.put(:entry_count, 0)
+          |> decrypt_book(user, key)
+
+        {:noreply,
+         socket
+         |> assign(:show_book_modal, false)
+         |> assign(:book_form, nil)
+         |> assign(:cover_upload_stage, nil)
+         |> assign(:current_cover_src, nil)
+         |> assign(:pending_cover_path, nil)
+         |> assign(:books, [decrypted_book | socket.assigns.books])
+         |> put_flash(:info, "Book created")
+         |> push_event("restore-body-scroll", %{})}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, :book_form, to_form(changeset, as: :journal_book))}
+    end
+  end
+
+  @impl true
+  def handle_event("save_book_zk", params, socket) do
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    cover_file_path = socket.assigns[:pending_cover_path]
+    consume_uploaded_entries(socket, :book_cover, fn _meta, _entry -> {:ok, nil} end)
+
+    attrs = %{
+      "encrypted_title" => params["encrypted_title"],
+      "encrypted_description" => params["encrypted_description"],
+      "title_blind_index" => params["title_blind_index"],
+      "cover_color" => params["cover_color"] || "emerald"
+    }
+
+    case Journal.create_book_zk(user, attrs) do
       {:ok, book} ->
         book =
           if cover_file_path do
@@ -1744,6 +1805,82 @@ defmodule MossletWeb.JournalLive.Index do
          )
          |> assign(:revealed_entries, updated_revealed)
          |> put_flash(:info, "Journal entry created from your handwriting ✨")
+         |> push_event("restore-body-scroll", %{})}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Could not save entry")}
+    end
+  end
+
+  @impl true
+  def handle_event("save_extracted_entry_zk", params, socket) do
+    user = socket.assigns.current_scope.user
+    local_today = socket.assigns.local_today
+
+    entry_date =
+      case params["entry_date"] do
+        "" -> local_today
+        nil -> local_today
+        date_str -> Date.from_iso8601!(date_str)
+      end
+
+    attrs = %{
+      "encrypted_title" => params["encrypted_title"],
+      "encrypted_body" => params["encrypted_body"],
+      "word_count" => params["word_count"] || 0,
+      "entry_date" => entry_date,
+      "book_id" => if(params["book_id"] == "", do: nil, else: params["book_id"])
+    }
+
+    case Journal.create_journal_entry_zk(user, attrs) do
+      {:ok, entry} ->
+        sealed_user_key = user.user_key
+
+        decrypted_entry =
+          MossletWeb.Helpers.pre_decrypt_journal_entry(entry, sealed_user_key)
+
+        updated_entries =
+          if is_nil(entry.book_id) do
+            [decrypted_entry | socket.assigns.entries]
+          else
+            socket.assigns.entries
+          end
+
+        updated_books =
+          if entry.book_id do
+            Enum.map(socket.assigns.books, fn book ->
+              if book.id == entry.book_id do
+                %{book | entry_count: book.entry_count + 1}
+              else
+                book
+              end
+            end)
+          else
+            socket.assigns.books
+          end
+
+        updated_revealed = MapSet.put(socket.assigns.revealed_entries, entry.id)
+
+        {:noreply,
+         socket
+         |> assign(:show_upload_modal, false)
+         |> assign(:upload_step, :upload)
+         |> assign(:upload_progress, 0)
+         |> assign(:upload_stage, nil)
+         |> assign(:extracted_form, nil)
+         |> assign(:extracted_date, nil)
+         |> assign(:entries, updated_entries)
+         |> assign(:books, updated_books)
+         |> assign(:entry_count, socket.assigns.entry_count + 1)
+         |> assign(
+           :loose_entry_count,
+           if(is_nil(entry.book_id),
+             do: socket.assigns.loose_entry_count + 1,
+             else: socket.assigns.loose_entry_count
+           )
+         )
+         |> assign(:revealed_entries, updated_revealed)
+         |> put_flash(:info, "Journal entry created from your handwriting")
          |> push_event("restore-body-scroll", %{})}
 
       {:error, _changeset} ->

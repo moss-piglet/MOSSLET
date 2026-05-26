@@ -348,7 +348,14 @@ defmodule MossletWeb.JournalLive.Book do
         size="md"
       >
         <:title>Edit Book</:title>
-        <.form for={@book_form} id="edit-book-form" phx-change="validate_book" phx-submit="save_book">
+        <.form
+          for={@book_form}
+          id="edit-book-form"
+          phx-change="validate_book"
+          phx-submit="save_book"
+          phx-hook="JournalBookFormHook"
+          data-sealed-user-key={@current_scope.user.user_key}
+        >
           <div class="space-y-6">
             <div>
               <.phx_input
@@ -1550,6 +1557,84 @@ defmodule MossletWeb.JournalLive.Book do
     consume_uploaded_entries(socket, :book_cover, fn _meta, _entry -> {:ok, nil} end)
 
     case Journal.update_book(book, params, user, key) do
+      {:ok, updated_book} ->
+        updated_book =
+          cond do
+            cover_file_path ->
+              old_url = book.cover_image_url
+
+              if old_url do
+                decrypted_old =
+                  Mosslet.Encrypted.Users.Utils.decrypt_user_data(old_url, user, key)
+
+                Mosslet.FileUploads.JournalCoverUploadWriter.delete_cover_image(decrypted_old)
+              end
+
+              case Journal.update_book_cover_image(updated_book, cover_file_path, user, key) do
+                {:ok, with_cover} -> with_cover
+                {:error, _} -> updated_book
+              end
+
+            socket.assigns.current_cover_src == nil && book.cover_image_url ->
+              old_url = book.cover_image_url
+              decrypted_old = Mosslet.Encrypted.Users.Utils.decrypt_user_data(old_url, user, key)
+              Mosslet.FileUploads.JournalCoverUploadWriter.delete_cover_image(decrypted_old)
+
+              case Journal.clear_book_cover_image(updated_book) do
+                {:ok, cleared} -> cleared
+                {:error, _} -> updated_book
+              end
+
+            true ->
+              updated_book
+          end
+
+        decrypted = Journal.decrypt_book(updated_book, user, key)
+
+        cover_src =
+          if decrypted.cover_image_url do
+            load_cover_image_src(decrypted.cover_image_url, user, key)
+          else
+            nil
+          end
+
+        {:noreply,
+         socket
+         |> assign(:show_edit_modal, false)
+         |> assign(:book_form, nil)
+         |> assign(:book, %{updated_book | entry_count: book.entry_count})
+         |> assign(:decrypted_title, decrypted.title)
+         |> assign(:decrypted_description, decrypted.description)
+         |> assign(:decrypted_cover_image_url, cover_src)
+         |> assign(:current_cover_src, nil)
+         |> assign(:pending_cover_path, nil)
+         |> assign(:cover_upload_stage, nil)
+         |> assign(:page_title, "Journal")
+         |> put_flash(:info, "Book updated")
+         |> push_event("restore-body-scroll", %{})}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, :book_form, to_form(changeset, as: :journal_book))}
+    end
+  end
+
+  @impl true
+  def handle_event("save_book_zk", params, socket) do
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+    book = socket.assigns.book
+
+    cover_file_path = socket.assigns[:pending_cover_path]
+    consume_uploaded_entries(socket, :book_cover, fn _meta, _entry -> {:ok, nil} end)
+
+    attrs = %{
+      "encrypted_title" => params["encrypted_title"],
+      "encrypted_description" => params["encrypted_description"],
+      "title_blind_index" => params["title_blind_index"],
+      "cover_color" => params["cover_color"] || book.cover_color
+    }
+
+    case Journal.update_book_zk(book, attrs) do
       {:ok, updated_book} ->
         updated_book =
           cond do

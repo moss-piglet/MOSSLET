@@ -57,6 +57,23 @@ defmodule Mosslet.Journal do
     adapter().update_book(changeset)
   end
 
+  @doc """
+  Creates a journal book from browser-encrypted fields (ZK write path).
+  The server receives only ciphertext — title/description never arrive as plaintext.
+  """
+  def create_book_zk(user, attrs) do
+    changeset = JournalBook.changeset_zk(%JournalBook{}, Map.put(attrs, "user_id", user.id))
+    adapter().create_book(changeset)
+  end
+
+  @doc """
+  Updates a journal book from browser-encrypted fields (ZK write path).
+  """
+  def update_book_zk(%JournalBook{} = book, attrs) do
+    changeset = JournalBook.changeset_zk(book, attrs)
+    adapter().update_book(changeset)
+  end
+
   def delete_book(%JournalBook{} = book, user, key \\ nil) do
     if book.user_id == user.id do
       if book.cover_image_url && key do
