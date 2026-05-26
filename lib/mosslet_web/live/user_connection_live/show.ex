@@ -754,65 +754,46 @@ defmodule MossletWeb.UserConnectionLive.Show do
     end
   end
 
-  def handle_event("repost", %{"id" => id, "body" => body} = _params, socket) do
+  def handle_event("repost", %{"id" => id} = _params, socket) do
     post = Timeline.get_post!(id)
     user = socket.assigns.current_user
-    # Add the post_key to the opts as the trix_key.
-    #
-    # This way, if there are any images in the post, then
-    # we will correctly reuse the trix_key from the original
-    # post to decrypt the images (this way we don't have to
-    # duplicate the images in storage).
-    #
-    # Also, it's a repost, so it is essentially a duplicate post
-    # and thus the duplicate use of the same key.
-    post_key = get_post_key(post, user)
     key = socket.assigns.key
-    username = resolve_decrypted_field(user, :username)
     post_shared_users = socket.assigns.post_shared_users
-    return_url = socket.assigns.return_url
 
-    if post.user_id != user.id && user.id not in post.reposts_list do
-      # the image urls are now encrypted so we need to decrypt them
-      repost_params =
-        %{
-          body: body,
-          username: username,
-          favs_list: post.favs_list,
-          reposts_list: post.reposts_list,
-          favs_count: post.favs_count,
-          reposts_count: post.reposts_count,
-          user_id: user.id,
-          original_post_id: post.id,
-          visibility: post.visibility,
-          image_urls: decrypt_image_urls_for_repost(post, user, key),
-          image_urls_updated_at: post.image_urls_updated_at,
-          shared_users: [%{}],
-          repost: true
-        }
-        |> add_shared_users_list(post_shared_users)
+    # Decrypt reposts list to check if user already reposted
+    decrypted_reposts = decrypt_post_reposts_list(post, user, key)
 
-      case Timeline.create_repost(repost_params, user: user, key: key, trix_key: post_key) do
-        {:ok, _repost} ->
-          {:ok, post} = Timeline.inc_reposts(post)
+    if post.user_id != user.id && user.id not in decrypted_reposts do
+      shared_users_list =
+        post_shared_users
+        |> Enum.map(fn su -> Map.from_struct(su) end)
 
-          {:ok, _post} =
-            Timeline.update_post_repost(
-              post,
-              %{
-                reposts_list: List.insert_at(post.reposts_list, 0, user.id)
-              },
-              user: user
-            )
+      case build_repost_encrypt_request(post, shared_users_list, user: user) do
+        {:zk, payload} ->
+          # Non-public: push to browser for ZK encryption
+          {:noreply,
+           socket
+           |> assign(:pending_repost, %{
+             post_id: post.id,
+             decrypted_reposts: decrypted_reposts,
+             shared_users: shared_users_list,
+             visibility: post.visibility,
+             image_urls_updated_at: post.image_urls_updated_at,
+             favs_count: post.favs_count,
+             reposts_count: post.reposts_count
+           })
+           |> push_event(
+             "repost_encrypt_request",
+             Map.merge(payload, %{
+               repost_type: "repost",
+               selected_user_ids: nil,
+               note: nil
+             })
+           )}
 
-          socket =
-            socket
-            |> put_flash(:success, "Post reposted successfully.")
-
-          {:noreply, push_navigate(socket, to: return_url)}
-
-        {:error, changeset} ->
-          {:noreply, put_flash(socket, :error, "#{changeset.message}")}
+        :server ->
+          # Public: use existing server-side path
+          do_repost_server(post, user, key, post_shared_users, decrypted_reposts, socket)
       end
     else
       {:noreply,
@@ -822,6 +803,80 @@ defmodule MossletWeb.UserConnectionLive.Show do
          "You have already reposted this post or do not have permission to repost."
        )}
     end
+  end
+
+  def handle_event("repost_encrypted", params, socket) do
+    user = socket.assigns.current_user
+    pending = socket.assigns[:pending_repost]
+    return_url = socket.assigns.return_url
+
+    if pending do
+      original_post_id = params["original_post_id"]
+      post = Timeline.get_post!(original_post_id)
+
+      repost_attrs = %{
+        body: params["encrypted_body"],
+        username: params["encrypted_username"],
+        avatar_url: params["encrypted_avatar_url"],
+        image_urls: non_empty_list(params["encrypted_image_urls"]),
+        image_alt_texts: non_empty_list(params["encrypted_image_alt_texts"]),
+        image_urls_updated_at: pending.image_urls_updated_at,
+        url_preview: params["encrypted_url_preview"],
+        content_warning: params["encrypted_content_warning"],
+        content_warning_category: params["encrypted_content_warning_category"],
+        content_warning?: !is_nil(params["encrypted_content_warning"]),
+        favs_count: 0,
+        reposts_count: 0,
+        repost: true,
+        user_id: user.id,
+        original_post_id: original_post_id,
+        visibility: pending.visibility,
+        shared_users: pending.shared_users,
+        user_post_map: %{
+          sealed_author_key: params["sealed_author_key"],
+          sealed_recipient_keys: params["sealed_recipient_keys"] || []
+        }
+      }
+
+      case Timeline.create_repost_zk(repost_attrs, user) do
+        {:ok, _repost} ->
+          {:ok, post} = Timeline.inc_reposts(post)
+
+          updated_reposts = [user.id | pending.decrypted_reposts]
+
+          {:ok, _post} =
+            Timeline.update_post_repost_zk(
+              post,
+              %{reposts_list: updated_reposts}
+            )
+
+          Accounts.track_user_activity(user, :interaction)
+
+          socket =
+            socket
+            |> assign(:pending_repost, nil)
+            |> put_flash(:success, "Post reposted successfully.")
+
+          {:noreply, push_navigate(socket, to: return_url)}
+
+        {:error, _changeset} ->
+          {:noreply,
+           socket
+           |> assign(:pending_repost, nil)
+           |> put_flash(:error, "Failed to repost. Please try again.")}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("repost_encrypt_failed", _params, socket) do
+    # Browser encryption failed — block the operation to preserve ZK.
+    # No server-side fallback: allowing one would leak plaintext to the server.
+    {:noreply,
+     socket
+     |> assign(:pending_repost, nil)
+     |> put_flash(:error, "Encryption failed. Please refresh and try again.")}
   end
 
   def handle_event("blur-memory", %{"id" => id}, socket) do
@@ -1567,6 +1622,92 @@ defmodule MossletWeb.UserConnectionLive.Show do
     )
   end
 
+  # Server-side repost path (for public posts or browser encryption fallback)
+  defp do_repost_server(post, user, key, post_shared_users, decrypted_reposts, socket) do
+    username = resolve_decrypted_field(user, :username)
+    encrypted_post_key = get_post_key(post, user)
+    return_url = socket.assigns.return_url
+
+    decrypted_post_key =
+      case post.visibility do
+        :public ->
+          case Mosslet.Encrypted.Users.Utils.decrypt_public_item_key(encrypted_post_key) do
+            decrypted when is_binary(decrypted) -> decrypted
+            _ -> nil
+          end
+
+        _ ->
+          case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(
+                 encrypted_post_key,
+                 user,
+                 key
+               ) do
+            {:ok, decrypted} -> decrypted
+            _ -> nil
+          end
+      end
+
+    body =
+      if is_binary(decrypted_post_key) do
+        case Encrypted.Utils.decrypt(%{key: decrypted_post_key, payload: post.body}) do
+          {:ok, decrypted} -> decrypted
+          _ -> ""
+        end
+      else
+        ""
+      end
+
+    repost_params =
+      %{
+        body: body,
+        username: username,
+        favs_list: post.favs_list,
+        reposts_list: post.reposts_list,
+        favs_count: post.favs_count,
+        reposts_count: post.reposts_count,
+        user_id: user.id,
+        original_post_id: post.id,
+        visibility: post.visibility,
+        image_urls: decrypt_image_urls_for_repost(post, user, key),
+        image_urls_updated_at: post.image_urls_updated_at,
+        shared_users: [%{}],
+        repost: true
+      }
+      |> add_shared_users_list(post_shared_users)
+
+    case Timeline.create_repost(repost_params,
+           user: user,
+           key: key,
+           trix_key: decrypted_post_key
+         ) do
+      {:ok, _repost} ->
+        {:ok, post} = Timeline.inc_reposts(post)
+
+        updated_reposts = [user.id | decrypted_reposts]
+        encrypted_post_key = get_post_key(post, user)
+
+        {:ok, _post} =
+          Timeline.update_post_repost(
+            post,
+            %{reposts_list: updated_reposts},
+            user: user,
+            key: key,
+            post_key: encrypted_post_key
+          )
+
+        Accounts.track_user_activity(user, :interaction)
+
+        socket =
+          socket
+          |> put_flash(:success, "Post reposted successfully.")
+
+        {:noreply, push_navigate(socket, to: return_url)}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to repost. Please try again.")}
+    end
+  end
+
   defp blur_shared_user(shared_user) do
     if shared_user.blur do
       false
@@ -1623,4 +1764,71 @@ defmodule MossletWeb.UserConnectionLive.Show do
     )
     |> Mosslet.Repo.one()
   end
+
+  defp decrypt_post_reposts_list(post, user, key) do
+    case post.reposts_list do
+      nil ->
+        []
+
+      [] ->
+        []
+
+      list when is_list(list) ->
+        encrypted_post_key =
+          case post.visibility do
+            :public -> get_post_key(post)
+            _ -> get_post_key(post, user)
+          end
+
+        if is_nil(encrypted_post_key) do
+          []
+        else
+          case post.visibility do
+            :public ->
+              case Mosslet.Encrypted.Users.Utils.decrypt_public_item_key(encrypted_post_key) do
+                decrypted_post_key when is_binary(decrypted_post_key) ->
+                  Enum.map(list, fn user_id ->
+                    case Mosslet.Encrypted.Utils.decrypt(%{
+                           key: decrypted_post_key,
+                           payload: user_id
+                         }) do
+                      {:ok, decrypted_id} -> decrypted_id
+                      _ -> user_id
+                    end
+                  end)
+                  |> Enum.reject(&is_nil/1)
+
+                _ ->
+                  []
+              end
+
+            _ ->
+              case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(
+                     encrypted_post_key,
+                     user,
+                     key
+                   ) do
+                {:ok, decrypted_post_key} ->
+                  Enum.map(list, fn user_id ->
+                    case Mosslet.Encrypted.Utils.decrypt(%{
+                           key: decrypted_post_key,
+                           payload: user_id
+                         }) do
+                      {:ok, decrypted_id} -> decrypted_id
+                      _ -> user_id
+                    end
+                  end)
+                  |> Enum.reject(&is_nil/1)
+
+                _ ->
+                  []
+              end
+          end
+        end
+    end
+  end
+
+  defp non_empty_list([]), do: nil
+  defp non_empty_list(list) when is_list(list), do: list
+  defp non_empty_list(_), do: nil
 end

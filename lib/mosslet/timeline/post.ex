@@ -361,6 +361,42 @@ defmodule Mosslet.Timeline.Post do
     |> cast(attrs, [:user_id])
   end
 
+  @doc """
+  ZK repost changeset — all content fields are pre-encrypted by the browser.
+  The server stores ciphertext as-is and never sees plaintext.
+
+  The `user_post_map` contains `sealed_author_key` and `sealed_recipient_keys`
+  (browser-sealed via hybrid PQ KEM), not a raw `temp_key`.
+  """
+  def repost_changeset_zk(post, attrs) do
+    post
+    |> cast(attrs, [
+      :body,
+      :username,
+      :avatar_url,
+      :image_urls,
+      :image_alt_texts,
+      :image_urls_updated_at,
+      :url_preview,
+      :content_warning,
+      :content_warning_category,
+      :content_warning?,
+      :favs_count,
+      :reposts_count,
+      :repost,
+      :user_id,
+      :original_post_id,
+      :visibility
+    ])
+    |> validate_required([:body, :repost, :user_id, :original_post_id])
+    |> put_change(:user_post_map, Map.get(attrs, :user_post_map))
+    |> cast_embed(:shared_users,
+      with: &shared_user_repost_changeset/2,
+      sort_param: :shared_users_order,
+      drop_param: :shared_users_delete
+    )
+  end
+
   def shared_user_removal_changeset(shared_user, attrs \\ %{}, _opts \\ []) do
     shared_user
     |> cast(attrs, [:user_id, :sender_id, :color])

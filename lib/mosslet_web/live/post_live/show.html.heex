@@ -23,6 +23,7 @@
     </.page_header>
   </.container>
   <.container class="-mt-10 pb-10 max-w-prose">
+    <div phx-hook="RepostFormHook" id="repost-form-handler" style="display: none;"></div>
     <.p>This is a
       post from <.local_time_full id={@post.id} at={@post.updated_at} />.</.p>
 

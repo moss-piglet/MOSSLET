@@ -46,6 +46,7 @@ import RecoveryKeySetupHook from "./recovery-key-setup-hook";
 import ReplyComposer from "./reply-composer";
 import ReplyEmojiPicker from "./reply-emoji-picker";
 import ReplyFormHook from "./reply-form-hook";
+import RepostFormHook from "./repost-form-hook";
 import TippyHook from "./tippy-hook";
 import TrixContentPostHook from "./trix-content-post-hook";
 import TrixContentReplyHook from "./trix-content-reply-hook";
@@ -136,6 +137,7 @@ export default {
   ReplyComposer,
   ReplyEmojiPicker,
   ReplyFormHook,
+  RepostFormHook,
   RestoreBodyScroll,
   ScrollableTabs,
   ScrollDown,

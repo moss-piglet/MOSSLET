@@ -188,6 +188,54 @@ defmodule MossletWeb.Helpers do
     end
   end
 
+  @doc """
+  Builds the payload for a `repost_encrypt_request` push event.
+
+  Sends the original post's encrypted fields and recipient public keys to the
+  browser so the RepostFormHook can decrypt → re-encrypt with a new post_key.
+
+  Returns `{:zk, payload}` for non-public posts where browser-side encryption
+  is appropriate, or `:server` for public posts (server path).
+  """
+  def build_repost_encrypt_request(post, shared_users, opts) do
+    if post.visibility == :public do
+      :server
+    else
+      sealed_post_key = get_post_key(post, opts[:user])
+
+      recipient_keys =
+        shared_users
+        |> Enum.map(fn su ->
+          su = Map.new(su, fn {k, v} -> {to_string(k), v} end)
+          user = Mosslet.Accounts.get_user!(su["user_id"])
+
+          %{
+            user_id: user.id,
+            public_key: user.key_pair["public"],
+            pq_public_key: user.pq_public_key
+          }
+        end)
+
+      payload = %{
+        post_id: post.id,
+        original_post_id: post.id,
+        visibility: to_string(post.visibility),
+        encrypted_body: post.body,
+        encrypted_username: post.username,
+        encrypted_avatar_url: post.avatar_url,
+        encrypted_image_urls: post.image_urls || [],
+        encrypted_image_alt_texts: post.image_alt_texts || [],
+        encrypted_url_preview: post.url_preview,
+        encrypted_content_warning: post.content_warning,
+        encrypted_content_warning_category: post.content_warning_category,
+        sealed_post_key: sealed_post_key,
+        recipient_keys: recipient_keys
+      }
+
+      {:zk, payload}
+    end
+  end
+
   def build_image_from_binary_for_trix(image, ext) do
     case image do
       "failed_verification" ->

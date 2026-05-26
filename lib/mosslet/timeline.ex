@@ -2219,6 +2219,242 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
+  Creates a repost using browser-encrypted content (true ZK write path).
+
+  All content fields (body, username, avatar_url, image_urls, etc.) are
+  pre-encrypted by the browser with a new post_key. The post_key is sealed
+  for the author and each recipient by the browser. The server stores only
+  ciphertext — it never sees the raw post_key or plaintext content.
+
+  `attrs` must include:
+  - All encrypted content fields
+  - `:user_post_map` with `:sealed_author_key` and `:sealed_recipient_keys`
+  - `:shared_users` list
+  """
+  def create_repost_zk(attrs, user) do
+    attrs = Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
+    post = Post.repost_changeset_zk(%Post{}, attrs)
+
+    if not post.valid? do
+      {:error, post}
+    else
+      p_attrs = Ecto.Changeset.get_field(post, :user_post_map)
+
+      case Ecto.Multi.new()
+           |> Ecto.Multi.insert(:insert_post, post)
+           |> Ecto.Multi.insert(:insert_user_post, fn %{insert_post: post} ->
+             UserPost.zk_changeset(
+               %UserPost{},
+               %{key: p_attrs.sealed_author_key, post_id: post.id, user_id: user.id}
+             )
+             |> Ecto.Changeset.put_assoc(:post, post)
+             |> Ecto.Changeset.put_assoc(:user, user)
+           end)
+           |> Ecto.Multi.insert(:insert_user_post_receipt_creator, fn %{
+                                                                        insert_user_post:
+                                                                          user_post
+                                                                      } ->
+             {:ok, dt} = DateTime.now("Etc/UTC")
+
+             UserPostReceipt.changeset(
+               %UserPostReceipt{},
+               %{
+                 user_id: user.id,
+                 user_post_id: user_post.id,
+                 is_read?: true,
+                 read_at: DateTime.to_naive(dt)
+               }
+             )
+             |> Ecto.Changeset.put_assoc(:user, user)
+             |> Ecto.Changeset.put_assoc(:user_post, user_post)
+           end)
+           |> Repo.transaction_on_primary() do
+        {:ok, %{insert_post: post}} ->
+          create_shared_user_reposts_zk(post, attrs, p_attrs, user)
+
+        {:error, :insert_post, changeset, _map} ->
+          {:error, changeset}
+
+        {:error, _op, changeset, _map} ->
+          {:error, changeset}
+
+        rest ->
+          Logger.warning("Error creating ZK repost")
+          Logger.debug("Error creating ZK repost: #{inspect(rest)}")
+          {:error, "error"}
+      end
+    end
+  end
+
+  defp create_shared_user_reposts_zk(post, attrs, p_attrs, current_user) do
+    sealed_recipient_keys =
+      (p_attrs.sealed_recipient_keys || [])
+      |> Enum.map(fn entry ->
+        entry = Map.new(entry, fn {k, v} -> {to_string(k), v} end)
+        {entry["user_id"], entry["sealed_key"]}
+      end)
+      |> Enum.into(%{})
+
+    shared_users = attrs["shared_users"] || []
+
+    if !Enum.empty?(shared_users) do
+      for su <- shared_users do
+        su = Map.new(su, fn {k, v} -> {to_string(k), v} end)
+        sealed_key = Map.get(sealed_recipient_keys, su["user_id"])
+
+        if sealed_key do
+          {:ok, _} =
+            Ecto.Multi.new()
+            |> Ecto.Multi.insert(
+              :insert_user_post,
+              UserPost.zk_changeset(
+                %UserPost{},
+                %{key: sealed_key, post_id: post.id, user_id: su["user_id"]}
+              )
+            )
+            |> Ecto.Multi.insert(:insert_user_post_receipt, fn %{insert_user_post: user_post} ->
+              UserPostReceipt.changeset(
+                %UserPostReceipt{},
+                %{
+                  user_id: su["user_id"],
+                  user_post_id: user_post.id,
+                  is_read?: false,
+                  read_at: nil
+                }
+              )
+              |> Ecto.Changeset.put_assoc(:user_post, user_post)
+            end)
+            |> Repo.transaction_on_primary()
+        end
+      end
+    end
+
+    conn = Accounts.get_connection_from_item(post, current_user)
+
+    {:ok, conn, post |> Repo.preload([:user_posts, :replies, :user_post_receipts])}
+    |> broadcast(:post_reposted)
+  end
+
+  @doc """
+  Creates a targeted share using browser-encrypted content (true ZK write path).
+
+  Same as `create_repost_zk/2` but uses `:post_shared` broadcast and handles
+  pre-encrypted share notes.
+  """
+  def create_targeted_share_zk(attrs, user) do
+    attrs = Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
+    post = Post.repost_changeset_zk(%Post{}, attrs)
+
+    if not post.valid? do
+      {:error, post}
+    else
+      p_attrs = Ecto.Changeset.get_field(post, :user_post_map)
+
+      case Ecto.Multi.new()
+           |> Ecto.Multi.insert(:insert_post, post)
+           |> Ecto.Multi.insert(:insert_user_post, fn %{insert_post: post} ->
+             UserPost.zk_changeset(
+               %UserPost{},
+               %{key: p_attrs.sealed_author_key, post_id: post.id, user_id: user.id}
+             )
+             |> Ecto.Changeset.put_assoc(:post, post)
+             |> Ecto.Changeset.put_assoc(:user, user)
+           end)
+           |> Ecto.Multi.insert(:insert_user_post_receipt_creator, fn %{
+                                                                        insert_user_post:
+                                                                          user_post
+                                                                      } ->
+             {:ok, dt} = DateTime.now("Etc/UTC")
+
+             UserPostReceipt.changeset(
+               %UserPostReceipt{},
+               %{
+                 user_id: user.id,
+                 user_post_id: user_post.id,
+                 is_read?: true,
+                 read_at: DateTime.to_naive(dt)
+               }
+             )
+             |> Ecto.Changeset.put_assoc(:user, user)
+             |> Ecto.Changeset.put_assoc(:user_post, user_post)
+           end)
+           |> Repo.transaction_on_primary() do
+        {:ok, %{insert_post: post}} ->
+          create_targeted_share_user_posts_zk(post, attrs, p_attrs, user)
+
+        {:error, :insert_post, changeset, _map} ->
+          {:error, changeset}
+
+        {:error, _op, changeset, _map} ->
+          {:error, changeset}
+
+        rest ->
+          Logger.warning("Error creating ZK targeted share")
+          Logger.debug("Error creating ZK targeted share: #{inspect(rest)}")
+          {:error, "error"}
+      end
+    end
+  end
+
+  defp create_targeted_share_user_posts_zk(post, attrs, p_attrs, current_user) do
+    sealed_recipient_keys =
+      (p_attrs.sealed_recipient_keys || [])
+      |> Enum.map(fn entry ->
+        entry = Map.new(entry, fn {k, v} -> {to_string(k), v} end)
+        {entry["user_id"], entry["sealed_key"]}
+      end)
+      |> Enum.into(%{})
+
+    share_note = attrs["encrypted_share_note"]
+    shared_users = attrs["shared_users"] || []
+
+    if !Enum.empty?(shared_users) do
+      for su <- shared_users do
+        su = Map.new(su, fn {k, v} -> {to_string(k), v} end)
+        sealed_key = Map.get(sealed_recipient_keys, su["user_id"])
+
+        if sealed_key do
+          user_post_attrs = %{key: sealed_key, post_id: post.id, user_id: su["user_id"]}
+
+          user_post_attrs =
+            if share_note,
+              do: Map.put(user_post_attrs, :share_note, share_note),
+              else: user_post_attrs
+
+          user_post_changeset =
+            %UserPost{}
+            |> Ecto.Changeset.cast(user_post_attrs, [:key, :post_id, :user_id, :share_note])
+            |> Ecto.Changeset.validate_required([:key])
+
+          {:ok, _} =
+            Ecto.Multi.new()
+            |> Ecto.Multi.insert(:insert_user_post, user_post_changeset)
+            |> Ecto.Multi.insert(:insert_user_post_receipt, fn %{insert_user_post: user_post} ->
+              UserPostReceipt.changeset(
+                %UserPostReceipt{},
+                %{
+                  user_id: su["user_id"],
+                  user_post_id: user_post.id,
+                  is_read?: false,
+                  read_at: nil
+                }
+              )
+              |> Ecto.Changeset.put_assoc(:user_post, user_post)
+            end)
+            |> Repo.transaction_on_primary()
+        end
+      end
+
+      conn = Accounts.get_connection_from_item(post, current_user)
+
+      {:ok, conn, post |> Repo.preload([:user_posts, :replies, :user_post_receipts])}
+      |> broadcast(:post_shared)
+    else
+      {:error, "No recipients selected"}
+    end
+  end
+
+  @doc """
   Updates a public post.
 
   ## Examples

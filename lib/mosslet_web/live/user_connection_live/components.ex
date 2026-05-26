@@ -458,16 +458,6 @@ defmodule MossletWeb.UserConnectionLive.Components do
       class="inline-flex align-middle hover:text-purple-600 dark:hover:text-purple-400 hover:cursor-pointer"
       phx-click="repost"
       phx-value-id={@post.id}
-      phx-value-body={
-        decr_item(
-          @post.body,
-          @current_user,
-          get_post_key(@post, @current_user),
-          @key,
-          @post,
-          "body"
-        )
-      }
       data-tippy-content="Repost this post"
       phx-hook="TippyHook"
     >
