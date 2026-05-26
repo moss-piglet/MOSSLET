@@ -604,21 +604,33 @@ defmodule Mosslet.Accounts do
   def setup_recovery_key(user, recovery_secret, encrypted_recovery_private_key) do
     recovery_key_hash = Argon2.hash_pwd_salt(recovery_secret, salt_len: 32)
 
-    user
-    |> User.recovery_key_setup_changeset(%{
-      recovery_key_hash: recovery_key_hash,
-      encrypted_recovery_private_key: encrypted_recovery_private_key
-    })
-    |> Mosslet.Repo.update()
+    case Mosslet.Repo.transaction_on_primary(fn ->
+           user
+           |> User.recovery_key_setup_changeset(%{
+             recovery_key_hash: recovery_key_hash,
+             encrypted_recovery_private_key: encrypted_recovery_private_key
+           })
+           |> Mosslet.Repo.update()
+         end) do
+      {:ok, {:ok, user}} -> {:ok, user}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
   end
 
   @doc """
   Clears all recovery key fields for the user.
   """
   def clear_recovery_key(user) do
-    user
-    |> User.recovery_key_clear_changeset()
-    |> Mosslet.Repo.update()
+    case Mosslet.Repo.transaction_on_primary(fn ->
+           user
+           |> User.recovery_key_clear_changeset()
+           |> Mosslet.Repo.update()
+         end) do
+      {:ok, {:ok, user}} -> {:ok, user}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
   end
 
   @doc """

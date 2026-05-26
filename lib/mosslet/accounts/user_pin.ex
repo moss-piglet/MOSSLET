@@ -61,9 +61,15 @@ defmodule Mosslet.Accounts.UserPin do
       )
 
     if user_pin do
-      user_pin
-      |> increment_changeset()
-      |> Repo.update()
+      case Repo.transaction_on_primary(fn ->
+             user_pin
+             |> increment_changeset()
+             |> Repo.update()
+           end) do
+        {:ok, {:ok, pin}} -> {:ok, pin}
+        {:ok, {:error, changeset}} -> {:error, changeset}
+        error -> error
+      end
     end
   end
 
