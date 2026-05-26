@@ -22,13 +22,6 @@ defmodule MossletWeb.Helpers do
 
   ## AWS (s3)
 
-  def url_expired?(updated_at) do
-    expiration_time = DateTime.add(updated_at, @url_expires_in, :second)
-    offset_time = DateTime.add(expiration_time, -200, :second)
-
-    DateTime.before?(offset_time, DateTime.utc_now())
-  end
-
   @doc """
   The `src` is coming from our trix-content-hook and is the old
   presigned_url on the `a` and `img` html tags. We force the .webp
@@ -216,10 +209,6 @@ defmodule MossletWeb.Helpers do
 
   ## Customers
 
-  def customer?(current_user) do
-    Map.get(current_user.customer, :id)
-  end
-
   @doc """
   Check if a user has already paid for the service.
   Returns true if they have either:
@@ -248,18 +237,6 @@ defmodule MossletWeb.Helpers do
         false
     end
   end
-
-  ## Numbers
-
-  def number_to_string(number) when is_integer(number) do
-    Number.Delimit.number_to_delimited(number)
-  end
-
-  def number_to_string(number) when is_float(number) do
-    Number.Delimit.number_to_delimited(number)
-  end
-
-  def number_to_string(number), do: to_string(number)
 
   ## Encryption
 
@@ -1185,15 +1162,6 @@ defmodule MossletWeb.Helpers do
     )
   end
 
-  def decr_group(payload, user, group_key, key) do
-    Encrypted.Users.Utils.decrypt_user_item(
-      payload,
-      user,
-      group_key,
-      key
-    )
-  end
-
   def decr_attrs_key(payload_key, user, key) do
     case Encrypted.Users.Utils.decrypt_user_attrs_key(payload_key, user, key) do
       {:ok, d_attrs_key} -> d_attrs_key
@@ -1510,27 +1478,6 @@ defmodule MossletWeb.Helpers do
       Enum.any?(post.shared_users, fn shared_user ->
         shared_user.user_id == current_user_id
       end)
-  end
-
-  def read?(user_post_receipt) do
-    user_post_receipt && user_post_receipt.is_read?
-  end
-
-  def get_user_post_receipt(post, current_user) do
-    if post.user_post_receipts do
-      Enum.find(post.user_post_receipts, nil, fn user_post_receipt ->
-        user_post_receipt.user_id === current_user.id
-      end)
-    end
-  end
-
-  def last_unread_post?(post, current_user, options \\ %{}) do
-    unread_posts = Timeline.unread_posts(current_user, options)
-
-    case Enum.reverse(unread_posts) do
-      [oldest_unread_post | _] -> oldest_unread_post.id == post.id
-      _ -> false
-    end
   end
 
   def get_user_from_post(post) do
@@ -2038,16 +1985,6 @@ defmodule MossletWeb.Helpers do
   ## UserConnections
 
   @doc """
-  A helper banner to display whether someone has their
-  visibility settings set to private. This way they can
-  quickly realize why they can or cannot be found by
-  friends.
-  """
-  def show_private_banner?(current_user) do
-    current_user.visibility === :private
-  end
-
-  @doc """
   Returns true or false based on if a user_connection
   has a profile and has allowed their avatar to be shown.
 
@@ -2130,16 +2067,6 @@ defmodule MossletWeb.Helpers do
   ## TODO: phase out / replace / unclear
   def get_uconn_for_users!(user_id, current_user_id) do
     Accounts.get_user_connection_between_users(user_id, current_user_id)
-  end
-
-  def get_uconn_key_for_users!(user_id, current_user_id) do
-    uconn = Accounts.get_user_connection_between_users!(user_id, current_user_id)
-
-    if not is_nil(uconn) do
-      uconn.key
-    else
-      nil
-    end
   end
 
   @doc """
@@ -2288,21 +2215,6 @@ defmodule MossletWeb.Helpers do
   end
 
   ## Memories
-
-  def show_blur_memory?(memory, user) do
-    cond do
-      memory.blur && user.id == memory.user_id ->
-        true
-
-      Enum.any?(memory.shared_users, fn shared_user ->
-        shared_user.blur && shared_user.user_id == user.id
-      end) ->
-        true
-
-      true ->
-        false
-    end
-  end
 
   defp preload_connection(user) do
     Accounts.preload_connection(user)
