@@ -10,6 +10,10 @@
  *   data-zk-event="update_name_zk"    (the event name to push)
  *   data-zk-field="name"              (the field name in the form)
  *
+ * Optional: include non-encrypted form fields in the ZK payload:
+ *   data-zk-extras="calm_notifications,email_notifications"
+ *   Checkbox fields send true/false; text fields send their value.
+ *
  * The hook reads the sealed user_key from #decrypt-user-fields and
  * the sealed conn_key from #session-key-deriver (both in app layout).
  */
@@ -79,6 +83,21 @@ const ProfileFieldsFormHook = {
     });
   },
 
+  _collectExtras() {
+    const raw = this.el.dataset.zkExtras;
+    if (!raw) return {};
+    const extras = {};
+    for (const name of raw.split(",")) {
+      const field = name.trim();
+      if (!field) continue;
+      const el = this.el.querySelector(`[name="user[${field}]"]`);
+      if (!el) continue;
+      extras[field] =
+        el.type === "checkbox" ? el.checked : (el.value || "");
+    }
+    return extras;
+  },
+
   async _encryptAndPush(eventName, fieldName, plaintext) {
     const [encUser, encConn] = await Promise.all([
       encryptWithKey(plaintext, this._userKey),
@@ -89,6 +108,7 @@ const ProfileFieldsFormHook = {
       field: fieldName,
       encrypted_user: encUser,
       encrypted_conn: encConn,
+      ...this._collectExtras(),
     };
 
     // Only username needs a blind-index pre-image (server uses it for

@@ -1493,6 +1493,23 @@ defmodule Mosslet.Accounts.User do
     })
   end
 
+  @doc """
+  ZK onboarding profile changeset — accepts pre-encrypted name from the browser.
+  The browser encrypts the name with both user_key and conn_key (dual-update).
+  Notification preferences and is_onboarded? are plaintext booleans (not sensitive).
+  """
+  def onboarding_profile_changeset_zk(user, attrs) do
+    user
+    |> change()
+    |> put_change(:name, attrs[:encrypted_user])
+    |> put_change(:is_onboarded?, true)
+    |> put_change(:calm_notifications, attrs[:calm_notifications] || false)
+    |> put_change(:email_notifications, attrs[:email_notifications] || false)
+    |> put_change(:connection_map, %{
+      c_name: attrs[:encrypted_conn]
+    })
+  end
+
   def profile_changeset(user, attrs, opts \\ []) do
     user
     |> cast(attrs, [

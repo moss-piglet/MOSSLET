@@ -911,6 +911,32 @@ defmodule Mosslet.Accounts do
     end
   end
 
+  @doc """
+  Updates a user's onboarding profile from browser-encrypted fields (ZK write path).
+  The browser has already encrypted the name with both user_key and conn_key.
+  Notification preferences are plaintext booleans (not sensitive).
+  """
+  def update_user_onboarding_zk(user, attrs) do
+    changeset = User.onboarding_profile_changeset_zk(user, attrs)
+    conn = adapter().get_connection!(user.connection.id)
+    c_attrs = changeset.changes.connection_map
+
+    case adapter().update_user_onboarding_profile(user, conn, changeset, c_attrs) do
+      {:ok, updated_user, updated_conn} ->
+        Groups.maybe_update_name_for_user_groups(
+          updated_user,
+          %{encrypted_name: c_attrs.c_name},
+          []
+        )
+
+        broadcast_connection(updated_conn, :uconn_name_updated)
+        {:ok, updated_user}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
   # includes name updates and marketing notification changes
   # for onboarding
   def update_user_onboarding_profile(user, attrs \\ %{}, opts \\ []) do

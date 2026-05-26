@@ -63,6 +63,10 @@ defmodule MossletWeb.UserOnboardingLive do
                   id="update_profile_form"
                   for={@form}
                   phx-submit="submit"
+                  phx-hook="ProfileFieldsFormHook"
+                  data-zk-event="submit_zk"
+                  data-zk-field="name"
+                  data-zk-extras="calm_notifications,email_notifications"
                   class="space-y-8"
                 >
                   <div>
@@ -359,6 +363,32 @@ defmodule MossletWeb.UserOnboardingLive do
           |> assign_form(changeset)
 
         {:noreply, assign_form(socket, changeset)}
+    end
+  end
+
+  def handle_event("submit_zk", params, socket) do
+    current_user = socket.assigns.current_user
+
+    attrs = %{
+      encrypted_user: params["encrypted_user"],
+      encrypted_conn: params["encrypted_conn"],
+      calm_notifications: params["calm_notifications"] == true,
+      email_notifications: params["email_notifications"] == true
+    }
+
+    case Accounts.update_user_onboarding_zk(current_user, attrs) do
+      {:ok, updated_user} ->
+        Accounts.user_lifecycle_action("after_update_profile", updated_user)
+
+        {:noreply,
+         socket
+         |> put_flash(:success, gettext("Welcome aboard! Let's get you set up."))
+         |> push_navigate(to: ~p"/app/subscribe")}
+
+      {:error, _changeset} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, gettext("There was an error setting up your profile."))}
     end
   end
 
