@@ -2667,6 +2667,104 @@ defmodule Mosslet.Accounts do
   end
 
   @doc """
+  Creates or updates a visibility group from browser-encrypted fields (ZK path).
+  The browser has already encrypted name/description with the user_key.
+  Connection IDs remain encrypted server-side with the user_key since the
+  browser doesn't need to read them — they're UUIDs used only server-side.
+  """
+  def create_or_update_visibility_group_zk(user, params, opts \\ []) do
+    group_id = params[:id]
+
+    # Encrypt connection_ids with user_key server-side (they're UUIDs, not user content)
+    encrypted_connection_ids =
+      if opts[:user] && opts[:key] do
+        Enum.map(params[:connection_ids] || [], fn connection_id ->
+          Mosslet.Encrypted.Users.Utils.encrypt_user_data(connection_id, opts[:user], opts[:key])
+        end)
+      else
+        []
+      end
+
+    zk_attrs = Map.put(params, :encrypted_connection_ids, encrypted_connection_ids)
+
+    if group_id do
+      update_visibility_group_zk(user, group_id, zk_attrs)
+    else
+      create_visibility_group_zk(user, zk_attrs)
+    end
+  end
+
+  defp create_visibility_group_zk(user, attrs) do
+    case Mosslet.Repo.transaction_on_primary(fn ->
+           fresh_user = Mosslet.Repo.get(User, user.id)
+
+           new_group =
+             %User.VisibilityGroup{}
+             |> User.visibility_group_changeset_zk(attrs)
+             |> Ecto.Changeset.apply_changes()
+
+           existing_groups = fresh_user.visibility_groups || []
+           updated_groups = existing_groups ++ [new_group]
+
+           fresh_user
+           |> Ecto.Changeset.change()
+           |> Ecto.Changeset.put_embed(:visibility_groups, updated_groups)
+           |> Mosslet.Repo.update()
+         end) do
+      {:ok, {:ok, updated_user}} ->
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "user:#{user.id}",
+          {:visibility_group_created, updated_user}
+        )
+
+        {:ok, updated_user}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      error ->
+        error
+    end
+  end
+
+  defp update_visibility_group_zk(user, group_id, attrs) do
+    case Mosslet.Repo.transaction_on_primary(fn ->
+           fresh_user = Mosslet.Repo.get(User, user.id)
+
+           updated_groups =
+             Enum.map(fresh_user.visibility_groups || [], fn group ->
+               if group.id == group_id do
+                 User.visibility_group_changeset_zk(group, attrs)
+                 |> Ecto.Changeset.apply_changes()
+               else
+                 group
+               end
+             end)
+
+           fresh_user
+           |> Ecto.Changeset.change()
+           |> Ecto.Changeset.put_embed(:visibility_groups, updated_groups)
+           |> Mosslet.Repo.update()
+         end) do
+      {:ok, {:ok, updated_user}} ->
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "user:#{user.id}",
+          {:visibility_group_updated, updated_user}
+        )
+
+        {:ok, updated_user}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
   Deletes a visibility group from a user.
   """
   def delete_visibility_group(user, group_id) do

@@ -104,6 +104,8 @@
           for={@new_connection_form}
           phx-change="validate_new_connection"
           phx-submit="save_new_connection"
+          phx-hook="ConnectionFormHook"
+          id="new-connection-form"
           class="space-y-6"
         >
           <%!-- Hidden fields populated when user validation succeeds --%>
@@ -521,7 +523,13 @@
           Organize your connections into groups for granular privacy control when sharing posts.
         </p>
 
-        <.form for={%{}} phx-submit="save_visibility_group" class="space-y-6">
+        <.form
+          for={%{}}
+          phx-submit="save_visibility_group"
+          phx-hook="VisibilityGroupFormHook"
+          id="visibility-group-form"
+          class="space-y-6"
+        >
           <%!-- Hidden field for editing mode --%>
           <input
             :if={@editing_group}

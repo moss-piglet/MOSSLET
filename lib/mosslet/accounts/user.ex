@@ -2075,6 +2075,33 @@ defmodule Mosslet.Accounts.User do
     end
   end
 
+  @doc """
+  ZK changeset for visibility groups — accepts pre-encrypted name/description from browser.
+  The browser has already encrypted with the user_key.
+  """
+  def visibility_group_changeset_zk(visibility_group, attrs) do
+    color =
+      if is_binary(attrs[:color]), do: String.to_existing_atom(attrs[:color]), else: attrs[:color]
+
+    changeset =
+      visibility_group
+      |> change()
+      |> put_change(:name, attrs[:encrypted_name])
+      |> put_change(:description, attrs[:encrypted_description])
+      |> put_change(:color, color || :teal)
+
+    # Encrypt connection_ids with the user_key if present
+    if attrs[:connection_ids] && attrs[:connection_ids] != [] do
+      changeset
+      |> put_change(:connection_ids, attrs[:encrypted_connection_ids] || [])
+      |> put_change(:connection_ids_hash, create_connection_ids_hash(attrs[:connection_ids]))
+    else
+      changeset
+      |> put_change(:connection_ids, [])
+      |> put_change(:connection_ids_hash, "")
+    end
+  end
+
   defp encrypt_visibility_group_fields(changeset, opts) do
     # Get the user's key for encryption (user_key for personal data)
     changeset =

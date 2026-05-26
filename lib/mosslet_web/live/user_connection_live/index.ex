@@ -866,6 +866,53 @@ defmodule MossletWeb.UserConnectionLive.Index do
   end
 
   @impl true
+  def handle_event("save_new_connection_zk", params, socket) do
+    user = socket.assigns.current_user
+    key = socket.assigns.key
+    selector = params["selector"] || socket.assigns.new_connection_selector
+
+    # Build the standard uconn_params the changeset expects, using
+    # the temp_label purely for validation (length checks)
+    uconn_params = %{
+      "selector" => selector,
+      "email" => params["email"] || "",
+      "username" => params["username"] || "",
+      "temp_label" => params["label_blind_index"] || "zk",
+      "color" => params["color"] || "emerald",
+      "connection_id" => user.connection.id,
+      "reverse_user_id" => user.id
+    }
+
+    zk_label = %{
+      encrypted_label: params["encrypted_label"],
+      label_blind_index: params["label_blind_index"]
+    }
+
+    case Accounts.create_user_connection(uconn_params,
+           user: user,
+           key: key,
+           selector: selector,
+           zk_label: zk_label
+         ) do
+      {:ok, _uconn} ->
+        {:noreply,
+         socket
+         |> assign(:show_new_connection_form, false)
+         |> assign(
+           :new_connection_form,
+           to_form(Accounts.change_user_connection(%Accounts.UserConnection{}))
+         )
+         |> put_flash(:success, "Connection request sent successfully!")}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply,
+         socket
+         |> assign(:new_connection_form, to_form(changeset))
+         |> put_flash(:error, "Failed to send connection request.")}
+    end
+  end
+
+  @impl true
   def handle_event("show_new_connection_modal", _params, socket) do
     {:noreply, assign(socket, :show_new_connection_form, true)}
   end
@@ -1184,6 +1231,48 @@ defmodule MossletWeb.UserConnectionLive.Index do
 
         {:noreply,
          put_flash(socket, :error, "Error #{action} visibility group: #{error_message}.")}
+    end
+  end
+
+  @impl true
+  def handle_event("save_visibility_group_zk", params, socket) do
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+
+    connection_ids =
+      case params["connection_ids"] do
+        list when is_list(list) -> list
+        single when is_binary(single) -> [single]
+        _ -> []
+      end
+
+    zk_attrs = %{
+      id: params["id"],
+      encrypted_name: params["encrypted_name"],
+      encrypted_description: params["encrypted_description"] || "",
+      color: params["color"] || "purple",
+      connection_ids: connection_ids
+    }
+
+    case Accounts.create_or_update_visibility_group_zk(current_user, zk_attrs,
+           user: current_user,
+           key: key
+         ) do
+      {:ok, _updated_user} ->
+        visibility_groups = Accounts.get_user_visibility_groups_with_connections(current_user)
+        action = if params["id"], do: "updated", else: "created"
+
+        {:noreply,
+         socket
+         |> assign(:show_visibility_group_modal, false)
+         |> assign(:editing_group, nil)
+         |> stream(:visibility_groups, visibility_groups, reset: true)
+         |> put_flash(:success, "Visibility group #{action} successfully!")
+         |> push_event("restore-body-scroll", %{})}
+
+      {:error, _changeset} ->
+        action = if params["id"], do: "updating", else: "creating"
+        {:noreply, put_flash(socket, :error, "Error #{action} visibility group.")}
     end
   end
 

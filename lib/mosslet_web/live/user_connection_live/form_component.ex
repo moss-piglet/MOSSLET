@@ -27,6 +27,7 @@ defmodule MossletWeb.UserConnectionLive.FormComponent do
         phx-target={@myself}
         phx-change="validate"
         phx-submit="save"
+        phx-hook="ConnectionFormHook"
         class="space-y-6"
       >
         <.phx_input field={@form[:connection_id]} type="hidden" value={@user.connection.id} />
@@ -293,6 +294,46 @@ defmodule MossletWeb.UserConnectionLive.FormComponent do
     key = socket.assigns.key
 
     case Accounts.create_user_connection(uconn_params, user: user, key: key) do
+      {:ok, uconn} ->
+        notify_parent({:saved, uconn})
+
+        {:noreply,
+         socket
+         |> put_flash(:success, "Connection request sent successfully.")
+         |> push_patch(to: socket.assigns.patch)}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply, assign_form(socket, changeset)}
+    end
+  end
+
+  @impl true
+  def handle_event("save_new_connection_zk", params, socket) do
+    user = socket.assigns.user
+    key = socket.assigns.key
+    selector = params["selector"] || socket.assigns[:selector]
+
+    uconn_params = %{
+      "selector" => selector,
+      "email" => params["email"] || "",
+      "username" => params["username"] || "",
+      "temp_label" => params["label_blind_index"] || "zk",
+      "color" => params["color"] || "emerald",
+      "connection_id" => user.connection.id,
+      "reverse_user_id" => user.id
+    }
+
+    zk_label = %{
+      encrypted_label: params["encrypted_label"],
+      label_blind_index: params["label_blind_index"]
+    }
+
+    case Accounts.create_user_connection(uconn_params,
+           user: user,
+           key: key,
+           selector: selector,
+           zk_label: zk_label
+         ) do
       {:ok, uconn} ->
         notify_parent({:saved, uconn})
 

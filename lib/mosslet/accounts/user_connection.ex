@@ -319,24 +319,20 @@ defmodule Mosslet.Accounts.UserConnection do
   defp encrypt_connection_key_and_data(changeset, recipient, opts) do
     cond do
       opts[:confirm] ->
-        changeset =
-          encrypt_changes_on_changeset(
-            changeset,
-            recipient,
-            decrypt_requesting_data(changeset, opts)
-          )
-
-        changeset
+        encrypt_changes_on_changeset(
+          changeset,
+          recipient,
+          decrypt_requesting_data(changeset, opts),
+          opts
+        )
 
       opts[:user] && opts[:key] ->
-        changeset =
-          encrypt_changes_on_changeset(
-            changeset,
-            recipient,
-            decrypt_requesting_data(changeset, opts)
-          )
-
-        changeset
+        encrypt_changes_on_changeset(
+          changeset,
+          recipient,
+          decrypt_requesting_data(changeset, opts),
+          opts
+        )
 
       true ->
         changeset
@@ -383,12 +379,17 @@ defmodule Mosslet.Accounts.UserConnection do
     }
   end
 
-  defp encrypt_changes_on_changeset(changeset, recipient, %{
-         key: d_conn_key,
-         request_username: d_req_username,
-         request_email: d_req_email,
-         temp_label: temp_label
-       }) do
+  defp encrypt_changes_on_changeset(
+         changeset,
+         recipient,
+         %{
+           key: d_conn_key,
+           request_username: d_req_username,
+           request_email: d_req_email,
+           temp_label: temp_label
+         },
+         opts
+       ) do
     # We next encrypt the current_user's conn key
     # and post key and username and email.
     changeset
@@ -408,7 +409,19 @@ defmodule Mosslet.Accounts.UserConnection do
       :request_email,
       Encrypted.Utils.encrypt(%{key: d_conn_key, payload: d_req_email})
     )
-    |> maybe_encrypt_label(d_conn_key, temp_label)
+    |> maybe_encrypt_label(d_conn_key, temp_label, opts)
+  end
+
+  defp maybe_encrypt_label(changeset, d_conn_key, temp_label, opts) when is_list(opts) do
+    case Keyword.get(opts, :zk_label) do
+      %{encrypted_label: encrypted_label, label_blind_index: blind_index} ->
+        changeset
+        |> put_change(:label, encrypted_label)
+        |> put_change(:label_hash, blind_index)
+
+      _ ->
+        maybe_encrypt_label(changeset, d_conn_key, temp_label)
+    end
   end
 
   defp maybe_encrypt_label(changeset, d_conn_key, temp_label) do

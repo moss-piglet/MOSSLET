@@ -78,7 +78,9 @@ import BlockReasonFormHook from "./block-reason-form-hook";
 import PlatformDetector from "./platform-detector";
 import PostExpandHook from "./post-expand-hook";
 import ProfileAboutFormHook from "./profile-about-form-hook";
+import ConnectionFormHook from "./connection-form-hook";
 import ConnectionLabelFormHook from "./connection-label-form-hook";
+import VisibilityGroupFormHook from "./visibility-group-form-hook";
 import ConversationTouchReveal from "./conversation-touch-reveal";
 import StartConversation from "./start-conversation";
 import ZkExportHook from "./zk-export-hook";
@@ -93,7 +95,9 @@ export default {
   ClipboardHook,
   ComposerEmojiPicker,
   ConversationComposer,
+  ConnectionFormHook,
   ConnectionLabelFormHook,
+  VisibilityGroupFormHook,
   ConversationEmojiPicker,
   ConversationScroll,
   ConversationTouchReveal,
