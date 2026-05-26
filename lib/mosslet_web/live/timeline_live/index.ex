@@ -672,6 +672,58 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
+  def handle_info({:create_reply_zk, zk_params, post_id, visibility}, socket) do
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+
+    case Timeline.get_post(post_id) do
+      %Mosslet.Timeline.Post{} = post ->
+        post_key = get_post_key(post, current_user)
+
+        reply_params = %{
+          "user_id" => current_user.id,
+          "post_id" => post_id,
+          "group_id" => zk_params["group_id"],
+          "visibility" => to_string(visibility)
+        }
+
+        case Timeline.create_reply(reply_params,
+               user: current_user,
+               key: key,
+               post: post,
+               post_key: post_key,
+               visibility: visibility,
+               zk_reply: true,
+               encrypted_body: Base.decode64!(zk_params["encrypted_body"]),
+               encrypted_username: Base.decode64!(zk_params["encrypted_username"])
+             ) do
+          {:ok, _reply} ->
+            Accounts.track_user_activity(current_user, :interaction)
+            updated_post = get_post_with_reply_limit(post_id, current_user.id, socket.assigns)
+
+            socket =
+              socket
+              |> put_flash(:success, "Reply posted successfully!")
+              |> stream_insert_post(updated_post, current_user, at: -1)
+              |> push_event("show-reply-thread", %{post_id: post_id})
+
+            {:noreply, socket}
+
+          {:error, changeset} ->
+            send_update(MossletWeb.TimelineLive.ReplyComposerComponent,
+              id: "reply-composer-#{post_id}",
+              form: to_form(changeset, action: :validate)
+            )
+
+            {:noreply,
+             put_flash(socket, :error, "Failed to post reply. Please check your input.")}
+        end
+
+      nil ->
+        {:noreply, put_flash(socket, :error, "Post not found")}
+    end
+  end
+
   def handle_info({:reply_created, post, reply}, socket) do
     current_user = socket.assigns.current_user
     current_tab = socket.assigns.active_tab || "home"

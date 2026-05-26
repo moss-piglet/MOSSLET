@@ -43,6 +43,9 @@ defmodule MossletWeb.PostLive.Replies.FormComponent do
         phx-target={@myself}
         phx-change="validate_reply"
         phx-submit="save_reply"
+        phx-hook="ReplyFormHook"
+        data-post-id={@post.id}
+        data-visibility={to_string(@post.visibility)}
       >
         <.field field={@form[:user_id]} type="hidden" value={@user.id} />
         <.field field={@form[:post_id]} type="hidden" value={@post.id} />
@@ -220,6 +223,22 @@ defmodule MossletWeb.PostLive.Replies.FormComponent do
     end
   end
 
+  def handle_event("save_reply_zk", params, socket) do
+    user = socket.assigns.user
+    post = socket.assigns.post
+
+    reply_params = %{
+      "user_id" => user.id,
+      "post_id" => post.id,
+      "group_id" => params["group_id"] || to_string(post.group_id),
+      "visibility" => params["visibility"] || to_string(post.visibility),
+      "image_urls" => socket.assigns.image_urls,
+      "image_urls_updated_at" => NaiveDateTime.utc_now()
+    }
+
+    save_reply_zk(socket, socket.assigns.action, reply_params, params)
+  end
+
   defp save_reply(socket, :reply_edit, reply_params) do
     reply_params = Map.new(reply_params, fn {k, v} -> {to_string(k), v} end)
 
@@ -294,6 +313,77 @@ defmodule MossletWeb.PostLive.Replies.FormComponent do
       end
     else
       {:noreply, socket}
+    end
+  end
+
+  # ZK reply creation: browser pre-encrypted body + username with cached post_key.
+  defp save_reply_zk(socket, :reply_edit, reply_params, zk_params) do
+    if can_edit?(socket.assigns.user, socket.assigns.reply) do
+      user = socket.assigns.user
+      key = socket.assigns.key
+      reply = socket.assigns.reply
+      post = socket.assigns.post
+      trix_key = socket.assigns[:trix_key]
+
+      case Timeline.update_reply(reply, reply_params,
+             update_reply: true,
+             encrypt_reply: true,
+             zk_reply: true,
+             encrypted_body: Base.decode64!(zk_params["encrypted_body"]),
+             encrypted_username: Base.decode64!(zk_params["encrypted_username"]),
+             visibility: reply.visibility,
+             trix_key: trix_key,
+             post_key: get_post_key(post, user),
+             group_id: reply_params["group_id"],
+             user: user,
+             key: key
+           ) do
+        {:ok, reply} ->
+          notify_parent({:updated, reply})
+
+          {:noreply,
+           socket
+           |> assign(:form, to_form(Timeline.change_reply(%Reply{}, %{}, user: user)))
+           |> assign(:image_urls, [])
+           |> assign(:trix_key, nil)
+           |> put_flash(:success, "Reply updated successfully")
+           |> push_patch(to: socket.assigns.patch)}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp save_reply_zk(socket, :reply, reply_params, zk_params) do
+    user = socket.assigns.user
+    key = socket.assigns.key
+    post = socket.assigns.post
+    trix_key = socket.assigns[:trix_key]
+
+    case Timeline.create_reply(reply_params,
+           update_reply: true,
+           encrypt_reply: true,
+           zk_reply: true,
+           encrypted_body: Base.decode64!(zk_params["encrypted_body"]),
+           encrypted_username: Base.decode64!(zk_params["encrypted_username"]),
+           visibility: post.visibility,
+           post: post,
+           trix_key: trix_key,
+           post_key: get_post_key(post, user),
+           group_id: reply_params["group_id"],
+           user: user,
+           key: key
+         ) do
+      {:ok, reply} ->
+        notify_parent({:saved, reply})
+
+        {:noreply,
+         socket
+         |> assign(:form, to_form(Timeline.change_reply(%Reply{}, %{}, user: user)))
+         |> assign(:image_urls, [])
+         |> assign(:trix_key, nil)
+         |> put_flash(:success, "Reply created successfully")
+         |> push_patch(to: socket.assigns.patch)}
     end
   end
 

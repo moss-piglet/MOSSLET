@@ -77,6 +77,9 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
             phx-submit="save_reply"
             phx-change="validate_reply"
             phx-target={@myself}
+            phx-hook="ReplyFormHook"
+            data-post-id={@post_id}
+            data-visibility={to_string(@visibility)}
           >
             <%!-- Subtle liquid background animation on focus --%>
             <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-emerald-100/30 via-teal-100/20 to-emerald-100/30 dark:from-emerald-800/20 dark:via-teal-800/15 dark:to-emerald-800/20 focus-within:opacity-100">
@@ -285,6 +288,31 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
       form = to_form(changeset)
 
       {:noreply, assign(socket, :form, form)}
+    else
+      {:noreply, put_flash(socket, :warning, "You cannot reply to this post.")}
+    end
+  end
+
+  def handle_event("save_reply_zk", params, socket) do
+    post_id = socket.assigns.post_id
+    visibility = socket.assigns.visibility
+    scope = socket.assigns.current_scope
+    current_user = scope.user
+
+    if can_reply?(Timeline.get_post!(post_id), current_user) do
+      send(self(), {:create_reply_zk, params, post_id, visibility})
+
+      changeset =
+        Timeline.change_reply(%Reply{}, %{
+          "body" => "",
+          "post_id" => post_id,
+          "user_id" => current_user.id,
+          "username" =>
+            socket.assigns.username || MossletWeb.Helpers.username(scope.user, scope.key) || "",
+          "visibility" => visibility
+        })
+
+      {:noreply, assign(socket, :form, to_form(changeset))}
     else
       {:noreply, put_flash(socket, :warning, "You cannot reply to this post.")}
     end

@@ -130,6 +130,54 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
     end
   end
 
+  def handle_event("save_reply_zk", zk_params, socket) do
+    %{current_scope: current_scope, parent_reply: parent_reply, post: post} =
+      socket.assigns
+
+    current_user = current_scope.user
+    key = current_scope.key
+    post_key = MossletWeb.Helpers.get_post_key(post, current_user)
+
+    reply_attrs = %{
+      "user_id" => current_user.id,
+      "post_id" => post.id,
+      "parent_reply_id" => parent_reply.id,
+      "visibility" => to_string(post.visibility)
+    }
+
+    case Timeline.create_reply(reply_attrs,
+           user: current_user,
+           key: key,
+           post: post,
+           post_key: post_key,
+           visibility: post.visibility,
+           zk_reply: true,
+           encrypted_body: Base.decode64!(zk_params["encrypted_body"]),
+           encrypted_username: Base.decode64!(zk_params["encrypted_username"])
+         ) do
+      {:ok, _reply} ->
+        Accounts.track_user_activity(current_user, :interaction)
+
+        changeset =
+          Timeline.change_reply(%Reply{}, %{
+            "body" => "",
+            "parent_reply_id" => parent_reply.id,
+            "post_id" => post.id,
+            "user_id" => current_user.id,
+            "username" => MossletWeb.Helpers.username(current_user, key) || "",
+            "visibility" => post.visibility
+          })
+
+        socket = assign(socket, :form, to_form(changeset))
+        send(self(), {:nested_reply_created, post.id, parent_reply.id})
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        send(self(), {:nested_reply_error, "Failed to post reply. Please try again."})
+        {:noreply, socket}
+    end
+  end
+
   def render(assigns) do
     ~H"""
     <div class={[
@@ -159,6 +207,9 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
         phx-submit="submit_nested_reply"
         phx-change="validate_nested_reply"
         phx-target={@myself}
+        phx-hook="ReplyFormHook"
+        data-post-id={@post.id}
+        data-visibility={to_string(@post.visibility)}
         class="space-y-3"
         as={:reply}
       >
