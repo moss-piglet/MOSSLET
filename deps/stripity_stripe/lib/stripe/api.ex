@@ -7,6 +7,14 @@ defmodule Stripe.API do
   """
   alias Stripe.{Config, Error}
 
+  @pool_name __MODULE__
+
+  @api_version "2025-11-17.clover"
+  @idempotency_key_header "Idempotency-Key"
+  @default_max_attempts 3
+  @default_base_backoff 500
+  @default_max_backoff 2_000
+
   @callback oauth_request(method, String.t(), map) :: {:ok, map}
 
   @type method :: :get | :post | :put | :delete | :patch
@@ -14,23 +22,13 @@ defmodule Stripe.API do
   @type body :: iodata() | {:multipart, list()}
   @typep http_success :: {:ok, integer, [{String.t(), String.t()}], String.t()}
   @typep http_failure :: {:error, term}
-
-  @pool_name __MODULE__
-  @api_version "2022-11-15"
-
-  @idempotency_key_header "Idempotency-Key"
-
-  @default_max_attempts 3
-  @default_base_backoff 500
-  @default_max_backoff 2_000
-
   @doc """
   In config.exs your implicit or explicit configuration is:
     config :stripity_stripe,
       json_library: Poison # defaults to Jason but can be configured to Poison
   """
   @spec json_library() :: module
-  def json_library() do
+  def json_library do
     Config.resolve(:json_library, Jason)
   end
 
@@ -43,43 +41,43 @@ defmodule Stripe.API do
   end
 
   @spec get_pool_options() :: Keyword.t()
-  defp get_pool_options() do
+  defp get_pool_options do
     Config.resolve(:pool_options)
   end
 
   @spec get_base_url() :: String.t()
-  defp get_base_url() do
+  defp get_base_url do
     Config.resolve(:api_base_url)
   end
 
   @spec get_upload_url() :: String.t()
-  defp get_upload_url() do
+  defp get_upload_url do
     Config.resolve(:api_upload_url)
   end
 
   @spec get_default_api_key() :: String.t()
-  defp get_default_api_key() do
+  defp get_default_api_key do
     # if no API key is set default to `""` which will raise a Stripe API error
     Config.resolve(:api_key, "")
   end
 
   @spec get_api_version() :: String.t()
-  defp get_api_version() do
+  defp get_api_version do
     Config.resolve(:api_version, @api_version)
   end
 
   @spec use_pool?() :: boolean
-  defp use_pool?() do
+  defp use_pool? do
     Config.resolve(:use_connection_pool)
   end
 
   @spec http_module() :: module
-  defp http_module() do
+  defp http_module do
     Config.resolve(:http_module, :hackney)
   end
 
   @spec retry_config() :: Keyword.t()
-  defp retry_config() do
+  defp retry_config do
     Config.resolve(:retries, [])
   end
 
@@ -132,15 +130,14 @@ defmodule Stripe.API do
     existing_headers = add_common_headers(existing_headers)
 
     case Map.has_key?(existing_headers, "Content-Type") do
-      false -> existing_headers |> Map.put("Content-Type", "application/x-www-form-urlencoded")
+      false -> Map.put(existing_headers, "Content-Type", "application/x-www-form-urlencoded")
       true -> existing_headers
     end
   end
 
   @spec add_multipart_form_headers(headers) :: headers
   defp add_multipart_form_headers(existing_headers) do
-    existing_headers
-    |> Map.put("Content-Type", "multipart/form-data")
+    Map.put(existing_headers, "Content-Type", "multipart/form-data")
   end
 
   @spec add_idempotency_headers(headers, method) :: headers
@@ -152,8 +149,7 @@ defmodule Stripe.API do
   defp add_idempotency_headers(existing_headers, _method) do
     # By using `Map.put_new/3` instead of `Map.put/3`, we allow users to
     # provide their own idempotency key.
-    existing_headers
-    |> Map.put_new(@idempotency_key_header, generate_idempotency_key())
+    Map.put_new(existing_headers, @idempotency_key_header, generate_idempotency_key())
   end
 
   @spec maybe_add_auth_header_oauth(headers, String.t(), String.t() | nil) :: headers
@@ -215,6 +211,21 @@ defmodule Stripe.API do
     else
       opts
     end
+  end
+
+  @spec add_telemetry_metadata(list, map) :: list
+  defp add_telemetry_metadata(opts, args) do
+    parsed_uri = URI.parse(args.req_url)
+    api_version = args.req_headers["Stripe-Version"]
+
+    Keyword.put(opts, :telemetry_metadata, %{
+      stripe_api_endpoint: parsed_uri.path,
+      stripe_api_version: api_version,
+      http_method: args.method,
+      http_retry_count: 0,
+      http_status_code: nil,
+      http_url: URI.to_string(%{parsed_uri | query: nil})
+    })
   end
 
   @doc """
@@ -281,13 +292,10 @@ defmodule Stripe.API do
     base_url = get_upload_url()
     req_url = base_url <> endpoint
 
-    req_headers =
-      headers
-      |> add_multipart_form_headers()
+    req_headers = add_multipart_form_headers(headers)
 
     parts =
-      body
-      |> Enum.map(fn {key, value} ->
+      Enum.map(body, fn {key, value} ->
         {Stripe.Util.multipart_key(key), value}
       end)
 
@@ -353,6 +361,11 @@ defmodule Stripe.API do
       |> add_default_options()
       |> add_pool_option()
       |> add_options_from_config()
+      |> add_telemetry_metadata(%{
+        method: method,
+        req_headers: req_headers,
+        req_url: req_url
+      })
 
     do_perform_request(method, req_url, req_headers, body, req_opts)
   end
@@ -376,14 +389,19 @@ defmodule Stripe.API do
   end
 
   defp do_perform_request_and_retry(method, url, headers, body, opts, {:attempts, attempts}) do
+    telemetry_meta =
+      opts
+      |> Keyword.get(:telemetry_metadata, %{})
+      |> Map.put(:http_retry_count, attempts)
+
     response =
-      :telemetry.span(~w[stripe request]a, %{url: url, method: method}, fn ->
+      :telemetry.span(~w[stripe request]a, telemetry_meta, fn ->
         case http_module().request(method, url, Map.to_list(headers), body, opts) do
           {:ok, status, _, _} = resp ->
-            {resp, %{status: status}}
+            {resp, Map.put(telemetry_meta, :http_status_code, status)}
 
           error ->
-            {error, %{}}
+            {error, telemetry_meta}
         end
       end)
 
@@ -503,13 +521,12 @@ defmodule Stripe.API do
   defp prepend_url(query, url), do: "#{url}?#{query}"
 
   defp add_object_expansion(query, expansion) when is_map(query) and is_list(expansion) do
-    query |> Map.put(:expand, expansion)
+    Map.put(query, :expand, expansion)
   end
 
   defp add_object_expansion(url, expansion) when is_list(expansion) do
     expansion
-    |> Enum.map(&"expand[]=#{&1}")
-    |> Enum.join("&")
+    |> Enum.map_join("&", &"expand[]=#{&1}")
     |> prepend_url(url)
   end
 

@@ -8,13 +8,14 @@ defmodule Mosslet.MailBluster do
   For this to work ensure that in your MailBluster settings the unsubscribe URL is set to https://YOUR_DOMAIN/unsubscribe/mailbluster?email=%e
   That way, when they click "Unsubscribe" in their emails, they get redirected to your route and that will set user.calm_notifications to false for you (see UserSettingsController.unsubscribe_from_mailbluster/2).
   """
-  use Tesla
 
   require Logger
 
-  plug Tesla.Middleware.BaseUrl, "https://api.mailbluster.com/api"
-  plug Tesla.Middleware.Headers, [{"Authorization", System.get_env("MAIL_BLUSTER_API_KEY")}]
-  plug Tesla.Middleware.JSON
+  @base_url "https://api.mailbluster.com/api"
+
+  defp headers do
+    [{"authorization", System.get_env("MAIL_BLUSTER_API_KEY")}]
+  end
 
   def sync_user_async(user, current_mail_bluster_email \\ nil) do
     if System.get_env("MAIL_BLUSTER_API_KEY") do
@@ -58,24 +59,21 @@ defmodule Mosslet.MailBluster do
     Logger.info("Syncing user with MailBluster")
 
     case get_user(user, current_mail_bluster_email) do
-      {:ok, response} ->
-        case response.status do
-          404 ->
-            Logger.info("User not in MailBluster.")
-            add_user(user)
+      {:ok, %Req.Response{status: 404}} ->
+        Logger.info("User not in MailBluster.")
+        add_user(user)
 
-          200 ->
-            Logger.info("User found in MailBluster.")
-            update_user(user, current_mail_bluster_email)
+      {:ok, %Req.Response{status: 200}} ->
+        Logger.info("User found in MailBluster.")
+        update_user(user, current_mail_bluster_email)
 
-          _something_else ->
-            Logger.info("mailbluster_api_error")
-            Logger.info(response)
-        end
+      {:ok, %Req.Response{} = response} ->
+        Logger.info("mailbluster_api_error")
+        Logger.info(inspect(response))
 
       {:error, error} ->
         Logger.info("mailbluster_api_error")
-        Logger.error(error)
+        Logger.error(inspect(error))
     end
   end
 
@@ -88,34 +86,30 @@ defmodule Mosslet.MailBluster do
   def add_user(%{is_deleted: false} = user) do
     Logger.info("Adding user id #{user.id} #{user.email} to MailBluster")
 
-    case post("/leads", convert_user(user)) do
-      {:ok, response} ->
-        case response.status do
-          422 ->
-            Logger.error("Add user failed")
-            Logger.debug(inspect(convert_user(user)))
-            Logger.error(response.body)
+    case Req.post("#{@base_url}/leads", headers: headers(), json: convert_user(user)) do
+      {:ok, %Req.Response{status: 422}} ->
+        Logger.error("Add user failed")
+        Logger.debug(inspect(convert_user(user)))
 
-          201 ->
-            Logger.info("User added")
-            Logger.debug(inspect(convert_user(user)))
+      {:ok, %Req.Response{status: 201}} ->
+        Logger.info("User added")
+        Logger.debug(inspect(convert_user(user)))
 
-          _something_else ->
-            Logger.error("mailbluster_api_error")
-            Logger.debug(inspect(convert_user(user)))
-            Logger.info(response)
-        end
+      {:ok, %Req.Response{} = response} ->
+        Logger.error("mailbluster_api_error")
+        Logger.debug(inspect(convert_user(user)))
+        Logger.info(inspect(response))
 
       {:error, error} ->
         Logger.info("mailbluster_api_error")
         Logger.debug(inspect(convert_user(user)))
-        Logger.error(error)
+        Logger.error(inspect(error))
     end
   end
 
   def get_user(user, current_mail_bluster_email \\ nil) do
     hashed_email = hash_email(current_mail_bluster_email || user.email)
-    get("/leads/#{hashed_email}")
+    Req.get("#{@base_url}/leads/#{hashed_email}", headers: headers())
   end
 
   def update_user(user, current_mail_bluster_email \\ nil)
@@ -128,43 +122,40 @@ defmodule Mosslet.MailBluster do
     Logger.info("Updating user id #{user.id} #{user.email} in MailBluster")
     hashed_email = hash_email(current_mail_bluster_email || user.email)
 
-    case put("/leads/#{hashed_email}", convert_user(user)) do
-      {:ok, response} ->
-        case response.status do
-          200 ->
-            Logger.info("Updated successfully")
+    case Req.put("#{@base_url}/leads/#{hashed_email}",
+           headers: headers(),
+           json: convert_user(user)
+         ) do
+      {:ok, %Req.Response{status: 200}} ->
+        Logger.info("Updated successfully")
 
-          _something_else ->
-            Logger.error("mailbluster_api_error")
-            Logger.info(response)
-        end
+      {:ok, %Req.Response{} = response} ->
+        Logger.error("mailbluster_api_error")
+        Logger.info(inspect(response))
 
       {:error, error} ->
         Logger.info("mailbluster_api_error")
-        Logger.error(error)
+        Logger.error(inspect(error))
     end
   end
 
   def delete_by_email(email) do
     Logger.info("Deleting lead #{email} from MailBluster...")
 
-    case delete("/leads/#{hash_email(email)}") do
-      {:ok, response} ->
-        case response.status do
-          200 ->
-            Logger.info("Deleted user from MailBluster")
+    case Req.delete("#{@base_url}/leads/#{hash_email(email)}", headers: headers()) do
+      {:ok, %Req.Response{status: 200}} ->
+        Logger.info("Deleted user from MailBluster")
 
-          404 ->
-            Logger.info("User wasn't in MailBluster")
+      {:ok, %Req.Response{status: 404}} ->
+        Logger.info("User wasn't in MailBluster")
 
-          _something_else ->
-            Logger.error("mailbluster_api_error")
-            Logger.error(response)
-        end
+      {:ok, %Req.Response{} = response} ->
+        Logger.error("mailbluster_api_error")
+        Logger.error(inspect(response))
 
       {:error, error} ->
         Logger.error("mailbluster_api_error")
-        Logger.error(error)
+        Logger.error(inspect(error))
     end
   end
 

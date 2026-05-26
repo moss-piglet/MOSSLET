@@ -25,15 +25,17 @@ defmodule Mosslet.Billing.Providers.Stripe.Adapters.SubscriptionAdapter do
     end
   end
 
-  def current_period_start(stripe_subscription),
-    do: Util.unix_to_naive_datetime(stripe_subscription.current_period_start)
+  def current_period_start(stripe_subscription) do
+    Util.unix_to_naive_datetime(get_current_period_start(stripe_subscription))
+  end
 
-  def current_period_end_at(stripe_subscription),
-    do: Util.unix_to_naive_datetime(stripe_subscription.current_period_end)
+  def current_period_end_at(stripe_subscription) do
+    Util.unix_to_naive_datetime(get_current_period_end(stripe_subscription))
+  end
 
   def cancel_at(stripe_subscription) do
     if stripe_subscription.cancel_at_period_end do
-      Util.unix_to_naive_datetime(stripe_subscription.current_period_end)
+      Util.unix_to_naive_datetime(get_current_period_end(stripe_subscription))
     else
       Util.unix_to_naive_datetime(stripe_subscription.cancel_at)
     end
@@ -42,7 +44,7 @@ defmodule Mosslet.Billing.Providers.Stripe.Adapters.SubscriptionAdapter do
   def canceled_at(stripe_subscription) do
     cond do
       stripe_subscription.status == "canceled" && stripe_subscription.cancel_at_period_end ->
-        Util.unix_to_naive_datetime(stripe_subscription.current_period_end)
+        Util.unix_to_naive_datetime(get_current_period_end(stripe_subscription))
 
       stripe_subscription.status == "canceled" ->
         Util.unix_to_naive_datetime(stripe_subscription.cancel_at)
@@ -59,5 +61,22 @@ defmodule Mosslet.Billing.Providers.Stripe.Adapters.SubscriptionAdapter do
         product_id: item.price.product
       }
     end)
+  end
+
+  # In stripity_stripe 3.3.1, current_period_start and current_period_end
+  # were removed from the top-level Subscription struct. They now live on
+  # each SubscriptionItem. We read from the first item.
+  defp get_current_period_start(stripe_subscription) do
+    case stripe_subscription.items.data do
+      [item | _] -> item.current_period_start
+      _ -> stripe_subscription.start_date
+    end
+  end
+
+  defp get_current_period_end(stripe_subscription) do
+    case stripe_subscription.items.data do
+      [item | _] -> item.current_period_end
+      _ -> stripe_subscription.trial_end
+    end
   end
 end

@@ -37,7 +37,7 @@ if config_env() == :dev do
     environment_name: System.get_env("RELEASE_LEVEL") || "development"
 
   config :stripity_stripe,
-    api_key: System.get_env("STRIPE_API_KEY"),
+    api_key: {System, :get_env, ["STRIPE_API_KEY"]},
     signing_secret: System.get_env("STRIPE_WEBHOOK_SECRET")
 end
 
@@ -182,7 +182,7 @@ if config_env() == :prod do
 
   # Configure Stripe
   config :stripity_stripe,
-    api_key: System.get_env("STRIPE_API_KEY"),
+    api_key: {System, :get_env, ["STRIPE_API_KEY"]},
     signing_secret: System.get_env("STRIPE_WEBHOOK_SECRET")
 
   # Configure Apple In-App Purchase (iOS)
@@ -296,7 +296,7 @@ if System.get_env("MOSSLET_NATIVE") == "true" || config_env() == :dev_desktop do
     environment_name: System.get_env("RELEASE_LEVEL") || "development"
 
   config :stripity_stripe,
-    api_key: System.get_env("STRIPE_API_KEY"),
+    api_key: {System, :get_env, ["STRIPE_API_KEY"]},
     signing_secret: System.get_env("STRIPE_WEBHOOK_SECRET")
 
   config :phoenix_live_view,

@@ -1,5 +1,544 @@
 # NEWS
 
+4.0.2 - 2026-05-25
+------------------
+
+### Bug Fixes
+
+- Fix an intermittent pool crash when a server closes a pooled keep-alive
+  connection during checkout (#850). The checkout now tolerates the
+  `set_owner` race and falls through to a fresh connection instead of crashing
+  on a bad match, and an async ownership handoff to an already-closed pooled
+  connection stops it promptly so the pool drops it from rotation.
+- Expose `hackney:body/1,2` and `hackney:stream_body/1` again so the response
+  body can be read after `start_response/1` in streaming body mode (#849).
+  The migration guide and examples referenced these but they were not
+  exported.
+
+4.0.1 - 2026-05-25
+------------------
+
+Security release. Fixes 10 reported vulnerabilities (5 high, 4 medium,
+1 low) plus one hardening change. No API changes; drop-in for 4.0.0. It
+also rolls up the dependency and documentation changes landed since 4.0.0.
+
+### Security
+
+- CVE-2026-47066 (GHSA-6cp8): Alt-Svc response parser entered an infinite
+  loop on a header starting with a non-token byte, pinning a scheduler at
+  100% CPU. The parser now rejects the malformed entry instead of looping.
+- CVE-2026-47067 (GHSA-9653): URL scheme parsing called binary_to_atom on
+  attacker-controlled prefixes, allowing atom-table exhaustion and a BEAM
+  crash. Unknown schemes no longer create atoms.
+- CVE-2026-47073 (GHSA-q8jg): WebSocket frame, message and handshake buffers
+  were unbounded. Added max_frame_size (16 MiB), max_message_size (64 MiB,
+  cumulative across fragments) and a 64 KiB handshake-response cap.
+- CVE-2026-47074 (GHSA-jq4m): the per-chunk HTTP/3 read timeout reset on
+  every chunk while the full body buffered in memory, enabling a slow-drip
+  OOM. Buffered bodies are now capped by max_body_size.
+- CVE-2026-47071 (GHSA-gp9c): the post-handshake TLS upgrade over a proxy
+  CONNECT tunnel used ssl:connect with no timeout, so a stalled peer hung the
+  caller forever. The connect timeout is now forwarded.
+- CVE-2026-47076 (GHSA-pj7v): hackney_url:normalize/2 decoded percent-escapes
+  in the host after the SSRF allowlist ran, letting an encoded host bypass
+  the check and resolve to a blocked IP. Hosts that decode to an IP are now
+  refused.
+- CVE-2026-47072 (GHSA-f9vr): the WebSocket upgrade request did not validate
+  the target, allowing CR/LF/NUL header injection. These bytes are now
+  rejected.
+- CVE-2026-47075 (GHSA-j9wq): the HTTP request target (path and query) was
+  not validated, allowing CR/LF injection and request splitting. CR/LF/NUL
+  are now rejected.
+- CVE-2026-47070 (GHSA-h73q): cross-origin HTTP/3 redirects forwarded
+  Authorization, Cookie and Proxy-Authorization. These are now stripped when
+  the redirect target origin differs, unless location_trusted is set. As with
+  curl and the HTTP/1.1 path, the request body is still forwarded on 307/308.
+- CVE-2026-47069 (GHSA-mp55): cookie domain and path options were not
+  validated, allowing CR/LF header injection. These are now rejected.
+- Hardening: to_atom/1 no longer falls back to list_to_atom/1, removing an
+  atom-leak path (GHSA-6rmf, no CVE assigned).
+
+### Dependencies
+
+- Bump quic to 1.4.3.
+- Bump h2 to 0.6.0.
+
+### Docs
+
+- Add SECURITY.md describing private vulnerability reporting.
+- Add a sponsor section to the README.
+- Fix exdoc generation: drop the unsupported source_ref and skip the
+  NEWS/MIGRATION warnings.
+
+### Chore
+
+- Drop stray files (nat2, lifecycle.json, .gitlab-ci.yml).
+
+4.0.0 - 2026-04-16
+------------------
+
+Hackney 4 trims the client down. The HTTP/2 and HTTP/3 stacks are now
+delegated to `erlang_h2` and `erlang_quic`, so hackney no longer ships
+its own framing, HPACK / QPACK codecs, control streams or state
+machines. The HTTP/3 path is fully spec-compliant via `quic_h3`, with
+ALPN negotiation, Alt-Svc discovery (RFC 7838), and the same
+`hackney:request/5` API as HTTP/1.1. The bundled metrics subsystem is
+gone too, replaced by a Go-style middleware chain that lets users plug
+in prometheus, telemetry or anything else without hackney owning the
+policy. See `guides/middleware.md` and `guides/http3_guide.md`.
+
+### Breaking
+
+- Removed the built-in metrics subsystem (`hackney_metrics`,
+  `hackney_metrics_backend`, `hackney_metrics_prometheus`,
+  `hackney_metrics_dummy`). Hackney no longer emits request or pool
+  metrics on its own and the `metrics_backend` app-env is no longer
+  read. In its place, `hackney:request/1..5` runs a chain of
+  user-supplied middleware (Go-style `RoundTripper`) configured via the
+  `{middleware, [Fun, ...]}` option or `application:set_env(hackney,
+  middleware, [...])`. See `guides/middleware.md` for the API, chain
+  semantics, and worked prometheus / telemetry recipes. Pool state is
+  still observable via `hackney_pool:get_stats/1`.
+
+### Bug Fixes
+
+- Wire `hackney_altsvc:parse_and_cache/3` into the response path so
+  server-advertised HTTP/3 endpoints are actually recorded. Previously
+  the cache was only populated by manual `cache/4` calls; the HTTP/3
+  guide claimed automatic discovery but it never fired. Same hook
+  honors RFC 7838 `clear` (invalidates the cached entry) and merges
+  multiple `Alt-Svc` headers per RFC 7230 §3.2.2. Fires on every
+  protocol so the cache TTL stays fresh while h3 is in use.
+- Fix HTTP/2 pooled connections wedging under sustained concurrent load
+  (#836). The pool checks out a TCP connection first then upgrades to
+  SSL+ALPN; `connected(enter)` armed the 2s pool idle timer while the
+  protocol was still classified as HTTP/1.1, and the timer then fired
+  on a busy multiplexed HTTP/2 connection, terminating it mid-request.
+  `init_h2_connection` / `init_h2_after_upgrade` now explicitly cancel
+  the idle timer. hackney_conn also traps `EXIT` from the linked
+  `h2_connection` and stays alive briefly in `closed` state so late
+  calls that raced the pool checkout get a proper error reply instead
+  of `exit:{normal, _}`. Pool's `checkout_h2` validates the state of
+  the connection process (not just `is_process_alive`).
+- Bump `h2` dependency to 0.4.0.
+
+### Refactor
+
+- HTTP/2 is now delegated to the `erlang_h2` library (hex `h2` 0.4.0).
+  Hackney no longer ships its own HTTP/2 framing, HPACK codec, or
+  connection/stream state machine:
+  - `hackney_http2.erl`, `hackney_http2_machine.erl`, `hackney_hpack.erl`
+    and the `hackney_hpack_huffman*` headers have been removed.
+  - `hackney_conn.erl` now starts an `h2_connection` gen_statem on the
+    post-ALPN socket, transfers socket ownership, and translates
+    `{h2, Conn, Event}` owner-messages into hackney's sync replies or
+    `{hackney_response, Ref, _}` async events.
+  - Server push handling (RFC 7540 §8.2, deprecated) is no longer exposed.
+    The `enable_push` option is a no-op.
+  - Public user-facing API is unchanged: `hackney:request/5`, streaming
+    async responses, pooled HTTP/2 connections, and `request_async` all
+    behave as before.
+- HTTP/3 is now delegated to the `erlang_quic` library's `quic_h3` module
+  (hex `quic` 1.0.0). Hackney no longer ships its own HTTP/3 framing,
+  QPACK codec, control-stream or unidirectional-stream handling:
+  - `hackney_quic.erl` has been merged into `hackney_h3.erl`: the single
+    module now holds both the high-level request API and the gen_server
+    adapter that translates `{quic_h3, Conn, _}` events.
+  - The public low-level message tag is now `{h3, ConnRef, _}` (previously
+    `{quic, ConnRef, _}`). External subscribers to these events must retag
+    their receives.
+  - The public low-level API moves from `hackney_quic:` to `hackney_h3:`
+    (`connect/4`, `send_request/3`, `send_data/4`, `reset_stream/3`,
+    `close/2`, `process/1`).
+  - `hackney_qpack.erl` removed (~622 LOC); the QPACK codec lives in
+    `quic_qpack` in the `quic` dependency.
+  - H3 `peername`/`sockname`/`peercert` are wired through the underlying
+    `quic` connection and work the same as for HTTP/1.1 and HTTP/2.
+    `setopts` still returns `{error, not_supported}` since QUIC has no
+    `{active, once}`-style socket model.
+- `rebar.config`: `quic` dependency pinned to hex `1.0.0`.
+
+3.2.1 - 2026-03-01
+------------------
+
+### Bug Fixes
+
+- Fix `recv_timeout` option being ignored for pooled connections (#832)
+- Fix off-by-one error in HPACK decoding (#831)
+- Fix invalid match in `handle_h2_frame/2` for HTTP/2 window updates (#829)
+- Fix binary syntax in EDoc comment to fix XML parsing error
+
+3.2.0 - 2026-02-21
+------------------
+
+### Refactor
+
+- Replace all cowlib modules with hackney-native implementations
+  - `hackney_cow_http2_machine` → `hackney_http2_machine` (with optimizations)
+  - `hackney_cow_http2` → `hackney_http2`
+  - `hackney_cow_deflate` → `hackney_deflate`
+  - `hackney_cow_ws` → `hackney_ws_proto`
+  - `hackney_cow_hpack_dec_huffman_lookup.hrl` → `hackney_hpack_huffman_dec.hrl`
+  - Remove `hackney_cow_hpack` (already replaced by `hackney_hpack`)
+- Remove `src/libs/` directory (all modules moved to `src/`)
+
+### Performance
+
+- HTTP/2 state machine optimizations:
+  - Stream caching for recently accessed streams
+  - gb_sets for lingering streams (O(log N) vs O(N) lookups)
+  - IOList accumulation for header fragments
+- HPACK and QPACK header compression with O(1) static table lookups
+- WebSocket: use `rand:bytes/1` instead of `crypto:strong_rand_bytes/1` for mask keys
+
+### Added
+
+- h2spec HTTP/2 compliance testing (95% pass rate - 139/146 tests)
+  - `h2spec_server.erl`: Minimal HTTP/2 server for compliance testing
+  - `h2spec_SUITE.erl`: CT suite for running h2spec tests
+  - Makefile target: `make h2spec-test`
+- HTTP/3 E2E tests against real servers
+  - `hackney_http3_e2e_SUITE.erl`: Tests against Cloudflare, Google, quic.tech
+  - Makefile targets: `make http3-e2e-test`, `make all-e2e-test`
+- HTTP/2 machine benchmarks (`hackney_http2_machine_bench.erl`)
+
+### Bug Fixes
+
+- Fix HTTP/2 flow control for body sending (use `send_or_queue_data/4`)
+- Fix async 204/304/HEAD responses not sending `done` message
+- Fix unknown HTTP/2 frame types not being ignored (RFC 7540 4.1)
+- Fix HTTP/2 frame size validation
+
+3.1.2 - 2026-02-21
+------------------
+
+### Dependencies
+
+- Bump `quic` dependency to 0.10.2
+
+3.1.1 - 2026-02-20
+------------------
+
+### Bug Fixes
+
+- Fix HTTP/3 Fin flag handling for HEAD requests and responses without body
+- Bump `quic` dependency to 0.7.1 (fixes packet number reconstruction)
+
+### Added
+
+- Add TLS options support in `hackney_quic` (verify, cacerts, cacertfile, SNI)
+- Add redirect following in `hackney_h3` (follow_redirect, max_redirect options)
+- Add HTTP/3 integration and redirect test suites (36 new tests)
+
+3.1.0 - 2026-02-17
+------------------
+
+### Refactor
+
+- Replace QUIC NIF with pure Erlang implementation. HTTP/3 now works with zero external dependencies - no CMake, Go, or C compiler needed. Just `rebar3 compile`.
+
+### Removed
+
+- Remove c_src/ directory containing lsquic, BoringSSL, and NIF code (~1.3M lines of C)
+- Remove do_cmake.sh and do_quic.sh build scripts
+
+### Added
+
+- Add `hackney_qpack.erl` for QPACK header compression (RFC 9204)
+
+### Changed
+
+- `hackney_quic:is_available/0` now always returns `true` (pure Erlang is always available)
+- Update documentation to reflect no C dependencies
+
+3.0.3 - 2026-02-15
+------------------
+
+### Bug Fixes
+
+- Restore function-based streaming body support (#821). Functions passed to `send_body/2` now work correctly for iterative body streaming, supporting both stateless `fun() -> {ok, Data} | eof` and stateful `fun(State) -> {ok, Data, NewState} | eof` forms.
+
+### CI
+
+- Fix FreeBSD CI job by adding pcre2 package to resolve git linker error
+
+3.0.2 - 2026-02-02
+------------------
+
+### Bug Fixes
+
+- Add default `Content-Type: application/octet-stream` header when sending a body without explicit Content-Type (#823). This restores 1.x behavior and follows RFC 7231 recommendations.
+
+### Dependencies
+
+- Bump `certifi` to 2.16.0 (#824)
+
+3.0.1 - 2026-01-28
+------------------
+
+### Bug Fixes
+
+- Fix dialyzer warning in `follow_redirect` by removing dead code branch that checked `is_pid()` on a value that was always binary
+- Store final redirect location in connection process state so it can be retrieved via `hackney:location/1`
+- Clean up `request_ret()` type spec to accurately reflect return values
+
+3.0.0 - 2026-01-27
+------------------
+
+### BREAKING CHANGES
+
+This is a major release with breaking changes to the high-level API. See [Migration Guide](guides/MIGRATION.md) for detailed upgrade instructions.
+
+#### Response Format Change
+
+The high-level API now returns the response body directly in the tuple, consistent across all protocols (HTTP/1.1, HTTP/2, HTTP/3):
+
+```erlang
+%% Before (2.x) - HTTP/1.1
+{ok, 200, Headers, ConnPid} = hackney:get(URL),
+{ok, Body} = hackney:body(ConnPid).
+
+%% After (3.x) - All protocols
+{ok, 200, Headers, Body} = hackney:get(URL).
+```
+
+#### Removed Functions
+
+The following deprecated functions have been removed:
+
+| Function | Replacement |
+|----------|-------------|
+| `hackney:body/1` | Body returned directly in response tuple |
+| `hackney:body/2` | Body returned directly in response tuple |
+| `hackney:stream_body/1` | Use async mode with `[async]` or `[{async, once}]` |
+| `hackney:skip_body/1` | Not needed - body always consumed |
+
+#### Security: Cross-Host Redirect Behavior (CVE-2018-1000007)
+
+Authorization headers and credentials are no longer forwarded when following redirects to a different host. This prevents credential leakage when a server redirects to an untrusted host.
+
+To restore the previous behavior (not recommended), use the `location_trusted` option:
+
+```erlang
+hackney:get(URL, [], <<>>, [{location_trusted, true}]).
+```
+
+### New Features
+
+- **HTTP/3 enhancements**: Added `peername/1`, `sockname/1`, `peercert/1`, and `setopts/2` support for HTTP/3 connections
+- **HTTP 1xx informational responses**: Support for handling 103 Early Hints and other informational responses
+- **Native metrics with Prometheus**: Pluggable metrics backend with built-in Prometheus support
+
+### Migration
+
+For streaming responses, migrate to async mode:
+
+```erlang
+%% Async streaming (push-based)
+{ok, Ref} = hackney:get(URL, [], <<>>, [async]),
+receive {hackney_response, Ref, {status, 200, _}} -> ok end,
+receive {hackney_response, Ref, {headers, Headers}} -> ok end,
+%% Receive body chunks until done
+
+%% On-demand streaming (pull-based)
+{ok, Ref} = hackney:get(URL, [], <<>>, [{async, once}]),
+%% Call hackney:stream_next(Ref) to receive each chunk
+```
+
+See [Migration Guide](guides/MIGRATION.md) for complete migration instructions.
+
+---
+
+2.0.1 - 2026-01-21
+------------------
+
+### Dependencies
+
+- Remove `unicode_util_compat` dependency (stdlib has `unicode_util` since OTP 20)
+- Bump `idna` to 7.1.0
+- Replace `string_compat` calls with stdlib `string` module functions
+
+2.0.0 - 2026-01-20
+------------------
+
+This release finalizes the 2.0 architecture with many bug fixes and new features since beta.1.
+
+See [Migration Guide](guides/MIGRATION.md) and [Design Guide](guides/design.md) for details.
+
+### New Features
+
+- **HTTP 1xx informational responses** (#631) - Support for handling 103 Early Hints and other informational responses
+- **HTTPS proxy support** (#795) - Full support for proxying through HTTPS proxies
+- **Proxy authentication callback** (#799) - New `proxy_auth_fun` option for custom proxy authentication logic
+- **CONNECT response callback** (#798) - New `on_connect_response` callback to inspect CONNECT proxy response headers
+- **SSL peer certificate** (#599) - New `hackney:peercert/1` function to get the peer's SSL certificate
+
+### New Options
+
+- `auto_decompress` - When `true`, automatically decompresses gzip/deflate responses (#155):
+  ```erlang
+  {ok, Status, Headers, Body} = hackney:request(get, URL, [], [],
+      [{with_body, true}, {auto_decompress, true}]).
+  ```
+- `stream_to` - For async requests, the `stream_to` process is now set as the connection owner (#646). If `stream_to` dies, the connection terminates; if the original caller dies, the connection continues as long as `stream_to` is alive.
+- `proxy_auth_fun` - Callback function for custom proxy authentication
+- `on_connect_response` - Callback to receive CONNECT proxy response headers
+
+### New Functions
+
+- `hackney:peercert/1` - Get the peer's SSL certificate from a connection
+
+### Bug Fixes
+
+- fix: handle non-HTTP URL schemes properly (#468)
+- fix: force connection close for 204/304 responses (#434)
+- fix: sanitize header values to prevent HTTP header injection (#506)
+- fix: filter Host header for HTTP/2 requests (send as `:authority` pseudo-header)
+- fix: handle non-standard decimal status codes (#697)
+- fix: remove parse_trans from runtime dependencies (#714)
+- fix: handle race condition in get_protocol calls
+- fix: strip auth credentials on cross-host redirects (#701)
+- fix: tolerate trailing semicolons in parameter parsing (#618)
+- fix: handle @ symbols in URL credentials per RFC 3986 (#657)
+- fix: properly resolve relative redirect URLs per RFC 3986 (#711)
+- fix: detect server-initiated closes on idle pooled connections (#544)
+- fix: respect recv_timeout during proxy CONNECT handshake
+- fix: prevent SOCKS5 and HTTP CONNECT tunnels from being pooled (#797)
+- fix: auto-release connections to pool when body reading completes (connection leak fix)
+
+### Security
+
+- Header injection prevention (#506) - Header values are now sanitized to prevent CRLF injection attacks
+- Auth credential stripping (#701) - Authorization headers and credentials are stripped when redirecting to a different host
+
+---
+
+2.0.0-beta.1 - 2026-01-07
+-------------------------
+
+Process-per-connection architecture. Each connection is a `gen_statem` process.
+
+See [Migration Guide](guides/MIGRATION.md) and [Design Guide](guides/design.md) for details.
+
+### HTTP/3 Support
+
+Full HTTP/3 support via QUIC (requires QUIC NIF to be built):
+
+- **QUIC transport** - UDP-based, encrypted by default with TLS 1.3
+- **Transparent API** - Same `hackney:get/post/request` functions work for HTTP/3
+- **Multiplexing** - Multiple streams without head-of-line blocking
+- **Alt-Svc discovery** - Automatic HTTP/3 endpoint detection from Alt-Svc headers
+- **Connection pooling** - HTTP/3 connections shared across callers
+- **Negative caching** - Failed H3 attempts cached to avoid repeated failures
+- **Async streaming** - `{async, true/once}` for push-based streaming
+- **Pull-based streaming** - `hackney:stream_body/1` for chunked reads
+- **Streaming uploads** - `send_body/2` for chunked uploads
+- **Protocol selection** - Use `{protocols, [http3]}` to force HTTP/3
+
+Check availability with `hackney_quic:is_available()`.
+
+See [HTTP/3 Guide](guides/http3_guide.md) for details.
+
+### HTTP/2 Support
+
+Full HTTP/2 support with automatic protocol negotiation:
+
+- **ALPN negotiation** - HTTP/2 is automatically negotiated during TLS handshake
+- **Transparent API** - Same `hackney:get/post/request` functions work for both protocols
+- **Multiplexing** - Multiple requests share a single HTTP/2 connection
+- **Header compression** - HPACK compression for reduced overhead
+- **Flow control** - Automatic window management with WINDOW_UPDATE frames
+- **Server push** - Optional support for server-initiated streams
+- **Protocol selection** - Use `{protocols, [http2]}` or `{protocols, [http1]}` to force protocol
+
+See [HTTP/2 Guide](guides/http2_guide.md) for details.
+
+### Architecture Changes
+
+- Connection handle is now a PID (was opaque reference)
+- `hackney_conn` manages connections (replaces hackney_connect, hackney_connection, hackney_request, hackney_response, hackney_stream)
+- `hackney_headers` renamed from `hackney_headers_new`
+- Clean OTP supervision tree with `hackney_conn_sup`
+
+### Pool Redesign
+
+The connection pool has been completely redesigned:
+
+- **Per-host connection limits** - Each host gets up to `max_per_host` concurrent connections (default 50), replacing the global pool limit
+- **TCP-only pooling** - SSL connections are never pooled (security improvement). HTTPS requests upgrade pooled TCP connections to SSL
+- **Connection prewarm** - Pool maintains warm TCP connections per host (default 4) after first use
+- **Load regulation** - New `hackney_load_regulation` module provides lock-free per-host backpressure using ETS counting semaphore
+- **Keepalive timeout capped** - Maximum 2 seconds idle time to prevent stale connections
+- **Host stats API** - New `hackney_pool:host_stats/3` for per-host monitoring
+
+### New Options
+
+- `default_protocols` - Default protocol preference order (default: `[http3, http2, http1]`). Set via application env to change globally:
+  ```erlang
+  application:set_env(hackney, default_protocols, [http2, http1]).
+  ```
+- `max_per_host` - Maximum concurrent connections per host (default 50)
+- `checkout_timeout` - Timeout to acquire connection slot (default 8000ms)
+- `prewarm_count` - Warm connections per host (default 4)
+
+### New Functions
+
+- `hackney_util:default_protocols/0` - Get the default protocol preference list
+- `hackney:get_version/0` - Get hackney version
+- `hackney_pool:host_stats/3` - Get per-host connection stats
+- `hackney_pool:prewarm/3,4` - Explicitly prewarm connections to a host
+- `hackney_load_regulation:current/2` - Get current connection count for host
+
+### Removed
+
+- `cancel_request/1` - use `close/1`
+- `controlling_process/2` - not needed
+- `send_multipart_body/2` - use `send_body/2`
+- SOCKS5 and HTTP CONNECT proxy (planned 2.1.0)
+
+### Security
+
+- **BREAKING**: Authorization credentials and cookies are no longer sent on cross-host redirects by default (CVE-2018-1000007). This prevents credential leakage when a server redirects to a different host (e.g., API redirecting to S3). To restore the old behavior, use `{location_trusted, true}` option (similar to curl's `--location-trusted`).
+
+### Bug Fixes
+
+- fix: validate connection state on pool checkout for HTTP/2 and HTTP/3. On FreeBSD + OTP 28, pooled connections could be in `closed` state when checked out due to SSL timing differences, causing `{error, invalid_state}` errors. Now connections are verified to be in `connected` state after checkout.
+
+### Metrics
+
+Native metrics system with pluggable backends, replacing the external `metrics` library dependency:
+
+- **Pluggable backends** - `hackney_metrics_backend` behaviour for custom implementations
+- **Dummy backend** (default) - Zero-overhead no-op backend when metrics not needed
+- **Prometheus backend** (opt-in) - Full Prometheus integration when enabled
+- **Correct metric types** - Pool counts now use gauges instead of histograms (#560)
+
+#### Prometheus Metrics
+
+When enabled, the following metrics are exported:
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `hackney_requests_total` | Counter | host | Total requests started |
+| `hackney_requests_active` | Gauge | host | Currently active requests |
+| `hackney_requests_finished_total` | Counter | host | Completed requests |
+| `hackney_request_duration_seconds` | Histogram | host | Request duration in seconds |
+| `hackney_pool_free_count` | Gauge | pool | Available connections in pool |
+| `hackney_pool_in_use_count` | Gauge | pool | Connections currently in use |
+| `hackney_pool_checkouts_total` | Counter | pool | Total connection checkouts |
+
+#### Configuration
+
+```erlang
+%% Default: dummy backend (zero overhead)
+%% To enable Prometheus metrics:
+{hackney, [{metrics_backend, prometheus}]}
+```
+
+### Requirements
+
+- Erlang/OTP 27+
+
 1.25.0 - 2025-07-24
 -------------------
 
@@ -187,7 +726,7 @@ systems using URL as signature or in an hash.
 - doc: document self-signed certificate usage
 - bump `ssl_verify_fun` to 1.1.5
 - fix: don't use default pool if set to false
-- fix: `hackney_headers_new:store/3`  fix value appending to a list
+- fix: `hackney_headers:store/3`  fix value appending to a list
 - fix: miscellaneous specs
 - doc: miscellaneous improvements
 

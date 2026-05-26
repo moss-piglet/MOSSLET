@@ -118,7 +118,6 @@ defmodule Mosslet.MixProject do
 
   defp shared_deps do
     [
-      {:a11y_audit, "~> 0.2.3", only: :test},
       {:abacus, "~> 2.1"},
       {:argon2_elixir, "~> 4.0"},
       {:axon, "~> 0.7.0"},
@@ -145,7 +144,6 @@ defmodule Mosslet.MixProject do
       {:ex_marcel, "~> 0.1.0"},
       {:ex_slop, "~> 0.1", only: [:dev, :test], runtime: false},
       {:expletive, "~> 0.1.5"},
-      {:exvcr, "~> 0.15", only: :test},
       {:faker, "~> 0.18", only: [:test, :dev]},
       {:flame, "~> 0.5.3"},
       {:floki, ">= 0.30.0"},
@@ -153,7 +151,8 @@ defmodule Mosslet.MixProject do
       {:fly_postgres, "~> 0.3.2"},
       {:friendlyid, "~> 0.2.0"},
       {:gettext, "~> 1.0"},
-      {:hackney, "~> 1.18"},
+      # for swoosh optional bug & stripty_stripe
+      {:hackney, "~> 4.0", override: true},
       {:hashids, "~> 2.0"},
       {:heroicons,
        github: "tailwindlabs/heroicons",
@@ -164,6 +163,8 @@ defmodule Mosslet.MixProject do
        depth: 1},
       {:html_sanitize_ex, "~> 1.4"},
       {:human_name, "~> 0.6"},
+      # for swoosh optional bug & stripty_stripe
+      {:idna, "~> 7.1", override: true},
       {:image, "~> 0.59.0"},
       {:inflex, "~> 2.1.0"},
       {:jason, "~> 1.4"},
@@ -204,20 +205,18 @@ defmodule Mosslet.MixProject do
       {:sizeable, "~> 1.0"},
       {:slugify, "~> 1.3"},
       {:sobelow, "~> 0.14.1", only: [:dev, :test], runtime: false},
-      {:stripity_stripe, "~> 3.1"},
+      {:stripity_stripe, "~> 3.3"},
       {:sweet_xml, "~> 0.6"},
       {:swoosh, "~> 1.3"},
       {:tailwind, "~> 0.3.0", runtime: Mix.env() in [:dev, :dev_desktop]},
       {:telemetry_metrics, "~> 0.6"},
       {:telemetry_poller, "~> 1.0"},
-      {:tesla, "~> 1.7.0"},
       {:tidewave, "~> 0.5", only: :dev},
       {:typed_ecto_schema, "~> 0.4.1"},
       {:tzdata, "~> 1.1"},
       {:ueberauth, "<= 0.10.5 or ~> 0.10.7"},
       {:ueberauth_google, "~> 0.10"},
       {:ueberauth_github, "~> 0.7"},
-      {:wallaby, "~> 0.30", runtime: false, only: :test},
       {:yaml_elixir, "~> 2.9.0"}
     ]
   end

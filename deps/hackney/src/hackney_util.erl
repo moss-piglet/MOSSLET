@@ -11,7 +11,7 @@
 -export([maybe_apply_defaults/2]).
 -export([is_ipv6/1]).
 -export([privdir/0]).
--export([mod_metrics/0]).
+-export([default_protocols/0]).
 -export([to_atom/1]).
 
 -export([merge_opts/2]).
@@ -101,22 +101,31 @@ privdir() ->
     Dir -> Dir
   end.
 
-mod_metrics() ->
-  case application:get_env(hackney, mod_metrics) of
-    {ok, folsom} -> metrics_folsom;
-    {ok, exometer} -> metrics_exometer;
-    {ok, dummy} -> metrics_dummy;
-    {ok, Mod} -> Mod;
-    _ -> metrics_dummy
+%% @doc Get the default protocols for HTTP connections.
+%% Returns the value of the `default_protocols` application env,
+%% or `[http2, http1]' if not set.
+%%
+%% The order determines preference: HTTP/2 is preferred, then HTTP/1.1.
+%%
+%% To enable HTTP/3 (experimental):
+%% ```
+%% application:set_env(hackney, default_protocols, [http3, http2, http1]).
+%% '''
+-spec default_protocols() -> [http3 | http2 | http1].
+default_protocols() ->
+  case application:get_env(hackney, default_protocols) of
+    {ok, Protocols} when is_list(Protocols) -> Protocols;
+    _ -> [http2, http1]
   end.
 
-
+%% GHSA-6rmf: never fall back to list_to_atom/1. Minting a fresh atom for
+%% every unique caller-supplied string (header field-names, tokens, JSON
+%% keys, ...) lets an attacker exhaust the fixed-size, never-GC'd atom table
+%% and crash the whole VM. Unknown names raise badarg, the same contract as
+%% list_to_existing_atom/1; callers that need new atoms must create them
+%% explicitly.
 to_atom(V) when is_list(V) ->
-  try
-    list_to_existing_atom(V)
-  catch
-    _:_ -> list_to_atom(V)
-  end;
+  list_to_existing_atom(V);
 to_atom(V) when is_binary(V) ->
   to_atom(binary_to_list(V));
 to_atom(V) when is_atom(V) ->

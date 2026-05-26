@@ -102,16 +102,16 @@ if Code.ensure_loaded?(Plug) do
     plug Stripe.WebhookPlug,
       at: "/webhook/stripe",
       handler: MyAppWeb.StripeHandler,
-      secret: fn -> Application.get_env(:myapp, :stripe_webhook_secret) end
+      secret: &MyAppWeb.Secrets.stripe_webhook_secret/0 # a remote function in the format &Mod.fun/arity
     ```
     """
+
+    @behaviour Plug
 
     import Plug.Conn
     alias Plug.Conn
 
-    @behaviour Plug
-
-    @impl true
+    @impl Plug
     def init(opts) do
       path_info = String.split(opts[:at], "/", trim: true)
 
@@ -120,7 +120,7 @@ if Code.ensure_loaded?(Plug) do
       |> Map.put_new(:path_info, path_info)
     end
 
-    @impl true
+    @impl Plug
     def call(
           %Conn{method: "POST", path_info: path_info} = conn,
           %{
@@ -132,23 +132,34 @@ if Code.ensure_loaded?(Plug) do
       secret = parse_secret!(secret)
 
       with [signature] <- get_req_header(conn, "stripe-signature"),
-           {:ok, payload, conn} = Conn.read_body(conn),
-           {:ok, %Stripe.Event{} = event} <- construct_event(payload, signature, secret, opts),
-           :ok <- handle_event!(handler, event) do
-        send_resp(conn, 200, "Webhook received.") |> halt()
+           {:ok, payload, conn} <- Conn.read_body(conn) do
+        process_event(conn, payload, signature, secret, handler, opts)
       else
-        {:handle_error, reason} -> send_resp(conn, 400, reason) |> halt()
-        _ -> send_resp(conn, 400, "Bad request.") |> halt()
+        _ -> halt(send_resp(conn, 400, "Bad request."))
       end
     end
 
-    @impl true
+    @impl Plug
     def call(%Conn{path_info: path_info} = conn, %{path_info: path_info}) do
-      send_resp(conn, 400, "Bad request.") |> halt()
+      halt(send_resp(conn, 400, "Bad request."))
     end
 
-    @impl true
+    @impl Plug
     def call(conn, _), do: conn
+
+    # Body has been read; `conn` here is the post-`read_body` conn passed as a
+    # parameter, so it stays in scope for both the success and error branches.
+    # Sending the response on the pre-`read_body` conn confuses Bandit's
+    # connection state on keep-alive HTTP/1.1 and can corrupt the next request.
+    defp process_event(conn, payload, signature, secret, handler, opts) do
+      with {:ok, %Stripe.Event{} = event} <- construct_event(payload, signature, secret, opts),
+           :ok <- handle_event!(handler, event) do
+        halt(send_resp(conn, 200, "Webhook received."))
+      else
+        {:handle_error, reason} -> halt(send_resp(conn, 400, reason))
+        _ -> halt(send_resp(conn, 400, "Bad request."))
+      end
+    end
 
     defp construct_event(payload, signature, secret, %{tolerance: tolerance}) do
       Stripe.Webhook.construct_event(payload, signature, secret, tolerance)
@@ -159,30 +170,34 @@ if Code.ensure_loaded?(Plug) do
     end
 
     defp handle_event!(handler, %Stripe.Event{} = event) do
-      case handler.handle_event(event) do
-        {:ok, _} ->
-          :ok
+      telemetry_meta = %{event: event.type, handler_status: nil}
 
-        :ok ->
-          :ok
+      :telemetry.span(~w[stripe webhook]a, telemetry_meta, fn ->
+        case handler.handle_event(event) do
+          {:ok, _} ->
+            {:ok, %{telemetry_meta | handler_status: :ok}}
 
-        {:error, reason} when is_binary(reason) ->
-          {:handle_error, reason}
+          :ok ->
+            {:ok, %{telemetry_meta | handler_status: :ok}}
 
-        {:error, reason} when is_atom(reason) ->
-          {:handle_error, Atom.to_string(reason)}
+          {:error, reason} when is_binary(reason) ->
+            {{:handle_error, reason}, %{telemetry_meta | handler_status: :error}}
 
-        :error ->
-          {:handle_error, ""}
+          {:error, reason} when is_atom(reason) ->
+            {{:handle_error, Atom.to_string(reason)}, %{telemetry_meta | handler_status: :error}}
 
-        resp ->
-          raise """
-          #{inspect(handler)}.handle_event/1 returned an invalid response. Expected {:ok, term}, :ok, {:error, reason} or :error
-          Got: #{inspect(resp)}
+          :error ->
+            {{:handle_error, ""}, %{telemetry_meta | handler_status: :error}}
 
-          Event data: #{inspect(event)}
-          """
-      end
+          resp ->
+            raise """
+            #{inspect(handler)}.handle_event/1 returned an invalid response. Expected {:ok, term}, :ok, {:error, reason} or :error
+            Got: #{inspect(resp)}
+
+            Event data: #{inspect(event)}
+            """
+        end
+      end)
     end
 
     defp parse_secret!({m, f, a}), do: apply(m, f, a)

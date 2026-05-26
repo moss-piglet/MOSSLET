@@ -111,7 +111,14 @@ defmodule Mosslet.Billing.Providers.Stripe do
   end
 
   def get_subscription_next_charge(stripe_subscription) do
-    Util.unix_to_naive_datetime(stripe_subscription.current_period_end)
+    # In stripity_stripe 3.3.1, current_period_end moved to subscription items
+    period_end =
+      case stripe_subscription.items.data do
+        [item | _] -> item.current_period_end
+        _ -> stripe_subscription.trial_end
+      end
+
+    Util.unix_to_naive_datetime(period_end)
   end
 
   def get_payment_intent_charge_price(payment_intent) do

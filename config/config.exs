@@ -161,6 +161,7 @@ config :mosslet, Oban,
 # Configures exaws
 config :ex_aws,
   json_codec: Jason,
+  http_client: ExAws.Request.Req,
   access_key_id: [{:system, "AWS_ACCESS_KEY_ID"}],
   secret_access_key: [{:system, "AWS_SECRET_ACCESS_KEY"}],
   region: {:system, "AWS_REGION"}
@@ -192,6 +193,7 @@ config :mosslet, :passwordless_enabled, false
 
 # Configure the time zone database
 config :elixir, :time_zone_database, Tzdata.TimeZoneDatabase
+config :tzdata, :http_client, Mosslet.TzdataFinchClient
 
 # Configure langchain OpenAI key
 config :langchain, []
@@ -221,12 +223,19 @@ config :image, :social,
 
 # Configure Sentry error monitoring
 config :sentry,
+  client: Mosslet.SentryFinchClient,
   included_environments: ~w(production staging),
   environment_name: "development"
 
 # Configure Stripe
+# hackney_opts forces HTTP/1.1 because stripity_stripe 3.3.x hardcodes a
+# Connection: keep-alive header that is forbidden in HTTP/2. hackney 4.x
+# negotiates HTTP/2 via ALPN and rejects the illegal header with :protocol_error.
+# This is a known bug in stripity_stripe — once upstream removes the header,
+# we can drop hackney_opts and get HTTP/2 multiplexing for free.
 config :stripity_stripe,
-  api_version: "2023-08-16"
+  api_version: "2023-08-16",
+  hackney_opts: [protocols: [:http1]]
 
 # :user or :org (perhaps change to family)
 config :mosslet, :billing_entity, :user

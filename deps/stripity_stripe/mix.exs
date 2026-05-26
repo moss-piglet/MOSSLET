@@ -2,7 +2,7 @@ defmodule Stripe.Mixfile do
   use Mix.Project
 
   @source_url "https://github.com/code-corps/stripity_stripe"
-  @version "3.2.0"
+  @version "3.3.1"
 
   def project do
     [
@@ -13,17 +13,23 @@ defmodule Stripe.Mixfile do
       docs: docs(),
       package: package(),
       elixirc_paths: elixirc_paths(Mix.env()),
-      preferred_cli_env: [
-        coveralls: :test,
-        "coveralls.detail": :test,
-        "coveralls.post": :test,
-        "coveralls.html": :test
-      ],
       dialyzer: [
         plt_add_apps: [:mix],
         plt_file: {:no_warn, "priv/plts/stripity_stripe.plt"}
       ],
       test_coverage: [tool: ExCoveralls]
+    ]
+  end
+
+  # CLI configuration
+  def cli do
+    [
+      preferred_envs: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.post": :test,
+        "coveralls.html": :test
+      ]
     ]
   end
 
@@ -54,7 +60,7 @@ defmodule Stripe.Mixfile do
 
   defp deps do
     [
-      {:hackney, "~> 1.18"},
+      {:hackney, "~> 4.0"},
       {:jason, "~> 1.1"},
       {:telemetry, "~> 1.1"},
       {:uri_query, "~> 0.2.0"},
@@ -63,6 +69,7 @@ defmodule Stripe.Mixfile do
       {:inch_ex, ">= 0.0.0", only: [:dev, :test]},
       {:mox, ">= 0.0.0", only: :test},
       {:erlexec, "~> 2.0", only: :test},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, ">= 0.0.0", only: [:dev, :test], runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:excoveralls, ">= 0.0.0", only: :test}

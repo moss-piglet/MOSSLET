@@ -75,6 +75,7 @@ config :mosslet, :uploader, adapter: Mosslet.FileUploads.Tigris
 # Configures exaws in dev
 config :ex_aws,
   json_codec: Jason,
+  http_client: ExAws.Request.Req,
   access_key_id: [{:system, "AWS_ACCESS_KEY_ID"}],
   secret_access_key: [{:system, "AWS_SECRET_ACCESS_KEY"}],
   region: {:system, "AWS_REGION"}

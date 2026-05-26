@@ -37,34 +37,33 @@ defmodule Mosslet.Vendor.Slack do
   7. Get the channel ID of the channel you want to post to. Put it in a new environment variable SLACK_CHANNEL_ID
   8. Run Mosslet.Slack.message("Hello world") to test it out!
   """
-  use Tesla
 
   require Logger
 
-  plug Tesla.Middleware.BaseUrl, "https://slack.com/api"
+  @base_url "https://slack.com/api"
 
-  plug Tesla.Middleware.Headers, [
-    {"Authorization", "Bearer #{System.get_env("SLACK_OAUTH_TOKEN")}"}
-  ]
-
-  plug Tesla.Middleware.JSON
+  defp headers do
+    [{"authorization", "Bearer #{System.get_env("SLACK_OAUTH_TOKEN")}"}]
+  end
 
   def read_channels do
-    {:ok, response} = get("/conversations.list")
+    case Req.get("#{@base_url}/conversations.list", headers: headers()) do
+      {:ok, %Req.Response{status: 200, body: %{"ok" => true} = body}} ->
+        Enum.map(body["channels"], &[&1["id"], &1["name"]])
 
-    case response.body do
-      %{"ok" => true} ->
-        Enum.map(response.body["channels"], &[&1["id"], &1["name"]])
-
-      %{"ok" => false} = body ->
+      {:ok, %Req.Response{body: %{"ok" => false} = body}} ->
         Logger.error(body["error"])
+
+      {:error, reason} ->
+        Logger.error("Slack API error: #{inspect(reason)}")
     end
   end
 
   def join_channel do
-    post("/conversations.join", %{
-      name: "app-notifications"
-    })
+    Req.post("#{@base_url}/conversations.join",
+      headers: headers(),
+      json: %{name: "app-notifications"}
+    )
   end
 
   # Posts a slack message in a background task so it doesn't slow down the current process.
@@ -85,14 +84,20 @@ defmodule Mosslet.Vendor.Slack do
   end
 
   defp post_message(channel_id, msg) do
-    case post("/chat.postMessage", %{
-           channel: channel_id,
-           text: msg,
-           unfurl_links: false,
-           unfurl_media: false
-         }) do
-      {:ok, _} ->
+    case Req.post("#{@base_url}/chat.postMessage",
+           headers: headers(),
+           json: %{
+             channel: channel_id,
+             text: msg,
+             unfurl_links: false,
+             unfurl_media: false
+           }
+         ) do
+      {:ok, %Req.Response{status: 200}} ->
         Logger.info("Slack message sent: #{msg}")
+
+      {:error, reason} ->
+        Logger.error("Slack message failed: #{inspect(reason)}")
     end
   end
 end

@@ -24,17 +24,9 @@
 -type socks5_socket() :: {atom(), inet:socket()}.
 -export_type([socks5_socket/0]).
 
--ifdef(no_proxy_sni_support).
-
+%% Use hackney_ssl for SSL options (was hackney_connect/hackney_connection)
 ssl_opts(Host, Opts) ->
-  hackney_connect:ssl_opts(Host, Opts).
-
--else.
-
-ssl_opts(Host, Opts) ->
-  [{server_name_indication, Host} | hackney_connection:ssl_opts(Host,Opts)].
-
--endif.
+  hackney_ssl:ssl_opts(Host, Opts).
 
 %% @doc Atoms used to identify messages in {active, once | true} mode.
 messages({hackney_ssl, _}) ->
@@ -69,8 +61,11 @@ connect(Host, Port, Opts, Timeout) when is_list(Host), is_integer(Port),
           case Transport of
             hackney_ssl ->
               SSLOpts = ssl_opts(Host, Opts),
-              %% upgrade the tcp connection
-              case ssl:connect(Socket, SSLOpts) of
+              %% upgrade the tcp connection. GHSA-gp9c: forward the
+              %% caller's timeout; the 2-arg ssl:connect defaults to
+              %% infinity, so a stalled proxy upstream could pin the
+              %% process and socket on the TLS handshake forever.
+              case ssl:connect(Socket, SSLOpts, Timeout) of
                 {ok, SslSocket} ->
                   {ok, {Transport, SslSocket}};
                 Error ->

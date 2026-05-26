@@ -49,7 +49,10 @@ defmodule Mosslet.Billing.Providers.Stripe.WebhookHandler do
     |> Mosslet.Billing.Providers.Stripe.Workers.PaymentIntentSyncWorker.new()
     |> Oban.insert()
 
-    unless object.invoice do
+    # In stripity_stripe 3.3.1, the `invoice` field was removed from the
+    # PaymentIntent struct. We use Map.get to safely check for it since the
+    # webhook event JSON may still include it in the raw data.
+    unless Map.get(object, :invoice) do
       %{
         provider_payment_intent_id: object.id,
         provider_customer_id: object.customer,

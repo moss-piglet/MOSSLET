@@ -46,10 +46,59 @@ parse_url(<<"http://", Rest/binary>>) ->
 parse_url(<<"https://", Rest/binary>>) ->
   parse_url(Rest, #hackney_url{transport=hackney_ssl,
     scheme=https});
+parse_url(<<"ws://", Rest/binary>>) ->
+  parse_url(Rest, #hackney_url{transport=hackney_tcp,
+    scheme=ws});
+parse_url(<<"wss://", Rest/binary>>) ->
+  parse_url(Rest, #hackney_url{transport=hackney_ssl,
+    scheme=wss});
 parse_url(<<"http+unix://", Rest/binary>>) ->
   parse_url(Rest, #hackney_url{transport=hackney_local_tcp, scheme=http_unix});
+parse_url(<<"socks5://", Rest/binary>>) ->
+  parse_url(Rest, #hackney_url{transport=hackney_socks5, scheme=socks5});
 parse_url(URL) ->
-  parse_url(URL, #hackney_url{transport=hackney_tcp, scheme=http}).
+  %% Check if this looks like a URL with an unrecognized scheme
+  case binary:split(URL, <<"://">>) of
+    [Scheme, Rest] when byte_size(Scheme) > 0, byte_size(Scheme) < 20 ->
+      %% Looks like scheme://... - parse it but mark as unsupported
+      case is_valid_scheme(Scheme) of
+        true ->
+          SchemeLower = hackney_bstr:to_lower(Scheme),
+          %% GHSA-9653: never mint a fresh atom for an attacker-supplied
+          %% scheme. `binary_to_existing_atom` only matches schemes that
+          %% have already been registered (i.e. ones the runtime, this
+          %% module, or the caller has explicitly seen). Anything else
+          %% stays as a binary; the dispatcher rejects it as
+          %% unsupported_scheme either way.
+          SchemeRef = try binary_to_existing_atom(SchemeLower, utf8)
+                      catch error:badarg -> SchemeLower
+                      end,
+          parse_url(Rest, #hackney_url{transport=undefined, scheme=SchemeRef});
+        false ->
+          %% Not a valid scheme, treat as path-like URL
+          parse_url(URL, #hackney_url{transport=hackney_tcp, scheme=http})
+      end;
+    _ ->
+      %% No :// found or empty scheme, treat as relative/partial URL
+      parse_url(URL, #hackney_url{transport=hackney_tcp, scheme=http})
+  end.
+
+%% @private Check if a binary is a valid URL scheme (RFC 3986)
+%% scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
+is_valid_scheme(<<C, Rest/binary>>) when (C >= $a andalso C =< $z) orelse (C >= $A andalso C =< $Z) ->
+  is_valid_scheme_rest(Rest);
+is_valid_scheme(_) ->
+  false.
+
+is_valid_scheme_rest(<<>>) ->
+  true;
+is_valid_scheme_rest(<<C, Rest/binary>>) when (C >= $a andalso C =< $z) orelse
+                                               (C >= $A andalso C =< $Z) orelse
+                                               (C >= $0 andalso C =< $9) orelse
+                                               C =:= $+ orelse C =:= $- orelse C =:= $. ->
+  is_valid_scheme_rest(Rest);
+is_valid_scheme_rest(_) ->
+  false.
 
 parse_url(URL, S) ->
   {URL1, Fragment} = cut_fragment(URL),
@@ -127,6 +176,18 @@ normalize(#hackney_url{}=Url, Fun) when is_function(Fun, 1) ->
                                  urldecode(unicode:characters_to_binary(Host0))
                                 ),
 
+                       %% GHSA-pj7v: a non-IP host that decodes to an IP
+                       %% literal (e.g. `%31%32%37%2E%30%2E%30%2E%31` ->
+                       %% `127.0.0.1`) bypasses any caller-side SSRF
+                       %% allowlist that ran inet:parse_address on the
+                       %% pre-normalised host. Pct-encoding an IP literal
+                       %% has no legitimate use; reject the differential.
+                       %% IDN / pct-encoded UTF-8 hosts still flow through.
+                       case inet_parse:address(Host1) of
+                         {ok, _} -> error({invalid_url_host, Host0});
+                         _ -> ok
+                       end,
+
                        %% encode domain if needed
                        Host2 = case Scheme of
                                  http_unix -> Host1;
@@ -135,6 +196,8 @@ normalize(#hackney_url{}=Url, Fun) when is_function(Fun, 1) ->
                        Netloc1 = case {Scheme, Port} of
                                    {http, 80} -> list_to_binary(Host2);
                                    {https, 443} -> list_to_binary(Host2);
+                                   {ws, 80} -> list_to_binary(Host2);
+                                   {wss, 443} -> list_to_binary(Host2);
                                    {http_unix, _} -> list_to_binary(Host2);
                                    _ ->
                                      iolist_to_binary([Host2, ":", integer_to_list(Port)])
@@ -174,6 +237,8 @@ unparse_url(#hackney_url{}=Url) ->
   Scheme1 = case Scheme of
               http -> <<"http://">>;
               https -> <<"https://">>;
+              ws -> <<"ws://">>;
+              wss -> <<"wss://">>;
               http_unix -> <<"http+unix://">>
             end,
 
@@ -218,21 +283,27 @@ parse_addr1(Addr, S) ->
   end.
 
 parse_addr(Addr, S) ->
-  case binary:split(Addr, <<"@">>) of
+  %% RFC 3986: userinfo ends at the LAST @ before the host
+  %% Example: user@domain.com:p@ssword@host.com -> userinfo=user@domain.com:p@ssword, host=host.com
+  case binary:split(Addr, <<"@">>, [global]) of
     [Addr] ->
+      %% No @ found - no credentials
       parse_netloc(Addr, S#hackney_url{netloc=Addr});
-    [Credentials, Addr1] ->
-      case binary:split(Credentials, <<":">>) of
+    Parts ->
+      %% Split into credentials (all but last) and netloc (last)
+      {CredParts, [Netloc]} = lists:split(length(Parts) - 1, Parts),
+      Credentials = lists:join(<<"@">>, CredParts),
+      CredentialsBin = iolist_to_binary(Credentials),
+      case binary:split(CredentialsBin, <<":">>) of
         [User, Password] ->
-          parse_netloc(Addr1, S#hackney_url{netloc=Addr1,
+          parse_netloc(Netloc, S#hackney_url{netloc=Netloc,
             user = urldecode(User),
             password = urldecode(Password)});
         [User] ->
-          parse_netloc(Addr1, S#hackney_url{netloc = Addr1,
+          parse_netloc(Netloc, S#hackney_url{netloc = Netloc,
             user = urldecode(User),
             password = <<>> })
       end
-
   end.
 
 parse_netloc(<<"[", Rest/binary>>, #hackney_url{transport=Transport}=S) ->
@@ -241,6 +312,8 @@ parse_netloc(<<"[", Rest/binary>>, #hackney_url{transport=Transport}=S) ->
       S#hackney_url{host=binary_to_list(Host), port=80};
     [Host] when Transport =:= hackney_ssl ->
       S#hackney_url{host=binary_to_list(Host), port=443};
+    [Host] when Transport =:= hackney_socks5 ->
+      S#hackney_url{host=binary_to_list(Host), port=1080};
     [Host, <<":", Port/binary>>] when Port /= <<>> ->
       S#hackney_url{host=binary_to_list(Host),
                     port=list_to_integer(binary_to_list(Port))};
@@ -248,6 +321,9 @@ parse_netloc(<<"[", Rest/binary>>, #hackney_url{transport=Transport}=S) ->
       parse_netloc(Rest, S)
   end;
 
+parse_netloc(<<>>, S) ->
+  %% Empty netloc (e.g., file:///path)
+  S#hackney_url{host=[], port=0};
 parse_netloc(Netloc, #hackney_url{transport=Transport}=S) ->
   case binary:split(Netloc, <<":">>, [trim]) of
     [Host] when Transport =:= hackney_tcp ->
@@ -258,6 +334,13 @@ parse_netloc(Netloc, #hackney_url{transport=Transport}=S) ->
                     port=443};
     [Host] when Transport =:= hackney_local_tcp ->
       S#hackney_url{host=unicode:characters_to_list(urldecode(Host)),
+                    port=0};
+    [Host] when Transport =:= hackney_socks5 ->
+      S#hackney_url{host=unicode:characters_to_list(Host),
+                    port=1080};
+    [Host] when Transport =:= undefined ->
+      %% Unknown/unsupported scheme - no default port
+      S#hackney_url{host=unicode:characters_to_list(Host),
                     port=0};
     [Host, Port] ->
       S#hackney_url{host=unicode:characters_to_list(Host),

@@ -87,7 +87,7 @@ defmodule Mosslet.Billing.Providers.Stripe.Provider do
 
   @impl true
   def upcoming_invoice(params) do
-    Stripe.Invoice.upcoming(params)
+    Stripe.Invoice.create_preview(params)
   end
 
   @impl true

@@ -18,14 +18,23 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.SyncPaymentIntent do
   require Logger
 
   def call(%Stripe.PaymentIntent{} = stripe_payment_intent) do
-    if stripe_payment_intent.invoice do
+    # Payment intents created by invoices (subscription renewals) don't have
+    # our checkout metadata. We only want to sync payment intents we explicitly
+    # created (one-time/lifetime purchases via Checkout).
+    # In stripity_stripe 3.3.1, the `invoice` field was removed from the struct,
+    # so we check for our checkout metadata presence instead.
+    has_checkout_metadata? =
+      is_map(stripe_payment_intent.metadata) and
+        map_size(stripe_payment_intent.metadata) > 0
+
+    if has_checkout_metadata? do
+      sync_payment_intent(stripe_payment_intent)
+    else
       Logger.debug(
-        "Skipping payment intent #{stripe_payment_intent.id} - associated with invoice #{stripe_payment_intent.invoice}"
+        "Skipping payment intent #{stripe_payment_intent.id} - no checkout metadata (likely invoice-generated)"
       )
 
       :ok
-    else
-      sync_payment_intent(stripe_payment_intent)
     end
   end
 

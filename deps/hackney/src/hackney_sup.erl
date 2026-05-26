@@ -39,14 +39,14 @@ init([]) ->
   %% initialize the config table
   _ = ets:new(?CONFIG, [set, named_table, public]),
 
-  %% initialize the metric engine
-  hackney_metrics:init(),
+  %% initialize per-host load regulation
+  hackney_load_regulation:init(),
 
   Specs = [
            %% manager
            ?CHILD(hackney_manager, worker),
-           %% connections manager
-           ?CHILD(hackney_connections, worker)
+           %% connection process supervisor
+           ?CHILD(hackney_conn_sup, supervisor)
           ],
 
   {ok, { {one_for_one, 10000, 1}, Specs}}.

@@ -15,21 +15,73 @@
   setopts/2,
   controlling_process/2,
   peername/1,
+  peercert/1,
   close/1,
   shutdown/2,
   sockname/1]).
 
 -export([check_hostname_opts/1]).
 -export([cipher_opts/0]).
+-export([ssl_opts/2]).
+
+%% ALPN (Application-Layer Protocol Negotiation) for HTTP/2
+-export([alpn_opts/1]).
+-export([get_negotiated_protocol/1]).
 
 %% @doc Atoms used to identify messages in {active, once | true} mode.
 messages(_) -> {ssl, ssl_closed, ssl_error}.
+
+%% @doc Build SSL options for a connection.
+%% Used by proxy modules for SSL upgrade after tunnel establishment.
+ssl_opts(Host, Options) ->
+  case proplists:get_value(ssl_options, Options) of
+    undefined ->
+      ssl_opts_1(Host, Options);
+    [] ->
+      ssl_opts_1(Host, Options);
+    SSLOpts ->
+      merge_ssl_opts(Host, SSLOpts, Options)
+  end.
+
+ssl_opts_1(Host, Options) ->
+  Insecure = proplists:get_value(insecure, Options, false),
+  case Insecure of
+    true ->
+      [{verify, verify_none} | cipher_opts()];
+    false ->
+      check_hostname_opts(Host) ++ cipher_opts()
+  end.
+
+merge_ssl_opts(Host, OverrideOpts, Options) ->
+  VerifyHost = case proplists:get_value(server_name_indication, OverrideOpts, disable) of
+    disable -> Host;
+    SNI -> SNI
+  end,
+  %% Check insecure from top-level Options first, then fall back to ssl_options (fixes #786)
+  Insecure = proplists:get_value(insecure, Options,
+               proplists:get_value(insecure, OverrideOpts, false)),
+  DefaultOpts = case Insecure of
+    true ->
+      [{verify, verify_none} | cipher_opts()];
+    false ->
+      check_hostname_opts(VerifyHost) ++ cipher_opts()
+  end,
+  MergedOpts = orddict:merge(fun(_K, _V1, V) -> V end,
+                             orddict:from_list(DefaultOpts),
+                             orddict:from_list(OverrideOpts)),
+  %% If cacertfile was provided in override opts remove cacerts
+  case lists:keymember(cacertfile, 1, MergedOpts) of
+    true ->
+      lists:keydelete(cacerts, 1, MergedOpts);
+    false ->
+      MergedOpts
+  end.
 
 
 
 
 check_hostname_opts(Host0) ->
-  Host1 = string_compat:strip(Host0, right, $.),
+  Host1 = string:trim(Host0, trailing, "."),
   VerifyFun = {
     fun ssl_verify_hostname:verify_fun/3,
     [{check_hostname, Host1}]
@@ -130,9 +182,22 @@ connect(Host, Port, Opts0, Timeout) when is_list(Host), is_integer(Port),
   SSLOpts = proplists:get_value(ssl_options, Opts0),
   BaseOpts = [binary, {active, false}, {packet, raw}],
   Opts1 = hackney_util:merge_opts(BaseOpts, proplists:delete(ssl_options, Opts0)),
+  Now = erlang:monotonic_time(millisecond),
   case hackney_happy:connect(Host, Port, Opts1, Timeout) of
     {ok, Sock} ->
-      ssl:connect(Sock, SSLOpts);
+      case Timeout of
+        infinity ->
+          ssl:connect(Sock, SSLOpts);
+        _ ->
+          Elapsed = erlang:monotonic_time(millisecond) - Now,
+          case Timeout - Elapsed of
+            TimeoutLeft when TimeoutLeft > 0 ->
+              ssl:connect(Sock, SSLOpts, TimeoutLeft);
+            _ ->
+              gen_tcp:close(Sock),
+              {error, timeout}
+          end
+      end;
     Error ->
       Error
   end.
@@ -173,6 +238,13 @@ controlling_process(Socket, Pid) ->
 peername(Socket) ->
   ssl:peername(Socket).
 
+%% @doc Return the peer certificate of an SSL connection.
+%% @see ssl:peercert/1
+-spec peercert(ssl:sslsocket()) ->
+  {ok, binary()} | {error, atom()}.
+peercert(Socket) ->
+  ssl:peercert(Socket).
+
 %% @doc Close a TCP socket.
 %% @see ssl:close/1
 -spec close(ssl:sslsocket()) -> ok.
@@ -191,3 +263,57 @@ shutdown(Socket, How) ->
     -> {ok, {inet:ip_address(), inet:port_number()}} | {error, atom()}.
 sockname(Socket) ->
   ssl:sockname(Socket).
+
+%%====================================================================
+%% ALPN (Application-Layer Protocol Negotiation) for HTTP/2
+%%====================================================================
+
+%% @doc Generate ALPN options for SSL connection.
+%% Returns a list containing alpn_advertised_protocols option based on
+%% the protocols specified in Options.
+%%
+%% Options:
+%%   - protocols: list of atoms [http3, http2, http1] (default: [http2, http1])
+%%     Order matters - first protocol is preferred
+%%     Note: http3 is only used for informational purposes here - HTTP/3 uses
+%%     QUIC which has its own ALPN negotiation handled by hackney_http3.
+%%
+%% Example:
+%% ```
+%% alpn_opts([{protocols, [http2, http1]}]) ->
+%%     [{alpn_advertised_protocols, [<<"h2">>, <<"http/1.1">>]}]
+%% '''
+-spec alpn_opts(list()) -> list().
+alpn_opts(Opts) ->
+  case proplists:get_value(protocols, Opts, hackney_util:default_protocols()) of
+    Protos when is_list(Protos), Protos =/= [] ->
+      %% Filter out http3 - it doesn't use TLS ALPN
+      TlsProtos = [P || P <- Protos, P =/= http3],
+      case TlsProtos of
+        [] -> [];
+        _ ->
+          AlpnProtos = [proto_to_alpn(P) || P <- TlsProtos],
+          [{alpn_advertised_protocols, AlpnProtos}]
+      end;
+    _ ->
+      []
+  end.
+
+%% @doc Get the negotiated protocol after SSL handshake.
+%% Returns http2 if HTTP/2 was negotiated, http1 otherwise.
+%% Note: HTTP/3 is not returned here as it uses QUIC, not TLS.
+%% @see ssl:negotiated_protocol/1
+-spec get_negotiated_protocol(ssl:sslsocket()) -> http2 | http1.
+get_negotiated_protocol(SslSocket) ->
+  case ssl:negotiated_protocol(SslSocket) of
+    {ok, <<"h2">>} -> http2;
+    {ok, <<"http/1.1">>} -> http1;
+    {error, protocol_not_negotiated} -> http1;
+    _ -> http1
+  end.
+
+%% @private Convert protocol atom to ALPN protocol identifier
+-spec proto_to_alpn(http2 | http1 | http11) -> binary().
+proto_to_alpn(http2) -> <<"h2">>;
+proto_to_alpn(http1) -> <<"http/1.1">>;
+proto_to_alpn(http11) -> <<"http/1.1">>.
