@@ -79,7 +79,12 @@ defmodule MossletWeb.Helpers.UploadHelpers do
   def encrypt_alt_text("", _user, _key), do: nil
 
   def encrypt_alt_text(alt_text, user, key) do
-    {:ok, d_conn_key} = Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key)
-    Encrypted.Utils.encrypt(%{key: d_conn_key, payload: alt_text})
+    case Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key) do
+      {:ok, d_conn_key} ->
+        Encrypted.Utils.encrypt(%{key: d_conn_key, payload: alt_text})
+
+      {:error, _reason} ->
+        nil
+    end
   end
 end

@@ -15,9 +15,6 @@ defmodule MossletWeb.UnlockSessionLive do
          |> put_flash(:error, "Please log in.")
          |> redirect(to: ~p"/auth/sign_in")}
 
-      session["key"] != nil ->
-        {:ok, redirect(socket, to: ~p"/app")}
-
       true ->
         {:ok,
          assign(socket,

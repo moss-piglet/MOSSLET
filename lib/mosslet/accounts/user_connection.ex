@@ -319,20 +319,16 @@ defmodule Mosslet.Accounts.UserConnection do
   defp encrypt_connection_key_and_data(changeset, recipient, opts) do
     cond do
       opts[:confirm] ->
-        encrypt_changes_on_changeset(
-          changeset,
-          recipient,
-          decrypt_requesting_data(changeset, opts),
-          opts
-        )
+        case decrypt_requesting_data(changeset, opts) do
+          {:ok, data} -> encrypt_changes_on_changeset(changeset, recipient, data, opts)
+          {:error, _reason} -> add_error(changeset, :base, "failed to decrypt connection key")
+        end
 
       opts[:user] && opts[:key] ->
-        encrypt_changes_on_changeset(
-          changeset,
-          recipient,
-          decrypt_requesting_data(changeset, opts),
-          opts
-        )
+        case decrypt_requesting_data(changeset, opts) do
+          {:ok, data} -> encrypt_changes_on_changeset(changeset, recipient, data, opts)
+          {:error, _reason} -> add_error(changeset, :base, "failed to decrypt connection key")
+        end
 
       true ->
         changeset
@@ -340,43 +336,45 @@ defmodule Mosslet.Accounts.UserConnection do
   end
 
   defp decrypt_requesting_data(changeset, opts) do
-    # We first decrypt the current_user's conn_key
-    # and username and email.
-    {:ok, d_conn_key} =
-      Encrypted.Users.Utils.decrypt_user_attrs_key(
-        opts[:user].conn_key,
-        opts[:user],
-        opts[:key]
-      )
+    case Encrypted.Users.Utils.decrypt_user_attrs_key(
+           opts[:user].conn_key,
+           opts[:user],
+           opts[:key]
+         ) do
+      {:ok, d_conn_key} ->
+        {d_req_username, d_req_email, temp_label} =
+          if opts[:confirm] do
+            {get_field(changeset, :request_username), get_field(changeset, :request_email),
+             get_field(changeset, :temp_label)}
+          else
+            d_req_username =
+              Encrypted.Users.Utils.decrypt_user_data(
+                opts[:user].username,
+                opts[:user],
+                opts[:key]
+              )
 
-    {d_req_username, d_req_email, temp_label} =
-      if opts[:confirm] do
-        {get_field(changeset, :request_username), get_field(changeset, :request_email),
-         get_field(changeset, :temp_label)}
-      else
-        d_req_username =
-          Encrypted.Users.Utils.decrypt_user_data(
-            opts[:user].username,
-            opts[:user],
-            opts[:key]
-          )
+            d_req_email =
+              Encrypted.Users.Utils.decrypt_user_data(
+                opts[:user].email,
+                opts[:user],
+                opts[:key]
+              )
 
-        d_req_email =
-          Encrypted.Users.Utils.decrypt_user_data(
-            opts[:user].email,
-            opts[:user],
-            opts[:key]
-          )
+            {d_req_username, d_req_email, get_field(changeset, :temp_label)}
+          end
 
-        {d_req_username, d_req_email, get_field(changeset, :temp_label)}
-      end
+        {:ok,
+         %{
+           key: d_conn_key,
+           request_username: d_req_username,
+           request_email: d_req_email,
+           temp_label: temp_label
+         }}
 
-    %{
-      key: d_conn_key,
-      request_username: d_req_username,
-      request_email: d_req_email,
-      temp_label: temp_label
-    }
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   defp encrypt_changes_on_changeset(
@@ -451,54 +449,57 @@ defmodule Mosslet.Accounts.UserConnection do
   end
 
   defp encrypt_visibility_group_fields(changeset, opts) do
-    # Get the user's connection key for encryption
-    {:ok, d_conn_key} =
-      Encrypted.Users.Utils.decrypt_user_attrs_key(
-        opts[:user].conn_key,
-        opts[:user],
-        opts[:key]
-      )
+    case Encrypted.Users.Utils.decrypt_user_attrs_key(
+           opts[:user].conn_key,
+           opts[:user],
+           opts[:key]
+         ) do
+      {:ok, d_conn_key} ->
+        changeset =
+          if get_change(changeset, :temp_name) do
+            name = get_change(changeset, :temp_name)
+            encrypted_name = Encrypted.Utils.encrypt(%{key: d_conn_key, payload: name})
 
-    changeset =
-      if get_change(changeset, :temp_name) do
-        name = get_change(changeset, :temp_name)
-        encrypted_name = Encrypted.Utils.encrypt(%{key: d_conn_key, payload: name})
+            changeset
+            |> put_change(:name, encrypted_name)
+          else
+            changeset
+          end
+
+        changeset =
+          if get_change(changeset, :temp_description) do
+            description = get_change(changeset, :temp_description)
+
+            encrypted_description =
+              Encrypted.Utils.encrypt(%{key: d_conn_key, payload: description})
+
+            changeset
+            |> put_change(:description, encrypted_description)
+          else
+            changeset
+          end
+
+        changeset =
+          if get_change(changeset, :temp_member_ids) do
+            member_ids = get_change(changeset, :temp_member_ids) || []
+
+            encrypted_member_ids =
+              Enum.map(member_ids, fn member_id ->
+                Encrypted.Utils.encrypt(%{key: d_conn_key, payload: member_id})
+              end)
+
+            changeset
+            |> put_change(:member_ids, encrypted_member_ids)
+            |> put_change(:member_ids_hash, create_member_ids_hash(member_ids))
+          else
+            changeset
+          end
 
         changeset
-        |> put_change(:name, encrypted_name)
-      else
-        changeset
-      end
 
-    changeset =
-      if get_change(changeset, :temp_description) do
-        description = get_change(changeset, :temp_description)
-        encrypted_description = Encrypted.Utils.encrypt(%{key: d_conn_key, payload: description})
-
-        changeset
-        |> put_change(:description, encrypted_description)
-      else
-        changeset
-      end
-
-    changeset =
-      if get_change(changeset, :temp_member_ids) do
-        member_ids = get_change(changeset, :temp_member_ids) || []
-
-        # Encrypt each member ID with the connection key
-        encrypted_member_ids =
-          Enum.map(member_ids, fn member_id ->
-            Encrypted.Utils.encrypt(%{key: d_conn_key, payload: member_id})
-          end)
-
-        changeset
-        |> put_change(:member_ids, encrypted_member_ids)
-        |> put_change(:member_ids_hash, create_member_ids_hash(member_ids))
-      else
-        changeset
-      end
-
-    changeset
+      {:error, _reason} ->
+        add_error(changeset, :base, "failed to decrypt connection key for encryption")
+    end
   end
 
   defp create_member_ids_hash(member_ids) when is_list(member_ids) do

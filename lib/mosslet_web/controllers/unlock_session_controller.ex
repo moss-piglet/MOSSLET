@@ -4,8 +4,7 @@ defmodule MossletWeb.UnlockSessionController do
   alias Mosslet.Accounts
 
   def create(conn, %{"unlock" => %{"password" => password}}) do
-    if (%Accounts.User{} = user = get_current_user_from_session(conn)) &&
-         is_nil(conn.private.plug_session["key"]) do
+    if %Accounts.User{} = user = get_current_user_from_session(conn) do
       case Accounts.User.valid_key_hash?(user, password) do
         {:ok, key} ->
           conn

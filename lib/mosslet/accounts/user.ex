@@ -348,78 +348,90 @@ defmodule Mosslet.Accounts.User do
   end
 
   defp encrypt_connection_map_email_change(changeset, opts, email) do
-    # decrypt the user connection key
-    # and then encrypt the email change
-    {:ok, d_conn_key} =
-      Encrypted.Users.Utils.decrypt_user_attrs_key(opts[:user].conn_key, opts[:user], opts[:key])
+    case Encrypted.Users.Utils.decrypt_user_attrs_key(
+           opts[:user].conn_key,
+           opts[:user],
+           opts[:key]
+         ) do
+      {:ok, d_conn_key} ->
+        c_encrypted_email = Encrypted.Utils.encrypt(%{key: d_conn_key, payload: email})
 
-    c_encrypted_email = Encrypted.Utils.encrypt(%{key: d_conn_key, payload: email})
+        changeset
+        |> put_change(:connection_map, %{
+          c_email: c_encrypted_email,
+          c_email_hash: email
+        })
 
-    changeset
-    |> put_change(:connection_map, %{
-      c_email: c_encrypted_email,
-      c_email_hash: email
-    })
+      {:error, _reason} ->
+        changeset
+    end
   end
 
   defp encrypt_connection_map_avatar_change(changeset, opts, avatar_url) do
-    # decrypt the user connection key
-    # and then encrypt the avatar change
-    {:ok, d_conn_key} =
-      Encrypted.Users.Utils.decrypt_user_attrs_key(opts[:user].conn_key, opts[:user], opts[:key])
+    case Encrypted.Users.Utils.decrypt_user_attrs_key(
+           opts[:user].conn_key,
+           opts[:user],
+           opts[:key]
+         ) do
+      {:ok, d_conn_key} ->
+        c_encrypted_avatar_url = Encrypted.Utils.encrypt(%{key: d_conn_key, payload: avatar_url})
 
-    c_encrypted_avatar_url = Encrypted.Utils.encrypt(%{key: d_conn_key, payload: avatar_url})
+        changeset
+        |> put_change(:connection_map, %{
+          c_avatar_url: c_encrypted_avatar_url,
+          c_avatar_url_hash: avatar_url
+        })
 
-    changeset
-    |> put_change(:connection_map, %{
-      c_avatar_url: c_encrypted_avatar_url,
-      c_avatar_url_hash: avatar_url
-    })
+      {:error, _reason} ->
+        changeset
+    end
   end
 
   defp encrypt_connection_map_name_change(changeset, opts, name) do
-    # decrypt the user connection key
-    # and then encrypt the name change
     if is_nil(name) do
       changeset
       |> put_change(:connection_map, %{
         c_name: nil
       })
     else
-      {:ok, d_conn_key} =
-        Encrypted.Users.Utils.decrypt_user_attrs_key(
-          opts[:user].conn_key,
-          opts[:user],
-          opts[:key]
-        )
+      case Encrypted.Users.Utils.decrypt_user_attrs_key(
+             opts[:user].conn_key,
+             opts[:user],
+             opts[:key]
+           ) do
+        {:ok, d_conn_key} ->
+          c_encrypted_name = Encrypted.Utils.encrypt(%{key: d_conn_key, payload: name})
 
-      c_encrypted_name = Encrypted.Utils.encrypt(%{key: d_conn_key, payload: name})
+          changeset
+          |> put_change(:connection_map, %{
+            c_name: c_encrypted_name,
+            c_name_hash: name
+          })
 
-      changeset
-      |> put_change(:connection_map, %{
-        c_name: c_encrypted_name,
-        c_name_hash: name
-      })
+        {:error, _reason} ->
+          changeset
+      end
     end
   end
 
   defp encrypt_connection_map_username_change(changeset, opts, username) do
-    # decrypt the user connection key
-    # and then encrypt the username change
-    {:ok, d_conn_key} =
-      Encrypted.Users.Utils.decrypt_user_attrs_key(
-        opts[:user].conn_key,
-        opts[:user],
-        opts[:key]
-      )
+    case Encrypted.Users.Utils.decrypt_user_attrs_key(
+           opts[:user].conn_key,
+           opts[:user],
+           opts[:key]
+         ) do
+      {:ok, d_conn_key} ->
+        c_encrypted_username = Encrypted.Utils.encrypt(%{key: d_conn_key, payload: username})
 
-    c_encrypted_username = Encrypted.Utils.encrypt(%{key: d_conn_key, payload: username})
+        changeset
+        |> put_change(:connection_map, %{
+          c_username: c_encrypted_username,
+          c_username_hash: username
+        })
 
-    changeset
-    |> put_change(:connection_map, %{
-      c_username: c_encrypted_username,
-      c_username_hash: username
-    })
+      {:error, _reason} ->
+        changeset
+    end
   end
 
   # Status encryption following the same dual-update pattern

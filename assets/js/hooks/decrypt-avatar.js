@@ -4,6 +4,8 @@ import {
   decryptWithKey,
   decryptSecretbox,
   getPublicKey,
+  getPrivateKey,
+  getSessionKeys,
   b64Encode,
 } from "../crypto/session";
 
@@ -40,6 +42,17 @@ const DecryptAvatar = {
     return (this.el.dataset.encryptedBlob || "") + "|" + (this.el.dataset.sealedKey || "");
   },
 
+  _waitForKeys() {
+    if (this._keysReadyHandler) {
+      window.removeEventListener("mosslet:keys-ready", this._keysReadyHandler);
+    }
+    this._keysReadyHandler = () => {
+      this._keysReadyHandler = null;
+      this._decrypt();
+    };
+    window.addEventListener("mosslet:keys-ready", this._keysReadyHandler, { once: true });
+  },
+
   async _decrypt() {
     if (this._decrypting) return;
     this._decrypting = true;
@@ -53,30 +66,22 @@ const DecryptAvatar = {
     }
 
     if (!getPublicKey()) {
-      if (this._keysReadyHandler) {
-        window.removeEventListener("mosslet:keys-ready", this._keysReadyHandler);
-      }
-      this._keysReadyHandler = () => {
-        this._keysReadyHandler = null;
-        this._decrypt();
-      };
-      window.addEventListener("mosslet:keys-ready", this._keysReadyHandler, { once: true });
+      this._waitForKeys();
       this._decrypting = false;
       return;
     }
 
     try {
       const rawKey = await unsealContextKey(sealedKey);
-      if (!rawKey) return;
+      if (!rawKey) {
+        if (!getPrivateKey() && !getSessionKeys()) {
+          this._waitForKeys();
+        }
+        return;
+      }
 
       const connKey = unwrapConnKey(rawKey);
 
-      // Legacy encrypt has two paths:
-      //   Path A: encrypt_string(raw_image_bytes, key) — plaintext is raw binary
-      //   Path B: encrypt(Base.encode64(raw_image), key) — plaintext is base64 string
-      //
-      // Try binary path first (Path A) since avatars are image data.
-      // Fall back to string path (Path B) for legacy base64-encoded images.
       let imageBase64;
       const rawBytes = await decryptSecretbox(encryptedBlob, connKey);
       if (rawBytes) {

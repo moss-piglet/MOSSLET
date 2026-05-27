@@ -29,7 +29,7 @@ config :mosslet, MossletWeb.Endpoint,
 
 # Configure driver for wallaby
 config :mosslet, :sandbox, Ecto.Adapters.SQL.Sandbox
-config :wallaby, driver: Wallaby.Selenium, otp_app: :mosslet
+# config :wallaby, driver: Wallaby.Selenium, otp_app: :mosslet
 
 # In test we don't send emails.
 config :mosslet, Mosslet.Mailer, adapter: Swoosh.Adapters.Test

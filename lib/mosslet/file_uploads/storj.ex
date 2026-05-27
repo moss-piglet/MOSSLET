@@ -28,12 +28,14 @@ defmodule Mosslet.FileUploads.Storj do
   end
 
   def prepare_encrypted_blob(blob, user, key) do
-    {:ok, d_conn_key} =
-      Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key)
+    case Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key) do
+      {:ok, d_conn_key} ->
+        encrypted_avatar_blob = Encrypted.Utils.encrypt(%{key: d_conn_key, payload: blob})
+        {:ok, encrypted_avatar_blob}
 
-    encrypted_avatar_blob = Encrypted.Utils.encrypt(%{key: d_conn_key, payload: blob})
-
-    {:ok, encrypted_avatar_blob}
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   def make_aws_requests(entry, avatars_bucket, file_path, e_blob, user, key) do

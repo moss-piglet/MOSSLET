@@ -384,7 +384,8 @@ defmodule MossletWeb.EditDetailsLive do
      |> put_flash(:warning, error)}
   end
 
-  # Phase 4 ZK: Server processed the image, now send bytes to browser for encryption
+  # Phase 4 ZK: Server processed the image, now send bytes to browser for encryption.
+  # The raw blob is also stored in assigns for server-side fallback if browser crypto is unavailable.
   @impl true
   def handle_info({:avatar_processed, blob, file_path, avatar_alt_text}, socket) do
     blob_b64 = Base.encode64(blob)
@@ -394,6 +395,7 @@ defmodule MossletWeb.EditDetailsLive do
       |> assign(:avatar_upload_stage, {:encrypting, 75})
       |> assign(:pending_avatar_file_path, file_path)
       |> assign(:pending_avatar_alt_text, avatar_alt_text)
+      |> assign(:pending_avatar_raw_blob, blob)
       |> push_event("encrypt_upload", %{blob_b64: blob_b64, upload_id: "avatar"})
 
     {:noreply, socket}
@@ -455,22 +457,66 @@ defmodule MossletWeb.EditDetailsLive do
       socket
       |> assign(:pending_avatar_file_path, nil)
       |> assign(:pending_avatar_alt_text, nil)
+      |> assign(:pending_avatar_raw_blob, nil)
 
     {:noreply, socket}
   end
 
+  # Server-side fallback: when browser-side encryption is unavailable (e.g. session keys
+  # not yet derived), encrypt the blob server-side and continue with the normal upload flow.
   @impl true
   def handle_event(
         "encrypted_upload_failed",
-        %{"upload_id" => "avatar", "reason" => reason},
+        %{"upload_id" => "avatar", "reason" => _reason},
         socket
       ) do
-    {:noreply,
-     socket
-     |> assign(:avatar_upload_stage, {:error, reason})
-     |> assign(:pending_avatar_file_path, nil)
-     |> assign(:pending_avatar_alt_text, nil)
-     |> put_flash(:warning, "Avatar encryption failed: #{reason}")}
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+    raw_blob = socket.assigns[:pending_avatar_raw_blob]
+    file_path = socket.assigns[:pending_avatar_file_path]
+    avatar_alt_text = socket.assigns[:pending_avatar_alt_text]
+
+    if raw_blob && file_path do
+      case Storj.prepare_encrypted_blob(raw_blob, user, key) do
+        {:ok, e_blob} ->
+          avatars_bucket = Encrypted.Session.avatars_bucket()
+          lv_pid = self()
+
+          Task.start(fn ->
+            send(lv_pid, {:avatar_upload_stage, {:uploading, 85}})
+
+            case @upload_provider.upload_avatar(avatars_bucket, file_path, e_blob, user, key) do
+              {:ok, _} ->
+                encrypted_alt_text = encrypt_alt_text(avatar_alt_text, user, key)
+                user_params = %{avatar_url: file_path, avatar_alt_text: encrypted_alt_text}
+                send(lv_pid, {:avatar_upload_complete, {:ok, {e_blob, user_params}}})
+
+              {:error, message} ->
+                send(lv_pid, {:avatar_upload_complete, {:error, message}})
+            end
+          end)
+
+          {:noreply,
+           socket
+           |> assign(:pending_avatar_file_path, nil)
+           |> assign(:pending_avatar_alt_text, nil)
+           |> assign(:pending_avatar_raw_blob, nil)}
+
+        {:error, _reason} ->
+          {:noreply,
+           socket
+           |> assign(:avatar_upload_stage, {:error, "Encryption failed"})
+           |> assign(:pending_avatar_file_path, nil)
+           |> assign(:pending_avatar_alt_text, nil)
+           |> assign(:pending_avatar_raw_blob, nil)
+           |> put_flash(:warning, gettext("Avatar encryption failed. Please try again."))}
+      end
+    else
+      {:noreply,
+       socket
+       |> assign(:avatar_upload_stage, {:error, "No pending upload"})
+       |> put_flash(:warning, gettext("Avatar upload failed. Please try again."))}
+    end
   end
 
   @impl true

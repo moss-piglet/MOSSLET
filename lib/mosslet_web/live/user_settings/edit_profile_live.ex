@@ -69,10 +69,19 @@ defmodule MossletWeb.EditProfileLive do
     if profile && Map.get(profile, :custom_banner_url) do
       key = socket.assigns.key
 
-      assign_async(socket, :custom_banner_src, fn ->
-        result = load_custom_banner(current_user, key)
-        {:ok, %{custom_banner_src: result}}
-      end)
+      case Mosslet.Extensions.BannerProcessor.get_banner(current_user.connection.id) do
+        nil ->
+          assign_async(socket, :custom_banner_src, fn ->
+            result = load_custom_banner(current_user, profile, key)
+            {:ok, %{custom_banner_src: result}}
+          end)
+
+        cached_encrypted_binary ->
+          assign_async(socket, :custom_banner_src, fn ->
+            result = encrypted_banner_data(cached_encrypted_binary, current_user.conn_key)
+            {:ok, %{custom_banner_src: result}}
+          end)
+      end
     else
       assign(socket, :custom_banner_src, %AsyncResult{ok?: true, result: nil})
     end
@@ -80,34 +89,6 @@ defmodule MossletWeb.EditProfileLive do
 
   defp maybe_load_custom_banner_async(socket, _current_user, _banner_image, _profile) do
     assign(socket, :custom_banner_src, %AsyncResult{ok?: true, result: nil})
-  end
-
-  defp load_custom_banner(user, key) do
-    profile = Map.get(user.connection, :profile)
-
-    if profile && Map.get(profile, :custom_banner_url) do
-      d_banner_url =
-        decr_banner(
-          profile.custom_banner_url,
-          user,
-          user.conn_key,
-          key
-        )
-
-      if is_valid_banner_url?(d_banner_url) do
-        case fetch_and_decrypt_banner(d_banner_url, user, key) do
-          {:ok, decrypted_binary} ->
-            "data:image/webp;base64,#{Base.encode64(decrypted_binary)}"
-
-          {:error, _reason} ->
-            nil
-        end
-      else
-        nil
-      end
-    else
-      nil
-    end
   end
 
   def render(assigns) do
@@ -424,7 +405,6 @@ defmodule MossletWeb.EditProfileLive do
                       <DesignSystem.liquid_banner_upload
                         upload={@uploads.banner}
                         upload_stage={@banner_upload_stage}
-                        current_banner_src={get_async_banner_src(@custom_banner_src)}
                         banner_loading={@custom_banner_src.loading}
                         user={@current_user}
                         encryption_key={@key}
@@ -440,11 +420,7 @@ defmodule MossletWeb.EditProfileLive do
                               ),
                             else: nil
                         }
-                        encrypted_banner_data={
-                          if @profile && Map.get(@profile, :custom_banner_url),
-                            do: get_encrypted_banner_data(@current_user, @key),
-                            else: nil
-                        }
+                        encrypted_banner_data={get_async_banner_data(@custom_banner_src)}
                         alt_text={@banner_alt_text}
                         crop={@banner_crop}
                         preview_data_url={@banner_preview_data_url}
@@ -787,21 +763,76 @@ defmodule MossletWeb.EditProfileLive do
       socket
       |> assign(:pending_banner_file_path, nil)
       |> assign(:pending_banner_alt_text, nil)
+      |> assign(:pending_banner_raw_blob, nil)
 
     {:noreply, socket}
   end
 
+  # Server-side fallback: when browser-side encryption is unavailable (e.g. session keys
+  # not yet derived), encrypt the blob server-side and continue with the normal upload flow.
   def handle_event(
         "encrypted_upload_failed",
-        %{"upload_id" => "banner", "reason" => reason},
+        %{"upload_id" => "banner", "reason" => _reason},
         socket
       ) do
-    {:noreply,
-     socket
-     |> assign(:banner_upload_stage, {:error, reason})
-     |> assign(:pending_banner_file_path, nil)
-     |> assign(:pending_banner_alt_text, nil)
-     |> put_flash(:warning, "Banner encryption failed: #{reason}")}
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+    raw_blob = socket.assigns[:pending_banner_raw_blob]
+    file_path = socket.assigns[:pending_banner_file_path]
+    banner_alt_text = socket.assigns[:pending_banner_alt_text]
+
+    if raw_blob && file_path do
+      case Storj.prepare_encrypted_blob(raw_blob, user, key) do
+        {:ok, e_blob} ->
+          banners_bucket = Encrypted.Session.banners_bucket()
+          entry = List.first(socket.assigns.uploads.banner.entries)
+          lv_pid = self()
+
+          Task.start(fn ->
+            send(lv_pid, {:banner_upload_stage, {:uploading, 85}})
+
+            case @upload_provider.make_banner_aws_requests(
+                   entry,
+                   banners_bucket,
+                   file_path,
+                   e_blob,
+                   user,
+                   key
+                 ) do
+              {:ok, _} ->
+                encrypted_alt_text = encrypt_alt_text(banner_alt_text, user, key)
+
+                send(
+                  lv_pid,
+                  {:banner_upload_complete, {:ok, {e_blob, file_path, encrypted_alt_text}}}
+                )
+
+              {:error, message} ->
+                send(lv_pid, {:banner_upload_complete, {:error, message}})
+            end
+          end)
+
+          {:noreply,
+           socket
+           |> assign(:pending_banner_file_path, nil)
+           |> assign(:pending_banner_alt_text, nil)
+           |> assign(:pending_banner_raw_blob, nil)}
+
+        {:error, _reason} ->
+          {:noreply,
+           socket
+           |> assign(:banner_upload_stage, {:error, "Encryption failed"})
+           |> assign(:pending_banner_file_path, nil)
+           |> assign(:pending_banner_alt_text, nil)
+           |> assign(:pending_banner_raw_blob, nil)
+           |> put_flash(:warning, gettext("Banner encryption failed. Please try again."))}
+      end
+    else
+      {:noreply,
+       socket
+       |> assign(:banner_upload_stage, {:error, "No pending upload"})
+       |> put_flash(:warning, gettext("Banner upload failed. Please try again."))}
+    end
   end
 
   def handle_event("validate_profile", params, socket) do
@@ -1321,45 +1352,54 @@ defmodule MossletWeb.EditProfileLive do
          )
        )}
     else
-      {:ok, d_conn_key} =
-        Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key)
+      case Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key) do
+        {:ok, d_conn_key} ->
+          encrypted_file_path = Encrypted.Utils.encrypt(%{key: d_conn_key, payload: file_path})
 
-      encrypted_file_path = Encrypted.Utils.encrypt(%{key: d_conn_key, payload: file_path})
+          profile_attrs =
+            %{
+              "profile" => %{
+                "custom_banner_url" => encrypted_file_path,
+                "custom_banner_alt_text" => encrypted_alt_text,
+                "banner_image" => "custom"
+              }
+            }
 
-      profile_attrs =
-        %{
-          "profile" => %{
-            "custom_banner_url" => encrypted_file_path,
-            "custom_banner_alt_text" => encrypted_alt_text,
-            "banner_image" => "custom"
-          }
-        }
+          case Accounts.update_user_profile(user, profile_attrs,
+                 key: key,
+                 user: user,
+                 update_profile: true
+               ) do
+            {:ok, _conn} ->
+              Mosslet.Extensions.BannerProcessor.put_banner(user.connection.id, e_blob)
 
-      case Accounts.update_user_profile(user, profile_attrs,
-             key: key,
-             user: user,
-             update_profile: true
-           ) do
-        {:ok, _conn} ->
-          Mosslet.Extensions.BannerProcessor.put_banner(user.connection.id, e_blob)
+              Phoenix.PubSub.broadcast(
+                Mosslet.PubSub,
+                "banner_cache_global",
+                {:banner_updated, user.connection.id, e_blob}
+              )
 
-          Phoenix.PubSub.broadcast(
-            Mosslet.PubSub,
-            "banner_cache_global",
-            {:banner_updated, user.connection.id, e_blob}
-          )
+              {:noreply,
+               socket
+               |> assign(:banner_upload_stage, {:ready, 100})
+               |> put_flash(
+                 :success,
+                 gettext("Your custom banner has been uploaded successfully.")
+               )
+               |> push_navigate(to: ~p"/app/users/edit-profile")}
 
+            {:error, _changeset} ->
+              {:noreply,
+               socket
+               |> assign(:banner_upload_stage, {:error, "Update failed"})
+               |> put_flash(:error, gettext("Failed to save banner. Please try again."))}
+          end
+
+        {:error, _reason} ->
           {:noreply,
            socket
-           |> assign(:banner_upload_stage, {:ready, 100})
-           |> put_flash(:success, gettext("Your custom banner has been uploaded successfully."))
-           |> push_navigate(to: ~p"/app/users/edit-profile")}
-
-        {:error, _changeset} ->
-          {:noreply,
-           socket
-           |> assign(:banner_upload_stage, {:error, "Update failed"})
-           |> put_flash(:error, gettext("Failed to save banner. Please try again."))}
+           |> assign(:banner_upload_stage, {:error, "Encryption error"})
+           |> put_flash(:error, gettext("Failed to encrypt banner data. Please try again."))}
       end
     end
   end
@@ -1371,7 +1411,8 @@ defmodule MossletWeb.EditProfileLive do
      |> put_flash(:warning, error)}
   end
 
-  # Phase 4 ZK: Server processed the banner image, now send bytes to browser for encryption
+  # Phase 4 ZK: Server processed the banner image, now send bytes to browser for encryption.
+  # The raw blob is also stored in assigns for server-side fallback if browser crypto is unavailable.
   def handle_info({:banner_processed, blob, file_path, banner_alt_text}, socket) do
     blob_b64 = Base.encode64(blob)
 
@@ -1380,6 +1421,7 @@ defmodule MossletWeb.EditProfileLive do
       |> assign(:banner_upload_stage, {:encrypting, 75})
       |> assign(:pending_banner_file_path, file_path)
       |> assign(:pending_banner_alt_text, banner_alt_text)
+      |> assign(:pending_banner_raw_blob, blob)
       |> push_event("encrypt_upload", %{blob_b64: blob_b64, upload_id: "banner"})
 
     {:noreply, socket}
@@ -1530,55 +1572,14 @@ defmodule MossletWeb.EditProfileLive do
     end
   end
 
-  defp get_async_banner_src(%AsyncResult{ok?: true, result: result}), do: result
-  defp get_async_banner_src(_), do: nil
+  defp get_async_banner_data(%AsyncResult{ok?: true, result: result}), do: result
+  defp get_async_banner_data(_), do: nil
 
   defp is_valid_banner_url?(nil), do: false
   defp is_valid_banner_url?(""), do: false
   defp is_valid_banner_url?("failed_verification"), do: false
   defp is_valid_banner_url?(url) when is_binary(url), do: String.starts_with?(url, "uploads/")
   defp is_valid_banner_url?(_), do: false
-
-  defp fetch_and_decrypt_banner(banner_url, user, key) do
-    banners_bucket = Encrypted.Session.banners_bucket()
-    host = Encrypted.Session.s3_host()
-    host_name = "https://#{banners_bucket}.#{host}"
-
-    config = %{
-      region: Encrypted.Session.s3_region(),
-      access_key_id: Encrypted.Session.s3_access_key_id(),
-      secret_access_key: Encrypted.Session.s3_secret_key_access()
-    }
-
-    options = [
-      virtual_host: true,
-      bucket_as_host: true,
-      expires_in: 600
-    ]
-
-    {:ok, presigned_url} = ExAws.S3.presigned_url(config, :get, host_name, banner_url, options)
-
-    case Req.get(presigned_url,
-           retry: :transient,
-           retry_delay: fn n -> n * 500 end,
-           receive_timeout: 15_000
-         ) do
-      {:ok, %{status: 200, body: encrypted_binary}} ->
-        {:ok, d_conn_key} =
-          Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key)
-
-        case Encrypted.Utils.decrypt(%{key: d_conn_key, payload: encrypted_binary}) do
-          {:ok, decrypted} -> {:ok, decrypted}
-          error -> error
-        end
-
-      {:ok, %{status: status}} ->
-        {:error, "Failed to fetch banner: HTTP #{status}"}
-
-      {:error, reason} ->
-        {:error, "Failed to fetch banner: #{inspect(reason)}"}
-    end
-  end
 
   defp resize_banner_image(image) do
     {width, height, _bands} = Image.shape(image)

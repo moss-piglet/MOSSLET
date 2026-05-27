@@ -399,5 +399,6 @@ window.addEventListener("mosslet:logout", () => {
   _cachedUserKey = null;
   _cachedConnKey = null;
   Object.values(SK).forEach((key) => sessionStorage.removeItem(key));
+  sessionStorage.removeItem("_mosslet_unlock_redirect");
   clearKeyCache();
 });

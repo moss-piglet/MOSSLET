@@ -4860,13 +4860,13 @@ defmodule MossletWeb.UserHomeLive do
         case Mosslet.Extensions.BannerProcessor.get_banner(connection_id) do
           nil ->
             assign_async(socket, :custom_banner_src, fn ->
-              result = load_and_cache_banner(user, profile, key, connection_id)
+              result = load_custom_banner(user, profile, key)
               {:ok, %{custom_banner_src: result}}
             end)
 
           cached_encrypted_binary ->
             assign_async(socket, :custom_banner_src, fn ->
-              result = encrypted_banner_from_cache(cached_encrypted_binary, user.conn_key)
+              result = encrypted_banner_data(cached_encrypted_binary, user.conn_key)
               {:ok, %{custom_banner_src: result}}
             end)
         end
@@ -4877,42 +4877,6 @@ defmodule MossletWeb.UserHomeLive do
       assign(socket, :custom_banner_src, %Phoenix.LiveView.AsyncResult{ok?: true, result: nil})
     end
   end
-
-  defp encrypted_banner_from_cache(encrypted_binary, conn_key) do
-    %{encrypted_blob_b64: Base.encode64(encrypted_binary), sealed_key: conn_key}
-  end
-
-  defp load_and_cache_banner(user, profile, key, connection_id) do
-    if profile && Map.get(profile, :custom_banner_url) do
-      d_banner_url =
-        decr_banner(
-          profile.custom_banner_url,
-          user,
-          user.conn_key,
-          key
-        )
-
-      if is_valid_banner_url?(d_banner_url) do
-        case fetch_and_cache_banner(d_banner_url, user, key, connection_id) do
-          {:ok, encrypted_binary} ->
-            encrypted_banner_from_cache(encrypted_binary, user.conn_key)
-
-          {:error, _reason} ->
-            nil
-        end
-      else
-        nil
-      end
-    else
-      nil
-    end
-  end
-
-  defp is_valid_banner_url?(nil), do: false
-  defp is_valid_banner_url?(""), do: false
-  defp is_valid_banner_url?("failed_verification"), do: false
-  defp is_valid_banner_url?(url) when is_binary(url), do: String.starts_with?(url, "uploads/")
-  defp is_valid_banner_url?(_), do: false
 
   defp fetch_additional_read_posts(socket, needed) do
     current_user = socket.assigns.current_scope.user
@@ -4959,42 +4923,6 @@ defmodule MossletWeb.UserHomeLive do
       end)
 
     socket
-  end
-
-  defp fetch_and_cache_banner(banner_url, _user, _key, connection_id) do
-    banners_bucket = Mosslet.Encrypted.Session.banners_bucket()
-    host = Mosslet.Encrypted.Session.s3_host()
-    host_name = "https://#{banners_bucket}.#{host}"
-
-    config = %{
-      region: Mosslet.Encrypted.Session.s3_region(),
-      access_key_id: Mosslet.Encrypted.Session.s3_access_key_id(),
-      secret_access_key: Mosslet.Encrypted.Session.s3_secret_key_access()
-    }
-
-    options = [
-      virtual_host: true,
-      bucket_as_host: true,
-      expires_in: 600
-    ]
-
-    {:ok, presigned_url} = ExAws.S3.presigned_url(config, :get, host_name, banner_url, options)
-
-    case Req.get(presigned_url,
-           retry: :transient,
-           retry_delay: fn n -> n * 500 end,
-           receive_timeout: 15_000
-         ) do
-      {:ok, %{status: 200, body: encrypted_binary}} ->
-        Mosslet.Extensions.BannerProcessor.put_banner(connection_id, encrypted_binary)
-        {:ok, encrypted_binary}
-
-      {:ok, %{status: status}} ->
-        {:error, "Failed to fetch banner: HTTP #{status}"}
-
-      {:error, reason} ->
-        {:error, "Failed to fetch banner: #{inspect(reason)}"}
-    end
   end
 
   defp move_post_between_read_streams(socket, post, current_user) do

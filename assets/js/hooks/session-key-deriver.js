@@ -123,9 +123,19 @@ const SessionKeyDeriver = {
       // Temp key didn't work (wrong password submitted to fake salt) — fall through
     }
 
-    // No key source available — user needs to re-authenticate.
-    // Don't redirect here; let individual features handle missing keys
-    // gracefully (e.g. showing placeholder text for encrypted content).
+    // No key source available — redirect to unlock page for re-authentication.
+    // The unlock page derives the session_key via Argon2id KDF in WASM,
+    // stores it in sessionStorage, and redirects back to the app.
+    // Use a flag to prevent infinite redirect loops (if the server session
+    // already has the key, the unlock page would redirect right back here).
+    const REDIRECT_FLAG = "_mosslet_unlock_redirect";
+    if (
+      !window.location.pathname.startsWith("/auth/") &&
+      !sessionStorage.getItem(REDIRECT_FLAG)
+    ) {
+      sessionStorage.setItem(REDIRECT_FLAG, "1");
+      window.location.href = "/auth/unlock";
+    }
   },
 
   /**
@@ -137,6 +147,7 @@ const SessionKeyDeriver = {
     if (pqPrivateKey) {
       sessionStorage.setItem(SK.PQ_PRIVATE_KEY, pqPrivateKey);
     }
+    sessionStorage.removeItem("_mosslet_unlock_redirect");
     window.dispatchEvent(new CustomEvent("mosslet:keys-ready"));
   },
 

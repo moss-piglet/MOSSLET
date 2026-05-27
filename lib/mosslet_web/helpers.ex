@@ -2836,6 +2836,94 @@ defmodule MossletWeb.Helpers do
 
   def get_encrypted_banner_data(_, _key), do: nil
 
+  @doc """
+  Loads a custom banner for the given user, returning an encrypted data map
+  suitable for browser-side ZK decryption via the DecryptAvatar hook.
+
+  Checks ETS cache first; on miss, decrypts the banner URL server-side to
+  generate a presigned S3 URL, fetches the encrypted binary, and caches it.
+  Returns `nil` if no custom banner exists or the fetch fails.
+  """
+  def load_custom_banner(%User{} = user, profile, key) do
+    connection_id = user.connection.id
+
+    case BannerProcessor.get_banner(connection_id) do
+      nil ->
+        do_load_and_cache_banner(user, profile, key, connection_id)
+
+      cached_encrypted_binary ->
+        encrypted_banner_data(cached_encrypted_binary, user.conn_key)
+    end
+  end
+
+  def load_custom_banner(_, _, _), do: nil
+
+  @doc """
+  Builds an encrypted banner data map from a raw encrypted binary and sealed key.
+  Used by the DecryptAvatar hook to decrypt the banner browser-side.
+  """
+  def encrypted_banner_data(encrypted_binary, sealed_key) do
+    %{encrypted_blob_b64: ensure_base64(encrypted_binary), sealed_key: sealed_key}
+  end
+
+  defp do_load_and_cache_banner(user, profile, key, connection_id) do
+    with banner_url when is_binary(banner_url) <- Map.get(profile || %{}, :custom_banner_url),
+         d_banner_url when is_binary(d_banner_url) <-
+           decr_banner(banner_url, user, user.conn_key, key),
+         true <- valid_banner_url?(d_banner_url),
+         {:ok, encrypted_binary} <- fetch_banner_from_storage(d_banner_url, connection_id) do
+      encrypted_banner_data(encrypted_binary, user.conn_key)
+    else
+      _ -> nil
+    end
+  end
+
+  @doc """
+  Fetches an encrypted banner binary from cloud storage and caches it in ETS.
+  Returns `{:ok, encrypted_binary}` on success, `{:error, reason}` on failure.
+  """
+  def fetch_banner_from_storage(banner_url, connection_id) do
+    banners_bucket = Encrypted.Session.banners_bucket()
+    host = Encrypted.Session.s3_host()
+    host_name = "https://#{banners_bucket}.#{host}"
+
+    config = %{
+      region: Encrypted.Session.s3_region(),
+      access_key_id: Encrypted.Session.s3_access_key_id(),
+      secret_access_key: Encrypted.Session.s3_secret_key_access()
+    }
+
+    options = [
+      virtual_host: true,
+      bucket_as_host: true,
+      expires_in: 600
+    ]
+
+    with {:ok, presigned_url} <-
+           ExAws.S3.presigned_url(config, :get, host_name, banner_url, options),
+         {:ok, %{status: 200, body: encrypted_binary}} <-
+           Req.get(presigned_url,
+             retry: :transient,
+             retry_delay: fn n -> n * 500 end,
+             receive_timeout: 15_000
+           ) do
+      BannerProcessor.put_banner(connection_id, encrypted_binary)
+      {:ok, encrypted_binary}
+    else
+      {:ok, %{status: status}} ->
+        {:error, "Failed to fetch banner: HTTP #{status}"}
+
+      {:error, reason} ->
+        {:error, "Failed to fetch banner: #{inspect(reason)}"}
+    end
+  end
+
+  defp valid_banner_url?(nil), do: false
+  defp valid_banner_url?(""), do: false
+  defp valid_banner_url?("failed_verification"), do: false
+  defp valid_banner_url?(url) when is_binary(url), do: String.starts_with?(url, "uploads/")
+  defp valid_banner_url?(_), do: false
+
   # ETS stores raw binary blobs. HTML data attributes require UTF-8 text,
   # so we base64-encode before embedding. If the value is already a valid
   # base64 string (e.g. from an older code path), pass it through as-is.
