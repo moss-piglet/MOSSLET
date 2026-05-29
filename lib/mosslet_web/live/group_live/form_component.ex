@@ -426,6 +426,132 @@ defmodule MossletWeb.GroupLive.FormComponent do
     save_group(socket, socket.assigns.action, group_params)
   end
 
+  # Two-phase ZK group creation: same pattern as PostFormHook.
+  # Phase 1: Browser sends encrypted group content. Server stashes it,
+  # resolves member public keys, and pushes them to the browser.
+  def handle_event("create_group_zk", params, socket) do
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    user_connections = params["user_connections"] || []
+
+    if params["user_id"] == user.id && user_connections != [] do
+      users = build_users_from_uconn_ids(user_connections)
+
+      # Resolve each member's public keys + display name + server-generated
+      # moniker/avatar for the browser to encrypt and seal
+      members =
+        Enum.map(users, fn u ->
+          uconn = Accounts.get_user_connection_between_users(u.id, user.id)
+
+          name =
+            Mosslet.Encrypted.Users.Utils.decrypt_user_item(
+              uconn.connection.name,
+              user,
+              uconn.key,
+              key
+            )
+
+          %{
+            user_id: u.id,
+            public_key: u.key_pair["public"],
+            pq_public_key: u.pq_public_key,
+            name: name,
+            moniker: FriendlyID.generate(3),
+            avatar_img:
+              Enum.random(
+                ~w(astronaut.png bear.png cat.png chicken.png dinosaur.png dog.png panda.png penguin.png rabbit.png sea-lion.png)
+              )
+          }
+        end)
+
+      # Generate owner moniker/avatar for browser to encrypt with group_key
+      owner_moniker = FriendlyID.generate(3)
+
+      owner_avatar_img =
+        Enum.random(
+          ~w(astronaut.png bear.png cat.png chicken.png dinosaur.png dog.png panda.png penguin.png rabbit.png sea-lion.png)
+        )
+
+      # Stash Phase 1 data for Phase 2
+      zk_attrs = %{
+        encrypted_name: params["encrypted_name"],
+        encrypted_description: params["encrypted_description"],
+        name_blind_index: params["name_blind_index"],
+        sealed_creator_key: params["sealed_creator_key"],
+        encrypted_user_name: params["encrypted_user_name"],
+        require_password?: params["require_password"] == "true",
+        password: params["password"]
+      }
+
+      {:noreply,
+       socket
+       |> assign(:pending_zk_group_attrs, zk_attrs)
+       |> assign(:pending_zk_group_users, users)
+       |> push_event("seal_group_key_for_members", %{
+         members: members,
+         owner_moniker: owner_moniker,
+         owner_avatar_img: owner_avatar_img
+       })}
+    else
+      {:noreply,
+       socket
+       |> put_flash(
+         :info,
+         "Woops! You need to add some Connections first before you can make a Circle (otherwise it's just you). Head over to your Connections page to get started!"
+       )
+       |> push_patch(to: ~p"/app/circles/new")}
+    end
+  end
+
+  # Phase 2: Browser sealed group_key for all members and encrypted their names.
+  # The raw group_key NEVER existed in server memory.
+  def handle_event("finalize_group_zk", params, socket) do
+    user = socket.assigns.current_scope.user
+    zk_attrs = socket.assigns[:pending_zk_group_attrs]
+    users = socket.assigns[:pending_zk_group_users]
+
+    if is_nil(zk_attrs) do
+      {:noreply, put_flash(socket, :error, "No pending circle to finalize. Please try again.")}
+    else
+      sealed_members = params["sealed_members"] || []
+
+      # Merge browser-encrypted owner moniker/avatar into the stashed attrs
+      zk_attrs =
+        zk_attrs
+        |> Map.put(:encrypted_owner_moniker, params["encrypted_owner_moniker"])
+        |> Map.put(:encrypted_owner_avatar_img, params["encrypted_owner_avatar_img"])
+
+      case Groups.create_group_zk(zk_attrs, user, users, sealed_members) do
+        {:ok, group} ->
+          notify_parent({:saved, group})
+
+          {:noreply,
+           socket
+           |> assign(:pending_zk_group_attrs, nil)
+           |> assign(:pending_zk_group_users, nil)
+           |> put_flash(:success, "Circle created successfully")
+           |> push_event("restore-body-scroll", %{})
+           |> push_patch(to: socket.assigns.patch)}
+
+        {:error, %Ecto.Changeset{} = changeset} ->
+          {:noreply,
+           socket
+           |> assign(:pending_zk_group_attrs, nil)
+           |> assign(:pending_zk_group_users, nil)
+           |> assign_form(changeset)}
+
+        {:error, _reason} ->
+          {:noreply,
+           socket
+           |> assign(:pending_zk_group_attrs, nil)
+           |> assign(:pending_zk_group_users, nil)
+           |> put_flash(:error, "Failed to create circle")}
+      end
+    end
+  end
+
+  # Edit path (unchanged — single-phase, group_key already exists)
   def handle_event("save_group_zk", params, socket) do
     user = socket.assigns.current_scope.user
     group = socket.assigns.group

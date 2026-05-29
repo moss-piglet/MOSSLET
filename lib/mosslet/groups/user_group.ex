@@ -29,6 +29,42 @@ defmodule Mosslet.Groups.UserGroup do
     timestamps()
   end
 
+  @doc """
+  ZK changeset for the group creator's user_group entry during ZK group creation.
+  The browser has already encrypted the name, moniker, and avatar_img with the
+  group_key and sealed the key for the creator. The raw group_key never reaches
+  the server.
+  """
+  def owner_changeset_zk(attrs) do
+    %__MODULE__{}
+    |> change(%{
+      name: attrs.encrypted_user_name,
+      name_hash: if(attrs[:name_blind_index], do: attrs.name_blind_index, else: ""),
+      key: attrs.sealed_creator_key,
+      role: :owner,
+      moniker: attrs[:encrypted_owner_moniker],
+      avatar_img: attrs[:encrypted_owner_avatar_img],
+      confirmed_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+    })
+  end
+
+  @doc """
+  ZK changeset for a member's user_group entry during ZK group creation.
+  The browser has sealed the group_key for this member and encrypted their
+  display name, moniker, and avatar_img with the group_key.
+  """
+  def member_changeset_zk(attrs) do
+    %__MODULE__{}
+    |> change(%{
+      name: attrs.encrypted_name,
+      name_hash: "",
+      key: attrs.sealed_key,
+      role: :member,
+      moniker: attrs.encrypted_moniker,
+      avatar_img: attrs.encrypted_avatar_img
+    })
+  end
+
   @doc false
   def changeset(user_group, attrs, opts \\ []) do
     user_group

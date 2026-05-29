@@ -73,6 +73,22 @@ defmodule Mosslet.Groups.Group do
     change(group, changes)
   end
 
+  @doc """
+  ZK changeset for creating a group from browser-encrypted fields.
+  The browser generated the group_key and encrypted name/description with it.
+  The raw group_key never reaches the server.
+  """
+  def create_changeset_zk(attrs) do
+    %__MODULE__{}
+    |> change(%{
+      name: attrs.encrypted_name,
+      description: attrs.encrypted_description || "",
+      name_hash: attrs.name_blind_index,
+      public?: false
+    })
+    |> validate_password_zk(attrs)
+  end
+
   @doc false
   def join_changeset(group, attrs \\ %{}, _opts \\ []) do
     if group.require_password? do
@@ -110,6 +126,23 @@ defmodule Mosslet.Groups.Group do
     if Map.has_key?(changeset.changes, :name) do
       changeset
       |> put_change(:name_hash, String.downcase(get_field(changeset, :name)))
+    else
+      changeset
+    end
+  end
+
+  defp validate_password_zk(changeset, attrs) do
+    if attrs[:require_password?] do
+      password = attrs[:password]
+
+      if is_binary(password) && String.trim(password) != "" do
+        changeset
+        |> put_change(:require_password?, true)
+        |> put_change(:hashed_password, Argon2.hash_pwd_salt(password, salt_len: 128))
+      else
+        changeset
+        |> add_error(:password, "is required when password protection is enabled")
+      end
     else
       changeset
     end

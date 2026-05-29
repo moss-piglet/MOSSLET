@@ -373,6 +373,77 @@ defmodule Mosslet.Groups do
     end
   end
 
+  @doc """
+  Creates a group from browser-encrypted fields (ZK two-phase commit).
+
+  The browser generated the group_key, encrypted name/description, sealed the key
+  for the creator and all members, and encrypted member display names. The raw
+  group_key NEVER exists in server memory.
+
+  `zk_attrs` contains encrypted group metadata + sealed creator key.
+  `users` is the list of member User structs.
+  `sealed_members` is a list of maps from the browser with sealed keys + encrypted names.
+  """
+  def create_group_zk(zk_attrs, owner, users, sealed_members) do
+    group_changeset =
+      Group.create_changeset_zk(zk_attrs)
+      |> Ecto.Changeset.put_change(:user_id, owner.id)
+
+    owner_changeset =
+      UserGroup.owner_changeset_zk(zk_attrs)
+      |> Ecto.Changeset.put_change(:user_id, owner.id)
+
+    # Index sealed_members by user_id for lookup
+    sealed_by_user_id =
+      Enum.into(sealed_members, %{}, fn m -> {m["user_id"], m} end)
+
+    result =
+      Ecto.Multi.new()
+      |> Ecto.Multi.insert(:insert_group, group_changeset)
+      |> Ecto.Multi.insert(:insert_user_group, fn %{insert_group: group} ->
+        owner_changeset
+        |> Ecto.Changeset.put_change(:group_id, group.id)
+      end)
+      |> Mosslet.Repo.transaction_on_primary()
+
+    case result do
+      {:ok, %{insert_group: group, insert_user_group: _user_group}} ->
+        for u <- users do
+          sealed = sealed_by_user_id[u.id]
+
+          if sealed do
+            member_changeset =
+              UserGroup.member_changeset_zk(%{
+                sealed_key: sealed["sealed_key"],
+                encrypted_name: sealed["encrypted_name"],
+                encrypted_moniker: sealed["encrypted_moniker"],
+                encrypted_avatar_img: sealed["encrypted_avatar_img"]
+              })
+              |> Ecto.Changeset.put_change(:group_id, group.id)
+              |> Ecto.Changeset.put_change(:user_id, u.id)
+
+            Mosslet.Repo.transaction_on_primary(fn ->
+              Mosslet.Repo.insert(member_changeset)
+            end)
+          end
+        end
+
+        {:ok, adapter().get_group!(group.id)}
+        |> broadcast(:group_created)
+
+      {:error, :insert_group, changeset, _map} ->
+        {:error, changeset}
+
+      {:error, :insert_user_group, changeset, _map} ->
+        {:error, changeset}
+
+      error ->
+        Logger.warning("Error creating group (ZK)")
+        Logger.debug("Error creating group (ZK): #{inspect(error)}")
+        {:error, "error"}
+    end
+  end
+
   defp do_update_group(group, attrs, opts, user, user_group, d_group_key) do
     opts =
       opts ++
