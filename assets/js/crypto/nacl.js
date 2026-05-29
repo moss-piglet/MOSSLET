@@ -42,7 +42,10 @@ let _ready = null;
 
 async function ensureReady() {
   if (_ready) return _ready;
-  _ready = wasmInit("/wasm/metamorphic_crypto_bg.wasm");
+  _ready = wasmInit("/wasm/metamorphic_crypto_bg.wasm").catch((e) => {
+    _ready = null;
+    throw e;
+  });
   await _ready;
   return _ready;
 }
