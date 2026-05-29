@@ -30,6 +30,9 @@ defmodule Mosslet.Timeline.UserTimelinePreference do
     field :hide_mature_content, :boolean, default: false
     field :hide_content_warnings, :boolean, default: false
 
+    # DM link preview preference (default off for ZK privacy)
+    field :show_dm_link_previews, :boolean, default: false
+
     # Content filtering preferences (encrypted - potentially sensitive)
     # Encrypted list of muted keywords - double encryption:
     # 1. Each keyword asymmetrically encrypted with user_key (enacl)
@@ -63,6 +66,7 @@ defmodule Mosslet.Timeline.UserTimelinePreference do
       :hide_reposts,
       :hide_mature_content,
       :hide_content_warnings,
+      :show_dm_link_previews,
       :mute_keywords,
       :muted_users,
       :user_id

@@ -5,6 +5,7 @@ defmodule MossletWeb.ConversationLive.Show do
 
   alias Mosslet.Accounts
   alias Mosslet.Conversations
+  alias Mosslet.Timeline
 
   def render(assigns) do
     ~H"""
@@ -51,6 +52,29 @@ defmodule MossletWeb.ConversationLive.Show do
           </div>
 
           <div class="flex items-center gap-1">
+            <button
+              id="dm-link-preview-toggle"
+              type="button"
+              phx-click="toggle_dm_link_previews"
+              phx-hook="TippyHook"
+              data-tippy-content={
+                if(@show_dm_link_previews,
+                  do: "Link previews on — URLs are sent to server for preview. Tap to disable.",
+                  else: "Link previews off — full zero-knowledge privacy. Tap to enable."
+                )
+              }
+              class={[
+                "p-2 rounded-lg transition-all duration-200 group/lp",
+                if(@show_dm_link_previews,
+                  do:
+                    "text-teal-500 dark:text-teal-400 bg-teal-50/60 dark:bg-teal-900/20 hover:bg-teal-100/60 dark:hover:bg-teal-900/30",
+                  else:
+                    "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                )
+              ]}
+            >
+              <.phx_icon name="hero-link" class="size-5" />
+            </button>
             <button
               :if={!@is_blocked}
               type="button"
@@ -164,6 +188,7 @@ defmodule MossletWeb.ConversationLive.Show do
                         data-conversation-key={@conversation_key_encrypted}
                         data-has-image={to_string(message.image_url != nil)}
                         data-message-id={message.id}
+                        data-show-link-previews={to_string(@show_dm_link_previews)}
                         class={[
                           "prose prose-sm max-w-none prose-p:my-0.5 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-pre:my-1.5 break-words",
                           if(message.sender_id == @current_scope.user.id,
@@ -653,6 +678,9 @@ defmodule MossletWeb.ConversationLive.Show do
       messages =
         if is_blocked, do: [], else: Conversations.list_messages(conversation_id)
 
+      show_dm_link_previews =
+        Timeline.get_user_timeline_preference(current_user).show_dm_link_previews
+
       conversation_key_encrypted =
         case user_conversation.key do
           key_data when is_binary(key_data) -> Base.encode64(key_data)
@@ -678,6 +706,7 @@ defmodule MossletWeb.ConversationLive.Show do
        |> assign(:messages_empty?, messages == [])
        |> stream(:messages, messages)
        |> assign(:conversation_key_encrypted, conversation_key_encrypted)
+       |> assign(:show_dm_link_previews, show_dm_link_previews)
        |> assign(:show_markdown_guide, false)
        |> assign(:show_delete_message_confirm, false)
        |> assign(:delete_message_id, nil)
@@ -1097,6 +1126,17 @@ defmodule MossletWeb.ConversationLive.Show do
       {:error, _reason} ->
         {:reply, %{preview: nil}, socket}
     end
+  end
+
+  def handle_event("toggle_dm_link_previews", _params, socket) do
+    current_user = socket.assigns.current_scope.user
+    new_value = !socket.assigns.show_dm_link_previews
+
+    Timeline.update_user_timeline_preference(current_user, %{
+      show_dm_link_previews: new_value
+    })
+
+    {:noreply, assign(socket, :show_dm_link_previews, new_value)}
   end
 
   def handle_info(

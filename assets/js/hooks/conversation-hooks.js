@@ -230,6 +230,8 @@ const DecryptMessage = {
   },
 
   maybeLoadUrlPreview(plaintext) {
+    if (this.el.dataset.showLinkPreviews !== "true") return;
+
     const messageId = this.el.dataset.messageId;
     if (!messageId || this._previewLoaded) return;
 
