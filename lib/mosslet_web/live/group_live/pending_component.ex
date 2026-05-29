@@ -140,24 +140,9 @@ defmodule MossletWeb.GroupLive.PendingComponent do
 
   @impl true
   def update(assigns, socket) do
-    socket = assign(socket, assigns)
-    current_user = assigns.current_user
-    key = assigns.key
-
-    decrypted_inviters =
-      if stream = socket.assigns[:stream] do
-        Map.new(stream, fn {_id, group} ->
-          uconn = get_current_user_connection_between_users!(group.user_id, current_user.id)
-
-          inviter =
-            decr_uconn(uconn.connection.username, current_user, uconn.key, key)
-
-          {group.id, inviter}
-        end)
-      else
-        %{}
-      end
-
-    {:ok, assign(socket, :decrypted_inviters, decrypted_inviters)}
+    {:ok,
+     socket
+     |> assign(assigns)
+     |> assign_new(:decrypted_inviters, fn -> %{} end)}
   end
 end

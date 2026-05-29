@@ -4623,11 +4623,10 @@ defmodule MossletWeb.DesignSystem do
               id={"avatar-upload-preview-#{@user.id}"}
             />
             <button
-              :if={@current_avatar_src && @on_delete}
+              :if={(@current_avatar_src || @encrypted_avatar_data) && @on_delete}
               type="button"
               id="delete-avatar-button"
               phx-click={@on_delete}
-              phx-value-url={@url}
               data-confirm="Are you sure you want to remove your avatar?"
               class="absolute -top-1 -right-1 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110"
               phx-hook="TippyHook"
@@ -4992,7 +4991,6 @@ defmodule MossletWeb.DesignSystem do
                   type="button"
                   id="delete-banner-button"
                   phx-click={@on_delete}
-                  phx-value-url={@url}
                   data-confirm="Are you sure you want to remove your custom banner?"
                   class="absolute top-3 right-3 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110"
                   phx-hook="TippyHook"
@@ -5015,7 +5013,6 @@ defmodule MossletWeb.DesignSystem do
                   type="button"
                   id="delete-banner-button"
                   phx-click={@on_delete}
-                  phx-value-url={@url}
                   data-confirm="Are you sure you want to remove your custom banner?"
                   class="absolute top-3 right-3 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110"
                   phx-hook="TippyHook"

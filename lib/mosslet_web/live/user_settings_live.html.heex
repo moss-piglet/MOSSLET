@@ -106,14 +106,6 @@
         <.link
           :if={@current_user.connection.avatar_url}
           phx-click="delete_avatar"
-          phx-value-url={
-            decr_avatar(
-              @current_user.connection.avatar_url,
-              @current_user,
-              @current_user.conn_key,
-              @key
-            )
-          }
           phx-disable-with="Deleting avatar..."
           class="rounded-full bg-pink-600 p-2 text-white shadow-sm hover:bg-pink-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
           title="Delete avatar"
@@ -299,14 +291,7 @@
             :if={@current_user.connection.avatar_url}
             field={f_nested[:avatar_url]}
             type="hidden"
-            value={
-              decr_avatar(
-                @current_user.connection.avatar_url,
-                @current_user,
-                @current_user.conn_key,
-                @key
-              )
-            }
+            value="encrypted-avatar-exists"
           />
           <span data-decrypt-field="email">
             <.input

@@ -411,13 +411,7 @@ defmodule MossletWeb.EditProfileLive do
                         on_delete="delete_banner"
                         url={
                           if @profile && Map.get(@profile, :custom_banner_url),
-                            do:
-                              decr_banner(
-                                @profile.custom_banner_url,
-                                @current_user,
-                                @current_user.conn_key,
-                                @key
-                              ),
+                            do: "encrypted-banner-exists",
                             else: nil
                         }
                         encrypted_banner_data={get_async_banner_data(@custom_banner_src)}
@@ -1263,10 +1257,16 @@ defmodule MossletWeb.EditProfileLive do
     end
   end
 
-  def handle_event("delete_banner", %{"url" => url}, socket) do
+  def handle_event("delete_banner", _params, socket) do
     banners_bucket = Encrypted.Session.banners_bucket()
     user = socket.assigns.current_scope.user
     key = socket.assigns.current_scope.key
+    profile = Map.get(user.connection, :profile)
+
+    url =
+      if profile && Map.get(profile, :custom_banner_url),
+        do: decr_banner(profile.custom_banner_url, user, user.conn_key, key),
+        else: nil
 
     profile_attrs =
       %{
@@ -1282,7 +1282,7 @@ defmodule MossletWeb.EditProfileLive do
            update_profile: true
          ) do
       {:ok, _conn} ->
-        Storj.make_async_banner_delete_request(banners_bucket, url)
+        if url, do: Storj.make_async_banner_delete_request(banners_bucket, url)
         Mosslet.Extensions.BannerProcessor.delete_banner(user.connection.id)
 
         Phoenix.PubSub.broadcast(

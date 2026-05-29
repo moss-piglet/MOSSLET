@@ -108,6 +108,10 @@ defmodule MossletWeb.GroupLive.Index do
       |> assign(:load_more_loading, false)
       |> assign(:load_more_public_loading, false)
       |> assign(:unread_mention_counts, unread_mention_counts)
+      |> assign(
+        :inviter_names,
+        build_inviter_names(pending_groups, current_user, socket.assigns.key)
+      )
       |> stream(:groups, initial_groups, reset: true)
       |> stream(:pending_groups, pending_groups)
 
@@ -313,6 +317,10 @@ defmodule MossletWeb.GroupLive.Index do
         socket
         |> assign(:pending_groups_count, pending_groups_count)
         |> assign(:any_pending_groups?, pending_groups_count > 0)
+        |> assign(
+          :inviter_names,
+          build_inviter_names(pending_groups, current_user, socket.assigns.key)
+        )
         |> stream(:pending_groups, pending_groups, reset: true)
       else
         socket
@@ -418,6 +426,10 @@ defmodule MossletWeb.GroupLive.Index do
      socket
      |> assign(:pending_groups_count, pending_groups_count)
      |> assign(:any_pending_groups?, pending_groups_count > 0)
+     |> assign(
+       :inviter_names,
+       build_inviter_names(pending_groups, socket.assigns.current_user, socket.assigns.key)
+     )
      |> stream(:groups, Groups.list_groups(socket.assigns.current_user))
      |> stream(:pending_groups, pending_groups, reset: true)}
   end
@@ -434,6 +446,10 @@ defmodule MossletWeb.GroupLive.Index do
      socket
      |> assign(:pending_groups_count, pending_groups_count)
      |> assign(:any_pending_groups?, pending_groups_count > 0)
+     |> assign(
+       :inviter_names,
+       build_inviter_names(pending_groups, socket.assigns.current_user, socket.assigns.key)
+     )
      |> stream(:groups, Groups.list_groups(socket.assigns.current_user))
      |> stream(:pending_groups, pending_groups, reset: true)}
   end
@@ -443,11 +459,15 @@ defmodule MossletWeb.GroupLive.Index do
         {MossletWeb.GroupLive.PendingComponent, {:error_joined, _group, _user_group}},
         socket
       ) do
+    pending_groups = Groups.list_unconfirmed_groups(socket.assigns.current_user)
+
     {:noreply,
      socket
-     |> stream(:pending_groups, Groups.list_unconfirmed_groups(socket.assigns.current_user),
-       reset: true
-     )}
+     |> assign(
+       :inviter_names,
+       build_inviter_names(pending_groups, socket.assigns.current_user, socket.assigns.key)
+     )
+     |> stream(:pending_groups, pending_groups, reset: true)}
   end
 
   @impl true
@@ -465,6 +485,7 @@ defmodule MossletWeb.GroupLive.Index do
     {:noreply,
      socket
      |> update_pending_groups_flag(group)
+     |> merge_inviter_name(group)
      |> stream_insert(:pending_groups, group, at: 0)}
   end
 
@@ -475,7 +496,10 @@ defmodule MossletWeb.GroupLive.Index do
 
   @impl true
   def handle_info({:group_joined_unconfirmed, group}, socket) do
-    {:noreply, stream_insert(socket, :pending_groups, group, at: -1)}
+    {:noreply,
+     socket
+     |> merge_inviter_name(group)
+     |> stream_insert(:pending_groups, group, at: -1)}
   end
 
   @impl true
@@ -488,6 +512,7 @@ defmodule MossletWeb.GroupLive.Index do
     {:noreply,
      socket
      |> update_pending_groups_flag(group)
+     |> merge_inviter_name(group)
      |> stream_insert(:pending_groups, group, at: -1)}
   end
 
@@ -583,7 +608,10 @@ defmodule MossletWeb.GroupLive.Index do
               {:noreply, socket}
 
             is_nil(current_user_group.confirmed_at) ->
-              {:noreply, stream_insert(socket, :pending_groups, group, at: -1)}
+              {:noreply,
+               socket
+               |> merge_inviter_name(group)
+               |> stream_insert(:pending_groups, group, at: -1)}
 
             true ->
               {:noreply, stream_insert(socket, :groups, group, at: -1)}
@@ -652,7 +680,10 @@ defmodule MossletWeb.GroupLive.Index do
        |> assign(:any_pending_groups?, pending_groups_count > 0)
        |> stream_delete(:pending_groups, group)}
     else
-      {:noreply, stream_insert(socket, :pending_groups, group, at: -1)}
+      {:noreply,
+       socket
+       |> merge_inviter_name(group)
+       |> stream_insert(:pending_groups, group, at: -1)}
     end
   end
 
@@ -668,7 +699,10 @@ defmodule MossletWeb.GroupLive.Index do
        |> assign(:any_pending_groups?, pending_groups_count > 0)
        |> stream_delete(:pending_groups, group)}
     else
-      {:noreply, stream_insert(socket, :pending_groups, group, at: -1)}
+      {:noreply,
+       socket
+       |> merge_inviter_name(group)
+       |> stream_insert(:pending_groups, group, at: -1)}
     end
   end
 
@@ -682,9 +716,16 @@ defmodule MossletWeb.GroupLive.Index do
        socket
        |> assign(:pending_groups_count, pending_groups_count)
        |> assign(:any_pending_groups?, pending_groups_count > 0)
+       |> assign(
+         :inviter_names,
+         build_inviter_names(pending_groups, socket.assigns.current_user, socket.assigns.key)
+       )
        |> stream(:pending_groups, pending_groups, reset: true)}
     else
-      {:noreply, stream_insert(socket, :pending_groups, group, at: -1)}
+      {:noreply,
+       socket
+       |> merge_inviter_name(group)
+       |> stream_insert(:pending_groups, group, at: -1)}
     end
   end
 
@@ -841,6 +882,25 @@ defmodule MossletWeb.GroupLive.Index do
     for group <- groups do
       Groups.group_subscribe(group)
     end
+  end
+
+  defp build_inviter_names(groups, current_user, key) do
+    Map.new(groups, fn group ->
+      {group.id, decrypt_inviter_name(group, current_user, key)}
+    end)
+  end
+
+  defp decrypt_inviter_name(group, current_user, key) do
+    uconn = get_current_user_connection_between_users!(group.user_id, current_user.id)
+    decr_uconn(uconn.connection.username, current_user, uconn.key, key)
+  end
+
+  defp merge_inviter_name(socket, group) do
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+    name = decrypt_inviter_name(group, current_user, key)
+
+    update(socket, :inviter_names, fn names -> Map.put(names, group.id, name) end)
   end
 
   defp notify_self(msg), do: send(self(), {__MODULE__, msg})

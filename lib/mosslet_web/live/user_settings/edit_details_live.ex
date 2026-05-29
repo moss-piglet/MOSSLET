@@ -727,10 +727,16 @@ defmodule MossletWeb.EditDetailsLive do
   Deletes the avatar in ETS and object storage.
   """
   @impl true
-  def handle_event("delete_avatar", %{"url" => url}, socket) do
+  def handle_event("delete_avatar", _params, socket) do
     avatars_bucket = Encrypted.Session.avatars_bucket()
     user = socket.assigns.current_scope.user
     key = socket.assigns.current_scope.key
+
+    # Decrypt avatar URL server-side instead of receiving from DOM
+    url =
+      if user.connection.avatar_url,
+        do: decr_avatar(user.connection.avatar_url, user, user.conn_key, key),
+        else: nil
 
     profile = Map.get(user.connection, :profile)
 
