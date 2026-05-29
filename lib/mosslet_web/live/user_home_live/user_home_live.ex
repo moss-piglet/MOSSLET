@@ -927,7 +927,8 @@ defmodule MossletWeb.UserHomeLive do
 
     if post.user_id != user.id && user.id not in decrypted_reposts do
       selected_user_ids = share_params.selected_user_ids
-      note = share_params.note || ""
+      note = share_params[:note] || ""
+      encrypted_share_note = share_params[:encrypted_share_note]
       username = share_params.username
 
       all_shared_users = socket.assigns.post_shared_users
@@ -946,7 +947,17 @@ defmodule MossletWeb.UserHomeLive do
 
       case build_repost_encrypt_request(post, selected_shared_users, user: user) do
         {:zk, payload} ->
-          # Non-public: push to browser for ZK encryption
+          # Non-public: push to browser for ZK encryption.
+          # If the share note was already encrypted browser-side (with the
+          # original post_key), pass it as encrypted_share_note so the
+          # RepostFormHook can re-encrypt with the new post_key.
+          note_payload =
+            if encrypted_share_note do
+              %{encrypted_share_note: encrypted_share_note}
+            else
+              %{note: note}
+            end
+
           {:noreply,
            socket
            |> assign(:pending_repost, %{
@@ -960,11 +971,16 @@ defmodule MossletWeb.UserHomeLive do
            })
            |> push_event(
              "repost_encrypt_request",
-             Map.merge(payload, %{
-               repost_type: "share",
-               selected_user_ids: selected_user_ids,
-               note: note
-             })
+             Map.merge(
+               payload,
+               Map.merge(
+                 %{
+                   repost_type: "share",
+                   selected_user_ids: selected_user_ids
+                 },
+                 note_payload
+               )
+             )
            )}
 
         :server ->

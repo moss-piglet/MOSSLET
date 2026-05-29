@@ -75,19 +75,27 @@ defmodule MossletWeb.TimelineLive.ShareModalComponent do
       changeset = UserPost.share_note_changeset(params)
 
       if changeset.valid? do
-        note = Ecto.Changeset.get_field(changeset, :share_note) || ""
+        # If the hook encrypted the note browser-side, pass ciphertext through.
+        # Otherwise fall through with plaintext for server-side encryption (public posts).
+        {note, encrypted_share_note} =
+          case params do
+            %{"encrypted_share_note" => enc} when enc != "" ->
+              {"", enc}
 
-        send(
-          self(),
-          {:submit_share,
-           %{
-             post_id: socket.assigns.post_id,
-             selected_user_ids: selected_ids,
-             note: note,
-             body: socket.assigns.body,
-             username: socket.assigns.username
-           }}
-        )
+            _ ->
+              {Ecto.Changeset.get_field(changeset, :share_note) || "", nil}
+          end
+
+        share_msg = %{
+          post_id: socket.assigns.post_id,
+          selected_user_ids: selected_ids,
+          note: note,
+          encrypted_share_note: encrypted_share_note,
+          body: socket.assigns.body,
+          username: socket.assigns.username
+        }
+
+        send(self(), {:submit_share, share_msg})
 
         {:noreply,
          socket
@@ -172,6 +180,8 @@ defmodule MossletWeb.TimelineLive.ShareModalComponent do
             phx-change="validate"
             phx-submit="submit_share"
             phx-target={@myself}
+            phx-hook="ShareNoteFormHook"
+            data-post-id={@post_id}
             class="space-y-6"
           >
             <div class="p-4 bg-emerald-50/50 dark:bg-emerald-900/20 rounded-xl border border-emerald-200/50 dark:border-emerald-700/30">

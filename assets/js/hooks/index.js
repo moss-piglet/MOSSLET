@@ -67,6 +67,7 @@ import ImageLightbox from "./image-lightbox-hook";
 import UnsavedChanges from "./unsaved-changes";
 import SortableUploadsHook from "./sortable-uploads-hook";
 import StatusFormHook from "./status-form-hook";
+import ShareNoteFormHook from "./share-note-form-hook";
 import SortableBooksHook from "./sortable-books-hook";
 import ImageResizeUploadHook from "./image-resize-upload-hook";
 import ImageCropHook from "./image-crop-hook";
@@ -150,6 +151,7 @@ export default {
   ScrollableTabs,
   ScrollDown,
   SessionKeyDeriver,
+  ShareNoteFormHook,
   TippyHook,
   TrixContentPostHook,
   TrixContentReplyHook,

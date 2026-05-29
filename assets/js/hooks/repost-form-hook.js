@@ -62,6 +62,7 @@ const RepostFormHook = {
         repost_type,
         selected_user_ids,
         note,
+        encrypted_share_note: preEncryptedNote,
       } = payload;
 
       // Step 1: Get the original post's decrypted post_key to decrypt fields
@@ -173,9 +174,17 @@ const RepostFormHook = {
       let encCwCat = null;
       if (cwCat) encCwCat = await encryptSecretboxString(cwCat, newPostKey);
 
-      // Also encrypt the share note with the new post_key if present
+      // Encrypt the share note with the new post_key.
+      // If the note was pre-encrypted browser-side (with the original post_key),
+      // decrypt it first, then re-encrypt with the new key.
+      // If it arrived as plaintext (fallback), encrypt directly.
       let encNote = null;
-      if (note && note.trim() !== "") {
+      if (preEncryptedNote) {
+        const decNote = await decryptWithKey(preEncryptedNote, originalPostKey);
+        if (decNote) {
+          encNote = await encryptWithKey(decNote, newPostKey);
+        }
+      } else if (note && note.trim() !== "") {
         encNote = await encryptWithKey(note, newPostKey);
       }
 
