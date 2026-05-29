@@ -261,7 +261,11 @@ defmodule MossletWeb.UserConnectionLive.Show do
     socket =
       socket
       |> assign(:groups, AsyncResult.ok(groups, fetched_groups))
-      |> stream(:groups, fetched_groups, reset: true)
+      |> stream(
+        :groups,
+        pre_decrypt_groups(fetched_groups, socket.assigns.current_user, socket.assigns.key),
+        reset: true
+      )
 
     {:noreply, socket}
   end

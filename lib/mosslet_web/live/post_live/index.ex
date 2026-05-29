@@ -55,7 +55,9 @@ defmodule MossletWeb.PostLive.Index do
       current_user_id: current_user.id
     }
 
-    posts = Timeline.list_posts(current_user, options)
+    posts =
+      Timeline.list_posts(current_user, options)
+      |> pre_decrypt_posts(current_user, socket.assigns.key)
 
     loading_list = Enum.with_index(posts, fn element, index -> {index, element} end)
     groups = Groups.list_groups(current_user)

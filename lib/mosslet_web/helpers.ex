@@ -459,6 +459,20 @@ defmodule MossletWeb.Helpers do
   end
 
   @doc """
+  Like `decr_item/6` but returns `nil` on any failure instead of raising or
+  returning error atoms. Useful for pre-decrypting display fields in callbacks
+  where a graceful fallback is preferred.
+  """
+  def safe_decr_item(payload, user, item_key, key, item, string_name \\ nil) do
+    case decr_item(payload, user, item_key, key, item, string_name) do
+      result when is_binary(result) -> result
+      _ -> nil
+    end
+  rescue
+    _ -> nil
+  end
+
+  @doc """
   Unseals the raw post_key for a post, performing the expensive asymmetric
   crypto only once. Returns `{:ok, raw_key}` or `:error`.
 
@@ -732,6 +746,106 @@ defmodule MossletWeb.Helpers do
   """
   def pre_decrypt_posts(posts, current_user, session_key) do
     Enum.map(posts, &pre_decrypt_post(&1, current_user, session_key))
+  end
+
+  @doc """
+  Server-side reply body decryption for public posts (used by legacy card components).
+  For non-public posts the browser-side DecryptReply hook is used instead.
+  Returns the plaintext body string or a fallback placeholder.
+  """
+  def get_decrypted_reply_body(reply, _post, current_user, session_key) do
+    cond do
+      reply.user_id == current_user.id ->
+        with {:ok, post_key} <- get_reply_post_key(reply, current_user),
+             content when is_binary(content) <-
+               decr_item(reply.body, current_user, post_key, session_key, reply, "body") do
+          content
+        else
+          _ -> "[Could not decrypt reply]"
+        end
+
+      not is_connected_to_reply_author?(reply, current_user) ->
+        "[Reply from non-connected user]"
+
+      true ->
+        with {:ok, post_key} <- get_reply_post_key(reply, current_user),
+             content when is_binary(content) <-
+               decr_item(reply.body, current_user, post_key, session_key, reply, "body") do
+          content
+        else
+          _ -> "[Could not decrypt reply]"
+        end
+    end
+  end
+
+  @doc """
+  Server-side reply username decryption for public posts (used by legacy card components).
+  For non-public posts the browser-side DecryptReply hook is used instead.
+  Returns the plaintext username string or a fallback placeholder.
+  """
+  def get_decrypted_reply_username(reply, _post, current_user, session_key) do
+    cond do
+      reply.user_id == current_user.id && reply.visibility == :private ->
+        conn = get_item_connection(reply, current_user)
+        uconn = get_uconn_for_shared_item(reply, current_user)
+
+        if conn && uconn do
+          case decr_uconn_item(conn.username, current_user, uconn, session_key) do
+            username when is_binary(username) -> username
+            _ -> "author"
+          end
+        else
+          "author"
+        end
+
+      true ->
+        with {:ok, post_key} <- get_reply_post_key(reply, current_user),
+             username when is_binary(username) <-
+               decr_item(reply.username, current_user, post_key, session_key, reply, "username") do
+          username
+        else
+          _ -> "author"
+        end
+    end
+  end
+
+  @doc """
+  Pre-decrypts a group's display metadata (name, description, avatar_img, moniker)
+  into a map, using the current user's group key. Returns a map with string
+  values or nil for fields that couldn't be decrypted.
+
+  This avoids calling `decr_item` in templates for group display fields.
+  """
+  def pre_decrypt_group_metadata(group, current_user, session_key) do
+    user_group = get_user_group(group, current_user)
+    group_key = if user_group, do: user_group.key
+
+    %{
+      name: safe_decr_item(group.name, current_user, group_key, session_key, group),
+      description: safe_decr_item(group.description, current_user, group_key, session_key, group),
+      avatar_img:
+        if(user_group,
+          do: safe_decr_item(user_group.avatar_img, current_user, group_key, session_key, group)
+        ),
+      moniker:
+        if(user_group,
+          do: safe_decr_item(user_group.moniker, current_user, group_key, session_key, group)
+        )
+    }
+  end
+
+  @doc """
+  Pre-decrypts a group and attaches the metadata as `:decrypted` on the struct.
+  """
+  def pre_decrypt_group(group, current_user, session_key) do
+    Map.put(group, :decrypted, pre_decrypt_group_metadata(group, current_user, session_key))
+  end
+
+  @doc """
+  Pre-decrypts a list of groups. See `pre_decrypt_group/3`.
+  """
+  def pre_decrypt_groups(groups, current_user, session_key) do
+    Enum.map(groups, &pre_decrypt_group(&1, current_user, session_key))
   end
 
   @doc """

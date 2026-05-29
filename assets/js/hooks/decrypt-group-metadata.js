@@ -34,6 +34,8 @@ const DecryptGroupMetadata = {
 
       const encryptedName = this.el.dataset.encryptedName;
       const encryptedMoniker = this.el.dataset.encryptedMoniker;
+      const encryptedDescription = this.el.dataset.encryptedDescription;
+      const encryptedAvatarImg = this.el.dataset.encryptedAvatarImg;
 
       if (encryptedName) {
         const name = await decryptWithKey(encryptedName, groupKey);
@@ -49,6 +51,28 @@ const DecryptGroupMetadata = {
         if (moniker) {
           document.querySelectorAll("[data-decrypt-group-moniker]").forEach(el => {
             el.textContent = moniker;
+          });
+        }
+      }
+
+      if (encryptedDescription) {
+        const description = await decryptWithKey(encryptedDescription, groupKey);
+        if (description) {
+          document.querySelectorAll("[data-decrypt-group-description]").forEach(el => {
+            el.textContent = description;
+          });
+        }
+      }
+
+      if (encryptedAvatarImg) {
+        const avatarImg = await decryptWithKey(encryptedAvatarImg, groupKey);
+        if (avatarImg) {
+          document.querySelectorAll("[data-decrypt-group-avatar-img]").forEach(el => {
+            if (el.tagName === "IMG") {
+              el.src = avatarImg;
+            } else {
+              el.textContent = avatarImg;
+            }
           });
         }
       }

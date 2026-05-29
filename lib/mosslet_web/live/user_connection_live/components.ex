@@ -338,22 +338,10 @@ defmodule MossletWeb.UserConnectionLive.Components do
               <div class="flex min-w-0 gap-x-4">
                 <div class="min-w-0 flex-auto">
                   <p class="text-sm/6 font-semibold text-gray-900 dark:text-gray-100">
-                    {decr_item(
-                      group.name,
-                      @current_user,
-                      get_user_group(group, @current_user).key,
-                      @key,
-                      group
-                    )}
+                    {group.decrypted[:name]}
                   </p>
                   <p class="mt-1 truncate text-xs/5 text-gray-500 dark:text-gray-400">
-                    {decr_item(
-                      group.description,
-                      @current_user,
-                      get_user_group(group, @current_user).key,
-                      @key,
-                      group
-                    )}
+                    {group.decrypted[:description]}
                   </p>
                 </div>
               </div>
@@ -547,16 +535,9 @@ defmodule MossletWeb.UserConnectionLive.Components do
                 <div class="min-w-0 flex-1">
                   <div>
                     <div class="inline-flex text-sm">
-                      <%!-- Reply username --%>
+                      <%!-- Reply username — server-side decryption for public posts --%>
                       <p class="text-sm font-semibold leading-6">
-                        {decr_item(
-                          reply.username,
-                          @current_user,
-                          get_post_key(@post, @current_user),
-                          @key,
-                          reply,
-                          "body"
-                        )}
+                        {get_decrypted_reply_username(reply, @post, @current_user, @key)}
                       </p>
                       <div class="inline-flex justify-end text-sm space-x-2">
                         <%!--
@@ -620,16 +601,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
                     data-post-id={@post.id}
                     class="post-body"
                   >
-                    {html_block(
-                      decr_item(
-                        reply.body,
-                        @current_user,
-                        get_post_key(@post, @current_user),
-                        @key,
-                        reply,
-                        "body"
-                      )
-                    )}
+                    {html_block(get_decrypted_reply_body(reply, @post, @current_user, @key))}
                   </div>
                   <div
                     :if={!Enum.empty?(@post.replies) && Enum.count(@post.replies) > 1}

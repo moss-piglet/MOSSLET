@@ -112,8 +112,13 @@ defmodule MossletWeb.GroupLive.Index do
         :inviter_names,
         build_inviter_names(pending_groups, current_user, socket.assigns.key)
       )
-      |> stream(:groups, initial_groups, reset: true)
-      |> stream(:pending_groups, pending_groups)
+      |> stream(:groups, pre_decrypt_groups(initial_groups, current_user, socket.assigns.key),
+        reset: true
+      )
+      |> stream(
+        :pending_groups,
+        pre_decrypt_groups(pending_groups, current_user, socket.assigns.key)
+      )
 
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
@@ -304,7 +309,9 @@ defmodule MossletWeb.GroupLive.Index do
         |> assign(:loaded_groups_count, length(initial_groups))
         |> assign(:has_more_groups, length(initial_groups) < total_groups)
         |> assign(:remaining_groups_count, max(0, total_groups - length(initial_groups)))
-        |> stream(:groups, initial_groups, reset: true)
+        |> stream(:groups, pre_decrypt_groups(initial_groups, current_user, socket.assigns.key),
+          reset: true
+        )
       else
         socket
       end
@@ -321,7 +328,11 @@ defmodule MossletWeb.GroupLive.Index do
           :inviter_names,
           build_inviter_names(pending_groups, current_user, socket.assigns.key)
         )
-        |> stream(:pending_groups, pending_groups, reset: true)
+        |> stream(
+          :pending_groups,
+          pre_decrypt_groups(pending_groups, socket.assigns.current_user, socket.assigns.key),
+          reset: true
+        )
       else
         socket
       end
@@ -345,7 +356,15 @@ defmodule MossletWeb.GroupLive.Index do
            socket
            |> assign(:public_groups, public_groups)
            |> assign(:group_count, Groups.group_count_confirmed(socket.assigns.current_user))
-           |> stream(:groups, Groups.list_groups(socket.assigns.current_user), reset: true)
+           |> stream(
+             :groups,
+             pre_decrypt_groups(
+               Groups.list_groups(socket.assigns.current_user),
+               socket.assigns.current_user,
+               socket.assigns.key
+             ),
+             reset: true
+           )
            |> put_flash(:success, "You have joined this circle!")}
 
         {:error, _reason} ->
@@ -374,7 +393,7 @@ defmodule MossletWeb.GroupLive.Index do
       |> assign(:load_more_loading, false)
 
     socket =
-      Enum.reduce(new_groups, socket, fn group, acc -> stream_insert(acc, :groups, group) end)
+      Enum.reduce(new_groups, socket, fn group, acc -> stream_insert_group(acc, group) end)
 
     {:noreply, socket}
   end
@@ -414,24 +433,7 @@ defmodule MossletWeb.GroupLive.Index do
 
   @impl true
   def handle_info({MossletWeb.GroupLive.FormComponent, {:saved, group}}, socket) do
-    {:noreply, stream_insert(socket, :groups, group, at: -1)}
-  end
-
-  @impl true
-  def handle_info({MossletWeb.GroupLive.Index, {:joined, _group, _user_group}}, socket) do
-    pending_groups = Groups.list_unconfirmed_groups(socket.assigns.current_user)
-    pending_groups_count = length(pending_groups)
-
-    {:noreply,
-     socket
-     |> assign(:pending_groups_count, pending_groups_count)
-     |> assign(:any_pending_groups?, pending_groups_count > 0)
-     |> assign(
-       :inviter_names,
-       build_inviter_names(pending_groups, socket.assigns.current_user, socket.assigns.key)
-     )
-     |> stream(:groups, Groups.list_groups(socket.assigns.current_user))
-     |> stream(:pending_groups, pending_groups, reset: true)}
+    {:noreply, stream_insert_group(socket, group, at: -1)}
   end
 
   @impl true
@@ -450,8 +452,19 @@ defmodule MossletWeb.GroupLive.Index do
        :inviter_names,
        build_inviter_names(pending_groups, socket.assigns.current_user, socket.assigns.key)
      )
-     |> stream(:groups, Groups.list_groups(socket.assigns.current_user))
-     |> stream(:pending_groups, pending_groups, reset: true)}
+     |> stream(
+       :groups,
+       pre_decrypt_groups(
+         Groups.list_groups(socket.assigns.current_user),
+         socket.assigns.current_user,
+         socket.assigns.key
+       )
+     )
+     |> stream(
+       :pending_groups,
+       pre_decrypt_groups(pending_groups, socket.assigns.current_user, socket.assigns.key),
+       reset: true
+     )}
   end
 
   @impl true
@@ -467,7 +480,11 @@ defmodule MossletWeb.GroupLive.Index do
        :inviter_names,
        build_inviter_names(pending_groups, socket.assigns.current_user, socket.assigns.key)
      )
-     |> stream(:pending_groups, pending_groups, reset: true)}
+     |> stream(
+       :pending_groups,
+       pre_decrypt_groups(pending_groups, socket.assigns.current_user, socket.assigns.key),
+       reset: true
+     )}
   end
 
   @impl true
@@ -477,7 +494,7 @@ defmodule MossletWeb.GroupLive.Index do
 
   @impl true
   def handle_info({:group_created, group}, socket) do
-    {:noreply, stream_insert(socket, :groups, group, at: 0)}
+    {:noreply, stream_insert_group(socket, group, at: 0)}
   end
 
   @impl true
@@ -486,12 +503,12 @@ defmodule MossletWeb.GroupLive.Index do
      socket
      |> update_pending_groups_flag(group)
      |> merge_inviter_name(group)
-     |> stream_insert(:pending_groups, group, at: 0)}
+     |> stream_insert_pending_group(group, at: 0)}
   end
 
   @impl true
   def handle_info({:group_joined, group}, socket) do
-    {:noreply, stream_insert(socket, :groups, group, at: -1)}
+    {:noreply, stream_insert_group(socket, group, at: -1)}
   end
 
   @impl true
@@ -499,12 +516,12 @@ defmodule MossletWeb.GroupLive.Index do
     {:noreply,
      socket
      |> merge_inviter_name(group)
-     |> stream_insert(:pending_groups, group, at: -1)}
+     |> stream_insert_pending_group(group, at: -1)}
   end
 
   @impl true
   def handle_info({:group_updated, group}, socket) do
-    {:noreply, stream_insert(socket, :groups, group, at: -1)}
+    {:noreply, stream_insert_group(socket, group, at: -1)}
   end
 
   @impl true
@@ -513,7 +530,7 @@ defmodule MossletWeb.GroupLive.Index do
      socket
      |> update_pending_groups_flag(group)
      |> merge_inviter_name(group)
-     |> stream_insert(:pending_groups, group, at: -1)}
+     |> stream_insert_pending_group(group, at: -1)}
   end
 
   @impl true
@@ -526,7 +543,7 @@ defmodule MossletWeb.GroupLive.Index do
        |> assign(:group_count, new_group_count)
        |> stream_delete(:groups, group)}
     else
-      {:noreply, stream_insert(socket, :groups, group, at: -1)}
+      {:noreply, stream_insert_group(socket, group, at: -1)}
     end
   end
 
@@ -540,7 +557,7 @@ defmodule MossletWeb.GroupLive.Index do
        |> assign(:group_count, new_group_count)
        |> stream_delete(:groups, group)}
     else
-      {:noreply, stream_insert(socket, :groups, group, at: -1)}
+      {:noreply, stream_insert_group(socket, group, at: -1)}
     end
   end
 
@@ -569,9 +586,11 @@ defmodule MossletWeb.GroupLive.Index do
          :remaining_public_groups_count,
          max(0, total_public_groups - length(public_groups))
        )
-       |> stream(:groups, initial_groups, reset: true)}
+       |> stream(:groups, pre_decrypt_groups(initial_groups, current_user, socket.assigns.key),
+         reset: true
+       )}
     else
-      {:noreply, stream_insert(socket, :groups, group, at: -1)}
+      {:noreply, stream_insert_group(socket, group, at: -1)}
     end
   end
 
@@ -611,10 +630,10 @@ defmodule MossletWeb.GroupLive.Index do
               {:noreply,
                socket
                |> merge_inviter_name(group)
-               |> stream_insert(:pending_groups, group, at: -1)}
+               |> stream_insert_pending_group(group, at: -1)}
 
             true ->
-              {:noreply, stream_insert(socket, :groups, group, at: -1)}
+              {:noreply, stream_insert_group(socket, group, at: -1)}
           end
       end
     end
@@ -623,7 +642,7 @@ defmodule MossletWeb.GroupLive.Index do
   @impl true
   def handle_info({:user_group_updated, user_group}, socket) do
     group = Groups.get_group!(user_group.group_id)
-    {:noreply, stream_insert(socket, :groups, group, at: -1)}
+    {:noreply, stream_insert_group(socket, group, at: -1)}
   end
 
   @impl true
@@ -683,7 +702,7 @@ defmodule MossletWeb.GroupLive.Index do
       {:noreply,
        socket
        |> merge_inviter_name(group)
-       |> stream_insert(:pending_groups, group, at: -1)}
+       |> stream_insert_pending_group(group, at: -1)}
     end
   end
 
@@ -702,7 +721,7 @@ defmodule MossletWeb.GroupLive.Index do
       {:noreply,
        socket
        |> merge_inviter_name(group)
-       |> stream_insert(:pending_groups, group, at: -1)}
+       |> stream_insert_pending_group(group, at: -1)}
     end
   end
 
@@ -720,12 +739,16 @@ defmodule MossletWeb.GroupLive.Index do
          :inviter_names,
          build_inviter_names(pending_groups, socket.assigns.current_user, socket.assigns.key)
        )
-       |> stream(:pending_groups, pending_groups, reset: true)}
+       |> stream(
+         :pending_groups,
+         pre_decrypt_groups(pending_groups, socket.assigns.current_user, socket.assigns.key),
+         reset: true
+       )}
     else
       {:noreply,
        socket
        |> merge_inviter_name(group)
-       |> stream_insert(:pending_groups, group, at: -1)}
+       |> stream_insert_pending_group(group, at: -1)}
     end
   end
 
@@ -764,7 +787,7 @@ defmodule MossletWeb.GroupLive.Index do
 
         user_group = Groups.get_user_group!(user_group_id)
 
-        {:noreply, stream_insert(socket, :groups, user_group.group, at: -1, reset: true)}
+        {:noreply, stream_insert_group(socket, user_group.group, at: -1, reset: true)}
 
       user_group_loading_count == Enum.count(user_group_list) - 1 ->
         finished_loading_list = [user_group_id | finished_loading_list] |> Enum.uniq()
@@ -787,7 +810,7 @@ defmodule MossletWeb.GroupLive.Index do
             |> assign(:user_group_loading_done, true)
             |> assign(:finished_loading_list, [])
 
-          {:noreply, stream_insert(socket, :groups, user_group.group, at: -1, reset: true)}
+          {:noreply, stream_insert_group(socket, user_group.group, at: -1, reset: true)}
         else
           {:noreply, socket}
         end
@@ -823,7 +846,7 @@ defmodule MossletWeb.GroupLive.Index do
     {:noreply,
      socket
      |> assign(:unread_mention_counts, unread_mention_counts)
-     |> stream_insert(:groups, group, at: -1)}
+     |> then(&stream_insert_group(&1, group, at: -1))}
   end
 
   @impl true
@@ -904,4 +927,15 @@ defmodule MossletWeb.GroupLive.Index do
   end
 
   defp notify_self(msg), do: send(self(), {__MODULE__, msg})
+
+  # Pre-decrypt a group before inserting into stream
+  defp stream_insert_group(socket, group, opts \\ []) do
+    decrypted = pre_decrypt_group(group, socket.assigns.current_user, socket.assigns.key)
+    stream_insert(socket, :groups, decrypted, opts)
+  end
+
+  defp stream_insert_pending_group(socket, group, opts) do
+    decrypted = pre_decrypt_group(group, socket.assigns.current_user, socket.assigns.key)
+    stream_insert(socket, :pending_groups, decrypted, opts)
+  end
 end

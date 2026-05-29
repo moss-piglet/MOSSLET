@@ -631,12 +631,54 @@ Note: `@noble/post-quantum` was the original browser-side PQ library (pure JS). 
 
 ### Remaining ZK Gaps (Known, Not Yet Addressed)
 
-**Read path (server decrypts for template rendering):**
-- `decr_item` — ~112 rendering call sites across 22 files (post, group, reply content)
-- `decr_uconn` — ~42 rendering call sites across 12 files (connection names, emails)
-- `decr_avatar`/`decr_banner` — ~11 template uses (6 avatar, 5 banner)
-- Group metadata — ~30 call sites in group_live templates
-- Journal entries — ~8 call sites in journal_live
+**Read path — template decr_item/decr_uconn audit (Phases 3-4 COMPLETE):**
+
+Phase 3A — Post/Reply template `decr_item` elimination:
+- `PostLive.Components` (legacy card system used by `/app/posts` and `/app/posts/:id`):
+  - Added `pre_decrypt_posts` in `PostLive.Index.handle_params` and `PostLive.Show.apply_action`
+  - Post body/username now read from `post.decrypted[:body]` / `post.decrypted[:username]`
+  - Non-public posts use `DecryptPost` JS hook with `phx-update="ignore"` (true ZK)
+  - Public posts use server-side decrypted values (SEO/federation)
+  - Reply body/username use `DecryptReply` hook for non-public, `get_decrypted_reply_body/4` for public
+- `UserConnectionLive.Components.post_first_reply`:
+  - Reply username/body use same `get_decrypted_reply_username/4` and `get_decrypted_reply_body/4` helpers
+  - Fixed bug: reply username was passing `"body"` as field label instead of `"username"`
+- `design_system.ex` `get_decrypted_reply_content/3`:
+  - Confirmed correct: only used as server-side fallback for public posts (browser_decrypt? == false)
+- Form pre-fill (`post_live/form_component.ex`, `replies/form_component.ex`):
+  - Confirmed legitimate: no JS hook for edit pre-fill exists; server must provide plaintext for Trix editor
+  - Added `safe_decr_item/6` helper for graceful nil-on-failure decryption
+
+Phase 3B — Profile field `decr_item` elimination:
+- `user_home_live.ex`:
+  - Added `@decrypted_profile` assign (pre-decrypted name, username, email) in mount
+  - Own profile uses `resolve_decrypted_field` (from DecryptUserFields hook cache)
+  - Connection profile uses `safe_decr_item` with connection key
+  - Removed 6 template `decr_item` calls for profile name/username/email display
+
+Phase 4 — Group metadata:
+- Extended `DecryptGroupMetadata` JS hook to decrypt `description` and `avatar_img` (in addition to name + moniker)
+- Added `pre_decrypt_group/3`, `pre_decrypt_groups/3`, `pre_decrypt_group_metadata/4` helpers
+- Added `:decrypted` virtual field to `Group` schema
+- `group_live/index.ex`: All `stream(:groups, ...)` and `stream_insert` calls pre-decrypt via helpers
+- `group_live/index.html.heex`: Replaced 6 template `decr_item` calls with `group.decrypted[:name]`, `group.decrypted[:description]`, `group.decrypted[:avatar_img]`
+- `user_connection_live/components.ex` group sidebar: Uses `group.decrypted[:name/description]`
+- `user_connection_live/show.ex`: Pre-decrypts groups in `handle_async(:fetch_groups, ...)`
+
+**Remaining `decr_item` in templates (lower priority — settings/edit forms, callbacks):**
+- Group settings pages (`moderate_group_members_live.ex`, `edit_group_members_live.ex`): ~20 calls for member monikers, group names in settings UI. These are admin-only pages; pre-decrypt in mount would be the approach.
+- Group form components (`form_component.ex`, `group_settings/form_component.ex`): ~8 calls for edit form pre-fill. Legitimate server-side.
+- Group message/reply forms (`group_message/form.ex`, `group_live/replies/form_component.ex`): ~8 calls for message composer. Pre-decrypt in callbacks.
+- `user_settings_layout_component.ex`: 1 call for group name in settings sidebar.
+- `post_live/form_component.ex`: 4 calls for group name dropdown + post body edit pre-fill. Legitimate.
+- `design_system.ex` `connection_display_name` helper: 3 `decr_uconn` calls — already a helper function.
+
+**Legitimate server-side decrypt (keep as-is — ~29 calls):**
+- Image URLs for S3 ops (~22 `decr_item`): Server must decrypt to fetch/delete blobs from storage
+- S3 deletion (~10 `decr_avatar`/`decr_banner`): Server must decrypt storage URLs to delete objects
+- Re-encryption workflows (~3 `decr_item`): `update_post_body`/`update_reply_body` decrypt-then-re-encrypt
+- Post username for server-side operations (Bluesky sync, notifications)
+- Profile website URL for URL preview fetching
 
 **Write path (browser sends plaintext, server encrypts):**
 - ~~Journal entry create/update — no journal form encryption hook~~ — DONE. `JournalEntryFormHook` intercepts submit + handles JS-side auto-save (3s debounce), encrypts title/body/mood with user_key via WASM, pushes `save_zk`/`auto_save_zk`. Server-side auto-save disabled when hook active. `JournalEntry.changeset_zk/2` + `Journal.create_journal_entry_zk/2` + `Journal.update_journal_entry_zk/2` store ciphertext directly.

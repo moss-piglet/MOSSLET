@@ -80,16 +80,14 @@
 
           <div id="groups" phx-update="stream" class="space-y-3">
             <%= for {id, group} <- @streams.groups do %>
-              <% current_user_group =
+              <% _current_user_group =
                 if group.public?,
                   do: get_public_user_group(group, @current_user),
                   else: get_user_group(group, @current_user) %>
               <MossletWeb.DesignSystem.liquid_my_group_card
                 id={id}
-                name={decr_item(group.name, @current_user, current_user_group.key, @key, group)}
-                description={
-                  decr_item(group.description, @current_user, current_user_group.key, @key, group)
-                }
+                name={group.decrypted[:name]}
+                description={group.decrypted[:description]}
                 is_public={group.public?}
                 can_edit={can_edit_group?(get_user_group(group, @current_user), @current_user)}
                 can_delete={can_delete_group?(group, @current_user)}
@@ -108,7 +106,7 @@
                     <% conn_avatar =
                       if uconn, do: get_encrypted_avatar_data(uconn, @key) %>
                     <% group_avatar_path =
-                      ~p"/images/groups/#{decr_item(user_group.avatar_img, @current_user, get_user_group(group, @current_user).key, @key, group)}" %>
+                      ~p"/images/groups/#{group.decrypted[:avatar_img] || "default"}" %>
                     <%!-- Connected member with connection avatar --%>
                     <.group_avatar
                       :if={user_group.user_id != @current_user.id && uconn && conn_avatar}
@@ -167,13 +165,11 @@
 
           <div id="groups-invites-list" phx-update="stream" class="space-y-3">
             <%= for {id, group} <- @streams.pending_groups do %>
-              <% user_group = get_user_group(group, @current_user) %>
+              <% _user_group = get_user_group(group, @current_user) %>
               <MossletWeb.DesignSystem.liquid_pending_group_card
                 id={id}
-                name={decr_item(group.name, @current_user, user_group.key, @key, group)}
-                description={
-                  decr_item(group.description, @current_user, user_group.key, @key, group)
-                }
+                name={group.decrypted[:name]}
+                description={group.decrypted[:description]}
                 inviter_name={@inviter_names[group.id]}
                 inserted_at={group.inserted_at}
                 requires_password={group.require_password?}
@@ -188,7 +184,7 @@
                     <% member_conn_avatar =
                       if member_uconn, do: get_encrypted_avatar_data(member_uconn, @key) %>
                     <% member_group_avatar_path =
-                      ~p"/images/groups/#{decr_item(ug.avatar_img, @current_user, get_user_group(group, @current_user).key, @key, group)}" %>
+                      ~p"/images/groups/#{group.decrypted[:avatar_img] || "default"}" %>
 
                     <.phx_avatar
                       :if={ug.user_id != @current_user.id && member_uconn && member_conn_avatar}

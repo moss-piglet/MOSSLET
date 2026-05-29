@@ -250,43 +250,18 @@ defmodule MossletWeb.PostLive.Components do
         <%!-- username --%>
 
         <p
-          :if={my_post?(@post, @current_user) && @post.visibility == :private}
+          :if={!@post.decrypted[:browser_decrypt?]}
           class="text-sm font-semibold leading-6 text-gray-900 dark:text-gray-100"
         >
-          {decr_item(
-            @post.username,
-            @current_user,
-            get_post_key(@post, @current_user),
-            @key,
-            @post,
-            "username"
-          )}
+          {@post.decrypted[:username]}
         </p>
 
         <p
-          :if={@post.visibility == :connections && my_post?(@post, @current_user)}
+          :if={@post.decrypted[:browser_decrypt?]}
           class="text-sm font-semibold leading-6 text-gray-900 dark:text-gray-100"
+          data-decrypt-handle-target={@post.id}
         >
-          {decr_item(
-            @post.username,
-            @current_user,
-            get_post_key(@post, @current_user),
-            @key,
-            @post,
-            "username"
-          )}
-        </p>
-        <p
-          :if={@post.visibility == :connections && !my_post?(@post, @current_user)}
-          class="text-sm font-semibold leading-6 text-gray-900 dark:text-gray-100"
-        >
-          {decr_item(
-            @post.username,
-            @current_user,
-            get_post_key(@post, @current_user),
-            @key,
-            @post
-          )}
+          @...
         </p>
 
         <%!-- sharing with users badge --%>
@@ -357,15 +332,31 @@ defmodule MossletWeb.PostLive.Components do
         </p>
       </div>
 
-      <p class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400 max-w-prose">
-        {decr_item(
-          @post.body,
-          @current_user,
-          get_post_key(@post, @current_user),
-          @key,
-          @post,
-          "body"
-        )}
+      <%!-- Post body: ZK browser-side decrypt for non-public, server-side for public --%>
+      <div :if={@post.decrypted[:browser_decrypt?]}>
+        <div
+          id={"decrypt-post-card-#{@post.id}"}
+          phx-hook="DecryptPost"
+          phx-update="ignore"
+          data-post-id={@post.id}
+          data-current-user-id={@current_user.id}
+          data-sealed-post-key={@post.decrypted[:sealed_post_key]}
+          data-encrypted-body={@post.decrypted[:encrypted_body]}
+          data-encrypted-username={@post.decrypted[:encrypted_username]}
+        >
+          <p
+            data-decrypt-target
+            class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400 max-w-prose animate-pulse"
+          >
+            Decrypting...
+          </p>
+        </div>
+      </div>
+      <p
+        :if={!@post.decrypted[:browser_decrypt?]}
+        class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400 max-w-prose"
+      >
+        {@post.decrypted[:body]}
       </p>
       <%!-- actions --%>
       <div class="inline-flex space-x-2 align-middle">
@@ -526,33 +517,12 @@ defmodule MossletWeb.PostLive.Components do
                   <div class="min-w-0 flex-1">
                     <div>
                       <div class="inline-flex text-sm">
-                        <%!-- Reply username --%>
-                        <%!-- username --%>
-
+                        <%!-- Reply username — use pre-decrypted post data for server-side path --%>
                         <p
-                          :if={reply.visibility == :private && my_post?(reply, @current_user)}
+                          :if={!@post.decrypted[:browser_decrypt?]}
                           class="text-sm font-semibold leading-6 text-gray-900 dark:text-gray-100"
                         >
-                          {decr_uconn_item(
-                            get_item_connection(reply, @current_user).username,
-                            @current_user,
-                            get_uconn_for_shared_item(reply, @current_user),
-                            @key
-                          )}
-                        </p>
-
-                        <p
-                          :if={reply.visibility == :connections}
-                          class="text-sm font-semibold leading-6 text-gray-900 dark:text-gray-100"
-                        >
-                          {decr_item(
-                            reply.username,
-                            @current_user,
-                            get_post_key(@post, @current_user),
-                            @key,
-                            reply,
-                            "username"
-                          )}
+                          {get_decrypted_reply_username(reply, @post, @current_user, @key)}
                         </p>
 
                         <span :if={@current_user} class="inline-flex justify-end text-sm space-x-2">
@@ -610,15 +580,22 @@ defmodule MossletWeb.PostLive.Components do
                       </span>
                     </div>
                     <div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                      <p>
-                        {decr_item(
-                          reply.body,
-                          @current_user,
-                          get_post_key(@post, @current_user),
-                          @key,
-                          reply,
-                          "body"
-                        )}
+                      <div
+                        :if={@post.decrypted[:browser_decrypt?]}
+                        id={"decrypt-reply-preview-#{reply.id}"}
+                        phx-hook="DecryptReply"
+                        phx-update="ignore"
+                        data-post-id={@post.id}
+                        data-sealed-post-key={@post.decrypted[:sealed_post_key]}
+                        data-encrypted-body={reply.body}
+                        data-encrypted-username={reply.username}
+                        data-reply-id={reply.id}
+                        data-current-user-id={@current_user.id}
+                      >
+                        <p data-decrypt-reply-body class="animate-pulse">Decrypting...</p>
+                      </div>
+                      <p :if={!@post.decrypted[:browser_decrypt?]}>
+                        {get_decrypted_reply_body(reply, @post, @current_user, @key)}
                       </p>
                     </div>
                     <div
@@ -756,29 +733,18 @@ defmodule MossletWeb.PostLive.Components do
               <%!-- username --%>
 
               <p
-                :if={@post.visibility == :private}
+                :if={!@post.decrypted[:browser_decrypt?]}
                 class="text-sm font-semibold leading-6 text-gray-900 dark:text-gray-100"
               >
-                {decr_uconn_item(
-                  get_item_connection(@post, @current_user).username,
-                  @current_user,
-                  get_uconn_for_shared_item(@post, @current_user),
-                  @key
-                )}
+                {@post.decrypted[:username]}
               </p>
 
               <p
-                :if={@post.visibility == :connections}
+                :if={@post.decrypted[:browser_decrypt?]}
                 class="text-sm font-semibold leading-6 text-gray-900 dark:text-gray-100"
+                data-decrypt-handle-target={@post.id}
               >
-                {decr_item(
-                  @post.username,
-                  @current_user,
-                  get_post_key(@post, @current_user),
-                  @key,
-                  @post,
-                  "username"
-                )}
+                @...
               </p>
 
               <%!-- sharing with users badge --%>
@@ -849,17 +815,33 @@ defmodule MossletWeb.PostLive.Components do
               </p>
             </div>
 
-            <div id={"post-body-#{@post.id}"} phx-hook="TrixContentPostHook" class="post-body">
-              {html_block(
-                decr_item(
-                  @post.body,
-                  @current_user,
-                  get_post_key(@post, @current_user),
-                  @key,
-                  @post,
-                  "body"
-                )
-              )}
+            <%!-- Post body: ZK browser-side decrypt for non-public, server-side for public --%>
+            <div :if={@post.decrypted[:browser_decrypt?]}>
+              <div
+                id={"decrypt-post-show-#{@post.id}"}
+                phx-hook="DecryptPost"
+                phx-update="ignore"
+                data-post-id={@post.id}
+                data-current-user-id={@current_user.id}
+                data-sealed-post-key={@post.decrypted[:sealed_post_key]}
+                data-encrypted-body={@post.decrypted[:encrypted_body]}
+                data-encrypted-username={@post.decrypted[:encrypted_username]}
+              >
+                <div
+                  data-decrypt-target
+                  class="post-body animate-pulse"
+                >
+                  Decrypting...
+                </div>
+              </div>
+            </div>
+            <div
+              :if={!@post.decrypted[:browser_decrypt?]}
+              id={"post-body-#{@post.id}"}
+              phx-hook="TrixContentPostHook"
+              class="post-body"
+            >
+              {html_block(@post.decrypted[:body])}
             </div>
             <%!-- actions --%>
             <div class="inline-flex mt-6 space-x-2 align-middle">
@@ -1159,32 +1141,12 @@ defmodule MossletWeb.PostLive.Components do
                 <div class="min-w-0 flex-1">
                   <div>
                     <div class="inline-flex text-sm">
-                      <%!-- Reply username --%>
-                      <%!-- username --%>
+                      <%!-- Reply username — server-side for public, browser-side for non-public --%>
                       <p
-                        :if={@reply.visibility == :private}
+                        :if={!@post.decrypted[:browser_decrypt?]}
                         class="text-sm font-semibold leading-6 text-gray-900 dark:text-gray-100"
                       >
-                        {decr_uconn_item(
-                          get_item_connection(@reply, @current_user).username,
-                          @current_user,
-                          get_uconn_for_shared_item(@reply, @current_user),
-                          @key
-                        )}
-                      </p>
-
-                      <p
-                        :if={@reply.visibility in [:connections]}
-                        class="text-sm font-semibold leading-6 text-gray-900 dark:text-gray-100"
-                      >
-                        {decr_item(
-                          @reply.username,
-                          @current_user,
-                          get_post_key(@post, @current_user),
-                          @key,
-                          @reply,
-                          "username"
-                        )}
+                        {get_decrypted_reply_username(@reply, @post, @current_user, @key)}
                       </p>
 
                       <span :if={@current_user} class="inline-flex justify-end text-sm space-x-2">
@@ -1250,22 +1212,29 @@ defmodule MossletWeb.PostLive.Components do
                       </time>
                     </span>
                   </div>
+                  <%!-- Reply body: ZK browser-side for non-public, server-side for public --%>
                   <div
+                    :if={@post.decrypted[:browser_decrypt?]}
+                    id={"decrypt-reply-show-#{@reply.id}"}
+                    phx-hook="DecryptReply"
+                    phx-update="ignore"
+                    data-post-id={@post.id}
+                    data-sealed-post-key={@post.decrypted[:sealed_post_key]}
+                    data-encrypted-body={@reply.body}
+                    data-encrypted-username={@reply.username}
+                    data-reply-id={@reply.id}
+                    data-current-user-id={@current_user.id}
+                  >
+                    <p data-decrypt-reply-body class="post-body animate-pulse">Decrypting...</p>
+                  </div>
+                  <div
+                    :if={!@post.decrypted[:browser_decrypt?]}
                     id={"reply-body-#{@reply.id}"}
                     phx-hook="TrixContentReplyHook"
                     data-post-id={@post.id}
                     class="post-body"
                   >
-                    {html_block(
-                      decr_item(
-                        @reply.body,
-                        @current_user,
-                        get_post_key(@post, @current_user),
-                        @key,
-                        @reply,
-                        "body"
-                      )
-                    )}
+                    {html_block(get_decrypted_reply_body(@reply, @post, @current_user, @key))}
                   </div>
                 </div>
               </div>

@@ -161,6 +161,60 @@ defmodule MossletWeb.UserHomeLive do
 
     socket = assign(socket, :profile_fields, profile_fields)
 
+    # Pre-decrypt profile display fields (name, username, email) to avoid
+    # template-level decr_item calls. For own profile, use the user's decrypted
+    # map; for connection profiles, decrypt with the connection key.
+    decrypted_profile =
+      cond do
+        profile_owner? ->
+          %{
+            name:
+              resolve_decrypted_field(current_user, :name) ||
+                safe_decr_item(
+                  current_user.connection.profile.name,
+                  current_user,
+                  current_user.conn_key,
+                  key,
+                  current_user.connection.profile
+                ),
+            username: resolve_decrypted_field(current_user, :username),
+            email: resolve_decrypted_field(current_user, :email)
+          }
+
+        user_connection ->
+          %{
+            name:
+              safe_decr_item(
+                profile_user.connection.profile.name,
+                current_user,
+                user_connection.key,
+                key,
+                profile_user.connection.profile
+              ),
+            username:
+              safe_decr_item(
+                profile_user.connection.profile.username,
+                current_user,
+                user_connection.key,
+                key,
+                profile_user.connection.profile
+              ),
+            email:
+              safe_decr_item(
+                profile_user.connection.profile.email,
+                current_user,
+                user_connection.key,
+                key,
+                profile_user.connection.profile
+              )
+          }
+
+        true ->
+          %{name: nil, username: nil, email: nil}
+      end
+
+    socket = assign(socket, :decrypted_profile, decrypted_profile)
+
     socket =
       if connected?(socket) do
         socket
@@ -2653,15 +2707,7 @@ defmodule MossletWeb.UserHomeLive do
                         if @profile_user.connection.profile.show_avatar?,
                           do: get_encrypted_avatar_data(@current_scope.user, @current_scope.key)
                       }
-                      name={
-                        decr_item(
-                          @current_scope.user.connection.profile.name,
-                          @current_scope.user,
-                          @current_scope.user.conn_key,
-                          @current_scope.key,
-                          @current_scope.user.connection.profile
-                        )
-                      }
+                      name={@decrypted_profile.name}
                       size="xxl"
                       status={to_string(@current_scope.user.status)}
                       status_message={
@@ -2688,11 +2734,7 @@ defmodule MossletWeb.UserHomeLive do
                         :if={@current_scope.user.connection.profile.show_name?}
                         class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
                       >
-                        {"#{decr_item(@current_scope.user.connection.profile.name,
-                        @current_scope.user,
-                        @current_scope.user.connection.profile.profile_key,
-                        @current_scope.key,
-                        @current_scope.user.connection.profile)}"}
+                        {@decrypted_profile.name}
                       </h1>
 
                       <h1
@@ -2817,15 +2859,7 @@ defmodule MossletWeb.UserHomeLive do
           <div class="mb-8">
             <MossletWeb.DesignSystem.liquid_new_post_prompt
               id="home-new-post-prompt"
-              user_name={
-                decr_item(
-                  @current_scope.user.connection.profile.name,
-                  @current_scope.user,
-                  @current_scope.user.conn_key,
-                  @current_scope.key,
-                  @current_scope.user.connection.profile
-                )
-              }
+              user_name={@decrypted_profile.name}
               user_avatar={
                 if not @profile_user.connection.profile.show_avatar?,
                   do: nil
@@ -4082,15 +4116,7 @@ defmodule MossletWeb.UserHomeLive do
                           do: get_encrypted_avatar_data(@user_connection, @current_scope.key)
                       }
                       id={"profile-user-avatar-#{@profile_user.id}"}
-                      name={
-                        decr_item(
-                          @profile_user.connection.profile.name,
-                          @current_scope.user,
-                          @user_connection.key,
-                          @current_scope.key,
-                          @profile_user.connection.profile
-                        )
-                      }
+                      name={@decrypted_profile.name}
                       size="xxl"
                       status={to_string(@profile_user.status)}
                       encrypted_status_data={
@@ -4116,11 +4142,7 @@ defmodule MossletWeb.UserHomeLive do
                         :if={@profile_user.connection.profile.show_name?}
                         class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
                       >
-                        {"#{decr_item(@profile_user.connection.profile.name,
-                        @current_scope.user,
-                        @user_connection.key,
-                        @current_scope.key,
-                        @profile_user.connection.profile)}"}
+                        {@decrypted_profile.name}
                       </h1>
                       <h1
                         :if={!@profile_user.connection.profile.show_name?}
@@ -4140,13 +4162,7 @@ defmodule MossletWeb.UserHomeLive do
                           }
                           size="sm"
                         >
-                          @{decr_item(
-                            @profile_user.connection.profile.username,
-                            @current_scope.user,
-                            @user_connection.key,
-                            @current_scope.key,
-                            @profile_user.connection.profile
-                          )}
+                          @{@decrypted_profile.username}
                         </MossletWeb.DesignSystem.liquid_badge>
 
                         <%!-- Email badge if show_email? is true --%>
@@ -4165,13 +4181,7 @@ defmodule MossletWeb.UserHomeLive do
                           size="sm"
                         >
                           <.phx_icon name="hero-envelope" class="size-3 mr-1" />
-                          {decr_item(
-                            @profile_user.connection.profile.email,
-                            @current_scope.user,
-                            @user_connection.key,
-                            @current_scope.key,
-                            @profile_user.connection.profile
-                          )}
+                          {@decrypted_profile.email}
                         </MossletWeb.DesignSystem.liquid_badge>
 
                         <%!-- Connection badge --%>

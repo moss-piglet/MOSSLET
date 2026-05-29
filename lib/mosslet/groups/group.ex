@@ -17,6 +17,7 @@ defmodule Mosslet.Groups.Group do
     field :description, Encrypted.Binary, redact: true
     field :user_group_map, :map, virtual: true
     field :password, :string, virtual: true, redact: true
+    field :decrypted, :map, virtual: true
     field :hashed_password, :string, redact: true
     field :require_password?, :boolean, default: false
     field :public?, :boolean, default: false

@@ -31,6 +31,8 @@ defmodule MossletWeb.PostLive.Show do
       if group, do: Endpoint.subscribe("group:#{group.id}")
     end
 
+    post = pre_decrypt_post(post, current_user, socket.assigns.key)
+
     {:ok,
      socket
      |> assign(:post, post)
@@ -105,13 +107,19 @@ defmodule MossletWeb.PostLive.Show do
   end
 
   defp apply_action(socket, :show, %{"id" => id}) do
+    post =
+      Timeline.get_post!(id)
+      |> pre_decrypt_post(socket.assigns.current_user, socket.assigns.key)
+
     socket
     |> assign(:page_title, "Show Post")
-    |> assign(:post, Timeline.get_post!(id))
+    |> assign(:post, post)
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
-    post = Timeline.get_post!(id)
+    post =
+      Timeline.get_post!(id)
+      |> pre_decrypt_post(socket.assigns.current_user, socket.assigns.key)
 
     socket
     |> assign(:page_title, "Edit Post")
@@ -120,7 +128,9 @@ defmodule MossletWeb.PostLive.Show do
   end
 
   defp apply_action(socket, :reply, %{"id" => id}) do
-    post = Timeline.get_post!(id)
+    post =
+      Timeline.get_post!(id)
+      |> pre_decrypt_post(socket.assigns.current_user, socket.assigns.key)
 
     socket
     |> assign(:page_title, "Reply to Post")
@@ -130,7 +140,10 @@ defmodule MossletWeb.PostLive.Show do
   end
 
   defp apply_action(socket, :reply_edit, %{"id" => id, "reply_id" => reply_id}) do
-    post = Timeline.get_post!(id)
+    post =
+      Timeline.get_post!(id)
+      |> pre_decrypt_post(socket.assigns.current_user, socket.assigns.key)
+
     reply = Timeline.get_reply!(reply_id)
 
     socket
