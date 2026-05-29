@@ -26,12 +26,11 @@ defmodule MossletWeb.GroupLive.PendingComponent do
       >
         <%= for {id, group} <- @stream do %>
           <% user_group = get_user_group(group, @current_user) %>
-          <% uconn = get_current_user_connection_between_users!(group.user_id, @current_user.id) %>
           <MossletWeb.DesignSystem.liquid_pending_group_card
             id={id}
             name={decr_item(group.name, @current_user, user_group.key, @key, group)}
             description={decr_item(group.description, @current_user, user_group.key, @key, group)}
-            inviter_name={decr_uconn(uconn.connection.username, @current_user, uconn.key, @key)}
+            inviter_name={@decrypted_inviters[group.id]}
             inserted_at={group.inserted_at}
             requires_password={group.require_password?}
           >
@@ -141,8 +140,24 @@ defmodule MossletWeb.GroupLive.PendingComponent do
 
   @impl true
   def update(assigns, socket) do
-    {:ok,
-     socket
-     |> assign(assigns)}
+    socket = assign(socket, assigns)
+    current_user = assigns.current_user
+    key = assigns.key
+
+    decrypted_inviters =
+      if stream = socket.assigns[:stream] do
+        Map.new(stream, fn {_id, group} ->
+          uconn = get_current_user_connection_between_users!(group.user_id, current_user.id)
+
+          inviter =
+            decr_uconn(uconn.connection.username, current_user, uconn.key, key)
+
+          {group.id, inviter}
+        end)
+      else
+        %{}
+      end
+
+    {:ok, assign(socket, :decrypted_inviters, decrypted_inviters)}
   end
 end

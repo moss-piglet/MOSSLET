@@ -83,17 +83,6 @@ defmodule MossletWeb.EditDetailsLive do
                 user={@current_user}
                 encryption_key={@key}
                 on_delete="delete_avatar"
-                url={
-                  if @current_user.connection.avatar_url,
-                    do:
-                      decr_avatar(
-                        @current_user.connection.avatar_url,
-                        @current_user,
-                        @current_user.conn_key,
-                        @key
-                      ),
-                    else: nil
-                }
                 alt_text={@avatar_alt_text}
                 crop={@avatar_crop}
                 preview_data_url={@avatar_preview_data_url}

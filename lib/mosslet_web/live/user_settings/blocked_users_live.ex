@@ -317,25 +317,13 @@ defmodule MossletWeb.BlockedUsersLive do
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
               <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                <%= if @blocked_user.user_connection do %>
-                  {decr_uconn(
-                    @blocked_user.user_connection.connection.name,
-                    @current_scope.user,
-                    @blocked_user.user_connection.key,
-                    @current_scope.key
-                  )}
-                <% else %>
-                  [No connection found]
-                <% end %>
+                {if @blocked_user.user_connection,
+                  do: @blocked_user.decrypted_connection_name,
+                  else: "[No connection found]"}
               </p>
               <%= if @blocked_user.user_connection do %>
                 <span class="text-xs font-mono text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-md truncate">
-                  @{decr_uconn(
-                    @blocked_user.user_connection.connection.username,
-                    @current_scope.user,
-                    @blocked_user.user_connection.key,
-                    @current_scope.key
-                  )}
+                  @{@blocked_user.decrypted_connection_username}
                 </span>
               <% end %>
             </div>
@@ -432,9 +420,35 @@ defmodule MossletWeb.BlockedUsersLive do
           nil
         end
 
-      # Add the user_connection to the user_block for decryption purposes
+      # Pre-decrypt connection name and username
+      {decrypted_name, decrypted_username} =
+        if user_connection do
+          name =
+            MossletWeb.Helpers.decr_uconn(
+              user_connection.connection.name,
+              current_user,
+              user_connection.key,
+              key
+            )
+
+          username =
+            MossletWeb.Helpers.decr_uconn(
+              user_connection.connection.username,
+              current_user,
+              user_connection.key,
+              key
+            )
+
+          {name, username}
+        else
+          {nil, nil}
+        end
+
+      # Add the decrypted fields and user_connection to the user_block
       user_block
       |> Map.put(:reason, decrypted_reason)
+      |> Map.put(:decrypted_connection_name, decrypted_name)
+      |> Map.put(:decrypted_connection_username, decrypted_username)
       |> Map.put(:user_connection, user_connection)
     end)
   end
