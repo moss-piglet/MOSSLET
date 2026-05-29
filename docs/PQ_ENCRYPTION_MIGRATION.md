@@ -505,6 +505,7 @@ These can follow the same phased approach: first move the read path (decrypt in 
 20f. **ZK Visibility group: browser-side name/description encryption** — DONE. New `VisibilityGroupFormHook` JS hook intercepts visibility group form submit, encrypts name and description with the user's `user_key` (from `getUserKey()` → `#decrypt-user-fields[data-sealed-user-key]`), and pushes `"save_visibility_group_zk"` event. `User.visibility_group_changeset_zk/2` accepts pre-encrypted name/description and stores directly. `Accounts.create_or_update_visibility_group_zk/3` handles both create and update paths. Connection IDs remain encrypted server-side with `user_key` (they're UUIDs used only for server queries, not user-visible content). Graceful fallback to normal server-side encryption if WASM unavailable.
 20g. **ZK Journal book title/description: browser-side encryption** — DONE. New `JournalBookFormHook` JS hook intercepts journal book form submit (create and edit), encrypts title and description with user_key via `getUserKey()` + `encryptWithKey()`, and pushes `"save_book_zk"` event. `JournalBook.changeset_zk/2` accepts pre-encrypted title/description + title_blind_index and stores directly. `Journal.create_book_zk/2` and `Journal.update_book_zk/3` context functions handle both paths. New `ExtractedEntryFormHook` handles the digitized entry form (handwriting OCR preview) — encrypts title/body before submission via `"save_extracted_entry_zk"` event, reusing existing `JournalEntry.changeset_zk`. Both hooks fall through to normal server-side encryption if WASM/keys unavailable. Cover image upload and cover color remain unencrypted (operational metadata). Note: OCR extraction itself still runs server-side (OpenAI) — true ZK digitization would require client-side OCR (future enhancement).
 20h. **ZK Group create: browser-side name/description encryption for new circles** — DONE. True ZK two-phase commit (same pattern as PostFormHook Phase 18). Phase 1: browser generates `group_key` via WASM `generateKey()`, encrypts name/description with `encryptSecretboxString()`, seals key for creator via `sealForUser()` with hybrid PQ, encrypts creator's display name, and pushes `"create_group_zk"`. Phase 2: server responds with `"seal_group_key_for_members"` containing each member's `public_key`, `pq_public_key`, plaintext display name, and server-generated moniker/avatar_img. Browser seals group_key for every member via `sealForUser()`, encrypts each member's name/moniker/avatar_img with group_key, and pushes `"finalize_group_zk"`. The raw group_key NEVER exists in server memory. `Group.create_changeset_zk/1` and `UserGroup.owner_changeset_zk/1`/`member_changeset_zk/1` accept only pre-encrypted fields and pre-sealed keys. `Groups.create_group_zk/4` creates group + owner in Ecto.Multi, then inserts member user_groups with browser-sealed keys. Public groups fall through to server-side encryption. Graceful fallback if WASM/keys unavailable.
+20i. **ZK Share note: browser-side encryption with post_key** — DONE. New `ShareNoteFormHook` on the share modal form encrypts the optional share note with the cached `post_key` (from `DecryptPost` → `getCachedPostKey(postId)`) before the form data reaches the server. The `RepostFormHook` receives the pre-encrypted note, decrypts it with the original post_key, and re-encrypts with the new repost's post_key. The plaintext share note never leaves the browser for non-public posts. Public posts fall through to server-side encryption. Updated `share_modal_component.ex` (hook + encrypted_share_note detection), `timeline_live/index.ex` and `user_home_live.ex` (`{:submit_share}` handlers pass ciphertext to `repost_encrypt_request`). Same pattern as `BookmarkNoteHook`.
 21. **Full data structure audit** — Comprehensive review of ALL encrypted data structures (excl. memories) to identify any gaps.
 22. **ZK AI migration** — Journal insights, mood prompts, language filters → browser-based AI.
 23. **NSFW fail-open verification** — DONE. Verified all five failure modes (CDN unreachable, model download fails, IndexedDB cache corrupted, classification throws at runtime, no WebGL backend) result in fail-open behavior — uploads proceed without client-side NSFW checks. This is by design: the UI always implies NSFW checking is active (deterrent effect); server-side moderation (LLM vision + Bumblebee/FLAME fallback) provides a genuine safety net. Model lifecycle events (`nsfw:model_ready`, `nsfw:model_unavailable`) pushed from NsfwCheck JS hook to server for Logger-based operational monitoring. No user-visible indicator when model is unavailable — preserves deterrent. `Mosslet.AI.Images` moduledoc updated with full three-tier fail-open architecture documentation.
@@ -638,84 +639,98 @@ Note: `@noble/post-quantum` was the original browser-side PQ library (pure JS). 
     - Dead `EmailNotificationsBroadway` module removed (not supervised, never called — replaced by GenServer)
     - Files: `email_notifications_processor.ex`, `email_notifications_genserver.ex`, `reply_notifications_genserver.ex`, `timeline.ex`, `timeline_live/index.ex`, `application.ex`, `platform/config.ex`
 
+### Fixed (May 2026 audit #2)
+
+12. **Hackney CVE migration** — Replaced all hackney 1.x HTTP client usage (CVE-2025-XXXX) with `Req`/`Finch`. Updated Stripe API calls, OAuth flows, and HTTP utilities. Verified all Stripe checkout, portal, connect, and webhook flows work with the new HTTP stack.
+
+13. **Redundant server-side decrypt removal (Phases 3A-5):**
+    - Phase 3A: Removed ~15 redundant `decr_item` calls for post/reply display in `PostLive.Components`, `UserConnectionLive.Components.post_first_reply`. Non-public posts now use `DecryptPost`/`DecryptReply` JS hooks (true ZK). Public posts use pre-decrypted `post.decrypted[:field]` assigns. Added `safe_decr_item/6` helper for graceful nil-on-failure.
+    - Phase 3B: Removed ~6 redundant profile field `decr_item` calls in `user_home_live.ex`. Added `@decrypted_profile` assign pre-decrypted at mount.
+    - Phase 4: Extended `DecryptGroupMetadata` JS hook to decrypt description and avatar_img. Added `pre_decrypt_group/3` helpers and `:decrypted` virtual field on `Group` schema. Removed ~6 template `decr_item` calls in `group_live/index.html.heex` and `user_connection_live/components.ex` group sidebar.
+    - Phase 5: Updated this migration doc with final status.
+
+14. **Dispatch `mosslet:logout` event on sign-out** — The server-side sign-out (`user_session_controller.ex`) now pushes a `mosslet:logout` JS event before redirect. This triggers `session.js` cleanup: clears all sessionStorage keys, post key cache (LRU), user_key/conn_key caches, and persistent key cache (IndexedDB wrapping key + localStorage ciphertext). Previously, signing out only destroyed the server-side session — browser-side crypto state persisted until tab close.
+
+15. **SECURITY: Remove 3 unqueried blind indexes** — Three server-side HMAC blind index columns were receiving plaintext from ZK form hooks but were never actually queried:
+    - `User.status_message_hash` / `Connection.status_message_hash` — never used in any `WHERE` clause
+    - `JournalEntry.title_hash` — never used in any `WHERE` clause
+    - `User.name_hash` / `Connection.name_hash` — never used in any `WHERE` clause
+    ZK form hooks no longer send these values. Server-side `_zk` changesets no longer write to these columns. The columns remain in the schema for legacy compatibility but receive no new data in the ZK path.
+
+16. **SECURITY: Bare `{:ok, _} =` crash patterns in encrypt functions (11 sites)** — Eleven call sites used `{:ok, _} = Encrypted.Utils.encrypt(...)` which would crash the process with a `MatchError` on encryption failure (e.g., nil key, corrupt data). Replaced with explicit `case` pattern matching and graceful error handling. Affected: `user.ex` (5 sites — connection_map encryption for email, username, name, status, avatar), `helpers.ex` (3 sites — trix key generation, profile key generation, group key repair), `connection.ex` (2 sites — profile data encryption), `user_connection.ex` (1 site — label encryption).
+
+17. **WASM init retry on rejection** — `nacl.js` `ensureReady()` had a race condition: if the first WASM initialization promise was rejected (e.g., network error), subsequent calls would immediately return the cached rejected promise instead of retrying. Now resets `_readyPromise = null` on rejection, allowing the next crypto call to trigger a fresh init attempt.
+
+18. **ZK Write: Group create — browser-side name/description encryption** — True ZK two-phase commit for new circle/group creation. Phase 1: browser generates `group_key` via WASM, encrypts name/description, seals key for creator with hybrid PQ, pushes `"create_group_zk"`. Phase 2: server responds with member public keys; browser seals group_key for each member, encrypts member metadata, pushes `"finalize_group_zk"`. Raw group_key never exists in server memory. `Group.create_changeset_zk/1`, `UserGroup.owner_changeset_zk/1`/`member_changeset_zk/1`, `Groups.create_group_zk/4` accept only pre-encrypted fields. Public groups fall through to server-side encryption.
+
+19. **ZK Write: Share note — browser-side encryption with post_key** — New `ShareNoteFormHook` on the share modal encrypts the optional share note with the cached `post_key` (from `DecryptPost` → `getCachedPostKey`) before the form data reaches the server. The `RepostFormHook` re-encrypts the note with the new repost's post_key (decrypt with original key → encrypt with new key). Plaintext note never leaves the browser for non-public posts. Public posts fall through to server-side encryption. Updated `share_modal_component.ex`, `timeline_live/index.ex`, and `user_home_live.ex` to detect and pass through `encrypted_share_note`.
+
 ### Remaining ZK Gaps (Known, Not Yet Addressed)
 
-**Read path — template decr_item/decr_uconn audit (Phases 3-4 COMPLETE):**
+**`decr_item`/`decr_uconn` inventory (~141 call sites total):**
 
-Phase 3A — Post/Reply template `decr_item` elimination:
-- `PostLive.Components` (legacy card system used by `/app/posts` and `/app/posts/:id`):
-  - Added `pre_decrypt_posts` in `PostLive.Index.handle_params` and `PostLive.Show.apply_action`
-  - Post body/username now read from `post.decrypted[:body]` / `post.decrypted[:username]`
-  - Non-public posts use `DecryptPost` JS hook with `phx-update="ignore"` (true ZK)
-  - Public posts use server-side decrypted values (SEO/federation)
-  - Reply body/username use `DecryptReply` hook for non-public, `get_decrypted_reply_body/4` for public
-- `UserConnectionLive.Components.post_first_reply`:
-  - Reply username/body use same `get_decrypted_reply_username/4` and `get_decrypted_reply_body/4` helpers
-  - Fixed bug: reply username was passing `"body"` as field label instead of `"username"`
-- `design_system.ex` `get_decrypted_reply_content/3`:
-  - Confirmed correct: only used as server-side fallback for public posts (browser_decrypt? == false)
-- Form pre-fill (`post_live/form_component.ex`, `replies/form_component.ex`):
-  - Confirmed legitimate: no JS hook for edit pre-fill exists; server must provide plaintext for Trix editor
-  - Added `safe_decr_item/6` helper for graceful nil-on-failure decryption
+| Category | Count | Notes |
+|----------|-------|-------|
+| Legitimate server-side | ~50 | S3 ops, re-encryption, notifications, Bluesky sync |
+| Settings/admin pages | ~31 | Group settings, blocked users, connection display |
+| Form pre-fill | ~19 | Edit forms (Trix editor, textarea) — server must provide plaintext |
+| Display-only (ZK-migratable) | ~41 | Template rendering — could use browser-side decrypt hooks |
 
-Phase 3B — Profile field `decr_item` elimination:
-- `user_home_live.ex`:
-  - Added `@decrypted_profile` assign (pre-decrypted name, username, email) in mount
-  - Own profile uses `resolve_decrypted_field` (from DecryptUserFields hook cache)
-  - Connection profile uses `safe_decr_item` with connection key
-  - Removed 6 template `decr_item` calls for profile name/username/email display
+**Legitimate server-side decrypt (~50 calls, keep as-is):**
+- S3 image fetch/delete: `accounts.ex` (3), `helpers.ex` (2), `timeline_live/index.ex` (11), `user_home_live.ex` (5), `user_connection_live/show.ex` (5), `post_live/show.ex` (5) — server must decrypt storage URLs to fetch/delete S3 objects
+- Re-encryption for update workflows: `timeline_live/index.ex` (4), `user_connection_live/show.ex` (4), `post_live/show.ex` (4) — decrypt username/avatar to re-encrypt with updated post_key
+- Reply body/username for notification cards: `design_system.ex` (2), `helpers.ex` (4)
+- Connection username for shared-user list building: `helpers.ex` (1)
+- Removed-by-user-ids for filtering: `timeline/adapters/web.ex` (2)
+- Post username for Bluesky sync: `helpers.ex` (1)
 
-Phase 4 — Group metadata:
-- Extended `DecryptGroupMetadata` JS hook to decrypt `description` and `avatar_img` (in addition to name + moniker)
-- Added `pre_decrypt_group/3`, `pre_decrypt_groups/3`, `pre_decrypt_group_metadata/4` helpers
-- Added `:decrypted` virtual field to `Group` schema
-- `group_live/index.ex`: All `stream(:groups, ...)` and `stream_insert` calls pre-decrypt via helpers
-- `group_live/index.html.heex`: Replaced 6 template `decr_item` calls with `group.decrypted[:name]`, `group.decrypted[:description]`, `group.decrypted[:avatar_img]`
-- `user_connection_live/components.ex` group sidebar: Uses `group.decrypted[:name/description]`
-- `user_connection_live/show.ex`: Pre-decrypts groups in `handle_async(:fetch_groups, ...)`
+**Settings/admin pages (~31 calls, lower priority):**
+- `group_settings/moderate_group_members_live.ex`: ~10 calls for member names/monikers in moderation UI
+- `group_settings/edit_group_members_live.ex`: ~5 calls for member names/monikers, group name
+- `group_settings/form_component.ex`: ~2 calls for member cards
+- `user_settings/blocked_users_live.ex`: ~2 calls for blocked user names
+- `user_settings/user_settings_layout_component.ex`: 1 call for group name in sidebar
+- `user_connection_live/show.ex`: ~5 calls for connection profile fields display
+- `user_connection_live/index.ex`: ~3 calls for arrival request fields
+- `user_connection_live/form_component.ex`: 1 call for label edit pre-fill
+- `design_system.ex`: ~3 calls for `connection_display_name` helper
 
-**Remaining `decr_item` in templates (lower priority — settings/edit forms, callbacks):**
-- Group settings pages (`moderate_group_members_live.ex`, `edit_group_members_live.ex`): ~20 calls for member monikers, group names in settings UI. These are admin-only pages; pre-decrypt in mount would be the approach.
-- Group form components (`form_component.ex`, `group_settings/form_component.ex`): ~8 calls for edit form pre-fill. Legitimate server-side.
-- Group message/reply forms (`group_message/form.ex`, `group_live/replies/form_component.ex`): ~8 calls for message composer. Pre-decrypt in callbacks.
-- `user_settings_layout_component.ex`: 1 call for group name in settings sidebar.
-- `post_live/form_component.ex`: 4 calls for group name dropdown + post body edit pre-fill. Legitimate.
-- `design_system.ex` `connection_display_name` helper: 3 `decr_uconn` calls — already a helper function.
+**Form pre-fill (~19 calls, legitimate server-side):**
+- `post_live/form_component.ex`: 5 calls (group name dropdown, post body edit)
+- `post_live/replies/form_component.ex`: 2 calls (post context, reply body edit)
+- `group_live/form_component.ex`: 3 calls (group name/description edit, member select)
+- `group_live/replies/form_component.ex`: 5 calls (post context, reply body edit)
+- `user_settings/edit_profile_live.ex`: 4 calls (profile about + fields for Trix editor)
 
-**Legitimate server-side decrypt (keep as-is — ~29 calls):**
-- Image URLs for S3 ops (~22 `decr_item`): Server must decrypt to fetch/delete blobs from storage
-- S3 deletion (~10 `decr_avatar`/`decr_banner`): Server must decrypt storage URLs to delete objects
-- Re-encryption workflows (~3 `decr_item`): `update_post_body`/`update_reply_body` decrypt-then-re-encrypt
-- Post username for server-side operations (Bluesky sync, notifications)
-- Profile website URL for URL preview fetching
+**Display-only / ZK-migratable (~41 calls):**
+- `user_home_live.ex`: ~9 calls (profile name/username/email display, post author handles)
+- `timeline_live/index.ex`: ~4 calls (connection name/username for author display, shared-user list)
+- `helpers.ex`: ~7 calls (`pre_decrypt_group_metadata`, `decrypt_user_connections`, `decrypt_shared_user_connections`, `get_item_author_username`, `get_shared_item_username`)
+- `group_live/`: ~7 calls (join page group name, pending invitation cards, @mention monikers, message form member display)
+- `user_connection_live/components.ex`: ~12 calls (connection card name/label/username/email, arrival cards, compact cards)
+- `group_live/index.ex`: 1 call (connection username for group inviter)
 
-**Write path (browser sends plaintext, server encrypts):**
-- ~~Journal entry create/update — no journal form encryption hook~~ — DONE. `JournalEntryFormHook` intercepts submit + handles JS-side auto-save (3s debounce), encrypts title/body/mood with user_key via WASM, pushes `save_zk`/`auto_save_zk`. Server-side auto-save disabled when hook active. `JournalEntry.changeset_zk/2` + `Journal.create_journal_entry_zk/2` + `Journal.update_journal_entry_zk/2` store ciphertext directly.
-- ~~Status message updates — server encrypts on write~~ — DONE. `StatusFormHook` encrypts status_message with both user_key and conn_key (dual-update pattern), pushes `update_status_zk`. `User.status_changeset_zk/2` + `Statuses.update_user_status_zk/2` store pre-encrypted blobs in both users and connections tables.
-- ~~Profile name/username update forms~~ — DONE. `ProfileFieldsFormHook` (generic, reusable) encrypts with both user_key and conn_key, pushes ZK events. `User.name_changeset_zk/2` + `User.username_changeset_zk/2` + `Accounts.update_user_name_zk/2` + `Accounts.update_user_username_zk/2` store ciphertext. Profile sync (re-encrypt with profile_key) skipped in ZK path — profile fields handled separately.
+**Write path — remaining items where browser sends plaintext:**
 - Profile about/bio — uses `profile_key` (context-specific, per-profile). Needs per-profile key unseal in browser. Deferred.
-- Connection label/notes — uses `conn_key` via `uconn.key` (per-connection sealed). Needs per-connection key unseal. Deferred.
-- Group metadata updates — uses `group_key` (per-group sealed). Needs per-group key unseal in browser. Deferred.
-- Block reasons — uses `user_key`. Straightforward but low priority. Deferred.
-- Reply submission — no encryption in ReplyComposer. Uses post_key. Deferred.
+- Connection label edit — `ConnectionLabelFormHook` handles new labels; edit pre-fill still server-side. Deferred.
 - Email update — intentional: server must see plaintext email to send verification link
-- Profile update forms (about) — no EncryptProfileFields hook. Uses profile_key. Deferred.
 
-**Also done (shared infra):**
-- Extracted `getUserKey()` and `getConnKey()` into `session.js` — shared across all hooks, replaced duplicates in `decrypt-journal-entry.js` and `zk-mood-insights.js`
-- `getSealedUserKey()` and `getSealedConnKey()` exported from `session.js` for any hook that needs them
-- Cached user_key/conn_key cleared on logout alongside post_key cache
-
-**Plaintext leakage (browser sends decrypted content to server):**
-- ~~`update_post_body` event — sends decrypted HTML for presigned URL refresh~~ — DONE. Browser re-encrypts body with cached post_key before pushing. New `update_post_body_zk` event stores ciphertext directly. Legacy fallback retained for public posts.
-- ~~`update_reply_body` event — same pattern for replies~~ — DONE. Same approach as post body. `data-post-id` added to reply template elements for post_key lookup. New `update_reply_body_zk` event stores ciphertext directly.
-- ~~`show_timeline_images` event — sends decrypted base64 images for modal display~~ — DONE. Client-side image modal (`client-image-modal.js`) renders decrypted images entirely in the browser — no server round-trip. Server-side handler clause that accepted `images` param removed from `timeline_live/index.ex` and `user_home_live.ex`. The server-only `show_timeline_images` handler (post_id only, for public/legacy posts) retained.
+**All other write paths now have ZK hooks:**
+- Post body/fields, replies, reposts, shares, share notes, fav/repost toggle
+- Journal entries (title/body/mood), journal book titles
+- Group create (name/description), group message create/edit
+- Connection creation (label), visibility groups (name/description)
+- Profile name/username, status message, block reasons, user onboarding name
+- Bookmark notes, conversation messages (always were ZK)
+- Registration, password change, recovery key setup/use
 
 **Legitimate server-side decrypt (keep as-is):**
 - Public posts/profiles (SEO, federation, unauthenticated viewers)
-- Bluesky export workers
-- Email delivery (transient plaintext)
-- Stripe billing API integration
+- Bluesky export workers (server needs plaintext for AT Protocol)
+- Email delivery (transient plaintext for SMTP)
+- Stripe billing API integration (server-operational data)
 - S3 file cleanup (decrypt URL to delete object)
-- Content filtering (mute keywords require plaintext)
-- RSS feeds
+- Content filtering (mute keywords require plaintext comparison)
+- RSS feeds (public content only)
+- Notification cards (reply body/username for push notifications)
+- Re-encryption workflows (update_post_body/update_reply_body for public posts)
