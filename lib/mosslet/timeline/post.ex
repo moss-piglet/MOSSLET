@@ -426,22 +426,20 @@ defmodule Mosslet.Timeline.Post do
         visibility = get_field(changeset, :visibility)
         post_key = maybe_get_post_key(group_id, opts, visibility)
 
-        # Asymmetrically encrypt each user_id individually with post_key
-        # Same pattern as UserTimelinePreference but with post_key instead of user_key
-        encrypted_reposts =
-          Enum.map(reposts_list, fn user_id ->
-            # Each user_id encrypted individually with post_key
-            # For posts, we use post_key instead of user_key like UserTimelinePreference
-            Mosslet.Encrypted.Utils.encrypt(%{key: post_key, payload: user_id})
-          end)
+        if is_nil(post_key) do
+          add_error(changeset, :reposts_list, "unable to decrypt post key for encryption")
+        else
+          encrypted_reposts =
+            Enum.map(reposts_list, fn user_id ->
+              Mosslet.Encrypted.Utils.encrypt(%{key: post_key, payload: user_id})
+            end)
 
-        # Create hash for searching
-        reposts_hash = Enum.join(reposts_list, ",") |> String.downcase()
+          reposts_hash = Enum.join(reposts_list, ",") |> String.downcase()
 
-        changeset
-        |> put_change(:reposts_list_hash, reposts_hash)
-        # Also update the new encrypted field during transition
-        |> put_change(:reposts_list, encrypted_reposts)
+          changeset
+          |> put_change(:reposts_list_hash, reposts_hash)
+          |> put_change(:reposts_list, encrypted_reposts)
+        end
       else
         changeset
       end
@@ -845,43 +843,46 @@ defmodule Mosslet.Timeline.Post do
     group_id = get_field(changeset, :group_id)
     post_key = maybe_generate_post_key(group_id, opts, visibility)
 
-    e_avatar_url =
-      if is_binary(post_key), do: maybe_encrypt_avatar_url(opts[:user], post_key)
-
-    image_urls = get_field(changeset, :image_urls)
-    image_alt_texts = get_field(changeset, :image_alt_texts)
-
-    e_image_urls =
-      if image_urls && !Enum.empty?(image_urls) && post_key,
-        do: encrypt_image_urls(image_urls, post_key)
-
-    e_image_alt_texts =
-      if image_alt_texts && !Enum.empty?(image_alt_texts) && post_key,
-        do: encrypt_image_urls(image_alt_texts, post_key)
-
-    # For non-public posts with browser-encrypted body, use the pre-encrypted
-    # ciphertext directly instead of re-encrypting. The server never sees plaintext.
-    e_body =
-      if opts[:encrypted_body] && visibility != :public do
-        opts[:encrypted_body]
-      else
-        Utils.encrypt(%{key: post_key, payload: body})
-      end
-
-    if visibility in [:public, :private, :connections, :specific_groups, :specific_users] do
-      changeset
-      |> put_change(:avatar_url, e_avatar_url)
-      |> put_change(:image_urls, e_image_urls)
-      |> put_change(:image_alt_texts, e_image_alt_texts)
-      |> put_change(:body, e_body)
-      |> put_change(:username, Utils.encrypt(%{key: post_key, payload: username}))
-      |> put_change(:user_post_map, %{temp_key: post_key})
-      |> encrypt_favs_list(post_key, opts)
-      |> encrypt_reposts_list(post_key, opts)
-      |> encrypt_content_warning_if_present(post_key, opts)
-      |> encrypt_url_preview_if_present(post_key, opts)
+    if is_nil(post_key) do
+      add_error(changeset, :body, "unable to derive post encryption key")
     else
-      changeset |> add_error(:body, "There was an error determining the visibility.")
+      e_avatar_url = maybe_encrypt_avatar_url(opts[:user], post_key)
+
+      image_urls = get_field(changeset, :image_urls)
+      image_alt_texts = get_field(changeset, :image_alt_texts)
+
+      e_image_urls =
+        if image_urls && !Enum.empty?(image_urls),
+          do: encrypt_image_urls(image_urls, post_key)
+
+      e_image_alt_texts =
+        if image_alt_texts && !Enum.empty?(image_alt_texts),
+          do: encrypt_image_urls(image_alt_texts, post_key)
+
+      # For non-public posts with browser-encrypted body, use the pre-encrypted
+      # ciphertext directly instead of re-encrypting. The server never sees plaintext.
+      e_body =
+        if opts[:encrypted_body] && visibility != :public do
+          opts[:encrypted_body]
+        else
+          Utils.encrypt(%{key: post_key, payload: body})
+        end
+
+      if visibility in [:public, :private, :connections, :specific_groups, :specific_users] do
+        changeset
+        |> put_change(:avatar_url, e_avatar_url)
+        |> put_change(:image_urls, e_image_urls)
+        |> put_change(:image_alt_texts, e_image_alt_texts)
+        |> put_change(:body, e_body)
+        |> put_change(:username, Utils.encrypt(%{key: post_key, payload: username}))
+        |> put_change(:user_post_map, %{temp_key: post_key})
+        |> encrypt_favs_list(post_key, opts)
+        |> encrypt_reposts_list(post_key, opts)
+        |> encrypt_content_warning_if_present(post_key, opts)
+        |> encrypt_url_preview_if_present(post_key, opts)
+      else
+        changeset |> add_error(:body, "There was an error determining the visibility.")
+      end
     end
   end
 
@@ -1037,27 +1038,18 @@ defmodule Mosslet.Timeline.Post do
         Encrypted.Users.Utils.decrypt_public_item_key(opts[:post_key])
 
       _rest ->
-        if not is_nil(group_id) do
-          group = Groups.get_group!(group_id)
-          user_group = Groups.get_user_group_for_group_and_user(group, opts[:user])
+        sealed_key =
+          if not is_nil(group_id) do
+            group = Groups.get_group!(group_id)
+            user_group = Groups.get_user_group_for_group_and_user(group, opts[:user])
+            user_group.key
+          else
+            opts[:post_key]
+          end
 
-          {:ok, d_post_key} =
-            Encrypted.Users.Utils.decrypt_user_attrs_key(
-              user_group.key,
-              opts[:user],
-              opts[:key]
-            )
-
-          d_post_key
-        else
-          {:ok, d_post_key} =
-            Encrypted.Users.Utils.decrypt_user_attrs_key(
-              opts[:post_key],
-              opts[:user],
-              opts[:key]
-            )
-
-          d_post_key
+        case Encrypted.Users.Utils.decrypt_user_attrs_key(sealed_key, opts[:user], opts[:key]) do
+          {:ok, d_post_key} -> d_post_key
+          _error -> nil
         end
     end
   end
@@ -1069,27 +1061,18 @@ defmodule Mosslet.Timeline.Post do
           Encrypted.Users.Utils.decrypt_public_item_key(opts[:trix_key])
 
         _rest ->
-          if not is_nil(group_id) do
-            group = Groups.get_group!(group_id)
-            user_group = Groups.get_user_group_for_group_and_user(group, opts[:user])
+          sealed_key =
+            if not is_nil(group_id) do
+              group = Groups.get_group!(group_id)
+              user_group = Groups.get_user_group_for_group_and_user(group, opts[:user])
+              user_group.key
+            else
+              opts[:post_key]
+            end
 
-            {:ok, d_post_key} =
-              Encrypted.Users.Utils.decrypt_user_attrs_key(
-                user_group.key,
-                opts[:user],
-                opts[:key]
-              )
-
-            d_post_key
-          else
-            {:ok, d_post_key} =
-              Encrypted.Users.Utils.decrypt_user_attrs_key(
-                opts[:post_key],
-                opts[:user],
-                opts[:key]
-              )
-
-            d_post_key
+          case Encrypted.Users.Utils.decrypt_user_attrs_key(sealed_key, opts[:user], opts[:key]) do
+            {:ok, d_post_key} -> d_post_key
+            _error -> nil
           end
       end
     else
@@ -1104,14 +1087,14 @@ defmodule Mosslet.Timeline.Post do
             group = Groups.get_group!(group_id)
             user_group = Groups.get_user_group_for_group_and_user(group, opts[:user])
 
-            {:ok, d_post_key} =
-              Encrypted.Users.Utils.decrypt_user_attrs_key(
-                user_group.key,
-                opts[:user],
-                opts[:key]
-              )
-
-            d_post_key
+            case Encrypted.Users.Utils.decrypt_user_attrs_key(
+                   user_group.key,
+                   opts[:user],
+                   opts[:key]
+                 ) do
+              {:ok, d_post_key} -> d_post_key
+              _error -> nil
+            end
           else
             opts[:trix_key] || Encrypted.Utils.generate_key()
           end

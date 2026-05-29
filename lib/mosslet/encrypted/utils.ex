@@ -24,13 +24,17 @@ defmodule Mosslet.Encrypted.Utils do
   def encrypt(%{payload: nil}), do: nil
 
   def encrypt(%{key: key, payload: payload}) do
-    if String.valid?(payload) do
-      {:ok, ciphertext} = MetamorphicCrypto.SecretBox.encrypt_string(payload, key)
-      ciphertext
-    else
-      # Raw binary payload (e.g. image bytes) — encode to base64 first
-      {:ok, ciphertext} = MetamorphicCrypto.SecretBox.encrypt(Base.encode64(payload), key)
-      ciphertext
+    result =
+      if String.valid?(payload) do
+        MetamorphicCrypto.SecretBox.encrypt_string(payload, key)
+      else
+        # Raw binary payload (e.g. image bytes) — encode to base64 first
+        MetamorphicCrypto.SecretBox.encrypt(Base.encode64(payload), key)
+      end
+
+    case result do
+      {:ok, ciphertext} -> ciphertext
+      {:error, reason} -> raise "Encryption failed: #{inspect(reason)}"
     end
   end
 
@@ -60,11 +64,16 @@ defmodule Mosslet.Encrypted.Utils do
         ) :: {:error, :failed_verification} | {:ok, binary}
   def decrypt_key_hash(pwd, key_hash) do
     [salt, uk] = key_hash |> String.split("$")
-    {:ok, key} = MetamorphicCrypto.KDF.derive_session_key(pwd, salt)
 
-    case decrypt(%{key: key, payload: uk}) do
-      {:ok, d_key} -> {:ok, d_key}
-      {:error, e} -> {:error, e}
+    case MetamorphicCrypto.KDF.derive_session_key(pwd, salt) do
+      {:ok, key} ->
+        case decrypt(%{key: key, payload: uk}) do
+          {:ok, d_key} -> {:ok, d_key}
+          {:error, e} -> {:error, e}
+        end
+
+      {:error, _reason} ->
+        {:error, :failed_verification}
     end
   end
 
@@ -168,16 +177,18 @@ defmodule Mosslet.Encrypted.Utils do
     level = Keyword.get(opts, :level, :cat5)
 
     if pq_public_key do
-      {:ok, ciphertext} =
-        MetamorphicCrypto.Seal.seal_for_user(message, public_key,
-          pq_public_key: pq_public_key,
-          level: level
-        )
-
-      ciphertext
+      case MetamorphicCrypto.Seal.seal_for_user(message, public_key,
+             pq_public_key: pq_public_key,
+             level: level
+           ) do
+        {:ok, ciphertext} -> ciphertext
+        {:error, reason} -> raise "Hybrid seal failed: #{inspect(reason)}"
+      end
     else
-      {:ok, ciphertext} = MetamorphicCrypto.BoxSeal.seal(message, public_key)
-      ciphertext
+      case MetamorphicCrypto.BoxSeal.seal(message, public_key) do
+        {:ok, ciphertext} -> ciphertext
+        {:error, reason} -> raise "Box seal failed: #{inspect(reason)}"
+      end
     end
   end
 
@@ -257,7 +268,10 @@ defmodule Mosslet.Encrypted.Utils do
 
   defp derive_pwd_key(pwd) do
     salt = MetamorphicCrypto.Keys.generate_salt()
-    {:ok, key} = MetamorphicCrypto.KDF.derive_session_key(pwd, salt)
-    %{salt: salt, key: key}
+
+    case MetamorphicCrypto.KDF.derive_session_key(pwd, salt) do
+      {:ok, key} -> %{salt: salt, key: key}
+      {:error, reason} -> raise "KDF derivation failed: #{inspect(reason)}"
+    end
   end
 end
