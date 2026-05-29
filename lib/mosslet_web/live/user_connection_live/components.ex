@@ -147,23 +147,18 @@ defmodule MossletWeb.UserConnectionLive.Components do
               :if={show_name?(@user_connection)}
               class="text-2xl font-bold text-gray-900 dark:text-gray-100"
             >
-              {decr_uconn(@user_connection.connection.name, @current_user, @user_connection.key, @key)}
+              {@decrypted_conn.name}
             </h1>
             <h1
               :if={!show_name?(@user_connection)}
               class="text-2xl font-bold text-gray-900 dark:text-gray-100"
             >
-              {decr_uconn(
-                @user_connection.connection.username,
-                @current_user,
-                @user_connection.key,
-                @key
-              )}
+              {@decrypted_conn.username}
             </h1>
             <p class="text-sm font-medium text-gray-500 dark:text-gray-400">
               Became your
               <span class={username_link_text_color_no_hover(@user_connection.color)}>
-                {decr_uconn(@user_connection.label, @current_user, @user_connection.key, @key)}
+                {@decrypted_conn.label}
               </span>
               on
               <time datetime={@user_connection.confirmed_at}>
@@ -260,23 +255,13 @@ defmodule MossletWeb.UserConnectionLive.Components do
           <div class="sm:col-span-1">
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Username</dt>
             <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
-              {decr_uconn(
-                @user_connection.connection.username,
-                @current_user,
-                @user_connection.key,
-                @key
-              )}
+              {@decrypted_conn.username}
             </dd>
           </div>
           <div :if={show_email?(@user_connection)} class="sm:col-span-1">
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Email address</dt>
             <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
-              {decr_uconn(
-                @user_connection.connection.email,
-                @current_user,
-                @user_connection.key,
-                @key
-              )}
+              {@decrypted_conn.email}
             </dd>
           </div>
           <%!-- Memory and Zen mode TBD (maybe future features)
@@ -325,13 +310,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
             >
               {if @profile_fields,
                 do: @profile_fields[:about],
-                else:
-                  decr_uconn(
-                    @user_connection.connection.profile.about,
-                    @current_user,
-                    @user_connection.key,
-                    @key
-                  )}
+                else: @decrypted_conn.about}
             </dd>
           </div>
         </dl>
