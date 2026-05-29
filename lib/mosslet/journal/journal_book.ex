@@ -74,11 +74,10 @@ defmodule Mosslet.Journal.JournalBook do
     |> put_zk_description(attrs)
   end
 
-  defp put_zk_title(changeset, %{"encrypted_title" => ct, "title_blind_index" => idx})
+  defp put_zk_title(changeset, %{"encrypted_title" => ct})
        when is_binary(ct) and ct != "" do
     changeset
     |> put_change(:title, ct)
-    |> put_change(:title_hash, idx)
   end
 
   defp put_zk_title(changeset, _attrs) do

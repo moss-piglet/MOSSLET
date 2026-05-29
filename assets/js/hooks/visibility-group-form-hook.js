@@ -2,7 +2,7 @@
  * VisibilityGroupFormHook — browser-side encryption for visibility group creation/edit (ZK write path).
  *
  * Intercepts the visibility group form submit, encrypts name and description
- * with the user's conn_key, and pushes a "save_visibility_group_zk" event.
+ * with the user's user_key, and pushes a "save_visibility_group_zk" event.
  * The server stores only ciphertext — plaintext name/description never arrive.
  *
  * The conn_key is the same symmetric key used for all connection-shared data.
@@ -104,9 +104,7 @@ const VisibilityGroupFormHook = {
     this.pushEventTo(this.el, "save_visibility_group_zk", {
       id: groupId,
       encrypted_name: encryptedName,
-      name_blind_index: name.toLowerCase(),
       encrypted_description: encryptedDescription,
-      description_blind_index: description.toLowerCase(),
       color: color,
       connection_ids: connectionIds,
     });

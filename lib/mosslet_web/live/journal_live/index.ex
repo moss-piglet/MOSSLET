@@ -1368,7 +1368,6 @@ defmodule MossletWeb.JournalLive.Index do
     attrs = %{
       "encrypted_title" => params["encrypted_title"],
       "encrypted_description" => params["encrypted_description"],
-      "title_blind_index" => params["title_blind_index"],
       "cover_color" => params["cover_color"] || "emerald"
     }
 

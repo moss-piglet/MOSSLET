@@ -89,7 +89,6 @@ const JournalBookFormHook = {
     this.pushEventTo(this.el, "save_book_zk", {
       encrypted_title: encryptedTitle,
       encrypted_description: encryptedDescription,
-      title_blind_index: title.toLowerCase(),
       cover_color: coverColor,
     });
   },
