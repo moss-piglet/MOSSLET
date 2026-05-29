@@ -18,6 +18,29 @@
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
 import "phoenix_html";
 
+// Clear all browser-side crypto state before the sign-out form submits.
+// phoenix_html.js handles `data-method="delete"` links by creating a hidden
+// form and submitting it, which navigates away. We use the capture phase to
+// fire `mosslet:logout` synchronously before that happens, ensuring
+// sessionStorage, IndexedDB wrapping keys, and in-memory key caches are wiped.
+window.addEventListener(
+  "click",
+  (e) => {
+    let el = e.target;
+    while (el && el.getAttribute) {
+      if (
+        el.getAttribute("data-method") === "delete" &&
+        el.getAttribute("data-to") === "/auth/sign_out"
+      ) {
+        window.dispatchEvent(new CustomEvent("mosslet:logout"));
+        return;
+      }
+      el = el.parentNode;
+    }
+  },
+  { capture: true },
+);
+
 import Alpine from "../vendor/alpinejs";
 import collapse from "../vendor/@alpinejs/collapse";
 import focus from "../vendor/@alpinejs/focus";
