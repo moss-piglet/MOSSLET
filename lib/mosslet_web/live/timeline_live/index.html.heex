@@ -47,7 +47,7 @@
                     label: "Bookmarks",
                     unread:
                       if(@current_user.calm_notifications,
-                        do: @unread_counts[:bookmarks] || 0,
+                        do: @timeline_counts[:bookmarks] || 0,
                         else: 0
                       ),
                     color: "orange"

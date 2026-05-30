@@ -3707,8 +3707,10 @@ defmodule Mosslet.Timeline do
       {:ok, %Bookmark{}}
   """
   def create_bookmark(user, post, attrs \\ %{}) do
-    # Get the post_key using existing mechanism (same as post decryption)
-    post_key = MossletWeb.Helpers.get_post_key(post, user)
+    # Unseal post_key — try all user_post keys for public posts since the author's
+    # key is sealed with the author's keypair while recipients use the server keypair
+    post_key = unseal_post_key_for_bookmark(post)
+
     # Get the user_connection if post is a connection's post
     user_connection =
       if user.id != post.user_id && post.visibility != :public,
@@ -3752,8 +3754,9 @@ defmodule Mosslet.Timeline do
   Updates a bookmark's notes or category.
   """
   def update_bookmark(bookmark, attrs, user) do
-    # Get the post_key for re-encryption
-    post_key = MossletWeb.Helpers.get_post_key(bookmark.post, user)
+    bookmark = Repo.preload(bookmark, post: [:user_posts])
+    # Unseal post_key — try all user_post keys for public posts
+    post_key = unseal_post_key_for_bookmark(bookmark.post)
 
     if post_key do
       case Repo.transaction_on_primary(fn ->
@@ -3870,6 +3873,24 @@ defmodule Mosslet.Timeline do
         error
     end
   end
+
+  # Unseals a post_key for server-side bookmark encryption.
+  # For public posts, tries each user_post key with the server keypair since the
+  # author's key is sealed with the author's keypair (not the server's).
+  defp unseal_post_key_for_bookmark(%{user_posts: user_posts}) when is_list(user_posts) do
+    Enum.find_value(user_posts, nil, fn
+      %{key: key} when is_binary(key) ->
+        case Mosslet.Encrypted.Users.Utils.decrypt_public_item_key(key) do
+          raw_key when is_binary(raw_key) -> raw_key
+          _ -> nil
+        end
+
+      _ ->
+        nil
+    end)
+  end
+
+  defp unseal_post_key_for_bookmark(_post), do: nil
 
   @doc """
   Gets a user's bookmark for a specific post.
