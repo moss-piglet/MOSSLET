@@ -2679,7 +2679,9 @@ defmodule MossletWeb.TimelineLive.Index do
               {:ok, _receipt} ->
                 Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
 
-                updated_post = get_post_with_reply_limit(post_id, current_user.id, socket.assigns)
+                updated_post =
+                  get_post_with_reply_limit(post_id, current_user.id, socket.assigns)
+                  |> Mosslet.Repo.preload([:user_post_receipts], force: true)
 
                 content_filter_prefs = socket.assigns.content_filters
 
@@ -7604,8 +7606,16 @@ defmodule MossletWeb.TimelineLive.Index do
 
   defp move_post_between_streams(socket, post, current_user) do
     current_tab = socket.assigns[:active_tab] || "home"
+    key = socket.assigns.key
+
+    # Preserve bookmark_notes from the cached version of this post.
+    # The field is a virtual attribute attached by list_user_bookmarks,
+    # not a DB column, so re-fetching the post via get_post_with_reply_limit
+    # loses it. Carry it forward from whichever cache still has it.
+    post = preserve_bookmark_notes(post, socket.assigns)
 
     if is_post_unread?(post, current_user, tab: current_tab) do
+      # Post became unread — move from read stream to unread stream
       cached_read_posts = socket.assigns[:cached_read_posts] || []
       updated_cached_read = Enum.reject(cached_read_posts, &(&1.id == post.id))
       loaded_read_count = socket.assigns[:loaded_read_posts_count] || 0
@@ -7616,21 +7626,17 @@ defmodule MossletWeb.TimelineLive.Index do
         update_or_add_cached_post(cached_unread_posts, post)
         |> Enum.sort_by(& &1.inserted_at, {:desc, NaiveDateTime})
 
-      posts_with_dates =
-        prepare_posts_for_stream(
-          updated_cached_unread,
-          current_user,
-          socket.assigns.key
-        )
+      unread_with_dates = prepare_posts_for_stream(updated_cached_unread, current_user, key)
 
       socket
       |> assign(:cached_read_posts, updated_cached_read)
       |> assign(:cached_unread_posts, updated_cached_unread)
       |> assign(:loaded_read_posts_count, max(0, loaded_read_count - 1))
       |> stream_delete(:read_posts, post)
-      |> stream(:posts, posts_with_dates, reset: true)
+      |> stream(:posts, unread_with_dates, reset: true)
       |> maybe_reset_read_posts_stream(updated_cached_read)
     else
+      # Post became read — move from unread stream to read stream
       cached_read_posts = socket.assigns[:cached_read_posts] || []
 
       updated_cached_read =
@@ -7642,11 +7648,13 @@ defmodule MossletWeb.TimelineLive.Index do
       cached_unread_posts = socket.assigns[:cached_unread_posts] || []
       updated_cached_unread = Enum.reject(cached_unread_posts, &(&1.id == post.id))
 
+      unread_with_dates = prepare_posts_for_stream(updated_cached_unread, current_user, key)
+
       socket
       |> assign(:cached_read_posts, updated_cached_read)
       |> assign(:cached_unread_posts, updated_cached_unread)
       |> assign(:loaded_read_posts_count, loaded_read_count + 1)
-      |> stream_delete(:posts, post)
+      |> stream(:posts, unread_with_dates, reset: true)
       |> maybe_reset_read_posts_stream(updated_cached_read)
     end
   end
@@ -7665,6 +7673,29 @@ defmodule MossletWeb.TimelineLive.Index do
       socket
     end
   end
+
+  # Carries forward :bookmark_notes from the cached version of a post.
+  # bookmark_notes is a virtual field set by list_user_bookmarks, not a DB
+  # column, so it's lost when the post is re-fetched. Look it up from
+  # whichever cache (unread or read) still holds the previous version.
+  defp preserve_bookmark_notes(post, assigns) do
+    if Map.get(post, :bookmark_notes) do
+      post
+    else
+      cached =
+        find_cached_post(assigns[:cached_unread_posts], post.id) ||
+          find_cached_post(assigns[:cached_read_posts], post.id)
+
+      if cached && Map.get(cached, :bookmark_notes) do
+        Map.put(post, :bookmark_notes, cached.bookmark_notes)
+      else
+        post
+      end
+    end
+  end
+
+  defp find_cached_post(nil, _id), do: nil
+  defp find_cached_post(posts, id), do: Enum.find(posts, &(&1.id == id))
 
   # Prepares posts for streaming: adds date separators and pre-decrypts all
   # encrypted fields in a single pass (unsealing each post_key only once).

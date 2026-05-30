@@ -6825,15 +6825,17 @@ defmodule MossletWeb.DesignSystem do
         <%!-- Bookmark notes display — shown when this post has notes attached --%>
         <%= if @bookmark_notes do %>
           <%!-- Public post: server-decrypted bookmark notes --%>
-          <div class="mx-1 mb-2 px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-900/15 border border-amber-200/40 dark:border-amber-700/30">
-            <div class="flex items-start gap-2">
-              <.phx_icon
-                name="hero-bookmark-solid"
-                class="h-3.5 w-3.5 mt-0.5 text-amber-500 dark:text-amber-400 shrink-0"
-              />
-              <p class="text-xs text-amber-800 dark:text-amber-200 leading-relaxed break-words whitespace-pre-wrap">
-                {@bookmark_notes}
-              </p>
+          <div class="mx-1 mb-2">
+            <div class="px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-900/15 border border-amber-200/40 dark:border-amber-700/30">
+              <div class="flex items-start gap-2">
+                <.phx_icon
+                  name="hero-bookmark-solid"
+                  class="h-3.5 w-3.5 mt-0.5 text-amber-500 dark:text-amber-400 shrink-0"
+                />
+                <p class="text-xs text-amber-800 dark:text-amber-200 leading-relaxed break-words whitespace-pre-wrap">
+                  {@bookmark_notes}
+                </p>
+              </div>
             </div>
           </div>
         <% end %>

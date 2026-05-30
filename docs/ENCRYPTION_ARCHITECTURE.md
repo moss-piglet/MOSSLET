@@ -311,7 +311,6 @@ The conversation LiveView passes encrypted keys to the browser via HTML data att
 | ---------------------------- | ----------------------------------------------- | ---------------------------------------- |
 | `data-conversation-key`      | User's encrypted copy of conversation_key       | `user_conversation.key` (base64)         |
 | `data-user-public-key`       | User's public key                               | `current_scope.user.key_pair["public"]`  |
-| `data-session-key`           | Password-derived session key                    | `current_scope.key`                      |
 | `data-encrypted-private-key` | User's private key (encrypted with session key) | `current_scope.user.key_pair["private"]` |
 
 ### JavaScript Crypto Module (`assets/js/crypto/nacl.js`)
