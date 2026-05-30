@@ -481,46 +481,30 @@ defmodule MossletWeb.Helpers do
   Handles the group_id edge case where the key comes from user_group.
   """
   def unseal_post_key(post, current_user, session_key) do
-    case post.visibility do
-      :public ->
-        unseal_public_post_key(post)
+    sealed_key =
+      case post.visibility do
+        :public -> get_post_key(post)
+        _ -> get_post_key(post, current_user)
+      end
 
-      _ ->
-        sealed_key = get_post_key(post, current_user)
+    if is_nil(sealed_key) do
+      :error
+    else
+      case post.visibility do
+        :public ->
+          case Encrypted.Users.Utils.decrypt_public_item_key(sealed_key) do
+            raw_key when is_binary(raw_key) -> {:ok, raw_key}
+            _ -> :error
+          end
 
-        if is_nil(sealed_key) do
-          :error
-        else
-          case Encrypted.Users.Utils.decrypt_user_attrs_key(
-                 sealed_key,
-                 current_user,
-                 session_key
-               ) do
+        _ ->
+          case Encrypted.Users.Utils.decrypt_user_attrs_key(sealed_key, current_user, session_key) do
             {:ok, raw_key} -> {:ok, raw_key}
             _ -> :error
           end
-        end
+      end
     end
   end
-
-  # For public posts, each user_post.key may be sealed with different keypairs:
-  # - The author's key is sealed with the author's public key
-  # - Recipients' keys are sealed with the server's public key
-  # We try each user_post key until one succeeds with the server keypair.
-  defp unseal_public_post_key(%{user_posts: user_posts}) when is_list(user_posts) do
-    Enum.find_value(user_posts, :error, fn
-      %{key: key} when is_binary(key) ->
-        case Encrypted.Users.Utils.decrypt_public_item_key(key) do
-          raw_key when is_binary(raw_key) -> {:ok, raw_key}
-          _ -> nil
-        end
-
-      _ ->
-        nil
-    end)
-  end
-
-  defp unseal_public_post_key(_post), do: :error
 
   @doc """
   Decrypts a single field payload using an already-unsealed raw post_key.
