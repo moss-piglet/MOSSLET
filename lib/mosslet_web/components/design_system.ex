@@ -13969,6 +13969,7 @@ defmodule MossletWeb.DesignSystem do
                 />
                 <img
                   :if={!@encrypted_avatar_data && @avatar_src}
+                  id={"chat-avatar-#{@id}"}
                   src={@avatar_src}
                   alt={@avatar_alt}
                   class="w-full h-full object-cover"
@@ -14019,7 +14020,12 @@ defmodule MossletWeb.DesignSystem do
                   ]}
                 >
                   <.phx_icon name="hero-finger-print" class="w-3 h-3" />
-                  <span class="truncate max-w-[60px] sm:max-w-[100px]">{@moniker}</span>
+                  <span
+                    class="truncate max-w-[60px] sm:max-w-[100px]"
+                    data-decrypt-moniker-target={@id}
+                  >
+                    {@moniker}
+                  </span>
                 </span>
 
                 <span

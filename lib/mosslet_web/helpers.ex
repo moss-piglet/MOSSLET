@@ -944,19 +944,32 @@ defmodule MossletWeb.Helpers do
       {:ok, raw_key} ->
         sender = message.sender || %{}
 
-        decrypted = %{
-          content:
-            if(browser_decrypt?,
-              do: nil,
-              else: decrypt_field(message.content, raw_key, "[Could not decrypt]")
-            ),
-          moniker: decrypt_field(Map.get(sender, :moniker), raw_key, "member"),
-          avatar_img: decrypt_field(Map.get(sender, :avatar_img), raw_key, nil),
-          raw_key: raw_key,
-          sealed_group_key: if(browser_decrypt?, do: sealed_key),
-          encrypted_content: if(browser_decrypt?, do: message.content),
-          browser_decrypt?: browser_decrypt?
-        }
+        decrypted =
+          if browser_decrypt? do
+            # Non-public groups: pass encrypted blobs for browser-side ZK decryption.
+            # The DecryptGroupMessage hook will decrypt moniker/avatar_img alongside content.
+            %{
+              content: nil,
+              moniker: nil,
+              avatar_img: nil,
+              encrypted_moniker: Map.get(sender, :moniker),
+              encrypted_avatar_img: Map.get(sender, :avatar_img),
+              raw_key: nil,
+              sealed_group_key: sealed_key,
+              encrypted_content: message.content,
+              browser_decrypt?: true
+            }
+          else
+            %{
+              content: decrypt_field(message.content, raw_key, "[Could not decrypt]"),
+              moniker: decrypt_field(Map.get(sender, :moniker), raw_key, "member"),
+              avatar_img: decrypt_field(Map.get(sender, :avatar_img), raw_key, nil),
+              raw_key: raw_key,
+              sealed_group_key: nil,
+              encrypted_content: nil,
+              browser_decrypt?: false
+            }
+          end
 
         Map.put(message, :decrypted, decrypted)
 
@@ -967,8 +980,10 @@ defmodule MossletWeb.Helpers do
               do: nil,
               else: "[Could not decrypt]"
             ),
-          moniker: "member",
+          moniker: if(browser_decrypt?, do: nil, else: "member"),
           avatar_img: nil,
+          encrypted_moniker: nil,
+          encrypted_avatar_img: nil,
           raw_key: nil,
           sealed_group_key: if(browser_decrypt?, do: sealed_key),
           encrypted_content: if(browser_decrypt?, do: message.content),

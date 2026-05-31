@@ -52,17 +52,24 @@ defmodule MossletWeb.GroupLive.GroupMessages do
         assigns.current_scope.user
       )
 
-    # Avatar: prefer connection avatar, fall back to decrypted group avatar
-    group_avatar_path =
-      case decrypted[:avatar_img] do
-        img when is_binary(img) and img != "" -> ~p"/images/groups/#{img}"
-        _ -> ~p"/images/groups/default.png"
-      end
+    is_self = assigns.user_group.id == assigns.message.sender_id
+    is_connected = not is_nil(uconn)
+    is_own_message = is_self
+    browser_decrypt? = decrypted[:browser_decrypt?] || false
 
     # Avatar resolution: connection avatar > group avatar > fallback logo
-    # For connected members, try their connection avatar first; if nil
-    # (e.g. they haven't uploaded one), fall back to the decrypted group avatar.
-    is_self = assigns.user_group.id == assigns.message.sender_id
+    # For non-public groups, group avatar is encrypted — pass blob for browser decrypt.
+    # For public groups, group avatar is server-decrypted into a path.
+    group_avatar_path =
+      if browser_decrypt? do
+        # Group avatar_img will be decrypted browser-side; use default for SSR placeholder
+        ~p"/images/groups/default.png"
+      else
+        case decrypted[:avatar_img] do
+          img when is_binary(img) and img != "" -> ~p"/images/groups/#{img}"
+          _ -> ~p"/images/groups/default.png"
+        end
+      end
 
     {avatar_src, encrypted_avatar} =
       cond do
@@ -78,8 +85,6 @@ defmodule MossletWeb.GroupLive.GroupMessages do
         true ->
           {group_avatar_path, nil}
       end
-
-    is_connected = not is_nil(uconn)
 
     sender_name =
       cond do
@@ -101,14 +106,13 @@ defmodule MossletWeb.GroupLive.GroupMessages do
           nil
       end
 
+    # Moniker: for non-public groups, nil placeholder (browser decrypts).
+    # For public groups, server-decrypted value.
     moniker = decrypted[:moniker] || "member"
 
     # For non-public groups, content is nil (browser decrypts via hook).
     # For public groups, content is pre-decrypted by the server.
     raw_content = decrypted[:content]
-
-    is_own_message = assigns.user_group.id == assigns.message.sender_id
-    browser_decrypt? = decrypted[:browser_decrypt?] || false
 
     {content, can_check_mentions} =
       if browser_decrypt? do
@@ -145,6 +149,8 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       |> assign(:encrypted_avatar, encrypted_avatar)
       |> assign(:sender_name, sender_name)
       |> assign(:moniker, moniker)
+      |> assign(:encrypted_moniker, decrypted[:encrypted_moniker])
+      |> assign(:encrypted_avatar_img, decrypted[:encrypted_avatar_img])
       |> assign(:content, content)
       |> assign(:can_delete, can_delete)
       |> assign(:is_own_message, is_own_message)
@@ -183,6 +189,8 @@ defmodule MossletWeb.GroupLive.GroupMessages do
         phx-hook="DecryptGroupMessage"
         data-encrypted-content={@encrypted_content}
         data-sealed-group-key={@sealed_group_key}
+        data-encrypted-moniker={@encrypted_moniker}
+        data-encrypted-avatar-img={@encrypted_avatar_img}
         data-current-user-group-id={@current_user_group_id}
         data-is-own-message={to_string(@is_own_message)}
       >

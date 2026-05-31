@@ -5,13 +5,18 @@
  * message content as data attributes. This hook unseals the key and decrypts
  * the content in the browser. The server never sees plaintext message content.
  *
+ * Also decrypts the sender's moniker and group avatar_img (filename) so the
+ * server never handles those metadata fields for non-public groups.
+ *
  * Public groups are decrypted server-side and don't use this hook.
  *
  * Data attributes:
- *   data-sealed-group-key   — base64 sealed group_key (envelope-encrypted to user)
- *   data-encrypted-content  — secretbox-encrypted message content
- *   data-current-user-group-id — the current user's user_group_id (for self-mention styling)
- *   data-is-own-message     — "true" if the message is from the current user
+ *   data-sealed-group-key       — base64 sealed group_key (envelope-encrypted to user)
+ *   data-encrypted-content      — secretbox-encrypted message content
+ *   data-encrypted-moniker      — secretbox-encrypted sender moniker (group_key)
+ *   data-encrypted-avatar-img   — secretbox-encrypted sender avatar filename (group_key)
+ *   data-current-user-group-id  — the current user's user_group_id (for self-mention styling)
+ *   data-is-own-message         — "true" if the message is from the current user
  */
 import { unsealContextKey, decryptWithKey, getPublicKey, unwrapKey, escapeHtml } from "../crypto/session";
 import { renderMarkdown } from "../utils/render-markdown";
@@ -128,11 +133,43 @@ const DecryptGroupMessage = {
       this.el.innerHTML = html;
       this._decrypted = true;
       if (this._timeout) clearTimeout(this._timeout);
+
+      this._decryptMetadata(groupKey);
+
       return true;
     } catch (e) {
       console.error("DecryptGroupMessage: decryption failed:", e);
       this.el.innerHTML = FAILED_MARKUP;
       return true;
+    }
+  },
+
+  async _decryptMetadata(groupKey) {
+    const hookId = this.el.id;
+    const messageId = hookId.replace("decrypt-msg-", "");
+    const messageEl = document.getElementById(messageId);
+    if (!messageEl) return;
+
+    const encryptedMoniker = this.el.dataset.encryptedMoniker;
+    if (encryptedMoniker) {
+      try {
+        const moniker = await decryptWithKey(encryptedMoniker, groupKey);
+        if (moniker) {
+          const target = messageEl.querySelector(`[data-decrypt-moniker-target="${messageId}"]`);
+          if (target) target.textContent = moniker;
+        }
+      } catch (_e) { /* leave placeholder */ }
+    }
+
+    const encryptedAvatarImg = this.el.dataset.encryptedAvatarImg;
+    if (encryptedAvatarImg) {
+      try {
+        const avatarImg = await decryptWithKey(encryptedAvatarImg, groupKey);
+        if (avatarImg && avatarImg !== "") {
+          const avatarEl = document.getElementById(`chat-avatar-${messageId}`);
+          if (avatarEl) avatarEl.src = `/images/groups/${avatarImg}`;
+        }
+      } catch (_e) { /* leave default avatar */ }
     }
   },
 
