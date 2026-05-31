@@ -144,6 +144,7 @@ defmodule MossletWeb.PostLive.Index do
   @impl true
   def handle_info({MossletWeb.PostLive.FormComponent, {:saved, post}}, socket) do
     if post.visibility != :public && is_nil(post.group_id) do
+      post = pre_decrypt_post(post, socket.assigns.current_user, socket.assigns.key)
       {:noreply, stream_insert(socket, :posts, post, at: 0, reset: true)}
     else
       {:noreply, socket}
@@ -153,6 +154,7 @@ defmodule MossletWeb.PostLive.Index do
   @impl true
   def handle_info({MossletWeb.PostLive.FormComponent, {:updated, post}}, socket) do
     if post.visibility != :public do
+      post = pre_decrypt_post(post, socket.assigns.current_user, socket.assigns.key)
       {:noreply, stream_insert(socket, :posts, post, at: -1, reset: true)}
     else
       {:noreply, socket}
@@ -172,6 +174,7 @@ defmodule MossletWeb.PostLive.Index do
   @impl true
   def handle_info({MossletWeb.PostLive.Index, {:reposted, post}}, socket) do
     if post.user_id == socket.assigns.current_user.id do
+      post = pre_decrypt_post(post, socket.assigns.current_user, socket.assigns.key)
       {:noreply, stream_insert(socket, :posts, post, at: 0, reset: true)}
     else
       {:noreply, socket}
@@ -182,6 +185,7 @@ defmodule MossletWeb.PostLive.Index do
   def handle_info({:post_created, post}, socket) do
     if post.visibility != :public do
       if is_nil(post.group_id) do
+        post = pre_decrypt_post(post, socket.assigns.current_user, socket.assigns.key)
         {:noreply, stream_insert(socket, :posts, post, at: 0, reset: true)}
       else
         {:noreply, socket}
@@ -193,11 +197,13 @@ defmodule MossletWeb.PostLive.Index do
 
   @impl true
   def handle_info({:post_reposted, post}, socket) do
+    post = pre_decrypt_post(post, socket.assigns.current_user, socket.assigns.key)
     {:noreply, stream_insert(socket, :posts, post, at: 0, reset: true)}
   end
 
   @impl true
   def handle_info({:post_updated, post}, socket) do
+    post = pre_decrypt_post(post, socket.assigns.current_user, socket.assigns.key)
     {:noreply, stream_insert(socket, :posts, post, at: -1, reset: true)}
   end
 
@@ -208,16 +214,19 @@ defmodule MossletWeb.PostLive.Index do
 
   @impl true
   def handle_info({:reply_created, post, _reply}, socket) do
+    post = pre_decrypt_post(post, socket.assigns.current_user, socket.assigns.key)
     {:noreply, socket |> stream_insert(:posts, post, at: -1)}
   end
 
   @impl true
   def handle_info({:reply_updated, post, _reply}, socket) do
+    post = pre_decrypt_post(post, socket.assigns.current_user, socket.assigns.key)
     {:noreply, socket |> stream_insert(:posts, post, at: -1)}
   end
 
   @impl true
   def handle_info({:reply_deleted, post, _reply}, socket) do
+    post = pre_decrypt_post(post, socket.assigns.current_user, socket.assigns.key)
     {:noreply, socket |> stream_insert(:posts, post, at: -1)}
   end
 
@@ -375,6 +384,7 @@ defmodule MossletWeb.PostLive.Index do
           |> assign(:finished_loading_list, [post_id | finished_loading_list] |> Enum.uniq())
 
         post = Timeline.get_post!(post_id)
+        post = pre_decrypt_post(post, socket.assigns.current_user, socket.assigns.key)
 
         {:noreply, stream_insert(socket, :posts, post, at: -1, reset: true)}
 
@@ -388,6 +398,7 @@ defmodule MossletWeb.PostLive.Index do
 
         if Enum.count(finished_loading_list) == Enum.count(post_list) do
           post = Timeline.get_post!(post_id)
+          post = pre_decrypt_post(post, socket.assigns.current_user, socket.assigns.key)
 
           socket =
             socket

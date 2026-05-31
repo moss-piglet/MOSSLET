@@ -581,7 +581,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
         post = Timeline.get_post!(post_id)
 
-        {:noreply, stream_insert(socket, :posts, post, at: -1)}
+        {:noreply, stream_insert_post(socket, post, socket.assigns.current_user, at: -1)}
 
       post_loading_count == Enum.count(post_list) - 1 ->
         post_finished_loading_list = [post_id | post_finished_loading_list] |> Enum.uniq()
@@ -604,7 +604,7 @@ defmodule MossletWeb.TimelineLive.Index do
             |> assign(:post_loading_done, true)
             |> assign(:post_finished_loading_list, [])
 
-          {:noreply, stream_insert(socket, :posts, post, at: -1)}
+          {:noreply, stream_insert_post(socket, post, socket.assigns.current_user, at: -1)}
         else
           {:noreply, socket}
         end
@@ -3553,13 +3553,21 @@ defmodule MossletWeb.TimelineLive.Index do
         is_post_unread?(post, current_user, tab: current_tab)
       end)
 
-    new_loaded_read_count = loaded_read_posts_count + length(new_read_posts)
+    session_key = socket.assigns.key
+
+    new_read_posts_decrypted =
+      prepare_posts_for_stream(new_read_posts, current_user, session_key)
+
+    new_loaded_read_count = loaded_read_posts_count + length(new_read_posts_decrypted)
+
+    new_user_statuses =
+      build_user_statuses_map(new_read_posts_decrypted, current_user, session_key)
 
     cached_read_posts = socket.assigns[:cached_read_posts] || []
-    updated_cached_read_posts = cached_read_posts ++ new_read_posts
+    updated_cached_read_posts = cached_read_posts ++ new_read_posts_decrypted
 
     socket =
-      new_read_posts
+      new_read_posts_decrypted
       |> Enum.reduce(socket, fn post, acc_socket ->
         stream_insert(acc_socket, :read_posts, post, at: -1)
       end)
@@ -3567,6 +3575,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:loaded_read_posts_count, new_loaded_read_count)
       |> assign(:read_posts_count, length(updated_cached_read_posts))
       |> assign(:cached_read_posts, updated_cached_read_posts)
+      |> assign(:user_statuses, Map.merge(socket.assigns.user_statuses, new_user_statuses))
       |> assign(:load_more_loading, false)
 
     {:noreply, socket}
@@ -7627,7 +7636,19 @@ defmodule MossletWeb.TimelineLive.Index do
 
   defp update_or_add_cached_post(cached_posts, post) do
     if Enum.any?(cached_posts, &(&1.id == post.id)) do
-      Enum.map(cached_posts, fn p -> if p.id == post.id, do: post, else: p end)
+      Enum.map(cached_posts, fn p ->
+        if p.id == post.id do
+          # Preserve .decrypted from the cached post if the incoming one lacks it.
+          # PubSub updates carry fresh metadata but the encrypted content is unchanged.
+          if is_map(Map.get(post, :decrypted)) do
+            post
+          else
+            Map.put(post, :decrypted, Map.get(p, :decrypted))
+          end
+        else
+          p
+        end
+      end)
     else
       [post | cached_posts]
     end

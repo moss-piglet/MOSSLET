@@ -250,7 +250,7 @@ defmodule MossletWeb.UserConnectionLive.Show do
       |> assign(:post_loading_list, post_loading_list)
       |> assign(:post_count, Timeline.shared_between_users_post_count(user.id, current_user.id))
       |> assign(:posts, AsyncResult.ok(posts, fetched_posts))
-      |> stream(:posts, fetched_posts, reset: true)
+      |> stream(:posts, pre_decrypt_posts(fetched_posts, current_user, key), reset: true)
 
     {:noreply, socket}
   end
@@ -326,6 +326,8 @@ defmodule MossletWeb.UserConnectionLive.Show do
     if socket.assigns.current_user.id == post.user_id do
       {:noreply, socket}
     else
+      post = pre_decrypt_post(post, socket.assigns.current_user, socket.assigns.key)
+
       {:noreply,
        socket
        |> stream_insert(:posts, post, at: 0)
@@ -334,10 +336,12 @@ defmodule MossletWeb.UserConnectionLive.Show do
   end
 
   def handle_info({:post_updated, post}, socket) do
+    post = pre_decrypt_post(post, socket.assigns.current_user, socket.assigns.key)
     {:noreply, stream_insert(socket, :posts, post)}
   end
 
   def handle_info({:post_updated_fav, post}, socket) do
+    post = pre_decrypt_post(post, socket.assigns.current_user, socket.assigns.key)
     {:noreply, socket |> stream_insert(:posts, post, at: -1)}
   end
 
@@ -356,6 +360,7 @@ defmodule MossletWeb.UserConnectionLive.Show do
     if socket.assigns.current_user.id == reply.user_id do
       {:noreply, socket}
     else
+      post = pre_decrypt_post(post, socket.assigns.current_user, socket.assigns.key)
       # we update the post in the stream to add the reply
       {:noreply, socket |> stream_insert(:posts, post, at: -1)}
     end
@@ -365,12 +370,14 @@ defmodule MossletWeb.UserConnectionLive.Show do
     if socket.assigns.current_user.id == reply.user_id do
       {:noreply, socket}
     else
+      post = pre_decrypt_post(post, socket.assigns.current_user, socket.assigns.key)
       # we update the post in the stream to update the reply
       {:noreply, socket |> stream_insert(:posts, post, at: -1)}
     end
   end
 
   def handle_info({:reply_deleted, post, _reply}, socket) do
+    post = pre_decrypt_post(post, socket.assigns.current_user, socket.assigns.key)
     # we update the post in the stream to remove the reply
     {:noreply, socket |> stream_insert(:posts, post, at: -1)}
   end
@@ -422,6 +429,7 @@ defmodule MossletWeb.UserConnectionLive.Show do
           )
 
         post = Timeline.get_post!(post_id)
+        post = pre_decrypt_post(post, socket.assigns.current_user, socket.assigns.key)
 
         {:noreply, stream_insert(socket, :posts, post, at: -1)}
 
@@ -438,6 +446,7 @@ defmodule MossletWeb.UserConnectionLive.Show do
 
         if Enum.count(finished_loading_post_list) == Enum.count(post_list) do
           post = Timeline.get_post!(post_id)
+          post = pre_decrypt_post(post, socket.assigns.current_user, socket.assigns.key)
 
           socket =
             socket

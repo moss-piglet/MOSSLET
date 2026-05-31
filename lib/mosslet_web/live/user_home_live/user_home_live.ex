@@ -527,6 +527,8 @@ defmodule MossletWeb.UserHomeLive do
         if already_in_profile_posts? do
           {:noreply, socket}
         else
+          session_key = socket.assigns.current_scope.key
+          post = pre_decrypt_post(post, current_user, session_key)
           post_with_date = add_single_post_date_context(post, cached_posts, at: 0)
           updated_cached = [post_with_date | cached_posts]
 
@@ -547,6 +549,8 @@ defmodule MossletWeb.UserHomeLive do
         if already_in_profile_posts? do
           {:noreply, socket}
         else
+          session_key = socket.assigns.current_scope.key
+          post = pre_decrypt_post(post, current_user, session_key)
           post_with_date = add_single_post_date_context(post, cached_profile_posts, at: 0)
           updated_cached = [post_with_date | cached_profile_posts]
 
@@ -1319,14 +1323,19 @@ defmodule MossletWeb.UserHomeLive do
           is_post_unread?(post, current_user)
         end)
 
+      session_key = socket.assigns.current_scope.key
       cached_read_posts = socket.assigns.cached_read_posts
       cached_profile_posts = socket.assigns.cached_profile_posts
 
       new_unread_with_dates =
-        add_date_grouping_context_for_append(new_unread, cached_profile_posts)
+        new_unread
+        |> add_date_grouping_context_for_append(cached_profile_posts)
+        |> pre_decrypt_posts(current_user, session_key)
 
       new_read_posts_with_dates =
-        add_date_grouping_context_for_append(new_read_posts, cached_read_posts)
+        new_read_posts
+        |> add_date_grouping_context_for_append(cached_read_posts)
+        |> pre_decrypt_posts(current_user, session_key)
 
       updated_cached_profile = cached_profile_posts ++ new_unread_with_dates
       updated_cached_read = cached_read_posts ++ new_read_posts_with_dates
@@ -5381,6 +5390,7 @@ defmodule MossletWeb.UserHomeLive do
           |> Map.put(:show_date_separator, Map.get(p, :show_date_separator, false))
           |> Map.put(:post_date, Map.get(p, :post_date))
           |> Map.put(:first_separator, Map.get(p, :first_separator, false))
+          |> Map.put(:decrypted, Map.get(p, :decrypted))
         else
           p
         end
