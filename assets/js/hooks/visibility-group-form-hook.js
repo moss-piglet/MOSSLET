@@ -6,7 +6,7 @@
  * The server stores only ciphertext — plaintext name/description never arrive.
  *
  * The conn_key is the same symmetric key used for all connection-shared data.
- * It's cached by `getConnKey()` from the `#session-key-deriver[data-conn-key]` attr.
+ * It's cached by `getConnKey()` from the `#session-key-deriver[data-sealed-conn-key]` attr.
  *
  * Falls through to normal server-side form submit if:
  *   - Keys are not yet available (WASM not loaded, sessionStorage empty)

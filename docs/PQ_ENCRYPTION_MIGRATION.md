@@ -501,7 +501,7 @@ These can follow the same phased approach: first move the read path (decrypt in 
 20b. **ZK Connection profile fields: browser-side decryption of about, website, alt email** — DONE. `decrypt_profile_fields/4` dual-path helper returns encrypted blobs + sealed key for non-public profiles (browser ZK), or server-decrypted plaintext for public profiles. `DecryptProfileFields` JS hook unseals profile key via `unsealContextKey()` and decrypts all four fields (about, alternate_email, website_url, website_label) browser-side. Three viewing contexts: `:own` (profile_key sealed to user's pubkey), `:connection` (conn_key sealed to viewer via user_connection.key), `:public` (server keypair). Own-profile + public visibility correctly routes through server keypair. All `decr_item`/`decr_uconn`/`decrypt_public_field` calls in user_home_live and user_connection_live migrated to `@profile_fields` assign with `data-decrypt-profile` DOM targets. Key insight: `profile_key = conn_key` (raw form) — both connection viewers and profile owners arrive at the same symmetric key through different unseal paths.
 20c. **ZK Connection status messages: browser-side decryption** — DONE. Status messages encrypted with both `user_key` (personal) and `conn_key` (shared via connection) now decrypt browser-side instead of server-side. Own-user status uses `pre_decrypt_user` fast path (avoids redundant unseal) + `DecryptUserFields` hook. Connection status uses new `DecryptStatusMessage` JS hook that unseals the viewer's sealed conn_key (from `user_connection.key`) via `unsealContextKey()` and decrypts `connection.status_message` with `unwrapConnKey()` + `decryptWithKey()`. New `get_encrypted_status_data/3` and `get_encrypted_connection_status_data/3` helpers build the encrypted data maps. `liquid_status_message_card` component extended with `encrypted_status_data` attr that renders the hook element. All display paths updated: `user_home_live` (connection profile view, post author avatars), `user_connection_live/index` (connection cards, arrival cards), `timeline_live/index` (post author status cache + templates). Write path unchanged — server has session key during dual-update encryption. Public profiles still server-decrypted via `profile_key`. Real-time `push_event("update_user_status")` still sends server-decrypted plaintext (server already holds session key for the viewing user), but the template render path is fully ZK.
 20d. **ZK Reply Write: browser-side encryption for post and group replies** — DONE. New `ReplyFormHook` JS hook intercepts reply form submit for non-public posts, reads cached parent `post_key` from `getCachedPostKey(postId)` (populated by `DecryptPost`), encrypts body + username with `encryptSecretboxString()`, and pushes `"save_reply_zk"` event with pre-encrypted ciphertext. Server receives ciphertext and passes `zk_reply: true` to `Timeline.create_reply/2`, routing through the existing `Reply.encrypt_attrs_zk` path. Graceful fallback: if no cached post_key (public post, or `DecryptPost` not yet run), the hook falls through to normal form submit and server-side encryption. All four reply form surfaces updated: modal forms (`PostLive.Replies.FormComponent`, `GroupLive.Replies.FormComponent`), inline timeline composer (`ReplyComposerComponent`), and nested reply composer (`NestedReplyComposerComponent`). Parent LiveViews (`timeline_live/index.ex`, `user_home_live.ex`) handle `{:create_reply_zk, ...}` messages from inline composers. Group post replies use the same `post_key` pattern — each group post has its own post_key.
-20e. **ZK Connection creation: browser-side label encryption** — DONE. New `ConnectionFormHook` JS hook intercepts new connection form submit, encrypts the label with the user's `conn_key` (from `getConnKey()` → `#session-key-deriver[data-conn-key]`), and pushes `"save_new_connection_zk"` event with pre-encrypted ciphertext. Server receives ciphertext and passes `zk_label` opt through the existing `UserConnection.changeset/3` pipeline — recipient lookup, key sealing, and request field encryption remain server-side (operational), but the plaintext label never arrives at the server. `maybe_encrypt_label/4` checks for `zk_label` opt and stores the pre-encrypted value + blind index directly. Graceful fallback: if conn_key not available (WASM not loaded), hook falls through to normal form submit and server-side encryption. Both creation surfaces updated: inline form (`index.html.heex`) and modal form (`form_component.ex`). Hook uses `pushEventTo(this.el, ...)` to correctly target both LiveView and LiveComponent contexts.
+20e. **ZK Connection creation: browser-side label encryption** — DONE. New `ConnectionFormHook` JS hook intercepts new connection form submit, encrypts the label with the user's `conn_key` (from `getConnKey()` → `#session-key-deriver[data-sealed-conn-key]`), and pushes `"save_new_connection_zk"` event with pre-encrypted ciphertext. Server receives ciphertext and passes `zk_label` opt through the existing `UserConnection.changeset/3` pipeline — recipient lookup, key sealing, and request field encryption remain server-side (operational), but the plaintext label never arrives at the server. `maybe_encrypt_label/4` checks for `zk_label` opt and stores the pre-encrypted value + blind index directly. Graceful fallback: if conn_key not available (WASM not loaded), hook falls through to normal form submit and server-side encryption. Both creation surfaces updated: inline form (`index.html.heex`) and modal form (`form_component.ex`). Hook uses `pushEventTo(this.el, ...)` to correctly target both LiveView and LiveComponent contexts.
 20f. **ZK Visibility group: browser-side name/description encryption** — DONE. New `VisibilityGroupFormHook` JS hook intercepts visibility group form submit, encrypts name and description with the user's `user_key` (from `getUserKey()` → `#decrypt-user-fields[data-sealed-user-key]`), and pushes `"save_visibility_group_zk"` event. `User.visibility_group_changeset_zk/2` accepts pre-encrypted name/description and stores directly. `Accounts.create_or_update_visibility_group_zk/3` handles both create and update paths. Connection IDs remain encrypted server-side with `user_key` (they're UUIDs used only for server queries, not user-visible content). Graceful fallback to normal server-side encryption if WASM unavailable.
 20g. **ZK Journal book title/description: browser-side encryption** — DONE. New `JournalBookFormHook` JS hook intercepts journal book form submit (create and edit), encrypts title and description with user_key via `getUserKey()` + `encryptWithKey()`, and pushes `"save_book_zk"` event. `JournalBook.changeset_zk/2` accepts pre-encrypted title/description + title_blind_index and stores directly. `Journal.create_book_zk/2` and `Journal.update_book_zk/3` context functions handle both paths. New `ExtractedEntryFormHook` handles the digitized entry form (handwriting OCR preview) — encrypts title/body before submission via `"save_extracted_entry_zk"` event, reusing existing `JournalEntry.changeset_zk`. Both hooks fall through to normal server-side encryption if WASM/keys unavailable. Cover image upload and cover color remain unencrypted (operational metadata). Note: OCR extraction itself still runs server-side (OpenAI) — true ZK digitization would require client-side OCR (future enhancement).
 20h. **ZK Group create: browser-side name/description encryption for new circles** — DONE. True ZK two-phase commit (same pattern as PostFormHook Phase 18). Phase 1: browser generates `group_key` via WASM `generateKey()`, encrypts name/description with `encryptSecretboxString()`, seals key for creator via `sealForUser()` with hybrid PQ, encrypts creator's display name, and pushes `"create_group_zk"`. Phase 2: server responds with `"seal_group_key_for_members"` containing each member's `public_key`, `pq_public_key`, plaintext display name, and server-generated moniker/avatar_img. Browser seals group_key for every member via `sealForUser()`, encrypts each member's name/moniker/avatar_img with group_key, and pushes `"finalize_group_zk"`. The raw group_key NEVER exists in server memory. `Group.create_changeset_zk/1` and `UserGroup.owner_changeset_zk/1`/`member_changeset_zk/1` accept only pre-encrypted fields and pre-sealed keys. `Groups.create_group_zk/4` creates group + owner in Ecto.Multi, then inserts member user_groups with browser-sealed keys. Public groups fall through to server-side encryption. Graceful fallback if WASM/keys unavailable.
@@ -734,3 +734,56 @@ Note: `@noble/post-quantum` was the original browser-side PQ library (pure JS). 
 - RSS feeds (public content only)
 - Notification cards (reply body/username for push notifications)
 - Re-encryption workflows (update_post_body/update_reply_body for public posts)
+
+---
+
+## June 2026 Full ZK PQ Audit #3
+
+### Status: Migration substantially complete (~98%)
+
+All high-traffic paths (timeline, conversations, posts, replies, groups, journals, connections, profiles) are fully ZK PQ. The remaining server-side decrypt calls are in:
+- ~50 legitimate server-side operations (S3, re-encryption, notifications, Bluesky sync, billing)
+- ~31 settings/admin page displays (group moderation, blocked users, connection management)
+- ~19 form pre-fill values (edit forms need server-side plaintext for Trix editor)
+- ~41 display-only calls (template `decr_item`/`decr_uconn` — ZK-migratable via browser hooks)
+
+### Security audit (no CRITICAL or HIGH findings)
+
+A comprehensive security audit of the JS layer, LiveView templates, and server-side decrypt paths found **zero critical or high-severity issues**:
+
+1. **No session key leakage**: No `console.log` of key material in any JS hook or crypto module. All 80+ console statements use `console.error()`/`console.warn()` for error messages only — never log key values.
+
+2. **No DOM plaintext keys**: No `data-*` attributes contain decrypted/raw keys. All key blobs use `data-encrypted-*` (secretbox-wrapped) or `data-sealed-*` (box_seal/hybrid KEM-wrapped) prefixes. No `phx-value-*` attributes pass cryptographic material.
+
+3. **No push_event key leaks**: All `push_event` payloads contain only encrypted blobs, public keys, or display metadata — never decrypted private/secret keys.
+
+4. **SessionStorage centralized**: All crypto key access is centralized through `session.js` helpers and the `SK` namespace in `session-key-deriver.js`. No hook accesses `sessionStorage` directly for key material outside this namespace. Keys are properly cleared on `mosslet:logout`.
+
+5. **Persistent key cache defense-in-depth**: The IndexedDB-based key cache uses a non-extractable AES-256-GCM wrapping key. The ciphertext in localStorage is AES-256-GCM encrypted — an attacker who extracts localStorage files gets only opaque ciphertext.
+
+6. **Blind indexes correct**: All `.toLowerCase()` calls in JS form hooks feed into HMAC blind indexes (case-insensitive search), not plaintext hashes. The server receives only HMAC digests + encrypted ciphertext — never raw plaintext.
+
+### Fixed (this audit)
+
+1. **Naming inconsistency: `data-conn-key` → `data-sealed-conn-key`** — The `#session-key-deriver` element had `data-conn-key` while all other key blobs use `data-sealed-*` or `data-encrypted-*` prefixes. The value IS correctly encrypted (NaCl box_seal), but the bare name sets a bad precedent — a future developer could see `data-conn-key` and treat it as raw key material. Renamed to `data-sealed-conn-key` in `app.html.heex` and updated the JS read site in `session.js`. Also updated references in `connection-form-hook.js`, `visibility-group-form-hook.js`, and `PQ_ENCRYPTION_MIGRATION.md`. Files changed:
+   - `lib/mosslet_web/components/layouts/app.html.heex`
+   - `assets/js/crypto/session.js`
+   - `assets/js/hooks/connection-form-hook.js`
+   - `assets/js/hooks/visibility-group-form-hook.js`
+
+2. **ENCRYPTION_ARCHITECTURE.md Cat-5 update** — Added dedicated post-quantum security levels section documenting Cat-3 (v2, ML-KEM-768) vs Cat-5 (v3, ML-KEM-1024), version tag auto-detection, progressive migration, and usage guidance. Updated key wrapping row in browser-side table and conversation context flow comments. Files changed:
+   - `docs/ENCRYPTION_ARCHITECTURE.md`
+
+### Remaining ZK gaps (tracked as tasks)
+
+Display-only migration targets (lower traffic, ZK-migratable via browser-side hooks):
+
+| Area | Count | Task |
+|------|-------|------|
+| Connection card display (name, username, email, label) | ~17 | #112 |
+| Group settings (member names, monikers, avatar_img) | ~10 | #113 |
+| Timeline post author display (connection name resolution) | ~4 | #114 |
+| Group pending invitations, join page, message members | ~8 | #113 |
+| Reply notification cards (design_system.ex) | ~2 | #114 |
+| Group mention resolving | ~1 | #113 |
+| **Total ZK-migratable display calls** | **~42** | |

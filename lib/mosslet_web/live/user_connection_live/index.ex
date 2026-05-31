@@ -1404,30 +1404,8 @@ defmodule MossletWeb.UserConnectionLive.Index do
 
   defp notify_self(msg), do: send(self(), {__MODULE__, msg})
 
-  # Helper functions for decrypting connection data (using pattern matching)
-
-  defp get_decrypted_arrival_name(arrival, current_user, key) do
-    case decr_uconn(arrival.request_username, current_user, arrival.key, key) do
-      result when is_binary(result) -> result
-      _ -> "[Encrypted]"
-    end
-  end
-
-  defp get_decrypted_arrival_email(arrival, current_user, key) do
-    case decr_uconn(arrival.request_email, current_user, arrival.key, key) do
-      result when is_binary(result) -> result
-      _ -> "[encrypted@example.com]"
-    end
-  end
-
-  defp get_decrypted_arrival_label(arrival, current_user, key) do
-    case decr_uconn(arrival.label, current_user, arrival.key, key) do
-      result when is_binary(result) -> result
-      _ -> "[Encrypted]"
-    end
-  end
-
   # get_arrival_avatar_src removed — migrated to encrypted_avatar_data on liquid_arrival_card
+  # get_decrypted_arrival_name/email/label removed — migrated to DecryptConnectionCard JS hook
 
   # Helper function to check if a connection is in a visibility group
   defp connection_in_group?(connection, editing_group, current_user, key) do

@@ -15,7 +15,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
       current_scope={@current_scope}
       group={@group}
       user_group={@current_user_group}
-      edit_group_name={"Edit #{decr_item(@group.name, @current_scope.user, @current_user_group.key, @current_scope.key, @group)} Members"}
+      group_metadata={@group_metadata}
     >
       <div class="space-y-6">
         <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -44,6 +44,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
               current_user_group={@current_user_group}
               current_scope={@current_scope}
               group={@group}
+              group_metadata={@group_metadata}
             />
           </div>
         </div>
@@ -108,6 +109,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
   attr :current_user_group, :map, required: true
   attr :current_scope, :map, required: true
   attr :group, :map, required: true
+  attr :group_metadata, :map, required: true
 
   defp member_card(assigns) do
     is_self = assigns.user_group.id == assigns.current_user_group.id
@@ -129,18 +131,20 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
       )
 
     is_connected = not is_nil(uconn)
+    browser_decrypt? = assigns.group_metadata[:browser_decrypt?] || false
 
-    member_name =
-      if is_self || is_connected do
-        decr_item(
-          assigns.user_group.name,
-          assigns.current_scope.user,
-          assigns.current_user_group.key,
-          assigns.current_scope.key,
-          assigns.group
-        )
+    {member_name, moniker} =
+      if browser_decrypt? do
+        {nil, nil}
       else
-        nil
+        raw_key = assigns.group_metadata[:raw_key]
+
+        name =
+          if (is_self || is_connected) && raw_key,
+            do: decrypt_field(assigns.user_group.name, raw_key, nil)
+
+        mk = if raw_key, do: decrypt_field(assigns.user_group.moniker, raw_key, "member")
+        {name, mk}
       end
 
     assigns =
@@ -149,6 +153,11 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
       |> assign(:can_edit, can_edit)
       |> assign(:disabled_reason, disabled_reason)
       |> assign(:member_name, member_name)
+      |> assign(:moniker, moniker)
+      |> assign(:browser_decrypt?, browser_decrypt?)
+      |> assign(:encrypted_name, if(browser_decrypt?, do: assigns.user_group.name))
+      |> assign(:encrypted_moniker, if(browser_decrypt?, do: assigns.user_group.moniker))
+      |> assign(:sealed_group_key, assigns.group_metadata[:sealed_group_key])
 
     ~H"""
     <div
@@ -198,7 +207,19 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
           else: "Click to edit member role"
       }
       phx-hook="TippyHook"
+      data-hook-scope={"edit-member-#{@user_group.id}"}
     >
+      <div
+        :if={@browser_decrypt?}
+        id={"decrypt-edit-member-#{@user_group.id}"}
+        phx-hook="DecryptGroupMetadata"
+        data-sealed-group-key={@sealed_group_key}
+        data-encrypted-name={@encrypted_name}
+        data-encrypted-moniker={@encrypted_moniker}
+        data-scope-id={"edit-member-#{@user_group.id}"}
+      >
+      </div>
+
       <div class={[
         "absolute inset-0 rounded-xl opacity-0 transition-all duration-300 ease-out pointer-events-none",
         "bg-gradient-to-r from-transparent via-emerald-200/20 to-transparent",
@@ -249,10 +270,15 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
         <div class="flex-1 min-w-0 space-y-1.5 overflow-hidden">
           <div class="flex flex-wrap items-center gap-2">
             <span
-              :if={@member_name}
-              class="font-semibold text-slate-900 dark:text-slate-100 truncate text-sm sm:text-base"
+              class={[
+                "font-semibold text-slate-900 dark:text-slate-100 truncate text-sm sm:text-base",
+                !@member_name && !@browser_decrypt? && "hidden"
+              ]}
+              phx-update={if @browser_decrypt?, do: "ignore"}
+              id={"edit-member-name-#{@user_group.id}"}
+              data-decrypt-group-name
             >
-              {@member_name}
+              {if @browser_decrypt?, do: "Decrypting...", else: @member_name}
             </span>
             <.liquid_badge :if={@is_self} color="cyan" size="xs" variant="soft">
               You
@@ -265,14 +291,13 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
                 name="hero-finger-print"
                 class="w-4 h-4 text-teal-500 dark:text-teal-400 flex-shrink-0"
               />
-              <span class="truncate">
-                {decr_item(
-                  @user_group.moniker,
-                  @current_scope.user,
-                  @current_user_group.key,
-                  @current_scope.key,
-                  @group
-                )}
+              <span
+                class="truncate"
+                phx-update={if @browser_decrypt?, do: "ignore"}
+                id={"edit-member-moniker-#{@user_group.id}"}
+                data-decrypt-group-moniker
+              >
+                {if @browser_decrypt?, do: "Decrypting...", else: @moniker}
               </span>
             </span>
           </div>
@@ -404,21 +429,20 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
         Mosslet.Groups.get_user_group_for_group_and_user(group, socket.assigns.current_scope.user)
 
       if current_user_group.role in [:owner, :admin] do
+        group_metadata =
+          pre_decrypt_group_metadata(
+            group,
+            current_user_group,
+            socket.assigns.current_scope.user,
+            socket.assigns.current_scope.key
+          )
+
         {:ok,
          socket
          |> assign(:group, group)
          |> assign(:current_user_group, current_user_group)
          |> assign(:selected_role, nil)
-         |> assign(
-           :group_name,
-           decr_item(
-             group.name,
-             socket.assigns.current_scope.user,
-             current_user_group.key,
-             socket.assigns.current_scope.key,
-             group
-           )
-         )
+         |> assign(:group_metadata, group_metadata)
          |> assign(:page_title, "Edit Circle Members"), layout: {MossletWeb.Layouts, :app}}
       else
         {:ok,
@@ -438,22 +462,21 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
         Mosslet.Groups.get_user_group_for_group_and_user(group, socket.assigns.current_scope.user)
 
       if user_group.role in [:owner, :admin] do
+        group_metadata =
+          pre_decrypt_group_metadata(
+            group,
+            current_user_group,
+            socket.assigns.current_scope.user,
+            socket.assigns.current_scope.key
+          )
+
         {:ok,
          socket
          |> assign(:group, group)
          |> assign(:user_group, user_group)
          |> assign(:current_user_group, current_user_group)
          |> assign(:selected_role, nil)
-         |> assign(
-           :group_name,
-           decr_item(
-             group.name,
-             socket.assigns.current_scope.user,
-             get_user_group(group, socket.assigns.current_scope.user).key,
-             socket.assigns.key,
-             group
-           )
-         )
+         |> assign(:group_metadata, group_metadata)
          |> assign(:page_title, "Edit Circle Members"), layout: {MossletWeb.Layouts, :app}}
       else
         {:ok,

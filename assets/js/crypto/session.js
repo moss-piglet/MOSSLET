@@ -100,7 +100,7 @@ export function getEncryptedPqPrivateKey() {
  */
 export function getSealedConnKey() {
   const deriverEl = document.querySelector("#session-key-deriver");
-  return deriverEl?.dataset?.connKey || null;
+  return deriverEl?.dataset?.sealedConnKey || null;
 }
 
 /**

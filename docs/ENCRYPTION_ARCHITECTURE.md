@@ -149,7 +149,26 @@ The same Rust crate (`metamorphic-crypto`) compiles to both the server-side NIF 
 | **Zero-knowledge on web?** | No — server needs plaintext for SEO/federation                       | **Yes** — server never sees plaintext                   |
 | **Algorithms**             | XSalsa20-Poly1305 (secretbox) + X25519 (box_seal) + ML-KEM-1024 (PQ) | Identical — same Rust code                              |
 | **PQ support**             | Yes — `seal_for_user`/`unseal_from_user` with hybrid ML-KEM-1024    | Yes — `sealForUser`/`unsealFromUser` with hybrid        |
-| **Key wrapping**           | Legacy (v1, box_seal) or Hybrid (v2, ML-KEM-768+X25519)             | Identical — auto-detects format                         |
+| **Key wrapping**           | Legacy (v1, box_seal) or Hybrid v2 (Cat-3, ML-KEM-768+X25519) or Hybrid v3 (Cat-5, ML-KEM-1024+X25519) | Identical — auto-detects format |
+
+### Post-Quantum Security Levels
+
+Mosslet supports two hybrid PQ security levels, auto-detected on unseal by the version tag byte:
+
+| Level | Version Tag | Algorithm | Public Key Size | Status |
+|-------|-------------|-----------|-----------------|--------|
+| **Cat-3** (v2) | `0x02` | ML-KEM-768 + X25519 | 1216 bytes | Legacy — existing ciphertext still decrypts |
+| **Cat-5** (v3) | `0x03` | ML-KEM-1024 + X25519 | 1600 bytes | **Default** — all new seals use this level |
+
+**Auto-detection**: `unsealFromUser` on both server (NIF) and browser (WASM) checks the first byte:
+- `0x00`–`0x01` → legacy v1 (`crypto_box_seal`)
+- `0x02` → Cat-3 hybrid (ML-KEM-768 + X25519)
+- `0x03` → Cat-5 hybrid (ML-KEM-1024 + X25519)
+- Other → legacy v1 (backward compatibility)
+
+**Progressive migration**: Users with Cat-3 keys are upgraded to Cat-5 on next login. `needs_pq_migration?/1` detects 1216-byte keys and generates a new Cat-5 keypair. `PqResealWorker` re-seals existing v1/v2 context keys to v3 format in the background.
+
+**Usage**: Call `sealForUser(plaintext, publicKey, pqPublicKey)` — the browser-side WASM and server NIF both auto-detect the recipient's PQ level from the PQ public key size (1216 bytes = Cat-3, 1600 bytes = Cat-5) and use the appropriate hybrid KEM.
 
 ### JS Crypto Modules
 
@@ -203,8 +222,8 @@ CONVERSATION CONTEXT (browser-side, same pattern as post/group/connection):
 conversation_key = generateKey()                                    # 1. Browser generates symmetric key
 message.content = encryptDmMessage("Hello!", conversation_key)      # 2. Browser encrypts with conversation_key
 # For each participant (hybrid PQ when PQ keys available, legacy fallback otherwise):
-user_conversation.key = sealForUser(conversation_key, user.public_key, user.pq_public_key)  # 3. seal per user
-# When reading (auto-detects v1 legacy or v2 hybrid format):
+user_conversation.key = sealForUser(conversation_key, user.public_key, user.pq_public_key)  # 3. seal per user (auto v2 Cat-3 or v3 Cat-5)
+# When reading (auto-detects v1 legacy, v2 Cat-3, or v3 Cat-5):
 conversation_key = unsealFromUser(user_conversation.key, pk, sk, pq_sk)  # 4. unseal with private key(s)
 plaintext = decryptDmMessage(message.content, conversation_key)    # 5. secretbox_open to get plaintext
 ```

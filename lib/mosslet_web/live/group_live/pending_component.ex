@@ -25,93 +25,105 @@ defmodule MossletWeb.GroupLive.PendingComponent do
         class="space-y-3"
       >
         <%= for {id, group} <- @stream do %>
-          <% user_group = get_user_group(group, @current_user) %>
-          <MossletWeb.DesignSystem.liquid_pending_group_card
-            id={id}
-            name={decr_item(group.name, @current_user, user_group.key, @key, group)}
-            description={decr_item(group.description, @current_user, user_group.key, @key, group)}
-            inviter_name={@decrypted_inviters[group.id]}
-            inserted_at={group.inserted_at}
-            requires_password={group.require_password?}
-          >
-            <:members>
-              <%= for user_group <- Enum.take(Enum.filter(group.user_groups, & &1.confirmed_at), 5) do %>
-                <% member_uconn =
-                  get_uconn_for_users(
-                    get_user_from_user_group_id(user_group.id),
-                    @current_user
-                  ) %>
+          <% _user_group = get_user_group(group, @current_user) %>
+          <% browser_decrypt? = group.decrypted[:browser_decrypt?] || false %>
+          <div data-hook-scope={"pending-group-#{group.id}"}>
+            <div
+              :if={browser_decrypt?}
+              id={"decrypt-pending-#{group.id}"}
+              phx-hook="DecryptGroupMetadata"
+              data-sealed-group-key={group.decrypted[:sealed_group_key]}
+              data-encrypted-name={group.decrypted[:encrypted_name]}
+              data-encrypted-description={group.decrypted[:encrypted_description]}
+              data-scope-id={"pending-group-#{group.id}"}
+            >
+            </div>
+            <MossletWeb.DesignSystem.liquid_pending_group_card
+              id={id}
+              name={group.decrypted[:name]}
+              description={group.decrypted[:description]}
+              inviter_name={@decrypted_inviters[group.id]}
+              inserted_at={group.inserted_at}
+              requires_password={group.require_password?}
+              browser_decrypt={browser_decrypt?}
+            >
+              <:members>
+                <%= for ug <- Enum.take(Enum.filter(group.user_groups, & &1.confirmed_at), 5) do %>
+                  <% member_uconn =
+                    get_uconn_for_users(
+                      get_user_from_user_group_id(ug.id),
+                      @current_user
+                    ) %>
 
-                <.phx_avatar
-                  :if={user_group.user_id != @current_user.id && member_uconn}
-                  encrypted_avatar_data={get_encrypted_avatar_data(member_uconn, @key)}
-                  id={"pending-member-#{group.id}-#{user_group.id}"}
-                  alt="group member"
-                  class="h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-700"
-                />
+                  <.phx_avatar
+                    :if={ug.user_id != @current_user.id && member_uconn}
+                    encrypted_avatar_data={get_encrypted_avatar_data(member_uconn, @key)}
+                    id={"pending-member-#{group.id}-#{ug.id}"}
+                    alt="group member"
+                    class="h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-700"
+                  />
 
-                <.phx_avatar
-                  :if={user_group.user_id != @current_user.id && !member_uconn}
-                  src={
-                    ~p"/images/groups/#{decr_item(user_group.avatar_img, @current_user, get_user_group(group, @current_user).key, @key, group)}"
+                  <.phx_avatar
+                    :if={ug.user_id != @current_user.id && !member_uconn}
+                    src={~p"/images/groups/default.svg"}
+                    alt="group member"
+                    class="h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-700"
+                  />
+
+                  <.phx_avatar
+                    :if={ug.user_id == @current_user.id}
+                    encrypted_avatar_data={get_encrypted_avatar_data(@current_user, @key)}
+                    id={"pending-group-#{group.id}-self"}
+                    alt="you"
+                    class="h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-700"
+                  />
+                <% end %>
+                <div
+                  :if={Enum.count(group.user_groups, & &1.confirmed_at) > 5}
+                  class="flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-700 text-xs font-medium text-slate-600 dark:text-slate-400"
+                >
+                  +{Enum.count(group.user_groups, & &1.confirmed_at) - 5}
+                </div>
+              </:members>
+              <:actions>
+                <MossletWeb.DesignSystem.liquid_button
+                  :if={can_delete_user_group?(get_user_group(group, @current_user), @current_user)}
+                  phx-click={
+                    JS.push("delete-user-group",
+                      value: %{id: get_user_group(group, @current_user).id}
+                    )
+                    |> hide("##{id}")
                   }
-                  alt="group member"
-                  class="h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-700"
-                />
+                  data-confirm="Are you sure you want to decline this invitation?"
+                  size="sm"
+                  variant="secondary"
+                  color="rose"
+                >
+                  Decline
+                </MossletWeb.DesignSystem.liquid_button>
 
-                <.phx_avatar
-                  :if={user_group.user_id == @current_user.id}
-                  encrypted_avatar_data={get_encrypted_avatar_data(@current_user, @key)}
-                  id={"pending-group-#{group.id}-self"}
-                  alt="you"
-                  class="h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-700"
-                />
-              <% end %>
-              <div
-                :if={Enum.count(group.user_groups, & &1.confirmed_at) > 5}
-                class="flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-700 text-xs font-medium text-slate-600 dark:text-slate-400"
-              >
-                +{Enum.count(group.user_groups, & &1.confirmed_at) - 5}
-              </div>
-            </:members>
-            <:actions>
-              <MossletWeb.DesignSystem.liquid_button
-                :if={can_delete_user_group?(get_user_group(group, @current_user), @current_user)}
-                phx-click={
-                  JS.push("delete-user-group",
-                    value: %{id: get_user_group(group, @current_user).id}
-                  )
-                  |> hide("##{id}")
-                }
-                data-confirm="Are you sure you want to decline this invitation?"
-                size="sm"
-                variant="secondary"
-                color="rose"
-              >
-                Decline
-              </MossletWeb.DesignSystem.liquid_button>
+                <MossletWeb.DesignSystem.liquid_button
+                  :if={group.require_password?}
+                  phx-click={JS.navigate(~p"/app/circles/#{group}/join-password")}
+                  size="sm"
+                  color="emerald"
+                  icon="hero-lock-closed"
+                >
+                  Join Circle
+                </MossletWeb.DesignSystem.liquid_button>
 
-              <MossletWeb.DesignSystem.liquid_button
-                :if={group.require_password?}
-                phx-click={JS.navigate(~p"/app/circles/#{group}/join-password")}
-                size="sm"
-                color="emerald"
-                icon="hero-lock-closed"
-              >
-                Join Circle
-              </MossletWeb.DesignSystem.liquid_button>
-
-              <MossletWeb.DesignSystem.liquid_button
-                :if={!group.require_password?}
-                phx-click={JS.patch(~p"/app/circles/#{group}/join")}
-                size="sm"
-                color="emerald"
-                icon="hero-check"
-              >
-                Join Circle
-              </MossletWeb.DesignSystem.liquid_button>
-            </:actions>
-          </MossletWeb.DesignSystem.liquid_pending_group_card>
+                <MossletWeb.DesignSystem.liquid_button
+                  :if={!group.require_password?}
+                  phx-click={JS.patch(~p"/app/circles/#{group}/join")}
+                  size="sm"
+                  color="emerald"
+                  icon="hero-check"
+                >
+                  Join Circle
+                </MossletWeb.DesignSystem.liquid_button>
+              </:actions>
+            </MossletWeb.DesignSystem.liquid_pending_group_card>
+          </div>
         <% end %>
 
         <div :if={!@any_pending_groups?} class="py-8 text-center">

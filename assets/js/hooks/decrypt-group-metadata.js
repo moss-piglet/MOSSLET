@@ -19,6 +19,14 @@ const DecryptGroupMetadata = {
     }
   },
 
+  _scopeEl() {
+    const scopeId = this.el.dataset.scopeId;
+    if (scopeId) {
+      return this.el.closest(`[data-hook-scope="${scopeId}"]`) || document;
+    }
+    return document;
+  },
+
   async _decrypt() {
     if (this._decrypted) return true;
 
@@ -31,6 +39,7 @@ const DecryptGroupMetadata = {
       if (!rawGroupKey) return true;
 
       const groupKey = unwrapKey(rawGroupKey);
+      const scope = this._scopeEl();
 
       const encryptedName = this.el.dataset.encryptedName;
       const encryptedMoniker = this.el.dataset.encryptedMoniker;
@@ -40,7 +49,7 @@ const DecryptGroupMetadata = {
       if (encryptedName) {
         const name = await decryptWithKey(encryptedName, groupKey);
         if (name) {
-          document.querySelectorAll("[data-decrypt-group-name]").forEach(el => {
+          scope.querySelectorAll("[data-decrypt-group-name]").forEach(el => {
             el.textContent = name;
           });
         }
@@ -49,7 +58,7 @@ const DecryptGroupMetadata = {
       if (encryptedMoniker) {
         const moniker = await decryptWithKey(encryptedMoniker, groupKey);
         if (moniker) {
-          document.querySelectorAll("[data-decrypt-group-moniker]").forEach(el => {
+          scope.querySelectorAll("[data-decrypt-group-moniker]").forEach(el => {
             el.textContent = moniker;
           });
         }
@@ -58,7 +67,7 @@ const DecryptGroupMetadata = {
       if (encryptedDescription) {
         const description = await decryptWithKey(encryptedDescription, groupKey);
         if (description) {
-          document.querySelectorAll("[data-decrypt-group-description]").forEach(el => {
+          scope.querySelectorAll("[data-decrypt-group-description]").forEach(el => {
             el.textContent = description;
           });
         }
@@ -67,7 +76,7 @@ const DecryptGroupMetadata = {
       if (encryptedAvatarImg) {
         const avatarImg = await decryptWithKey(encryptedAvatarImg, groupKey);
         if (avatarImg) {
-          document.querySelectorAll("[data-decrypt-group-avatar-img]").forEach(el => {
+          scope.querySelectorAll("[data-decrypt-group-avatar-img]").forEach(el => {
             if (el.tagName === "IMG") {
               el.src = avatarImg;
             } else {

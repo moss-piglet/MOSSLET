@@ -12047,11 +12047,19 @@ defmodule MossletWeb.DesignSystem do
 
   @doc """
   Connection card component with liquid metal styling.
-  Expects decrypted data from the LiveView.
+  Browser-side ZK decryption via DecryptConnectionCard hook when encrypted fields are provided.
   """
-  attr :name, :string, required: true
-  attr :username, :string, required: true
-  attr :label, :string, required: true
+  attr :name, :string, default: "", doc: "Fallback for avatar alt text when not using ZK"
+  attr :username, :string, default: "", doc: "Fallback when not using ZK"
+  attr :label, :string, default: "", doc: "Fallback when not using ZK"
+  attr :encrypted_name, :string, default: nil, doc: "ZK encrypted connection name"
+  attr :encrypted_username, :string, default: nil, doc: "ZK encrypted connection username"
+  attr :encrypted_label, :string, default: nil, doc: "ZK encrypted connection label"
+
+  attr :sealed_uconn_key, :string,
+    default: nil,
+    doc: "ZK sealed connection key for browser unseal"
+
   attr :color, :atom, required: true
   attr :avatar_src, :string, default: nil
   attr :encrypted_avatar_data, :map, default: nil, doc: "ZK encrypted avatar blob + sealed key"
@@ -12080,6 +12088,20 @@ defmodule MossletWeb.DesignSystem do
         "transform-gpu will-change-transform cursor-pointer",
         @class
       ]}>
+        <%!-- DecryptConnectionCard hook for browser-side ZK decryption --%>
+        <div
+          :if={@sealed_uconn_key}
+          id={"decrypt-conn-card-#{@connection_id}"}
+          phx-hook="DecryptConnectionCard"
+          phx-update="ignore"
+          data-sealed-uconn-key={@sealed_uconn_key}
+          data-encrypted-conn-name={@encrypted_name}
+          data-encrypted-conn-username={@encrypted_username}
+          data-encrypted-conn-label={@encrypted_label}
+          class="hidden"
+        >
+        </div>
+
         <%!-- Liquid background effect on hover --%>
         <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out group-hover/card:opacity-100 bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10">
         </div>
@@ -12117,10 +12139,10 @@ defmodule MossletWeb.DesignSystem do
                     level={@heading_level}
                     class="text-lg font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-teal-700 dark:group-hover:text-teal-300 transition-colors duration-200"
                   >
-                    {@name}
+                    <span data-decrypt-conn-name>{if @sealed_uconn_key, do: "", else: @name}</span>
                   </.dynamic_heading>
                   <p class="text-sm text-slate-600 dark:text-slate-400 truncate">
-                    @{@username}
+                    @<span data-decrypt-conn-username>{if @sealed_uconn_key, do: "", else: @username}</span>
                   </p>
 
                   <%!-- Connection indicators (similar to timeline post indicators) --%>
@@ -12153,7 +12175,7 @@ defmodule MossletWeb.DesignSystem do
                   color={connection_badge_color(@color)}
                   size="sm"
                 >
-                  {@label}
+                  <span data-decrypt-conn-label>{if @sealed_uconn_key, do: "", else: @label}</span>
                 </.liquid_badge>
               </div>
 
@@ -12354,11 +12376,19 @@ defmodule MossletWeb.DesignSystem do
 
   @doc """
   Individual arrival card for connection requests.
-  Expects decrypted data from the LiveView.
+  Browser-side ZK decryption via DecryptConnectionCard hook when encrypted fields are provided.
   """
-  attr :name, :string, required: true
-  attr :email, :string, required: true
-  attr :label, :string, required: true
+  attr :name, :string, default: "", doc: "Fallback for avatar alt text when not using ZK"
+  attr :email, :string, default: "", doc: "Fallback when not using ZK"
+  attr :label, :string, default: "", doc: "Fallback when not using ZK"
+  attr :encrypted_name, :string, default: nil, doc: "ZK encrypted arrival request_username"
+  attr :encrypted_email, :string, default: nil, doc: "ZK encrypted arrival request_email"
+  attr :encrypted_label, :string, default: nil, doc: "ZK encrypted arrival label"
+
+  attr :sealed_uconn_key, :string,
+    default: nil,
+    doc: "ZK sealed connection key for browser unseal"
+
   attr :color, :atom, required: true
   attr :avatar_src, :string, default: nil
   attr :encrypted_avatar_data, :map, default: nil, doc: "ZK encrypted avatar blob + sealed key"
@@ -12381,6 +12411,20 @@ defmodule MossletWeb.DesignSystem do
       "hover:border-slate-300/60 dark:hover:border-slate-600/60",
       @class
     ]}>
+      <%!-- DecryptConnectionCard hook for browser-side ZK decryption --%>
+      <div
+        :if={@sealed_uconn_key}
+        id={"decrypt-arrival-card-#{@arrival_id}"}
+        phx-hook="DecryptConnectionCard"
+        phx-update="ignore"
+        data-sealed-uconn-key={@sealed_uconn_key}
+        data-encrypted-arrival-name={@encrypted_name}
+        data-encrypted-arrival-email={@encrypted_email}
+        data-encrypted-arrival-label={@encrypted_label}
+        class="hidden"
+      >
+      </div>
+
       <%!-- Enhanced liquid background with emerald/teal gradient --%>
       <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 bg-gradient-to-br from-emerald-50/20 via-teal-50/10 to-emerald-50/20 dark:from-emerald-900/10 dark:via-teal-900/5 dark:to-emerald-900/10">
       </div>
@@ -12419,7 +12463,7 @@ defmodule MossletWeb.DesignSystem do
                     level={@heading_level}
                     class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 truncate group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors duration-200 leading-tight"
                   >
-                    {@name}
+                    <span data-decrypt-arrival-name>{if @sealed_uconn_key, do: "", else: @name}</span>
                   </.dynamic_heading>
                 </div>
 
@@ -12430,14 +12474,16 @@ defmodule MossletWeb.DesignSystem do
                     color={connection_badge_color(@color)}
                     size="md"
                   >
-                    {@label}
+                    <span data-decrypt-arrival-label>
+                      {if @sealed_uconn_key, do: "", else: @label}
+                    </span>
                   </.liquid_badge>
                 </div>
               </div>
 
               <%!-- Email with improved secondary hierarchy --%>
               <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 truncate mb-3 font-medium">
-                {@email}
+                <span data-decrypt-arrival-email>{if @sealed_uconn_key, do: "", else: @email}</span>
               </p>
 
               <%!-- Timestamp with enhanced visual treatment --%>
@@ -13592,11 +13638,12 @@ defmodule MossletWeb.DesignSystem do
       </.liquid_pending_group_card>
   """
   attr :id, :string, required: true
-  attr :name, :string, required: true
+  attr :name, :string, default: nil
   attr :description, :string, default: nil
   attr :inviter_name, :string, required: true
   attr :inserted_at, :any, required: true
   attr :requires_password, :boolean, default: false
+  attr :browser_decrypt, :boolean, default: false
   attr :class, :any, default: ""
   slot :members
   slot :actions
@@ -13634,8 +13681,13 @@ defmodule MossletWeb.DesignSystem do
           <div class="flex-1 min-w-0">
             <div class="flex items-start justify-between gap-3 mb-2">
               <div class="flex items-center gap-2 flex-wrap min-w-0">
-                <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate group-hover/card:text-emerald-700 dark:group-hover/card:text-emerald-300 transition-colors duration-200">
-                  {@name}
+                <h2
+                  class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate group-hover/card:text-emerald-700 dark:group-hover/card:text-emerald-300 transition-colors duration-200"
+                  phx-update={if @browser_decrypt, do: "ignore"}
+                  id={"pending-card-name-#{@id}"}
+                  data-decrypt-group-name
+                >
+                  {if @browser_decrypt, do: "Decrypting...", else: @name}
                 </h2>
                 <span
                   :if={@requires_password}
@@ -13651,13 +13703,16 @@ defmodule MossletWeb.DesignSystem do
             </div>
 
             <p
-              :if={@description}
+              :if={@description || @browser_decrypt}
               class="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed mb-3"
+              phx-update={if @browser_decrypt, do: "ignore"}
+              id={"pending-card-desc-#{@id}"}
+              data-decrypt-group-description
             >
-              {@description}
+              {if @browser_decrypt, do: "Decrypting...", else: @description}
             </p>
             <p
-              :if={!@description}
+              :if={!@description && !@browser_decrypt}
               class="text-sm text-slate-400 dark:text-slate-500 italic mb-3"
             >
               No description

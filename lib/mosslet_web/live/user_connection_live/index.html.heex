@@ -299,9 +299,11 @@
               class="connection-card-container"
             >
               <MossletWeb.DesignSystem.liquid_connection_card
-                name={get_decrypted_connection_name(connection, @current_user, @key)}
-                username={get_decrypted_connection_username(connection, @current_user, @key)}
-                label={get_decrypted_connection_label(connection, @current_user, @key)}
+                name="Connection"
+                encrypted_name={connection.connection.name}
+                encrypted_username={connection.connection.username}
+                encrypted_label={connection.label}
+                sealed_uconn_key={connection.key}
                 color={connection.color}
                 encrypted_avatar_data={get_encrypted_avatar_data(connection, @key)}
                 connected_at={connection.confirmed_at}
@@ -458,9 +460,11 @@
           <div :if={@arrivals_count > 0} class="space-y-4 md:space-y-6">
             <div :for={{dom_id, arrival} <- @streams.arrivals} id={dom_id} class="">
               <MossletWeb.DesignSystem.liquid_arrival_card
-                name={get_decrypted_arrival_name(arrival, @current_user, @key)}
-                email={get_decrypted_arrival_email(arrival, @current_user, @key)}
-                label={get_decrypted_arrival_label(arrival, @current_user, @key)}
+                name="Connection"
+                encrypted_name={arrival.request_username}
+                encrypted_email={arrival.request_email}
+                encrypted_label={arrival.label}
+                sealed_uconn_key={arrival.key}
                 color={arrival.color || :purple}
                 encrypted_avatar_data={get_encrypted_avatar_data(arrival, @key)}
                 requested_at={arrival.inserted_at}

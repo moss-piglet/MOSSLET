@@ -40,8 +40,12 @@ defmodule MossletWeb.UserConnectionLiveTest do
         |> log_in_user(user, key)
         |> live(~p"/app/users/connections")
 
-      # Should see the connection information
-      assert render(lv) =~ "User Two"
+      html = render(lv)
+      # Should see connection card structure with ZK decryption hook
+      assert html =~ "data-decrypt-conn-name"
+      assert html =~ "data-decrypt-conn-username"
+      assert html =~ "data-decrypt-conn-label"
+      assert html =~ "data-sealed-uconn-key"
     end
 
     test "can switch between tabs", %{conn: conn, user: user, key: key} do
@@ -75,8 +79,11 @@ defmodule MossletWeb.UserConnectionLiveTest do
         |> log_in_user(user, key)
         |> live(~p"/app/users/connections")
 
-      # Verify connection information is displayed
-      assert render(lv) =~ "User Two"
+      html = render(lv)
+      # Verify connection card ZK decryption structure is present
+      assert html =~ "data-decrypt-conn-name"
+      assert html =~ "data-decrypt-conn-username"
+      assert html =~ "data-decrypt-conn-label"
     end
   end
 
@@ -131,8 +138,11 @@ defmodule MossletWeb.UserConnectionLiveTest do
         |> log_in_user(user, key)
         |> live(~p"/app/users/connections")
 
-      # Basic test - verify real-time capability exists
-      assert render(lv) =~ "User Two"
+      html = render(lv)
+      # Verify connection card ZK decryption structure is present
+      assert html =~ "data-decrypt-conn-name"
+      assert html =~ "data-decrypt-conn-username"
+      assert html =~ "data-decrypt-conn-label"
     end
 
     test "handles status updates", %{
@@ -167,8 +177,11 @@ defmodule MossletWeb.UserConnectionLiveTest do
         {:status_updated, updated_reverse_user}
       )
 
-      # Verify the LiveView can handle the message
-      assert render(lv) =~ "User Two"
+      html = render(lv)
+      # Verify connection card ZK decryption structure is still present
+      assert html =~ "data-decrypt-conn-name"
+      assert html =~ "data-decrypt-conn-username"
+      assert html =~ "data-decrypt-conn-label"
     end
   end
 

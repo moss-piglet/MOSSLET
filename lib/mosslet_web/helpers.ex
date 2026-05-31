@@ -852,9 +852,31 @@ defmodule MossletWeb.Helpers do
 
   @doc """
   Pre-decrypts a group and attaches the metadata as `:decrypted` on the struct.
+
+  Uses the ZK-aware 4-arg `pre_decrypt_group_metadata/4` so non-public groups
+  get encrypted blobs for browser-side decryption via the DecryptGroupMetadata hook.
   """
   def pre_decrypt_group(group, current_user, session_key) do
-    Map.put(group, :decrypted, pre_decrypt_group_metadata(group, current_user, session_key))
+    user_group = get_user_group(group, current_user)
+
+    decrypted =
+      if user_group do
+        pre_decrypt_group_metadata(group, user_group, current_user, session_key)
+      else
+        %{
+          name: nil,
+          description: nil,
+          moniker: nil,
+          raw_key: nil,
+          sealed_group_key: nil,
+          encrypted_name: nil,
+          encrypted_description: nil,
+          encrypted_moniker: nil,
+          browser_decrypt?: not group.public?
+        }
+      end
+
+    Map.put(group, :decrypted, decrypted)
   end
 
   @doc """
@@ -1033,6 +1055,87 @@ defmodule MossletWeb.Helpers do
           encrypted_name: if(browser_decrypt?, do: group.name),
           encrypted_description: if(browser_decrypt?, do: group.description),
           encrypted_moniker: if(browser_decrypt?, do: user_group.moniker),
+          browser_decrypt?: browser_decrypt?
+        }
+    end
+  end
+
+  @doc """
+  Pre-decrypts a group member's metadata (name, moniker) for ZK rendering.
+
+  For non-public groups, returns encrypted blobs + sealed group key for
+  browser-side decryption via the `DecryptGroupMetadata` hook. For public
+  groups, returns server-decrypted plaintext.
+
+  `member_ug` is the target member's `user_group` record. `current_ug` is the
+  current user's `user_group` for the same group.
+
+  The returned map always has `:name`, `:moniker`, `:encrypted_name`,
+  `:encrypted_moniker`, `:sealed_group_key`, and `:browser_decrypt?`.
+  """
+  def pre_decrypt_group_member(member_ug, group, current_ug, current_user, session_key) do
+    sealed_key = current_ug.key
+    browser_decrypt? = not group.public?
+
+    case unseal_group_key(sealed_key, group, current_user, session_key) do
+      {:ok, raw_key} ->
+        %{
+          name:
+            if(browser_decrypt?,
+              do: nil,
+              else: decrypt_field(member_ug.name, raw_key, nil)
+            ),
+          moniker:
+            if(browser_decrypt?,
+              do: nil,
+              else: decrypt_field(member_ug.moniker, raw_key, "member")
+            ),
+          sealed_group_key: if(browser_decrypt?, do: sealed_key),
+          encrypted_name: if(browser_decrypt?, do: member_ug.name),
+          encrypted_moniker: if(browser_decrypt?, do: member_ug.moniker),
+          browser_decrypt?: browser_decrypt?
+        }
+
+      :error ->
+        %{
+          name: nil,
+          moniker: "member",
+          sealed_group_key: if(browser_decrypt?, do: sealed_key),
+          encrypted_name: if(browser_decrypt?, do: member_ug.name),
+          encrypted_moniker: if(browser_decrypt?, do: member_ug.moniker),
+          browser_decrypt?: browser_decrypt?
+        }
+    end
+  end
+
+  @doc """
+  Pre-decrypts a blocked user's moniker for ZK rendering.
+
+  For non-public groups, returns encrypted blob + sealed group key for
+  browser-side decryption. For public groups, returns server-decrypted text.
+  """
+  def pre_decrypt_blocked_moniker(blocked_moniker, group, current_ug, current_user, session_key) do
+    sealed_key = current_ug.key
+    browser_decrypt? = not group.public?
+
+    case unseal_group_key(sealed_key, group, current_user, session_key) do
+      {:ok, raw_key} ->
+        %{
+          moniker:
+            if(browser_decrypt?,
+              do: nil,
+              else: decrypt_field(blocked_moniker, raw_key, nil)
+            ),
+          sealed_group_key: if(browser_decrypt?, do: sealed_key),
+          encrypted_moniker: if(browser_decrypt?, do: blocked_moniker),
+          browser_decrypt?: browser_decrypt?
+        }
+
+      :error ->
+        %{
+          moniker: nil,
+          sealed_group_key: if(browser_decrypt?, do: sealed_key),
+          encrypted_moniker: if(browser_decrypt?, do: blocked_moniker),
           browser_decrypt?: browser_decrypt?
         }
     end

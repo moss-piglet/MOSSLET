@@ -73,13 +73,21 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
         <MossletWeb.Layouts.theme_toggle />
       </:top_right>
 
+      <div
+        :if={@group_metadata[:browser_decrypt?]}
+        id="settings-group-metadata"
+        phx-hook="DecryptGroupMetadata"
+        data-sealed-group-key={@group_metadata[:sealed_group_key]}
+        data-encrypted-name={@group_metadata[:encrypted_name]}
+      >
+      </div>
+
       <.liquid_container max_width="xl" class="py-4 sm:py-8 xl:py-12">
         <div class="space-y-4 sm:space-y-8">
           <.group_settings_header
             title={Gettext.gettext(MossletWeb.Gettext, "Edit Circle Members")}
-            group_name={
-              decr_item(@group.name, @current_scope.user, @user_group.key, @current_scope.key, @group)
-            }
+            group_name={@group_metadata[:name]}
+            browser_decrypt={@group_metadata[:browser_decrypt?]}
           >
             <.liquid_button
               variant="secondary"
@@ -136,19 +144,25 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
       assigns
       |> assign_new(:inner_block, fn -> [] end)
       |> assign_new(:group_name, fn -> nil end)
+      |> assign_new(:browser_decrypt, fn -> false end)
 
     ~H"""
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div class="min-w-0">
-        <div :if={@group_name} class="flex items-center gap-2 mb-2">
+        <div class="flex items-center gap-2 mb-2">
           <div class="size-7 flex items-center justify-center rounded-lg bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30 flex-shrink-0">
             <MossletWeb.CoreComponents.phx_icon
               name="hero-circle-stack"
               class="size-4 text-teal-600 dark:text-teal-400"
             />
           </div>
-          <span class="text-sm font-medium text-teal-700 dark:text-teal-300 truncate">
-            {@group_name}
+          <span
+            class="text-sm font-medium text-teal-700 dark:text-teal-300 truncate"
+            phx-update={if @browser_decrypt, do: "ignore"}
+            id="settings-group-header-name"
+            data-decrypt-group-name
+          >
+            {if @browser_decrypt, do: "Decrypting...", else: @group_name}
           </span>
         </div>
         <h1 class={[

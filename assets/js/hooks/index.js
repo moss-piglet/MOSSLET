@@ -10,6 +10,7 @@ import DecryptGroupMetadata from "./decrypt-group-metadata";
 import DecryptJournalEntry from "./decrypt-journal-entry";
 import DecryptAvatar from "./decrypt-avatar";
 import DecryptBookmarkNote from "./decrypt-bookmark-note";
+import DecryptConnectionCard from "./decrypt-connection-card";
 import DecryptPost from "./decrypt-post";
 import DecryptProfileFields from "./decrypt-profile-fields";
 import DecryptReply from "./decrypt-reply";
@@ -108,6 +109,7 @@ export default {
   CSSBookCoverClick,
   DecryptAvatar,
   DecryptBookmarkNote,
+  DecryptConnectionCard,
   DecryptGroupMessage,
   DecryptGroupMetadata,
   DecryptJournalEntry,

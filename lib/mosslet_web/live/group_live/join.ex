@@ -38,26 +38,23 @@ defmodule MossletWeb.GroupLive.Join do
                       class="w-4 h-4 text-slate-500 dark:text-slate-400"
                     />
                     <span
-                      :if={@group.public?}
                       class="text-sm font-medium text-slate-700 dark:text-slate-300"
+                      phx-update={if @group_metadata[:browser_decrypt?], do: "ignore"}
+                      id="join-group-name"
+                      data-decrypt-group-name
                     >
-                      {decr_public_item(
-                        @group.name,
-                        get_public_user_group(@group, @current_scope.user).key
-                      )}
+                      {if @group_metadata[:browser_decrypt?],
+                        do: "Decrypting...",
+                        else: @group_metadata[:name]}
                     </span>
-                    <span
-                      :if={!@group.public?}
-                      class="text-sm font-medium text-slate-700 dark:text-slate-300"
-                    >
-                      {decr_item(
-                        @group.name,
-                        @current_scope.user,
-                        get_user_group(@group, @current_scope.user).key,
-                        @key,
-                        @group
-                      )}
-                    </span>
+                  </div>
+                  <div
+                    :if={@group_metadata[:browser_decrypt?]}
+                    id="decrypt-join-group"
+                    phx-hook="DecryptGroupMetadata"
+                    data-sealed-group-key={@group_metadata[:sealed_group_key]}
+                    data-encrypted-name={@group_metadata[:encrypted_name]}
+                  >
                   </div>
                 </div>
 
@@ -176,9 +173,22 @@ defmodule MossletWeb.GroupLive.Join do
          can_join_group?(group, user_group, socket.assigns.current_scope.user) do
       changeset = Group.join_changeset(group, %{password: nil})
 
+      group_metadata =
+        if user_group do
+          pre_decrypt_group_metadata(
+            group,
+            user_group,
+            socket.assigns.current_scope.user,
+            socket.assigns.current_scope.key
+          )
+        else
+          %{name: nil, browser_decrypt?: true, sealed_group_key: nil, encrypted_name: group.name}
+        end
+
       socket
       |> assign(:group, Groups.get_group!(id))
       |> assign(:user_group, user_group)
+      |> assign(:group_metadata, group_metadata)
       |> assign(:page_title, "Joining Circle")
       |> assign(:live_action, :join_password)
       |> assign(:groups_greeter_open?, false)

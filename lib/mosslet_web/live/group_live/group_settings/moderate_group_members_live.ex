@@ -15,7 +15,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
       current_scope={@current_scope}
       group={@group}
       user_group={@current_user_group}
-      edit_group_name={"Moderate #{decr_item(@group.name, @current_scope.user, @current_user_group.key, @current_scope.key, @group)} Members"}
+      group_metadata={@group_metadata}
     >
       <div class="space-y-6">
         <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -40,6 +40,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
               current_user_group={@current_user_group}
               current_scope={@current_scope}
               group={@group}
+              group_metadata={@group_metadata}
             />
           </div>
         </div>
@@ -50,6 +51,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
           current_user_group={@current_user_group}
           current_scope={@current_scope}
           group={@group}
+          group_metadata={@group_metadata}
         />
 
         <aside
@@ -90,6 +92,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
         current_user_group={@current_user_group}
         current_scope={@current_scope}
         group={@group}
+        group_metadata={@group_metadata}
       />
 
       <.block_modal
@@ -98,6 +101,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
         current_user_group={@current_user_group}
         current_scope={@current_scope}
         group={@group}
+        group_metadata={@group_metadata}
       />
     </.settings_group_layout>
     """
@@ -107,6 +111,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
   attr :current_user_group, :map, required: true
   attr :current_scope, :map, required: true
   attr :group, :map, required: true
+  attr :group_metadata, :map, required: true
 
   defp member_card(assigns) do
     is_self = assigns.user_group.id == assigns.current_user_group.id
@@ -119,18 +124,26 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
       )
 
     is_connected = not is_nil(uconn)
+    browser_decrypt? = assigns.group_metadata[:browser_decrypt?] || false
 
+    # For non-public groups, member_name will be decrypted browser-side.
+    # The name is encrypted with group_key, which the hook unseals.
     member_name =
-      if is_self || is_connected do
-        decr_item(
-          assigns.user_group.name,
-          assigns.current_scope.user,
-          assigns.current_user_group.key,
-          assigns.current_scope.key,
-          assigns.group
-        )
-      else
+      if browser_decrypt? do
         nil
+      else
+        if is_self || is_connected do
+          assigns.group_metadata[:raw_key] &&
+            decrypt_field(assigns.user_group.name, assigns.group_metadata[:raw_key], nil)
+        end
+      end
+
+    moniker =
+      if browser_decrypt? do
+        nil
+      else
+        assigns.group_metadata[:raw_key] &&
+          decrypt_field(assigns.user_group.moniker, assigns.group_metadata[:raw_key], "member")
       end
 
     assigns =
@@ -138,14 +151,33 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
       |> assign(:is_self, is_self)
       |> assign(:can_moderate, can_moderate && !is_self)
       |> assign(:member_name, member_name)
+      |> assign(:moniker, moniker)
+      |> assign(:browser_decrypt?, browser_decrypt?)
+      |> assign(:encrypted_name, if(browser_decrypt?, do: assigns.user_group.name))
+      |> assign(:encrypted_moniker, if(browser_decrypt?, do: assigns.user_group.moniker))
+      |> assign(:sealed_group_key, assigns.group_metadata[:sealed_group_key])
 
     ~H"""
-    <div class={[
-      "group relative flex flex-col sm:flex-row sm:items-center gap-3 p-3 sm:p-5 rounded-xl",
-      "bg-white/90 dark:bg-slate-800/80 backdrop-blur-sm",
-      "border border-slate-200/60 dark:border-slate-700/60",
-      "shadow-sm shadow-slate-900/5 dark:shadow-slate-900/20"
-    ]}>
+    <div
+      class={[
+        "group relative flex flex-col sm:flex-row sm:items-center gap-3 p-3 sm:p-5 rounded-xl",
+        "bg-white/90 dark:bg-slate-800/80 backdrop-blur-sm",
+        "border border-slate-200/60 dark:border-slate-700/60",
+        "shadow-sm shadow-slate-900/5 dark:shadow-slate-900/20"
+      ]}
+      data-hook-scope={"moderate-member-#{@user_group.id}"}
+    >
+      <div
+        :if={@browser_decrypt?}
+        id={"decrypt-moderate-member-#{@user_group.id}"}
+        phx-hook="DecryptGroupMetadata"
+        data-sealed-group-key={@sealed_group_key}
+        data-encrypted-name={@encrypted_name}
+        data-encrypted-moniker={@encrypted_moniker}
+        data-scope-id={"moderate-member-#{@user_group.id}"}
+      >
+      </div>
+
       <div class="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
         <div class="relative flex-shrink-0 p-1">
           <.phx_avatar
@@ -188,10 +220,15 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
         <div class="flex-1 min-w-0 space-y-1.5 overflow-hidden">
           <div class="flex flex-wrap items-center gap-2">
             <span
-              :if={@member_name}
-              class="font-semibold text-slate-900 dark:text-slate-100 truncate text-sm sm:text-base"
+              class={[
+                "font-semibold text-slate-900 dark:text-slate-100 truncate text-sm sm:text-base",
+                !@member_name && !@browser_decrypt? && "hidden"
+              ]}
+              phx-update={if @browser_decrypt?, do: "ignore"}
+              id={"moderate-member-name-#{@user_group.id}"}
+              data-decrypt-group-name
             >
-              {@member_name}
+              {if @browser_decrypt?, do: "Decrypting...", else: @member_name}
             </span>
             <.liquid_badge :if={@is_self} color="cyan" size="xs" variant="soft">
               You
@@ -204,14 +241,13 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
                 name="hero-finger-print"
                 class="w-4 h-4 text-teal-500 dark:text-teal-400 flex-shrink-0"
               />
-              <span class="truncate">
-                {decr_item(
-                  @user_group.moniker,
-                  @current_scope.user,
-                  @current_user_group.key,
-                  @current_scope.key,
-                  @group
-                )}
+              <span
+                class="truncate"
+                phx-update={if @browser_decrypt?, do: "ignore"}
+                id={"moderate-member-moniker-#{@user_group.id}"}
+                data-decrypt-group-moniker
+              >
+                {if @browser_decrypt?, do: "Decrypting...", else: @moniker}
               </span>
             </span>
           </div>
@@ -265,6 +301,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
   attr :current_user_group, :map, required: true
   attr :current_scope, :map, required: true
   attr :group, :map, required: true
+  attr :group_metadata, :map, required: true
 
   defp blocked_users_section(assigns) do
     ~H"""
@@ -280,19 +317,34 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
             "bg-rose-50/50 dark:bg-rose-900/20",
             "border border-rose-200/50 dark:border-rose-700/40"
           ]}
+          data-hook-scope={"blocked-#{block.id}"}
         >
+          <div
+            :if={block.blocked_moniker && @group_metadata[:browser_decrypt?]}
+            id={"decrypt-blocked-#{block.id}"}
+            phx-hook="DecryptGroupMetadata"
+            data-sealed-group-key={@group_metadata[:sealed_group_key]}
+            data-encrypted-moniker={block.blocked_moniker}
+            data-scope-id={"blocked-#{block.id}"}
+          >
+          </div>
           <div class="flex items-center gap-3">
             <.phx_icon name="hero-user-minus" class="w-5 h-5 text-rose-500" />
             <span class="text-sm text-slate-700 dark:text-slate-300">
               <span :if={block.blocked_moniker} class="inline-flex items-center gap-1.5">
                 <.phx_icon name="hero-finger-print" class="w-4 h-4 text-rose-400" />
-                {decr_item(
-                  block.blocked_moniker,
-                  @current_scope.user,
-                  @current_user_group.key,
-                  @current_scope.key,
-                  @group
-                )}
+                <span
+                  phx-update={if @group_metadata[:browser_decrypt?], do: "ignore"}
+                  id={"blocked-moniker-#{block.id}"}
+                  data-decrypt-group-moniker
+                >
+                  {if @group_metadata[:browser_decrypt?] do
+                    "Decrypting..."
+                  else
+                    @group_metadata[:raw_key] &&
+                      decrypt_field(block.blocked_moniker, @group_metadata[:raw_key], "Blocked user")
+                  end}
+                </span>
               </span>
               <span :if={!block.blocked_moniker}>Blocked user</span>
             </span>
@@ -320,10 +372,12 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
   attr :current_user_group, :map, required: true
   attr :current_scope, :map, required: true
   attr :group, :map, required: true
+  attr :group_metadata, :map, required: true
 
   defp kick_modal(assigns) do
     is_self = assigns.user_group.id == assigns.current_user_group.id
     can_moderate = Groups.can_moderate?(assigns.current_user_group.role, assigns.user_group.role)
+    browser_decrypt? = assigns.group_metadata[:browser_decrypt?] || false
 
     uconn =
       get_uconn_for_users(
@@ -333,27 +387,19 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
 
     is_connected = not is_nil(uconn)
 
-    member_name =
-      if is_self || is_connected do
-        decr_item(
-          assigns.user_group.name,
-          assigns.current_scope.user,
-          assigns.current_user_group.key,
-          assigns.current_scope.key,
-          assigns.group
-        )
+    {member_name, member_moniker} =
+      if browser_decrypt? do
+        {nil, nil}
       else
-        nil
-      end
+        raw_key = assigns.group_metadata[:raw_key]
 
-    member_moniker =
-      decr_item(
-        assigns.user_group.moniker,
-        assigns.current_scope.user,
-        assigns.current_user_group.key,
-        assigns.current_scope.key,
-        assigns.group
-      )
+        name =
+          if (is_self || is_connected) && raw_key,
+            do: decrypt_field(assigns.user_group.name, raw_key, nil)
+
+        moniker = if raw_key, do: decrypt_field(assigns.user_group.moniker, raw_key, "member")
+        {name, moniker}
+      end
 
     assigns =
       assigns
@@ -361,6 +407,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
       |> assign(:can_moderate, can_moderate && !is_self)
       |> assign(:member_name, member_name)
       |> assign(:member_moniker, member_moniker)
+      |> assign(:browser_decrypt?, browser_decrypt?)
 
     ~H"""
     <.liquid_modal
@@ -372,13 +419,39 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
       }
     >
       <:title>Kick Member</:title>
-      <div class="space-y-4">
+      <div
+        class="space-y-4"
+        data-hook-scope={"kick-#{@user_group.id}"}
+      >
+        <div
+          :if={@browser_decrypt?}
+          id={"decrypt-kick-#{@user_group.id}"}
+          phx-hook="DecryptGroupMetadata"
+          data-sealed-group-key={@group_metadata[:sealed_group_key]}
+          data-encrypted-name={@user_group.name}
+          data-encrypted-moniker={@user_group.moniker}
+          data-scope-id={"kick-#{@user_group.id}"}
+        >
+        </div>
         <p class="text-slate-600 dark:text-slate-400">
           Are you sure you want to kick
           <strong class="text-slate-900 dark:text-slate-100">
-            <.phx_icon :if={is_nil(@member_name)} name="hero-finger-print" class="size-4" />{if @member_name,
-              do: @member_name,
-              else: @member_moniker}
+            <.phx_icon
+              :if={is_nil(@member_name) && !@browser_decrypt?}
+              name="hero-finger-print"
+              class="size-4"
+            />
+            <span
+              phx-update={if @browser_decrypt?, do: "ignore"}
+              id={"kick-member-display-#{@user_group.id}"}
+              data-decrypt-group-name
+            >
+              {cond do
+                @browser_decrypt? -> "Decrypting..."
+                @member_name -> @member_name
+                true -> @member_moniker
+              end}
+            </span>
           </strong>
           from this circle?
         </p>
@@ -424,10 +497,12 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
   attr :current_user_group, :map, required: true
   attr :current_scope, :map, required: true
   attr :group, :map, required: true
+  attr :group_metadata, :map, required: true
 
   defp block_modal(assigns) do
     is_self = assigns.user_group.id == assigns.current_user_group.id
     can_moderate = Groups.can_moderate?(assigns.current_user_group.role, assigns.user_group.role)
+    browser_decrypt? = assigns.group_metadata[:browser_decrypt?] || false
 
     uconn =
       get_uconn_for_users(
@@ -437,27 +512,19 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
 
     is_connected = not is_nil(uconn)
 
-    member_name =
-      if is_self || is_connected do
-        decr_item(
-          assigns.user_group.name,
-          assigns.current_scope.user,
-          assigns.current_user_group.key,
-          assigns.current_scope.key,
-          assigns.group
-        )
+    {member_name, member_moniker} =
+      if browser_decrypt? do
+        {nil, nil}
       else
-        nil
-      end
+        raw_key = assigns.group_metadata[:raw_key]
 
-    member_moniker =
-      decr_item(
-        assigns.user_group.moniker,
-        assigns.current_scope.user,
-        assigns.current_user_group.key,
-        assigns.current_scope.key,
-        assigns.group
-      )
+        name =
+          if (is_self || is_connected) && raw_key,
+            do: decrypt_field(assigns.user_group.name, raw_key, nil)
+
+        moniker = if raw_key, do: decrypt_field(assigns.user_group.moniker, raw_key, "member")
+        {name, moniker}
+      end
 
     assigns =
       assigns
@@ -465,6 +532,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
       |> assign(:can_moderate, can_moderate && !is_self)
       |> assign(:member_name, member_name)
       |> assign(:member_moniker, member_moniker)
+      |> assign(:browser_decrypt?, browser_decrypt?)
 
     ~H"""
     <.liquid_modal
@@ -476,13 +544,39 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
       }
     >
       <:title>Block Member</:title>
-      <div class="space-y-4">
+      <div
+        class="space-y-4"
+        data-hook-scope={"block-#{@user_group.id}"}
+      >
+        <div
+          :if={@browser_decrypt?}
+          id={"decrypt-block-#{@user_group.id}"}
+          phx-hook="DecryptGroupMetadata"
+          data-sealed-group-key={@group_metadata[:sealed_group_key]}
+          data-encrypted-name={@user_group.name}
+          data-encrypted-moniker={@user_group.moniker}
+          data-scope-id={"block-#{@user_group.id}"}
+        >
+        </div>
         <p class="text-slate-600 dark:text-slate-400">
           Are you sure you want to block
           <strong class="text-slate-900 dark:text-slate-100">
-            <.phx_icon :if={is_nil(@member_name)} name="hero-finger-print" class="size-4" />{if @member_name,
-              do: @member_name,
-              else: @member_moniker}
+            <.phx_icon
+              :if={is_nil(@member_name) && !@browser_decrypt?}
+              name="hero-finger-print"
+              class="size-4"
+            />
+            <span
+              phx-update={if @browser_decrypt?, do: "ignore"}
+              id={"block-member-display-#{@user_group.id}"}
+              data-decrypt-group-name
+            >
+              {cond do
+                @browser_decrypt? -> "Decrypting..."
+                @member_name -> @member_name
+                true -> @member_moniker
+              end}
+            </span>
           </strong>
           from this circle?
         </p>
@@ -645,22 +739,21 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
       if current_user_group && current_user_group.role in [:owner, :admin, :moderator] do
         blocked_users = Groups.list_blocked_users(group.id)
 
+        group_metadata =
+          pre_decrypt_group_metadata(
+            group,
+            current_user_group,
+            socket.assigns.current_scope.user,
+            socket.assigns.current_scope.key
+          )
+
         {:ok,
          socket
          |> assign(:group, group)
          |> assign(:current_user_group, current_user_group)
          |> assign(:blocked_users, blocked_users)
          |> assign(:target_user_group, nil)
-         |> assign(
-           :group_name,
-           decr_item(
-             group.name,
-             socket.assigns.current_scope.user,
-             current_user_group.key,
-             socket.assigns.current_scope.key,
-             group
-           )
-         )
+         |> assign(:group_metadata, group_metadata)
          |> assign(:page_title, "Moderate Members"), layout: {MossletWeb.Layouts, :app}}
       else
         {:ok,

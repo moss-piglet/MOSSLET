@@ -6,7 +6,7 @@
  * event. The server stores only ciphertext — the plaintext label never arrives.
  *
  * The conn_key is the same symmetric key used for all connection-shared data.
- * It's sealed to the user's public key on `#session-key-deriver[data-conn-key]`
+ * It's sealed to the user's public key on `#session-key-deriver[data-sealed-conn-key]`
  * and cached by `getConnKey()` in session.js.
  *
  * Falls through to normal server-side form submit if:
