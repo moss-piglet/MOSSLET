@@ -5567,6 +5567,11 @@ defmodule MossletWeb.DesignSystem do
   attr :user_handle, :string, required: true
   attr :user_avatar, :string, default: nil
 
+  attr :encrypted_author_name_data, :map,
+    default: nil,
+    doc:
+      "ZK mode: map with :sealed_uconn_key, :encrypted_name, :encrypted_username, :show_name for browser-side author name decryption"
+
   attr :encrypted_avatar_data, :map,
     default: nil,
     doc:
@@ -6454,12 +6459,14 @@ defmodule MossletWeb.DesignSystem do
                 :if={show_author_profile?(@author_profile_slug, @author_profile_visibility)}
                 navigate={~p"/app/profile/#{@author_profile_slug}"}
                 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                data-decrypt-author-name-target={@post.id}
               >
                 {@user_name}
               </.link>
               <span
                 :if={!show_author_profile?(@author_profile_slug, @author_profile_visibility)}
                 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate"
+                data-decrypt-author-name-target={@post.id}
               >
                 {@user_name}
               </span>
@@ -6707,7 +6714,19 @@ defmodule MossletWeb.DesignSystem do
                   }
                   data-post-user-id={@post.user_id}
                   data-allow-shares={to_string(@post.allow_shares)}
-                  data-is-ephemeral={to_string(@post.is_ephemeral)}
+                  data-is-ephemeral={to_string(@post.is_ephemeral || false)}
+                  data-sealed-uconn-key={
+                    @encrypted_author_name_data && @encrypted_author_name_data[:sealed_uconn_key]
+                  }
+                  data-encrypted-author-name={
+                    @encrypted_author_name_data && @encrypted_author_name_data[:encrypted_name]
+                  }
+                  data-encrypted-author-username={
+                    @encrypted_author_name_data && @encrypted_author_name_data[:encrypted_username]
+                  }
+                  data-author-show-name={
+                    @encrypted_author_name_data && to_string(@encrypted_author_name_data[:show_name])
+                  }
                 >
                   <div
                     data-decrypt-target

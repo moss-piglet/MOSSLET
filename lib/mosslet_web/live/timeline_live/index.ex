@@ -6431,48 +6431,81 @@ defmodule MossletWeb.TimelineLive.Index do
   # REMOVED: can_see_post_author_status? function - now handled by StatusHelpers.get_user_status_info/3
   # This provides consistent privacy checking across the entire application
 
-  # Helper function to get the post author's display name
+  # Helper function to get the post author's display name.
+  # For non-public posts, returns a placeholder — the browser-side DecryptPost
+  # hook will decrypt the author name from the encrypted connection data.
   defp get_post_author_name(post, current_user, key) do
-    cond do
-      post.user_id == current_user.id ->
-        # Current user's own post - use their name
-        case user_name(current_user, key) do
-          name when is_binary(name) -> name
-          # Graceful fallback for decryption issues
-          :failed_verification -> "Private Author"
-          _ -> "Private Author"
-        end
+    if post.visibility != :public do
+      # ZK path: return placeholder for browser-side decryption
+      if post.user_id == current_user.id do
+        # Own post: use pre_decrypt_user fast path (already decrypted at mount)
+        current_user.decrypted[:name] || current_user.decrypted[:username] || "..."
+      else
+        "..."
+      end
+    else
+      # Public posts: server-side decryption (needed for SEO/federation)
+      cond do
+        post.user_id == current_user.id ->
+          case user_name(current_user, key) do
+            name when is_binary(name) -> name
+            :failed_verification -> "Private Author"
+            _ -> "Private Author"
+          end
 
-      true ->
-        # Other user's post - need to get their name via connection
-        case Accounts.get_user(post.user_id) do
-          %{} = _post_user ->
-            # Try to get their shared name via connection
-            uconn = get_uconn_for_shared_item(post, current_user)
+        true ->
+          case Accounts.get_user(post.user_id) do
+            %{} = _post_user ->
+              uconn = get_uconn_for_shared_item(post, current_user)
 
-            if uconn && uconn.connection do
-              # we respect the user's preference for displaying their name
-              if uconn.connection.profile && uconn.connection.profile.show_name? do
-                case decr_uconn(uconn.connection.name, current_user, uconn.key, key) do
-                  name when is_binary(name) -> name
-                  # User chose to keep identity private
-                  :failed_verification -> "Private Author"
+              if uconn && uconn.connection do
+                if uconn.connection.profile && uconn.connection.profile.show_name? do
+                  case decr_uconn(uconn.connection.name, current_user, uconn.key, key) do
+                    name when is_binary(name) -> name
+                    :failed_verification -> "Private Author"
+                  end
+                else
+                  case decr_uconn(uconn.connection.username, current_user, uconn.key, key) do
+                    username when is_binary(username) -> username
+                    :failed_verification -> "Private Author"
+                  end
                 end
               else
-                case decr_uconn(uconn.connection.username, current_user, uconn.key, key) do
-                  username when is_binary(username) -> username
-                  # User chose to keep identity private
-                  :failed_verification -> "Private Author"
-                end
+                "Private Author"
               end
-            else
-              # No connection or privacy-focused sharing
-              "Private Author"
-            end
 
-          nil ->
-            # User account not found or deactivated
-            "Private Author"
+            nil ->
+              "Private Author"
+          end
+      end
+    end
+  end
+
+  # Returns encrypted author name data for browser-side ZK decryption.
+  # For the current user's own posts, returns nil (pre_decrypt_user handles it).
+  # For other users' posts, returns the sealed user_connection.key and encrypted
+  # connection name/username blobs so the DecryptPost hook can decrypt them.
+  defp get_encrypted_post_author_name_data(post, current_user) do
+    cond do
+      post.visibility == :public ->
+        nil
+
+      post.user_id == current_user.id ->
+        nil
+
+      true ->
+        uconn = get_uconn_for_shared_item(post, current_user)
+
+        if uconn && uconn.connection && is_binary(uconn.key) do
+          show_name? =
+            uconn.connection.profile != nil and uconn.connection.profile.show_name?
+
+          %{
+            sealed_uconn_key: uconn.key,
+            encrypted_name: if(show_name?, do: uconn.connection.name),
+            encrypted_username: uconn.connection.username,
+            show_name: show_name?
+          }
         end
     end
   end

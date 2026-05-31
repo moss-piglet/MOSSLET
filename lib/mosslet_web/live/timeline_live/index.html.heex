@@ -289,6 +289,9 @@
               >
                 <MossletWeb.DesignSystem.liquid_timeline_post
                   user_name={get_post_author_name(post, @current_user, @key)}
+                  encrypted_author_name_data={
+                    get_encrypted_post_author_name_data(post, @current_user)
+                  }
                   user_handle={"@" <> (post.decrypted[:username] || "author")}
                   user_avatar={get_post_author_avatar_fallback(post, @current_user)}
                   encrypted_avatar_data={
@@ -386,6 +389,9 @@
                 >
                   <MossletWeb.DesignSystem.liquid_timeline_post
                     user_name={get_post_author_name(post, @current_user, @key)}
+                    encrypted_author_name_data={
+                      get_encrypted_post_author_name_data(post, @current_user)
+                    }
                     user_handle={"@" <> (post.decrypted[:username] || "author")}
                     user_avatar={get_post_author_avatar_fallback(post, @current_user)}
                     encrypted_avatar_data={

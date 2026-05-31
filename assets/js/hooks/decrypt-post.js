@@ -26,9 +26,14 @@
  *   data-post-user-id                      — post author user ID (for can_repost check)
  *   data-allow-shares                      — "true"/"false" string
  *   data-is-ephemeral                      — "true"/"false" string
+ *   data-sealed-uconn-key                  — base64 sealed user_connection.key (for author name, optional)
+ *   data-encrypted-author-name             — base64 secretbox-encrypted connection display name (optional)
+ *   data-encrypted-author-username         — base64 secretbox-encrypted connection username (optional)
+ *   data-author-show-name                  — "true"/"false": whether to prefer display name over username
  *
  * External DOM targets (outside this element, matched by data-* + post ID):
  *   [data-decrypt-handle-target="{postId}"]       — username/handle span
+ *   [data-decrypt-author-name-target="{postId}"]  — author display name
  *   [data-decrypt-cw-text-target="{postId}"]      — content warning text
  *   [data-decrypt-cw-category-target="{postId}"]  — content warning category badge
  *   [data-decrypt-url-preview-target="{postId}"]  — URL preview container
@@ -54,6 +59,33 @@ const _imageAltTextsCache = new Map();
 
 export function getCachedImageAltTexts(postId) {
   return _imageAltTextsCache.get(postId) || null;
+}
+
+/**
+ * LRU cache for unsealed conn_keys, keyed by sealed_uconn_key.
+ * Shared across all DecryptPost instances — when a user sees multiple posts
+ * from the same connection, the conn_key is only unsealed once.
+ */
+const _connKeyCache = new Map();
+const CONN_KEY_CACHE_MAX = 50;
+
+async function getCachedConnKey(sealedUconnKey) {
+  if (!sealedUconnKey) return null;
+
+  const cached = _connKeyCache.get(sealedUconnKey);
+  if (cached) return cached;
+
+  const raw = await unsealContextKey(sealedUconnKey);
+  if (!raw) return null;
+
+  const connKey = unwrapKey(raw);
+
+  if (_connKeyCache.size >= CONN_KEY_CACHE_MAX) {
+    const oldest = _connKeyCache.keys().next().value;
+    _connKeyCache.delete(oldest);
+  }
+  _connKeyCache.set(sealedUconnKey, connKey);
+  return connKey;
 }
 
 const DecryptPost = {
@@ -182,6 +214,33 @@ const DecryptPost = {
         if (postId) _imageAltTextsCache.set(postId, altTexts);
       }
 
+      // Decrypt author display name from connection data (separate key from post_key).
+      // The author name is encrypted with the conn_key (accessed via user_connection.key),
+      // not the post_key. This requires a separate unseal operation.
+      const sealedUconnKey = this.el.dataset.sealedUconnKey;
+      if (sealedUconnKey) {
+        try {
+          const connKey = await getCachedConnKey(sealedUconnKey);
+          if (connKey) {
+            const showName = this.el.dataset.authorShowName === "true";
+            if (showName) {
+              const encName = this.el.dataset.encryptedAuthorName;
+              if (encName) {
+                results.authorName = await decryptWithKey(encName, connKey);
+              }
+            }
+            if (!results.authorName) {
+              const encUsername = this.el.dataset.encryptedAuthorUsername;
+              if (encUsername) {
+                results.authorName = await decryptWithKey(encUsername, connKey);
+              }
+            }
+          }
+        } catch {
+          // conn_key unseal or decryption failure — placeholder preserved
+        }
+      }
+
       this._cached = results;
       this._cachedAttrs = this._attrFingerprint();
       this._apply(results);
@@ -193,6 +252,7 @@ const DecryptPost = {
   _apply(results) {
     this._applyBody(results.body);
     this._applyUsername(results.username);
+    this._applyAuthorName(results.authorName);
     this._applyContentWarning(results.contentWarning, results.contentWarningCategory);
     this._applyUrlPreview(results.urlPreview);
     this._applyFavState(results.favsList);
@@ -222,6 +282,17 @@ const DecryptPost = {
     if (handleEl) {
       handleEl.textContent = "@" + username;
     }
+  },
+
+  _applyAuthorName(authorName) {
+    if (!authorName) return;
+    const postId = this.el.dataset.postId;
+    if (!postId) return;
+
+    const targets = document.querySelectorAll(`[data-decrypt-author-name-target="${postId}"]`);
+    targets.forEach((el) => {
+      el.textContent = authorName;
+    });
   },
 
   _applyContentWarning(text, category) {
@@ -448,3 +519,9 @@ const DecryptPost = {
 };
 
 export default DecryptPost;
+
+// Clear conn_key cache on logout
+window.addEventListener("mosslet:logout", () => {
+  _connKeyCache.clear();
+  _imageAltTextsCache.clear();
+});

@@ -3079,6 +3079,13 @@ defmodule MossletWeb.UserHomeLive do
                           @user_connection
                         )
                       }
+                      encrypted_author_name_data={
+                        get_encrypted_profile_post_author_name_data(
+                          post,
+                          @current_scope.user,
+                          @user_connection
+                        )
+                      }
                       user_handle={
                         get_profile_post_author_handle(
                           post,
@@ -3218,6 +3225,13 @@ defmodule MossletWeb.UserHomeLive do
                           @profile_user,
                           @current_scope.user,
                           @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      encrypted_author_name_data={
+                        get_encrypted_profile_post_author_name_data(
+                          post,
+                          @current_scope.user,
                           @user_connection
                         )
                       }
@@ -4385,6 +4399,13 @@ defmodule MossletWeb.UserHomeLive do
                           @user_connection
                         )
                       }
+                      encrypted_author_name_data={
+                        get_encrypted_profile_post_author_name_data(
+                          post,
+                          @current_scope.user,
+                          @user_connection
+                        )
+                      }
                       user_handle={
                         get_profile_post_author_handle(
                           post,
@@ -4524,6 +4545,13 @@ defmodule MossletWeb.UserHomeLive do
                           @profile_user,
                           @current_scope.user,
                           @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      encrypted_author_name_data={
+                        get_encrypted_profile_post_author_name_data(
+                          post,
+                          @current_scope.user,
                           @user_connection
                         )
                       }
@@ -5002,60 +5030,60 @@ defmodule MossletWeb.UserHomeLive do
 
   defp get_async_banner_data(_), do: nil
 
-  defp get_profile_post_author_name(post, _profile_user, current_user, key, user_connection) do
-    is_post_author? = post.user_id == current_user.id
-
-    if is_post_author? do
-      case user_name(current_user, key) do
-        name when is_binary(name) -> name
-        _ -> "Private Author"
+  # Helper function to get the profile post author's display name.
+  # For non-public posts, returns a placeholder — the browser-side DecryptPost
+  # hook will decrypt the author name from the encrypted connection data.
+  defp get_profile_post_author_name(post, _profile_user, current_user, _key, _user_connection) do
+    if post.visibility != :public do
+      # ZK path: return placeholder for browser-side decryption
+      if post.user_id == current_user.id do
+        current_user.decrypted[:name] || current_user.decrypted[:username] || "..."
+      else
+        "..."
       end
     else
-      if user_connection && user_connection.connection do
-        profile = user_connection.connection.profile
-
-        if profile && profile.show_name? do
-          case decr_uconn(user_connection.connection.name, current_user, user_connection.key, key) do
-            name when is_binary(name) -> name
-            _ -> "Private Author"
-          end
-        else
-          case decr_uconn(
-                 user_connection.connection.username,
-                 current_user,
-                 user_connection.key,
-                 key
-               ) do
-            username when is_binary(username) -> username
-            _ -> "Private Author"
-          end
-        end
+      # Public posts: server-side decryption
+      if post.user_id == current_user.id do
+        current_user.decrypted[:name] || current_user.decrypted[:username] || "Private Author"
       else
         "Private Author"
       end
     end
   end
 
-  defp get_profile_post_author_handle(post, _profile_user, current_user, key, _user_connection) do
-    post_key = get_post_key(post, current_user)
+  # Returns encrypted author name data for browser-side ZK decryption on profile pages.
+  # For the current user's own posts, returns nil (pre_decrypt_user handles it).
+  # For other users' posts, returns the sealed user_connection.key and encrypted
+  # connection name/username blobs so the DecryptPost hook can decrypt them.
+  defp get_encrypted_profile_post_author_name_data(post, current_user, user_connection) do
+    cond do
+      post.visibility == :public ->
+        nil
 
-    username =
-      cond do
-        is_nil(post_key) ->
-          nil
+      post.user_id == current_user.id ->
+        nil
 
-        post.visibility == :public ->
-          decrypt_public_field(post.username, post_key)
+      user_connection && user_connection.connection && is_binary(user_connection.key) ->
+        show_name? =
+          user_connection.connection.profile != nil and
+            user_connection.connection.profile.show_name?
 
-        true ->
-          decr_item(post.username, current_user, post_key, key, post, "username")
-      end
+        %{
+          sealed_uconn_key: user_connection.key,
+          encrypted_name: if(show_name?, do: user_connection.connection.name),
+          encrypted_username: user_connection.connection.username,
+          show_name: show_name?
+        }
 
-    "@" <>
-      case username do
-        username when is_binary(username) -> username
-        _ -> "author"
-      end
+      true ->
+        nil
+    end
+  end
+
+  defp get_profile_post_author_handle(post, _profile_user, _current_user, _key, _user_connection) do
+    # Use pre-decrypted username from decrypt_post_fields (populated by pre_decrypt_post).
+    # For non-public posts, this will be nil (DecryptPost hook decrypts browser-side).
+    "@" <> (post.decrypted[:username] || "author")
   end
 
   # Returns encrypted avatar data for browser-side ZK decryption on profile post cards.
