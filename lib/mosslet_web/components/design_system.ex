@@ -27,6 +27,7 @@ defmodule MossletWeb.DesignSystem do
       is_shared_recipient?: 2,
       get_reply_post_key: 2,
       get_safe_reply_author_name: 3,
+      get_reply_author_name_placeholder: 2,
       photos?: 1,
       username: 2,
       user_name: 2,
@@ -9653,7 +9654,11 @@ defmodule MossletWeb.DesignSystem do
           parent_reply={@reply}
           post_id={@post_id}
           current_scope={@current_scope}
-          author_name={get_safe_reply_author_name(@reply, @current_scope.user, @current_scope.key)}
+          author_name={
+            if @browser_decrypt,
+              do: get_reply_author_name_placeholder(@reply, @current_scope.user),
+              else: get_safe_reply_author_name(@reply, @current_scope.user, @current_scope.key)
+          }
           class=""
         />
       </div>
@@ -9675,15 +9680,34 @@ defmodule MossletWeb.DesignSystem do
   def liquid_reply_item(assigns) do
     assigns = assign_scope_fields(assigns)
 
+    # When browser_decrypt is true, use a no-decrypt placeholder for the reply
+    # author name. The DecryptReply hook will populate actual names into
+    # [data-decrypt-reply-author] DOM targets browser-side.
+    reply_author_name =
+      if assigns.browser_decrypt do
+        get_reply_author_name_placeholder(assigns.reply, assigns.current_scope.user)
+      else
+        get_safe_reply_author_name(
+          assigns.reply,
+          assigns.current_scope.user,
+          assigns.current_scope.key
+        )
+      end
+
+    assigns = assign(assigns, :reply_author_name, reply_author_name)
+
     ~H"""
-    <div class={[
-      "relative rounded-xl transition-all duration-200 ease-out",
-      reply_background_classes(@depth),
-      reply_border_classes(@depth),
-      reply_hover_classes(@depth),
-      "shadow-sm hover:shadow-md dark:shadow-slate-900/20",
-      @class
-    ]}>
+    <div
+      class={[
+        "relative rounded-xl transition-all duration-200 ease-out",
+        reply_background_classes(@depth),
+        reply_border_classes(@depth),
+        reply_hover_classes(@depth),
+        "shadow-sm hover:shadow-md dark:shadow-slate-900/20",
+        @class
+      ]}
+      data-reply-scope={@reply.id}
+    >
       <%!-- Depth-aware reply accent (top bar) --%>
       <div class={[
         "absolute left-3 right-3 top-0 rounded-b-full",
@@ -9715,7 +9739,7 @@ defmodule MossletWeb.DesignSystem do
               encrypted_avatar_data={
                 get_encrypted_reply_author_avatar_data(@reply, @current_scope.user)
               }
-              name={get_safe_reply_author_name(@reply, @current_scope.user, @current_scope.key)}
+              name={@reply_author_name}
               status={get_reply_author_status(@reply, @current_scope.user, @current_scope.key)}
               status_message={
                 get_reply_author_status_message(@reply, @current_scope.user, @current_scope.key)
@@ -9741,7 +9765,7 @@ defmodule MossletWeb.DesignSystem do
             encrypted_avatar_data={
               get_encrypted_reply_author_avatar_data(@reply, @current_scope.user)
             }
-            name={get_safe_reply_author_name(@reply, @current_scope.user, @current_scope.key)}
+            name={@reply_author_name}
             status={get_reply_author_status(@reply, @current_scope.user, @current_scope.key)}
             status_message={
               get_reply_author_status_message(@reply, @current_scope.user, @current_scope.key)
@@ -9769,7 +9793,7 @@ defmodule MossletWeb.DesignSystem do
                 }
                 class="text-sm font-semibold text-slate-900 dark:text-slate-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
               >
-                {get_safe_reply_author_name(@reply, @current_scope.user, @current_scope.key)}
+                <span data-decrypt-reply-author>{@reply_author_name}</span>
               </.link>
               <span
                 :if={
@@ -9780,7 +9804,7 @@ defmodule MossletWeb.DesignSystem do
                 }
                 class="text-sm font-semibold text-slate-900 dark:text-slate-100"
               >
-                {get_safe_reply_author_name(@reply, @current_scope.user, @current_scope.key)}
+                <span data-decrypt-reply-author>{@reply_author_name}</span>
               </span>
               <span class="text-xs text-slate-500 dark:text-slate-400">
                 {format_reply_timestamp(@reply.inserted_at)}
@@ -9937,9 +9961,7 @@ defmodule MossletWeb.DesignSystem do
                     color="rose"
                     phx_click="block_user_from_reply"
                     phx_value_id={@reply.user_id}
-                    phx_value_user_name={
-                      get_safe_reply_author_name(@reply, @current_scope.user, @current_scope.key)
-                    }
+                    phx_value_user_name={@reply_author_name}
                     phx_value_reply_id={@reply.id}
                   >
                     <.phx_icon name="hero-no-symbol" class="h-4 w-4" />

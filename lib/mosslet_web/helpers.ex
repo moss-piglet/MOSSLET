@@ -325,27 +325,7 @@ defmodule MossletWeb.Helpers do
   end
 
   def decr_banner(payload, user, item_key, key) do
-    case payload do
-      nil ->
-        nil
-
-      "" ->
-        nil
-
-      _ ->
-        case Encrypted.Users.Utils.decrypt_user_item(
-               payload,
-               user,
-               item_key,
-               key
-             ) do
-          :failed_verification ->
-            "failed_verification"
-
-          decrypted_payload ->
-            decrypted_payload
-        end
-    end
+    decr_avatar(payload, user, item_key, key)
   end
 
   def maybe_decr_username_for_user_group(user_id, current_user, key) do
@@ -1832,6 +1812,28 @@ defmodule MossletWeb.Helpers do
           _ ->
             "Private Author"
         end
+    end
+  end
+
+  @doc """
+  Returns a safe placeholder for the reply author name without server-side
+  decryption. Used when browser_decrypt is true — the DecryptReply JS hook
+  populates the actual decrypted name into DOM targets.
+
+  For the current user's own replies, returns the pre-decrypted name from
+  `user.decrypted`. For non-connected users, returns "Private Author".
+  For connected users, returns "Author" as placeholder.
+  """
+  def get_reply_author_name_placeholder(reply, current_user) do
+    cond do
+      reply.user_id == current_user.id ->
+        current_user.decrypted[:name] || "You"
+
+      not is_connected_to_reply_author?(reply, current_user) ->
+        "Private Author"
+
+      true ->
+        "Author"
     end
   end
 

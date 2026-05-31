@@ -665,6 +665,10 @@ Note: `@noble/post-quantum` was the original browser-side PQ library (pure JS). 
 
 19. **ZK Write: Share note — browser-side encryption with post_key** — New `ShareNoteFormHook` on the share modal encrypts the optional share note with the cached `post_key` (from `DecryptPost` → `getCachedPostKey`) before the form data reaches the server. The `RepostFormHook` re-encrypts the note with the new repost's post_key (decrypt with original key → encrypt with new key). Plaintext note never leaves the browser for non-public posts. Public posts fall through to server-side encryption. Updated `share_modal_component.ex`, `timeline_live/index.ex`, and `user_home_live.ex` to detect and pass through `encrypted_share_note`.
 
+### Fixed (May 2026 audit #4)
+
+20. **ZK Display: Reply notification cards — browser-side decrypt for reply body/username** — All 5 `get_safe_reply_author_name` calls in `liquid_reply_item` now route through a `@reply_author_name` computed assign that uses `get_reply_author_name_placeholder/2` (no server-side decrypt) when `browser_decrypt=true`, and the existing `get_safe_reply_author_name/3` only for public posts. `DecryptReply` JS hook extended with `_populateAuthorTargets(username)` — traverses up to `[data-reply-scope]` parent container and writes decrypted name to all `[data-decrypt-reply-author]` DOM targets (header name, avatar alt text). Nested reply composer `author_name` prop also uses placeholder when in ZK mode. `add_reply_notification` in `timeline_live/index.ex` uses generic messages ("New reply on your post") for non-public replies. Dead `post_first_reply` component (~145 lines) removed from `user_connection_live/components.ex`. Files changed: `helpers.ex`, `design_system.ex`, `decrypt-reply.js`, `timeline_live/index.ex`, `user_connection_live/components.ex`.
+
 ### Remaining ZK Gaps (Known, Not Yet Addressed)
 
 **`decr_item`/`decr_uconn` inventory (~141 call sites total):**
@@ -674,12 +678,12 @@ Note: `@noble/post-quantum` was the original browser-side PQ library (pure JS). 
 | Legitimate server-side | ~50 | S3 ops, re-encryption, notifications, Bluesky sync |
 | Settings/admin pages | ~31 | Group settings, blocked users, connection display |
 | Form pre-fill | ~19 | Edit forms (Trix editor, textarea) — server must provide plaintext |
-| Display-only (ZK-migratable) | ~41 | Template rendering — could use browser-side decrypt hooks |
+| Display-only (ZK-migratable) | ~35 | Template rendering — could use browser-side decrypt hooks |
 
 **Legitimate server-side decrypt (~50 calls, keep as-is):**
 - S3 image fetch/delete: `accounts.ex` (3), `helpers.ex` (2), `timeline_live/index.ex` (11), `user_home_live.ex` (5), `user_connection_live/show.ex` (5), `post_live/show.ex` (5) — server must decrypt storage URLs to fetch/delete S3 objects
 - Re-encryption for update workflows: `timeline_live/index.ex` (4), `user_connection_live/show.ex` (4), `post_live/show.ex` (4) — decrypt username/avatar to re-encrypt with updated post_key
-- Reply body/username for notification cards: `design_system.ex` (2), `helpers.ex` (4)
+- Reply body/username for public post notification cards: `helpers.ex` (2) — server-side only for public posts (non-public now ZK via DecryptReply hook)
 - Connection username for shared-user list building: `helpers.ex` (1)
 - Removed-by-user-ids for filtering: `timeline/adapters/web.ex` (2)
 - Post username for Bluesky sync: `helpers.ex` (1)

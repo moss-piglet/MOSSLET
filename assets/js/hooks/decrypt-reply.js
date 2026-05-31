@@ -6,6 +6,11 @@
  * (fallback if not yet cached) and decrypts the reply body, username,
  * and favs_list in the browser.
  *
+ * It also populates [data-decrypt-reply-author] targets in the parent
+ * [data-reply-scope] container with the decrypted username, so header
+ * elements and nested composer labels show the real author name without
+ * server-side decryption.
+ *
  * Data attributes:
  *   data-post-id             — parent post UUID (for finding cached post_key)
  *   data-sealed-post-key     — base64 sealed post_key (fallback if not cached)
@@ -14,6 +19,10 @@
  *   data-encrypted-favs-list — JSON array of secretbox-encrypted user IDs
  *   data-current-user-id     — current user UUID (for fav membership check)
  *   data-reply-id            — reply UUID (for targeting fav button DOM)
+ *
+ * Parent container:
+ *   [data-reply-scope="{reply_id}"] — scoping element for external DOM targets
+ *     [data-decrypt-reply-author]   — populated with decrypted username
  */
 import { unsealContextKey, decryptWithKey, getCachedPostKey, unwrapKey, decryptList } from "../crypto/session";
 import { encryptSecretboxString } from "../crypto/nacl";
@@ -64,9 +73,24 @@ const DecryptReply = {
         handleTarget.textContent = "@" + username;
       }
 
+      if (username) {
+        this._populateAuthorTargets(username);
+      }
+
       this._applyFavState(postKey);
     } catch {
       // Fallback: server-rendered content preserved
+    }
+  },
+
+  /** Populate [data-decrypt-reply-author] targets in the parent reply scope. */
+  _populateAuthorTargets(username) {
+    const scope = this.el.closest("[data-reply-scope]");
+    if (!scope) return;
+
+    const targets = scope.querySelectorAll("[data-decrypt-reply-author]");
+    for (const target of targets) {
+      target.textContent = username;
     }
   },
 

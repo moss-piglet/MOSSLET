@@ -6195,14 +6195,24 @@ defmodule MossletWeb.TimelineLive.Index do
     if reply.user_id === current_user.id do
       socket
     else
-      # Get reply author name safely
-      author_name = get_safe_reply_author_name(reply, current_user, socket.assigns.key)
-
+      # For non-public replies, use a generic message to avoid server-side
+      # decryption of the reply username (ZK: the server should not see it).
+      # Public replies can still use the decrypted author name.
       message =
-        case action do
-          "created" -> "New reply from #{author_name}"
-          "updated" -> "Reply updated by #{author_name}"
-          _ -> "Reply from #{author_name}"
+        if reply.visibility == :public do
+          author_name = get_safe_reply_author_name(reply, current_user, socket.assigns.key)
+
+          case action do
+            "created" -> "New reply from #{author_name}"
+            "updated" -> "Reply updated by #{author_name}"
+            _ -> "Reply from #{author_name}"
+          end
+        else
+          case action do
+            "created" -> "New reply on your post"
+            "updated" -> "A reply was updated"
+            _ -> "New reply activity"
+          end
         end
 
       # Add a gentle flash message
