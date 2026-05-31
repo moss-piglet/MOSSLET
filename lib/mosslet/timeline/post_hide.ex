@@ -2,7 +2,7 @@ defmodule Mosslet.Timeline.PostHide do
   @moduledoc """
   A post hide represents a user hiding a specific post.
 
-  Uses enacl encryption for user-generated preference data:
+  Uses MetamorphicCrypto (NaCl secretbox) encryption for user-generated preference data:
   - Reason encrypted with user's own key (personal preference)
   - Hide type for different levels of hiding
   """
@@ -16,8 +16,8 @@ defmodule Mosslet.Timeline.PostHide do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "post_hides" do
-    # ENCRYPTED FIELDS (user preference data - use enacl with user keys)
-    # Why they hid it (enacl encrypted)
+    # ENCRYPTED FIELDS (user preference data - NaCl secretbox with user keys)
+    # Why they hid it (secretbox encrypted)
     field :reason, Encrypted.Binary
 
     # PLAINTEXT FIELDS (system data)

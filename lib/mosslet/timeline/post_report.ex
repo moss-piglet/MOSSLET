@@ -2,7 +2,7 @@ defmodule Mosslet.Timeline.PostReport do
   @moduledoc """
   A post report represents a user reporting harmful content.
 
-  Uses enacl encryption for user-generated sensitive data:
+  Uses MetamorphicCrypto (NaCl secretbox) encryption for user-generated sensitive data:
   - Reason and details encrypted with user keys (personal, sensitive)
   - Reason hash for admin searching/categorization
   - Status tracking for moderation workflow
@@ -17,10 +17,10 @@ defmodule Mosslet.Timeline.PostReport do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "post_reports" do
-    # ENCRYPTED FIELDS (user-generated sensitive data - use enacl with user keys)
-    # Report reason (enacl encrypted)
+    # ENCRYPTED FIELDS (user-generated sensitive data - NaCl secretbox with user keys)
+    # Report reason (secretbox encrypted)
     field :reason, Encrypted.Binary
-    # Additional details (enacl encrypted)
+    # Additional details (secretbox encrypted)
     field :details, Encrypted.Binary
 
     # HASHED FIELDS (for admin searching/filtering - use Cloak)

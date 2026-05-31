@@ -35,13 +35,13 @@ defmodule Mosslet.Timeline.UserTimelinePreference do
 
     # Content filtering preferences (encrypted - potentially sensitive)
     # Encrypted list of muted keywords - double encryption:
-    # 1. Each keyword asymmetrically encrypted with user_key (enacl)
+    # 1. Each keyword asymmetrically encrypted with user_key (NaCl secretbox)
     # 2. List of encrypted values symmetrically encrypted for storage (Cloak StringList)
     field :mute_keywords, Encrypted.StringList, skip_default_validation: true
     field :mute_keywords_hash, Encrypted.HMAC
 
     # Encrypted list of muted user IDs - double encryption:
-    # 1. Each user_id asymmetrically encrypted with user_key (enacl)
+    # 1. Each user_id asymmetrically encrypted with user_key (NaCl secretbox)
     # 2. List of encrypted values symmetrically encrypted for storage (Cloak StringList)
     field :muted_users, Encrypted.StringList, skip_default_validation: true
     field :muted_users_hash, Encrypted.HMAC

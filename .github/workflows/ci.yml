@@ -72,11 +72,6 @@ jobs:
           sudo mv rebar3 /usr/local/bin/rebar3
           rebar3 --version
 
-      - name: Install libsodium
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libsodium-dev
-
       - name: Install dependencies
         run: |
           mix local.rebar --force

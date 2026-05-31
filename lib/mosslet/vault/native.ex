@@ -4,13 +4,13 @@ defmodule Mosslet.Vault.Native do
 
   Uses a device-specific AES-256-GCM key stored in the OS keychain.
   This provides a symmetric encryption layer for locally cached data,
-  adding post-quantum resistance on top of the existing enacl layer.
+  adding post-quantum resistance on top of the existing NaCl E2E encryption layer.
 
   ## Architecture
 
   ```
-  Cloud Vault:   enacl blob → Cloak (CLOAK_KEY from env) → Postgres
-  Native Vault:  enacl blob → Cloak (device key from keychain) → SQLite
+  Cloud Vault:   NaCl blob → Cloak (CLOAK_KEY from env) → Postgres
+  Native Vault:  NaCl blob → Cloak (device key from keychain) → SQLite
   ```
 
   ## Key Management

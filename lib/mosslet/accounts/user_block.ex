@@ -2,7 +2,7 @@ defmodule Mosslet.Accounts.UserBlock do
   @moduledoc """
   A user block represents one user blocking another user.
 
-  Uses enacl encryption for user-generated sensitive data:
+  Uses MetamorphicCrypto (NaCl secretbox) encryption for user-generated sensitive data:
   - Reason encrypted with user's own user_key (personal preference, like muted_users)
   - Block type for different levels of blocking
   - Follows same encryption pattern as UserTimelinePreference
@@ -16,8 +16,8 @@ defmodule Mosslet.Accounts.UserBlock do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "user_blocks" do
-    # ENCRYPTED FIELDS (user-generated data - use enacl with user keys)
-    # Why they blocked (enacl encrypted)
+    # ENCRYPTED FIELDS (user-generated data - NaCl secretbox with user keys)
+    # Why they blocked (secretbox encrypted)
     field :reason, Encrypted.Binary
 
     # PLAINTEXT FIELDS (system data)

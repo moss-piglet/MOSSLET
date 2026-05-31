@@ -50,33 +50,48 @@ defmodule Mosslet.Orgs.Adapters.Web do
         Membership.insert_changeset(org, user, :admin)
       end)
 
-    case Repo.transaction(multi) do
-      {:ok, %{org: org}} ->
+    case Repo.transaction_on_primary(fn -> Repo.transaction(multi) end) do
+      {:ok, {:ok, %{org: org}}} ->
         {:ok, org}
 
-      {:error, :org, changeset, _} ->
+      {:ok, {:error, :org, changeset, _}} ->
         {:error, changeset}
+
+      _ ->
+        {:error, :transaction_failed}
     end
   end
 
   @impl true
   def update_org(org, attrs) do
-    org
-    |> Org.update_changeset(attrs)
-    |> Repo.update()
+    case Repo.transaction_on_primary(fn ->
+           org
+           |> Org.update_changeset(attrs)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, org}} -> {:ok, org}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
   end
 
   @impl true
   def delete_org(org) do
-    Repo.delete(org)
+    case Repo.transaction_on_primary(fn -> Repo.delete(org) end) do
+      {:ok, {:ok, org}} -> {:ok, org}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
   end
 
   @impl true
   def sync_user_invitations(user) do
-    Ecto.Multi.new()
-    |> Ecto.Multi.update_all(:updated_invitations, Invitation.assign_to_user_by_email(user), [])
-    |> Ecto.Multi.delete_all(:deleted_invitations, Invitation.get_stale_by_user_id(user.id))
-    |> Repo.transaction()
+    Repo.transaction_on_primary(fn ->
+      Ecto.Multi.new()
+      |> Ecto.Multi.update_all(:updated_invitations, Invitation.assign_to_user_by_email(user), [])
+      |> Ecto.Multi.delete_all(:deleted_invitations, Invitation.get_stale_by_user_id(user.id))
+      |> Repo.transaction()
+    end)
   end
 
   @impl true
@@ -86,7 +101,13 @@ defmodule Mosslet.Orgs.Adapters.Web do
 
   @impl true
   def delete_membership(membership) do
-    Repo.delete(Membership.delete_changeset(membership))
+    case Repo.transaction_on_primary(fn ->
+           Repo.delete(Membership.delete_changeset(membership))
+         end) do
+      {:ok, {:ok, membership}} -> {:ok, membership}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
   end
 
   @impl true
@@ -106,9 +127,15 @@ defmodule Mosslet.Orgs.Adapters.Web do
 
   @impl true
   def update_membership(membership, attrs) do
-    membership
-    |> Membership.update_changeset(attrs)
-    |> Repo.update()
+    case Repo.transaction_on_primary(fn ->
+           membership
+           |> Membership.update_changeset(attrs)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, membership}} -> {:ok, membership}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
   end
 
   @impl true
@@ -120,14 +147,23 @@ defmodule Mosslet.Orgs.Adapters.Web do
 
   @impl true
   def delete_invitation!(invitation) do
-    Repo.delete!(invitation)
+    case Repo.transaction_on_primary(fn -> Repo.delete!(invitation) end) do
+      {:ok, result} -> result
+      error -> error
+    end
   end
 
   @impl true
   def create_invitation(org, params) do
-    %Invitation{org_id: org.id}
-    |> Invitation.changeset(params)
-    |> Repo.insert()
+    case Repo.transaction_on_primary(fn ->
+           %Invitation{org_id: org.id}
+           |> Invitation.changeset(params)
+           |> Repo.insert()
+         end) do
+      {:ok, {:ok, invitation}} -> {:ok, invitation}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
   end
 
   @impl true
@@ -143,11 +179,13 @@ defmodule Mosslet.Orgs.Adapters.Web do
     invitation = get_invitation_by_user!(user, id)
     org = Repo.one!(Ecto.assoc(invitation, :org))
 
-    {:ok, %{membership: membership}} =
-      Ecto.Multi.new()
-      |> Ecto.Multi.insert(:membership, Membership.insert_changeset(org, user))
-      |> Ecto.Multi.delete(:invitation, invitation)
-      |> Repo.transaction()
+    {:ok, {:ok, %{membership: membership}}} =
+      Repo.transaction_on_primary(fn ->
+        Ecto.Multi.new()
+        |> Ecto.Multi.insert(:membership, Membership.insert_changeset(org, user))
+        |> Ecto.Multi.delete(:invitation, invitation)
+        |> Repo.transaction()
+      end)
 
     %{membership | org: org}
   end
@@ -155,7 +193,11 @@ defmodule Mosslet.Orgs.Adapters.Web do
   @impl true
   def reject_invitation!(user, id) do
     invitation = get_invitation_by_user!(user, id)
-    Repo.delete!(invitation)
+
+    case Repo.transaction_on_primary(fn -> Repo.delete!(invitation) end) do
+      {:ok, result} -> result
+      error -> error
+    end
   end
 
   defp get_invitation_by_user!(user, id) do

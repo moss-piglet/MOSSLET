@@ -27,9 +27,7 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          brew install wxwidgets create-dmg libsodium
-          echo "C_INCLUDE_PATH=$(brew --prefix libsodium)/include" >> $GITHUB_ENV
-          echo "LIBRARY_PATH=$(brew --prefix libsodium)/lib" >> $GITHUB_ENV
+          brew install wxwidgets create-dmg
 
       - name: Create macOS icon (icns)
         run: |
@@ -170,7 +168,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwxgtk3.2-dev libwxgtk-webview3.2-dev libsodium-dev libfuse2
+          sudo apt-get install -y libwxgtk3.2-dev libwxgtk-webview3.2-dev libfuse2
 
       - name: Install appimagetool
         run: |
@@ -223,7 +221,6 @@ jobs:
             git
             base-devel
             mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-libsodium
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-libvips
             mingw-w64-x86_64-ninja
@@ -292,16 +289,6 @@ jobs:
           if [ -f deps/argon2_elixir/Makefile ]; then
             sed -i 's/\$(CC) \$(CFLAGS)/$(CC) -shared $(CFLAGS)/g' deps/argon2_elixir/Makefile
             echo "Patched argon2_elixir Makefile"
-          fi
-
-          if [ -f deps/enacl/c_src/pwhash.c ]; then
-            sed -i 's/size_t r;/unsigned long r;/g' deps/enacl/c_src/pwhash.c
-            echo "Patched enacl pwhash.c"
-          fi
-
-          if [ -f deps/enacl/rebar.config ]; then
-            echo "{port_env, [{\"CFLAGS\", \"\$CFLAGS -fPIC -O3 -I$C_INCLUDE_PATH\"}, {\"LDFLAGS\", \"\$LDFLAGS -L$LIBRARY_PATH -lsodium\"}]}." > deps/enacl/rebar.config
-            echo "Patched enacl rebar.config"
           fi
 
           echo "Compiling all deps except vix and torchx..."
@@ -412,11 +399,6 @@ jobs:
           Copy-Item -Recurse _build/prod/rel/desktop/* _build/desktop/Mosslet/
 
           # Copy required DLLs
-          Copy-Item C:/msys64/mingw64/bin/libsodium*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
-          Copy-Item C:/msys64/mingw64/bin/libgcc*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
-          Copy-Item C:/msys64/mingw64/bin/libwinpthread*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
-          Copy-Item C:/msys64/mingw64/bin/libstdc++*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
-
           # Copy libvips and its dependencies
           Copy-Item C:/msys64/mingw64/bin/libvips*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue
           Copy-Item C:/msys64/mingw64/bin/libglib*.dll _build/desktop/Mosslet/bin/ -ErrorAction SilentlyContinue

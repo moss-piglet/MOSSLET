@@ -4,7 +4,7 @@
 # Production deployments use the main Dockerfile with Fly.io.
 #
 # Features:
-# - Full development dependencies (libsodium, libvips, nodejs)
+# - Full development dependencies (libvips, nodejs)
 # - Hot code reloading support
 # - Both web (Postgres) and native (SQLite) modes supported
 #
@@ -19,7 +19,6 @@ FROM ${BUILDER_IMAGE}
 RUN apt-get update -y && apt-get install -y \
   build-essential \
   git \
-  libsodium-dev \
   libvips-dev \
   libsqlite3-dev \
   nodejs \

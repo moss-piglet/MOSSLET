@@ -5,7 +5,7 @@ defmodule Mosslet.Platform.Security do
   Manages the device encryption key and HMAC secret used to add a Cloak-style
   AES-256-GCM encryption layer to locally cached data. This provides:
 
-  - Defense-in-depth (attacker must break both enacl AND device key)
+  - Defense-in-depth (attacker must break both NaCl E2E encryption AND device key)
   - Post-quantum resistance for data at rest (AES-256 is quantum-resistant)
   - Consistency with cloud architecture (both use symmetric wrapping)
 
@@ -30,7 +30,7 @@ defmodule Mosslet.Platform.Security do
   ```
   Device theft scenario:
     Attacker has: physical device + SQLite file
-    Attacker needs: OS credentials to access keychain + user password for enacl
+    Attacker needs: OS credentials to access keychain + user password for E2E decryption
     Result: Data protected by two independent layers
   ```
   """

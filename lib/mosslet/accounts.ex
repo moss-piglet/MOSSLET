@@ -686,22 +686,25 @@ defmodule Mosslet.Accounts do
     case Mosslet.Repo.get_by(User, email_hash: email_hash) do
       %User{recovery_key_hash: hash} = user when is_binary(hash) and hash != "" ->
         if Argon2.verify_pass(recovery_secret, hash) do
-          Ecto.Multi.new()
-          |> Ecto.Multi.update(
-            :user,
-            User.recovery_reset_password_changeset(user, %{password: new_password},
-              new_key_hash: new_key_hash,
-              new_encrypted_private_key: new_encrypted_private_key
+          Mosslet.Repo.transaction_on_primary(fn ->
+            Ecto.Multi.new()
+            |> Ecto.Multi.update(
+              :user,
+              User.recovery_reset_password_changeset(user, %{password: new_password},
+                new_key_hash: new_key_hash,
+                new_encrypted_private_key: new_encrypted_private_key
+              )
             )
-          )
-          |> Ecto.Multi.delete_all(
-            :tokens,
-            Mosslet.Accounts.UserToken.user_and_contexts_query(user, :all)
-          )
-          |> Mosslet.Repo.transaction()
+            |> Ecto.Multi.delete_all(
+              :tokens,
+              Mosslet.Accounts.UserToken.user_and_contexts_query(user, :all)
+            )
+            |> Mosslet.Repo.transaction()
+          end)
           |> case do
-            {:ok, %{user: user}} -> {:ok, user}
-            {:error, :user, changeset, _} -> {:error, changeset}
+            {:ok, {:ok, %{user: user}}} -> {:ok, user}
+            {:ok, {:error, :user, changeset, _}} -> {:error, changeset}
+            _ -> {:error, :transaction_failed}
           end
         else
           {:error, :invalid_recovery_key}

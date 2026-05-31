@@ -81,7 +81,7 @@ defmodule Mosslet.Timeline.Post do
     field :local_only, :boolean, default: false
 
     # CONTENT WARNING FIELDS (encrypted with post_key for consistency)
-    # Custom warning text (enacl encrypted with post_key, then Cloak at rest)
+    # Custom warning text (NaCl secretbox encrypted with post_key, then Cloak at rest)
     field :content_warning, Encrypted.Binary, redact: true
     # Category name (Cloak encrypted)
     field :content_warning_category, Encrypted.Binary, redact: true

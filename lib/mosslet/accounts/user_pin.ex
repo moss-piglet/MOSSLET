@@ -37,10 +37,12 @@ defmodule Mosslet.Accounts.UserPin do
     pin = Util.random_numeric_string(length)
     hashed_pin = get_hashed_pin(pin)
 
-    Ecto.Multi.new()
-    |> Ecto.Multi.delete_all(:delete_pins, from(l in __MODULE__, where: l.user_id == ^user.id))
-    |> Ecto.Multi.insert(:create_pin, fn _ -> create_changeset(user, hashed_pin) end)
-    |> Repo.transaction()
+    Repo.transaction_on_primary(fn ->
+      Ecto.Multi.new()
+      |> Ecto.Multi.delete_all(:delete_pins, from(l in __MODULE__, where: l.user_id == ^user.id))
+      |> Ecto.Multi.insert(:create_pin, fn _ -> create_changeset(user, hashed_pin) end)
+      |> Repo.transaction()
+    end)
 
     pin
   end

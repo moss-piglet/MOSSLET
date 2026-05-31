@@ -123,7 +123,7 @@ defmodule Mosslet.Platform do
   @doc """
   Returns true if encryption happens locally on the device (zero-knowledge).
 
-  For native apps, enacl encryption runs on the device, meaning the server
+  For native apps, MetamorphicCrypto encryption runs on the device, meaning the server
   never sees plaintext data. For web, encryption happens server-side.
   """
   @spec zero_knowledge?() :: boolean()
