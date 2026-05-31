@@ -13513,7 +13513,7 @@ defmodule MossletWeb.DesignSystem do
       </.liquid_my_group_card>
   """
   attr :id, :string, required: true
-  attr :name, :string, required: true
+  attr :name, :string, default: nil
   attr :description, :string, default: nil
   attr :is_public, :boolean, default: false
   attr :can_edit, :boolean, default: false
@@ -13523,6 +13523,7 @@ defmodule MossletWeb.DesignSystem do
   attr :edit_url, :string, default: nil
   attr :class, :any, default: ""
   attr :unread_mention_count, :integer, default: 0
+  attr :browser_decrypt, :boolean, default: false
   slot :members
 
   def liquid_my_group_card(assigns) do
@@ -13569,8 +13570,13 @@ defmodule MossletWeb.DesignSystem do
           <div class="flex-1 min-w-0 pt-0.5">
             <div class="flex items-start justify-between gap-3 mb-1.5">
               <div class="flex items-center gap-2 flex-wrap min-w-0">
-                <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate group-hover/card:text-teal-700 dark:group-hover/card:text-teal-300 transition-colors duration-200">
-                  {@name}
+                <h2
+                  class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate group-hover/card:text-teal-700 dark:group-hover/card:text-teal-300 transition-colors duration-200"
+                  phx-update={if @browser_decrypt, do: "ignore"}
+                  id={"my-group-card-name-#{@group_id}"}
+                  data-decrypt-group-name
+                >
+                  {if @browser_decrypt, do: "Decrypting...", else: @name}
                 </h2>
                 <span
                   :if={@is_public}
@@ -13586,13 +13592,16 @@ defmodule MossletWeb.DesignSystem do
             </div>
 
             <p
-              :if={@description}
+              :if={@description || @browser_decrypt}
               class="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed"
+              phx-update={if @browser_decrypt, do: "ignore"}
+              id={"my-group-card-desc-#{@group_id}"}
+              data-decrypt-group-description
             >
-              {@description}
+              {if @browser_decrypt, do: "Decrypting...", else: @description}
             </p>
             <p
-              :if={!@description}
+              :if={!@description && !@browser_decrypt}
               class="text-sm text-slate-400 dark:text-slate-500 italic"
             >
               No description

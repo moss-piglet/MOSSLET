@@ -34,6 +34,7 @@ defmodule MossletWeb.GroupLive.Index do
       Groups.private_subscribe(socket.assigns.current_user)
       Groups.public_subscribe()
       subscribe_to_groups(groups)
+      ensure_member_avatars_cached(groups, current_user, socket.assigns.key)
     end
 
     pending_groups = Groups.list_unconfirmed_groups(current_user)
@@ -937,5 +938,22 @@ defmodule MossletWeb.GroupLive.Index do
   defp stream_insert_pending_group(socket, group, opts) do
     decrypted = pre_decrypt_group(group, socket.assigns.current_user, socket.assigns.key)
     stream_insert(socket, :pending_groups, decrypted, opts)
+  end
+
+  # Trigger async avatar fetching for all confirmed circle members who are
+  # connections of the current user. This populates the ETS avatar cache so
+  # `get_encrypted_avatar_data/2` returns encrypted blobs for ZK display.
+  defp ensure_member_avatars_cached(groups, current_user, key) do
+    member_user_ids =
+      groups
+      |> Enum.flat_map(& &1.user_groups)
+      |> Enum.filter(&(&1.user_id != current_user.id && &1.confirmed_at))
+      |> Enum.map(& &1.user_id)
+      |> Enum.uniq()
+
+    Enum.each(member_user_ids, fn user_id ->
+      uconn = Accounts.get_user_connection_between_users(user_id, current_user.id)
+      if uconn, do: ensure_avatar_cached_for_item(uconn, key)
+    end)
   end
 end

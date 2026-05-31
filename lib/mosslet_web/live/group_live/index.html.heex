@@ -84,57 +84,70 @@
                 if group.public?,
                   do: get_public_user_group(group, @current_user),
                   else: get_user_group(group, @current_user) %>
-              <MossletWeb.DesignSystem.liquid_my_group_card
-                id={id}
-                name={group.decrypted[:name]}
-                description={group.decrypted[:description]}
-                is_public={group.public?}
-                can_edit={can_edit_group?(get_user_group(group, @current_user), @current_user)}
-                can_delete={can_delete_group?(group, @current_user)}
-                group_id={group.id}
-                navigate_url={~p"/app/circles/#{group}"}
-                edit_url={~p"/app/circles/#{group}/edit"}
-                unread_mention_count={Map.get(@unread_mention_counts, group.id, 0)}
-              >
-                <:members>
-                  <%= for user_group <- group.user_groups, user_group.confirmed_at do %>
-                    <% uconn =
-                      get_uconn_for_users(
-                        get_user_from_user_group_id(user_group.id),
-                        @current_user
-                      ) %>
-                    <% conn_avatar =
-                      if uconn, do: get_encrypted_avatar_data(uconn, @key) %>
-                    <% group_avatar_path =
-                      ~p"/images/groups/#{group.decrypted[:avatar_img] || "default"}" %>
-                    <%!-- Connected member with connection avatar --%>
-                    <.group_avatar
-                      :if={user_group.user_id != @current_user.id && uconn && conn_avatar}
-                      encrypted_avatar_data={conn_avatar}
-                      id={"group-idx-#{group.id}-#{user_group.id}"}
-                      alt="group member connection avatar"
-                      class={group_avatar_role_style(user_group.role)}
-                    />
-                    <%!-- Connected member without connection avatar, or not connected — use group avatar --%>
-                    <.group_avatar
-                      :if={
-                        user_group.user_id != @current_user.id &&
-                          ((uconn && !conn_avatar) || !uconn)
-                      }
-                      src={group_avatar_path}
-                      alt="group member avatar"
-                      class={group_avatar_role_style(user_group.role)}
-                    />
-                    <.group_avatar
-                      :if={user_group.user_id == @current_user.id}
-                      encrypted_avatar_data={get_encrypted_avatar_data(@current_user, @key)}
-                      id={"my-group-#{group.id}-self"}
-                      alt="your group avatar"
-                      class={group_avatar_role_style(user_group.role)}
-                    />
-                  <% end %>
-                </:members>
-              </MossletWeb.DesignSystem.liquid_my_group_card>
+              <% browser_decrypt? = group.decrypted[:browser_decrypt?] || false %>
+              <div id={id} data-hook-scope={"my-group-#{group.id}"}>
+                <div
+                  :if={browser_decrypt?}
+                  id={"decrypt-my-group-#{group.id}"}
+                  phx-hook="DecryptGroupMetadata"
+                  data-sealed-group-key={group.decrypted[:sealed_group_key]}
+                  data-encrypted-name={group.decrypted[:encrypted_name]}
+                  data-encrypted-description={group.decrypted[:encrypted_description]}
+                  data-scope-id={"my-group-#{group.id}"}
+                >
+                </div>
+                <MossletWeb.DesignSystem.liquid_my_group_card
+                  id={"my-group-card-#{group.id}"}
+                  name={group.decrypted[:name]}
+                  description={group.decrypted[:description]}
+                  is_public={group.public?}
+                  can_edit={can_edit_group?(get_user_group(group, @current_user), @current_user)}
+                  can_delete={can_delete_group?(group, @current_user)}
+                  group_id={group.id}
+                  navigate_url={~p"/app/circles/#{group}"}
+                  edit_url={~p"/app/circles/#{group}/edit"}
+                  unread_mention_count={Map.get(@unread_mention_counts, group.id, 0)}
+                  browser_decrypt={browser_decrypt?}
+                >
+                  <:members>
+                    <%= for user_group <- group.user_groups, user_group.confirmed_at do %>
+                      <% uconn =
+                        if user_group.user_id != @current_user.id,
+                          do:
+                            Accounts.get_user_connection_between_users(
+                              user_group.user_id,
+                              @current_user.id
+                            ) %>
+                      <% conn_avatar =
+                        if uconn, do: get_encrypted_avatar_data(uconn, @key) %>
+                      <%!-- Connected member with connection avatar --%>
+                      <.group_avatar
+                        :if={user_group.user_id != @current_user.id && uconn && conn_avatar}
+                        encrypted_avatar_data={conn_avatar}
+                        id={"group-idx-#{group.id}-#{user_group.id}"}
+                        alt="group member connection avatar"
+                        class={group_avatar_role_style(user_group.role)}
+                      />
+                      <%!-- Connected member without connection avatar, or not connected — show logo placeholder --%>
+                      <.group_avatar
+                        :if={
+                          user_group.user_id != @current_user.id &&
+                            ((uconn && !conn_avatar) || !uconn)
+                        }
+                        alt="group member avatar"
+                        class={group_avatar_role_style(user_group.role)}
+                      />
+                      <.group_avatar
+                        :if={user_group.user_id == @current_user.id}
+                        encrypted_avatar_data={get_encrypted_avatar_data(@current_user, @key)}
+                        id={"my-group-#{group.id}-self"}
+                        alt="your group avatar"
+                        class={group_avatar_role_style(user_group.role)}
+                      />
+                    <% end %>
+                  </:members>
+                </MossletWeb.DesignSystem.liquid_my_group_card>
+              </div>
             <% end %>
           </div>
 
@@ -190,14 +203,14 @@
                   <:members>
                     <%= for ug <- Enum.take(Enum.filter(group.user_groups, & &1.confirmed_at), 5) do %>
                       <% member_uconn =
-                        get_uconn_for_users(
-                          get_user_from_user_group_id(ug.id),
-                          @current_user
-                        ) %>
+                        if ug.user_id != @current_user.id,
+                          do:
+                            Accounts.get_user_connection_between_users(
+                              ug.user_id,
+                              @current_user.id
+                            ) %>
                       <% member_conn_avatar =
                         if member_uconn, do: get_encrypted_avatar_data(member_uconn, @key) %>
-                      <% member_group_avatar_path =
-                        ~p"/images/groups/#{group.decrypted[:avatar_img] || "default"}" %>
 
                       <.phx_avatar
                         :if={ug.user_id != @current_user.id && member_uconn && member_conn_avatar}
@@ -212,7 +225,6 @@
                           ug.user_id != @current_user.id &&
                             ((member_uconn && !member_conn_avatar) || !member_uconn)
                         }
-                        src={member_group_avatar_path}
                         alt="group member"
                         class="h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-700"
                       />
