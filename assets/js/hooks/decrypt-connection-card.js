@@ -32,15 +32,22 @@ const DecryptConnectionCard = {
 
       const connKey = unwrapKey(rawKey);
 
+      const scope = this.el.dataset.connScope;
+      const scopeEl = scope
+        ? document.querySelector(`[data-conn-scope="${scope}"]`) || document
+        : document;
+
       const encryptedName = this.el.dataset.encryptedConnName;
       const encryptedUsername = this.el.dataset.encryptedConnUsername;
       const encryptedConnLabel = this.el.dataset.encryptedConnLabel;
+      const encryptedConnEmail = this.el.dataset.encryptedConnEmail;
 
       if (encryptedName) {
         const name = await decryptWithKey(encryptedName, connKey);
         if (name) {
-          document.querySelectorAll("[data-decrypt-conn-name]").forEach(el => {
+          scopeEl.querySelectorAll("[data-decrypt-conn-name]").forEach(el => {
             el.textContent = name;
+            el.classList.remove("animate-pulse");
           });
         }
       }
@@ -48,8 +55,9 @@ const DecryptConnectionCard = {
       if (encryptedUsername) {
         const username = await decryptWithKey(encryptedUsername, connKey);
         if (username) {
-          document.querySelectorAll("[data-decrypt-conn-username]").forEach(el => {
+          scopeEl.querySelectorAll("[data-decrypt-conn-username]").forEach(el => {
             el.textContent = username;
+            el.classList.remove("animate-pulse");
           });
         }
       }
@@ -57,8 +65,19 @@ const DecryptConnectionCard = {
       if (encryptedConnLabel) {
         const label = await decryptWithKey(encryptedConnLabel, connKey);
         if (label) {
-          document.querySelectorAll("[data-decrypt-conn-label]").forEach(el => {
+          scopeEl.querySelectorAll("[data-decrypt-conn-label]").forEach(el => {
             el.textContent = label;
+            el.classList.remove("animate-pulse");
+          });
+        }
+      }
+
+      if (encryptedConnEmail) {
+        const email = await decryptWithKey(encryptedConnEmail, connKey);
+        if (email) {
+          scopeEl.querySelectorAll("[data-decrypt-conn-email]").forEach(el => {
+            el.textContent = email;
+            el.classList.remove("animate-pulse");
           });
         }
       }
@@ -70,7 +89,7 @@ const DecryptConnectionCard = {
       if (encryptedArrivalName) {
         const name = await decryptWithKey(encryptedArrivalName, connKey);
         if (name) {
-          document.querySelectorAll("[data-decrypt-arrival-name]").forEach(el => {
+          scopeEl.querySelectorAll("[data-decrypt-arrival-name]").forEach(el => {
             el.textContent = name;
           });
         }
@@ -79,7 +98,7 @@ const DecryptConnectionCard = {
       if (encryptedArrivalEmail) {
         const email = await decryptWithKey(encryptedArrivalEmail, connKey);
         if (email) {
-          document.querySelectorAll("[data-decrypt-arrival-email]").forEach(el => {
+          scopeEl.querySelectorAll("[data-decrypt-arrival-email]").forEach(el => {
             el.textContent = email;
           });
         }
@@ -88,7 +107,7 @@ const DecryptConnectionCard = {
       if (encryptedArrivalLabel) {
         const label = await decryptWithKey(encryptedArrivalLabel, connKey);
         if (label) {
-          document.querySelectorAll("[data-decrypt-arrival-label]").forEach(el => {
+          scopeEl.querySelectorAll("[data-decrypt-arrival-label]").forEach(el => {
             el.textContent = label;
           });
         }

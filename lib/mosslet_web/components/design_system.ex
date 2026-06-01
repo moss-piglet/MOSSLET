@@ -12110,6 +12110,7 @@ defmodule MossletWeb.DesignSystem do
   attr :photos?, :boolean, default: false
   attr :show_interactions?, :boolean, default: true
   attr :show_profile?, :boolean, default: false
+  attr :profile_slug, :string, default: nil, doc: "Plaintext profile slug for profile link"
   attr :status, :string, default: nil
   attr :status_message, :string, default: nil
   attr :encrypted_status_data, :map, default: nil, doc: "ZK encrypted status message + sealed key"
@@ -12245,10 +12246,10 @@ defmodule MossletWeb.DesignSystem do
               <%!-- View profile button --%>
 
               <.link
-                :if={@show_profile?}
+                :if={@show_profile? && @profile_slug}
                 id={"profile-button-#{@connection_id}"}
                 phx-hook="TippyHook"
-                navigate={~p"/app/profile/#{@username}"}
+                navigate={~p"/app/profile/#{@profile_slug}"}
                 data-tippy-content="View profile"
                 type="button"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-700/20 hover:bg-slate-100/50 dark:hover:bg-slate-600/30 border border-slate-200/40 dark:border-slate-600/40 rounded-full transition-all duration-200 ease-out hover:scale-105"

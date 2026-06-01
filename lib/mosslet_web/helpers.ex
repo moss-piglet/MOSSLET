@@ -1433,6 +1433,28 @@ defmodule MossletWeb.Helpers do
     end
   end
 
+  @doc """
+  Returns encrypted connection profile data for browser-side ZK decryption.
+
+  Instead of decrypting name, username, email, and label server-side, this
+  returns the raw encrypted blobs plus the sealed uconn_key so the
+  `DecryptConnectionCard` JS hook can unseal and decrypt in the browser.
+
+  Used on the connection show page to replace server-side `decrypt_connection_fields/3`.
+  """
+  def encrypted_connection_fields(user_connection) do
+    uconn_key = user_connection.key
+    connection = user_connection.connection
+
+    %{
+      sealed_uconn_key: uconn_key,
+      encrypted_name: connection.name,
+      encrypted_username: connection.username,
+      encrypted_email: connection.email,
+      encrypted_label: user_connection.label
+    }
+  end
+
   # Avatar URLs need special handling: nil/empty values are nil,
   # and :failed_verification becomes "failed_verification" string.
   defp decrypt_avatar_field(nil, _raw_key), do: nil

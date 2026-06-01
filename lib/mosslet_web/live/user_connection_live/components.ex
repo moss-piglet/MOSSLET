@@ -14,6 +14,21 @@ defmodule MossletWeb.UserConnectionLive.Components do
   def user_connection_header(assigns) do
     ~H"""
     <div>
+      <%!-- DecryptConnectionCard hook for browser-side ZK decryption --%>
+      <div
+        :if={@conn_fields[:sealed_uconn_key]}
+        id={"decrypt-conn-show-#{@user_connection.id}"}
+        phx-hook="DecryptConnectionCard"
+        phx-update="ignore"
+        data-sealed-uconn-key={@conn_fields[:sealed_uconn_key]}
+        data-encrypted-conn-name={@conn_fields[:encrypted_name]}
+        data-encrypted-conn-username={@conn_fields[:encrypted_username]}
+        data-encrypted-conn-label={@conn_fields[:encrypted_label]}
+        data-encrypted-conn-email={@conn_fields[:encrypted_email]}
+        class="hidden"
+      >
+      </div>
+
       <img
         :if={@user_connection.connection.profile}
         class="h-32 w-full object-cover lg:h-48"
@@ -45,18 +60,18 @@ defmodule MossletWeb.UserConnectionLive.Components do
               :if={show_name?(@user_connection)}
               class="text-2xl font-bold text-gray-900 dark:text-gray-100"
             >
-              {@decrypted_conn.name}
+              <span data-decrypt-conn-name class="animate-pulse">&nbsp;</span>
             </h1>
             <h1
               :if={!show_name?(@user_connection)}
               class="text-2xl font-bold text-gray-900 dark:text-gray-100"
             >
-              {@decrypted_conn.username}
+              <span data-decrypt-conn-username class="animate-pulse">&nbsp;</span>
             </h1>
             <p class="text-sm font-medium text-gray-500 dark:text-gray-400">
               Became your
               <span class={username_link_text_color_no_hover(@user_connection.color)}>
-                {@decrypted_conn.label}
+                <span data-decrypt-conn-label class="animate-pulse">&nbsp;</span>
               </span>
               on
               <time datetime={@user_connection.confirmed_at}>
@@ -153,47 +168,15 @@ defmodule MossletWeb.UserConnectionLive.Components do
           <div class="sm:col-span-1">
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Username</dt>
             <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
-              {@decrypted_conn.username}
+              <span data-decrypt-conn-username class="animate-pulse">&nbsp;</span>
             </dd>
           </div>
           <div :if={show_email?(@user_connection)} class="sm:col-span-1">
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Email address</dt>
             <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
-              {@decrypted_conn.email}
+              <span data-decrypt-conn-email class="animate-pulse">&nbsp;</span>
             </dd>
           </div>
-          <%!-- Memory and Zen mode TBD (maybe future features)
-          <div class="sm:col-span-1">
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Memory mode</dt>
-            <dd
-              :if={@user_connection.photos?}
-              class="mt-1 text-sm text-emerald-600 dark:text-emerald-400"
-            >
-              <span
-                id="memory-mode-true"
-                phx-hook="TippyHook"
-                data-tippy-content="This person can download and save memories you share with them."
-              >
-                <.phx_icon name="hero-check-circle" />
-              </span>
-            </dd>
-            <dd :if={!@user_connection.photos?} class="mt-1 text-sm text-rose-600 dark:text-rose-400">
-              <span
-                id="memory-mode-false"
-                phx-hook="TippyHook"
-                data-tippy-content="This person can not download memories you share with them."
-              >
-                <.phx_icon name="hero-x-circle" />
-              </span>
-            </dd>
-          </div>
-          <div class="sm:col-span-1">
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Zen mode</dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
-              {@user_connection.zen? || "coming soon"}
-            </dd>
-          </div>
-          --%>
           <div
             :if={@user_connection.connection.profile && @user_connection.connection.profile.about}
             class="sm:col-span-2"
@@ -206,9 +189,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
                 @profile_fields && @profile_fields[:browser_decrypt?] && "animate-pulse"
               ]}
             >
-              {if @profile_fields,
-                do: @profile_fields[:about],
-                else: @decrypted_conn.about}
+              {if @profile_fields, do: @profile_fields[:about]}
             </dd>
           </div>
         </dl>

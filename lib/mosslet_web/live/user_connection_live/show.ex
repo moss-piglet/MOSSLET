@@ -90,7 +90,7 @@ defmodule MossletWeb.UserConnectionLive.Show do
       |> assign(:options, options)
       |> assign(:user_connection, user_connection)
       |> assign(:profile_fields, profile_fields)
-      |> assign(:decrypted_conn, decrypt_connection_fields(user_connection, current_user, key))
+      |> assign(:conn_fields, encrypted_connection_fields(user_connection))
       |> assign(:post_form, socket.assigns[:post_form])
       |> start_async(:fetch_posts, fn ->
         Timeline.list_shared_posts(user_connection.reverse_user_id, current_user.id, options)
@@ -115,14 +115,7 @@ defmodule MossletWeb.UserConnectionLive.Show do
       socket
       |> assign(:page_title, "Edit Connection")
       |> assign(:user_connection, user_connection)
-      |> assign(
-        :decrypted_conn,
-        decrypt_connection_fields(
-          user_connection,
-          socket.assigns.current_user,
-          socket.assigns.key
-        )
-      )
+      |> assign(:conn_fields, encrypted_connection_fields(user_connection))
     end
   end
 
@@ -549,14 +542,7 @@ defmodule MossletWeb.UserConnectionLive.Show do
        |> assign(:live_action, :edit)
        |> assign(:return_url, return_url)
        |> assign(:user_connection, user_connection)
-       |> assign(
-         :decrypted_conn,
-         decrypt_connection_fields(
-           user_connection,
-           socket.assigns.current_user,
-           socket.assigns.key
-         )
-       )}
+       |> assign(:conn_fields, encrypted_connection_fields(user_connection))}
     end
   end
 
@@ -1865,21 +1851,4 @@ defmodule MossletWeb.UserConnectionLive.Show do
   defp non_empty_list([]), do: nil
   defp non_empty_list(list) when is_list(list), do: list
   defp non_empty_list(_), do: nil
-
-  defp decrypt_connection_fields(user_connection, current_user, key) do
-    uconn_key = user_connection.key
-
-    about =
-      if user_connection.connection.profile && user_connection.connection.profile.about do
-        decr_uconn(user_connection.connection.profile.about, current_user, uconn_key, key)
-      end
-
-    %{
-      name: decr_uconn(user_connection.connection.name, current_user, uconn_key, key),
-      username: decr_uconn(user_connection.connection.username, current_user, uconn_key, key),
-      email: decr_uconn(user_connection.connection.email, current_user, uconn_key, key),
-      label: decr_uconn(user_connection.label, current_user, uconn_key, key),
-      about: about
-    }
-  end
 end
