@@ -1137,6 +1137,36 @@ defmodule MossletWeb.Helpers do
   end
 
   @doc """
+  Pre-decrypts a journal book for browser-side ZK rendering.
+
+  Journal books are encrypted with the user's personal key (user_key).
+  Instead of server-side decryption, we pass the encrypted blobs and the
+  sealed user_key so the `DecryptJournalBook` JS hook can decrypt
+  client-side.
+
+  Returns the book with a `:decrypted` map containing:
+    - `:encrypted_title`, `:encrypted_description`, `:encrypted_cover_image_url`
+    - `:sealed_user_key` — the user_key sealed to the user's keypair
+    - `:browser_decrypt?` — always `true`
+  """
+  def pre_decrypt_journal_book(book, sealed_user_key) do
+    Map.put(book, :decrypted, %{
+      encrypted_title: book.title,
+      encrypted_description: book.description,
+      encrypted_cover_image_url: book.cover_image_url,
+      sealed_user_key: sealed_user_key,
+      browser_decrypt?: true
+    })
+  end
+
+  @doc """
+  Pre-decrypts a list of journal books for browser-side ZK rendering.
+  """
+  def pre_decrypt_journal_books(books, sealed_user_key) do
+    Enum.map(books, &pre_decrypt_journal_book(&1, sealed_user_key))
+  end
+
+  @doc """
   Pre-decrypts a journal entry for browser-side ZK rendering.
 
   Journal entries are encrypted with the user's personal key (user_key).

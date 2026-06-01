@@ -9,7 +9,9 @@ defmodule MossletWeb.JournalLive.Book do
   alias Mosslet.Journal.JournalBook
   alias MossletWeb.DesignSystem
   alias MossletWeb.Helpers.JournalHelpers
-  import MossletWeb.Helpers, only: [pre_decrypt_journal_entries: 2]
+
+  import MossletWeb.Helpers,
+    only: [pre_decrypt_journal_entries: 2]
 
   @default_mobile_chars_per_page 1200
   @default_desktop_chars_per_page 1800
@@ -21,9 +23,8 @@ defmodule MossletWeb.JournalLive.Book do
       <.immersive_reading_layout
         current_scope={@current_scope}
         book={@book}
-        decrypted_title={@decrypted_title}
-        decrypted_description={@decrypted_description}
-        decrypted_cover_image_url={@decrypted_cover_image_url}
+        sealed_user_key={@sealed_user_key}
+        cover_image_src={@cover_image_src}
         entries={@entries}
         flash={@flash}
         scroll_page={@scroll_page}
@@ -42,9 +43,8 @@ defmodule MossletWeb.JournalLive.Book do
       <.book_sidebar_view
         current_scope={@current_scope}
         book={@book}
-        decrypted_title={@decrypted_title}
-        decrypted_description={@decrypted_description}
-        decrypted_cover_image_url={@decrypted_cover_image_url}
+        sealed_user_key={@sealed_user_key}
+        cover_image_src={@cover_image_src}
         entries={@entries}
         view_mode={@view_mode}
         page_spread={@page_spread}
@@ -81,25 +81,37 @@ defmodule MossletWeb.JournalLive.Book do
             <.phx_icon name="hero-arrow-left" class="h-4 w-4" /> Back to Journal
           </.link>
 
-          <%= if @decrypted_cover_image_url do %>
+          <%!-- DecryptJournalBook hook — browser-side ZK decryption of book title/description --%>
+          <div
+            id={"decrypt-journal-book-#{@book.id}"}
+            phx-hook="DecryptJournalBook"
+            data-book-id={@book.id}
+            data-sealed-user-key={@sealed_user_key}
+            data-encrypted-title={@book.title}
+            data-encrypted-description={@book.description}
+            class="hidden"
+          />
+
+          <%= if @cover_image_src do %>
             <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
               <div class="flex items-center gap-4">
                 <div class="max-w-28 sm:max-w-32 flex-shrink-0">
                   <img
-                    src={@decrypted_cover_image_url}
+                    src={@cover_image_src}
                     class="w-full h-auto max-h-36 sm:max-h-40 rounded-xl shadow-lg"
-                    alt={"#{@decrypted_title} cover"}
+                    alt=""
                   />
                 </div>
                 <div>
-                  <h1 class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">
-                    {@decrypted_title}
+                  <h1
+                    data-decrypt-journal-book-title={@book.id}
+                    class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100"
+                  >
                   </h1>
                   <p
-                    :if={@decrypted_description}
+                    data-decrypt-journal-book-description={@book.id}
                     class="text-sm text-slate-600 dark:text-slate-400 mt-1"
                   >
-                    {@decrypted_description}
                   </p>
                   <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
                     {@book.entry_count} {if @book.entry_count == 1, do: "entry", else: "entries"}
@@ -138,14 +150,15 @@ defmodule MossletWeb.JournalLive.Book do
                   <.phx_icon name="hero-book-open" class="h-8 w-8 sm:h-10 sm:w-10 text-white/80" />
                 </div>
                 <div class="min-w-0">
-                  <h1 class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 truncate">
-                    {@decrypted_title}
+                  <h1
+                    data-decrypt-journal-book-title={@book.id}
+                    class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 truncate"
+                  >
                   </h1>
                   <p
-                    :if={@decrypted_description}
+                    data-decrypt-journal-book-description={@book.id}
                     class="text-sm text-slate-600 dark:text-slate-400 mt-1 line-clamp-2"
                   >
-                    {@decrypted_description}
                   </p>
                   <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
                     {@book.entry_count} {if @book.entry_count == 1, do: "entry", else: "entries"}
@@ -263,7 +276,6 @@ defmodule MossletWeb.JournalLive.Book do
               :if={entry.decrypted}
               id={"decrypt-book-entry-hook-#{entry.id}"}
               phx-hook="DecryptJournalEntry"
-              phx-update="ignore"
               data-entry-id={entry.id}
               data-sealed-user-key={entry.decrypted[:sealed_user_key]}
               data-encrypted-title={entry.decrypted[:encrypted_title]}
@@ -478,9 +490,8 @@ defmodule MossletWeb.JournalLive.Book do
   attr :current_scope, :map, required: true
   attr :book, :map, required: true
   attr :current_page, :integer, required: true
-  attr :decrypted_title, :string, required: true
-  attr :decrypted_description, :string, default: nil
-  attr :decrypted_cover_image_url, :string, default: nil
+  attr :sealed_user_key, :string, required: true
+  attr :cover_image_src, :string, default: nil
   attr :entries, :list, required: true
   attr :flash, :map, required: true
   attr :scroll_page, :integer, required: true
@@ -511,6 +522,16 @@ defmodule MossletWeb.JournalLive.Book do
       @mousemove="handleMouseMove($event)"
       @touchstart="mouseActive = true; startMouseTimer()"
     >
+      <div
+        id={"decrypt-journal-book-reading-#{@book.id}"}
+        phx-hook="DecryptJournalBook"
+        data-book-id={@book.id}
+        data-sealed-user-key={@sealed_user_key}
+        data-encrypted-title={@book.title}
+        data-encrypted-description={@book.description}
+        class="hidden"
+      />
+
       <header
         class="fixed top-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/50 dark:border-slate-700/50 transition-all duration-300"
         x-bind:class="headerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'"
@@ -531,11 +552,11 @@ defmodule MossletWeb.JournalLive.Book do
             </button>
 
             <div class="flex items-center gap-2">
-              <div :if={@decrypted_cover_image_url} class="hidden sm:block">
-                <img src={@decrypted_cover_image_url} class="h-8 w-auto rounded shadow-sm" alt="" />
+              <div :if={@cover_image_src} class="hidden sm:block">
+                <img src={@cover_image_src} class="h-8 w-auto rounded shadow-sm" alt="" />
               </div>
               <div
-                :if={!@decrypted_cover_image_url}
+                :if={!@cover_image_src}
                 class={[
                   "hidden sm:flex h-8 w-6 rounded items-center justify-center",
                   JournalHelpers.book_cover_gradient(@book.cover_color)
@@ -543,8 +564,10 @@ defmodule MossletWeb.JournalLive.Book do
               >
                 <.phx_icon name="hero-book-open" class="h-3.5 w-3.5 text-white/80" />
               </div>
-              <h1 class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate max-w-[200px]">
-                {@decrypted_title}
+              <h1
+                data-decrypt-journal-book-title={@book.id}
+                class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate max-w-[200px]"
+              >
               </h1>
             </div>
 
@@ -582,9 +605,8 @@ defmodule MossletWeb.JournalLive.Book do
           <div class="book-column-page-full" data-page-type="cover">
             <.immersive_front_cover
               book={@book}
-              decrypted_title={@decrypted_title}
-              decrypted_description={@decrypted_description}
-              decrypted_cover_image_url={@decrypted_cover_image_url}
+              sealed_user_key={@sealed_user_key}
+              cover_image_src={@cover_image_src}
             />
           </div>
 
@@ -593,8 +615,8 @@ defmodule MossletWeb.JournalLive.Book do
             data-page-type="title"
           >
             <.title_page
-              decrypted_title={@decrypted_title}
-              decrypted_description={@decrypted_description}
+              book={@book}
+              sealed_user_key={@sealed_user_key}
               decrypted_username={@decrypted_username}
               entries={@entries}
             />
@@ -629,8 +651,8 @@ defmodule MossletWeb.JournalLive.Book do
           <div class="book-column-page-full" data-page-type="back-cover">
             <.immersive_back_cover
               book={@book}
-              decrypted_title={@decrypted_title}
-              decrypted_cover_image_url={@decrypted_cover_image_url}
+              sealed_user_key={@sealed_user_key}
+              cover_image_src={@cover_image_src}
               current_scope={@current_scope}
             />
           </div>
@@ -731,7 +753,6 @@ defmodule MossletWeb.JournalLive.Book do
         :if={@entry.decrypted}
         id={"decrypt-reading-hook-#{@entry.id}"}
         phx-hook="DecryptJournalEntry"
-        phx-update="ignore"
         data-entry-id={@entry.id}
         data-sealed-user-key={@entry.decrypted[:sealed_user_key]}
         data-encrypted-title={@entry.decrypted[:encrypted_title]}
@@ -787,8 +808,8 @@ defmodule MossletWeb.JournalLive.Book do
     """
   end
 
-  attr :decrypted_title, :string, required: true
-  attr :decrypted_description, :string, default: nil
+  attr :book, :map, required: true
+  attr :sealed_user_key, :string, required: true
   attr :decrypted_username, :string, required: true
   attr :entries, :list, required: true
 
@@ -815,17 +836,18 @@ defmodule MossletWeb.JournalLive.Book do
       <div class="flex-1 flex flex-col items-center justify-center gap-8">
         <div class="text-slate-400 dark:text-slate-500 text-lg tracking-widest">✦</div>
 
-        <h1 class="text-2xl sm:text-3xl font-serif text-slate-800 dark:text-slate-200 tracking-wide">
-          {@decrypted_title}
+        <h1
+          data-decrypt-journal-book-title={@book.id}
+          class="text-2xl sm:text-3xl font-serif text-slate-800 dark:text-slate-200 tracking-wide"
+        >
         </h1>
 
         <div class="w-12 h-px bg-slate-300 dark:bg-slate-600" />
 
         <p
-          :if={@decrypted_description}
+          data-decrypt-journal-book-description={@book.id}
           class="text-sm text-slate-500 dark:text-slate-400 font-light italic leading-relaxed max-w-xs"
         >
-          {@decrypted_description}
         </p>
       </div>
 
@@ -884,9 +906,8 @@ defmodule MossletWeb.JournalLive.Book do
   end
 
   attr :book, :map, required: true
-  attr :decrypted_title, :string, required: true
-  attr :decrypted_cover_image_url, :string, default: nil
-  attr :decrypted_description, :string, default: nil
+  attr :sealed_user_key, :string, required: true
+  attr :cover_image_src, :string, default: nil
 
   defp immersive_front_cover(assigns) do
     ~H"""
@@ -901,25 +922,27 @@ defmodule MossletWeb.JournalLive.Book do
           <div class="absolute -inset-1 bg-gradient-to-br from-amber-200/30 dark:from-amber-500/10 to-transparent rounded-lg" />
 
           <div
-            :if={@decrypted_cover_image_url}
+            :if={@cover_image_src}
             class="relative rounded-lg overflow-hidden shadow-[0_25px_60px_-15px_rgba(0,0,0,0.4)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] ring-1 ring-black/10 dark:ring-white/10"
           >
             <div class="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/30 via-black/10 to-transparent z-10" />
             <img
-              src={@decrypted_cover_image_url}
+              src={@cover_image_src}
               class="w-auto h-[50vh] min-h-[280px] max-h-[450px] object-cover"
-              alt={@decrypted_title}
+              alt=""
             />
             <div class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
             <div class="absolute bottom-0 left-0 right-0 p-5 text-center">
-              <h1 class="text-xl sm:text-2xl font-serif font-bold text-white drop-shadow-lg line-clamp-2">
-                {@decrypted_title}
+              <h1
+                data-decrypt-journal-book-title={@book.id}
+                class="text-xl sm:text-2xl font-serif font-bold text-white drop-shadow-lg line-clamp-2"
+              >
               </h1>
             </div>
           </div>
 
           <div
-            :if={!@decrypted_cover_image_url}
+            :if={!@cover_image_src}
             class={[
               "relative w-48 sm:w-56 h-[320px] sm:h-[380px] rounded-lg shadow-[0_25px_60px_-15px_rgba(0,0,0,0.4)] ring-1 ring-black/10 flex flex-col items-center justify-center overflow-hidden",
               JournalHelpers.book_cover_gradient(@book.cover_color)
@@ -932,8 +955,10 @@ defmodule MossletWeb.JournalLive.Book do
               <div class="w-16 h-16 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/20 mb-5">
                 <.phx_icon name="hero-book-open" class="h-8 w-8 text-white/80" />
               </div>
-              <h1 class="text-lg sm:text-xl font-serif font-bold text-white drop-shadow-lg line-clamp-3">
-                {@decrypted_title}
+              <h1
+                data-decrypt-journal-book-title={@book.id}
+                class="text-lg sm:text-xl font-serif font-bold text-white drop-shadow-lg line-clamp-3"
+              >
               </h1>
             </div>
           </div>
@@ -948,10 +973,9 @@ defmodule MossletWeb.JournalLive.Book do
   end
 
   attr :book, :map, required: true
-  attr :decrypted_title, :string, required: true
-  attr :decrypted_cover_image_url, :string, default: nil
+  attr :sealed_user_key, :string, required: true
+  attr :cover_image_src, :string, default: nil
   attr :current_scope, :map, required: true
-  attr :decrypted_description, :string, default: nil
   attr :class, :string, default: nil
 
   defp immersive_back_cover(assigns) do
@@ -980,14 +1004,14 @@ defmodule MossletWeb.JournalLive.Book do
           <div class="absolute -inset-1 bg-gradient-to-br from-amber-200/30 dark:from-amber-500/10 to-transparent rounded-lg" />
 
           <div
-            :if={@decrypted_cover_image_url}
+            :if={@cover_image_src}
             class="relative rounded-lg overflow-hidden shadow-[0_25px_60px_-15px_rgba(0,0,0,0.4)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] ring-1 ring-black/10 dark:ring-white/10"
           >
             <div class="absolute inset-y-0 right-0 w-3 bg-gradient-to-l from-black/30 via-black/10 to-transparent z-10" />
             <img
-              src={@decrypted_cover_image_url}
+              src={@cover_image_src}
               class="w-auto h-[55vh] min-h-[320px] max-h-[500px] object-cover"
-              alt={@decrypted_title}
+              alt=""
             />
             <div class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
             <div class="absolute bottom-0 left-0 right-0 p-5 text-center">
@@ -998,7 +1022,7 @@ defmodule MossletWeb.JournalLive.Book do
           </div>
 
           <div
-            :if={!@decrypted_cover_image_url}
+            :if={!@cover_image_src}
             class={[
               "relative w-56 sm:w-64 h-[360px] sm:h-[420px] rounded-lg shadow-[0_25px_60px_-15px_rgba(0,0,0,0.4)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] ring-1 ring-black/10 dark:ring-white/10 flex flex-col items-center justify-center overflow-hidden",
               JournalHelpers.book_cover_gradient(@book.cover_color)
@@ -1040,25 +1064,18 @@ defmodule MossletWeb.JournalLive.Book do
          |> push_navigate(to: ~p"/app/journal")}
 
       book ->
-        decrypted = Journal.decrypt_book(book, user, key)
-        entries = Journal.list_journal_entries(user, book_id: book_id, limit: 20)
         sealed_user_key = user.user_key
+        entries = Journal.list_journal_entries(user, book_id: book_id, limit: 20)
         decrypted_entries = pre_decrypt_journal_entries(entries, sealed_user_key)
 
-        cover_src =
-          if decrypted.cover_image_url do
-            load_cover_image_src(decrypted.cover_image_url, user, key)
-          else
-            nil
-          end
+        cover_src = load_book_cover_src(book, user, key)
 
         {:ok,
          socket
          |> assign(:page_title, "Journal")
          |> assign(:book, book)
-         |> assign(:decrypted_title, decrypted.title)
-         |> assign(:decrypted_description, decrypted.description)
-         |> assign(:decrypted_cover_image_url, cover_src)
+         |> assign(:sealed_user_key, sealed_user_key)
+         |> assign(:cover_image_src, cover_src)
          |> assign(:entries, decrypted_entries)
          |> assign(:offset, 20)
          |> assign(:has_more, length(entries) == 20)
@@ -1524,15 +1541,15 @@ defmodule MossletWeb.JournalLive.Book do
 
     changeset =
       Journal.change_book(book, %{
-        title: socket.assigns.decrypted_title,
-        description: socket.assigns.decrypted_description
+        title: "",
+        description: ""
       })
 
     {:noreply,
      socket
      |> assign(:show_edit_modal, true)
      |> assign(:book_form, to_form(changeset, as: :journal_book))
-     |> assign(:current_cover_src, socket.assigns.decrypted_cover_image_url)
+     |> assign(:current_cover_src, socket.assigns.cover_image_src)
      |> assign(:pending_cover_path, nil)
      |> assign(:cover_upload_stage, nil)}
   end
@@ -1589,23 +1606,14 @@ defmodule MossletWeb.JournalLive.Book do
               updated_book
           end
 
-        decrypted = Journal.decrypt_book(updated_book, user, key)
-
-        cover_src =
-          if decrypted.cover_image_url do
-            load_cover_image_src(decrypted.cover_image_url, user, key)
-          else
-            nil
-          end
+        cover_src = load_book_cover_src(updated_book, user, key)
 
         {:noreply,
          socket
          |> assign(:show_edit_modal, false)
          |> assign(:book_form, nil)
          |> assign(:book, %{updated_book | entry_count: book.entry_count})
-         |> assign(:decrypted_title, decrypted.title)
-         |> assign(:decrypted_description, decrypted.description)
-         |> assign(:decrypted_cover_image_url, cover_src)
+         |> assign(:cover_image_src, cover_src)
          |> assign(:current_cover_src, nil)
          |> assign(:pending_cover_path, nil)
          |> assign(:cover_upload_stage, nil)
@@ -1666,23 +1674,14 @@ defmodule MossletWeb.JournalLive.Book do
               updated_book
           end
 
-        decrypted = Journal.decrypt_book(updated_book, user, key)
-
-        cover_src =
-          if decrypted.cover_image_url do
-            load_cover_image_src(decrypted.cover_image_url, user, key)
-          else
-            nil
-          end
+        cover_src = load_book_cover_src(updated_book, user, key)
 
         {:noreply,
          socket
          |> assign(:show_edit_modal, false)
          |> assign(:book_form, nil)
          |> assign(:book, %{updated_book | entry_count: book.entry_count})
-         |> assign(:decrypted_title, decrypted.title)
-         |> assign(:decrypted_description, decrypted.description)
-         |> assign(:decrypted_cover_image_url, cover_src)
+         |> assign(:cover_image_src, cover_src)
          |> assign(:current_cover_src, nil)
          |> assign(:pending_cover_path, nil)
          |> assign(:cover_upload_stage, nil)
@@ -1714,7 +1713,7 @@ defmodule MossletWeb.JournalLive.Book do
      |> assign(:book_form, nil)
      |> assign(:cover_upload_stage, nil)
      |> assign(:pending_cover_path, nil)
-     |> assign(:current_cover_src, socket.assigns.decrypted_cover_image_url)
+     |> assign(:current_cover_src, socket.assigns.cover_image_src)
      |> push_event("restore-body-scroll", %{})}
   end
 
@@ -1935,6 +1934,18 @@ defmodule MossletWeb.JournalLive.Book do
   @impl true
   def handle_info(_msg, socket) do
     {:noreply, socket}
+  end
+
+  # Cover images require S3 fetch — the encrypted cover_image_url must be
+  # server-decrypted to get the S3 object key. The image bytes are also
+  # decrypted server-side here (S3 proxy, same as post images for public posts).
+  defp load_book_cover_src(%{cover_image_url: nil}, _user, _key), do: nil
+
+  defp load_book_cover_src(%{cover_image_url: encrypted_url}, user, key) do
+    case Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_url, user, key) do
+      nil -> nil
+      file_path -> load_cover_image_src(file_path, user, key)
+    end
   end
 
   defp load_cover_image_src(file_path, user, key) when is_binary(file_path) do

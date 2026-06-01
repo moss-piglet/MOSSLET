@@ -33,7 +33,8 @@ defmodule MossletWeb.JournalLive.Entry do
         has_loose_entries={@has_loose_entries}
         entry_id={@entry.id}
         entry_matches_scope={@entry_matches_scope}
-        entry_book_title={@entry_book_title}
+        entry_book_id={@entry_book_id}
+        sealed_user_key={@sealed_user_key}
         privacy_active={@privacy_active}
         privacy_countdown={@privacy_countdown}
       >
@@ -42,7 +43,6 @@ defmodule MossletWeb.JournalLive.Entry do
           :if={@entry.decrypted}
           id={"decrypt-journal-entry-#{@entry.id}"}
           phx-hook="DecryptJournalEntry"
-          phx-update="ignore"
           data-entry-id={@entry.id}
           data-sealed-user-key={@entry.decrypted[:sealed_user_key]}
           data-encrypted-title={@entry.decrypted[:encrypted_title]}
@@ -208,7 +208,6 @@ defmodule MossletWeb.JournalLive.Entry do
             :if={@live_action == :edit && @entry && @entry.decrypted}
             id={"decrypt-journal-edit-#{@entry.id}"}
             phx-hook="DecryptJournalEntry"
-            phx-update="ignore"
             data-entry-id={@entry.id}
             data-sealed-user-key={@entry.decrypted[:sealed_user_key]}
             data-encrypted-title={@entry.decrypted[:encrypted_title]}
@@ -353,7 +352,8 @@ defmodule MossletWeb.JournalLive.Entry do
      |> assign(:has_loose_entries, false)
      |> assign(:book_id, nil)
      |> assign(:entry_matches_scope, true)
-     |> assign(:entry_book_title, nil)
+     |> assign(:entry_book_id, nil)
+     |> assign(:sealed_user_key, nil)
      |> assign(:show_markdown_guide, false)
      |> assign(:return_view, nil)
      |> JournalHelpers.assign_privacy_state(user)}
@@ -429,7 +429,7 @@ defmodule MossletWeb.JournalLive.Entry do
 
   defp apply_action(socket, :show, params) do
     user = socket.assigns.user
-    key = socket.assigns.key
+    _key = socket.assigns.key
     id = params["id"]
 
     case Journal.get_journal_entry(id, user) do
@@ -447,21 +447,19 @@ defmodule MossletWeb.JournalLive.Entry do
 
         nav_books =
           Enum.map(books, fn book ->
-            decrypted_book = Journal.decrypt_book(book, user, key)
-            %{id: book.id, title: decrypted_book.title, cover_color: book.cover_color}
+            %{id: book.id, encrypted_title: book.title, cover_color: book.cover_color}
           end)
 
-        {nav_book_id, book_title, back_path} =
+        {nav_book_id, back_path} =
           case params["scope"] do
             "loose" ->
-              {nil, nil, ~p"/app/journal"}
+              {nil, ~p"/app/journal"}
 
             "book" ->
               scope_book_id = params["book_id"]
               book = Enum.find(books, &(&1.id == scope_book_id))
 
               if book do
-                decrypted_book = Journal.decrypt_book(book, user, key)
                 view = params["view"]
                 page = params["page"]
 
@@ -477,9 +475,9 @@ defmodule MossletWeb.JournalLive.Entry do
                       ~p"/app/journal/books/#{scope_book_id}"
                   end
 
-                {scope_book_id, decrypted_book.title, path}
+                {scope_book_id, path}
               else
-                {entry.book_id, nil, ~p"/app/journal"}
+                {entry.book_id, ~p"/app/journal"}
               end
 
             _ ->
@@ -487,13 +485,12 @@ defmodule MossletWeb.JournalLive.Entry do
                 book = Enum.find(books, &(&1.id == entry.book_id))
 
                 if book do
-                  decrypted_book = Journal.decrypt_book(book, user, key)
-                  {entry.book_id, decrypted_book.title, ~p"/app/journal/books/#{entry.book_id}"}
+                  {entry.book_id, ~p"/app/journal/books/#{entry.book_id}"}
                 else
-                  {nil, nil, ~p"/app/journal"}
+                  {nil, ~p"/app/journal"}
                 end
               else
-                {nil, nil, ~p"/app/journal"}
+                {nil, ~p"/app/journal"}
               end
           end
 
@@ -548,10 +545,9 @@ defmodule MossletWeb.JournalLive.Entry do
               {prev, next}
           end
 
-        entry_book_title =
+        entry_book_id =
           if entry.book_id && entry.book_id != nav_book_id do
-            book = Enum.find(books, &(&1.id == entry.book_id))
-            if book, do: Journal.decrypt_book(book, user, key).title, else: nil
+            entry.book_id
           else
             nil
           end
@@ -562,12 +558,12 @@ defmodule MossletWeb.JournalLive.Entry do
         |> assign(:prev_path, prev_path)
         |> assign(:next_path, next_path)
         |> assign(:back_path, back_path)
-        |> assign(:book_title, book_title)
         |> assign(:current_book_id, nav_book_id)
         |> assign(:nav_books, nav_books)
         |> assign(:has_loose_entries, has_loose_entries)
         |> assign(:entry_matches_scope, entry_matches_scope)
-        |> assign(:entry_book_title, entry_book_title)
+        |> assign(:entry_book_id, entry_book_id)
+        |> assign(:sealed_user_key, sealed_user_key)
     end
   end
 

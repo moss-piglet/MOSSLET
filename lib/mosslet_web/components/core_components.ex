@@ -2386,9 +2386,11 @@ defmodule MossletWeb.CoreComponents do
     default: true,
     doc: "whether entry belongs to current scope"
 
-  attr :entry_book_title, :string,
+  attr :entry_book_id, :string,
     default: nil,
-    doc: "title of entry's book if different from scope"
+    doc: "book id of entry if different from scope"
+
+  attr :sealed_user_key, :string, default: nil, doc: "sealed user key for ZK book title decrypt"
 
   attr :has_unsaved_changes, :boolean, default: false, doc: "whether there are unsaved changes"
   attr :saving, :boolean, default: false, doc: "whether content is being saved"

@@ -17,7 +17,8 @@ defmodule MossletWeb.ReaderLayout do
   attr :has_loose_entries, :boolean, default: false
   attr :entry_id, :string, default: nil
   attr :entry_matches_scope, :boolean, default: true
-  attr :entry_book_title, :string, default: nil
+  attr :entry_book_id, :string, default: nil
+  attr :sealed_user_key, :string, default: nil
 
   slot :inner_block, required: true
   slot :top_right
@@ -48,6 +49,16 @@ defmodule MossletWeb.ReaderLayout do
       @scroll.window="scrollY = window.scrollY"
       id="reader-layout"
     >
+      <%!-- DecryptJournalBook hook elements for each book in nav --%>
+      <div
+        :for={book <- @books}
+        id={"decrypt-journal-book-reader-#{book.id}"}
+        phx-hook="DecryptJournalBook"
+        data-book-id={book.id}
+        data-sealed-user-key={@sealed_user_key}
+        data-encrypted-title={book.encrypted_title}
+        class="hidden"
+      />
       <header
         class="fixed top-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/50 dark:border-slate-700/50 transition-all duration-300"
         x-bind:class="headerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'"
@@ -63,8 +74,13 @@ defmodule MossletWeb.ReaderLayout do
               data-phx-link-state="push"
             >
               <MossletWeb.CoreComponents.phx_icon name="hero-arrow-left" class="h-4 w-4" />
-              <span :if={@book_title} class="truncate max-w-[150px]">{@book_title}</span>
-              <span :if={!@book_title}>Back</span>
+              <span
+                :if={@current_book_id}
+                data-decrypt-journal-book-title={@current_book_id}
+                class="truncate max-w-[150px]"
+              >
+              </span>
+              <span :if={!@current_book_id}>Back</span>
             </a>
 
             <div class="flex items-center gap-3">
@@ -85,10 +101,15 @@ defmodule MossletWeb.ReaderLayout do
               name="hero-information-circle"
               class="inline h-3.5 w-3.5 mr-1"
             />
-            <span :if={@entry_book_title}>
-              Viewing entry that belongs to <span class="font-medium">{@entry_book_title}</span>
+            <span :if={@entry_book_id}>
+              Viewing entry that belongs to
+              <span
+                data-decrypt-journal-book-title={@entry_book_id}
+                class="font-medium"
+              >
+              </span>
             </span>
-            <span :if={!@entry_book_title && @current_book_id}>
+            <span :if={!@entry_book_id && @current_book_id}>
               Viewing a <span class="font-medium">loose entry</span> (not in this book)
             </span>
           </p>
@@ -145,8 +166,13 @@ defmodule MossletWeb.ReaderLayout do
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
               >
                 <MossletWeb.CoreComponents.phx_icon name="hero-book-open" class="h-3.5 w-3.5" />
-                <span :if={@book_title} class="truncate max-w-[100px]">{@book_title}</span>
-                <span :if={!@book_title}>Loose entries</span>
+                <span
+                  :if={@current_book_id}
+                  data-decrypt-journal-book-title={@current_book_id}
+                  class="truncate max-w-[100px]"
+                >
+                </span>
+                <span :if={!@current_book_id}>Loose entries</span>
                 <MossletWeb.CoreComponents.phx_icon name="hero-chevron-up-down" class="h-3 w-3" />
               </button>
               <div
@@ -172,7 +198,11 @@ defmodule MossletWeb.ReaderLayout do
                     book_dot_color(book.cover_color)
                   ]}>
                   </span>
-                  <span class="truncate">{book.title}</span>
+                  <span
+                    data-decrypt-journal-book-title={book.id}
+                    class="truncate"
+                  >
+                  </span>
                 </a>
                 <a
                   :if={@has_loose_entries && @current_book_id}
@@ -190,8 +220,13 @@ defmodule MossletWeb.ReaderLayout do
               :if={length(@books) <= 1 && !(@has_loose_entries && @current_book_id)}
               class="flex items-center gap-1 text-slate-400 dark:text-slate-500"
             >
-              <span :if={@book_title} class="text-xs truncate max-w-[120px]">{@book_title}</span>
-              <span :if={!@book_title} class="text-xs">Loose entries</span>
+              <span
+                :if={@current_book_id}
+                data-decrypt-journal-book-title={@current_book_id}
+                class="text-xs truncate max-w-[120px]"
+              >
+              </span>
+              <span :if={!@current_book_id} class="text-xs">Loose entries</span>
             </div>
 
             <div class="w-32 flex justify-end">

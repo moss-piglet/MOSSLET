@@ -11,6 +11,8 @@ defmodule MossletWeb.BookReaderLayout do
   attr :current_scope, :map, required: true
   attr :back_path, :string, default: nil
   attr :book_title, :string, default: nil
+  attr :book_id, :string, default: nil
+  attr :sealed_user_key, :string, default: nil
   attr :book_cover_color, :string, default: nil
   attr :book_cover_src, :string, default: nil
   attr :entry_count, :integer, default: 0
@@ -82,8 +84,21 @@ defmodule MossletWeb.BookReaderLayout do
                   class="h-3.5 w-3.5 text-white/80"
                 />
               </div>
-              <span class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate max-w-[200px]">
-                {@book_title || "Untitled Book"}
+              <%!-- DecryptJournalBook hook — browser-side ZK decryption of book title --%>
+              <div
+                :if={@book_id && @sealed_user_key}
+                id={"decrypt-journal-book-breader-#{@book_id}"}
+                phx-hook="DecryptJournalBook"
+                phx-update="ignore"
+                data-book-id={@book_id}
+                data-sealed-user-key={@sealed_user_key}
+                data-encrypted-title={@book_title}
+                class="hidden"
+              />
+              <span
+                data-decrypt-journal-book-title={@book_id}
+                class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate max-w-[200px]"
+              >
               </span>
             </div>
 

@@ -9,7 +9,9 @@ defmodule MossletWeb.JournalLive.Index do
   alias Mosslet.Journal.JournalBook
   alias MossletWeb.DesignSystem
   alias MossletWeb.Helpers.JournalHelpers
-  import MossletWeb.Helpers, only: [pre_decrypt_journal_entries: 2]
+
+  import MossletWeb.Helpers,
+    only: [pre_decrypt_journal_entries: 2, pre_decrypt_journal_book: 2]
 
   @impl true
   def render(assigns) do
@@ -128,20 +130,13 @@ defmodule MossletWeb.JournalLive.Index do
                   Mood Insights
                 </h2>
                 <p
-                  :if={@mood_insight && !@loading_insights}
-                  class="text-sm text-violet-700 dark:text-violet-300 leading-relaxed"
+                  data-insight-text
+                  class="text-sm text-violet-700 dark:text-violet-300 leading-relaxed hidden"
                 >
-                  {@mood_insight}
                 </p>
-                <div :if={@loading_insights} class="space-y-2">
+                <div data-insight-loading class="space-y-2">
                   <p class="text-sm text-violet-600 dark:text-violet-400 italic">
-                    {Enum.random([
-                      "Reading between the lines of your journal... ✨",
-                      "Discovering patterns in your reflections... 🌟",
-                      "Connecting the dots of your journey... 💫",
-                      "Finding the story in your words... 📖",
-                      "Brewing some insights just for you... ☕"
-                    ])}
+                    Discovering patterns in your reflections...
                   </p>
                   <div class="flex gap-1">
                     <div class="w-2 h-2 rounded-full bg-violet-400 animate-bounce [animation-delay:-0.3s]" />
@@ -151,41 +146,21 @@ defmodule MossletWeb.JournalLive.Index do
                 </div>
               </div>
             </div>
-            <div :if={!@loading_insights} class="flex items-center gap-2">
+            <div data-insight-actions class="hidden items-center gap-2">
               <span
                 id="refresh-insights-wrapper"
                 phx-hook="TippyHook"
-                data-tippy-content={
-                  if @can_refresh,
-                    do: "Get fresh insights",
-                    else: "Available in #{@hours_until_refresh}h"
-                }
+                data-tippy-content="Get fresh insights"
                 class="inline-flex"
               >
                 <button
                   type="button"
                   phx-click="refresh_insights"
-                  disabled={!@can_refresh}
                   id="refresh-insights-btn"
-                  aria-label={
-                    if @can_refresh,
-                      do: "Get fresh insights",
-                      else: "Available in #{@hours_until_refresh}h"
-                  }
-                  class={[
-                    "p-1.5 rounded-lg transition-all",
-                    @can_refresh &&
-                      "text-violet-400 hover:text-violet-600 hover:bg-violet-100 dark:hover:text-violet-300 dark:hover:bg-violet-800/50",
-                    !@can_refresh && "text-violet-400 dark:text-violet-600 cursor-not-allowed"
-                  ]}
+                  aria-label="Get fresh insights"
+                  class="p-1.5 rounded-lg transition-all text-violet-400 hover:text-violet-600 hover:bg-violet-100 dark:hover:text-violet-300 dark:hover:bg-violet-800/50"
                 >
-                  <.phx_icon
-                    name="hero-sparkles"
-                    class={[
-                      "h-4 w-4",
-                      !@can_refresh && "animate-pulse"
-                    ]}
-                  />
+                  <.phx_icon name="hero-sparkles" class="h-4 w-4" />
                 </button>
               </span>
               <button
@@ -251,12 +226,23 @@ defmodule MossletWeb.JournalLive.Index do
               class="group relative bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:border-emerald-300 dark:hover:border-emerald-600 transition-all cursor-grab active:cursor-grabbing"
               phx-click={JS.navigate(~p"/app/journal/books/#{book.id}")}
             >
-              <%= if book.decrypted_cover_image_url do %>
+              <%!-- DecryptJournalBook hook — browser-side ZK decryption --%>
+              <div
+                :if={book.decrypted}
+                id={"decrypt-journal-book-#{book.id}"}
+                phx-hook="DecryptJournalBook"
+                data-book-id={book.id}
+                data-sealed-user-key={book.decrypted[:sealed_user_key]}
+                data-encrypted-title={book.decrypted[:encrypted_title]}
+                data-encrypted-description={book.decrypted[:encrypted_description]}
+                class="hidden"
+              />
+              <%= if book.cover_image_src do %>
                 <div class="aspect-[4/3]">
                   <img
-                    src={book.decrypted_cover_image_url}
+                    src={book.cover_image_src}
                     class="w-full h-full object-cover"
-                    alt={"#{book.decrypted_title} cover"}
+                    alt=""
                   />
                 </div>
               <% else %>
@@ -271,8 +257,10 @@ defmodule MossletWeb.JournalLive.Index do
                 </div>
               <% end %>
               <div class="p-3">
-                <h3 class="font-medium text-slate-900 dark:text-slate-100 truncate">
-                  {book.decrypted_title}
+                <h3
+                  data-decrypt-journal-book-title={book.id}
+                  class="font-medium text-slate-900 dark:text-slate-100 truncate"
+                >
                 </h3>
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
                   {book.entry_count} {if book.entry_count == 1, do: "entry", else: "entries"}
@@ -313,7 +301,6 @@ defmodule MossletWeb.JournalLive.Index do
                 :if={entry.decrypted}
                 id={"decrypt-fav-entry-hook-#{entry.id}"}
                 phx-hook="DecryptJournalEntry"
-                phx-update="ignore"
                 data-entry-id={entry.id}
                 data-sealed-user-key={entry.decrypted[:sealed_user_key]}
                 data-encrypted-title={entry.decrypted[:encrypted_title]}
@@ -443,7 +430,6 @@ defmodule MossletWeb.JournalLive.Index do
                 :if={entry.decrypted}
                 id={"decrypt-entry-hook-#{entry.id}"}
                 phx-hook="DecryptJournalEntry"
-                phx-update="ignore"
                 data-entry-id={entry.id}
                 data-sealed-user-key={entry.decrypted[:sealed_user_key]}
                 data-encrypted-title={entry.decrypted[:encrypted_title]}
@@ -687,12 +673,12 @@ defmodule MossletWeb.JournalLive.Index do
               phx-value-book-id={book.id}
               class="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-left"
             >
-              <%= if book.decrypted_cover_image_url do %>
+              <%= if book.cover_image_src do %>
                 <div class="h-10 w-10 rounded-lg overflow-hidden flex-shrink-0">
                   <img
-                    src={book.decrypted_cover_image_url}
+                    src={book.cover_image_src}
                     class="w-full h-full object-cover"
-                    alt={"#{book.decrypted_title} cover"}
+                    alt=""
                   />
                 </div>
               <% else %>
@@ -704,8 +690,10 @@ defmodule MossletWeb.JournalLive.Index do
                 </div>
               <% end %>
               <div class="flex-1 min-w-0">
-                <div class="font-medium text-slate-900 dark:text-slate-100 truncate">
-                  {book.decrypted_title}
+                <div
+                  data-decrypt-journal-book-title={book.id}
+                  class="font-medium text-slate-900 dark:text-slate-100 truncate"
+                >
                 </div>
                 <div class="text-xs text-slate-500 dark:text-slate-400">
                   {book.entry_count} {if book.entry_count == 1, do: "entry", else: "entries"}
@@ -1016,8 +1004,11 @@ defmodule MossletWeb.JournalLive.Index do
                     class="w-full px-3 py-2 text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   >
                     <option value="">No book (loose entry)</option>
-                    <option :for={book <- @books} value={book.id}>
-                      {book.decrypted_title}
+                    <option
+                      :for={book <- @books}
+                      value={book.id}
+                      data-decrypt-journal-book-title={book.id}
+                    >
                     </option>
                   </select>
                 </div>
@@ -1083,9 +1074,11 @@ defmodule MossletWeb.JournalLive.Index do
     key = socket.assigns.current_scope.key
 
     books = Journal.list_books(user)
-    decrypted_books = decrypt_books(books, user, key)
-
     sealed_user_key = user.user_key
+
+    decrypted_books =
+      Enum.map(books, &prepare_book_for_display(&1, user, key, sealed_user_key))
+
     entries = Journal.list_loose_entries(user, limit: 20)
     decrypted_entries = pre_decrypt_journal_entries(entries, sealed_user_key)
 
@@ -1336,10 +1329,10 @@ defmodule MossletWeb.JournalLive.Index do
             book
           end
 
-        decrypted_book =
+        prepared_book =
           book
           |> Map.put(:entry_count, 0)
-          |> decrypt_book(user, key)
+          |> prepare_book_for_display(user, key, user.user_key)
 
         {:noreply,
          socket
@@ -1348,7 +1341,7 @@ defmodule MossletWeb.JournalLive.Index do
          |> assign(:cover_upload_stage, nil)
          |> assign(:current_cover_src, nil)
          |> assign(:pending_cover_path, nil)
-         |> assign(:books, [decrypted_book | socket.assigns.books])
+         |> assign(:books, [prepared_book | socket.assigns.books])
          |> put_flash(:info, "Book created")
          |> push_event("restore-body-scroll", %{})}
 
@@ -1383,10 +1376,10 @@ defmodule MossletWeb.JournalLive.Index do
             book
           end
 
-        decrypted_book =
+        prepared_book =
           book
           |> Map.put(:entry_count, 0)
-          |> decrypt_book(user, key)
+          |> prepare_book_for_display(user, key, user.user_key)
 
         {:noreply,
          socket
@@ -1395,7 +1388,7 @@ defmodule MossletWeb.JournalLive.Index do
          |> assign(:cover_upload_stage, nil)
          |> assign(:current_cover_src, nil)
          |> assign(:pending_cover_path, nil)
-         |> assign(:books, [decrypted_book | socket.assigns.books])
+         |> assign(:books, [prepared_book | socket.assigns.books])
          |> put_flash(:info, "Book created")
          |> push_event("restore-body-scroll", %{})}
 
@@ -2121,7 +2114,8 @@ defmodule MossletWeb.JournalLive.Index do
            |> assign(:cached_insight, cached_insight)
            |> assign(:can_refresh, can_refresh)
            |> assign(:hours_until_refresh, hours)
-           |> assign(:loading_insights, false)}
+           |> assign(:loading_insights, false)
+           |> push_event("zk_insights:display", %{insight: decrypted.insight})}
         end
     end
   end
@@ -2203,23 +2197,24 @@ defmodule MossletWeb.JournalLive.Index do
     {avg_progress, current_stage}
   end
 
-  defp decrypt_books(books, user, key) do
-    Enum.map(books, &decrypt_book(&1, user, key))
-  end
-
-  defp decrypt_book(book, user, key) do
-    decrypted = Journal.decrypt_book(book, user, key)
-
-    cover_src =
-      if decrypted.cover_image_url do
-        load_cover_image_src(decrypted.cover_image_url, user, key)
-      else
-        nil
-      end
+  defp prepare_book_for_display(book, user, key, sealed_user_key) do
+    cover_src = load_book_cover_src(book, user, key)
 
     book
-    |> Map.put(:decrypted_title, decrypted.title)
-    |> Map.put(:decrypted_cover_image_url, cover_src)
+    |> pre_decrypt_journal_book(sealed_user_key)
+    |> Map.put(:cover_image_src, cover_src)
+  end
+
+  # Cover images require S3 fetch — the encrypted cover_image_url must be
+  # server-decrypted to get the S3 object key. The image bytes are also
+  # decrypted server-side here (S3 proxy, same as post images for public posts).
+  defp load_book_cover_src(%{cover_image_url: nil}, _user, _key), do: nil
+
+  defp load_book_cover_src(%{cover_image_url: encrypted_url}, user, key) do
+    case Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_url, user, key) do
+      nil -> nil
+      file_path -> load_cover_image_src(file_path, user, key)
+    end
   end
 
   defp load_cover_image_src(file_path, user, key) when is_binary(file_path) do

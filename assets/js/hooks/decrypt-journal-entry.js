@@ -3,17 +3,24 @@ import { renderMarkdown } from "../utils/render-markdown";
 
 const DecryptJournalEntry = {
   async mounted() {
+    this._boundDecrypt = () => this.decrypt();
+
     if (!getPublicKey()) {
-      window.addEventListener("mosslet:keys-ready", () => this.decrypt(), {
+      window.addEventListener("mosslet:keys-ready", () => this._init(), {
         once: true,
       });
       return;
     }
-    await this.decrypt();
+    await this._init();
   },
 
-  async updated() {
+  async _init() {
     await this.decrypt();
+    document.addEventListener("phx:update", this._boundDecrypt);
+  },
+
+  destroyed() {
+    document.removeEventListener("phx:update", this._boundDecrypt);
   },
 
   async decrypt() {
@@ -69,6 +76,7 @@ const DecryptJournalEntry = {
   _applyToTargets(selector, text) {
     const targets = document.querySelectorAll(selector);
     for (const el of targets) {
+      if (el.classList.contains("privacy-placeholder")) continue;
       el.textContent = text;
     }
   },
@@ -78,6 +86,7 @@ const DecryptJournalEntry = {
       `[data-decrypt-journal-body-prose="${entryId}"]`
     );
     for (const el of proseTargets) {
+      if (el.classList.contains("privacy-placeholder")) continue;
       el.innerHTML = renderMarkdown(body);
     }
 
@@ -85,6 +94,7 @@ const DecryptJournalEntry = {
       `[data-decrypt-journal-body-preview="${entryId}"]`
     );
     for (const el of previewTargets) {
+      if (el.classList.contains("privacy-placeholder")) continue;
       const maxLen = 300;
       let preview = body;
       if (preview.length > maxLen) {
@@ -97,6 +107,7 @@ const DecryptJournalEntry = {
       `[data-decrypt-journal-body="${entryId}"]`
     );
     for (const el of plainTargets) {
+      if (el.classList.contains("privacy-placeholder")) continue;
       el.textContent = body;
     }
   },

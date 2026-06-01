@@ -9,7 +9,12 @@
  *   1. Server pushes "zk_insights:generate" with sealed entry metadata
  *   2. Hook decrypts entries using cached user key
  *   3. Mood insight generated locally via deterministic pattern analysis
- *   4. Hook pushes insight text back to server for encrypted caching
+ *   4. Hook writes insight text directly to the DOM
+ *   5. Hook pushes insight text back to server for encrypted caching
+ *
+ * The hook also listens for "zk_insights:display" to show cached insights
+ * pushed from the server (since the element has phx-update="ignore", assigns
+ * cannot update the DOM — the hook must write directly).
  *
  * Usage in HEEx:
  *   <div id="zk-mood-insights"
@@ -26,31 +31,52 @@ const ZkMoodInsights = {
     if (!getPublicKey()) {
       window.addEventListener(
         "mosslet:keys-ready",
-        () => this._listenForGenerate(),
+        () => this._listenForEvents(),
         { once: true }
       );
       return;
     }
-    this._listenForGenerate();
+    this._listenForEvents();
   },
 
-  _listenForGenerate() {
+  _listenForEvents() {
     this.handleEvent("zk_insights:generate", async (payload) => {
       try {
         const insight = await this._generateInsight(payload);
+        this._displayInsight(insight);
         this.pushEvent("zk_insights:result", { insight });
       } catch (e) {
         console.error("ZkMoodInsights: generation failed:", e);
-        this.pushEvent("zk_insights:result", {
-          insight:
-            "Keep journaling! Your writing practice is building a meaningful record of your inner life.",
-        });
+        const fallback =
+          "Keep journaling! Your writing practice is building a meaningful record of your inner life.";
+        this._displayInsight(fallback);
+        this.pushEvent("zk_insights:result", { insight: fallback });
       }
     });
 
-    // If entries are already waiting (mounted after server sent event),
-    // notify the server we're ready
+    this.handleEvent("zk_insights:display", ({ insight }) => {
+      this._displayInsight(insight);
+    });
+
     this.pushEvent("zk_insights:ready", {});
+  },
+
+  _displayInsight(text) {
+    const textEl = this.el.querySelector("[data-insight-text]");
+    const loadingEl = this.el.querySelector("[data-insight-loading]");
+    const actionsEl = this.el.querySelector("[data-insight-actions]");
+
+    if (textEl) {
+      textEl.textContent = text;
+      textEl.classList.remove("hidden");
+    }
+    if (loadingEl) {
+      loadingEl.classList.add("hidden");
+    }
+    if (actionsEl) {
+      actionsEl.classList.remove("hidden");
+      actionsEl.classList.add("flex");
+    }
   },
 
   async _generateInsight({ entries }) {
@@ -64,7 +90,6 @@ const ZkMoodInsights = {
       return "Keep journaling! Your writing practice is building a meaningful record of your inner life.";
     }
 
-    // Decrypt mood for each entry (date and word_count are plaintext)
     const decryptedEntries = await Promise.all(
       entries.map(async (entry) => {
         let mood = null;

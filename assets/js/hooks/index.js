@@ -7,6 +7,7 @@ import ConversationEmojiPicker from "./conversation-emoji-picker";
 import { ConversationComposer, DecryptMessage, ConversationScroll } from "./conversation-hooks";
 import DecryptGroupMessage from "./decrypt-group-message";
 import DecryptGroupMetadata from "./decrypt-group-metadata";
+import DecryptJournalBook from "./decrypt-journal-book";
 import DecryptJournalEntry from "./decrypt-journal-entry";
 import DecryptAvatar from "./decrypt-avatar";
 import DecryptBookmarkNote from "./decrypt-bookmark-note";
@@ -114,6 +115,7 @@ export default {
   DecryptInviterName,
   DecryptGroupMessage,
   DecryptGroupMetadata,
+  DecryptJournalBook,
   DecryptJournalEntry,
   DecryptMessage,
   DecryptPost,
