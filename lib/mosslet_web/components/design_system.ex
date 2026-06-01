@@ -13674,10 +13674,9 @@ defmodule MossletWeb.DesignSystem do
         id="pending-group-123"
         name="My Awesome Group"
         description="A group for awesome people"
-        inviter_name="John Doe"
+        encrypted_inviter_data={%{sealed_uconn_key: "...", encrypted_username: "..."}}
         inserted_at={~U[2024-01-01 12:00:00Z]}
         requires_password={false}
-        group_id="123"
       >
         <:members>
           <.avatar src="/avatar.jpg" />
@@ -13690,7 +13689,7 @@ defmodule MossletWeb.DesignSystem do
   attr :id, :string, required: true
   attr :name, :string, default: nil
   attr :description, :string, default: nil
-  attr :inviter_name, :string, required: true
+  attr :encrypted_inviter_data, :map, default: nil
   attr :inserted_at, :any, required: true
   attr :requires_password, :boolean, default: false
   attr :browser_decrypt, :boolean, default: false
@@ -13771,8 +13770,22 @@ defmodule MossletWeb.DesignSystem do
             <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
               <div class="flex items-center gap-1.5">
                 <.phx_icon name="hero-user" class="w-3.5 h-3.5" />
-                <span class="font-medium text-emerald-700 dark:text-emerald-300">
-                  {@inviter_name}
+                <%!-- DecryptInviterName hook for browser-side ZK decryption --%>
+                <div
+                  :if={@encrypted_inviter_data}
+                  id={"decrypt-inviter-#{@id}"}
+                  phx-hook="DecryptInviterName"
+                  data-sealed-uconn-key={@encrypted_inviter_data[:sealed_uconn_key]}
+                  data-encrypted-conn-username={@encrypted_inviter_data[:encrypted_username]}
+                  data-target-id={"inviter-name-#{@id}"}
+                >
+                </div>
+                <span
+                  id={"inviter-name-#{@id}"}
+                  phx-update={if @encrypted_inviter_data, do: "ignore"}
+                  class="font-medium text-emerald-700 dark:text-emerald-300"
+                >
+                  {if @encrypted_inviter_data, do: "Decrypting...", else: "@unknown"}
                 </span>
                 <span>invited you</span>
               </div>

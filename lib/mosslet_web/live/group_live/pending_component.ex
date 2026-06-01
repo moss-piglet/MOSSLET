@@ -42,7 +42,7 @@ defmodule MossletWeb.GroupLive.PendingComponent do
               id={id}
               name={group.decrypted[:name]}
               description={group.decrypted[:description]}
-              inviter_name={@decrypted_inviters[group.id]}
+              encrypted_inviter_data={@decrypted_inviters[group.id]}
               inserted_at={group.inserted_at}
               requires_password={group.require_password?}
               browser_decrypt={browser_decrypt?}

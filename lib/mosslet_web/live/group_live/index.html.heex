@@ -195,7 +195,7 @@
                   id={id}
                   name={group.decrypted[:name]}
                   description={group.decrypted[:description]}
-                  inviter_name={@inviter_names[group.id]}
+                  encrypted_inviter_data={@encrypted_inviter_data[group.id]}
                   inserted_at={group.inserted_at}
                   requires_password={group.require_password?}
                   browser_decrypt={browser_decrypt?}

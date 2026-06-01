@@ -11,6 +11,7 @@ import DecryptJournalEntry from "./decrypt-journal-entry";
 import DecryptAvatar from "./decrypt-avatar";
 import DecryptBookmarkNote from "./decrypt-bookmark-note";
 import DecryptConnectionCard from "./decrypt-connection-card";
+import DecryptInviterName from "./decrypt-inviter-name";
 import DecryptPost from "./decrypt-post";
 import DecryptProfileFields from "./decrypt-profile-fields";
 import DecryptReply from "./decrypt-reply";
@@ -110,6 +111,7 @@ export default {
   DecryptAvatar,
   DecryptBookmarkNote,
   DecryptConnectionCard,
+  DecryptInviterName,
   DecryptGroupMessage,
   DecryptGroupMetadata,
   DecryptJournalEntry,
