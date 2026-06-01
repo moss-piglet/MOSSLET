@@ -223,9 +223,13 @@ defmodule MossletWeb.GroupLive.Index do
     current_user = socket.assigns.current_user
 
     if can_delete_group?(group, current_user) do
-      {:ok, _} = Groups.delete_group(group)
+      case Groups.delete_group(group) do
+        {:ok, _} ->
+          {:noreply, stream_delete(socket, :groups, group)}
 
-      {:noreply, stream_delete(socket, :groups, group)}
+        {:error, _reason} ->
+          {:noreply, put_flash(socket, :error, "Could not delete circle. Please try again.")}
+      end
     else
       {:noreply,
        socket
@@ -239,9 +243,14 @@ defmodule MossletWeb.GroupLive.Index do
     user_group = Groups.get_user_group!(id)
 
     if can_delete_user_group?(user_group, socket.assigns.current_user) do
-      {:ok, _} = Groups.delete_user_group(user_group)
+      case Groups.delete_user_group(user_group) do
+        {:ok, _} ->
+          {:noreply, stream_delete(socket, :pending_groups, user_group)}
 
-      {:noreply, stream_delete(socket, :pending_groups, user_group)}
+        {:error, _reason} ->
+          {:noreply,
+           put_flash(socket, :error, "Could not decline circle invitation. Please try again.")}
+      end
     else
       {:noreply,
        socket

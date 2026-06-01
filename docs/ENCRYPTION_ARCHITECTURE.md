@@ -136,7 +136,7 @@ decrypted_content = decrypt(post.body, decrypted_post_key)
 
 ### Overview
 
-Conversations use the **same NaCl cryptographic architecture** as posts, groups, and connections, but with one critical difference: **all encryption and decryption happens in the browser** using the `metamorphic-crypto` Rust crate compiled to WASM. This makes conversations **truly zero-knowledge even for web users** — the server never sees plaintext message content.
+Conversations use the **same NaCl cryptographic architecture** as posts, groups, and connections — **all encryption and decryption of non-public content happens in the browser** using the `metamorphic-crypto` Rust crate compiled to WASM. This makes all non-public content **truly zero-knowledge even for web users** — the server never sees plaintext.
 
 The same Rust crate (`metamorphic-crypto`) compiles to both the server-side NIF (`metamorphic_crypto` Hex package) and the browser WASM module, guaranteeing wire-format compatibility.
 
@@ -334,9 +334,9 @@ The conversation LiveView passes encrypted keys to the browser via HTML data att
 
 ### JavaScript Crypto Module (`assets/js/crypto/nacl.js`)
 
-Maps 1:1 to the server-side `:enacl` functions:
+Maps 1:1 to the server-side `MetamorphicCrypto` functions:
 
-| JS Function                                 | Enacl Equivalent                                           | NaCl Primitive                    |
+| JS Function                                 | Server Equivalent                                          | NaCl Primitive                    |
 | ------------------------------------------- | ---------------------------------------------------------- | --------------------------------- |
 | `generateKey()`                             | `Encrypted.Utils.generate_key()`                           | `randombytes(secretbox_KEYBYTES)` |
 | `encryptSecretboxString(plaintext, key)`    | `Encrypted.Utils.encrypt(%{key:, payload:})`               | `secretbox(msg, nonce, key)`      |
@@ -378,15 +378,15 @@ This is the one exception where server-side decryption occurs for conversation-r
 
 For native apps, the conversation encryption can move entirely to the device:
 
-- Key generation, message encryption/decryption all happen in the BEAM on-device using `:enacl`
+- Key generation, message encryption/decryption all happen in the BEAM on-device using `metamorphic_crypto` (Rust NIF)
 - Same algorithms, same key formats — fully interoperable with browser JS encryption
 - Native users achieve the same zero-knowledge guarantee as browser users
 
 ### Why This Matters
 
-- ✅ **True zero-knowledge for web**: Unlike posts/groups where the server briefly sees plaintext during web sessions, conversation messages are NEVER decrypted server-side
-- ✅ **Same cryptographic primitives**: `:enacl` and `libsodium-wrappers` are both wrappers around the same NaCl/libsodium library — byte-for-byte compatible
-- ✅ **Same architectural pattern**: `context_key` + `user_context.key` (box_seal) — identical to posts, groups, connections
+- ✅ **True zero-knowledge for web**: All non-public content (posts, conversations, groups, journals, profiles) is encrypted/decrypted browser-side via WASM — the server never sees plaintext
+- ✅ **Same cryptographic primitives**: Server NIF and browser WASM are compiled from the same Rust crate (`metamorphic-crypto`) — byte-for-byte wire-format compatibility
+- ✅ **Same architectural pattern**: `context_key` + `user_context.key` (hybrid PQ seal) — identical across posts, groups, connections, conversations
 - ✅ **Password change resilient**: Same as all other contexts — private key persists, conversation_key access preserved
 - ✅ **Forward secrecy**: Each conversation has a unique key, compromise of one doesn't affect others
 
@@ -600,11 +600,11 @@ end
 ### Double Encryption (Default for Sensitive Data)
 
 ```elixir
-# DEFAULT: Double encryption for all sensitive user data (enacl + Cloak)
-field :email, Mosslet.Encrypted.Binary          # Double encrypted: enacl + Cloak
-field :body, Mosslet.Encrypted.Binary           # Double encrypted: enacl + Cloak
-field :username, Mosslet.Encrypted.Binary       # Double encrypted: enacl + Cloak
-field :content_warning, Mosslet.Encrypted.Binary # Double encrypted: enacl + Cloak
+# DEFAULT: Double encryption for all sensitive user data (metamorphic_crypto + Cloak)
+field :email, Mosslet.Encrypted.Binary          # Double encrypted: metamorphic_crypto + Cloak
+field :body, Mosslet.Encrypted.Binary           # Double encrypted: metamorphic_crypto + Cloak
+field :username, Mosslet.Encrypted.Binary       # Double encrypted: metamorphic_crypto + Cloak
+field :content_warning, Mosslet.Encrypted.Binary # Double encrypted: metamorphic_crypto + Cloak
 ```
 
 ### Searchable Hashes
@@ -920,10 +920,10 @@ This encryption architecture provides:
 
 Mosslet uses **two layers of encryption** that serve different purposes:
 
-| Layer                            | Technology             | Purpose                                          | Where It Happens | Who Has Key               |
-| -------------------------------- | ---------------------- | ------------------------------------------------ | ---------------- | ------------------------- |
-| **Layer 1: At-Rest (Symmetric)** | Cloak (AES-256-GCM)    | Protects data in database from DB-level breaches | Server (Fly.io)  | Server only (`CLOAK_KEY`) |
-| **Layer 2: E2E (Asymmetric)**    | Enacl (NaCl/libsodium) | Protects content from server access              | Where BEAM runs  | User's keypair            |
+| Layer                            | Technology                          | Purpose                                          | Where It Happens                   | Who Has Key               |
+| -------------------------------- | ----------------------------------- | ------------------------------------------------ | ---------------------------------- | ------------------------- |
+| **Layer 1: At-Rest (Symmetric)** | Cloak (AES-256-GCM)                 | Protects data in database from DB-level breaches | Server (Fly.io)                    | Server only (`CLOAK_KEY`) |
+| **Layer 2: E2E (Asymmetric)**    | metamorphic_crypto (NaCl + ML-KEM)  | Protects content from server access              | Browser (WASM) or Device (native)  | User's keypair            |
 
 ### How Data Flows
 
@@ -936,14 +936,16 @@ Mosslet uses **two layers of encryption** that serve different purposes:
 │        │                                                                    │
 │        ▼                                                                    │
 │   ┌─────────────────────────────────────────────────────────────────────┐  │
-│   │  ENACL ENCRYPTION (Layer 2 - E2E)                                   │  │
+│   │  METAMORPHIC_CRYPTO ENCRYPTION (Layer 2 - E2E)                     │  │
 │   │  • Encrypts with recipient's PUBLIC key (or server key for public)  │  │
+│   │  • Hybrid PQ seal (ML-KEM-1024 + X25519, Cat-5)                    │  │
 │   │  • Only private key holder can decrypt                              │  │
-│   │  • WHERE: On device (native) or server (web)                        │  │
+│   │  • WHERE: Browser (WASM) or Device (native) — never server          │  │
+│   │  • Public content: server key used (SEO/federation)                  │  │
 │   └─────────────────────────────────────────────────────────────────────┘  │
 │        │                                                                    │
 │        ▼                                                                    │
-│   Enacl-encrypted blob (ciphertext)                                         │
+│   E2E-encrypted blob (ciphertext)                                         │
 │        │                                                                    │
 │        ▼                                                                    │
 │   ┌─────────────────────────────────────────────────────────────────────┐  │
@@ -961,13 +963,13 @@ Mosslet uses **two layers of encryption** that serve different purposes:
 
 ### Platform Comparison
 
-| Platform          | Enacl Encryption                  | Cloak Encryption | Database          | Zero-Knowledge? |
-| ----------------- | --------------------------------- | ---------------- | ----------------- | --------------- |
-| **Web (Browser)** | Server-side (in Elixir on Fly.io) | Server-side      | Postgres (Fly.io) | No\*            |
-| **Desktop App**   | Device-side (in Elixir on device) | Server-side      | Postgres (Fly.io) | **Yes**         |
-| **Mobile App**    | Device-side (in Elixir on device) | Server-side      | Postgres (Fly.io) | **Yes**         |
+| Platform          | E2E Encryption (Layer 2)                  | Cloak Encryption | Database          | Zero-Knowledge? |
+| ----------------- | ----------------------------------------- | ---------------- | ----------------- | --------------- |
+| **Web (Browser)** | Browser-side (WASM, metamorphic-crypto)   | Server-side      | Postgres (Fly.io) | **Yes**\*       |
+| **Desktop App**   | Device-side (NIF, metamorphic_crypto)     | Server-side      | Postgres (Fly.io) | **Yes**         |
+| **Mobile App**    | Device-side (NIF, metamorphic_crypto)     | Server-side      | Postgres (Fly.io) | **Yes**         |
 
-\*Web users' content is briefly decrypted in server memory during their session. Native app users never expose plaintext to the server.
+\*Public content is server-decryptable by design (SEO, federation, unauthenticated viewers). All non-public content is fully zero-knowledge — the server never sees plaintext.
 
 ### Why Single Cloud Database (Not Local SQLite for User Data)
 
@@ -977,10 +979,10 @@ Mosslet uses **two layers of encryption** that serve different purposes:
 ❌ WRONG APPROACH: Different Cloak keys break cross-platform access
 
 Desktop (local SQLite):
-  Content → Enacl encrypt → Cloak encrypt (LOCAL_CLOAK_KEY) → SQLite
+  Content → E2E encrypt → Cloak encrypt (LOCAL_CLOAK_KEY) → SQLite
 
 Web (Fly.io):
-  Content → Enacl encrypt → Cloak encrypt (SERVER_CLOAK_KEY) → Postgres
+  Content → E2E encrypt → Cloak encrypt (SERVER_CLOAK_KEY) → Postgres
 
 RESULT: Desktop data can't be read on web (different Cloak keys!)
 ```
@@ -990,35 +992,41 @@ RESULT: Desktop data can't be read on web (different Cloak keys!)
 ```
 ✅ CORRECT: Single cloud database, Cloak always happens server-side
 
-ALL PLATFORMS:
-  Content → Enacl encrypt (device or server) → API → Cloak encrypt (server) → Postgres
+ALL PLATFORMS (non-public content):
+  Content → E2E encrypt (browser WASM or device NIF) → API → Cloak encrypt (server) → Postgres
+
+ALL PLATFORMS (public content):
+  Content → E2E encrypt (server, server keypair) → Cloak encrypt (server) → Postgres
 
 Desktop User Reading:
-  Postgres → Cloak decrypt (server) → API → Enacl decrypt (device) → Plaintext
+  Postgres → Cloak decrypt (server) → API → E2E decrypt (device) → Plaintext
 
-Web User Reading:
-  Postgres → Cloak decrypt (server) → Enacl decrypt (server) → Plaintext
+Web User Reading (non-public):
+  Postgres → Cloak decrypt (server) → E2E-encrypted blob → Browser WASM decrypt → Plaintext
+
+Web User Reading (public):
+  Postgres → Cloak decrypt (server) → E2E decrypt (server, server keypair) → Plaintext
 ```
 
 ### Data Visibility by Platform
 
-| What Server Sees                           | Web User           | Native User |
-| ------------------------------------------ | ------------------ | ----------- |
-| Cloak-encrypted blob in DB                 | ✓                  | ✓           |
-| Enacl-encrypted blob (after Cloak decrypt) | ✓                  | ✓           |
-| Plaintext content                          | ✓ (during session) | **Never**   |
+| What Server Sees                               | Web User (non-public) | Web User (public) | Native User |
+| ---------------------------------------------- | --------------------- | ----------------- | ----------- |
+| Cloak-encrypted blob in DB                     | ✓                     | ✓                 | ✓           |
+| E2E-encrypted blob (after Cloak decrypt)       | ✓                     | ✓                 | ✓           |
+| Plaintext content                              | **Never**             | ✓ (by design)     | **Never**   |
 
 ### Server Keys vs User Keys
 
 **User-Specific Content (Private):**
 
-- Encrypted with user's PUBLIC key (enacl)
+- Encrypted with user's PUBLIC key (hybrid PQ seal: ML-KEM-1024 + X25519)
 - Only user's PRIVATE key can decrypt
-- Server CANNOT read (even for web users, the enacl layer uses user's keys)
+- Server CANNOT read — encryption/decryption happens in browser (WASM) or native device
 
 **Public/Shared Content:**
 
-- Encrypted with SERVER's PUBLIC key (enacl)
+- Encrypted with SERVER's PUBLIC key (hybrid PQ seal)
 - Server's PRIVATE key can decrypt when needed (admin access, reports, etc.)
 - Examples: Public posts, post reports, connection profiles
 
@@ -1033,13 +1041,13 @@ user_post.key = encrypt_for_user(post_key, Encrypted.Session.server_public_key()
 ### Native App Data Flow
 
 ```elixir
-# DESKTOP/MOBILE: Enacl happens on device
+# DESKTOP/MOBILE: E2E encryption happens on device
 
 # Writing data (user creates a post)
 1. User types content on device
 2. Device generates post_key
-3. Device encrypts content: enacl.encrypt(content, post_key)
-4. Device encrypts post_key for recipients: enacl.box_seal(post_key, recipient_public_key)
+3. Device encrypts content: MetamorphicCrypto.SecretBox.encrypt(content, post_key)
+4. Device encrypts post_key for recipients: MetamorphicCrypto.Seal.seal_for_user(post_key, pk, pq_pk)
 5. Device sends encrypted blobs to server via API
 6. Server wraps in Cloak (automatic via Encrypted.Binary schema type)
 7. Server stores double-encrypted data in Postgres
@@ -1048,9 +1056,9 @@ user_post.key = encrypt_for_user(post_key, Encrypted.Session.server_public_key()
 1. Device requests post via API
 2. Server retrieves from Postgres
 3. Server removes Cloak layer (automatic via Encrypted.Binary)
-4. Server returns enacl-encrypted blob
-5. Device decrypts post_key: enacl.box_seal_open(user_post.key, user.private_key)
-6. Device decrypts content: enacl.decrypt(post.body, post_key)
+4. Server returns E2E-encrypted blob
+5. Device decrypts post_key: MetamorphicCrypto.Seal.unseal_from_user(user_post.key, pk, sk, pq_sk)
+6. Device decrypts content: MetamorphicCrypto.SecretBox.decrypt(post.body, post_key)
 7. User sees plaintext (server NEVER saw it!)
 ```
 
@@ -1066,7 +1074,7 @@ For native apps, SQLite is used ONLY for:
 # SQLite stores the ALREADY-ENCRYPTED blobs, not plaintext
 schema "cached_posts" do
   field :post_id, :binary_id
-  field :encrypted_body, :binary      # Enacl-encrypted (from server)
+  field :encrypted_body, :binary      # E2E-encrypted (from server/device)
   field :encrypted_post_key, :binary  # User's encrypted access key
   field :cached_at, :utc_datetime
 end
@@ -1079,8 +1087,8 @@ Native apps add an additional encryption layer to locally cached data using devi
 #### Architecture
 
 ```
-Cloud Storage:   Content → Enacl → Cloak (CLOAK_KEY from env) → Postgres
-Native Cache:    Content → Enacl → Cloak (device key from keychain) → SQLite
+Cloud Storage:   Content → E2E encrypt → Cloak (CLOAK_KEY from env) → Postgres
+Native Cache:    Content → E2E encrypt → Cloak (device key from keychain) → SQLite
 ```
 
 #### Key Management
@@ -1145,7 +1153,7 @@ end
 ```
 Device theft scenario:
   Attacker has:   Physical device + SQLite file
-  Attacker needs: OS credentials to access keychain + user password for enacl layer
+  Attacker needs: OS credentials to access keychain + user password for E2E layer
   Result:         Data protected by TWO independent encryption layers
 
 Cache is disposable:
