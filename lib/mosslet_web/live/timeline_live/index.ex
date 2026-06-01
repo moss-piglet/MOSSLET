@@ -6229,20 +6229,25 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  # Safe version of get_post_author_name that returns the author name string
+  # Returns a display name for flash notifications. Uses pre-decrypted data
+  # for own posts and public posts; returns a privacy-safe placeholder for
+  # non-public posts from other users (ZK — server doesn't decrypt those).
   defp get_safe_post_author_name(post, current_user, key) do
-    if post.user_id == current_user.id do
-      # Current user's own post - use their name
-      case username(current_user, key) do
-        name when is_binary(name) -> name
-        :failed_verification -> "You"
-        _ -> "You"
-      end
-    else
-      # For other users' posts, respect privacy - use "Private Author"
-      # This applies even to public posts where the author hasn't shared
-      # their identity with the current user (e.g., group posts, discover posts)
-      "@" <> username(post, current_user, key)
+    cond do
+      post.user_id == current_user.id ->
+        current_user.decrypted[:username] || "You"
+
+      post.visibility == :public ->
+        case username(post, current_user, key) do
+          name when is_binary(name) -> "@" <> name
+          _ -> "a connection"
+        end
+
+      true ->
+        # Non-public post from another user — the server must not decrypt
+        # the author name (ZK path). The browser-side DecryptPost hook
+        # handles the actual display.
+        "a connection"
     end
   end
 
@@ -6447,56 +6452,21 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  # REMOVED: can_see_post_author_status? function - now handled by StatusHelpers.get_user_status_info/3
-  # This provides consistent privacy checking across the entire application
-
-  # Helper function to get the post author's display name.
+  # Returns a display name for the post author in timeline cards.
+  # For public posts, uses the already-decrypted username from post.decrypted
+  # (populated by pre_decrypt_post via decrypt_post_fields).
   # For non-public posts, returns a placeholder — the browser-side DecryptPost
-  # hook will decrypt the author name from the encrypted connection data.
-  defp get_post_author_name(post, current_user, key) do
-    if post.visibility != :public do
-      # ZK path: return placeholder for browser-side decryption
-      if post.user_id == current_user.id do
-        # Own post: use pre_decrypt_user fast path (already decrypted at mount)
+  # hook overwrites it via `data-decrypt-author-name-target`.
+  defp get_post_author_name(post, current_user, _key) do
+    cond do
+      post.user_id == current_user.id ->
         current_user.decrypted[:name] || current_user.decrypted[:username] || "..."
-      else
+
+      post.decrypted[:username] ->
+        post.decrypted[:username]
+
+      true ->
         "..."
-      end
-    else
-      # Public posts: server-side decryption (needed for SEO/federation)
-      cond do
-        post.user_id == current_user.id ->
-          case user_name(current_user, key) do
-            name when is_binary(name) -> name
-            :failed_verification -> "Private Author"
-            _ -> "Private Author"
-          end
-
-        true ->
-          case Accounts.get_user(post.user_id) do
-            %{} = _post_user ->
-              uconn = get_uconn_for_shared_item(post, current_user)
-
-              if uconn && uconn.connection do
-                if uconn.connection.profile && uconn.connection.profile.show_name? do
-                  case decr_uconn(uconn.connection.name, current_user, uconn.key, key) do
-                    name when is_binary(name) -> name
-                    :failed_verification -> "Private Author"
-                  end
-                else
-                  case decr_uconn(uconn.connection.username, current_user, uconn.key, key) do
-                    username when is_binary(username) -> username
-                    :failed_verification -> "Private Author"
-                  end
-                end
-              else
-                "Private Author"
-              end
-
-            nil ->
-              "Private Author"
-          end
-      end
     end
   end
 

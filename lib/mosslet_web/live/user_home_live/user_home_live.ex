@@ -135,7 +135,8 @@ defmodule MossletWeb.UserHomeLive do
             current_user.connection.profile,
             current_user,
             key,
-            viewing: :own
+            viewing: :own,
+            connection: current_user.connection
           )
 
         user_connection && profile_user.visibility == :connections ->
@@ -144,7 +145,8 @@ defmodule MossletWeb.UserHomeLive do
             current_user,
             key,
             viewing: :connection,
-            uconn_key: user_connection.key
+            uconn_key: user_connection.key,
+            connection: profile_user.connection
           )
 
         profile_user.visibility == :public ->
@@ -152,7 +154,8 @@ defmodule MossletWeb.UserHomeLive do
             profile_user.connection.profile,
             current_user,
             key,
-            viewing: :public
+            viewing: :public,
+            connection: profile_user.connection
           )
 
         true ->
@@ -161,52 +164,24 @@ defmodule MossletWeb.UserHomeLive do
 
     socket = assign(socket, :profile_fields, profile_fields)
 
-    # Pre-decrypt profile display fields (name, username, email) to avoid
-    # template-level decr_item calls. For own profile, use the user's decrypted
-    # map; for connection profiles, decrypt with the connection key.
+    # Pre-decrypt profile identity fields (name, username, email). For own
+    # profile, use the pre_decrypt_user fast path. For connection/public
+    # profiles, read from profile_fields (which now includes these fields via
+    # decrypt_profile_fields with the :connection opt).
     decrypted_profile =
       cond do
         profile_owner? ->
           %{
-            name:
-              resolve_decrypted_field(current_user, :name) ||
-                safe_decr_item(
-                  current_user.connection.profile.name,
-                  current_user,
-                  current_user.conn_key,
-                  key,
-                  current_user.connection.profile
-                ),
+            name: resolve_decrypted_field(current_user, :name),
             username: resolve_decrypted_field(current_user, :username),
             email: resolve_decrypted_field(current_user, :email)
           }
 
-        user_connection ->
+        profile_fields ->
           %{
-            name:
-              safe_decr_item(
-                profile_user.connection.profile.name,
-                current_user,
-                user_connection.key,
-                key,
-                profile_user.connection.profile
-              ),
-            username:
-              safe_decr_item(
-                profile_user.connection.profile.username,
-                current_user,
-                user_connection.key,
-                key,
-                profile_user.connection.profile
-              ),
-            email:
-              safe_decr_item(
-                profile_user.connection.profile.email,
-                current_user,
-                user_connection.key,
-                key,
-                profile_user.connection.profile
-              )
+            name: profile_fields[:name],
+            username: profile_fields[:username],
+            email: profile_fields[:email]
           }
 
         true ->
@@ -2919,6 +2894,9 @@ defmodule MossletWeb.UserHomeLive do
                 data-encrypted-alternate-email={@profile_fields[:encrypted_alternate_email]}
                 data-encrypted-website-url={@profile_fields[:encrypted_website_url]}
                 data-encrypted-website-label={@profile_fields[:encrypted_website_label]}
+                data-encrypted-name={@profile_fields[:encrypted_name]}
+                data-encrypted-username={@profile_fields[:encrypted_username]}
+                data-encrypted-email={@profile_fields[:encrypted_email]}
                 class="hidden"
               >
               </div>
@@ -4155,7 +4133,7 @@ defmodule MossletWeb.UserHomeLive do
                           do: get_encrypted_avatar_data(@user_connection, @current_scope.key)
                       }
                       id={"profile-user-avatar-#{@profile_user.id}"}
-                      name={@decrypted_profile.name}
+                      name={@decrypted_profile.name || "..."}
                       size="xxl"
                       status={to_string(@profile_user.status)}
                       encrypted_status_data={
@@ -4180,8 +4158,9 @@ defmodule MossletWeb.UserHomeLive do
                       <h1
                         :if={@profile_user.connection.profile.show_name?}
                         class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
+                        data-decrypt-profile="name"
                       >
-                        {@decrypted_profile.name}
+                        {@decrypted_profile.name || "..."}
                       </h1>
                       <h1
                         :if={!@profile_user.connection.profile.show_name?}
@@ -4201,7 +4180,7 @@ defmodule MossletWeb.UserHomeLive do
                           }
                           size="sm"
                         >
-                          @{@decrypted_profile.username}
+                          @<span data-decrypt-profile="username">{@decrypted_profile.username || "..."}</span>
                         </MossletWeb.DesignSystem.liquid_badge>
 
                         <%!-- Email badge if show_email? is true --%>
@@ -4220,7 +4199,9 @@ defmodule MossletWeb.UserHomeLive do
                           size="sm"
                         >
                           <.phx_icon name="hero-envelope" class="size-3 mr-1" />
-                          {@decrypted_profile.email}
+                          <span data-decrypt-profile="email">
+                            {@decrypted_profile.email || "..."}
+                          </span>
                         </MossletWeb.DesignSystem.liquid_badge>
 
                         <%!-- Connection badge --%>
@@ -4260,6 +4241,9 @@ defmodule MossletWeb.UserHomeLive do
                 data-encrypted-alternate-email={@profile_fields[:encrypted_alternate_email]}
                 data-encrypted-website-url={@profile_fields[:encrypted_website_url]}
                 data-encrypted-website-label={@profile_fields[:encrypted_website_label]}
+                data-encrypted-name={@profile_fields[:encrypted_name]}
+                data-encrypted-username={@profile_fields[:encrypted_username]}
+                data-encrypted-email={@profile_fields[:encrypted_email]}
                 class="hidden"
               >
               </div>

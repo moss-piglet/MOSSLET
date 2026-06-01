@@ -16,6 +16,9 @@
  *   data-encrypted-alternate-email — base64 secretbox-encrypted alternate email
  *   data-encrypted-website-url     — base64 secretbox-encrypted website URL
  *   data-encrypted-website-label   — base64 secretbox-encrypted website label
+ *   data-encrypted-name            — base64 secretbox-encrypted display name
+ *   data-encrypted-username        — base64 secretbox-encrypted username
+ *   data-encrypted-email           — base64 secretbox-encrypted email
  *   data-profile-id                — unique identifier for the profile
  *
  * Target elements (scoped to nearest parent with data-profile-scope or document):
@@ -23,6 +26,9 @@
  *   [data-decrypt-profile="alternate_email"] — textContent or href set
  *   [data-decrypt-profile="website_url"]     — textContent or href set
  *   [data-decrypt-profile="website_label"]   — textContent set
+ *   [data-decrypt-profile="name"]            — textContent set
+ *   [data-decrypt-profile="username"]        — textContent set
+ *   [data-decrypt-profile="email"]           — textContent set
  */
 import { unsealContextKey, decryptWithKey, getPublicKey, unwrapConnKey } from "../crypto/session";
 
@@ -31,6 +37,9 @@ const FIELDS = [
   { key: "alternate_email", attr: "encryptedAlternateEmail" },
   { key: "website_url", attr: "encryptedWebsiteUrl" },
   { key: "website_label", attr: "encryptedWebsiteLabel" },
+  { key: "name", attr: "encryptedName" },
+  { key: "username", attr: "encryptedUsername" },
+  { key: "email", attr: "encryptedEmail" },
 ];
 
 const DecryptProfileFields = {

@@ -1353,6 +1353,7 @@ defmodule MossletWeb.Helpers do
   def decrypt_profile_fields(profile, user, session_key, opts) do
     viewing = Keyword.get(opts, :viewing, :own)
     uconn_key = Keyword.get(opts, :uconn_key)
+    connection = Keyword.get(opts, :connection)
 
     browser_decrypt? = profile.visibility != :public
 
@@ -1366,29 +1367,43 @@ defmodule MossletWeb.Helpers do
     case unseal_profile_key_for_context(sealed_key, profile, user, session_key, viewing) do
       {:ok, raw_key} ->
         if browser_decrypt? do
-          %{
+          base = %{
             about: nil,
             alternate_email: nil,
             website_url: nil,
             website_label: nil,
+            name: nil,
+            username: nil,
+            email: nil,
             sealed_profile_key: sealed_key,
             encrypted_about: profile.about,
             encrypted_alternate_email: profile.alternate_email,
             encrypted_website_url: profile.website_url,
             encrypted_website_label: profile.website_label,
+            encrypted_name: connection && connection.name,
+            encrypted_username: connection && connection.username,
+            encrypted_email: connection && connection.email,
             browser_decrypt?: true
           }
+
+          base
         else
           %{
             about: decrypt_field(profile.about, raw_key, nil),
             alternate_email: decrypt_field(profile.alternate_email, raw_key, nil),
             website_url: decrypt_field(profile.website_url, raw_key, nil),
             website_label: decrypt_field(profile.website_label, raw_key, nil),
+            name: connection && decrypt_field(connection.name, raw_key, nil),
+            username: connection && decrypt_field(connection.username, raw_key, nil),
+            email: connection && decrypt_field(connection.email, raw_key, nil),
             sealed_profile_key: nil,
             encrypted_about: nil,
             encrypted_alternate_email: nil,
             encrypted_website_url: nil,
             encrypted_website_label: nil,
+            encrypted_name: nil,
+            encrypted_username: nil,
+            encrypted_email: nil,
             browser_decrypt?: false
           }
         end
@@ -1399,11 +1414,17 @@ defmodule MossletWeb.Helpers do
           alternate_email: nil,
           website_url: nil,
           website_label: nil,
+          name: nil,
+          username: nil,
+          email: nil,
           sealed_profile_key: nil,
           encrypted_about: nil,
           encrypted_alternate_email: nil,
           encrypted_website_url: nil,
           encrypted_website_label: nil,
+          encrypted_name: nil,
+          encrypted_username: nil,
+          encrypted_email: nil,
           browser_decrypt?: false
         }
     end

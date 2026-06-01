@@ -80,7 +80,8 @@ defmodule MossletWeb.UserConnectionLive.Show do
           current_user,
           key,
           viewing: :connection,
-          uconn_key: user_connection.key
+          uconn_key: user_connection.key,
+          connection: user_connection.connection
         )
       end
 

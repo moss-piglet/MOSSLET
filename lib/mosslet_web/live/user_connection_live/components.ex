@@ -159,6 +159,9 @@ defmodule MossletWeb.UserConnectionLive.Components do
         data-encrypted-alternate-email={@profile_fields[:encrypted_alternate_email]}
         data-encrypted-website-url={@profile_fields[:encrypted_website_url]}
         data-encrypted-website-label={@profile_fields[:encrypted_website_label]}
+        data-encrypted-name={@profile_fields[:encrypted_name]}
+        data-encrypted-username={@profile_fields[:encrypted_username]}
+        data-encrypted-email={@profile_fields[:encrypted_email]}
         class="hidden"
       >
       </div>
