@@ -282,15 +282,29 @@ defmodule MossletWeb.BlockedUsersLive do
   # Component for individual blocked user items
   defp blocked_user_item(assigns) do
     ~H"""
-    <div class="group relative overflow-hidden rounded-xl p-4 -m-2 transition-all duration-200 ease-out hover:bg-slate-50 dark:hover:bg-slate-800/50">
+    <div
+      id={"blocked-user-#{@blocked_user.id}"}
+      phx-hook="DecryptBlockedUser"
+      data-sealed-uconn-key={
+        @blocked_user.encrypted_conn_data && @blocked_user.encrypted_conn_data[:sealed_uconn_key]
+      }
+      data-encrypted-conn-name={
+        @blocked_user.encrypted_conn_data && @blocked_user.encrypted_conn_data[:encrypted_name]
+      }
+      data-encrypted-conn-username={
+        @blocked_user.encrypted_conn_data && @blocked_user.encrypted_conn_data[:encrypted_username]
+      }
+      data-encrypted-reason={@blocked_user.reason}
+      class="group relative overflow-hidden rounded-xl p-4 -m-2 transition-all duration-200 ease-out hover:bg-slate-50 dark:hover:bg-slate-800/50"
+    >
       <div class="relative flex items-center justify-between">
         <div class="flex items-center gap-4">
           <%!-- User Avatar --%>
           <div class="relative">
-            <%= if show_avatar?(@blocked_user.blocked) do %>
+            <%= if @blocked_user.user_connection && show_avatar?(@blocked_user.user_connection) do %>
               <.phx_avatar
                 encrypted_avatar_data={
-                  get_encrypted_avatar_data(@blocked_user.blocked, @current_scope.key)
+                  get_encrypted_avatar_data(@blocked_user.user_connection, @current_scope.key)
                 }
                 id={"blocked-avatar-#{@blocked_user.id}"}
                 alt="Avatar"
@@ -317,13 +331,15 @@ defmodule MossletWeb.BlockedUsersLive do
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
               <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                {if @blocked_user.user_connection,
-                  do: @blocked_user.decrypted_connection_name,
-                  else: "[No connection found]"}
+                <%= if @blocked_user.user_connection do %>
+                  <span data-decrypt-blocked="conn_name" class="animate-pulse">&nbsp;</span>
+                <% else %>
+                  [No connection found]
+                <% end %>
               </p>
               <%= if @blocked_user.user_connection do %>
                 <span class="text-xs font-mono text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-md truncate">
-                  @{@blocked_user.decrypted_connection_username}
+                  @<span data-decrypt-blocked="conn_username" class="animate-pulse">&nbsp;</span>
                 </span>
               <% end %>
             </div>
@@ -332,11 +348,9 @@ defmodule MossletWeb.BlockedUsersLive do
                 @blocked_user.inserted_at
               )}
             </p>
-            <%= if @blocked_user.reason && String.trim(@blocked_user.reason) != "" do %>
+            <%= if @blocked_user.reason do %>
               <p class="text-xs text-slate-500 dark:text-slate-400 truncate mt-1">
-                {String.slice(@blocked_user.reason, 0, 50)}{if String.length(@blocked_user.reason) >
-                                                                 50,
-                                                               do: "..."}
+                <span data-decrypt-blocked="reason" class="animate-pulse">&nbsp;</span>
               </p>
             <% end %>
 
@@ -396,59 +410,34 @@ defmodule MossletWeb.BlockedUsersLive do
     end
   end
 
-  # Helper function to get blocked users with decrypted details
-  defp list_blocked_users_with_details(current_user, key) do
+  # Returns blocked users with encrypted data for browser-side ZK decryption.
+  # No server-side decryption — the browser decrypts via DecryptBlockedUser hook.
+  defp list_blocked_users_with_details(current_user, _key) do
     current_user
     |> Accounts.list_blocked_users()
     |> Enum.map(fn user_block ->
-      # Get the user connection between current user and blocked user
       user_connection =
         Accounts.get_user_connection_between_users(
           user_block.blocked.id,
           current_user.id
         )
 
-      # Decrypt the reason if it exists
-      decrypted_reason =
-        if user_block.reason do
-          Mosslet.Encrypted.Users.Utils.decrypt_user_data(
-            user_block.reason,
-            current_user,
-            key
-          )
+      # Pass encrypted blobs + sealed keys for browser-side ZK decryption.
+      # Connection name/username: encrypted with conn_key, sealed as uconn.key.
+      # Block reason: encrypted with user_key (personal to blocker).
+      encrypted_conn_data =
+        if user_connection && is_binary(user_connection.key) do
+          %{
+            sealed_uconn_key: user_connection.key,
+            encrypted_name: user_connection.connection.name,
+            encrypted_username: user_connection.connection.username
+          }
         else
           nil
         end
 
-      # Pre-decrypt connection name and username
-      {decrypted_name, decrypted_username} =
-        if user_connection do
-          name =
-            MossletWeb.Helpers.decr_uconn(
-              user_connection.connection.name,
-              current_user,
-              user_connection.key,
-              key
-            )
-
-          username =
-            MossletWeb.Helpers.decr_uconn(
-              user_connection.connection.username,
-              current_user,
-              user_connection.key,
-              key
-            )
-
-          {name, username}
-        else
-          {nil, nil}
-        end
-
-      # Add the decrypted fields and user_connection to the user_block
       user_block
-      |> Map.put(:reason, decrypted_reason)
-      |> Map.put(:decrypted_connection_name, decrypted_name)
-      |> Map.put(:decrypted_connection_username, decrypted_username)
+      |> Map.put(:encrypted_conn_data, encrypted_conn_data)
       |> Map.put(:user_connection, user_connection)
     end)
   end

@@ -81,6 +81,7 @@ import WordCounter from "./word-counter";
 import SessionKeyDeriver from "./session-key-deriver";
 import SyncStatusHook from "./sync-status-hook";
 import BlockReasonFormHook from "./block-reason-form-hook";
+import DecryptBlockedUser from "./decrypt-blocked-user";
 import PlatformDetector from "./platform-detector";
 import PostExpandHook from "./post-expand-hook";
 import ProfileAboutFormHook from "./profile-about-form-hook";
@@ -183,6 +184,7 @@ export default {
   WordCounter,
   SyncStatusHook,
   BlockReasonFormHook,
+  DecryptBlockedUser,
   PlatformDetector,
   PostExpandHook,
   StartConversation,
