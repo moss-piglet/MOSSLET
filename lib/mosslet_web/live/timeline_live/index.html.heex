@@ -17,7 +17,7 @@
       max_width="lg"
       class="space-y-6 sm:space-y-8 pt-6 sm:pt-8 pb-24 sm:pb-8"
     >
-      <MossletWeb.DesignSystem.liquid_timeline_header
+      <MossletWeb.TimelineComponents.liquid_timeline_header
         id={"timeline-header-#{@active_tab}"}
         current_scope={@current_scope}
         banner_loading={@custom_banner_src.loading}
@@ -277,7 +277,7 @@
               class="timeline-post-container"
               data-user-id={post.user_id}
             >
-              <MossletWeb.DesignSystem.liquid_timeline_date_separator
+              <MossletWeb.TimelineComponents.liquid_timeline_date_separator
                 :if={Map.get(post, :show_date_separator, false)}
                 id={"timeline-date-sep-#{post.id}"}
                 datetime={post.inserted_at}
@@ -287,7 +287,7 @@
                 id={"timeline-card-container-#{post.id}"}
                 class="timeline-post-item new-post max-w-2xl mx-auto"
               >
-                <MossletWeb.DesignSystem.liquid_timeline_post
+                <MossletWeb.TimelineComponents.liquid_timeline_post
                   user_name={get_post_author_name(post, @current_user, @key)}
                   encrypted_author_name_data={
                     get_encrypted_post_author_name_data(post, @current_user)
@@ -355,7 +355,7 @@
                 Map.get(@unread_counts, String.to_existing_atom(@active_tab || "home"), 0)
             ) %>
           <div :if={total_read_posts > 0}>
-            <MossletWeb.DesignSystem.liquid_read_posts_divider
+            <MossletWeb.TimelineComponents.liquid_read_posts_divider
               count={total_read_posts}
               expanded={@read_posts_expanded}
               loading={@read_posts_loading}
@@ -377,7 +377,7 @@
                 class="timeline-post-container"
                 data-user-id={post.user_id}
               >
-                <MossletWeb.DesignSystem.liquid_timeline_date_separator
+                <MossletWeb.TimelineComponents.liquid_timeline_date_separator
                   :if={Map.get(post, :show_date_separator, false)}
                   id={"timeline-date-sep-read-#{post.id}"}
                   datetime={post.inserted_at}
@@ -387,7 +387,7 @@
                   id={"timeline-card-container-read-#{post.id}"}
                   class="timeline-post-item max-w-2xl mx-auto"
                 >
-                  <MossletWeb.DesignSystem.liquid_timeline_post
+                  <MossletWeb.TimelineComponents.liquid_timeline_post
                     user_name={get_post_author_name(post, @current_user, @key)}
                     encrypted_author_name_data={
                       get_encrypted_post_author_name_data(post, @current_user)
@@ -463,7 +463,7 @@
               }
               class="pt-4"
             >
-              <MossletWeb.DesignSystem.liquid_timeline_scroll_indicator
+              <MossletWeb.TimelineComponents.liquid_timeline_scroll_indicator
                 remaining_count={
                   calculate_remaining_read_posts(
                     @timeline_counts,
@@ -564,7 +564,7 @@
     />
 
     <%!-- Markdown guide modal --%>
-    <MossletWeb.DesignSystem.liquid_markdown_guide_modal
+    <MossletWeb.PrivacyComponents.liquid_markdown_guide_modal
       id="markdown-guide-modal"
       show={@show_markdown_guide}
       on_cancel={JS.push("close_markdown_guide")}
@@ -587,7 +587,7 @@
             phx-hook="PostFormHook"
             data-visibility={@selector}
           >
-            <MossletWeb.DesignSystem.liquid_timeline_composer_enhanced
+            <MossletWeb.TimelineComponents.liquid_timeline_composer_enhanced
               id={"timeline-composer-enhanced-#{@active_tab}"}
               user_name={user_name(@current_user, @key) || "Private Author"}
               user_avatar={
@@ -670,14 +670,14 @@
     </div>
   </div>
 
-  <MossletWeb.DesignSystem.liquid_alt_text_modal
+  <MossletWeb.MediaComponents.liquid_alt_text_modal
     show={@alt_text_modal_open}
     upload={@alt_text_editing_upload}
     alt_text={@alt_text_editing_value}
     id="timeline-alt-text-modal"
   />
 
-  <MossletWeb.DesignSystem.liquid_image_edit_modal
+  <MossletWeb.MediaComponents.liquid_image_edit_modal
     show={@image_edit_modal_open}
     upload={@image_edit_upload}
     crop={@image_edit_crop}

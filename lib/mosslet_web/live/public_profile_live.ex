@@ -226,7 +226,7 @@ defmodule MossletWeb.PublicProfileLive do
                   </div>
                 </div>
 
-                <MossletWeb.DesignSystem.website_url_preview
+                <MossletWeb.MediaComponents.website_url_preview
                   :if={@profile_user.connection.profile.website_url}
                   preview={@website_url_preview}
                   loading={@website_url_preview_loading}

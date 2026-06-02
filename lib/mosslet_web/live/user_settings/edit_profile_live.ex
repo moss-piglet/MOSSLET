@@ -11,6 +11,7 @@ defmodule MossletWeb.EditProfileLive do
   alias Mosslet.Encrypted
   alias Mosslet.FileUploads.Storj
   alias MossletWeb.DesignSystem
+  alias MossletWeb.MediaComponents
   alias Phoenix.LiveView.AsyncResult
 
   @upload_provider Mosslet.FileUploads.Storj
@@ -402,7 +403,7 @@ defmodule MossletWeb.EditProfileLive do
                         </div>
                       </div>
 
-                      <DesignSystem.liquid_banner_upload
+                      <MediaComponents.liquid_banner_upload
                         upload={@uploads.banner}
                         upload_stage={@banner_upload_stage}
                         banner_loading={@custom_banner_src.loading}
@@ -645,7 +646,7 @@ defmodule MossletWeb.EditProfileLive do
         </div>
       </DesignSystem.liquid_container>
 
-      <DesignSystem.liquid_alt_text_modal
+      <MediaComponents.liquid_alt_text_modal
         show={@banner_alt_text_modal_open}
         upload={
           build_upload_map(
@@ -658,7 +659,7 @@ defmodule MossletWeb.EditProfileLive do
         id="banner-alt-text-modal"
       />
 
-      <DesignSystem.liquid_image_edit_modal
+      <MediaComponents.liquid_image_edit_modal
         show={@banner_edit_modal_open}
         upload={
           build_upload_map(

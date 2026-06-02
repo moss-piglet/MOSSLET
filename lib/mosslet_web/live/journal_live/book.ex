@@ -7,8 +7,9 @@ defmodule MossletWeb.JournalLive.Book do
   alias Mosslet.Accounts
   alias Mosslet.Journal
   alias Mosslet.Journal.JournalBook
-  alias MossletWeb.DesignSystem
+  alias MossletWeb.PrivacyComponents
   alias MossletWeb.Helpers.JournalHelpers
+  alias MossletWeb.MediaComponents
 
   import MossletWeb.Helpers,
     only: [pre_decrypt_journal_entries: 2]
@@ -119,7 +120,7 @@ defmodule MossletWeb.JournalLive.Book do
                 </div>
               </div>
               <div class="flex items-center gap-2 sm:flex-shrink-0">
-                <DesignSystem.privacy_button
+                <PrivacyComponents.privacy_button
                   active={@privacy_active}
                   countdown={@privacy_countdown}
                   on_click="activate_privacy"
@@ -167,7 +168,7 @@ defmodule MossletWeb.JournalLive.Book do
               </div>
 
               <div class="flex items-center gap-2 sm:flex-shrink-0">
-                <DesignSystem.privacy_button
+                <PrivacyComponents.privacy_button
                   active={@privacy_active}
                   countdown={@privacy_countdown}
                   on_click="activate_privacy"
@@ -417,7 +418,7 @@ defmodule MossletWeb.JournalLive.Book do
               </div>
             </div>
 
-            <DesignSystem.liquid_journal_cover_upload
+            <MediaComponents.liquid_journal_cover_upload
               upload={@uploads.book_cover}
               upload_stage={@cover_upload_stage}
               current_cover_src={@current_cover_src}
@@ -474,7 +475,7 @@ defmodule MossletWeb.JournalLive.Book do
         </.form>
       </.liquid_modal>
 
-      <DesignSystem.privacy_screen
+      <PrivacyComponents.privacy_screen
         active={@privacy_active}
         countdown={@privacy_countdown}
         needs_password={@privacy_needs_password}
@@ -572,7 +573,7 @@ defmodule MossletWeb.JournalLive.Book do
             </div>
 
             <div class="flex items-center gap-2">
-              <DesignSystem.privacy_button
+              <PrivacyComponents.privacy_button
                 active={@privacy_active}
                 countdown={@privacy_countdown}
                 on_click="activate_privacy"
@@ -722,7 +723,7 @@ defmodule MossletWeb.JournalLive.Book do
       </div>
     </div>
 
-    <DesignSystem.privacy_screen
+    <PrivacyComponents.privacy_screen
       active={@privacy_active}
       countdown={@privacy_countdown}
       needs_password={@privacy_needs_password}

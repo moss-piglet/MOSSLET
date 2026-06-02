@@ -12,7 +12,7 @@
       max_width="xl"
       class="space-y-6 sm:space-y-8 pt-6 sm:pt-8"
     >
-      <MossletWeb.DesignSystem.liquid_circles_header id="circles-header" />
+      <MossletWeb.ConnectionComponents.liquid_circles_header id="circles-header" />
 
       <div
         :if={@live_action != :joining_group}
@@ -21,7 +21,7 @@
         <div class="p-4 md:p-6">
           <div class="flex flex-col gap-4 md:gap-6 xl:flex-row xl:items-center xl:justify-between">
             <div class="flex justify-center xl:justify-start">
-              <MossletWeb.DesignSystem.liquid_connections_tabs
+              <MossletWeb.ConnectionComponents.liquid_connections_tabs
                 tabs={[
                   %{
                     key: "my_groups",
@@ -70,7 +70,7 @@
 
         <div :if={@active_tab == "my_groups"} class="p-4 sm:p-6">
           <div :if={@group_count == 0} class="py-12">
-            <MossletWeb.DesignSystem.liquid_empty_state
+            <MossletWeb.ConnectionComponents.liquid_empty_state
               icon="hero-circle-stack"
               title="No circles yet"
               description="Create a circle to start connecting with your trusted network in a private space."
@@ -96,7 +96,7 @@
                   data-scope-id={"my-group-#{group.id}"}
                 >
                 </div>
-                <MossletWeb.DesignSystem.liquid_my_group_card
+                <MossletWeb.ConnectionComponents.liquid_my_group_card
                   id={"my-group-card-#{group.id}"}
                   name={group.decrypted[:name]}
                   description={group.decrypted[:description]}
@@ -146,12 +146,12 @@
                       />
                     <% end %>
                   </:members>
-                </MossletWeb.DesignSystem.liquid_my_group_card>
+                </MossletWeb.ConnectionComponents.liquid_my_group_card>
               </div>
             <% end %>
           </div>
 
-          <MossletWeb.DesignSystem.liquid_load_more_groups
+          <MossletWeb.ConnectionComponents.liquid_load_more_groups
             :if={@has_more_groups}
             remaining_count={@remaining_groups_count}
             load_count={@options.per_page}
@@ -191,7 +191,7 @@
                   data-scope-id={"invites-group-#{group.id}"}
                 >
                 </div>
-                <MossletWeb.DesignSystem.liquid_pending_group_card
+                <MossletWeb.ConnectionComponents.liquid_pending_group_card
                   id={id}
                   name={group.decrypted[:name]}
                   description={group.decrypted[:description]}
@@ -286,7 +286,7 @@
                       Join Circle
                     </MossletWeb.DesignSystem.liquid_button>
                   </:actions>
-                </MossletWeb.DesignSystem.liquid_pending_group_card>
+                </MossletWeb.ConnectionComponents.liquid_pending_group_card>
               </div>
             <% end %>
 
@@ -295,7 +295,7 @@
               id="invites-empty"
               class="only:block hidden py-8 text-center"
             >
-              <MossletWeb.DesignSystem.liquid_empty_state
+              <MossletWeb.ConnectionComponents.liquid_empty_state
                 icon="hero-gift"
                 title="No pending invitations"
                 description="You're all caught up! When someone invites you to a circle, it will appear here."
@@ -326,7 +326,7 @@
           </div>
 
           <div :if={@public_groups == []} class="py-12 text-center">
-            <MossletWeb.DesignSystem.liquid_empty_state
+            <MossletWeb.ConnectionComponents.liquid_empty_state
               icon="hero-globe-alt"
               title="No public circles found"
               description="There are no public circles available to join right now. Check back later or create your own!"
@@ -335,7 +335,7 @@
           </div>
 
           <div :if={@public_groups != []} class="grid gap-4">
-            <MossletWeb.DesignSystem.liquid_group_card
+            <MossletWeb.ConnectionComponents.liquid_group_card
               :for={group <- @public_groups}
               name={
                 decr_public_item(
@@ -349,7 +349,7 @@
             />
           </div>
 
-          <MossletWeb.DesignSystem.liquid_load_more_groups
+          <MossletWeb.ConnectionComponents.liquid_load_more_groups
             :if={@has_more_public_groups}
             remaining_count={@remaining_public_groups_count}
             load_count={10}

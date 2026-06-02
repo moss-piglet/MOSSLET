@@ -1,6 +1,6 @@
 defmodule MossletWeb.GroupLive.GroupMessages do
   use MossletWeb, :html
-  alias MossletWeb.DesignSystem
+  alias MossletWeb.ChatComponents
   alias Mosslet.Groups
 
   @mention_token_regex ~r/@\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/i
@@ -165,7 +165,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       |> assign(:current_user_group_id, assigns.user_group.id)
 
     ~H"""
-    <DesignSystem.liquid_chat_message
+    <ChatComponents.liquid_chat_message
       id={@message.id}
       avatar_src={@avatar_src}
       encrypted_avatar_data={@encrypted_avatar}
@@ -199,7 +199,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       <div :if={not @browser_decrypt?}>
         {@content |> Phoenix.HTML.raw()}
       </div>
-    </DesignSystem.liquid_chat_message>
+    </ChatComponents.liquid_chat_message>
     """
   end
 

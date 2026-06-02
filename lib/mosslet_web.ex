@@ -135,6 +135,12 @@ defmodule MossletWeb do
       use Gettext, backend: MossletWeb.Gettext
       import MossletWeb.CoreComponents
       import MossletWeb.DesignSystem
+      import MossletWeb.TimelineComponents
+      import MossletWeb.ReplyComponents, except: [show_profile?: 1]
+      import MossletWeb.PrivacyComponents
+      import MossletWeb.ChatComponents
+      import MossletWeb.MediaComponents
+      import MossletWeb.ConnectionComponents
       import MossletWeb.Helpers
       import MossletWeb.Helpers.StatusHelpers
       import MossletWeb.Helpers.StatusHelpers

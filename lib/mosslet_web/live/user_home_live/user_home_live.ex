@@ -2857,7 +2857,7 @@ defmodule MossletWeb.UserHomeLive do
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
           <%!-- New Post Prompt --%>
           <div class="mb-8">
-            <MossletWeb.DesignSystem.liquid_new_post_prompt
+            <MossletWeb.TimelineComponents.liquid_new_post_prompt
               id="home-new-post-prompt"
               user_name={@decrypted_profile.name}
               user_avatar={
@@ -2938,7 +2938,7 @@ defmodule MossletWeb.UserHomeLive do
                     </div>
                   </div>
 
-                  <MossletWeb.DesignSystem.website_url_preview
+                  <MossletWeb.MediaComponents.website_url_preview
                     :if={@current_scope.user.connection.profile.website_url}
                     preview={@website_url_preview}
                     loading={@website_url_preview_loading}
@@ -3050,13 +3050,13 @@ defmodule MossletWeb.UserHomeLive do
                     id={dom_id}
                     class="profile-post-container"
                   >
-                    <MossletWeb.DesignSystem.liquid_timeline_date_separator
+                    <MossletWeb.TimelineComponents.liquid_timeline_date_separator
                       :if={Map.get(post, :show_date_separator, false)}
                       id={"profile-date-sep-#{post.id}"}
                       datetime={post.inserted_at}
                       first={Map.get(post, :first_separator, false)}
                     />
-                    <MossletWeb.DesignSystem.liquid_timeline_post
+                    <MossletWeb.TimelineComponents.liquid_timeline_post
                       user_name={
                         get_profile_post_author_name(
                           post,
@@ -3178,7 +3178,7 @@ defmodule MossletWeb.UserHomeLive do
                     />
                   </div>
                 </div>
-                <MossletWeb.DesignSystem.liquid_read_posts_divider
+                <MossletWeb.TimelineComponents.liquid_read_posts_divider
                   :if={@posts_count - length(@cached_profile_posts) > 0}
                   count={@posts_count - length(@cached_profile_posts)}
                   expanded={@read_posts_expanded}
@@ -3199,13 +3199,13 @@ defmodule MossletWeb.UserHomeLive do
                     id={dom_id}
                     class="profile-post-container"
                   >
-                    <MossletWeb.DesignSystem.liquid_timeline_date_separator
+                    <MossletWeb.TimelineComponents.liquid_timeline_date_separator
                       :if={Map.get(post, :show_date_separator, false)}
                       id={"read-date-sep-#{post.id}"}
                       datetime={post.inserted_at}
                       first={Map.get(post, :first_separator, false)}
                     />
-                    <MossletWeb.DesignSystem.liquid_timeline_post
+                    <MossletWeb.TimelineComponents.liquid_timeline_post
                       user_name={
                         get_profile_post_author_name(
                           post,
@@ -3327,7 +3327,7 @@ defmodule MossletWeb.UserHomeLive do
                     />
                   </div>
                 </div>
-                <MossletWeb.DesignSystem.liquid_timeline_scroll_indicator
+                <MossletWeb.TimelineComponents.liquid_timeline_scroll_indicator
                   :if={
                     @read_posts_expanded &&
                       @posts_count > length(@cached_profile_posts) + length(@cached_read_posts)
@@ -3491,7 +3491,7 @@ defmodule MossletWeb.UserHomeLive do
         on_cancel={JS.push("close_image_modal")}
       />
 
-      <MossletWeb.DesignSystem.liquid_markdown_guide_modal
+      <MossletWeb.PrivacyComponents.liquid_markdown_guide_modal
         id="markdown-guide-modal"
         show={@show_markdown_guide}
         on_cancel={JS.push("close_markdown_guide")}
@@ -3670,7 +3670,7 @@ defmodule MossletWeb.UserHomeLive do
                     </div>
                   </div>
 
-                  <MossletWeb.DesignSystem.website_url_preview
+                  <MossletWeb.MediaComponents.website_url_preview
                     :if={@profile_user.connection.profile.website_url}
                     preview={@website_url_preview}
                     loading={@website_url_preview_loading}
@@ -3794,13 +3794,13 @@ defmodule MossletWeb.UserHomeLive do
                     id={dom_id}
                     class="profile-post-container"
                   >
-                    <MossletWeb.DesignSystem.liquid_timeline_date_separator
+                    <MossletWeb.TimelineComponents.liquid_timeline_date_separator
                       :if={Map.get(post, :show_date_separator, false)}
                       id={"public-date-sep-#{post.id}"}
                       datetime={post.inserted_at}
                       first={Map.get(post, :first_separator, false)}
                     />
-                    <MossletWeb.DesignSystem.liquid_timeline_post
+                    <MossletWeb.TimelineComponents.liquid_timeline_post
                       user_name={get_public_post_author_name(post, @profile_user)}
                       user_handle={
                         get_public_profile_post_handle(
@@ -3861,7 +3861,7 @@ defmodule MossletWeb.UserHomeLive do
                     />
                   </div>
                 </div>
-                <MossletWeb.DesignSystem.liquid_read_posts_divider
+                <MossletWeb.TimelineComponents.liquid_read_posts_divider
                   :if={@posts_count - length(@cached_profile_posts) > 0}
                   count={@posts_count - length(@cached_profile_posts)}
                   expanded={@read_posts_expanded}
@@ -3882,13 +3882,13 @@ defmodule MossletWeb.UserHomeLive do
                     id={dom_id}
                     class="profile-post-container"
                   >
-                    <MossletWeb.DesignSystem.liquid_timeline_date_separator
+                    <MossletWeb.TimelineComponents.liquid_timeline_date_separator
                       :if={Map.get(post, :show_date_separator, false)}
                       id={"read-date-sep-#{post.id}"}
                       datetime={post.inserted_at}
                       first={Map.get(post, :first_separator, false)}
                     />
-                    <MossletWeb.DesignSystem.liquid_timeline_post
+                    <MossletWeb.TimelineComponents.liquid_timeline_post
                       user_name={get_public_post_author_name(post, @profile_user)}
                       user_handle={
                         get_public_profile_post_handle(
@@ -3949,7 +3949,7 @@ defmodule MossletWeb.UserHomeLive do
                     />
                   </div>
                 </div>
-                <MossletWeb.DesignSystem.liquid_timeline_scroll_indicator
+                <MossletWeb.TimelineComponents.liquid_timeline_scroll_indicator
                   :if={
                     @read_posts_expanded &&
                       @posts_count > length(@cached_profile_posts) + length(@cached_read_posts)
@@ -4078,7 +4078,7 @@ defmodule MossletWeb.UserHomeLive do
         on_cancel={JS.push("close_image_modal")}
       />
 
-      <MossletWeb.DesignSystem.liquid_markdown_guide_modal
+      <MossletWeb.PrivacyComponents.liquid_markdown_guide_modal
         id="markdown-guide-modal"
         show={@show_markdown_guide}
         on_cancel={JS.push("close_markdown_guide")}
@@ -4285,7 +4285,7 @@ defmodule MossletWeb.UserHomeLive do
                     </div>
                   </div>
 
-                  <MossletWeb.DesignSystem.website_url_preview
+                  <MossletWeb.MediaComponents.website_url_preview
                     :if={@profile_user.connection.profile.website_url}
                     preview={@website_url_preview}
                     loading={@website_url_preview_loading}
@@ -4377,12 +4377,12 @@ defmodule MossletWeb.UserHomeLive do
                     id={dom_id}
                     class="profile-post-container"
                   >
-                    <MossletWeb.DesignSystem.liquid_timeline_date_separator
+                    <MossletWeb.TimelineComponents.liquid_timeline_date_separator
                       :if={Map.get(post, :show_date_separator, false)}
                       id={"connections-date-sep-#{post.id}"}
                       datetime={post.inserted_at}
                     />
-                    <MossletWeb.DesignSystem.liquid_timeline_post
+                    <MossletWeb.TimelineComponents.liquid_timeline_post
                       user_name={
                         get_profile_post_author_name(
                           post,
@@ -4504,7 +4504,7 @@ defmodule MossletWeb.UserHomeLive do
                     />
                   </div>
                 </div>
-                <MossletWeb.DesignSystem.liquid_read_posts_divider
+                <MossletWeb.TimelineComponents.liquid_read_posts_divider
                   :if={@posts_count - length(@cached_profile_posts) > 0}
                   count={@posts_count - length(@cached_profile_posts)}
                   expanded={@read_posts_expanded}
@@ -4525,13 +4525,13 @@ defmodule MossletWeb.UserHomeLive do
                     id={dom_id}
                     class="profile-post-container"
                   >
-                    <MossletWeb.DesignSystem.liquid_timeline_date_separator
+                    <MossletWeb.TimelineComponents.liquid_timeline_date_separator
                       :if={Map.get(post, :show_date_separator, false)}
                       id={"read-date-sep-#{post.id}"}
                       datetime={post.inserted_at}
                       first={Map.get(post, :first_separator, false)}
                     />
-                    <MossletWeb.DesignSystem.liquid_timeline_post
+                    <MossletWeb.TimelineComponents.liquid_timeline_post
                       user_name={
                         get_profile_post_author_name(
                           post,
@@ -4653,7 +4653,7 @@ defmodule MossletWeb.UserHomeLive do
                     />
                   </div>
                 </div>
-                <MossletWeb.DesignSystem.liquid_timeline_scroll_indicator
+                <MossletWeb.TimelineComponents.liquid_timeline_scroll_indicator
                   :if={
                     @read_posts_expanded &&
                       @posts_count > length(@cached_profile_posts) + length(@cached_read_posts)
@@ -4776,7 +4776,7 @@ defmodule MossletWeb.UserHomeLive do
           on_cancel={JS.push("close_image_modal")}
         />
 
-        <MossletWeb.DesignSystem.liquid_markdown_guide_modal
+        <MossletWeb.PrivacyComponents.liquid_markdown_guide_modal
           id="markdown-guide-modal"
           show={@show_markdown_guide}
           on_cancel={JS.push("close_markdown_guide")}

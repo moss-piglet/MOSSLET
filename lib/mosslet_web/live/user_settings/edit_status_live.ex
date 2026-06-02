@@ -8,10 +8,9 @@ defmodule MossletWeb.EditStatusLive do
   alias Mosslet.Accounts
   alias Mosslet.Statuses
   alias MossletWeb.DesignSystem
-  import MossletWeb.DesignSystem
 
   # Import connection helper functions
-  import MossletWeb.DesignSystem,
+  import MossletWeb.ConnectionComponents,
     only: [
       get_decrypted_connection_label: 3,
       get_decrypted_connection_username: 3,
@@ -107,7 +106,7 @@ defmodule MossletWeb.EditStatusLive do
                 </div>
                 <span>Your Status</span>
                 <%!-- Current status indicator --%>
-                <DesignSystem.liquid_timeline_status
+                <MossletWeb.TimelineComponents.liquid_timeline_status
                   status={to_string(@status_form[:status].value || :offline)}
                   message={if @status_message != "", do: @status_message, else: nil}
                   class="ml-auto"

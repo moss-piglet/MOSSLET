@@ -38,7 +38,7 @@ defmodule MossletWeb.GroupLive.PendingComponent do
               data-scope-id={"pending-group-#{group.id}"}
             >
             </div>
-            <MossletWeb.DesignSystem.liquid_pending_group_card
+            <MossletWeb.ConnectionComponents.liquid_pending_group_card
               id={id}
               name={group.decrypted[:name]}
               description={group.decrypted[:description]}
@@ -122,12 +122,12 @@ defmodule MossletWeb.GroupLive.PendingComponent do
                   Join Circle
                 </MossletWeb.DesignSystem.liquid_button>
               </:actions>
-            </MossletWeb.DesignSystem.liquid_pending_group_card>
+            </MossletWeb.ConnectionComponents.liquid_pending_group_card>
           </div>
         <% end %>
 
         <div :if={!@any_pending_groups?} class="py-8 text-center">
-          <MossletWeb.DesignSystem.liquid_empty_state
+          <MossletWeb.ConnectionComponents.liquid_empty_state
             icon="hero-gift"
             title="No pending invitations"
             description="You're all caught up! When someone invites you to a group, it will appear here."

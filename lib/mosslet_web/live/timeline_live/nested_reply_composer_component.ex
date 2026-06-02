@@ -294,7 +294,7 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
                 />
               </button>
 
-              <MossletWeb.DesignSystem.liquid_markdown_guide_trigger
+              <MossletWeb.PrivacyComponents.liquid_markdown_guide_trigger
                 id={"nested-reply-markdown-guide-trigger-#{@parent_reply.id}"}
                 on_click={Phoenix.LiveView.JS.push("open_markdown_guide")}
                 size="sm"

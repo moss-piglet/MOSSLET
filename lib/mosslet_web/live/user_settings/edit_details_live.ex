@@ -11,6 +11,7 @@ defmodule MossletWeb.EditDetailsLive do
   alias Mosslet.Extensions.AvatarProcessor
   alias Mosslet.FileUploads.Storj
   alias MossletWeb.DesignSystem
+  alias MossletWeb.MediaComponents
 
   @upload_provider Mosslet.FileUploads.Storj
 
@@ -216,7 +217,7 @@ defmodule MossletWeb.EditDetailsLive do
         </div>
       </DesignSystem.liquid_container>
 
-      <DesignSystem.liquid_alt_text_modal
+      <MediaComponents.liquid_alt_text_modal
         show={@avatar_alt_text_modal_open}
         upload={
           build_upload_map(
@@ -229,7 +230,7 @@ defmodule MossletWeb.EditDetailsLive do
         id="avatar-alt-text-modal"
       />
 
-      <DesignSystem.liquid_image_edit_modal
+      <MediaComponents.liquid_image_edit_modal
         show={@avatar_edit_modal_open}
         upload={
           build_upload_map(

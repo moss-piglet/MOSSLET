@@ -255,7 +255,7 @@ defmodule MossletWeb.ModernSidebarLayout do
           <%!-- Right side content --%>
           <div class="flex flex-1 gap-x-4 self-stretch lg:gap-x-6 justify-end">
             <div class="flex items-center gap-x-4 lg:gap-x-6">
-              <MossletWeb.DesignSystem.liquid_sync_status
+              <MossletWeb.TimelineComponents.liquid_sync_status
                 :if={@sync_status}
                 online={@sync_status[:online]}
                 syncing={@sync_status[:syncing]}
@@ -323,7 +323,7 @@ defmodule MossletWeb.ModernSidebarLayout do
           "group-hover:opacity-100 group-hover:translate-x-full transform -translate-x-full"
         ]}>
         </div>
-        <MossletWeb.DesignSystem.zk_avatar_image
+        <MossletWeb.MediaComponents.zk_avatar_image
           id="sidebar-user-avatar"
           user={@current_scope.user}
           key={@current_scope.key}

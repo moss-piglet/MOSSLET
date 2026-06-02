@@ -6,7 +6,7 @@ defmodule MossletWeb.UserConnectionLive.Index do
   alias Mosslet.Conversations
   alias Mosslet.Encrypted
 
-  import MossletWeb.DesignSystem,
+  import MossletWeb.ConnectionComponents,
     only: [
       get_group_card_classes: 1,
       get_group_edit_button_classes: 1,

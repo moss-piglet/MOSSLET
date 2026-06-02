@@ -2489,7 +2489,7 @@ defmodule MossletWeb.CoreComponents do
       <% "focus" -> %>
         <.focus_layout {assigns}>
           <:top_right>
-            <MossletWeb.DesignSystem.privacy_button
+            <MossletWeb.PrivacyComponents.privacy_button
               :if={Map.get(assigns, :privacy_active) != nil}
               active={@privacy_active}
               countdown={@privacy_countdown}
@@ -2505,7 +2505,7 @@ defmodule MossletWeb.CoreComponents do
       <% "reader" -> %>
         <.reader_layout {assigns}>
           <:top_right>
-            <MossletWeb.DesignSystem.privacy_button
+            <MossletWeb.PrivacyComponents.privacy_button
               :if={Map.get(assigns, :privacy_active) != nil}
               active={@privacy_active}
               countdown={@privacy_countdown}

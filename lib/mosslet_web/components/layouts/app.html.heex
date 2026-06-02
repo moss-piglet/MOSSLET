@@ -1,5 +1,8 @@
 <%!-- Offline banner at the very top when offline --%>
-<MossletWeb.DesignSystem.offline_banner :if={assigns[:sync_status]} sync_status={@sync_status} />
+<MossletWeb.TimelineComponents.offline_banner
+  :if={assigns[:sync_status]}
+  sync_status={@sync_status}
+/>
 <%!-- Session key deriver — derives and caches encryption keys for all browser-side crypto --%>
 <%= if assigns[:current_scope] && @current_scope.user && @current_scope.key do %>
   <div

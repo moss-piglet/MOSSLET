@@ -578,14 +578,14 @@ defmodule MossletWeb.ConversationLive.Show do
         on_cancel={JS.push("close_markdown_guide")}
       />
 
-      <MossletWeb.DesignSystem.liquid_alt_text_modal
+      <MossletWeb.MediaComponents.liquid_alt_text_modal
         show={@alt_text_modal_open}
         upload={@alt_text_editing_upload}
         alt_text={@alt_text_editing_value}
         id="conversation-alt-text-modal"
       />
 
-      <MossletWeb.DesignSystem.liquid_image_edit_modal
+      <MossletWeb.MediaComponents.liquid_image_edit_modal
         show={@image_edit_modal_open}
         upload={@image_edit_upload}
         crop={@image_edit_crop}

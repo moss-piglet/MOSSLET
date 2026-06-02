@@ -2,7 +2,7 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
   @moduledoc false
   use MossletWeb, :live_component
   import MossletWeb.CoreComponents
-  import MossletWeb.DesignSystem, only: [liquid_markdown_guide_trigger: 1]
+  import MossletWeb.PrivacyComponents, only: [liquid_markdown_guide_trigger: 1]
 
   import MossletWeb.Helpers,
     only: [

@@ -8,7 +8,7 @@ defmodule MossletWeb.JournalLive.Entry do
   alias Mosslet.Accounts
   alias Mosslet.Journal
   alias Mosslet.Journal.AI, as: JournalAI
-  alias MossletWeb.DesignSystem
+  alias MossletWeb.PrivacyComponents
   alias Mosslet.Journal.JournalEntry
   alias MossletWeb.Helpers.JournalHelpers
   import MossletWeb.Helpers, only: [pre_decrypt_journal_entry: 2]
@@ -137,7 +137,7 @@ defmodule MossletWeb.JournalLive.Entry do
           </div>
         </div>
 
-        <DesignSystem.privacy_screen
+        <PrivacyComponents.privacy_screen
           active={@privacy_active}
           countdown={@privacy_countdown}
           needs_password={@privacy_needs_password}
@@ -239,7 +239,7 @@ defmodule MossletWeb.JournalLive.Entry do
                 <.phx_icon name="hero-sparkles" class="h-3.5 w-3.5" />
                 {if @loading_prompt, do: "Getting prompt...", else: "Inspire me"}
               </button>
-              <DesignSystem.liquid_markdown_guide_trigger
+              <PrivacyComponents.liquid_markdown_guide_trigger
                 id="journal-markdown-guide-trigger"
                 size="sm"
                 on_click={JS.push("open_markdown_guide")}
@@ -302,7 +302,7 @@ defmodule MossletWeb.JournalLive.Entry do
           </.form>
         </div>
 
-        <DesignSystem.privacy_screen
+        <PrivacyComponents.privacy_screen
           active={@privacy_active}
           countdown={@privacy_countdown}
           needs_password={@privacy_needs_password}
@@ -312,7 +312,7 @@ defmodule MossletWeb.JournalLive.Entry do
           privacy_form={@privacy_form}
         />
 
-        <DesignSystem.liquid_markdown_guide_modal
+        <PrivacyComponents.liquid_markdown_guide_modal
           id="journal-markdown-guide-modal"
           show={@show_markdown_guide}
           on_cancel={JS.push("close_markdown_guide")}
