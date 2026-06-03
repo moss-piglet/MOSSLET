@@ -34,8 +34,8 @@ const DecryptConnectionCard = {
 
       const scope = this.el.dataset.connScope;
       const scopeEl = scope
-        ? document.querySelector(`[data-conn-scope="${scope}"]`) || document
-        : document;
+        ? document.querySelector(`[data-conn-scope="${scope}"]`) || this.el.parentElement
+        : this.el.parentElement;
 
       const encryptedName = this.el.dataset.encryptedConnName;
       const encryptedUsername = this.el.dataset.encryptedConnUsername;
