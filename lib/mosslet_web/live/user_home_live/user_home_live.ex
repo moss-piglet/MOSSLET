@@ -2127,6 +2127,42 @@ defmodule MossletWeb.UserHomeLive do
     {:noreply, socket}
   end
 
+  def handle_event(
+        "decrypt_url_preview_image",
+        %{"presigned_url" => presigned_url, "post_id" => post_id},
+        socket
+      ) do
+    current_user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    case Timeline.get_post(post_id) do
+      %Post{} = post ->
+        encrypted_post_key =
+          case post.visibility do
+            :public -> get_post_key(post)
+            _ -> get_post_key(post, current_user)
+          end
+
+        case fetch_and_decrypt_url_preview_image(
+               presigned_url,
+               encrypted_post_key,
+               current_user,
+               key,
+               post.visibility
+             ) do
+          {:ok, decrypted_image} ->
+            {:reply, %{response: "success", decrypted_image: decrypted_image}, socket}
+
+          {:error, reason} ->
+            Logger.error("Failed to decrypt URL preview image: #{inspect(reason)}")
+            {:reply, %{response: "failed"}, socket}
+        end
+
+      nil ->
+        {:reply, %{response: "failed"}, socket}
+    end
+  end
+
   def handle_event("get_post_image_urls", %{"post_id" => post_id}, socket) do
     current_user = socket.assigns.current_scope.user
     key = socket.assigns.current_scope.key
@@ -5725,6 +5761,46 @@ defmodule MossletWeb.UserHomeLive do
          socket
          |> assign(:show_share_modal, false)
          |> put_flash(:error, "Failed to share. Please try again.")}
+    end
+  end
+
+  defp fetch_and_decrypt_url_preview_image(
+         presigned_url,
+         encrypted_post_key,
+         current_user,
+         key,
+         visibility
+       ) do
+    d_post_key =
+      case visibility do
+        :public ->
+          case Mosslet.Encrypted.Users.Utils.decrypt_public_item_key(encrypted_post_key) do
+            decrypted when is_binary(decrypted) -> {:ok, decrypted}
+            _ -> {:error, :decryption_failed}
+          end
+
+        _ ->
+          Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(
+            encrypted_post_key,
+            current_user,
+            key
+          )
+      end
+
+    with {:ok, decrypted_key} <- d_post_key,
+         {:ok, %{status: 200, body: encrypted_image}} <- Req.get(presigned_url),
+         {:ok, decrypted_binary} <-
+           Mosslet.Encrypted.Utils.decrypt(%{key: decrypted_key, payload: encrypted_image}) do
+      data_url = "data:image/jpeg;base64," <> Base.encode64(decrypted_binary)
+      {:ok, data_url}
+    else
+      {:error, reason} = error ->
+        Logger.error("Failed to fetch/decrypt URL preview image: #{inspect(reason)}")
+        error
+
+      error ->
+        Logger.error("Unexpected error fetching/decrypting URL preview image: #{inspect(error)}")
+        {:error, :unknown}
     end
   end
 
