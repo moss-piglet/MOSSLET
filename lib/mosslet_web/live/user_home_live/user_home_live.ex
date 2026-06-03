@@ -4096,7 +4096,7 @@ defmodule MossletWeb.UserHomeLive do
       current_scope={@current_scope}
       type="sidebar"
     >
-      <div id="timeline-container">
+      <div id="timeline-container" data-profile-scope="conn-profile">
         <div phx-hook="ImageDownloadHook" id="image-download-handler" style="display: none;"></div>
         <div phx-hook="RepostFormHook" id="repost-form-handler" style="display: none;"></div>
         <%!-- Hero Section with responsive design --%>
@@ -4228,7 +4228,7 @@ defmodule MossletWeb.UserHomeLive do
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <%!-- Left Column: Connection Profile Details --%>
-            <div class="lg:col-span-2 space-y-8" data-profile-scope="conn-profile">
+            <div class="lg:col-span-2 space-y-8">
               <%!-- DecryptProfileFields hook for browser-side ZK decryption --%>
               <div
                 :if={@profile_fields && @profile_fields[:browser_decrypt?]}
