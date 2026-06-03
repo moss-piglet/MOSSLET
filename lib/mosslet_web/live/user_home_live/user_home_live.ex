@@ -2435,6 +2435,20 @@ defmodule MossletWeb.UserHomeLive do
   end
 
   def handle_event(
+        "regenerate_preview_url",
+        %{"image_hash" => image_hash, "post_id" => post_id},
+        socket
+      ) do
+    case Mosslet.Extensions.URLPreviewImageProxy.regenerate_presigned_url(image_hash, post_id) do
+      {:ok, new_presigned_url} ->
+        {:reply, %{response: "success", presigned_url: new_presigned_url}, socket}
+
+      {:error, _reason} ->
+        {:reply, %{response: "failed"}, socket}
+    end
+  end
+
+  def handle_event(
         "expand_nested_replies",
         %{"reply-id" => reply_id, "post-id" => post_id},
         socket
