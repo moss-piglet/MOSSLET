@@ -252,7 +252,6 @@ defmodule Mosslet.Timeline do
     if !options[:skip_cache] do
       case TimelineCache.get_timeline_data(current_user.id, tab) do
         {:hit, cached_data} ->
-          Logger.debug("Timeline cache hit for user #{current_user.id}, tab #{tab}")
           cached_data[:posts] || []
 
         :miss ->
@@ -614,7 +613,6 @@ defmodule Mosslet.Timeline do
       if !options_with_filters[:skip_cache] && (options_with_filters[:post_page] || 1) == 1 do
         case TimelineCache.get_timeline_data(current_user.id, "connections") do
           {:hit, cached_data} ->
-            Logger.debug("Connections timeline cache hit for user #{current_user.id}")
             cached_data[:posts] || []
 
           :miss ->
@@ -731,7 +729,6 @@ defmodule Mosslet.Timeline do
       if !options[:skip_cache] && (options[:post_page] || 1) == 1 do
         case TimelineCache.get_timeline_data(current_user.id, "groups") do
           {:hit, cached_data} ->
-            Logger.debug("Groups timeline cache hit for user #{current_user.id}")
             cached_data[:posts] || []
 
           :miss ->
@@ -769,7 +766,6 @@ defmodule Mosslet.Timeline do
       if current_user && !options[:skip_cache] && (options[:post_page] || 1) == 1 do
         case TimelineCache.get_timeline_data(current_user.id, "discover") do
           {:hit, cached_data} ->
-            Logger.debug("Discover timeline cache hit for user #{current_user.id}")
             cached_data[:posts] || []
 
           :miss ->
@@ -817,7 +813,6 @@ defmodule Mosslet.Timeline do
       if !options[:skip_cache] && (options[:post_page] || 1) == 1 do
         case TimelineCache.get_timeline_data(current_user.id, "home") do
           {:hit, cached_data} ->
-            Logger.debug("Home timeline cache hit for user #{current_user.id}")
             cached_data[:posts] || []
 
           :miss ->
@@ -865,7 +860,6 @@ defmodule Mosslet.Timeline do
       if !options_with_filters[:skip_cache] && (options_with_filters[:post_page] || 1) == 1 do
         case TimelineCache.get_timeline_data(current_user.id, "home") do
           {:hit, cached_data} ->
-            Logger.debug("Home timeline cache hit for user #{current_user.id}")
             cached_data[:posts] || []
 
           :miss ->
@@ -1857,12 +1851,12 @@ defmodule Mosslet.Timeline do
 
           {:error, :update_user_post, changeset, _map} ->
             Logger.warning("Error updating public post")
-            Logger.debug("Error updating public post: #{inspect(changeset)}")
+
             :error
 
           rest ->
             Logger.warning("Unknown error updating user_post")
-            Logger.debug("Unknown error updating user_post: #{inspect(rest)}")
+
             :error
         end
       end
@@ -2005,7 +1999,7 @@ defmodule Mosslet.Timeline do
 
             rest ->
               Logger.warning("Error creating public repost")
-              Logger.debug("Error creating public repost: #{inspect(rest)}")
+
               {:error, "error"}
           end
 
@@ -2043,7 +2037,7 @@ defmodule Mosslet.Timeline do
 
             rest ->
               Logger.warning("Error creating repost")
-              Logger.debug("Error creating repost: #{inspect(rest)}")
+
               {:error, "error"}
           end
       end
@@ -2160,7 +2154,7 @@ defmodule Mosslet.Timeline do
 
         rest ->
           Logger.warning("Error creating targeted share")
-          Logger.debug("Error creating targeted share: #{inspect(rest)}")
+
           {:error, "error"}
       end
     end
@@ -2280,7 +2274,7 @@ defmodule Mosslet.Timeline do
 
         rest ->
           Logger.warning("Error creating ZK repost")
-          Logger.debug("Error creating ZK repost: #{inspect(rest)}")
+
           {:error, "error"}
       end
     end
@@ -2390,7 +2384,7 @@ defmodule Mosslet.Timeline do
 
         rest ->
           Logger.warning("Error creating ZK targeted share")
-          Logger.debug("Error creating ZK targeted share: #{inspect(rest)}")
+
           {:error, "error"}
       end
     end
@@ -2507,7 +2501,7 @@ defmodule Mosslet.Timeline do
 
       rest ->
         Logger.warning("Error updating public post")
-        Logger.debug("Error updating public post: #{inspect(rest)}")
+
         {:error, "error"}
     end
   end
@@ -2564,7 +2558,7 @@ defmodule Mosslet.Timeline do
 
         rest ->
           Logger.warning("Error updating post")
-          Logger.debug("Error updating post: #{inspect(rest)}")
+
           {:error, "error"}
       end
     else
@@ -2642,7 +2636,7 @@ defmodule Mosslet.Timeline do
 
       rest ->
         Logger.warning("Error updating post read user_post_receipt")
-        Logger.debug("Error updating post read user_post_receipt: #{inspect(rest)}")
+
         {:error, "error"}
     end
   end
@@ -2669,7 +2663,7 @@ defmodule Mosslet.Timeline do
 
       rest ->
         Logger.warning("Error updating post unread user_post_receipt")
-        Logger.debug("Error updating post unread user_post_receipt: #{inspect(rest)}")
+
         {:error, "error"}
     end
   end
@@ -2700,7 +2694,7 @@ defmodule Mosslet.Timeline do
 
       rest ->
         Logger.warning("Error updating post fav")
-        Logger.debug("Error updating post fav: #{inspect(rest)}")
+
         {:error, "error"}
     end
   end
@@ -2745,7 +2739,7 @@ defmodule Mosslet.Timeline do
 
       rest ->
         Logger.warning("Error updating reply fav")
-        Logger.debug("Error updating reply fav: #{inspect(rest)}")
+
         {:error, "error"}
     end
   end
@@ -2770,7 +2764,7 @@ defmodule Mosslet.Timeline do
 
       rest ->
         Logger.warning("Error updating reply fav (ZK)")
-        Logger.debug("Error updating reply fav (ZK): #{inspect(rest)}")
+
         {:error, "error"}
     end
   end
@@ -2806,7 +2800,6 @@ defmodule Mosslet.Timeline do
           "There was an error update_post_shared_users/3 in Mosslet.Timeline #{inspect(changeset)}"
         )
 
-        Logger.debug(inspect(changeset))
         {:error, changeset}
     end
   end
@@ -2834,10 +2827,6 @@ defmodule Mosslet.Timeline do
           )
         end)
 
-        Logger.debug(
-          "Broadcasting :post_shared_users_added to conn_posts:#{updated_post.user_id}"
-        )
-
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
           "conn_posts:#{updated_post.user_id}",
@@ -2851,7 +2840,6 @@ defmodule Mosslet.Timeline do
           "There was an error update_post_shared_users_without_validation/3 in Mosslet.Timeline #{inspect(changeset)}"
         )
 
-        Logger.debug(inspect(changeset))
         {:error, changeset}
     end
   end
@@ -2880,10 +2868,6 @@ defmodule Mosslet.Timeline do
           )
         end)
 
-        Logger.debug(
-          "Broadcasting :post_shared_users_removed to conn_posts:#{updated_post.user_id}"
-        )
-
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
           "conn_posts:#{updated_post.user_id}",
@@ -2897,7 +2881,6 @@ defmodule Mosslet.Timeline do
           "There was an error remove_post_shared_user/3 in Mosslet.Timeline #{inspect(changeset)}"
         )
 
-        Logger.debug({inspect(changeset)})
         {:error, changeset}
     end
   end
@@ -3162,7 +3145,7 @@ defmodule Mosslet.Timeline do
 
         rest ->
           Logger.warning("Error deleting post")
-          Logger.debug("Error deleting post: #{inspect(rest)}")
+
           {:error, "error"}
       end
     else
@@ -3210,7 +3193,7 @@ defmodule Mosslet.Timeline do
 
           rest ->
             Logger.warning("Error deleting post")
-            Logger.debug("Error deleting post: #{inspect(rest)}")
+
             {:error, "error"}
         end
       else
@@ -3256,7 +3239,7 @@ defmodule Mosslet.Timeline do
 
       rest ->
         Logger.warning("Error deleting user_post")
-        Logger.debug("Error deleting user_post: #{inspect(rest)}")
+
         {:error, "error"}
     end
   end
@@ -3309,7 +3292,7 @@ defmodule Mosslet.Timeline do
 
         rest ->
           Logger.warning("Error removing self from shared post")
-          Logger.debug("Error removing self from shared post: #{inspect(rest)}")
+
           {:error, "error"}
       end
     end
@@ -3339,7 +3322,6 @@ defmodule Mosslet.Timeline do
           "There was an error remove_post_shared_user_for_self/3 in Mosslet.Timeline #{inspect(changeset)}"
         )
 
-        Logger.debug({inspect(changeset)})
         {:error, changeset}
     end
   end

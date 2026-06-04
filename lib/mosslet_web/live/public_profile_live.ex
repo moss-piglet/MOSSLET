@@ -1,8 +1,6 @@
 defmodule MossletWeb.PublicProfileLive do
   use MossletWeb, :live_view
 
-  require Logger
-
   alias Mosslet.Accounts
   alias MossletWeb.Helpers.StatusHelpers
   alias MossletWeb.Helpers.URLPreviewHelpers

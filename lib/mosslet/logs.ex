@@ -15,8 +15,6 @@ defmodule Mosslet.Logs do
   alias Mosslet.Logs.Log
   alias Mosslet.Platform
 
-  require Logger
-
   @doc """
   Returns the appropriate adapter module based on the current platform.
   """
@@ -132,7 +130,7 @@ defmodule Mosslet.Logs do
 
       # Delete logs older than 7 days
       Logs.delete_logs_older_than(7)
-      
+
       # Delete logs older than 30 days
       Logs.delete_logs_older_than(30)
   """

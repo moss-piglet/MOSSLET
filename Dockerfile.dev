@@ -8,9 +8,9 @@
 # - Hot code reloading support
 # - Both web (Postgres) and native (SQLite) modes supported
 #
-ARG ELIXIR_VERSION=1.19.5
-ARG OTP_VERSION=28.3
-ARG DEBIAN_VERSION=bookworm-20260112-slim
+ARG ELIXIR_VERSION=1.20.0
+ARG OTP_VERSION=29.0.1
+ARG DEBIAN_VERSION=trixie-20260518-slim
 
 ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
 

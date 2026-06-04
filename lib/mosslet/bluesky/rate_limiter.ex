@@ -14,8 +14,6 @@ defmodule Mosslet.Bluesky.RateLimiter do
     - `ratelimit-policy` - Policy description
   """
 
-  require Logger
-
   @pt_key :bluesky_rate_limit
 
   @doc """

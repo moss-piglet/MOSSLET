@@ -20,8 +20,6 @@ defmodule Mosslet.Orgs.Adapters.Native do
 
   @behaviour Mosslet.Orgs.Adapter
 
-  require Logger
-
   alias Mosslet.API.Client
   alias Mosslet.Cache
   alias Mosslet.Session.Native, as: NativeSession

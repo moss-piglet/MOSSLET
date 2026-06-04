@@ -8,8 +8,6 @@ defmodule Mosslet.Conversations.Adapters.Native do
 
   @behaviour Mosslet.Conversations.Adapter
 
-  require Logger
-
   alias Mosslet.API.Client
   alias Mosslet.Cache
   alias Mosslet.Session.Native, as: NativeSession

@@ -35,8 +35,6 @@ defmodule Mosslet.FileUploads.BannerUploadWriter do
 
   @behaviour Phoenix.LiveView.UploadWriter
 
-  require Logger
-
   alias Mosslet.FileUploads.TempStorage
 
   @temp_subdir "banner_uploads"

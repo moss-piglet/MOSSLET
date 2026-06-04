@@ -7,8 +7,6 @@ defmodule Mosslet.Accounts.UserNotifier do
   alias Mosslet.Notifications.Email
   alias Mosslet.Mailer
 
-  require Logger
-
   @doc """
   Deliver instructions to confirm account.
   """

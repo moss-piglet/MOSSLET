@@ -11,8 +11,6 @@ defmodule Mosslet.Memories do
   Note: Memories is a legacy feature being phased out. This adapter
   implementation provides platform support during the transition period.
   """
-  require Logger
-
   alias Mosslet.Accounts
   alias Mosslet.Memories.{Memory, Remark}
   alias Mosslet.Encrypted

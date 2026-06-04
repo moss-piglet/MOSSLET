@@ -21,8 +21,6 @@ defmodule Mosslet.Security.KeyRotation do
   alias Mosslet.Security.KeyRotationProgress
   alias Mosslet.Vault
 
-  require Logger
-
   @pubsub_topic "key_rotation:progress"
 
   def subscribe do

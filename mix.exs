@@ -7,7 +7,7 @@ defmodule Mosslet.MixProject do
     [
       app: :mosslet,
       version: @version,
-      elixir: "~> 1.19",
+      elixir: "~> 1.20",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
@@ -144,7 +144,7 @@ defmodule Mosslet.MixProject do
       {:ex_marcel, "~> 0.1.0"},
       {:ex_slop, "~> 0.1", only: [:dev, :test], runtime: false},
       {:expletive, "~> 0.1.5"},
-      {:faker, "~> 0.18", only: [:test, :dev]},
+      # {:faker, "~> 0.18", only: [:test, :dev]},
       {:flame, "~> 0.5.3"},
       {:floki, ">= 0.30.0"},
       {:flop, "~> 0.20"},

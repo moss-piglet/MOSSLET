@@ -7,7 +7,6 @@ defmodule Mosslet.Timeline.ContentFilter do
   """
 
   alias Mosslet.Timeline.{Performance.TimelineCache, UserTimelinePreference}
-  require Logger
 
   @doc """
   Updates user's content filter preferences.

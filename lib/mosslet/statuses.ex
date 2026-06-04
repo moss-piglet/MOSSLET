@@ -19,8 +19,6 @@ defmodule Mosslet.Statuses do
   alias Mosslet.Accounts.User
   alias Mosslet.Platform
 
-  require Logger
-
   @doc """
   Returns the appropriate adapter module based on the current platform.
   """

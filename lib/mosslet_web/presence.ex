@@ -29,8 +29,6 @@ defmodule MossletWeb.Presence do
     otp_app: :mosslet,
     pubsub_server: Mosslet.PubSub
 
-  require Logger
-
   @presence_topic "proxy:online_users"
 
   def init(_opts) do

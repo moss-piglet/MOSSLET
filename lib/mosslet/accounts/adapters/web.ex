@@ -15,8 +15,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
 
   alias Mosslet.Repo
 
-  require Logger
-
   alias Mosslet.Encrypted
   alias Mosslet.Groups.Group
   alias Mosslet.Memories.{Memory, Remark, UserMemory}

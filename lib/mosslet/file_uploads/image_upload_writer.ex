@@ -51,8 +51,6 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
 
   @behaviour Phoenix.LiveView.UploadWriter
 
-  require Logger
-
   alias Mosslet.Encrypted
   alias Mosslet.Accounts
   alias Mosslet.FileUploads.TempStorage
