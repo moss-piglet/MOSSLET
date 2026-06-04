@@ -16,7 +16,6 @@ defmodule Mosslet.Application do
     end
 
     unless Mosslet.Platform.native?() or flame_parent do
-      Logger.add_backend(Sentry.LoggerBackend)
       Oban.Telemetry.attach_default_logger()
       Mosslet.ObanReporter.attach()
     end

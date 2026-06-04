@@ -201,7 +201,6 @@ defmodule Mosslet.MixProject do
       {:req, "~> 0.5.0"},
       {:req_llm, "~> 1.3"},
       {:safeurl, "~> 1.0"},
-      {:sentry, "~> 8.0"},
       {:sizeable, "~> 1.0"},
       {:slugify, "~> 1.3"},
       {:sobelow, "~> 0.14.1", only: [:dev, :test], runtime: false},

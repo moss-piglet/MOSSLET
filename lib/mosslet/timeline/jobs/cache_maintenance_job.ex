@@ -191,9 +191,6 @@ defmodule Mosslet.Timeline.Jobs.CacheMaintenanceJob do
       Logger.info("Cache table: #{stats.table_name}")
     end
 
-    # Could send to external monitoring service here
-    # Sentry.capture_message("Timeline cache stats", extra: stats)
-
     :ok
   end
 

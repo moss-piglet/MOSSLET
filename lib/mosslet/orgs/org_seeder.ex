@@ -12,7 +12,11 @@ defmodule Mosslet.Orgs.OrgSeeder do
 
   def random_org_attributes do
     %{
-      name: Faker.Company.name()
+      # NOTE: Faker is temporarily disabled (see mix.exs) — Faker 0.18 emits
+      # invalid Unicode that fails to compile under Elixir 1.20. Restore
+      # `Faker.Company.name()` once an updated release is available.
+      # name: Faker.Company.name()
+      name: "Org #{System.unique_integer([:positive])}"
     }
   end
 end

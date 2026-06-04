@@ -1,5 +1,4 @@
 defmodule MossletWeb.Endpoint do
-  use Sentry.PlugCapture
   use Phoenix.Endpoint, otp_app: :mosslet
 
   # Enable concurrent testing for Wallaby
@@ -67,8 +66,6 @@ defmodule MossletWeb.Endpoint do
     json_decoder: Phoenix.json_library(),
     # 8 MB by trix.js calculations
     length: 8_388_608
-
-  plug Sentry.PlugContext
 
   plug MossletWeb.Plugs.ContentSecurityPolicy
 

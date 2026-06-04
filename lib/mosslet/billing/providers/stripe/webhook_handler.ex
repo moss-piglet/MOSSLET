@@ -6,7 +6,6 @@ defmodule Mosslet.Billing.Providers.Stripe.WebhookHandler do
   @behaviour Stripe.WebhookHandler
 
   require Logger
-  require Protocol
 
   @doc """
   Handle Stripe events here.

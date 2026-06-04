@@ -309,7 +309,7 @@ defmodule Mosslet.Bluesky.OAuth do
 
   defp decode_der_signature(der) do
     <<0x30, _len, 0x02, r_len, r::binary-size(r_len), 0x02, s_len, rest::binary>> = der
-    <<s::binary-size(s_len), _::binary>> = rest
+    <<s::binary-size(^s_len), _::binary>> = rest
 
     r_padded = pad_to_32(r)
     s_padded = pad_to_32(s)

@@ -1849,12 +1849,12 @@ defmodule Mosslet.Timeline do
           {:ok, %{update_user_post: _user_post}} ->
             :ok
 
-          {:error, :update_user_post, changeset, _map} ->
+          {:error, :update_user_post, _changeset, _map} ->
             Logger.warning("Error updating public post")
 
             :error
 
-          rest ->
+          _rest ->
             Logger.warning("Unknown error updating user_post")
 
             :error
@@ -1997,7 +1997,7 @@ defmodule Mosslet.Timeline do
             {:error, :insert_post, changeset, _map} ->
               {:error, changeset}
 
-            rest ->
+            _rest ->
               Logger.warning("Error creating public repost")
 
               {:error, "error"}
@@ -2035,7 +2035,7 @@ defmodule Mosslet.Timeline do
             {:error, :insert_post, _, :update_user_post, changeset, _map} ->
               {:error, changeset}
 
-            rest ->
+            _rest ->
               Logger.warning("Error creating repost")
 
               {:error, "error"}
@@ -2152,7 +2152,7 @@ defmodule Mosslet.Timeline do
         {:error, :insert_user_post, changeset, _map} ->
           {:error, changeset}
 
-        rest ->
+        _rest ->
           Logger.warning("Error creating targeted share")
 
           {:error, "error"}
@@ -2272,7 +2272,7 @@ defmodule Mosslet.Timeline do
         {:error, _op, changeset, _map} ->
           {:error, changeset}
 
-        rest ->
+        _rest ->
           Logger.warning("Error creating ZK repost")
 
           {:error, "error"}
@@ -2382,7 +2382,7 @@ defmodule Mosslet.Timeline do
         {:error, _op, changeset, _map} ->
           {:error, changeset}
 
-        rest ->
+        _rest ->
           Logger.warning("Error creating ZK targeted share")
 
           {:error, "error"}
@@ -2499,7 +2499,7 @@ defmodule Mosslet.Timeline do
       {:error, :update_post, _, :update_user_post, changeset, _map} ->
         {:error, changeset}
 
-      rest ->
+      _rest ->
         Logger.warning("Error updating public post")
 
         {:error, "error"}
@@ -2556,7 +2556,7 @@ defmodule Mosslet.Timeline do
         {:error, :update_post, _, :update_user_post, changeset, _map} ->
           {:error, changeset}
 
-        rest ->
+        _rest ->
           Logger.warning("Error updating post")
 
           {:error, "error"}
@@ -2634,7 +2634,7 @@ defmodule Mosslet.Timeline do
         # Return the expected tuple for the LiveView
         {:ok, conn, post}
 
-      rest ->
+      _rest ->
         Logger.warning("Error updating post read user_post_receipt")
 
         {:error, "error"}
@@ -2661,7 +2661,7 @@ defmodule Mosslet.Timeline do
         # Return the expected tuple for the LiveView
         {:ok, conn, post}
 
-      rest ->
+      _rest ->
         Logger.warning("Error updating post unread user_post_receipt")
 
         {:error, "error"}
@@ -2692,7 +2692,7 @@ defmodule Mosslet.Timeline do
       {:ok, {:error, changeset}} ->
         {:error, changeset}
 
-      rest ->
+      _rest ->
         Logger.warning("Error updating post fav")
 
         {:error, "error"}
@@ -2737,7 +2737,7 @@ defmodule Mosslet.Timeline do
       {:ok, {:error, changeset}} ->
         {:error, changeset}
 
-      rest ->
+      _rest ->
         Logger.warning("Error updating reply fav")
 
         {:error, "error"}
@@ -2762,7 +2762,7 @@ defmodule Mosslet.Timeline do
       {:ok, {:error, changeset}} ->
         {:error, changeset}
 
-      rest ->
+      _rest ->
         Logger.warning("Error updating reply fav (ZK)")
 
         {:error, "error"}
@@ -3143,7 +3143,7 @@ defmodule Mosslet.Timeline do
           {:ok, conn, post}
           |> broadcast(:post_deleted)
 
-        rest ->
+        _rest ->
           Logger.warning("Error deleting post")
 
           {:error, "error"}
@@ -3191,7 +3191,7 @@ defmodule Mosslet.Timeline do
             {:ok, conn, post}
             |> broadcast(:post_deleted)
 
-          rest ->
+          _rest ->
             Logger.warning("Error deleting post")
 
             {:error, "error"}
@@ -3237,7 +3237,7 @@ defmodule Mosslet.Timeline do
           user: opts[:user]
         )
 
-      rest ->
+      _rest ->
         Logger.warning("Error deleting user_post")
 
         {:error, "error"}
@@ -3290,7 +3290,7 @@ defmodule Mosslet.Timeline do
             removed_user: current_user
           )
 
-        rest ->
+        _rest ->
           Logger.warning("Error removing self from shared post")
 
           {:error, "error"}

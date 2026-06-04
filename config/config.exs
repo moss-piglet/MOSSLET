@@ -221,12 +221,6 @@ config :image, :social,
   facebook: [width: 1200, height: 630],
   linkedin: [width: 1200, height: 627]
 
-# Configure Sentry error monitoring
-config :sentry,
-  client: Mosslet.SentryFinchClient,
-  included_environments: ~w(production staging),
-  environment_name: "development"
-
 # Configure Stripe
 # hackney_opts forces HTTP/1.1 because stripity_stripe 3.3.x hardcodes a
 # Connection: keep-alive header that is forbidden in HTTP/2. hackney 4.x

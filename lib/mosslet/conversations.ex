@@ -21,8 +21,6 @@ defmodule Mosslet.Conversations do
   alias Mosslet.Conversations.{Conversation, Message}
   alias Mosslet.Platform
 
-  require Logger
-
   def adapter do
     if Platform.native?() do
       Module.concat([__MODULE__, Adapters, Native])

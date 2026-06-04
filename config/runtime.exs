@@ -291,10 +291,6 @@ if System.get_env("MOSSLET_NATIVE") == "true" || config_env() == :dev_desktop do
     openai_key: System.get_env("OPENAI_KEY"),
     openai_org_id: System.get_env("OPENAI_ORG_ID")
 
-  config :sentry,
-    dsn: System.get_env("SENTRY_DSN"),
-    environment_name: System.get_env("RELEASE_LEVEL") || "development"
-
   config :stripity_stripe,
     api_key: {System, :get_env, ["STRIPE_API_KEY"]},
     signing_secret: System.get_env("STRIPE_WEBHOOK_SECRET")
