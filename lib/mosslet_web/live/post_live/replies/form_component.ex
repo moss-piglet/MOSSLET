@@ -325,12 +325,17 @@ defmodule MossletWeb.PostLive.Replies.FormComponent do
       post = socket.assigns.post
       trix_key = socket.assigns[:trix_key]
 
+      # Store the browser-encrypted (base64) ciphertext as-is. Provided in
+      # reply_params so the changeset's required/length validations pass.
+      reply_params =
+        reply_params
+        |> Map.put("body", zk_params["encrypted_body"])
+        |> Map.put("username", zk_params["encrypted_username"])
+
       case Timeline.update_reply(reply, reply_params,
              update_reply: true,
              encrypt_reply: true,
              zk_reply: true,
-             encrypted_body: Base.decode64!(zk_params["encrypted_body"]),
-             encrypted_username: Base.decode64!(zk_params["encrypted_username"]),
              visibility: reply.visibility,
              trix_key: trix_key,
              post_key: get_post_key(post, user),
@@ -360,12 +365,17 @@ defmodule MossletWeb.PostLive.Replies.FormComponent do
     post = socket.assigns.post
     trix_key = socket.assigns[:trix_key]
 
+    # Store the browser-encrypted (base64) ciphertext as-is. Provided in
+    # reply_params so the changeset's required/length validations pass.
+    reply_params =
+      reply_params
+      |> Map.put("body", zk_params["encrypted_body"])
+      |> Map.put("username", zk_params["encrypted_username"])
+
     case Timeline.create_reply(reply_params,
            update_reply: true,
            encrypt_reply: true,
            zk_reply: true,
-           encrypted_body: Base.decode64!(zk_params["encrypted_body"]),
-           encrypted_username: Base.decode64!(zk_params["encrypted_username"]),
            visibility: post.visibility,
            post: post,
            trix_key: trix_key,

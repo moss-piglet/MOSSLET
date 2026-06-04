@@ -1047,7 +1047,11 @@ defmodule MossletWeb.UserHomeLive do
           "user_id" => current_user.id,
           "post_id" => post_id,
           "group_id" => zk_params["group_id"],
-          "visibility" => to_string(visibility)
+          "visibility" => to_string(visibility),
+          # Browser-encrypted (base64) ciphertext, stored as-is for ZK.
+          # Provided here so the changeset's required/length validations pass.
+          "body" => zk_params["encrypted_body"],
+          "username" => zk_params["encrypted_username"]
         }
 
         case Timeline.create_reply(reply_params,
@@ -1056,9 +1060,7 @@ defmodule MossletWeb.UserHomeLive do
                post: post,
                post_key: post_key,
                visibility: visibility,
-               zk_reply: true,
-               encrypted_body: Base.decode64!(zk_params["encrypted_body"]),
-               encrypted_username: Base.decode64!(zk_params["encrypted_username"])
+               zk_reply: true
              ) do
           {:ok, _reply} ->
             Accounts.track_user_activity(current_user, :interaction)

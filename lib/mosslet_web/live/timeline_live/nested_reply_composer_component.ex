@@ -142,7 +142,11 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
       "user_id" => current_user.id,
       "post_id" => post.id,
       "parent_reply_id" => parent_reply.id,
-      "visibility" => to_string(post.visibility)
+      "visibility" => to_string(post.visibility),
+      # Browser-encrypted (base64) ciphertext, stored as-is for ZK.
+      # Provided here so the changeset's required/length validations pass.
+      "body" => zk_params["encrypted_body"],
+      "username" => zk_params["encrypted_username"]
     }
 
     case Timeline.create_reply(reply_attrs,
@@ -151,9 +155,7 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
            post: post,
            post_key: post_key,
            visibility: post.visibility,
-           zk_reply: true,
-           encrypted_body: Base.decode64!(zk_params["encrypted_body"]),
-           encrypted_username: Base.decode64!(zk_params["encrypted_username"])
+           zk_reply: true
          ) do
       {:ok, _reply} ->
         Accounts.track_user_activity(current_user, :interaction)

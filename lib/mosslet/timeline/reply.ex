@@ -186,7 +186,7 @@ defmodule Mosslet.Timeline.Reply do
   # Updated to include opts[:trix_key] for images uploaded
   # from Trix.
   defp encrypt_attrs(changeset, opts) do
-    if opts[:user] && opts[:key] do
+    if changeset.valid? && opts[:user] && opts[:key] do
       toggle_zk = opts[:zk_reply]
 
       if toggle_zk do
@@ -199,12 +199,16 @@ defmodule Mosslet.Timeline.Reply do
     end
   end
 
-  # ZK path: reply fields pre-encrypted by browser with cached parent post_key.
-  # Server never sees the post_key or plaintext reply content.
-  defp encrypt_attrs_zk(changeset, opts) do
+  # ZK path: reply body/username are pre-encrypted by the browser with the
+  # cached parent post_key and arrive as base64 ciphertext strings. They are
+  # already cast onto the changeset via `attrs`, so the server stores them
+  # as-is — never decoding or touching the post_key or plaintext content.
+  #
+  # We keep the base64 string intact (rather than `Base.decode64!`) so the
+  # `DecryptReply` hook can read `data-encrypted-body` and decrypt in WASM,
+  # mirroring the post ZK write path (`update_reply_body_zk/2`).
+  defp encrypt_attrs_zk(changeset, _opts) do
     changeset
-    |> put_change(:body, opts[:encrypted_body])
-    |> put_change(:username, opts[:encrypted_username])
   end
 
   # Legacy path: server decrypts post_key and encrypts reply fields.

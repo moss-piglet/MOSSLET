@@ -241,15 +241,17 @@ defmodule MossletWeb.GroupLive.Replies.FormComponent do
 
       reply_params = %{
         "group_id" => zk_params["group_id"] || to_string(post.group_id),
-        "visibility" => zk_params["visibility"] || to_string(post.visibility)
+        "visibility" => zk_params["visibility"] || to_string(post.visibility),
+        # Browser-encrypted (base64) ciphertext, stored as-is for ZK.
+        # Provided here so the changeset's required/length validations pass.
+        "body" => zk_params["encrypted_body"],
+        "username" => zk_params["encrypted_username"]
       }
 
       case Timeline.update_reply(reply, reply_params,
              update_reply: true,
              encrypt_reply: true,
              zk_reply: true,
-             encrypted_body: Base.decode64!(zk_params["encrypted_body"]),
-             encrypted_username: Base.decode64!(zk_params["encrypted_username"]),
              post_key: get_post_key(post, user),
              group_id: reply_params["group_id"],
              user: user,
@@ -277,7 +279,11 @@ defmodule MossletWeb.GroupLive.Replies.FormComponent do
       "user_id" => user.id,
       "post_id" => post.id,
       "group_id" => zk_params["group_id"] || to_string(post.group_id),
-      "visibility" => zk_params["visibility"] || to_string(post.visibility)
+      "visibility" => zk_params["visibility"] || to_string(post.visibility),
+      # Browser-encrypted (base64) ciphertext, stored as-is for ZK.
+      # Provided here so the changeset's required/length validations pass.
+      "body" => zk_params["encrypted_body"],
+      "username" => zk_params["encrypted_username"]
     }
 
     if reply_params["user_id"] == user.id do
@@ -285,8 +291,6 @@ defmodule MossletWeb.GroupLive.Replies.FormComponent do
              update_reply: true,
              encrypt_reply: true,
              zk_reply: true,
-             encrypted_body: Base.decode64!(zk_params["encrypted_body"]),
-             encrypted_username: Base.decode64!(zk_params["encrypted_username"]),
              post: post,
              post_key: get_post_key(post, user),
              group_id: reply_params["group_id"],
