@@ -187,13 +187,6 @@ defmodule Mosslet.Notifications.ReplyNotificationsGenServer do
         )
 
         {:error, reason}
-
-      false ->
-        :skip
-
-      error ->
-        Logger.error("Unexpected error for user #{post_owner_id}: #{inspect(error)}")
-        {:error, "Unexpected error: #{inspect(error)}"}
     end
   end
 

@@ -220,13 +220,6 @@ defmodule Mosslet.Notifications.MentionEmailNotificationsGenServer do
         )
 
         {:error, reason}
-
-      false ->
-        :skip
-
-      error ->
-        Logger.error("❌ Unexpected error for user #{mentioned_user_id}: #{inspect(error)}")
-        {:error, "Unexpected error: #{inspect(error)}"}
     end
   end
 

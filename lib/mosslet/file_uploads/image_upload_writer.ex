@@ -122,18 +122,14 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
     size = byte_size(data)
     new_total = state.total_size + size
 
-    case IO.binwrite(state.file_handle, data) do
-      :ok ->
-        if state.lv_pid && state.expected_size && state.expected_size > 0 do
-          percent = min(40, round(new_total / state.expected_size * 40))
-          send(state.lv_pid, {:upload_progress, state.entry_ref, :receiving, percent})
-        end
+    :ok = IO.binwrite(state.file_handle, data)
 
-        {:ok, %{state | total_size: new_total}}
-
-      {:error, reason} ->
-        {:error, "Failed to write chunk: #{inspect(reason)}"}
+    if state.lv_pid && state.expected_size && state.expected_size > 0 do
+      percent = min(40, round(new_total / state.expected_size * 40))
+      send(state.lv_pid, {:upload_progress, state.entry_ref, :receiving, percent})
     end
+
+    {:ok, %{state | total_size: new_total}}
   end
 
   @impl true
@@ -159,12 +155,6 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
              file_handle: nil,
              ai_generated: ai_generated
          }}
-
-      {:ok, processed_binary} ->
-        notify_ready(state, processed_binary, false)
-
-        {:ok,
-         %{state | processed_binary: processed_binary, file_handle: nil, ai_generated: false}}
 
       {:error, reason} ->
         notify_progress(state, :error, reason)
@@ -591,10 +581,6 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
     else
       "Failed to process HEIC/HEIF image. Please try a different format."
     end
-  end
-
-  defp heic_error_message(_reason) do
-    "Failed to process HEIC/HEIF image. Please try a different format."
   end
 
   defp notify_ready(state, processed_binary, ai_generated) do

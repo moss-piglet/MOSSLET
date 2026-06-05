@@ -293,19 +293,16 @@ defmodule Mosslet.Bluesky.ExportTask do
     if signing_key do
       public_key = derive_public_key(signing_key)
 
-      case Mosslet.Bluesky.OAuth.create_dpop_proof(
-             signing_key,
-             public_key,
-             "POST",
-             "#{pds_url}/xrpc/com.atproto.repo.createRecord",
-             access_token: account.access_jwt
-           ) do
-        {:ok, proof} ->
-          Keyword.merge(opts, dpop_proof: proof, signing_key: signing_key)
+      {:ok, proof} =
+        Mosslet.Bluesky.OAuth.create_dpop_proof(
+          signing_key,
+          public_key,
+          "POST",
+          "#{pds_url}/xrpc/com.atproto.repo.createRecord",
+          access_token: account.access_jwt
+        )
 
-        _ ->
-          opts
-      end
+      Keyword.merge(opts, dpop_proof: proof, signing_key: signing_key)
     else
       opts
     end

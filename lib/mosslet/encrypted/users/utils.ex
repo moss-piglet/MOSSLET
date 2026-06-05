@@ -72,7 +72,6 @@ defmodule Mosslet.Encrypted.Users.Utils do
     else
       {:error, error} -> "#{error}"
       {:error_private_key, _} -> "[encrypted]"
-      _ -> "[encrypted]"
     end
   end
 

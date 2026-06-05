@@ -75,18 +75,14 @@ defmodule Mosslet.FileUploads.JournalImageWriter do
     size = byte_size(data)
     new_total = state.total_size + size
 
-    case IO.binwrite(state.file_handle, data) do
-      :ok ->
-        if state.lv_pid && state.expected_size && state.expected_size > 0 do
-          percent = min(40, round(new_total / state.expected_size * 40))
-          notify_progress(state, :receiving, percent)
-        end
+    :ok = IO.binwrite(state.file_handle, data)
 
-        {:ok, %{state | total_size: new_total}}
-
-      {:error, reason} ->
-        {:error, "Failed to write chunk: #{inspect(reason)}", state}
+    if state.lv_pid && state.expected_size && state.expected_size > 0 do
+      percent = min(40, round(new_total / state.expected_size * 40))
+      notify_progress(state, :receiving, percent)
     end
+
+    {:ok, %{state | total_size: new_total}}
   end
 
   @impl true

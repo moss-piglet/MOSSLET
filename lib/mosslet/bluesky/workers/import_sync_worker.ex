@@ -111,12 +111,12 @@ defmodule Mosslet.Bluesky.Workers.ImportSyncWorker do
         pds_url = account.pds_url || "https://bsky.social"
         url = "#{pds_url}/xrpc/com.atproto.repo.listRecords"
 
-        case Mosslet.Bluesky.OAuth.create_dpop_proof(private_key, public_key, method, url,
-               access_token: account.access_jwt
-             ) do
-          {:ok, proof} -> proof
-          _ -> nil
-        end
+        {:ok, proof} =
+          Mosslet.Bluesky.OAuth.create_dpop_proof(private_key, public_key, method, url,
+            access_token: account.access_jwt
+          )
+
+        proof
     end
   end
 

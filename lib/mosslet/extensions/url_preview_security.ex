@@ -70,7 +70,6 @@ defmodule Mosslet.Extensions.URLPreviewSecurity do
   defp validate_scheme(scheme) when scheme in @allowed_schemes, do: :ok
   defp validate_scheme(_), do: {:error, :invalid_scheme}
 
-  defp validate_host(nil), do: {:error, :missing_host}
   defp validate_host(""), do: {:error, :missing_host}
   defp validate_host(_host), do: :ok
 

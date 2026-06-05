@@ -118,15 +118,12 @@ defmodule Mosslet.Bluesky.Workers.DeleteSyncWorker do
     url = "#{pds_url}/xrpc/com.atproto.repo.deleteRecord"
     public_key = derive_public_key(signing_key)
 
-    case Mosslet.Bluesky.OAuth.create_dpop_proof(signing_key, public_key, "POST", url,
-           access_token: account.access_jwt
-         ) do
-      {:ok, proof} ->
-        [pds_url: pds_url, dpop_proof: proof, signing_key: signing_key]
+    {:ok, proof} =
+      Mosslet.Bluesky.OAuth.create_dpop_proof(signing_key, public_key, "POST", url,
+        access_token: account.access_jwt
+      )
 
-      _ ->
-        [pds_url: pds_url]
-    end
+    [pds_url: pds_url, dpop_proof: proof, signing_key: signing_key]
   end
 
   defp derive_public_key(%{"kty" => "EC", "crv" => crv, "x" => x, "y" => y}) do

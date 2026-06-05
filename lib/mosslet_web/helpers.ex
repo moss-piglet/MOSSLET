@@ -1613,7 +1613,6 @@ defmodule MossletWeb.Helpers do
   end
 
   def html_block(nil), do: ""
-  def html_block(""), do: ""
 
   # Fast HTML detection for legacy Trix posts
   def contains_html?(content) when is_binary(content) do
@@ -1633,7 +1632,6 @@ defmodule MossletWeb.Helpers do
   end
 
   def contains_html?(nil), do: false
-  def contains_html?(""), do: false
 
   @doc """
   Formats and renders markdown content after decryption.
@@ -2203,11 +2201,14 @@ defmodule MossletWeb.Helpers do
       item.visibility == :private && item.user_id == user.id ->
         :private
 
-      (item.visibility == :public && is_nil(current_user)) || item.user_id != current_user.id ->
+      item.visibility == :public && is_nil(current_user) ->
         :public
 
-      item.visibility == :public && not is_nil(current_user) && item.user_id == current_user.id ->
+      item.visibility == :public && item.user_id == current_user.id ->
         :public_self
+
+      item.user_id != current_user.id ->
+        :public
 
       true ->
         :invalid
@@ -3241,11 +3242,9 @@ defmodule MossletWeb.Helpers do
     end
   end
 
-  defp valid_banner_url?(nil), do: false
   defp valid_banner_url?(""), do: false
   defp valid_banner_url?("failed_verification"), do: false
   defp valid_banner_url?(url) when is_binary(url), do: String.starts_with?(url, "uploads/")
-  defp valid_banner_url?(_), do: false
 
   # ETS stores raw binary blobs. HTML data attributes require UTF-8 text,
   # so we base64-encode before embedding. If the value is already a valid

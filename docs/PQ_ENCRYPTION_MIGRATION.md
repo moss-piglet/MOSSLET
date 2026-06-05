@@ -252,6 +252,15 @@
 **Decrypt fallback pattern** (`Encrypted.Utils.decrypt/1`):
 1. Try `MetamorphicCrypto.SecretBox.decrypt_string` (UTF-8 text — fast path)
 2. If that fails, try `MetamorphicCrypto.SecretBox.decrypt` (raw binary — images/avatars)
+3. **Legacy fallback**: if the payload is raw binary (not valid base64) — i.e. a
+   pre-migration `enacl` ciphertext stored as decoded `nonce<>ciphertext` bytes —
+   base64-encode it and retry steps 1–2. This recovers all pre-PQ avatars and post
+   images without any data migration.
+4. **Crash-safe**: the `metamorphic_crypto` NIF *raises* `ArgumentError` (not
+   `{:error, _}`) on malformed/raw-binary input. `try_decrypt/2` rescues it so a
+   single bad or legacy blob returns `{:error, :failed_verification}` instead of
+   crashing the calling LiveView process (previously crashed `EditVisibilityLive`
+   on visibility change and broke old post/profile image loading).
 
 **WASM initialization** (`nacl.js`):
 - `ensureReady()` loads WASM on first crypto call

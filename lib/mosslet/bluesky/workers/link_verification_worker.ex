@@ -153,12 +153,12 @@ defmodule Mosslet.Bluesky.Workers.LinkVerificationWorker do
     public_key = derive_public_key(signing_key)
     url = "#{pds_url}/xrpc/com.atproto.repo.getRecord"
 
-    case Mosslet.Bluesky.OAuth.create_dpop_proof(signing_key, public_key, "GET", url,
-           access_token: account.access_jwt
-         ) do
-      {:ok, proof} -> Keyword.merge(opts, dpop_proof: proof, signing_key: signing_key)
-      _ -> opts
-    end
+    {:ok, proof} =
+      Mosslet.Bluesky.OAuth.create_dpop_proof(signing_key, public_key, "GET", url,
+        access_token: account.access_jwt
+      )
+
+    Keyword.merge(opts, dpop_proof: proof, signing_key: signing_key)
   end
 
   defp derive_public_key(%{"kty" => "EC", "crv" => crv, "x" => x, "y" => y}) do

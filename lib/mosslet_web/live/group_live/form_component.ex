@@ -379,8 +379,10 @@ defmodule MossletWeb.GroupLive.FormComponent do
           |> Map.put(:action, :validate)
 
         !Enum.empty?(group_params["user_connections"]) ->
-          socket.assigns.group
-          |> Map.put(:users, build_users_from_uconn_ids(group_params["user_connections"]))
+          %{
+            socket.assigns.group
+            | users: build_users_from_uconn_ids(group_params["user_connections"])
+          }
           |> Groups.change_group(group_params,
             require_password?: group_params["require_password?"]
           )

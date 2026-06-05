@@ -39,24 +39,51 @@ defmodule Mosslet.Encrypted.Utils do
   end
 
   @spec decrypt(%{key: binary, payload: binary}) :: {:error, :failed_verification} | {:ok, binary}
+  def decrypt(%{key: _key, payload: nil}), do: {:ok, nil}
+  def decrypt(%{key: _key, payload: ""}), do: {:ok, ""}
+
   def decrypt(%{key: key, payload: payload}) when is_binary(payload) do
-    case MetamorphicCrypto.SecretBox.decrypt_string(payload, key) do
+    # 1. Current wire format: ciphertext is a base64 STRING.
+    #    Try UTF-8 plaintext (fast path), then raw-binary plaintext (images/avatars).
+    # 2. Legacy (pre-PQ / enacl) wire format: ciphertext was stored as RAW BINARY
+    #    (the decoded nonce<>ciphertext bytes), not base64. The NIF requires base64
+    #    input and *raises* ArgumentError on raw binary, so we base64-encode it and
+    #    retry. This recovers all pre-migration avatars and post images.
+    with :error <- try_decrypt(payload, key),
+         {:legacy, true} <- {:legacy, raw_binary?(payload)},
+         :error <- try_decrypt(Base.encode64(payload), key) do
+      {:error, :failed_verification}
+    else
+      {:ok, plaintext} -> {:ok, plaintext}
+      {:legacy, false} -> {:error, :failed_verification}
+    end
+  end
+
+  def decrypt(%{key: _key, payload: _payload}), do: {:error, :invalid_input}
+  def decrypt(_), do: {:error, :invalid_input}
+
+  # Attempts both NIF decrypt paths for a base64-string ciphertext.
+  # Returns `{:ok, plaintext}` or `:error`. Never raises — the metamorphic_crypto
+  # NIF raises ArgumentError on malformed (non-base64) input, which we rescue so a
+  # single bad/legacy blob can't crash the calling LiveView process.
+  defp try_decrypt(ciphertext, key) do
+    case MetamorphicCrypto.SecretBox.decrypt_string(ciphertext, key) do
       {:ok, plaintext} ->
         {:ok, plaintext}
 
       {:error, _reason} ->
         # Plaintext may be raw binary (e.g. image bytes), not UTF-8.
         # Fall back to raw decrypt which returns base64-encoded plaintext.
-        case MetamorphicCrypto.SecretBox.decrypt(payload, key) do
+        case MetamorphicCrypto.SecretBox.decrypt(ciphertext, key) do
           {:ok, plaintext_b64} -> {:ok, Base.decode64!(plaintext_b64)}
-          {:error, _reason} -> {:error, :failed_verification}
+          {:error, _reason} -> :error
         end
     end
+  rescue
+    ArgumentError -> :error
   end
 
-  def decrypt(%{key: _key, payload: nil}), do: {:ok, nil}
-  def decrypt(%{key: _key, payload: ""}), do: {:ok, ""}
-  def decrypt(_), do: {:error, :invalid_input}
+  defp raw_binary?(payload), do: match?(:error, Base.decode64(payload))
 
   @spec decrypt_key_hash(
           binary,

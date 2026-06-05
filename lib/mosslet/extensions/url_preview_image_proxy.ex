@@ -51,9 +51,6 @@ defmodule Mosslet.Extensions.URLPreviewImageProxy do
       {:ok, objects} when is_list(objects) ->
         delete_objects(memories_bucket, objects)
 
-      {:ok, []} ->
-        :ok
-
       {:error, reason} ->
         {:error, reason}
     end

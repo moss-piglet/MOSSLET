@@ -193,16 +193,13 @@ defmodule MossletWeb.Helpers.StatusHelpers do
         }
 
       true ->
-        case Statuses.get_user_status_for_viewer(user, current_user, session_key) do
-          %{status: status, status_message: status_message} ->
-            %{
-              status: to_string(status || "offline"),
-              status_message: status_message
-            }
+        %{status: status, status_message: status_message} =
+          Statuses.get_user_status_for_viewer(user, current_user, session_key)
 
-          _rest ->
-            %{status: nil, status_message: nil}
-        end
+        %{
+          status: to_string(status),
+          status_message: status_message
+        }
     end
   end
 

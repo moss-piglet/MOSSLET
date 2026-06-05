@@ -449,7 +449,7 @@ defmodule Mosslet.Accounts.User do
 
     cond do
       # Case 1: Status message was explicitly set to a non-empty value
-      opts[:key] && status_message && status_message != "" && not is_nil(status_message) ->
+      opts[:key] && is_binary(status_message) && status_message != "" ->
         changeset
         # Connection table
         |> encrypt_connection_map_status_change(opts, status_message)

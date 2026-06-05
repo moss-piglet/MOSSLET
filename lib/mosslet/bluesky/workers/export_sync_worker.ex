@@ -159,12 +159,12 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
     pds_url = account.pds_url || "https://bsky.social"
     url = "#{pds_url}/xrpc/com.atproto.repo.createRecord"
 
-    case Mosslet.Bluesky.OAuth.create_dpop_proof(signing_key, public_key, "POST", url,
-           access_token: account.access_jwt
-         ) do
-      {:ok, proof} -> Keyword.merge(opts, dpop_proof: proof, signing_key: signing_key)
-      _ -> opts
-    end
+    {:ok, proof} =
+      Mosslet.Bluesky.OAuth.create_dpop_proof(signing_key, public_key, "POST", url,
+        access_token: account.access_jwt
+      )
+
+    Keyword.merge(opts, dpop_proof: proof, signing_key: signing_key)
   end
 
   defp derive_public_key(%{"kty" => "EC", "crv" => crv, "x" => x, "y" => y}) do
@@ -857,12 +857,12 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
     public_key = derive_public_key(signing_key)
     url = "#{pds_url}/xrpc/com.atproto.repo.uploadBlob"
 
-    case Mosslet.Bluesky.OAuth.create_dpop_proof(signing_key, public_key, "POST", url,
-           access_token: account.access_jwt
-         ) do
-      {:ok, proof} -> Keyword.merge(opts, dpop_proof: proof, signing_key: signing_key)
-      _ -> opts
-    end
+    {:ok, proof} =
+      Mosslet.Bluesky.OAuth.create_dpop_proof(signing_key, public_key, "POST", url,
+        access_token: account.access_jwt
+      )
+
+    Keyword.merge(opts, dpop_proof: proof, signing_key: signing_key)
   end
 
   def enqueue_export(account_id, opts \\ []) do

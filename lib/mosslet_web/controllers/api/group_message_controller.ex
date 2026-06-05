@@ -10,6 +10,7 @@ defmodule MossletWeb.API.GroupMessageController do
 
   alias Mosslet.Groups
   alias Mosslet.GroupMessages
+  alias Mosslet.Groups.GroupMessage
 
   action_fallback MossletWeb.API.FallbackController
 
@@ -102,7 +103,7 @@ defmodule MossletWeb.API.GroupMessageController do
       nil ->
         {:error, :not_found}
 
-      message ->
+      %GroupMessage{} = message ->
         if message.user_id == user.id do
           attrs = decode_message_attrs(message_params)
 
@@ -135,7 +136,7 @@ defmodule MossletWeb.API.GroupMessageController do
       nil ->
         {:error, :not_found}
 
-      message ->
+      %GroupMessage{} = message ->
         group = Groups.get_group!(message.group_id)
         is_owner = message.user_id == user.id
         is_admin = can_manage_group?(group, user)

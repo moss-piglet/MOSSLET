@@ -392,8 +392,6 @@ defmodule Mosslet.Extensions.URLPreviewServer do
     not String.contains?(url, bucket_host)
   end
 
-  defp external_image_url?(_), do: false
-
   defp maybe_fetch_image_as_data_url(preview) do
     case preview["image"] do
       nil ->

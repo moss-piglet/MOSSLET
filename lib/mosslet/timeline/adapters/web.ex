@@ -1218,8 +1218,6 @@ defmodule Mosslet.Timeline.Adapters.Web do
     |> where([b, p], p.user_id not in subquery(blocked_me_subquery))
   end
 
-  defp filter_by_blocked_users_simple_bookmarks(query, _current_user_id), do: query
-
   defp filter_by_author_simple_bookmark(query, :all, _current_user_id), do: query
 
   defp filter_by_author_simple_bookmark(query, :mine, current_user_id) do
@@ -2415,10 +2413,8 @@ defmodule Mosslet.Timeline.Adapters.Web do
     end)
   end
 
-  defp filter_by_content_warnings_count(query, cw) when cw == %{}, do: query
-  defp filter_by_content_warnings_count(query, nil), do: query
-
-  defp filter_by_content_warnings_count(query, content_warnings) when is_map(content_warnings) do
+  defp filter_by_content_warnings_count(query, content_warnings)
+       when is_map(content_warnings) do
     hide_all = Map.get(content_warnings, :hide_all, false)
     hide_mature = Map.get(content_warnings, :hide_mature, false)
 
@@ -2426,6 +2422,8 @@ defmodule Mosslet.Timeline.Adapters.Web do
     |> maybe_filter_all_content_warnings(hide_all)
     |> maybe_filter_mature_content(hide_mature, hide_all)
   end
+
+  defp filter_by_content_warnings_count(query, _content_warnings), do: query
 
   defp maybe_filter_all_content_warnings(query, false), do: query
 
