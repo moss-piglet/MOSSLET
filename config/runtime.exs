@@ -65,19 +65,16 @@ if config_env() == :prod do
     if FLAME.Parent.get() do
       1
     else
-      String.to_integer(System.get_env("POOL_SIZE") || "10")
+      String.to_integer(System.get_env("POOL_SIZE") || "8")
     end
 
   config :mosslet, Mosslet.Repo.Local,
     url: database_url,
     pool_size: pool_size,
+    timeout: 15_000,
     # Required for PgBouncer in transaction mode (Fly Managed Postgres)
     prepare: :unnamed,
-    socket_options: maybe_ipv6,
-    connect_timeout: 30_000,
-    timeout: 30_000,
-    queue_target: 5_000,
-    queue_interval: 1_000
+    socket_options: maybe_ipv6
 
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you
