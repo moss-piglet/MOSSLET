@@ -390,27 +390,31 @@ defmodule MossletWeb.PrivacyComponents do
                                     <span class="text-sm font-medium text-amber-800 dark:text-amber-200 truncate">
                                       {decrypted_name}
                                     </span>
-                                    <%= if decrypted_label != "" do %>
-                                      <span class={[
+
+                                    <span
+                                      :if={decrypted_label != ""}
+                                      class={[
                                         "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0",
                                         MossletWeb.ConnectionComponents.get_connection_color_badge_classes(
                                           connection.color
                                         )
-                                      ]}>
-                                        {decrypted_label}
-                                      </span>
-                                    <% end %>
+                                      ]}
+                                    >
+                                      {decrypted_label}
+                                    </span>
                                   </div>
-                                  <%= if decrypted_username && decrypted_username != "" do %>
-                                    <span class={[
+
+                                  <span
+                                    :if={decrypted_username != ""}
+                                    class={[
                                       "text-xs truncate",
                                       MossletWeb.ConnectionComponents.connection_username_color_classes(
                                         connection.color
                                       )
-                                    ]}>
-                                      @{decrypted_username}
-                                    </span>
-                                  <% end %>
+                                    ]}
+                                  >
+                                    @{decrypted_username}
+                                  </span>
                                 </div>
                               </div>
                             </label>

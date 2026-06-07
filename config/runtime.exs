@@ -73,9 +73,10 @@ if config_env() == :prod do
     end
 
   config :mosslet, Mosslet.Repo.Local,
-    # ssl: true,
     url: database_url,
     pool_size: pool_size,
+    # Required for PgBouncer in transaction mode (Fly Managed Postgres)
+    prepare: :unnamed,
     socket_options: maybe_ipv6,
     connect_timeout: 30_000,
     timeout: 30_000,
@@ -135,15 +136,14 @@ if config_env() == :prod do
     api_client: Swoosh.ApiClient.Finch,
     finch_name: Mosslet.Finch
 
-  # Configure Oban for fly_postgres.
-  # We want to ensure we're only running on
-  # the primary database.
+  # Only run Oban queues/plugins in the primary region to avoid
+  # duplicate job execution across multi-region app servers.
   unless System.get_env("FLY_REGION") do
-    System.put_env("FLY_REGION", "ewr")
+    System.put_env("FLY_REGION", "iad")
   end
 
   unless System.get_env("PRIMARY_REGION") do
-    System.put_env("PRIMARY_REGION", "ewr")
+    System.put_env("PRIMARY_REGION", "iad")
   end
 
   primary? = System.get_env("FLY_REGION") == System.get_env("PRIMARY_REGION")

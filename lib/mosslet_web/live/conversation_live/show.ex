@@ -1590,6 +1590,4 @@ defmodule MossletWeb.ConversationLive.Show do
         {:error, :file_read_failed}
     end
   end
-
-  defp generate_cropped_preview(_temp_path, _crop), do: {:error, :invalid_crop}
 end
