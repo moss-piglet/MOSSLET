@@ -6,7 +6,7 @@
 app = "mosslet"
 kill_signal = "SIGTERM"
 
-primary_region = "ewr"
+primary_region = "iad"
 
 [mounts]
   source = "bumblebee_cache"
