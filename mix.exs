@@ -148,7 +148,6 @@ defmodule Mosslet.MixProject do
       {:flame, "~> 0.5.3"},
       {:floki, ">= 0.30.0"},
       {:flop, "~> 0.20"},
-      {:fly_postgres, "~> 0.3.2"},
       {:friendlyid, "~> 0.2.0"},
       {:gettext, "~> 1.0"},
       # for swoosh optional bug & stripty_stripe

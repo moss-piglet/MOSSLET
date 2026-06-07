@@ -157,9 +157,7 @@ defmodule Mosslet.Platform.Config do
 
   defp web_children do
     [
-      {Fly.RPC, []},
       Mosslet.Repo,
-      {Fly.Postgres.LSN.Supervisor, repo: Mosslet.Repo},
       Mosslet.Vault,
       {DNSCluster, query: Application.get_env(:mosslet, :dns_cluster_query) || :ignore},
       Mosslet.Extensions.URLPreviewServer,
