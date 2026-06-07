@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddAvatarImgToUserGroups do
+defmodule Mosslet.Repo.Migrations.AddAvatarImgToUserGroups do
   use Ecto.Migration
 
   def change do

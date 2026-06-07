@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddShareNoteToUserPosts do
+defmodule Mosslet.Repo.Migrations.AddShareNoteToUserPosts do
   use Ecto.Migration
 
   def change do

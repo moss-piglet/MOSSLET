@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddContentWarningsSystem do
+defmodule Mosslet.Repo.Migrations.AddContentWarningsSystem do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.ChangeProviderInfoToEncryptionOnCustomers do
+defmodule Mosslet.Repo.Migrations.ChangeProviderInfoToEncryptionOnCustomers do
   use Ecto.Migration
 
   def change do

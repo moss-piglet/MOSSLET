@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddBlurThumbnailToMemories do
+defmodule Mosslet.Repo.Migrations.AddBlurThumbnailToMemories do
   use Ecto.Migration
 
   def change do

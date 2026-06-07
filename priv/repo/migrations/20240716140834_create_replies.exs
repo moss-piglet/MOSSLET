@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.CreateReplies do
+defmodule Mosslet.Repo.Migrations.CreateReplies do
   use Ecto.Migration
 
   def change do

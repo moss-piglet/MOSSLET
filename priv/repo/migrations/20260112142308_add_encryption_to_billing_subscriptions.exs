@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddEncryptionToBillingSubscriptions do
+defmodule Mosslet.Repo.Migrations.AddEncryptionToBillingSubscriptions do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.ChangeProviderInfoToEncryptionOnPaymentIntents do
+defmodule Mosslet.Repo.Migrations.ChangeProviderInfoToEncryptionOnPaymentIntents do
   use Ecto.Migration
 
   def change do

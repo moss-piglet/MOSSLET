@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddFlyPostgresProc do
+defmodule Mosslet.Repo.Migrations.AddFlyPostgresProc do
   use Ecto.Migration
 
   def up do

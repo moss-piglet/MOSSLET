@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.ChangePaymentInfoToEncryptionOnUsers do
+defmodule Mosslet.Repo.Migrations.ChangePaymentInfoToEncryptionOnUsers do
   use Ecto.Migration
 
   def change do

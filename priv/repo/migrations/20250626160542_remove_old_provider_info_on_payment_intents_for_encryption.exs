@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.RemoveOldProviderInfoOnPaymentIntentsForEncryption do
+defmodule Mosslet.Repo.Migrations.RemoveOldProviderInfoOnPaymentIntentsForEncryption do
   use Ecto.Migration
 
   def change do

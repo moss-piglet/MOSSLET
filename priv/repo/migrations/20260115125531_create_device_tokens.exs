@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.CreateDeviceTokens do
+defmodule Mosslet.Repo.Migrations.CreateDeviceTokens do
   use Ecto.Migration
 
   def change do

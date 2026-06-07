@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.RenameContentWarningHashToCategoryHash do
+defmodule Mosslet.Repo.Migrations.RenameContentWarningHashToCategoryHash do
   use Ecto.Migration
 
   def change do

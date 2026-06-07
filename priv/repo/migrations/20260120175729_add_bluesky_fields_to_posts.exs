@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddBlueskyFieldsToPosts do
+defmodule Mosslet.Repo.Migrations.AddBlueskyFieldsToPosts do
   use Ecto.Migration
 
   def change do

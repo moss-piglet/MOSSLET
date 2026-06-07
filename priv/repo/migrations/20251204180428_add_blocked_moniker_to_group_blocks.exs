@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddBlockedMonikerToGroupBlocks do
+defmodule Mosslet.Repo.Migrations.AddBlockedMonikerToGroupBlocks do
   use Ecto.Migration
 
   def change do

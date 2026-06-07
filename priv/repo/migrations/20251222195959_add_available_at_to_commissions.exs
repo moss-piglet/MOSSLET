@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddAvailableAtToCommissions do
+defmodule Mosslet.Repo.Migrations.AddAvailableAtToCommissions do
   use Ecto.Migration
 
   def change do

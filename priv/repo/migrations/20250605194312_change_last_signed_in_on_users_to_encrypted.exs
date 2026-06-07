@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.ChangeLastSignedInOnUsersToEncrypted do
+defmodule Mosslet.Repo.Migrations.ChangeLastSignedInOnUsersToEncrypted do
   use Ecto.Migration
 
   def change do

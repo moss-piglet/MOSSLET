@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddTimelineNavigationSystem do
+defmodule Mosslet.Repo.Migrations.AddTimelineNavigationSystem do
   use Ecto.Migration
 
   def change do

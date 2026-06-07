@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddUserConnectionsToPosts do
+defmodule Mosslet.Repo.Migrations.AddUserConnectionsToPosts do
   use Ecto.Migration
 
   def change do

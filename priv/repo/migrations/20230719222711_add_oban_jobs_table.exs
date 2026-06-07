@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddObanJobsTable do
+defmodule Mosslet.Repo.Migrations.AddObanJobsTable do
   use Ecto.Migration
 
   def up do

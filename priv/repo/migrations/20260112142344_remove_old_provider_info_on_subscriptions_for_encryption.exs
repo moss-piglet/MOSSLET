@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.RemoveOldProviderInfoOnSubscriptionsForEncryption do
+defmodule Mosslet.Repo.Migrations.RemoveOldProviderInfoOnSubscriptionsForEncryption do
   use Ecto.Migration
 
   @doc """

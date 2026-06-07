@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddAvatarUrlToPosts do
+defmodule Mosslet.Repo.Migrations.AddAvatarUrlToPosts do
   use Ecto.Migration
 
   def change do

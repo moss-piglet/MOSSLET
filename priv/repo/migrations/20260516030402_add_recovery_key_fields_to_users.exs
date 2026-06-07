@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddRecoveryKeyFieldsToUsers do
+defmodule Mosslet.Repo.Migrations.AddRecoveryKeyFieldsToUsers do
   use Ecto.Migration
 
   def change do

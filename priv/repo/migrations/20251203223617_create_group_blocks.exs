@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.CreateGroupBlocks do
+defmodule Mosslet.Repo.Migrations.CreateGroupBlocks do
   use Ecto.Migration
 
   def change do

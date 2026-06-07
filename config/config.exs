@@ -8,7 +8,7 @@
 import Config
 
 config :mosslet,
-  ecto_repos: [Mosslet.Repo.Local],
+  ecto_repos: [Mosslet.Repo],
   generators: [binary_id: true]
 
 config :mosslet,
@@ -44,7 +44,7 @@ config :mosslet, :language_options, [
   %{locale: "fr", flag: "🇫🇷", label: "French"}
 ]
 
-config :mosslet, Mosslet.Repo.Local, priv: "priv/repo"
+config :mosslet, Mosslet.Repo, priv: "priv/repo"
 
 # Configures the endpoint
 config :mosslet, MossletWeb.Endpoint,
@@ -100,7 +100,7 @@ config :mosslet, Mosslet.Vault, json_library: Jason
 
 # Configures Oban
 config :mosslet, Oban,
-  repo: Mosslet.Repo.Local,
+  repo: Mosslet.Repo,
   notifier: Oban.Notifiers.PG,
   plugins: [
     Oban.Met,
@@ -378,7 +378,7 @@ config :email_checker,
   smtp_retries: 2,
   timeout_milliseconds: :infinity
 
-config :flop, repo: Mosslet.Repo.Local
+config :flop, repo: Mosslet.Repo
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

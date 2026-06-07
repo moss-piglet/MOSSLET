@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.EncryptReplyFavsList do
+defmodule Mosslet.Repo.Migrations.EncryptReplyFavsList do
   use Ecto.Migration
 
   def change do

@@ -25,7 +25,6 @@ Same Phoenix/LiveView codebase, different deployment modes. The enacl encryption
 We use **two layers of encryption**:
 
 1. **Cloak (symmetric AES-256-GCM)** - Server-side at-rest encryption using `CLOAK_KEY`
-
    - Encrypts data in Postgres before storage
    - Protects against database-level breaches
    - Key is per-environment (different in dev/staging/prod)
@@ -2168,9 +2167,19 @@ Based on codebase analysis, server keys (`SERVER_PUBLIC_KEY`, `SERVER_PRIVATE_KE
 
 ```elixir
 defmodule Mosslet.Repo do
-  use Fly.Repo, local_repo: Mosslet.Repo.Local
-  # Writes go to primary region, reads from replicas
-  # transaction_on_primary/1 ensures writes hit primary
+  @moduledoc false
+  use Ecto.Repo,
+    otp_app: :mosslet,
+    adapter: Ecto.Adapters.Postgres
+
+  use Mosslet.Extensions.Ecto.RepoExt
+
+  def transaction_on_primary(tx_fun) do
+    # Temporary shim during fly_postgres removal - behaves as a plain transaction.
+    # TODO: replace call sites as we will now run on Fly MPG and then delete this function.
+    # Fly.Postgres.rpc_and_wait(__MODULE__, :transaction, [tx_fun])
+    transaction(tx_fun)
+  end
 end
 ```
 

@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.EncryptJournalMood do
+defmodule Mosslet.Repo.Migrations.EncryptJournalMood do
   use Ecto.Migration
 
   def up do

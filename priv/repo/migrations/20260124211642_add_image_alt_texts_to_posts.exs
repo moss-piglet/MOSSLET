@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddImageAltTextsToPosts do
+defmodule Mosslet.Repo.Migrations.AddImageAltTextsToPosts do
   use Ecto.Migration
 
   def change do

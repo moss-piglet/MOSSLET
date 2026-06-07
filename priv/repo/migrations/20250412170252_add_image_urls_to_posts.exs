@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddImageUrlsToPosts do
+defmodule Mosslet.Repo.Migrations.AddImageUrlsToPosts do
   use Ecto.Migration
 
   def change do

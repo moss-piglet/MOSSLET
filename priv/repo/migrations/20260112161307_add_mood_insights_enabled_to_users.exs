@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddMoodInsightsEnabledToUsers do
+defmodule Mosslet.Repo.Migrations.AddMoodInsightsEnabledToUsers do
   use Ecto.Migration
 
   def change do

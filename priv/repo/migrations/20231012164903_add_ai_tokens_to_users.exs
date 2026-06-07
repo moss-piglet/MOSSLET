@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddAiTokensToUsers do
+defmodule Mosslet.Repo.Migrations.AddAiTokensToUsers do
   use Ecto.Migration
 
   def change do

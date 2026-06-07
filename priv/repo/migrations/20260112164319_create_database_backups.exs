@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.CreateDatabaseBackups do
+defmodule Mosslet.Repo.Migrations.CreateDatabaseBackups do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.RemoveOldPaymentFieldsFromUsers do
+defmodule Mosslet.Repo.Migrations.RemoveOldPaymentFieldsFromUsers do
   use Ecto.Migration
 
   def change do

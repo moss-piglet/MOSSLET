@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddImageFieldsToMessages do
+defmodule Mosslet.Repo.Migrations.AddImageFieldsToMessages do
   use Ecto.Migration
 
   def change do

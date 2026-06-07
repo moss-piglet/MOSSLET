@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.ChangeEmailOnBillingCustomersToEncryption do
+defmodule Mosslet.Repo.Migrations.ChangeEmailOnBillingCustomersToEncryption do
   use Ecto.Migration
 
   def change do

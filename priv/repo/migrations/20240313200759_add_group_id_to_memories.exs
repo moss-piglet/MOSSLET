@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddGroupIdToMemories do
+defmodule Mosslet.Repo.Migrations.AddGroupIdToMemories do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddImageUrlsUpdatedAtToReplies do
+defmodule Mosslet.Repo.Migrations.AddImageUrlsUpdatedAtToReplies do
   use Ecto.Migration
 
   def change do

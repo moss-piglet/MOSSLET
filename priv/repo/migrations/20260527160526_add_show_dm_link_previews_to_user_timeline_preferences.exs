@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddShowDmLinkPreviewsToUserTimelinePreferences do
+defmodule Mosslet.Repo.Migrations.AddShowDmLinkPreviewsToUserTimelinePreferences do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddRemovedByUserIdsToBookmarks do
+defmodule Mosslet.Repo.Migrations.AddRemovedByUserIdsToBookmarks do
   use Ecto.Migration
 
   def change do

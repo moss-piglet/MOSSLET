@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AllowNullJournalEntryBody do
+defmodule Mosslet.Repo.Migrations.AllowNullJournalEntryBody do
   use Ecto.Migration
 
   def change do

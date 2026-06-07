@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddLikesSyncToBlueskyAccounts do
+defmodule Mosslet.Repo.Migrations.AddLikesSyncToBlueskyAccounts do
   use Ecto.Migration
 
   def change do

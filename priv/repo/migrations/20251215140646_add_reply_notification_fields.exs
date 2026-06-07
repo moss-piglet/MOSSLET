@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddReplyNotificationFields do
+defmodule Mosslet.Repo.Migrations.AddReplyNotificationFields do
   use Ecto.Migration
 
   def change do

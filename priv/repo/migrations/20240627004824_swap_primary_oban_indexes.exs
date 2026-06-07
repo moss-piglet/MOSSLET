@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.SwapPrimaryObanIndexes do
+defmodule Mosslet.Repo.Migrations.SwapPrimaryObanIndexes do
   use Ecto.Migration
 
   @disable_ddl_transaction true

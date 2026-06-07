@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.CreateBlueskyAccounts do
+defmodule Mosslet.Repo.Migrations.CreateBlueskyAccounts do
   use Ecto.Migration
 
   def change do

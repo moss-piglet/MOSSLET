@@ -73,11 +73,11 @@ defmodule Mosslet.Accounts.UserConnection do
     |> add_label_hash()
     |> validate_request_email_and_username(opts)
     |> validate_email_or_username(opts)
-    |> unsafe_validate_unique([:connection_id, :user_id], Mosslet.Repo.Local)
+    |> unsafe_validate_unique([:connection_id, :user_id], Mosslet.Repo)
     |> unique_constraint([:connection_id, :user_id])
-    |> unsafe_validate_unique([:user_id, :reverse_user_id], Mosslet.Repo.Local)
+    |> unsafe_validate_unique([:user_id, :reverse_user_id], Mosslet.Repo)
     |> unique_constraint([:user_id, :reverse_user_id])
-    |> unsafe_validate_unique([:reverse_user_id, :user_id], Mosslet.Repo.Local)
+    |> unsafe_validate_unique([:reverse_user_id, :user_id], Mosslet.Repo)
     |> unique_constraint([:reverse_user_id, :user_id])
   end
 

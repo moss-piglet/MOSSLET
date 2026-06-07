@@ -68,7 +68,7 @@ if config_env() == :prod do
       String.to_integer(System.get_env("POOL_SIZE") || "8")
     end
 
-  config :mosslet, Mosslet.Repo.Local,
+  config :mosslet, Mosslet.Repo,
     url: database_url,
     pool_size: pool_size,
     timeout: 15_000,

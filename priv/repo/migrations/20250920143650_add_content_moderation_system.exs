@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddContentModerationSystem do
+defmodule Mosslet.Repo.Migrations.AddContentModerationSystem do
   use Ecto.Migration
 
   def change do

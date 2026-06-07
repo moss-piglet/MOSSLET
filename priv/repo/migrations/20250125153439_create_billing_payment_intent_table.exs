@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.CreateBillingPaymentIntentTable do
+defmodule Mosslet.Repo.Migrations.CreateBillingPaymentIntentTable do
   use Ecto.Migration
 
   def change do

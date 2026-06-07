@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddFavsToReplies do
+defmodule Mosslet.Repo.Migrations.AddFavsToReplies do
   use Ecto.Migration
 
   def change do

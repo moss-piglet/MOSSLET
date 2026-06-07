@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.RenameContentWarningFields do
+defmodule Mosslet.Repo.Migrations.RenameContentWarningFields do
   use Ecto.Migration
 
   def change do

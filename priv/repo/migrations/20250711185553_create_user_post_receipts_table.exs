@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.CreateUserPostReceiptsTable do
+defmodule Mosslet.Repo.Migrations.CreateUserPostReceiptsTable do
   use Ecto.Migration
 
   def change do

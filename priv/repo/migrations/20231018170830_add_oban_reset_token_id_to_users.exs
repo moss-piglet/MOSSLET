@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddObanResetTokenIdToUsers do
+defmodule Mosslet.Repo.Migrations.AddObanResetTokenIdToUsers do
   use Ecto.Migration
 
   def change do

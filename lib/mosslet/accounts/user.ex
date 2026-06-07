@@ -1014,9 +1014,7 @@ defmodule Mosslet.Accounts.User do
   defp maybe_validate_unique_username_hash(changeset, opts) do
     if Keyword.get(opts, :validate_username, true) do
       changeset
-      |> unsafe_validate_unique(:username_hash, Mosslet.Repo.Local,
-        message: "invalid or already taken"
-      )
+      |> unsafe_validate_unique(:username_hash, Mosslet.Repo, message: "invalid or already taken")
       |> unique_constraint(:username_hash)
     else
       changeset

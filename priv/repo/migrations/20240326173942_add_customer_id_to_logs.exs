@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddCustomerIdToLogs do
+defmodule Mosslet.Repo.Migrations.AddCustomerIdToLogs do
   use Ecto.Migration
 
   def change do

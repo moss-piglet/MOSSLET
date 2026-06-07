@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddContentWarningsToUserTimelinePreference do
+defmodule Mosslet.Repo.Migrations.AddContentWarningsToUserTimelinePreference do
   use Ecto.Migration
 
   def change do

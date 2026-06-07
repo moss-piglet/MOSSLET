@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.FixPostReportsCascadeDeleteForAuditTrail do
+defmodule Mosslet.Repo.Migrations.FixPostReportsCascadeDeleteForAuditTrail do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddBlueskyReplyReferences do
+defmodule Mosslet.Repo.Migrations.AddBlueskyReplyReferences do
   use Ecto.Migration
 
   def change do

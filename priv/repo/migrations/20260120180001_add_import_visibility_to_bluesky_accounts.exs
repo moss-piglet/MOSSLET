@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddImportVisibilityToBlueskyAccounts do
+defmodule Mosslet.Repo.Migrations.AddImportVisibilityToBlueskyAccounts do
   use Ecto.Migration
 
   def change do

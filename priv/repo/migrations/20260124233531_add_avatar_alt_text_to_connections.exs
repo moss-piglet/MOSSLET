@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddAvatarAltTextToConnections do
+defmodule Mosslet.Repo.Migrations.AddAvatarAltTextToConnections do
   use Ecto.Migration
 
   def change do

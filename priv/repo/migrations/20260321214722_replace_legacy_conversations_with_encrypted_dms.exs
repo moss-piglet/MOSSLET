@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.ReplaceLegacyConversationsWithEncryptedDms do
+defmodule Mosslet.Repo.Migrations.ReplaceLegacyConversationsWithEncryptedDms do
   use Ecto.Migration
 
   def up do

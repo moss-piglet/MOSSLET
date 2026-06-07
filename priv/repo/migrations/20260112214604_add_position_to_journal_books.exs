@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddPositionToJournalBooks do
+defmodule Mosslet.Repo.Migrations.AddPositionToJournalBooks do
   use Ecto.Migration
 
   def change do

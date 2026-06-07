@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.ChangeVisibilityFieldsToEncryptedToPosts do
+defmodule Mosslet.Repo.Migrations.ChangeVisibilityFieldsToEncryptedToPosts do
   use Ecto.Migration
 
   def up do

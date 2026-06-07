@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddVisibilityGroupsToUsers do
+defmodule Mosslet.Repo.Migrations.AddVisibilityGroupsToUsers do
   use Ecto.Migration
 
   def change do

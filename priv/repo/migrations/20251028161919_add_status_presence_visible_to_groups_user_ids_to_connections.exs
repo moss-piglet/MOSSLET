@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddStatusPresenceVisibleToGroupsUserIdsToConnections do
+defmodule Mosslet.Repo.Migrations.AddStatusPresenceVisibleToGroupsUserIdsToConnections do
   use Ecto.Migration
 
   def change do

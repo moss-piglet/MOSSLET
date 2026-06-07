@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddUrlPreviewToPosts do
+defmodule Mosslet.Repo.Migrations.AddUrlPreviewToPosts do
   use Ecto.Migration
 
   def change do

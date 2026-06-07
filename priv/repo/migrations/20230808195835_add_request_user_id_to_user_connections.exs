@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddRequestUserIdToUserConnections do
+defmodule Mosslet.Repo.Migrations.AddRequestUserIdToUserConnections do
   use Ecto.Migration
 
   def change do

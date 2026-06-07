@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddLabelHashToUserConnections do
+defmodule Mosslet.Repo.Migrations.AddLabelHashToUserConnections do
   use Ecto.Migration
 
   def change do

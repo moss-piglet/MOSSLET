@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.UpgradeObanJobsToV14 do
+defmodule Mosslet.Repo.Migrations.UpgradeObanJobsToV14 do
   use Ecto.Migration
 
   def up, do: Oban.Migrations.up(version: 14)

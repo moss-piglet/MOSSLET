@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddAdminActionTrackingToPostReports do
+defmodule Mosslet.Repo.Migrations.AddAdminActionTrackingToPostReports do
   use Ecto.Migration
 
   def change do

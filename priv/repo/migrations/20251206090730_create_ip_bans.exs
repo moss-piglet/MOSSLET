@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.CreateIpBans do
+defmodule Mosslet.Repo.Migrations.CreateIpBans do
   use Ecto.Migration
 
   def change do

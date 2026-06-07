@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddColorToUserConnections do
+defmodule Mosslet.Repo.Migrations.AddColorToUserConnections do
   use Ecto.Migration
 
   def change do

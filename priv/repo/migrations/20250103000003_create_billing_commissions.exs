@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.CreateBillingCommissions do
+defmodule Mosslet.Repo.Migrations.CreateBillingCommissions do
   use Ecto.Migration
 
   def change do

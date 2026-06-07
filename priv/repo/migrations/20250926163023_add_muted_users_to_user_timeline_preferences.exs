@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddMutedUsersToUserTimelinePreference do
+defmodule Mosslet.Repo.Migrations.AddMutedUsersToUserTimelinePreference do
   use Ecto.Migration
 
   def change do

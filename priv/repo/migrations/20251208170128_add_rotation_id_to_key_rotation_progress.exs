@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddRotationIdToKeyRotationProgress do
+defmodule Mosslet.Repo.Migrations.AddRotationIdToKeyRotationProgress do
   use Ecto.Migration
 
   def change do

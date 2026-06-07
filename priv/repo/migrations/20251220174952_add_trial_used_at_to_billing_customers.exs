@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddTrialUsedAtToBillingCustomers do
+defmodule Mosslet.Repo.Migrations.AddTrialUsedAtToBillingCustomers do
   use Ecto.Migration
 
   def change do

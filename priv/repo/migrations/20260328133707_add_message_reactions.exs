@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddMessageReactions do
+defmodule Mosslet.Repo.Migrations.AddMessageReactions do
   use Ecto.Migration
 
   def change do

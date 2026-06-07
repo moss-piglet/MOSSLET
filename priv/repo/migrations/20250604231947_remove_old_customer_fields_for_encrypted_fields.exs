@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.RemoveOldCustomerFieldsForEncryptedFields do
+defmodule Mosslet.Repo.Migrations.RemoveOldCustomerFieldsForEncryptedFields do
   use Ecto.Migration
 
   def change do

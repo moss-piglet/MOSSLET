@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddEmailNotificationsToUsers do
+defmodule Mosslet.Repo.Migrations.AddEmailNotificationsToUsers do
   use Ecto.Migration
 
   def change do

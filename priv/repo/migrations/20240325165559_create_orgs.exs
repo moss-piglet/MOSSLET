@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.CreateOrgs do
+defmodule Mosslet.Repo.Migrations.CreateOrgs do
   use Ecto.Migration
 
   def change do

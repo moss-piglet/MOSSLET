@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.RenameNotificationSubscriptionFields do
+defmodule Mosslet.Repo.Migrations.RenameNotificationSubscriptionFields do
   use Ecto.Migration
 
   def up do

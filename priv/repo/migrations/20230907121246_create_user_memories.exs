@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.CreateUserMemories do
+defmodule Mosslet.Repo.Migrations.CreateUserMemories do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddRemovedByUserIdsToPosts do
+defmodule Mosslet.Repo.Migrations.AddRemovedByUserIdsToPosts do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.CreateRemarks do
+defmodule Mosslet.Repo.Migrations.CreateRemarks do
   use Ecto.Migration
 
   def change do

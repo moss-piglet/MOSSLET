@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddLastEmailSentAtToUsers do
+defmodule Mosslet.Repo.Migrations.AddLastEmailSentAtToUsers do
   use Ecto.Migration
 
   def change do

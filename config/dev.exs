@@ -2,7 +2,7 @@ import Config
 
 # Configure your database
 # In Docker, DATABASE_URL overrides these settings (see runtime.exs)
-config :mosslet, Mosslet.Repo.Local,
+config :mosslet, Mosslet.Repo,
   username: System.get_env("PGUSER", "postgres"),
   password: System.get_env("PGPASSWORD", "postgres"),
   hostname: System.get_env("PGHOST", "localhost"),

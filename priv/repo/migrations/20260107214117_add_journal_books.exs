@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddJournalBooks do
+defmodule Mosslet.Repo.Migrations.AddJournalBooks do
   use Ecto.Migration
 
   def change do

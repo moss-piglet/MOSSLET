@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddContentDeletionTrackingToPostReports do
+defmodule Mosslet.Repo.Migrations.AddContentDeletionTrackingToPostReports do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddFieldsToUsers do
+defmodule Mosslet.Repo.Migrations.AddFieldsToUsers do
   use Ecto.Migration
 
   def change do

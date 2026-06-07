@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.CreateGroupMessageMentions do
+defmodule Mosslet.Repo.Migrations.CreateGroupMessageMentions do
   use Ecto.Migration
 
   def change do

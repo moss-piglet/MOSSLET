@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddBlueskyLinkVerifiedToPosts do
+defmodule Mosslet.Repo.Migrations.AddBlueskyLinkVerifiedToPosts do
   use Ecto.Migration
 
   def change do

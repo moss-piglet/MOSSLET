@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.FinalizeSubscriptionEncryption do
+defmodule Mosslet.Repo.Migrations.FinalizeSubscriptionEncryption do
   use Ecto.Migration
 
   def up do

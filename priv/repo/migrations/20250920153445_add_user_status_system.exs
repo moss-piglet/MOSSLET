@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddUserStatusSystem do
+defmodule Mosslet.Repo.Migrations.AddUserStatusSystem do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.CreateUserProfileAndAddPubKeyToConnection do
+defmodule Mosslet.Repo.Migrations.CreateUserProfileAndAddPubKeyToConnection do
   use Ecto.Migration
 
   def change do

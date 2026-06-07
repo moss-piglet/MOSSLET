@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.ChangeFavsRepostsToEncryptedForPosts do
+defmodule Mosslet.Repo.Migrations.ChangeFavsRepostsToEncryptedForPosts do
   use Ecto.Migration
 
   def up do

@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddJournalPrivacyEnabledToUsers do
+defmodule Mosslet.Repo.Migrations.AddJournalPrivacyEnabledToUsers do
   use Ecto.Migration
 
   def change do

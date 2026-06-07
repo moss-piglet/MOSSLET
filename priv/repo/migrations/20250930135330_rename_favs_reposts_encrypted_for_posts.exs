@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.RenameFavsRepostsEncryptedForPosts do
+defmodule Mosslet.Repo.Migrations.RenameFavsRepostsEncryptedForPosts do
   use Ecto.Migration
 
   def change do

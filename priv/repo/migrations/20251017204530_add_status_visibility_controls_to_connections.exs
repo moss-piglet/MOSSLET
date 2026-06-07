@@ -1,4 +1,4 @@
-defmodule Mosslet.Repo.Local.Migrations.AddStatusVisibilityControlsToConnections do
+defmodule Mosslet.Repo.Migrations.AddStatusVisibilityControlsToConnections do
   use Ecto.Migration
 
   def change do
