@@ -124,18 +124,18 @@ defmodule MossletWeb.Components.LandingPage do
 
                 <div class="relative flex flex-col sm:flex-row items-center gap-1 sm:gap-0">
                   <span class="text-center sm:text-left">
-                    Zero-knowledge encrypted, post-quantum protected
+                    We can't read your data.
                   </span>
                   <.link
-                    id="mosslet-demo-video-beta"
-                    href="https://www.loom.com/share/e088294ed8c043978e239dcca8e82e5f"
+                    id="mosslet-zk-post-quantum-blog-article"
+                    href="https://mosslet.com/blog/articles/17"
                     target="_blank"
                     rel="noopener noreferrer"
                     phx-hook="TippyHook"
-                    data-tippy-content="Watch a demo (~20 min)"
+                    data-tippy-content="Read the article"
                     class="ml-1 font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 transition-colors duration-200 whitespace-nowrap"
                   >
-                    View demo
+                    Here's how
                     <span
                       aria-hidden="true"
                       class="ml-1 transition-transform duration-200 group-hover:translate-x-1"
