@@ -220,10 +220,17 @@ defmodule MossletWeb.UserHomeLive do
         Timeline.count_profile_posts_visible_to(profile_user, current_user)
       end
 
+    # On your own profile, your posts are the primary content — don't hide
+    # already-read posts behind a "Show N read posts" divider. Everywhere else
+    # we keep the unread/read split so new posts from connections stand out.
     {unread_posts, read_posts} =
-      Enum.split_with(posts, fn post ->
-        is_post_unread?(post, current_user)
-      end)
+      if profile_user.id == current_user.id do
+        {posts, []}
+      else
+        Enum.split_with(posts, fn post ->
+          is_post_unread?(post, current_user)
+        end)
+      end
 
     session_key = socket.assigns.current_scope.key
 
@@ -1294,9 +1301,13 @@ defmodule MossletWeb.UserHomeLive do
       {:noreply, assign(socket, :load_more_loading, false)}
     else
       {new_unread, new_read_posts} =
-        Enum.split_with(new_posts, fn post ->
-          is_post_unread?(post, current_user)
-        end)
+        if profile_user.id == current_user.id do
+          {new_posts, []}
+        else
+          Enum.split_with(new_posts, fn post ->
+            is_post_unread?(post, current_user)
+          end)
+        end
 
       session_key = socket.assigns.current_scope.key
       cached_read_posts = socket.assigns.cached_read_posts
@@ -2915,7 +2926,7 @@ defmodule MossletWeb.UserHomeLive do
                 if @profile_user.connection.profile.show_avatar?,
                   do: get_encrypted_avatar_data(@current_scope.user, @current_scope.key)
               }
-              placeholder="Share something meaningful with your community..."
+              placeholder="Write a new post on your timeline →"
               current_scope={@current_scope}
               show_status={
                 can_view_status?(@current_scope.user, @current_scope.user, @current_scope.key)
@@ -2926,9 +2937,9 @@ defmodule MossletWeb.UserHomeLive do
             />
           </div>
 
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <%!-- Left Column: Profile Details & Federation --%>
-            <div class="lg:col-span-2 space-y-8" data-profile-scope="own-profile">
+          <div class="mx-auto max-w-3xl">
+            <%!-- Profile Details: contact, about, and posts --%>
+            <div class="space-y-8" data-profile-scope="own-profile">
               <%!-- DecryptProfileFields hook for browser-side ZK decryption --%>
               <div
                 :if={@profile_fields && @profile_fields[:browser_decrypt?]}
@@ -3226,7 +3237,7 @@ defmodule MossletWeb.UserHomeLive do
                   </div>
                 </div>
                 <MossletWeb.TimelineComponents.liquid_read_posts_divider
-                  :if={@posts_count - length(@cached_profile_posts) > 0}
+                  :if={false}
                   count={@posts_count - length(@cached_profile_posts)}
                   expanded={@read_posts_expanded}
                   loading={@read_posts_loading}
@@ -3375,154 +3386,13 @@ defmodule MossletWeb.UserHomeLive do
                   </div>
                 </div>
                 <MossletWeb.TimelineComponents.liquid_timeline_scroll_indicator
-                  :if={
-                    @read_posts_expanded &&
-                      @posts_count > length(@cached_profile_posts) + length(@cached_read_posts)
-                  }
-                  remaining_count={
-                    @posts_count - length(@cached_profile_posts) - length(@cached_read_posts)
-                  }
-                  load_count={
-                    min(10, @posts_count - length(@cached_profile_posts) - length(@cached_read_posts))
-                  }
+                  :if={@posts_count > length(@cached_profile_posts)}
+                  remaining_count={@posts_count - length(@cached_profile_posts)}
+                  load_count={min(10, @posts_count - length(@cached_profile_posts))}
                   loading={@load_more_loading}
                   tab_color="emerald"
                   phx-click="load_more_posts"
                 />
-              </MossletWeb.DesignSystem.liquid_card>
-            </div>
-
-            <%!-- Right Column: Quick Actions & Profile Management --%>
-            <div
-              :if={@current_scope.user && @current_scope.user.id == @profile_user.id}
-              class="lg:col-span-1 space-y-6"
-            >
-              <%!-- Quick Actions --%>
-              <MossletWeb.DesignSystem.liquid_card
-                heading_level={2}
-                class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30"
-              >
-                <:title>
-                  <div class="text-lg font-bold tracking-tight bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent flex items-center gap-2">
-                    <.phx_icon name="hero-bolt" class="size-5 text-teal-600 dark:text-teal-400" />
-                    Quick Actions
-                  </div>
-                </:title>
-                <div class="space-y-3">
-                  <MossletWeb.DesignSystem.liquid_button
-                    navigate={~p"/app/timeline"}
-                    variant="primary"
-                    color="teal"
-                    icon="hero-newspaper"
-                    class="w-full"
-                  >
-                    View Timeline
-                  </MossletWeb.DesignSystem.liquid_button>
-
-                  <div class="space-y-2 pt-2">
-                    <MossletWeb.DesignSystem.liquid_nav_item
-                      navigate={~p"/app/users/connections"}
-                      icon="hero-users"
-                      class="rounded-xl group hover:from-blue-50 hover:via-cyan-50 hover:to-blue-50 dark:hover:from-blue-900/20 dark:hover:via-cyan-900/20 dark:hover:to-blue-900/20"
-                    >
-                      Manage Connections
-                    </MossletWeb.DesignSystem.liquid_nav_item>
-
-                    <MossletWeb.DesignSystem.liquid_nav_item
-                      navigate={~p"/app/circles"}
-                      icon="hero-circle-stack"
-                      class="rounded-xl group hover:from-purple-50 hover:via-violet-50 hover:to-purple-50 dark:hover:from-purple-900/20 dark:hover:via-violet-900/20 dark:hover:to-purple-900/20"
-                    >
-                      Join Circles
-                    </MossletWeb.DesignSystem.liquid_nav_item>
-                  </div>
-                </div>
-              </MossletWeb.DesignSystem.liquid_card>
-
-              <%!-- Profile Stats --%>
-              <MossletWeb.DesignSystem.liquid_card heading_level={2}>
-                <:title>
-                  <div class="flex items-center gap-2">
-                    <.phx_icon
-                      name="hero-chart-pie"
-                      class="size-5 text-purple-600 dark:text-purple-400"
-                    /> Profile Stats
-                  </div>
-                </:title>
-                <div class="space-y-4">
-                  <div class="flex items-center justify-between">
-                    <span class="text-sm text-slate-600 dark:text-slate-400">Profile views</span>
-                    <span class="font-semibold text-slate-900 dark:text-white">
-                      {assigns[:profile_views] || "—"}
-                    </span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-sm text-slate-600 dark:text-slate-400">Joined</span>
-                    <span class="font-semibold text-slate-900 dark:text-white">
-                      {if @profile_user.inserted_at,
-                        do: Calendar.strftime(@profile_user.inserted_at, "%B %Y"),
-                        else: "—"}
-                    </span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-sm text-slate-600 dark:text-slate-400">Last active</span>
-                    <span class="font-semibold text-slate-900 dark:text-white">
-                      {if @profile_user.last_activity_at,
-                        do: "#{Calendar.strftime(@profile_user.last_activity_at, "%b %d")}",
-                        else: "Now"}
-                    </span>
-                  </div>
-                </div>
-              </MossletWeb.DesignSystem.liquid_card>
-
-              <%!-- Privacy & Security --%>
-              <MossletWeb.DesignSystem.liquid_card
-                :if={@current_scope.user && @current_scope.user.id == @profile_user.id}
-                heading_level={2}
-                class="border-emerald-200/40 dark:border-emerald-700/40"
-              >
-                <:title>
-                  <div class="flex items-center gap-2">
-                    <.phx_icon
-                      name="hero-shield-check"
-                      class="size-5 text-emerald-600 dark:text-emerald-400"
-                    /> Privacy & Security
-                  </div>
-                </:title>
-                <div class="space-y-3">
-                  <div class="flex items-center gap-3 p-3 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-lg">
-                    <div class="size-8 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center">
-                      <.phx_icon
-                        name="hero-lock-closed"
-                        class="size-4 text-emerald-600 dark:text-emerald-400"
-                      />
-                    </div>
-                    <div class="text-sm">
-                      <p class="font-medium text-emerald-800 dark:text-emerald-200">
-                        End-to-End Encrypted
-                      </p>
-                      <p class="text-emerald-600 dark:text-emerald-400">Your data is protected</p>
-                    </div>
-                  </div>
-
-                  <div class="space-y-2">
-                    <MossletWeb.DesignSystem.liquid_nav_item
-                      navigate={~p"/app/users/two-factor-authentication"}
-                      icon="hero-cog-6-tooth"
-                      class="rounded-lg text-sm"
-                    >
-                      Security Settings
-                    </MossletWeb.DesignSystem.liquid_nav_item>
-
-                    <MossletWeb.DesignSystem.liquid_nav_item
-                      navigate={~p"/app/users/edit-visibility"}
-                      icon="hero-eye-slash"
-                      class="rounded-lg text-sm"
-                    >
-                      Visibility Controls
-                    </MossletWeb.DesignSystem.liquid_nav_item>
-                  </div>
-                </div>
               </MossletWeb.DesignSystem.liquid_card>
             </div>
           </div>
@@ -4008,7 +3878,7 @@ defmodule MossletWeb.UserHomeLive do
                     min(10, @posts_count - length(@cached_profile_posts) - length(@cached_read_posts))
                   }
                   loading={@load_more_loading}
-                  tab_color="indigo"
+                  tab_color="emerald"
                   phx-click="load_more_posts"
                 />
               </MossletWeb.DesignSystem.liquid_card>
