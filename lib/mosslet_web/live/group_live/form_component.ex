@@ -370,31 +370,11 @@ defmodule MossletWeb.GroupLive.FormComponent do
       |> maybe_update_decrypted_fields(group_params)
 
     changeset =
-      cond do
-        group_params["user_connections_empty_selection"] == "" ->
-          socket.assigns.group
-          |> Groups.change_group(group_params,
-            require_password?: group_params["require_password?"]
-          )
-          |> Map.put(:action, :validate)
-
-        !Enum.empty?(group_params["user_connections"]) ->
-          %{
-            socket.assigns.group
-            | users: build_users_from_uconn_ids(group_params["user_connections"])
-          }
-          |> Groups.change_group(group_params,
-            require_password?: group_params["require_password?"]
-          )
-          |> Map.put(:action, :validate)
-
-        Enum.empty?(group_params["user_connections"]) ->
-          socket.assigns.group
-          |> Groups.change_group(group_params,
-            require_password?: group_params["require_password?"]
-          )
-          |> Map.put(:action, :validate)
-      end
+      socket.assigns.group
+      |> Groups.change_group(group_params,
+        require_password?: group_params["require_password?"]
+      )
+      |> Map.put(:action, :validate)
 
     {:noreply, assign_form(socket, changeset)}
   end
@@ -553,9 +533,10 @@ defmodule MossletWeb.GroupLive.FormComponent do
     end
   end
 
-  # Edit path (unchanged — single-phase, group_key already exists)
+  # Edit path — single-phase for metadata, plus member add/remove sync.
   def handle_event("save_group_zk", params, socket) do
     user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
     group = socket.assigns.group
 
     if can_edit_group?(get_user_group(group, user), user) do
@@ -567,13 +548,42 @@ defmodule MossletWeb.GroupLive.FormComponent do
 
       case Groups.update_group_metadata_zk(group, attrs) do
         {:ok, updated_group} ->
-          notify_parent({:saved, updated_group})
+          selected_ids = params["user_connections"] || []
+          existing = Groups.get_group!(updated_group.id)
+          existing_user_ids = Enum.map(existing.user_groups, & &1.user_id)
+          owner_id = updated_group.user_id
 
-          {:noreply,
-           socket
-           |> put_flash(:success, "Circle updated successfully")
-           |> push_event("restore-body-scroll", %{})
-           |> push_patch(to: socket.assigns.patch)}
+          # Remove members that were de-selected (never the owner).
+          removed_ids =
+            existing_user_ids
+            |> Enum.reject(&(&1 in selected_ids or &1 == owner_id))
+
+          if removed_ids != [], do: Groups.remove_group_members(updated_group, removed_ids)
+
+          # Resolve members that need to be added (selected but not yet members).
+          new_member_ids =
+            selected_ids
+            |> Enum.reject(&(&1 in existing_user_ids))
+            |> Enum.uniq()
+
+          new_members = build_new_member_seal_data(new_member_ids, user, key)
+
+          if new_members == [] do
+            notify_parent({:saved, Groups.get_group!(updated_group.id)})
+
+            {:noreply,
+             socket
+             |> put_flash(:success, "Circle updated successfully")
+             |> push_event("restore-body-scroll", %{})
+             |> push_patch(to: socket.assigns.patch)}
+          else
+            # Hand the new members' public keys to the browser so it can seal the
+            # already-unsealed group_key for them (the raw key never reaches us).
+            {:noreply,
+             socket
+             |> assign(:pending_member_group_id, updated_group.id)
+             |> push_event("seal_group_key_for_new_members", %{members: new_members})}
+          end
 
         {:error, _changeset} ->
           {:noreply,
@@ -584,6 +594,32 @@ defmodule MossletWeb.GroupLive.FormComponent do
       {:noreply,
        socket
        |> put_flash(:info, "You do not have permission to edit this circle.")
+       |> push_event("restore-body-scroll", %{})
+       |> push_patch(to: socket.assigns.patch)}
+    end
+  end
+
+  # Phase 2 (edit): Browser sealed the group_key for newly added members and
+  # encrypted their display name/moniker/avatar with the group_key.
+  def handle_event("finalize_group_members_zk", params, socket) do
+    group_id = socket.assigns[:pending_member_group_id]
+    sealed_members = params["sealed_members"] || []
+
+    if is_nil(group_id) do
+      {:noreply,
+       socket
+       |> put_flash(:error, "No pending circle members to finalize. Please try again.")
+       |> push_patch(to: socket.assigns.patch)}
+    else
+      group = Groups.get_group!(group_id)
+      Groups.add_group_members_zk(group, sealed_members)
+
+      notify_parent({:saved, Groups.get_group!(group_id)})
+
+      {:noreply,
+       socket
+       |> assign(:pending_member_group_id, nil)
+       |> put_flash(:success, "Circle updated successfully")
        |> push_event("restore-body-scroll", %{})
        |> push_patch(to: socket.assigns.patch)}
     end
@@ -658,6 +694,44 @@ defmodule MossletWeb.GroupLive.FormComponent do
   end
 
   defp build_users_from_uconn_ids(_ids), do: []
+
+  # Resolve the data the browser needs to seal the group_key for newly added
+  # members during an edit: their public keys (sealing target), decrypted display
+  # name, and a server-generated moniker/avatar for the browser to encrypt.
+  defp build_new_member_seal_data(new_member_ids, owner, key) do
+    avatar_imgs =
+      ~w(astronaut.png bear.png cat.png chicken.png dinosaur.png dog.png panda.png penguin.png rabbit.png sea-lion.png)
+
+    new_member_ids
+    |> Enum.map(fn member_id ->
+      member = Accounts.get_user!(member_id)
+      uconn = Accounts.get_user_connection_between_users(member.id, owner.id)
+
+      name =
+        if uconn do
+          Mosslet.Encrypted.Users.Utils.decrypt_user_item(
+            uconn.connection.name,
+            owner,
+            uconn.key,
+            key
+          )
+        end
+
+      if is_nil(name) do
+        nil
+      else
+        %{
+          user_id: member.id,
+          public_key: member.key_pair["public"],
+          pq_public_key: member.pq_public_key,
+          name: name,
+          moniker: FriendlyID.generate(3),
+          avatar_img: Enum.random(avatar_imgs)
+        }
+      end
+    end)
+    |> Enum.reject(&is_nil/1)
+  end
 
   defp convert_options_for_live_select(options) do
     Enum.map(options, fn opt ->

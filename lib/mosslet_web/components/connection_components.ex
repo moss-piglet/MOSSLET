@@ -1858,6 +1858,7 @@ defmodule MossletWeb.ConnectionComponents do
   attr :class, :any, default: ""
   attr :unread_mention_count, :integer, default: 0
   attr :browser_decrypt, :boolean, default: false
+  attr :member_count, :integer, default: 0
   slot :members
 
   def liquid_my_group_card(assigns) do
@@ -1865,32 +1866,60 @@ defmodule MossletWeb.ConnectionComponents do
     <div
       id={@id}
       class={[
-        "group/card relative rounded-2xl overflow-hidden cursor-pointer",
+        "group/card relative rounded-2xl overflow-visible",
+        "z-0 has-[[role=menu]:not(.hidden)]:z-50",
         "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
-        "border border-slate-200/60 dark:border-slate-700/60",
-        "hover:border-teal-300/50 dark:hover:border-teal-600/50",
+        "border",
+        if(@is_public,
+          do:
+            "border-cyan-200/60 dark:border-cyan-800/40 hover:border-cyan-300/60 dark:hover:border-cyan-600/50",
+          else:
+            "border-slate-200/60 dark:border-slate-700/60 hover:border-teal-300/50 dark:hover:border-teal-600/50"
+        ),
         "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
         "hover:shadow-xl hover:shadow-teal-500/10 dark:hover:shadow-teal-400/10",
         "transition-all duration-300 ease-out transform-gpu will-change-transform",
         "hover:-translate-y-0.5",
         @class
       ]}
-      phx-click={JS.navigate(@navigate_url)}
     >
-      <div class="absolute inset-0 opacity-0 group-hover/card:opacity-100 transition-all duration-300 ease-out bg-gradient-to-r from-teal-50/60 via-emerald-50/80 to-cyan-50/60 dark:from-teal-900/15 dark:via-emerald-900/20 dark:to-cyan-900/15 transform-gpu">
-      </div>
-      <div class="absolute inset-0 opacity-0 group-hover/card:opacity-100 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 transform-gpu group-hover/card:translate-x-full -translate-x-full">
+      <div class="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+        <div class="absolute inset-0 opacity-0 group-hover/card:opacity-100 transition-all duration-300 ease-out bg-gradient-to-r from-teal-50/60 via-emerald-50/80 to-cyan-50/60 dark:from-teal-900/15 dark:via-emerald-900/20 dark:to-cyan-900/15 transform-gpu">
+        </div>
+        <div class="absolute inset-0 opacity-0 group-hover/card:opacity-100 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 transform-gpu group-hover/card:translate-x-full -translate-x-full">
+        </div>
       </div>
 
-      <div class="relative p-4 sm:p-5">
+      <%!-- Stretched navigation link: covers the whole card so it stays clickable,
+           while the menu/actions sit above it via z-index and remain interactive. --%>
+      <.link
+        navigate={@navigate_url}
+        class="absolute inset-0 z-0 rounded-2xl"
+        aria-label={"Open circle #{@name}"}
+      >
+        <span class="sr-only">Open circle</span>
+      </.link>
+
+      <div class="relative z-10 p-4 sm:p-5 pointer-events-none">
         <div class="flex gap-4">
-          <div class="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-visible transition-all duration-200 ease-out transform-gpu will-change-transform bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 group-hover/card:from-teal-100 group-hover/card:via-emerald-50 group-hover/card:to-cyan-100 dark:group-hover/card:from-teal-900/30 dark:group-hover/card:via-emerald-900/25 dark:group-hover/card:to-cyan-900/30 shadow-sm">
+          <div class={[
+            "relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-visible transition-all duration-200 ease-out transform-gpu will-change-transform shadow-sm",
+            if(@is_public,
+              do:
+                "bg-gradient-to-br from-cyan-100 via-cyan-50 to-teal-100 dark:from-cyan-900/30 dark:via-cyan-900/20 dark:to-teal-900/30",
+              else:
+                "bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 group-hover/card:from-teal-100 group-hover/card:via-emerald-50 group-hover/card:to-cyan-100 dark:group-hover/card:from-teal-900/30 dark:group-hover/card:via-emerald-900/25 dark:group-hover/card:to-cyan-900/30"
+            )
+          ]}>
             <.phx_icon
-              name={if @is_public, do: "hero-globe-alt", else: "hero-circle-stack"}
+              name={if @is_public, do: "hero-globe-alt", else: "hero-lock-closed"}
               class={[
                 "h-6 w-6 transition-colors duration-200",
-                "text-slate-500 dark:text-slate-400",
-                "group-hover/card:text-teal-600 dark:group-hover/card:text-teal-400"
+                if(@is_public,
+                  do: "text-cyan-600 dark:text-cyan-400",
+                  else:
+                    "text-slate-500 dark:text-slate-400 group-hover/card:text-teal-600 dark:group-hover/card:text-teal-400"
+                )
               ]}
             />
             <span
@@ -1918,10 +1947,65 @@ defmodule MossletWeb.ConnectionComponents do
                 >
                   <.phx_icon name="hero-globe-alt" class="h-3 w-3 mr-1" /> Public
                 </span>
+                <span
+                  :if={!@is_public}
+                  class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100/70 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 shrink-0"
+                  title="End-to-end encrypted — only members can read this circle"
+                >
+                  <.phx_icon name="hero-lock-closed" class="h-3 w-3 mr-1" /> Encrypted
+                </span>
               </div>
 
-              <div :if={render_slot(@members) != []} class="isolate flex -space-x-2 shrink-0 mr-6">
-                {render_slot(@members)}
+              <div class="flex items-center gap-2 shrink-0">
+                <div :if={render_slot(@members) != []} class="isolate flex -space-x-2">
+                  {render_slot(@members)}
+                </div>
+
+                <%!-- Edit/Delete tucked behind a "..." menu --%>
+                <div :if={@can_edit || @can_delete} class="relative pointer-events-auto">
+                  <button
+                    type="button"
+                    phx-click={JS.toggle_class("hidden", to: "#my-group-menu-#{@group_id}")}
+                    class="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded-full hover:bg-slate-100/70 dark:hover:bg-slate-700/50 transition-all duration-200 ease-out"
+                    title="More options"
+                    aria-label="Circle options"
+                  >
+                    <.phx_icon name="hero-ellipsis-horizontal" class="h-5 w-5" />
+                  </button>
+
+                  <div
+                    id={"my-group-menu-#{@group_id}"}
+                    class="absolute right-0 top-full z-[200] mt-2 w-40 origin-top-right hidden rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/60 dark:ring-slate-700/60"
+                    role="menu"
+                    aria-orientation="vertical"
+                    phx-click-away={JS.add_class("hidden", to: "#my-group-menu-#{@group_id}")}
+                  >
+                    <div class="relative py-1.5">
+                      <.link
+                        :if={@can_edit && @edit_url}
+                        patch={@edit_url}
+                        phx-click={JS.add_class("hidden", to: "#my-group-menu-#{@group_id}")}
+                        class="group flex items-center gap-3 px-4 py-2.5 text-sm transition-all duration-200 ease-out cursor-pointer hover:bg-slate-100/80 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
+                        role="menuitem"
+                      >
+                        <.phx_icon name="hero-pencil-square" class="h-4 w-4" /> Edit
+                      </.link>
+                      <div
+                        :if={@can_delete}
+                        phx-click={
+                          JS.push("delete", value: %{id: @group_id})
+                          |> JS.hide(to: "##{@id}")
+                          |> JS.add_class("hidden", to: "#my-group-menu-#{@group_id}")
+                        }
+                        data-confirm="Are you sure you want to delete this circle? This action cannot be undone."
+                        class="group flex items-center gap-3 px-4 py-2.5 text-sm transition-all duration-200 ease-out cursor-pointer hover:bg-rose-100/80 dark:hover:bg-rose-900/30 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-100"
+                        role="menuitem"
+                      >
+                        <.phx_icon name="hero-trash" class="h-4 w-4" /> Delete
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1940,34 +2024,18 @@ defmodule MossletWeb.ConnectionComponents do
             >
               No description
             </p>
-          </div>
-        </div>
 
-        <div
-          :if={@can_edit || @can_delete}
-          class="relative mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-end gap-2"
-        >
-          <.link
-            :if={@can_edit && @edit_url}
-            patch={@edit_url}
-            phx-click-stop-propagation
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/50 hover:bg-teal-100 hover:text-teal-700 dark:hover:bg-teal-900/30 dark:hover:text-teal-400 transition-all duration-200"
-          >
-            <.phx_icon name="hero-pencil-square" class="h-3.5 w-3.5" /> Edit
-          </.link>
-          <button
-            :if={@can_delete}
-            phx-click={JS.push("delete", value: %{id: @group_id}) |> JS.hide(to: "##{@id}")}
-            phx-click-stop-propagation
-            data-confirm="Are you sure you want to delete this group?"
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/50 hover:bg-rose-100 hover:text-rose-700 dark:hover:bg-rose-900/30 dark:hover:text-rose-400 transition-all duration-200"
-          >
-            <.phx_icon name="hero-trash" class="h-3.5 w-3.5" /> Delete
-          </button>
+            <p
+              :if={@member_count > 0}
+              class="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400"
+            >
+              {@member_count} {if @member_count == 1, do: "member", else: "members"}
+            </p>
+          </div>
         </div>
       </div>
 
-      <div class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover/card:opacity-100 transition-all duration-200 pointer-events-none">
+      <div class="absolute right-4 bottom-3 opacity-0 group-hover/card:opacity-100 transition-all duration-200 pointer-events-none">
         <.phx_icon
           name="hero-chevron-right"
           class="h-5 w-5 text-teal-500/60 dark:text-teal-400/60"

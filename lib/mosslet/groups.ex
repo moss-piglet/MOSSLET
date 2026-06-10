@@ -444,6 +444,84 @@ defmodule Mosslet.Groups do
     end
   end
 
+  @doc """
+  Removes members from a group by deleting their `user_group` rows.
+
+  `user_ids` is the list of member `user_id`s to remove. The group owner is
+  never removed, even if mistakenly included. Returns `{:ok, count}` with the
+  number of memberships removed.
+  """
+  def remove_group_members(%Group{} = group, user_ids) when is_list(user_ids) do
+    owner_id = group.user_id
+
+    removed =
+      group.id
+      |> get_group!()
+      |> Map.get(:user_groups, [])
+      |> Enum.filter(fn ug -> ug.user_id in user_ids and ug.user_id != owner_id end)
+      |> Enum.reduce(0, fn ug, acc ->
+        case delete_user_group(ug) do
+          {:ok, _} -> acc + 1
+          _ -> acc
+        end
+      end)
+
+    {:ok, removed}
+  end
+
+  @doc """
+  Adds members to an existing group (ZK write path).
+
+  The browser has unsealed the per-group key, sealed it for each new member, and
+  encrypted each member's display name/moniker/avatar with the group_key. The raw
+  group_key NEVER reaches the server. `sealed_members` is a list of maps (string
+  keys) with `user_id`, `sealed_key`, `encrypted_name`, `encrypted_moniker`, and
+  `encrypted_avatar_img`. New members are inserted as confirmed members.
+  """
+  def add_group_members_zk(%Group{} = group, sealed_members) when is_list(sealed_members) do
+    existing_user_ids =
+      group.id
+      |> get_group!()
+      |> Map.get(:user_groups, [])
+      |> Enum.map(& &1.user_id)
+
+    confirmed_at = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+
+    inserted =
+      Enum.reduce(sealed_members, 0, fn member, acc ->
+        user_id = member["user_id"]
+
+        if is_nil(user_id) or user_id in existing_user_ids do
+          acc
+        else
+          member_changeset =
+            UserGroup.member_changeset_zk(%{
+              sealed_key: member["sealed_key"],
+              encrypted_name: member["encrypted_name"],
+              encrypted_moniker: member["encrypted_moniker"],
+              encrypted_avatar_img: member["encrypted_avatar_img"]
+            })
+            |> Ecto.Changeset.put_change(:group_id, group.id)
+            |> Ecto.Changeset.put_change(:user_id, user_id)
+            |> Ecto.Changeset.put_change(:confirmed_at, confirmed_at)
+
+          case Mosslet.Repo.transaction_on_primary(fn ->
+                 Mosslet.Repo.insert(member_changeset)
+               end) do
+            {:ok, {:ok, _ug}} -> acc + 1
+            _ -> acc
+          end
+        end
+      end)
+
+    group = get_group!(group.id)
+
+    {:ok, group}
+    |> broadcast(:group_updated)
+
+    {:ok, inserted}
+  end
+
   defp do_update_group(group, attrs, opts, user, user_group, d_group_key) do
     opts =
       opts ++

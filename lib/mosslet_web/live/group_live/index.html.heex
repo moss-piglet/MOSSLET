@@ -108,6 +108,7 @@
                   edit_url={~p"/app/circles/#{group}/edit"}
                   unread_mention_count={Map.get(@unread_mention_counts, group.id, 0)}
                   browser_decrypt={browser_decrypt?}
+                  member_count={Enum.count(group.user_groups, & &1.confirmed_at)}
                 >
                   <:members>
                     <%= for user_group <- group.user_groups, user_group.confirmed_at do %>

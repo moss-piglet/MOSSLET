@@ -36,6 +36,10 @@ const GroupMetadataFormHook = {
     this.handleEvent("seal_group_key_for_members", (payload) => {
       this._sealKeyForMembersAndFinalize(payload);
     });
+
+    this.handleEvent("seal_group_key_for_new_members", (payload) => {
+      this._sealKeyForNewMembersAndFinalize(payload);
+    });
   },
 
   updated() {
@@ -222,6 +226,68 @@ const GroupMetadataFormHook = {
     } catch (err) {
       console.error("GroupMetadataFormHook: Phase 2 sealing failed:", err);
       this._pendingGroupKey = null;
+    }
+  },
+
+  /**
+   * Edit Phase 2: Server sent back public keys for members newly added during an
+   * edit. Seal the existing (already-unsealed) group_key for each, encrypt their
+   * display name/moniker/avatar with the group_key, and push
+   * "finalize_group_members_zk". The raw group_key never leaves the browser.
+   */
+  async _sealKeyForNewMembersAndFinalize(payload) {
+    try {
+      const groupKey = this._groupKey;
+      if (!groupKey) {
+        console.error(
+          "GroupMetadataFormHook: no group key available to seal for new members",
+        );
+        return;
+      }
+
+      const keyBytes = b64Decode(groupKey);
+      const members = payload.members || [];
+
+      const sealedMembers = await Promise.all(
+        members.map(async (member) => {
+          const sealedKey = await sealForUser(
+            keyBytes,
+            member.public_key,
+            member.pq_public_key || null,
+          );
+          const encryptedName = member.name
+            ? await encryptWithKey(member.name, groupKey)
+            : null;
+          const encryptedMoniker = member.moniker
+            ? await encryptWithKey(member.moniker, groupKey)
+            : null;
+          const encryptedAvatarImg = member.avatar_img
+            ? await encryptWithKey(member.avatar_img, groupKey)
+            : null;
+
+          return {
+            user_id: member.user_id,
+            sealed_key: sealedKey,
+            encrypted_name: encryptedName,
+            encrypted_moniker: encryptedMoniker,
+            encrypted_avatar_img: encryptedAvatarImg,
+          };
+        }),
+      );
+
+      const target = this.el.getAttribute("phx-target");
+      const finalPayload = { sealed_members: sealedMembers };
+
+      if (target) {
+        this.pushEventTo(target, "finalize_group_members_zk", finalPayload);
+      } else {
+        this.pushEvent("finalize_group_members_zk", finalPayload);
+      }
+    } catch (err) {
+      console.error(
+        "GroupMetadataFormHook: sealing for new members failed:",
+        err,
+      );
     }
   },
 
