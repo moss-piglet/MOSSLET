@@ -3552,8 +3552,8 @@ defmodule MossletWeb.UserHomeLive do
         </div>
 
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2 space-y-8">
+          <div class="mx-auto max-w-3xl">
+            <div class="space-y-8">
               <MossletWeb.DesignSystem.liquid_card
                 :if={has_contact_links?(@profile_user.connection.profile)}
                 heading_level={2}
@@ -3883,80 +3883,6 @@ defmodule MossletWeb.UserHomeLive do
                 />
               </MossletWeb.DesignSystem.liquid_card>
             </div>
-
-            <div class="lg:col-span-1 space-y-6">
-              <%!-- Quick Actions --%>
-              <MossletWeb.DesignSystem.liquid_card
-                :if={!@current_user_is_profile_owner?}
-                heading_level={2}
-                class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30"
-              >
-                <:title>
-                  <div class="text-lg font-bold tracking-tight bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent flex items-center gap-2">
-                    <.phx_icon name="hero-bolt" class="size-5 text-teal-600 dark:text-teal-400" />
-                    Quick Actions
-                  </div>
-                </:title>
-                <div class="space-y-3">
-                  <MossletWeb.DesignSystem.liquid_button
-                    navigate={~p"/app/timeline"}
-                    variant="primary"
-                    color="teal"
-                    icon="hero-newspaper"
-                    class="w-full"
-                  >
-                    View Timeline
-                  </MossletWeb.DesignSystem.liquid_button>
-
-                  <div class="space-y-2 pt-2">
-                    <MossletWeb.DesignSystem.liquid_nav_item
-                      navigate={~p"/app/users/connections"}
-                      icon="hero-users"
-                      class="rounded-xl group hover:from-blue-50 hover:via-cyan-50 hover:to-blue-50 dark:hover:from-blue-900/20 dark:hover:via-cyan-900/20 dark:hover:to-blue-900/20"
-                    >
-                      Manage Connections
-                    </MossletWeb.DesignSystem.liquid_nav_item>
-
-                    <MossletWeb.DesignSystem.liquid_nav_item
-                      navigate={~p"/app/circles"}
-                      icon="hero-circle-stack"
-                      class="rounded-xl group hover:from-purple-50 hover:via-violet-50 hover:to-purple-50 dark:hover:from-purple-900/20 dark:hover:via-violet-900/20 dark:hover:to-purple-900/20"
-                    >
-                      Join Circles
-                    </MossletWeb.DesignSystem.liquid_nav_item>
-                  </div>
-                </div>
-              </MossletWeb.DesignSystem.liquid_card>
-
-              <MossletWeb.DesignSystem.liquid_card heading_level={2}>
-                <:title>
-                  <div class="flex items-center gap-2">
-                    <.phx_icon
-                      name="hero-chart-pie"
-                      class="size-5 text-purple-600 dark:text-purple-400"
-                    /> Profile Stats
-                  </div>
-                </:title>
-                <div class="space-y-4">
-                  <div class="flex items-center justify-between">
-                    <span class="text-sm text-slate-600 dark:text-slate-400">Joined</span>
-                    <span class="font-semibold text-slate-900 dark:text-white">
-                      {if @profile_user.inserted_at,
-                        do: Calendar.strftime(@profile_user.inserted_at, "%B %Y"),
-                        else: "—"}
-                    </span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-sm text-slate-600 dark:text-slate-400">Last active</span>
-                    <span class="font-semibold text-slate-900 dark:text-white">
-                      {if @profile_user.last_activity_at,
-                        do: "#{Calendar.strftime(@profile_user.last_activity_at, "%b %d")}",
-                        else: "Recently"}
-                    </span>
-                  </div>
-                </div>
-              </MossletWeb.DesignSystem.liquid_card>
-            </div>
           </div>
         </div>
       </div>
@@ -4143,9 +4069,9 @@ defmodule MossletWeb.UserHomeLive do
 
         <%!-- Main Content --%>
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <%!-- Left Column: Connection Profile Details --%>
-            <div class="lg:col-span-2 space-y-8">
+          <div class="mx-auto max-w-3xl">
+            <%!-- Connection Profile Details --%>
+            <div class="space-y-8">
               <%!-- DecryptProfileFields hook for browser-side ZK decryption --%>
               <div
                 :if={@profile_fields && @profile_fields[:browser_decrypt?]}
@@ -4585,87 +4511,6 @@ defmodule MossletWeb.UserHomeLive do
                   tab_color="emerald"
                   phx-click="load_more_posts"
                 />
-              </MossletWeb.DesignSystem.liquid_card>
-            </div>
-
-            <%!-- Right Column: Connection Info & Stats --%>
-            <div class="lg:col-span-1 space-y-6">
-              <%!-- Quick Actions --%>
-              <MossletWeb.DesignSystem.liquid_card
-                heading_level={2}
-                class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30"
-              >
-                <:title>
-                  <div class="text-lg font-bold tracking-tight bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent flex items-center gap-2">
-                    <.phx_icon name="hero-bolt" class="size-5 text-teal-600 dark:text-teal-400" />
-                    Quick Actions
-                  </div>
-                </:title>
-                <div class="space-y-3">
-                  <MossletWeb.DesignSystem.liquid_button
-                    navigate={~p"/app/timeline"}
-                    variant="primary"
-                    color="teal"
-                    icon="hero-newspaper"
-                    class="w-full"
-                  >
-                    View Timeline
-                  </MossletWeb.DesignSystem.liquid_button>
-
-                  <div class="space-y-2 pt-2">
-                    <MossletWeb.DesignSystem.liquid_nav_item
-                      navigate={~p"/app/users/connections"}
-                      icon="hero-users"
-                      class="rounded-xl group hover:from-blue-50 hover:via-cyan-50 hover:to-blue-50 dark:hover:from-blue-900/20 dark:hover:via-cyan-900/20 dark:hover:to-blue-900/20"
-                    >
-                      Manage Connections
-                    </MossletWeb.DesignSystem.liquid_nav_item>
-
-                    <MossletWeb.DesignSystem.liquid_nav_item
-                      navigate={~p"/app/circles"}
-                      icon="hero-circle-stack"
-                      class="rounded-xl group hover:from-purple-50 hover:via-violet-50 hover:to-purple-50 dark:hover:from-purple-900/20 dark:hover:via-violet-900/20 dark:hover:to-purple-900/20"
-                    >
-                      Join Circles
-                    </MossletWeb.DesignSystem.liquid_nav_item>
-                  </div>
-                </div>
-              </MossletWeb.DesignSystem.liquid_card>
-
-              <%!-- Connection Stats --%>
-              <MossletWeb.DesignSystem.liquid_card heading_level={2}>
-                <:title>
-                  <div class="flex items-center gap-2">
-                    <.phx_icon
-                      name="hero-chart-pie"
-                      class="size-5 text-purple-600 dark:text-purple-400"
-                    /> Profile Stats
-                  </div>
-                </:title>
-                <div class="space-y-4">
-                  <div class="flex items-center justify-between">
-                    <span class="text-sm text-slate-600 dark:text-slate-400">Joined</span>
-                    <span class="font-semibold text-slate-900 dark:text-white">
-                      {if @profile_user.inserted_at,
-                        do: Calendar.strftime(@profile_user.inserted_at, "%B %Y"),
-                        else: "—"}
-                    </span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-sm text-slate-600 dark:text-slate-400">Last active</span>
-                    <span class="font-semibold text-slate-900 dark:text-white">
-                      {if @profile_user.last_activity_at,
-                        do: "#{Calendar.strftime(@profile_user.last_activity_at, "%b %d")}",
-                        else: "Now"}
-                    </span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-sm text-slate-600 dark:text-slate-400">Status</span>
-                    <span class="font-semibold text-slate-900 dark:text-white">
-                      {String.capitalize(to_string(@profile_user.status))}
-                    </span>
-                  </div>
-                </div>
               </MossletWeb.DesignSystem.liquid_card>
             </div>
           </div>

@@ -15,89 +15,25 @@ defmodule MossletWeb.Components.LandingPage do
   def hero(assigns) do
     assigns =
       assigns
-      |> assign_new(:logo_cloud_title, fn -> nil end)
-      |> assign_new(:cloud_logo, fn -> nil end)
       |> assign_new(:max_width, fn -> "lg" end)
       |> assign_new(:title, fn -> gettext("Welcome") end)
-      |> assign_new(:image_src, fn -> nil end)
-      |> assign_new(:features, fn ->
-        [
-          %{
-            title: "Zero-Knowledge",
-            description:
-              "Your data is encrypted and decrypted in your browser. Our servers store only opaque ciphertext — we genuinely cannot read your content.",
-            icon: :lock_closed,
-            early_access: true
-          },
-          %{
-            title: "Post-Quantum",
-            description:
-              "Protected against future quantum computers with ML-KEM-1024 (NIST Cat-5 standard). Your data is safe today and tomorrow.",
-            icon: :shield_check,
-            early_access: true
-          },
-          %{
-            title: "People",
-            description:
-              "Your one stop-shop for managing your relationships, complete with a people queue for privacy.",
-            icon: :user_group,
-            early_access: true
-          },
-          %{
-            title: "Open-Source Crypto",
-            description:
-              "Our encryption library is open-source Rust compiled to both WebAssembly and native code — the same code runs in your browser and on our server, fully auditable.",
-            icon: :code_bracket,
-            early_access: true
-          },
-          %{
-            title: "Breach Alerts",
-            description:
-              "Private and secure checks against the HaveIBeenPwned database let you know if your email or password has been compromised.",
-            icon: :exclamation,
-            early_access: false
-          },
-          %{
-            title: "Data Destroyer",
-            description:
-              "When you delete something, it's gone instantly (and forever). Easy and under your control.",
-            icon: :trash,
-            early_access: false
-          },
-          %{
-            title: "Blind Requests",
-            description:
-              "Receive the info you need to accept/decline a new relationship without revealing anything, including whether or not you even have an account.",
-            icon: :eye_off,
-            early_access: false
-          },
-          %{
-            title: "Connections",
-            description:
-              "Only the people you choose can connect, share, and see information about you.",
-            icon: :share,
-            early_access: false
-          }
-        ]
-      end)
 
     ~H"""
     <section id="hero" class="relative overflow-hidden">
       <%!-- Liquid Metal Background System --%>
       <div class="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
       </div>
-
-      <%!-- Primary Liquid Background Gradient --%>
       <div class="absolute inset-0 bg-gradient-to-br from-teal-50/40 via-emerald-50/30 to-cyan-50/40 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-cyan-900/20">
       </div>
-
-      <%!-- Animated Shimmer Layer --%>
       <div class="absolute inset-0 animate-shimmer-slow bg-gradient-to-r from-transparent via-emerald-200/20 to-transparent dark:via-emerald-400/10">
       </div>
 
       <DesignSystem.liquid_container max_width="full" class="relative">
+        <%!-- ============================================================ --%>
+        <%!-- HERO: lead with emotion + action --%>
+        <%!-- ============================================================ --%>
         <div class="relative isolate px-6 lg:px-8">
-          <%!-- Top Decorative Gradient (Updated to Liquid Metal Colors) --%>
+          <%!-- Top decorative gradient --%>
           <div
             class="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80"
             aria-hidden="true"
@@ -108,20 +44,15 @@ defmodule MossletWeb.Components.LandingPage do
             >
             </div>
           </div>
+
           <div class="mx-auto max-w-2xl pb-16 pt-20 sm:pb-24 sm:pt-20 lg:pb-28">
-            <%!-- Liquid Metal Badge with Hover Effects --%>
+            <%!-- Subtle privacy badge (credentials, not the headline) --%>
             <div class="mb-6 sm:mb-8 flex justify-center">
               <div class="group relative overflow-hidden rounded-full px-4 py-2 text-sm leading-6 text-slate-600 dark:text-slate-400 transition-all duration-300 ease-out">
-                <%!-- Liquid Background --%>
                 <div class="absolute inset-0 bg-gradient-to-r from-slate-100/80 via-slate-50/90 to-slate-100/80 dark:from-slate-800/80 dark:via-slate-700/90 dark:to-slate-800/80 transition-all duration-300 group-hover:from-teal-100/60 group-hover:via-emerald-50/80 group-hover:to-cyan-100/60 dark:group-hover:from-teal-900/30 dark:group-hover:via-emerald-900/25 dark:group-hover:to-cyan-900/30">
                 </div>
-                <%!-- Ring Border --%>
                 <div class="absolute inset-0 rounded-full ring-1 ring-slate-200/60 dark:ring-slate-700/60 transition-all duration-300 group-hover:ring-emerald-300/50 dark:group-hover:ring-emerald-600/30">
                 </div>
-                <%!-- Shimmer Effect --%>
-                <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full rounded-full">
-                </div>
-
                 <div class="relative flex flex-col sm:flex-row items-center gap-1 sm:gap-0">
                   <span class="text-center sm:text-left">
                     We can't read your data.
@@ -146,16 +77,15 @@ defmodule MossletWeb.Components.LandingPage do
                 </div>
               </div>
             </div>
+
             <div class="text-center relative z-10">
-              <%!-- Enhanced Heading with Better Liquid Metal Effect --%>
               <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent drop-shadow-sm">
-                Zero-knowledge social, built for the future
+                Share your world. Keep it yours.
               </h1>
-              <%!-- Enhanced Description with Better Typography --%>
-              <p class="mt-6 text-lg leading-8 text-slate-600 text-balance dark:text-slate-400 max-w-2xl mx-auto">
-                Your data is encrypted in your browser — even we can't read it. Post-quantum protection keeps your connections safe today and against future threats. No ads, no algorithms, just your people and your thoughts.
+              <p class="mt-6 text-lg leading-8 text-slate-600 text-balance dark:text-slate-400 max-w-xl mx-auto">
+                A calm place to share photos, write privately, and stay close to the people who matter. No ads, no algorithms, no one watching.
               </p>
-              <%!-- Liquid Metal CTA Buttons --%>
+
               <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-x-6">
                 <MossletWeb.DesignSystem.liquid_button
                   navigate="/auth/register"
@@ -165,7 +95,7 @@ defmodule MossletWeb.Components.LandingPage do
                   size="lg"
                   class="w-full sm:w-auto shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/30 transition-all duration-300"
                 >
-                  Register today
+                  Start for free
                 </MossletWeb.DesignSystem.liquid_button>
                 <MossletWeb.DesignSystem.liquid_button
                   navigate="/auth/sign_in"
@@ -178,6 +108,7 @@ defmodule MossletWeb.Components.LandingPage do
                   Sign in
                 </MossletWeb.DesignSystem.liquid_button>
               </div>
+
               <div class="mt-8 flex justify-center">
                 <a
                   target="_blank"
@@ -195,25 +126,27 @@ defmodule MossletWeb.Components.LandingPage do
             </div>
           </div>
 
-          <%!-- Hero App Preview Timeline Image --%>
-          <div class="relative mt-16 sm:mt-20 mx-auto max-w-5xl px-6 lg:px-8">
+          <%!-- Hero product preview --%>
+          <div class="relative mt-12 sm:mt-16 mx-auto max-w-5xl px-6 lg:px-8 reveal-on-scroll">
             <div class="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
               <div class="absolute inset-0 bg-gradient-to-tr from-teal-500/5 via-transparent to-emerald-500/5 dark:from-teal-500/10 dark:to-emerald-500/10">
               </div>
               <img
                 src={~p"/images/screenshots/timeline_light.png"}
-                alt="MOSSLET app preview showing the social feed"
+                alt="The MOSSLET timeline showing a calm, ad-free feed"
                 class="relative w-full h-auto dark:hidden"
+                loading="lazy"
               />
               <img
                 src={~p"/images/screenshots/timeline_dark.png"}
-                alt="MOSSLET app preview showing the social feed"
+                alt="The MOSSLET timeline showing a calm, ad-free feed"
                 class="relative w-full h-auto hidden dark:block"
+                loading="lazy"
               />
             </div>
           </div>
 
-          <%!-- Bottom Decorative Gradient (Updated to Liquid Metal Colors) --%>
+          <%!-- Bottom decorative gradient --%>
           <div
             class="absolute inset-x-0 top-[calc(100%-13rem)] -z-10 transform-gpu overflow-hidden blur-3xl sm:top-[calc(100%-30rem)]"
             aria-hidden="true"
@@ -226,565 +159,221 @@ defmodule MossletWeb.Components.LandingPage do
           </div>
         </div>
 
-        <%!-- Social Features Section with Teal Accent --%>
-        <MossletWeb.DesignSystem.liquid_container
-          max_width="full"
-          class="relative mt-16 sm:mt-24 py-16 sm:py-20"
-        >
-          <div class="absolute inset-0 bg-gradient-to-b from-teal-50/30 via-emerald-50/20 to-transparent dark:from-teal-950/20 dark:via-emerald-950/10 dark:to-transparent">
-          </div>
-          <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
+        <%!-- ============================================================ --%>
+        <%!-- PULL QUOTE: one strong philosophical statement --%>
+        <%!-- ============================================================ --%>
+        <div class="relative mx-auto max-w-3xl px-6 py-16 sm:py-24 text-center reveal-on-scroll">
+          <p class="text-2xl sm:text-3xl font-semibold leading-tight tracking-tight text-balance text-slate-800 dark:text-slate-100">
+            Remember when social was simple? Just sharing little moments with
+            <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+              the people you love
+            </span>
+            — then getting back to real life.
+          </p>
+          <p class="mt-6 text-base leading-7 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+            We built MOSSLET to bring that back. No feeds engineered to keep you scrolling, no profile sold to advertisers — just a quiet, private space that's genuinely yours.
+          </p>
+        </div>
+
+        <%!-- ============================================================ --%>
+        <%!-- WHAT YOU CAN DO: alternating image + short text rows --%>
+        <%!-- ============================================================ --%>
+        <div class="relative mx-auto max-w-6xl px-6 lg:px-8 py-8 sm:py-12">
+          <div class="text-center mb-12 sm:mb-16 reveal-on-scroll">
             <div class="flex items-center justify-center gap-3 mb-4">
               <div class="h-px w-12 bg-gradient-to-r from-transparent to-teal-400 dark:to-teal-600">
               </div>
               <span class="text-sm font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">
-                Social
+                What you can do
               </span>
               <div class="h-px w-12 bg-gradient-to-l from-transparent to-teal-400 dark:to-teal-600">
               </div>
             </div>
-            <div class="text-center mb-12">
-              <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                Connect simply with friends and family
+            <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+              Everything you need, nothing you don't
+            </h2>
+          </div>
+
+          <div class="space-y-20 sm:space-y-28">
+            <.feature_row
+              eyebrow="Timeline"
+              icon="hero-users"
+              accent="teal"
+              title="Share with your people"
+              body="Post photos and updates to friends and family — or keep them just for you. You decide who sees what, every time."
+              image_light={~p"/images/screenshots/profile_light.png"}
+              image_dark={~p"/images/screenshots/profile_dark.png"}
+              image_alt="A personal profile and posts on MOSSLET"
+            />
+            <.feature_row
+              eyebrow="Journal"
+              icon="hero-pencil-square"
+              accent="violet"
+              title="A private space, just for you"
+              body="Write, track your mood, and reflect in an encrypted journal only you can open. Optional AI insights run privately and are never stored."
+              image_light={~p"/images/screenshots/journal_light.png"}
+              image_dark={~p"/images/screenshots/journal_dark.png"}
+              image_alt="The MOSSLET encrypted journal"
+              reverse
+            />
+            <.feature_row
+              eyebrow="Connections"
+              icon="hero-heart"
+              accent="emerald"
+              title="Stay close, on your terms"
+              body="Connect only with people you choose. Blind requests let you accept or decline without revealing anything — not even that you have an account."
+              image_light={~p"/images/screenshots/connections_light.png"}
+              image_dark={~p"/images/screenshots/connections_dark.png"}
+              image_alt="Managing connections on MOSSLET"
+            />
+            <.feature_row
+              eyebrow="Circles & Messages"
+              icon="hero-chat-bubble-left-right"
+              accent="cyan"
+              title="Talk privately, together"
+              body="Group circles and direct messages are end-to-end encrypted. Every conversation has its own key — we only ever store encrypted blobs."
+              image_light={~p"/images/screenshots/circles_chat_light.png"}
+              image_dark={~p"/images/screenshots/circles_chat_dark.png"}
+              image_alt="An encrypted group chat on MOSSLET"
+              reverse
+            />
+          </div>
+
+          <div class="mt-16 text-center reveal-on-scroll">
+            <MossletWeb.DesignSystem.liquid_button
+              navigate="/features"
+              variant="secondary"
+              color="teal"
+              icon="hero-arrow-right"
+              size="lg"
+              shimmer="page"
+            >
+              Explore all features
+            </MossletWeb.DesignSystem.liquid_button>
+          </div>
+        </div>
+
+        <%!-- ============================================================ --%>
+        <%!-- TRUST SIGNALS: family-owned, bootstrapped, PBC --%>
+        <%!-- ============================================================ --%>
+        <MossletWeb.DesignSystem.liquid_container
+          max_width="full"
+          class="relative mt-12 sm:mt-20 py-16 sm:py-20"
+        >
+          <div class="absolute inset-0 bg-gradient-to-b from-emerald-50/40 via-teal-50/20 to-transparent dark:from-emerald-950/20 dark:via-teal-950/10 dark:to-transparent">
+          </div>
+          <div class="relative mx-auto max-w-5xl px-6 lg:px-8">
+            <div class="text-center mb-12 reveal-on-scroll">
+              <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">
+                Built by a family, not a boardroom
               </h2>
               <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-                Share moments and memories with the people who matter most. Private, calm, and beautifully simple.
+                We're a small, family-owned public benefit company. No venture capital, no investors, no pressure to monetize you. We use MOSSLET ourselves, with our own families.
               </p>
             </div>
 
-            <div class="grid grid-cols-1 gap-8 md:grid-cols-3 max-w-5xl mx-auto">
-              <MossletWeb.DesignSystem.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-              >
-                <:title>
-                  <div class="flex items-center gap-3 mb-4">
-                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-cyan-500 to-blue-500 shadow-lg">
-                      <.phx_icon
-                        name="hero-users"
-                        class="h-5 w-5 text-white"
-                      />
-                    </div>
-                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                      Made for People
-                    </span>
-                  </div>
-                </:title>
-
-                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Share photos, updates, and memories with your friends and family. No ads, no algorithms. Simple, genuine connections without the noise.
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 reveal-on-scroll">
+              <div class="text-center p-6 rounded-2xl bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm ring-1 ring-emerald-200/50 dark:ring-emerald-700/40">
+                <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 shadow-lg">
+                  <.phx_icon name="hero-no-symbol" class="h-6 w-6 text-white" />
+                </div>
+                <div class="font-bold text-slate-900 dark:text-slate-100">No ads, ever</div>
+                <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                  You're our customer, not our product. We're funded by members, not advertisers.
                 </p>
-              </MossletWeb.DesignSystem.liquid_card>
-
-              <MossletWeb.DesignSystem.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-              >
-                <:title>
-                  <div class="flex items-center gap-3 mb-4">
-                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-purple-500 to-violet-500 shadow-lg">
-                      <.phx_icon
-                        name="hero-shield-check"
-                        class="h-5 w-5 text-white"
-                      />
-                    </div>
-                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                      Zero-Knowledge Privacy
-                    </span>
-                  </div>
-                </:title>
-
-                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Your data is encrypted in your browser before it ever reaches our servers. Even we can't read your content — that's what zero-knowledge means.
+              </div>
+              <div class="text-center p-6 rounded-2xl bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm ring-1 ring-teal-200/50 dark:ring-teal-700/40">
+                <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 shadow-lg">
+                  <.phx_icon name="hero-sparkles" class="h-6 w-6 text-white" />
+                </div>
+                <div class="font-bold text-slate-900 dark:text-slate-100">No algorithms</div>
+                <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                  A simple, chronological feed. Nothing engineered to keep you hooked or anxious.
                 </p>
-              </MossletWeb.DesignSystem.liquid_card>
-
-              <MossletWeb.DesignSystem.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-              >
-                <:title>
-                  <div class="flex items-center gap-3 mb-4">
-                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-500 shadow-lg">
-                      <.phx_icon
-                        name="hero-heart"
-                        class="h-5 w-5 text-white"
-                      />
-                    </div>
-                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                      Calm and Peaceful
-                    </span>
-                  </div>
-                </:title>
-
-                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  No endless scroll, no anxiety-inducing algorithms. Just a calm space to stay connected with loved ones.
+              </div>
+              <div class="text-center p-6 rounded-2xl bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm ring-1 ring-cyan-200/50 dark:ring-cyan-700/40">
+                <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 shadow-lg">
+                  <.phx_icon name="hero-trash" class="h-6 w-6 text-white" />
+                </div>
+                <div class="font-bold text-slate-900 dark:text-slate-100">Yours to delete</div>
+                <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                  When you delete something, it's gone — instantly and forever. Your data, your call.
                 </p>
-              </MossletWeb.DesignSystem.liquid_card>
+              </div>
             </div>
           </div>
         </MossletWeb.DesignSystem.liquid_container>
 
-        <%!-- Hero App Preview Journal Image --%>
-        <div class="relative mt-16 sm:mt-20 mx-auto max-w-5xl px-6 lg:px-8">
-          <div class="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
-            <div class="absolute inset-0 bg-gradient-to-tr from-teal-500/5 via-transparent to-emerald-500/5 dark:from-teal-500/10 dark:to-emerald-500/10">
-            </div>
-            <img
-              src={~p"/images/screenshots/journal_light.png"}
-              alt="MOSSLET app preview showing the journal home"
-              class="relative w-full h-auto dark:hidden"
-            />
-            <img
-              src={~p"/images/screenshots/journal_dark.png"}
-              alt="MOSSLET app preview showing the journal home"
-              class="relative w-full h-auto hidden dark:block"
-            />
-          </div>
-        </div>
-
-        <%!-- Journal Features Section with Violet/Purple Accent --%>
+        <%!-- ============================================================ --%>
+        <%!-- TECHNICAL DEPTH: one section, at the bottom, for verifiers --%>
+        <%!-- ============================================================ --%>
         <MossletWeb.DesignSystem.liquid_container
           max_width="full"
           class="relative mt-8 py-16 sm:py-20"
         >
-          <div class="absolute inset-0 bg-gradient-to-b from-violet-50/30 via-purple-50/20 to-transparent dark:from-violet-950/20 dark:via-purple-950/10 dark:to-transparent">
+          <div class="absolute inset-0 bg-gradient-to-b from-slate-100/60 via-slate-50/30 to-transparent dark:from-slate-900/40 dark:via-slate-950/20 dark:to-transparent">
           </div>
-          <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
-            <div class="flex items-center justify-center gap-3 mb-4">
-              <div class="h-px w-12 bg-gradient-to-r from-transparent to-violet-400 dark:to-violet-600">
+          <div class="relative mx-auto max-w-5xl px-6 lg:px-8">
+            <div class="text-center mb-12 reveal-on-scroll">
+              <div class="flex items-center justify-center gap-3 mb-4">
+                <div class="h-px w-12 bg-gradient-to-r from-transparent to-slate-400 dark:to-slate-600">
+                </div>
+                <span class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  For the curious
+                </span>
+                <div class="h-px w-12 bg-gradient-to-l from-transparent to-slate-400 dark:to-slate-600">
+                </div>
               </div>
-              <span class="text-sm font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400">
-                Journal
-              </span>
-              <div class="h-px w-12 bg-gradient-to-l from-transparent to-violet-400 dark:to-violet-600">
-              </div>
-            </div>
-            <div class="text-center mb-12">
-              <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-violet-500 to-purple-500 bg-clip-text text-transparent">
-                Connect with yourself
+              <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl">
+                How we keep it private
               </h2>
               <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-                Your private space for reflection. Our encrypted journal helps you capture thoughts, track your mood, and gain insights — just for you.
+                You don't need to understand the cryptography to be protected by it — but if you want to verify, here's the short version.
               </p>
             </div>
 
-            <div class="grid grid-cols-1 gap-8 md:grid-cols-3 max-w-5xl mx-auto">
-              <MossletWeb.DesignSystem.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-              >
-                <:title>
-                  <div class="flex items-center gap-3 mb-4">
-                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-violet-500 to-purple-500 shadow-lg">
-                      <.phx_icon
-                        name="hero-lock-closed"
-                        class="h-5 w-5 text-white"
-                      />
-                    </div>
-                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                      Encrypted & Private
-                    </span>
-                  </div>
-                </:title>
-
-                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Your journal entries are encrypted with your personal key. Only you can read them — not even we can access your private thoughts.
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-3 reveal-on-scroll">
+              <div class="rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm p-6 ring-1 ring-slate-200/60 dark:ring-slate-700/50">
+                <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-violet-500 shadow-lg">
+                  <.phx_icon name="hero-lock-closed" class="h-5 w-5 text-white" />
+                </div>
+                <h3 class="font-bold text-slate-900 dark:text-slate-100">Zero-knowledge</h3>
+                <p class="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                  Your data is encrypted and decrypted in your browser. Our servers only ever see opaque ciphertext — we genuinely cannot read your content.
                 </p>
-              </MossletWeb.DesignSystem.liquid_card>
-
-              <MossletWeb.DesignSystem.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-              >
-                <:title>
-                  <div class="flex items-center gap-3 mb-4">
-                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-pink-500 to-rose-500 shadow-lg">
-                      <.phx_icon
-                        name="hero-face-smile"
-                        class="h-5 w-5 text-white"
-                      />
-                    </div>
-                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                      Mood Tracking
-                    </span>
-                  </div>
-                </:title>
-
-                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Record how you're feeling with each entry. Track your emotional journey over time and discover patterns in your well-being.
+              </div>
+              <div class="rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm p-6 ring-1 ring-slate-200/60 dark:ring-slate-700/50">
+                <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 shadow-lg">
+                  <.phx_icon name="hero-shield-check" class="h-5 w-5 text-white" />
+                </div>
+                <h3 class="font-bold text-slate-900 dark:text-slate-100">Post-quantum</h3>
+                <p class="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                  We use ML-KEM-1024 (the NIST Cat-5 standard) so your data stays safe even against the quantum computers of tomorrow.
                 </p>
-              </MossletWeb.DesignSystem.liquid_card>
-
-              <MossletWeb.DesignSystem.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-              >
-                <:title>
-                  <div class="flex items-center gap-3 mb-4">
-                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg">
-                      <.phx_icon
-                        name="hero-light-bulb"
-                        class="h-5 w-5 text-white"
-                      />
-                    </div>
-                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                      Privacy-First AI Insights
-                    </span>
-                  </div>
-                </:title>
-
-                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Get thoughtful AI-generated reflections while your data stays encrypted. Insights are generated privately and never stored or used to train models.
+              </div>
+              <div class="rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm p-6 ring-1 ring-slate-200/60 dark:ring-slate-700/50">
+                <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg">
+                  <.phx_icon name="hero-code-bracket" class="h-5 w-5 text-white" />
+                </div>
+                <h3 class="font-bold text-slate-900 dark:text-slate-100">Open source</h3>
+                <p class="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                  Our encryption library is open-source Rust, compiled to WebAssembly. The same auditable code runs in your browser and on our server.
                 </p>
-              </MossletWeb.DesignSystem.liquid_card>
+              </div>
             </div>
 
-            <div class="mt-16 mb-8 text-center">
+            <div class="mt-12 text-center reveal-on-scroll">
               <MossletWeb.DesignSystem.liquid_button
-                navigate="/features"
+                href="https://mosslet.com/blog/articles/17"
+                rel="noopener noreferrer"
+                target="_blank"
                 variant="secondary"
-                color="teal"
-                icon="hero-arrow-right"
+                color="purple"
+                icon="hero-arrow-up-right"
                 size="lg"
                 shimmer="page"
               >
-                Explore all features
-              </MossletWeb.DesignSystem.liquid_button>
-            </div>
-          </div>
-        </MossletWeb.DesignSystem.liquid_container>
-
-        <%!-- Privacy-First AI Section with Amber/Orange Accent --%>
-        <MossletWeb.DesignSystem.liquid_container
-          max_width="full"
-          class="relative mt-16 sm:mt-24 py-16 sm:py-20"
-        >
-          <div class="absolute inset-0 bg-gradient-to-b from-amber-50/30 via-orange-50/20 to-transparent dark:from-amber-950/20 dark:via-orange-950/10 dark:to-transparent">
-          </div>
-          <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
-            <div class="flex items-center justify-center gap-3 mb-4">
-              <div class="h-px w-12 bg-gradient-to-r from-transparent to-amber-400 dark:to-amber-600">
-              </div>
-              <span class="text-sm font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                Privacy-First AI
-              </span>
-              <div class="h-px w-12 bg-gradient-to-l from-transparent to-amber-400 dark:to-amber-600">
-              </div>
-            </div>
-            <div class="text-center mb-12">
-              <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
-                AI that respects your privacy
-              </h2>
-              <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-                Smart features that enhance your experience without compromising your data. No storage, no training, no surveillance — just helpful AI that works for you.
-              </p>
-            </div>
-
-            <div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
-              <MossletWeb.DesignSystem.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-              >
-                <:title>
-                  <div class="flex items-center gap-3 mb-4">
-                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-rose-500 to-pink-500 shadow-lg">
-                      <.phx_icon
-                        name="hero-shield-exclamation"
-                        class="h-5 w-5 text-white"
-                      />
-                    </div>
-                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                      Image Safety
-                    </span>
-                  </div>
-                </:title>
-
-                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Public images are checked server-side via AI with data collection disabled. Private images run safety checks entirely in your browser — your encrypted content never leaves your device for moderation.
-                </p>
-              </MossletWeb.DesignSystem.liquid_card>
-
-              <MossletWeb.DesignSystem.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-              >
-                <:title>
-                  <div class="flex items-center gap-3 mb-4">
-                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-indigo-500 to-violet-500 shadow-lg">
-                      <.phx_icon
-                        name="hero-chat-bubble-left-right"
-                        class="h-5 w-5 text-white"
-                      />
-                    </div>
-                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                      Content Moderation
-                    </span>
-                  </div>
-                </:title>
-
-                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Public posts get text and image moderation. Private and connections posts only check images for illegal content — in every case we respect your privacy.
-                </p>
-              </MossletWeb.DesignSystem.liquid_card>
-
-              <MossletWeb.DesignSystem.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-              >
-                <:title>
-                  <div class="flex items-center gap-3 mb-4">
-                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg">
-                      <.phx_icon
-                        name="hero-cpu-chip"
-                        class="h-5 w-5 text-white"
-                      />
-                    </div>
-                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                      Client-Side AI
-                    </span>
-                  </div>
-                </:title>
-
-                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Image safety for private content runs entirely in your browser using an on-device model. Public content uses server-side AI with data collection disabled — nothing is stored or used for training.
-                </p>
-              </MossletWeb.DesignSystem.liquid_card>
-            </div>
-
-            <div class="mt-12 text-center">
-              <MossletWeb.DesignSystem.liquid_button
-                navigate="/features#privacy-first-ai"
-                variant="secondary"
-                color="amber"
-                icon="hero-arrow-right"
-                size="lg"
-                shimmer="page"
-              >
-                Learn how our AI works
-              </MossletWeb.DesignSystem.liquid_button>
-            </div>
-          </div>
-        </MossletWeb.DesignSystem.liquid_container>
-
-        <%!-- Bluesky Interoperability Teaser Section --%>
-        <MossletWeb.DesignSystem.liquid_container
-          max_width="full"
-          class="relative mt-16 sm:mt-24 py-16 sm:py-20"
-        >
-          <div class="absolute inset-0 bg-gradient-to-b from-sky-50/30 via-blue-50/20 to-transparent dark:from-sky-950/20 dark:via-blue-950/10 dark:to-transparent">
-          </div>
-          <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
-            <div class="flex items-center justify-center gap-3 mb-4">
-              <div class="h-px w-12 bg-gradient-to-r from-transparent to-sky-400 dark:to-sky-600">
-              </div>
-              <span class="text-sm font-semibold uppercase tracking-wider text-sky-600 dark:text-sky-400">
-                Open Social
-              </span>
-              <div class="h-px w-12 bg-gradient-to-l from-transparent to-sky-400 dark:to-sky-600">
-              </div>
-            </div>
-            <div class="text-center mb-12">
-              <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-sky-500 to-blue-500 bg-clip-text text-transparent">
-                Your vault, their reach
-              </h2>
-              <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-                Import your Bluesky posts into encrypted storage, export Mosslet posts to Bluesky, and keep your data safe even if you delete your Bluesky account. Real data portability without lock-in.
-              </p>
-            </div>
-
-            <div class="grid grid-cols-1 gap-8 md:grid-cols-3 max-w-5xl mx-auto">
-              <MossletWeb.DesignSystem.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-              >
-                <:title>
-                  <div class="flex items-center gap-3 mb-4">
-                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-sky-500 to-blue-500 shadow-lg">
-                      <.phx_icon
-                        name="hero-arrow-down-tray"
-                        class="h-5 w-5 text-white"
-                      />
-                    </div>
-                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                      Import & Encrypt
-                    </span>
-                  </div>
-                </:title>
-
-                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Bring your Bluesky posts home. Private posts are encrypted with your keys — we literally can't read them.
-                </p>
-              </MossletWeb.DesignSystem.liquid_card>
-
-              <MossletWeb.DesignSystem.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-              >
-                <:title>
-                  <div class="flex items-center gap-3 mb-4">
-                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-500 shadow-lg">
-                      <.phx_icon
-                        name="hero-arrow-up-tray"
-                        class="h-5 w-5 text-white"
-                      />
-                    </div>
-                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                      Sync & Publish
-                    </span>
-                  </div>
-                </:title>
-
-                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Use Bluesky for reach and discovery while Mosslet stays your private, encrypted home base for content and relationships.
-                </p>
-              </MossletWeb.DesignSystem.liquid_card>
-
-              <MossletWeb.DesignSystem.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-              >
-                <:title>
-                  <div class="flex items-center gap-3 mb-4">
-                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-indigo-500 to-violet-500 shadow-lg">
-                      <.phx_icon
-                        name="hero-arrows-right-left"
-                        class="h-5 w-5 text-white"
-                      />
-                    </div>
-                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                      No Lock-In
-                    </span>
-                  </div>
-                </:title>
-
-                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Leave Bluesky or Mosslet whenever you want — your data travels with you. True portability means freedom to choose.
-                </p>
-              </MossletWeb.DesignSystem.liquid_card>
-            </div>
-
-            <div class="mt-12 text-center">
-              <MossletWeb.DesignSystem.liquid_button
-                navigate="/features#bluesky-interop"
-                variant="secondary"
-                color="blue"
-                icon="hero-arrow-right"
-                size="lg"
-                shimmer="page"
-              >
-                Learn about Bluesky sync
-              </MossletWeb.DesignSystem.liquid_button>
-            </div>
-          </div>
-        </MossletWeb.DesignSystem.liquid_container>
-
-        <MossletWeb.DesignSystem.liquid_container
-          max_width="full"
-          class="relative mt-16 sm:mt-24 py-16 sm:py-20"
-        >
-          <div class="absolute inset-0 bg-gradient-to-b from-cyan-50/30 via-teal-50/20 to-transparent dark:from-cyan-950/20 dark:via-teal-950/10 dark:to-transparent">
-          </div>
-          <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
-            <div class="flex items-center justify-center gap-3 mb-4">
-              <div class="h-px w-12 bg-gradient-to-r from-transparent to-cyan-400 dark:to-cyan-600">
-              </div>
-              <span class="text-sm font-semibold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
-                Messaging
-              </span>
-              <div class="h-px w-12 bg-gradient-to-l from-transparent to-cyan-400 dark:to-cyan-600">
-              </div>
-            </div>
-            <div class="text-center mb-12">
-              <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">
-                Zero-knowledge direct messages
-              </h2>
-              <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-                Private conversations that are truly private. Every message is end-to-end encrypted before it leaves your device — we literally can't read what you write.
-              </p>
-            </div>
-
-            <div class="grid grid-cols-1 gap-8 md:grid-cols-3 max-w-5xl mx-auto">
-              <MossletWeb.DesignSystem.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-              >
-                <:title>
-                  <div class="flex items-center gap-3 mb-4">
-                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-cyan-500 to-teal-500 shadow-lg">
-                      <.phx_icon
-                        name="hero-lock-closed"
-                        class="h-5 w-5 text-white"
-                      />
-                    </div>
-                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                      End-to-End Encrypted
-                    </span>
-                  </div>
-                </:title>
-
-                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Each conversation has its own unique encryption key. Messages are encrypted on your device before reaching our servers — we only ever store encrypted blobs.
-                </p>
-              </MossletWeb.DesignSystem.liquid_card>
-
-              <MossletWeb.DesignSystem.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-              >
-                <:title>
-                  <div class="flex items-center gap-3 mb-4">
-                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-teal-500 to-emerald-500 shadow-lg">
-                      <.phx_icon
-                        name="hero-bolt"
-                        class="h-5 w-5 text-white"
-                      />
-                    </div>
-                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                      Real-Time & Instant
-                    </span>
-                  </div>
-                </:title>
-
-                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Messages arrive instantly via WebSocket. Edit, delete, or archive conversations in real-time — all without breaking the encryption chain.
-                </p>
-              </MossletWeb.DesignSystem.liquid_card>
-
-              <MossletWeb.DesignSystem.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-              >
-                <:title>
-                  <div class="flex items-center gap-3 mb-4">
-                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-emerald-500 to-green-500 shadow-lg">
-                      <.phx_icon
-                        name="hero-eye-slash"
-                        class="h-5 w-5 text-white"
-                      />
-                    </div>
-                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                      True Zero-Knowledge
-                    </span>
-                  </div>
-                </:title>
-
-                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Per-conversation keys encrypted with your public key. We can't read your messages, your images, or your conversation keys. Privacy by design, not by promise.
-                </p>
-              </MossletWeb.DesignSystem.liquid_card>
-            </div>
-
-            <div class="mt-12 text-center">
-              <MossletWeb.DesignSystem.liquid_button
-                navigate="/features#encrypted-messaging"
-                variant="secondary"
-                color="teal"
-                icon="hero-arrow-right"
-                size="lg"
-                shimmer="page"
-              >
-                See how encryption works
+                Read how it works
               </MossletWeb.DesignSystem.liquid_button>
             </div>
           </div>
@@ -793,6 +382,79 @@ defmodule MossletWeb.Components.LandingPage do
         <.liquid_testimonials />
       </DesignSystem.liquid_container>
     </section>
+    """
+  end
+
+  attr :eyebrow, :string, required: true
+  attr :icon, :string, required: true
+  attr :title, :string, required: true
+  attr :body, :string, required: true
+  attr :image_light, :string, required: true
+  attr :image_dark, :string, required: true
+  attr :image_alt, :string, required: true
+  attr :reverse, :boolean, default: false
+
+  attr :accent, :string,
+    default: "teal",
+    values: ~w(teal emerald cyan violet)
+
+  defp feature_row(assigns) do
+    accents = %{
+      "teal" => %{icon: "from-teal-500 to-emerald-500", text: "text-teal-600 dark:text-teal-400"},
+      "emerald" => %{
+        icon: "from-emerald-500 to-cyan-500",
+        text: "text-emerald-600 dark:text-emerald-400"
+      },
+      "cyan" => %{icon: "from-cyan-500 to-blue-500", text: "text-cyan-600 dark:text-cyan-400"},
+      "violet" => %{
+        icon: "from-violet-500 to-purple-500",
+        text: "text-violet-600 dark:text-violet-400"
+      }
+    }
+
+    assigns = assign(assigns, :colors, accents[assigns.accent] || accents["teal"])
+
+    ~H"""
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center reveal-on-scroll">
+      <div class={["max-w-lg", @reverse && "lg:order-2"]}>
+        <div class="flex items-center gap-3 mb-4">
+          <div class={[
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br shadow-lg",
+            @colors.icon
+          ]}>
+            <.phx_icon name={@icon} class="h-5 w-5 text-white" />
+          </div>
+          <span class={["text-sm font-semibold uppercase tracking-wider", @colors.text]}>
+            {@eyebrow}
+          </span>
+        </div>
+        <h3 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+          {@title}
+        </h3>
+        <p class="mt-4 text-base leading-7 text-slate-600 dark:text-slate-400">
+          {@body}
+        </p>
+      </div>
+
+      <div class={["relative", @reverse && "lg:order-1"]}>
+        <div class="relative rounded-2xl overflow-hidden shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
+          <div class="absolute inset-0 bg-gradient-to-tr from-teal-500/5 via-transparent to-emerald-500/5 dark:from-teal-500/10 dark:to-emerald-500/10">
+          </div>
+          <img
+            src={@image_light}
+            alt={@image_alt}
+            class="relative w-full h-auto dark:hidden"
+            loading="lazy"
+          />
+          <img
+            src={@image_dark}
+            alt={@image_alt}
+            class="relative w-full h-auto hidden dark:block"
+            loading="lazy"
+          />
+        </div>
+      </div>
+    </div>
     """
   end
 

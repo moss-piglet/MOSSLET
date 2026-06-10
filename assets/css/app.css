@@ -2669,3 +2669,28 @@ pre.athl {
 }
 [data-theme="dark"] .variable-parameter-bash { color: #a6e3a1; }
 [data-theme="dark"] .variable-parameter-builtin { color: #f5c2e7; }
+
+/* ===== CSS-ONLY SCROLL REVEAL (progressive enhancement) ===== */
+/* Elements are visible by default. Where the browser supports scroll-driven
+   animations and the user allows motion, they fade/slide in as they enter the
+   viewport. No JS, no layout shift, fully accessible. */
+@keyframes mosslet-reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .reveal-on-scroll {
+      animation: mosslet-reveal-up linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 28%;
+    }
+  }
+}
