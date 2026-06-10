@@ -985,7 +985,7 @@ defmodule MossletWeb.ReplyComponents do
       %Ecto.Association.NotLoaded{} -> false
       nil -> false
       [] -> false
-      list when is_list(list) -> list != []
+      list when is_list(list) -> true
       _ -> false
     end
   end

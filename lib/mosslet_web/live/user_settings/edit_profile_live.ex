@@ -1428,6 +1428,13 @@ defmodule MossletWeb.EditProfileLive do
     {:noreply, socket}
   end
 
+  # Defensive catch-all: ignore unexpected messages (e.g. stray task replies or
+  # `:DOWN` monitors) instead of crashing the LiveView with a FunctionClauseError.
+  def handle_info(message, socket) do
+    Logger.debug("EditProfileLive ignoring unexpected message: #{inspect(message)}")
+    {:noreply, socket}
+  end
+
   defp do_upload_banner(socket) do
     temp_path = socket.assigns.banner_temp_path
     crop = socket.assigns.banner_crop

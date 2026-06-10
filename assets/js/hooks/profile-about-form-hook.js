@@ -120,14 +120,17 @@ const ProfileAboutFormHook = {
     const bannerImageInput = this.el.querySelector(
       `input[name="${prefix}[banner_image]"]:checked`,
     );
+    // Each checkbox is preceded by a hidden `value="false"` input sharing the
+    // same name (the standard Phoenix pattern). We must read the checkbox
+    // itself, not the hidden fallback, so scope the selector to the checkbox.
     const showAvatarInput = this.el.querySelector(
-      `[name="${prefix}[show_avatar?]"]`,
+      `input[type="checkbox"][name="${prefix}[show_avatar?]"]`,
     );
     const showEmailInput = this.el.querySelector(
-      `[name="${prefix}[show_email?]"]`,
+      `input[type="checkbox"][name="${prefix}[show_email?]"]`,
     );
     const showNameInput = this.el.querySelector(
-      `[name="${prefix}[show_name?]"]`,
+      `input[type="checkbox"][name="${prefix}[show_name?]"]`,
     );
 
     this.pushEvent("save_profile_zk", {
@@ -136,7 +139,10 @@ const ProfileAboutFormHook = {
       encrypted_website_url: encWebsiteUrl,
       encrypted_website_label: encWebsiteLabel,
       banner_image: bannerImageInput?.value || "waves",
-      show_avatar: showAvatarInput?.checked ?? false,
+      // The avatar checkbox only renders when an avatar exists. When it is
+      // absent, send null so the server preserves the stored value rather than
+      // force-disabling it. The other two checkboxes always render.
+      show_avatar: showAvatarInput ? showAvatarInput.checked : null,
       show_email: showEmailInput?.checked ?? false,
       show_name: showNameInput?.checked ?? false,
       action: this.el.dataset.action,

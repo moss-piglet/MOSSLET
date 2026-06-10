@@ -840,13 +840,14 @@ defmodule MossletWeb.EditDetailsLive do
   @impl true
   def handle_event("update_name_zk", params, socket) do
     user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
 
     attrs = %{
       encrypted_user: params["encrypted_user"],
       encrypted_conn: params["encrypted_conn"]
     }
 
-    case Accounts.update_user_name_zk(user, attrs) do
+    case Accounts.update_user_name_zk(user, attrs, key: key) do
       {:ok, updated_user} ->
         {:noreply,
          socket

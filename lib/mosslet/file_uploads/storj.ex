@@ -111,20 +111,16 @@ defmodule Mosslet.FileUploads.Storj do
   end
 
   def make_async_aws_requests(avatars_bucket, url, _user, _key) do
-    Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
+    start_fire_and_forget(fn ->
       case ex_aws_delete_request(avatars_bucket, url) do
-        {:ok, _resp} ->
-          {:ok, :avatar_deleted_from_storj, "Avatar successfully deleted from the private cloud."}
-
-        _rest ->
-          ex_aws_delete_request(avatars_bucket, url)
-          {:error, :make_async_aws_requests}
+        {:ok, _resp} -> :ok
+        _rest -> ex_aws_delete_request(avatars_bucket, url)
       end
     end)
   end
 
   def make_async_aws_requests(avatars_bucket, url, profile_avatar_url, user, key) do
-    Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
+    start_fire_and_forget(fn ->
       profile_attrs =
         %{
           "profile" => %{
@@ -137,26 +133,34 @@ defmodule Mosslet.FileUploads.Storj do
       with {:ok, _resp} <- ex_aws_delete_request(avatars_bucket, url),
            {:ok, _resp} <- ex_aws_delete_request(avatars_bucket, profile_avatar_url),
            {:ok, _user} <- Accounts.update_user_profile(user, profile_attrs) do
-        {:ok, :avatar_deleted_from_storj, "Avatar successfully deleted from the private cloud."}
+        :ok
       else
         _rest ->
           ex_aws_delete_request(avatars_bucket, url)
           ex_aws_delete_request(avatars_bucket, profile_avatar_url)
-          {:error, :make_async_aws_requests}
       end
     end)
   end
 
   def make_async_banner_delete_request(banners_bucket, url) do
-    Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
+    start_fire_and_forget(fn ->
       case ex_aws_delete_request(banners_bucket, url) do
-        {:ok, _resp} ->
-          {:ok, :banner_deleted_from_storj, "Banner successfully deleted from the private cloud."}
-
-        _rest ->
-          ex_aws_delete_request(banners_bucket, url)
-          {:error, :make_async_banner_delete_request}
+        {:ok, _resp} -> :ok
+        _rest -> ex_aws_delete_request(banners_bucket, url)
       end
     end)
+  end
+
+  # These S3 deletions are fire-and-forget cleanup: callers (LiveViews, workers)
+  # never await the result. `Task.Supervisor.start_child/2` runs the work under
+  # the supervisor WITHOUT linking or monitoring the caller, so no `{ref, result}`
+  # or `{:DOWN, ref, ...}` message is ever delivered to the caller's mailbox.
+  #
+  # (Previously these used `async_nolink`, which DOES send `{ref, result}` back to
+  # the caller. When `ExAws.request/1` returned a bare value like `"error"`, the
+  # stray `{ref, "error"}` message crashed LiveViews that lacked a matching
+  # `handle_info/2` clause.)
+  defp start_fire_and_forget(fun) when is_function(fun, 0) do
+    Task.Supervisor.start_child(Mosslet.StorjTask, fun)
   end
 end

@@ -4,7 +4,7 @@ defmodule Mosslet.UserConnectionFixtures do
   entities via the `Mosslet.Accounts` context.
   """
 
-  def unique_username, do: Faker.Internet.user_name()
+  def unique_username, do: "testuser#{System.unique_integer([:positive])}"
 
   def valid_user_connection_attributes(attrs \\ %{}) do
     Enum.into(attrs, %{

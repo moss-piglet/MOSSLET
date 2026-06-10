@@ -468,21 +468,19 @@ defmodule MossletWeb.UserHomeLive do
     Process.demonitor(ref, [:flush])
     profile_key = get_profile_key_for_preview(socket)
 
-    case URLPreviewHelpers.handle_preview_result(
-           {ref, {:website_preview_result, result}},
-           socket,
-           profile_key
-         ) do
-      {:handled, socket} -> {:noreply, socket}
-      {:not_handled, socket} -> {:noreply, socket}
-    end
+    {_, socket} =
+      URLPreviewHelpers.handle_preview_result(
+        {ref, {:website_preview_result, result}},
+        socket,
+        profile_key
+      )
+
+    {:noreply, socket}
   end
 
   def handle_info({:DOWN, _ref, :process, _pid, _reason} = msg, socket) do
-    case URLPreviewHelpers.handle_preview_result(msg, socket, nil) do
-      {:handled, socket} -> {:noreply, socket}
-      {:not_handled, socket} -> {:noreply, socket}
-    end
+    {_, socket} = URLPreviewHelpers.handle_preview_result(msg, socket, nil)
+    {:noreply, socket}
   end
 
   def handle_info({:post_created, post}, socket) do
@@ -2812,10 +2810,7 @@ defmodule MossletWeb.UserHomeLive do
 
                         <%!-- Email badge if show_email? is true --%>
                         <MossletWeb.DesignSystem.liquid_badge
-                          :if={
-                            @current_scope.user.connection.profile.show_email? &&
-                              @current_scope.user.connection.profile.email
-                          }
+                          :if={@current_scope.user.connection.profile.show_email?}
                           variant="soft"
                           color={
                             if(@profile_user.connection.profile.visibility == "public",
@@ -4239,7 +4234,7 @@ defmodule MossletWeb.UserHomeLive do
                         <MossletWeb.DesignSystem.liquid_badge
                           :if={
                             @profile_user.connection.profile.show_email? &&
-                              @profile_user.connection.profile.email
+                              @profile_user.connection.email
                           }
                           variant="soft"
                           color={

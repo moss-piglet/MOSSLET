@@ -892,8 +892,12 @@ defmodule Mosslet.Accounts do
   Updates a user's name from browser-encrypted fields (ZK write path).
   The browser has already encrypted the name with both user_key and conn_key.
   Profile sync is skipped — profile fields are handled separately.
+
+  `opts[:key]` is the user's session key, required to re-encrypt the name for
+  any groups the user belongs to (each user_group name is encrypted with the
+  group key, which must be unsealed server-side).
   """
-  def update_user_name_zk(user, attrs) do
+  def update_user_name_zk(user, attrs, opts \\ []) do
     changeset = User.name_changeset_zk(user, attrs)
     conn = adapter().get_connection!(user.connection.id)
     c_attrs = changeset.changes.connection_map
@@ -903,7 +907,7 @@ defmodule Mosslet.Accounts do
         Groups.maybe_update_name_for_user_groups(
           updated_user,
           %{encrypted_name: c_attrs.c_name},
-          []
+          key: opts[:key]
         )
 
         broadcast_connection(updated_conn, :uconn_name_updated)
@@ -918,8 +922,11 @@ defmodule Mosslet.Accounts do
   Updates a user's onboarding profile from browser-encrypted fields (ZK write path).
   The browser has already encrypted the name with both user_key and conn_key.
   Notification preferences are plaintext booleans (not sensitive).
+
+  `opts[:key]` is the user's session key, required to re-encrypt the name for
+  any groups the user belongs to.
   """
-  def update_user_onboarding_zk(user, attrs) do
+  def update_user_onboarding_zk(user, attrs, opts \\ []) do
     changeset = User.onboarding_profile_changeset_zk(user, attrs)
     conn = adapter().get_connection!(user.connection.id)
     c_attrs = changeset.changes.connection_map
@@ -929,7 +936,7 @@ defmodule Mosslet.Accounts do
         Groups.maybe_update_name_for_user_groups(
           updated_user,
           %{encrypted_name: c_attrs.c_name},
-          []
+          key: opts[:key]
         )
 
         broadcast_connection(updated_conn, :uconn_name_updated)

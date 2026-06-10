@@ -368,6 +368,7 @@ defmodule MossletWeb.UserOnboardingLive do
 
   def handle_event("submit_zk", params, socket) do
     current_user = socket.assigns.current_user
+    key = socket.assigns.key
 
     attrs = %{
       encrypted_user: params["encrypted_user"],
@@ -376,7 +377,7 @@ defmodule MossletWeb.UserOnboardingLive do
       email_notifications: params["email_notifications"] == true
     }
 
-    case Accounts.update_user_onboarding_zk(current_user, attrs) do
+    case Accounts.update_user_onboarding_zk(current_user, attrs, key: key) do
       {:ok, updated_user} ->
         Accounts.user_lifecycle_action("after_update_profile", updated_user)
 

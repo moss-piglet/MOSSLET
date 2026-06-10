@@ -104,7 +104,9 @@ defmodule MossletWeb.API.GroupMessageController do
         {:error, :not_found}
 
       %GroupMessage{} = message ->
-        if message.user_id == user.id do
+        message = GroupMessages.preload_message_sender(message)
+
+        if message.sender.user_id == user.id do
           attrs = decode_message_attrs(message_params)
 
           case GroupMessages.update_message(message, attrs) do
@@ -137,8 +139,9 @@ defmodule MossletWeb.API.GroupMessageController do
         {:error, :not_found}
 
       %GroupMessage{} = message ->
+        message = GroupMessages.preload_message_sender(message)
         group = Groups.get_group!(message.group_id)
-        is_owner = message.user_id == user.id
+        is_owner = message.sender.user_id == user.id
         is_admin = can_manage_group?(group, user)
 
         if is_owner || is_admin do

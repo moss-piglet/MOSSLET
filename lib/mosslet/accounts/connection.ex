@@ -233,34 +233,38 @@ defmodule Mosslet.Accounts.Connection do
   Used for update only — the profile must already exist.
   """
   def profile_changeset_zk(conn, attrs) do
-    profile = conn.profile
-
-    updated_profile =
-      profile
+    profile_changes =
+      %{}
       |> maybe_put_zk(:about, attrs[:encrypted_about])
       |> maybe_put_zk(:alternate_email, attrs[:encrypted_alternate_email])
       |> maybe_put_zk(:website_url, attrs[:encrypted_website_url])
       |> maybe_put_zk(:website_label, attrs[:encrypted_website_label])
-      |> maybe_put_plain(:banner_image, attrs[:banner_image])
-      |> maybe_put_plain(:show_avatar?, attrs[:show_avatar])
-      |> maybe_put_plain(:show_email?, attrs[:show_email])
-      |> maybe_put_plain(:show_name?, attrs[:show_name])
+      |> maybe_put_banner_image(attrs[:banner_image])
+      |> maybe_put_flag(:show_avatar?, attrs[:show_avatar])
+      |> maybe_put_flag(:show_email?, attrs[:show_email])
+      |> maybe_put_flag(:show_name?, attrs[:show_name])
+
+    # Build a proper embed changeset (via `change/2`) so Ecto reliably tracks
+    # field-level changes — including booleans toggled back to `false`.
+    # Mutating the struct directly would not register as a change.
+    profile_changeset = change(conn.profile, profile_changes)
 
     conn
     |> change()
-    |> put_embed(:profile, updated_profile)
+    |> put_embed(:profile, profile_changeset)
   end
 
-  defp maybe_put_zk(struct, _field, nil), do: struct
-  defp maybe_put_zk(struct, field, value), do: Map.put(struct, field, value)
+  defp maybe_put_zk(changes, _field, nil), do: changes
+  defp maybe_put_zk(changes, field, value), do: Map.put(changes, field, value)
 
-  defp maybe_put_plain(struct, _field, nil), do: struct
+  defp maybe_put_banner_image(changes, nil), do: changes
 
-  defp maybe_put_plain(struct, :banner_image, value) when is_binary(value) do
-    Map.put(struct, :banner_image, String.to_existing_atom(value))
+  defp maybe_put_banner_image(changes, value) when is_binary(value) do
+    Map.put(changes, :banner_image, String.to_existing_atom(value))
   end
 
-  defp maybe_put_plain(struct, field, value), do: Map.put(struct, field, value)
+  defp maybe_put_flag(changes, _field, nil), do: changes
+  defp maybe_put_flag(changes, field, value), do: Map.put(changes, field, value)
 
   # The name_hash comes through as a temp clear text
   # so we go straight ahead and hash it. The `:name`

@@ -560,28 +560,37 @@ defmodule Mosslet.Groups do
     if Enum.empty?(user_groups) do
       nil
     else
-      for user_group <- user_groups do
-        name =
-          Encrypted.Users.Utils.decrypt_user_item(
-            attrs.encrypted_name,
-            user,
-            user.conn_key,
-            opts[:key]
-          )
-
-        {:ok, key} =
-          Encrypted.Users.Utils.decrypt_user_attrs_key(user_group.key, user, opts[:key])
-
-        update_user_group(
-          user_group,
-          %{
-            name: name,
-            key: key
-          },
-          user: user,
-          key: opts[:key],
-          public?: user_group.group.public?
+      name =
+        Encrypted.Users.Utils.decrypt_user_item(
+          attrs.encrypted_name,
+          user,
+          user.conn_key,
+          opts[:key]
         )
+
+      for user_group <- user_groups do
+        case Encrypted.Users.Utils.decrypt_user_attrs_key(user_group.key, user, opts[:key]) do
+          {:ok, key} ->
+            update_user_group(
+              user_group,
+              %{
+                name: name,
+                key: key
+              },
+              user: user,
+              key: opts[:key],
+              public?: user_group.group.public?
+            )
+
+          _failed ->
+            # A user_group key that can't be unsealed (e.g. legacy/corrupt seal)
+            # is skipped rather than crashing the entire name update.
+            Logger.warning(
+              "Skipping user_group #{user_group.id} name update: could not unseal group key"
+            )
+
+            {:error, :failed_verification}
+        end
       end
     end
   end

@@ -1180,13 +1180,16 @@ defmodule MossletWeb.Helpers do
     - `:browser_decrypt?` — always `true`
   """
   def pre_decrypt_journal_entry(entry, sealed_user_key) do
-    Map.put(entry, :decrypted, %{
-      encrypted_title: entry.title,
-      encrypted_body: entry.body,
-      encrypted_mood: entry.mood,
-      sealed_user_key: sealed_user_key,
-      browser_decrypt?: true
-    })
+    %{
+      entry
+      | decrypted: %{
+          encrypted_title: entry.title,
+          encrypted_body: entry.body,
+          encrypted_mood: entry.mood,
+          sealed_user_key: sealed_user_key,
+          browser_decrypt?: true
+        }
+    }
   end
 
   @doc """

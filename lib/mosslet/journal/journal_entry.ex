@@ -168,6 +168,10 @@ defmodule Mosslet.Journal.JournalEntry do
     field :word_count, :integer, default: 0
     field :entry_date, :date
 
+    # Virtual: holds pre-decrypted/browser-decrypt payload attached by
+    # MossletWeb.Helpers.pre_decrypt_journal_entry/2 for ZK rendering.
+    field :decrypted, :map, virtual: true
+
     belongs_to :user, User
     belongs_to :book, JournalBook
 

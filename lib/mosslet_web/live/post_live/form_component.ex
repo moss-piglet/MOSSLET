@@ -342,7 +342,7 @@ defmodule MossletWeb.PostLive.FormComponent do
     group = Map.get(assigns, :group, Map.get(post, :group, nil))
     key = assigns.key
 
-    if :edit == Map.get(assigns, :action) && post != nil do
+    if :edit == Map.get(assigns, :action) do
       user_list = post.shared_users |> value_mapper_list(assigns.user, key)
 
       changeset =

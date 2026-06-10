@@ -7,10 +7,10 @@ defmodule MossletWeb.PresenceTest do
   alias MossletWeb.Presence
   alias Mosslet.Accounts
 
-  @provider_customer_id "cus_#{Faker.Util.format("%3b%1d%2b%2d%4b%1d%1b")}"
-  @provider_latest_charge_id "ch_#{Faker.Util.format("%3b%1d%2b%2d%4b%1d%1b")}"
-  @provider_payment_intent_id "pi_#{Faker.Util.format("%3b%1d%2b%2d%4b%1d%1b")}"
-  @provider_payment_method_id "pm_#{Faker.Util.format("%3b%1d%2b%2d%4b%1d%1b")}"
+  @provider_customer_id "cus_#{Base.encode16(:crypto.strong_rand_bytes(8), case: :lower)}"
+  @provider_latest_charge_id "ch_#{Base.encode16(:crypto.strong_rand_bytes(8), case: :lower)}"
+  @provider_payment_intent_id "pi_#{Base.encode16(:crypto.strong_rand_bytes(8), case: :lower)}"
+  @provider_payment_method_id "pm_#{Base.encode16(:crypto.strong_rand_bytes(8), case: :lower)}"
   @valid_password "hello world hello world!"
   @valid_email "user1@example.com"
 
