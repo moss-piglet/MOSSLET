@@ -38,80 +38,113 @@ defmodule MossletWeb.JournalLive.Index do
             </p>
           </div>
 
-          <div class="flex flex-wrap items-center gap-2">
+          <div class="flex items-center gap-2">
             <PrivacyComponents.privacy_button
               active={@privacy_active}
               countdown={@privacy_countdown}
               on_click="activate_privacy"
             />
-            <button
-              :if={@favorites != []}
-              id={"favorites-toggle-#{@current_scope.user.id}"}
-              type="button"
-              phx-click="toggle_favorites"
-              phx-hook="TippyHook"
-              data-tippy-content={if @show_favorites, do: "Hide favorites", else: "Show favorites"}
-              class={[
-                "inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium rounded-xl border shadow-sm transition-all duration-200",
-                if(@show_favorites,
-                  do:
-                    "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700",
-                  else:
-                    "text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:text-amber-600 dark:hover:text-amber-400"
-                )
-              ]}
-            >
-              <span class="sr-only">
-                {if @show_favorites, do: "Hide favorites", else: "Show favorites"}
-              </span>
-              <.phx_icon name="hero-star-solid" class="h-4 w-4" />
-              <span class="hidden sm:inline">{length(@favorites)}</span>
-            </button>
-            <button
-              type="button"
-              phx-click="new_book"
-              class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200"
-            >
-              <.phx_icon name="hero-book-open" class="h-4 w-4" /> New Book
-            </button>
-            <button
-              type="button"
-              phx-click="show_upload_modal"
-              id="upload-handwritten-btn"
-              phx-hook="TippyHook"
-              data-tippy-content="Upload handwritten journal"
-              class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200"
-            >
-              <.phx_icon name="hero-camera" class="h-4 w-4" />
-              <span class="sr-only sm:not-sr-only">Upload</span>
-            </button>
             <.link
               navigate={~p"/app/journal/new"}
               class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl shadow-sm hover:from-teal-600 hover:to-emerald-600 transition-all duration-200"
             >
               <.phx_icon name="hero-pencil-square" class="h-4 w-4" /> New Entry
             </.link>
+
+            <%!-- Secondary actions tucked behind a "..." menu --%>
+            <div class="relative">
+              <button
+                type="button"
+                phx-click={JS.toggle_class("hidden", to: "#journal-actions-menu")}
+                class="p-2.5 text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200"
+                title="More options"
+                aria-label="More journal options"
+              >
+                <.phx_icon name="hero-ellipsis-horizontal" class="h-5 w-5" />
+              </button>
+
+              <div
+                id="journal-actions-menu"
+                class="absolute right-0 top-full z-50 mt-2 w-52 origin-top-right hidden rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/60 dark:ring-slate-700/60"
+                role="menu"
+                aria-orientation="vertical"
+                phx-click-away={JS.add_class("hidden", to: "#journal-actions-menu")}
+              >
+                <div class="py-1.5">
+                  <button
+                    type="button"
+                    phx-click={
+                      JS.push("new_book")
+                      |> JS.add_class("hidden", to: "#journal-actions-menu")
+                    }
+                    class="group flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/80 dark:hover:bg-slate-700/80 transition-all duration-200 ease-out"
+                    role="menuitem"
+                  >
+                    <.phx_icon name="hero-book-open" class="h-4 w-4" /> New book
+                  </button>
+                  <button
+                    type="button"
+                    phx-click={
+                      JS.push("show_upload_modal")
+                      |> JS.add_class("hidden", to: "#journal-actions-menu")
+                    }
+                    class="group flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/80 dark:hover:bg-slate-700/80 transition-all duration-200 ease-out"
+                    role="menuitem"
+                  >
+                    <.phx_icon name="hero-camera" class="h-4 w-4" /> Upload handwritten
+                  </button>
+                  <button
+                    :if={@favorites != []}
+                    type="button"
+                    phx-click={
+                      JS.push("toggle_favorites")
+                      |> JS.add_class("hidden", to: "#journal-actions-menu")
+                    }
+                    class={[
+                      "group flex w-full items-center gap-3 px-4 py-2.5 text-sm transition-all duration-200 ease-out",
+                      if(@show_favorites,
+                        do:
+                          "text-amber-700 dark:text-amber-300 hover:bg-amber-100/70 dark:hover:bg-amber-900/30",
+                        else:
+                          "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/80 dark:hover:bg-slate-700/80"
+                      )
+                    ]}
+                    role="menuitem"
+                  >
+                    <.phx_icon name="hero-star-solid" class="h-4 w-4" />
+                    {if @show_favorites, do: "Hide favorites", else: "Favorites"}
+                    <span class="ml-auto text-xs text-slate-400 dark:text-slate-500 tabular-nums">
+                      {length(@favorites)}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="grid grid-cols-3 gap-4 mb-8">
-          <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
-            <div class="text-2xl font-bold text-slate-900 dark:text-slate-100">
+        <div class="flex flex-wrap items-center gap-x-5 gap-y-2 mb-8 px-4 py-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+          <div class="flex items-baseline gap-1.5">
+            <span class="text-lg font-bold text-slate-900 dark:text-slate-100 tabular-nums">
               {@entry_count}
-            </div>
-            <div class="text-sm text-slate-600 dark:text-slate-400">Entries</div>
+            </span>
+            <span class="text-sm text-slate-500 dark:text-slate-400">entries</span>
           </div>
-          <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
-            <div class="text-2xl font-bold text-slate-900 dark:text-slate-100">
+          <span class="h-4 w-px bg-slate-200 dark:bg-slate-700" aria-hidden="true"></span>
+          <div class="flex items-baseline gap-1.5">
+            <span class="text-lg font-bold text-slate-900 dark:text-slate-100 tabular-nums">
               {@total_words}
-            </div>
-            <div class="text-sm text-slate-600 dark:text-slate-400">Words</div>
+            </span>
+            <span class="text-sm text-slate-500 dark:text-slate-400">words</span>
           </div>
-          <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
-            <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-              {@streak} 🔥
-            </div>
-            <div class="text-sm text-slate-600 dark:text-slate-400">Day streak</div>
+          <span class="h-4 w-px bg-slate-200 dark:bg-slate-700" aria-hidden="true"></span>
+          <div class="flex items-baseline gap-1.5">
+            <span class="text-lg font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+              {@streak}
+            </span>
+            <span class="text-sm text-slate-500 dark:text-slate-400">
+              day streak <span aria-hidden="true">🔥</span>
+            </span>
           </div>
         </div>
 
@@ -137,7 +170,7 @@ defmodule MossletWeb.JournalLive.Index do
                 </p>
                 <div data-insight-loading class="space-y-2">
                   <p class="text-sm text-violet-600 dark:text-violet-400 italic">
-                    Discovering patterns in your reflections...
+                    Reading the patterns...
                   </p>
                   <div class="flex gap-1">
                     <div class="w-2 h-2 rounded-full bg-violet-400 animate-bounce [animation-delay:-0.3s]" />
@@ -191,7 +224,7 @@ defmodule MossletWeb.JournalLive.Index do
                   Mood Insights
                 </h2>
                 <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Get AI-powered mood reflections on your journal entries. Your entries stay encrypted and private—insights are generated without storing or sharing your data.
+                  Spot the patterns across your entries—generated privately, on your device. Nothing is stored or shared.
                 </p>
               </div>
             </div>
@@ -1688,14 +1721,7 @@ defmodule MossletWeb.JournalLive.Index do
     else
       combined_text =
         successful_results
-        |> Enum.with_index(1)
-        |> Enum.map(fn {{:ok, text, _date}, idx} ->
-          if length(successful_results) > 1 do
-            "--- Page #{idx} ---\n\n#{text}"
-          else
-            text
-          end
-        end)
+        |> Enum.map(fn {:ok, text, _date} -> text end)
         |> Enum.join("\n\n")
 
       first_date =

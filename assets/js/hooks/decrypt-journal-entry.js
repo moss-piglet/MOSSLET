@@ -53,6 +53,7 @@ const DecryptJournalEntry = {
 
       if (encBody) {
         decryptedBody = await decryptWithKey(encBody, userKey);
+        if (decryptedBody) decryptedBody = stripPageMarkers(decryptedBody);
         if (decryptedBody && !isForm) {
           this._applyBody(entryId, decryptedBody);
         }
@@ -164,6 +165,13 @@ const DecryptJournalEntry = {
     }
   },
 };
+
+function stripPageMarkers(text) {
+  return text
+    .replace(/^\s*-{2,}\s*Page\s+\d+\s*-{2,}\s*$/gim, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 
 function moodEmoji(mood) {
   const map = {

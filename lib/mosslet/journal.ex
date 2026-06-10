@@ -243,12 +243,16 @@ defmodule Mosslet.Journal do
   and any previous streak was broken — meaning if it was 0 then it would be 1
   because you've begun a new day of journaling.
 
-  The `local_now` parameter should be the user's current local DateTime.
+  The `local_now` parameter should be the user's current local DateTime, which
+  also carries the client's time zone. Entry timestamps are stored in UTC and
+  are converted into that same time zone before deriving each journaling day, so
+  the streak always reflects the user's local calendar wherever they sign in from.
   """
   def streak_days(user, local_now \\ nil) do
     local_now = local_now || DateTime.utc_now()
+    time_zone = local_now.time_zone
     timestamps = adapter().streak_entry_timestamps(user)
-    journaling_dates = timestamps_to_journaling_dates(timestamps)
+    journaling_dates = timestamps_to_journaling_dates(timestamps, time_zone)
     current_journaling_day = to_journaling_day(local_now)
     yesterday = Date.add(current_journaling_day, -1)
 
@@ -267,12 +271,35 @@ defmodule Mosslet.Journal do
     end
   end
 
-  defp timestamps_to_journaling_dates(timestamps) do
+  defp timestamps_to_journaling_dates(timestamps, time_zone) do
     timestamps
-    |> Enum.map(&to_journaling_day/1)
+    |> Enum.map(&to_journaling_day(&1, time_zone))
     |> Enum.uniq()
-    |> Enum.sort(:desc)
+    |> Enum.sort({:desc, Date})
   end
+
+  # Converts a stored (UTC) timestamp into the client's local journaling day.
+  defp to_journaling_day(%NaiveDateTime{} = ndt, time_zone) do
+    ndt
+    |> DateTime.from_naive!("Etc/UTC")
+    |> shift_to_local(time_zone)
+    |> to_journaling_day()
+  end
+
+  defp to_journaling_day(%DateTime{} = dt, time_zone) do
+    dt
+    |> shift_to_local(time_zone)
+    |> to_journaling_day()
+  end
+
+  defp shift_to_local(%DateTime{} = dt, time_zone) when is_binary(time_zone) do
+    case DateTime.shift_zone(dt, time_zone) do
+      {:ok, local_dt} -> local_dt
+      _ -> dt
+    end
+  end
+
+  defp shift_to_local(%DateTime{} = dt, _time_zone), do: dt
 
   defp to_journaling_day(%DateTime{} = dt) do
     if dt.hour < @grace_hours do
@@ -281,16 +308,6 @@ defmodule Mosslet.Journal do
       DateTime.to_date(dt)
     end
   end
-
-  defp to_journaling_day(%NaiveDateTime{} = ndt) do
-    if ndt.hour < @grace_hours do
-      Date.add(NaiveDateTime.to_date(ndt), -1)
-    else
-      NaiveDateTime.to_date(ndt)
-    end
-  end
-
-  defp to_journaling_day(%Date{} = date), do: date
 
   defp calculate_streak([], _expected_date, count), do: count
 
