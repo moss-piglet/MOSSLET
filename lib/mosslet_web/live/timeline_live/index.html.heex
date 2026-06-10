@@ -39,8 +39,7 @@
                       if(@current_user.calm_notifications,
                         do: @unread_counts[:home] || 0,
                         else: 0
-                      ),
-                    color: "emerald"
+                      )
                   },
                   %{
                     key: "bookmarks",
@@ -49,8 +48,7 @@
                       if(@current_user.calm_notifications,
                         do: @unread_counts[:bookmarks] || 0,
                         else: 0
-                      ),
-                    color: "orange"
+                      )
                   },
                   %{
                     key: "discover",
@@ -59,27 +57,19 @@
                       if(@current_user.calm_notifications,
                         do: @unread_counts[:discover] || 0,
                         else: 0
-                      ),
-                    color: "purple"
+                      )
                   }
                 ]
               }
               disabled={@loading_tab != nil}
               class={[
                 "relative px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-medium rounded-full transition-all duration-200",
-                cond do
-                  tab.key == (@active_tab || "home") && tab.color == "emerald" ->
-                    "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
-
-                  tab.key == (@active_tab || "home") && tab.color == "orange" ->
-                    "bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500/40"
-
-                  tab.key == (@active_tab || "home") && tab.color == "purple" ->
-                    "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-
-                  true ->
-                    "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-slate-500/40"
-                end,
+                if(tab.key == (@active_tab || "home"),
+                  do:
+                    "bg-white dark:bg-slate-700/80 text-slate-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500/40",
+                  else:
+                    "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-slate-500/40"
+                ),
                 @loading_tab != nil && "cursor-wait"
               ]}
               phx-click="switch_tab"
@@ -89,15 +79,7 @@
                 {tab.label}
                 <span
                   :if={tab.unread > 0 && tab.key != @loading_tab}
-                  class={[
-                    "inline-flex items-center justify-center min-w-[1.125rem] h-[1.125rem] px-1 text-[10px] font-bold rounded-full text-white",
-                    cond do
-                      tab.color == "emerald" -> "bg-emerald-500"
-                      tab.color == "orange" -> "bg-orange-500"
-                      tab.color == "purple" -> "bg-purple-500"
-                      true -> "bg-teal-500"
-                    end
-                  ]}
+                  class="inline-flex items-center justify-center min-w-[1.125rem] h-[1.125rem] px-1 text-[10px] font-bold rounded-full text-white bg-teal-500"
                 >
                   {tab.unread}
                 </span>
@@ -183,7 +165,7 @@
       <%!-- End sticky header group --%>
 
       <%!-- Timeline feed with calmer spacing --%>
-      <div class="space-y-5 sm:space-y-6">
+      <div class="space-y-6 sm:space-y-8">
         <%!-- Async result wrapper for posts with beautiful loading states --%>
         <.async_result :let={_timeline_data} assign={@timeline_data}>
           <%!-- Beautiful loading state with elegant skeleton animation --%>
@@ -270,7 +252,7 @@
             </div>
           </:failed>
           <%!-- Real timeline posts from encrypted backend --%>
-          <div id="timeline-posts" phx-update="stream" class="space-y-4 sm:space-y-5">
+          <div id="timeline-posts" phx-update="stream" class="space-y-6 sm:space-y-8">
             <div
               :for={{dom_id, post} <- @streams.posts}
               id={dom_id}
@@ -367,7 +349,7 @@
               id="read-posts"
               phx-update="stream"
               class={[
-                "space-y-4 sm:space-y-5",
+                "space-y-6 sm:space-y-8",
                 "animate-in fade-in-0 slide-in-from-top-4 duration-500 ease-out"
               ]}
             >
@@ -620,7 +602,7 @@
         <%!-- Collapsed state: FAB buttons row --%>
         <div
           :if={@composer_collapsed}
-          class="pointer-events-auto flex items-center justify-end gap-3"
+          class="pointer-events-auto flex items-center justify-end gap-2"
         >
           <% new_posts_count =
             if @current_user.calm_notifications,
@@ -657,7 +639,7 @@
             class={[
               "flex items-center gap-2 px-4 py-3 rounded-full transition-all duration-300 ease-out group",
               "bg-gradient-to-r from-emerald-500 to-teal-500 text-white",
-              "shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/30",
+              "shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/25",
               "hover:scale-105 active:scale-95",
               "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2"
             ]}

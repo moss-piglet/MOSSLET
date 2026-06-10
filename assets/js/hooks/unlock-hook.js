@@ -32,9 +32,17 @@ import { decryptPrivateKey } from "../crypto/nacl";
 
 const TEMP_USER_KEY = "_mosslet_user_key_temp";
 
+// Loop guard set by SessionKeyDeriver before redirecting a keyless session
+// here. Reaching this page means the redirect succeeded, so we clear it: the
+// guard is meant to prevent a redirect *loop*, not to permanently latch the
+// user out of future unlock attempts if this round-trip fails or is abandoned.
+const REDIRECT_FLAG = "_mosslet_unlock_redirect";
+
 const UnlockHook = {
   mounted() {
     const form = this.el;
+
+    sessionStorage.removeItem(REDIRECT_FLAG);
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();

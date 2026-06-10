@@ -2371,8 +2371,8 @@ defmodule MossletWeb.TimelineComponents do
           </div>
         <% end %>
 
-        <div class="flex items-center justify-between pt-3 border-t border-slate-200/50 dark:border-slate-700/50">
-          <div class="flex items-center gap-1">
+        <div class="flex items-center justify-between pt-2.5 border-t border-slate-200/40 dark:border-slate-700/40">
+          <div class="flex items-center gap-0.5">
             <button
               id={
                 if @unread?,
@@ -2380,7 +2380,7 @@ defmodule MossletWeb.TimelineComponents do
                   else: "mark-as-unread-button-#{@post_id}"
               }
               class={[
-                "p-2 rounded-lg transition-all duration-200 ease-out group/read active:scale-95 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-2",
+                "p-1.5 sm:p-2 rounded-lg transition-all duration-200 ease-out group/read active:scale-95 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-1 sm:focus:ring-offset-2",
                 "phx-click-loading:opacity-60 phx-click-loading:cursor-wait phx-click-loading:pointer-events-none",
                 if(@unread?,
                   do: "text-teal-600 dark:text-cyan-400 bg-teal-50/50 dark:bg-teal-900/20",
@@ -2395,10 +2395,10 @@ defmodule MossletWeb.TimelineComponents do
             >
               <.phx_icon
                 name={if @unread?, do: "hero-eye-solid", else: "hero-eye-slash"}
-                class="h-5 w-5 transition-transform duration-200 group-hover/read:scale-110 phx-click-loading:hidden"
+                class="h-4 w-4 transition-transform duration-200 group-hover/read:scale-110 phx-click-loading:hidden"
               />
               <svg
-                class="hidden phx-click-loading:block h-5 w-5 animate-spin text-teal-500"
+                class="hidden phx-click-loading:block h-4 w-4 animate-spin text-teal-500"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -2532,7 +2532,7 @@ defmodule MossletWeb.TimelineComponents do
                 else: "hero-bookmark-button-#{@post_id}"
             }
             class={[
-              "p-2 rounded-lg transition-all duration-200 ease-out group/bookmark active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2",
+              "p-1.5 sm:p-2 rounded-lg transition-all duration-200 ease-out group/bookmark active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-1 sm:focus:ring-offset-2",
               "phx-click-loading:opacity-60 phx-click-loading:cursor-wait phx-click-loading:pointer-events-none",
               if(@bookmarked,
                 do: "text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/20",
@@ -2555,10 +2555,10 @@ defmodule MossletWeb.TimelineComponents do
                   else: "hero-bookmark-icon-#{@post_id}"
               }
               name={if @bookmarked, do: "hero-bookmark-solid", else: "hero-bookmark"}
-              class="h-5 w-5 transition-transform duration-200 group-hover/bookmark:scale-110 phx-click-loading:hidden"
+              class="h-4 w-4 transition-transform duration-200 group-hover/bookmark:scale-110 phx-click-loading:hidden"
             />
             <svg
-              class="hidden phx-click-loading:block h-5 w-5 animate-spin text-amber-500"
+              class="hidden phx-click-loading:block h-4 w-4 animate-spin text-amber-500"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
