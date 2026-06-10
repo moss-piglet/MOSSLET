@@ -21,6 +21,8 @@ defmodule Mosslet.Bluesky.Account do
     field :refresh_jwt, Encrypted.Binary, redact: true
     field :signing_key, Encrypted.Binary, redact: true
 
+    field :access_jwt_expires_at, :utc_datetime
+
     field :pds_url, Encrypted.Binary, redact: true
     field :pds_url_hash, Encrypted.HMAC, redact: true
 
@@ -75,7 +77,8 @@ defmodule Mosslet.Bluesky.Account do
       :access_jwt,
       :refresh_jwt,
       :signing_key,
-      :pds_url
+      :pds_url,
+      :access_jwt_expires_at
     ])
     |> validate_required([:did, :handle, :access_jwt, :refresh_jwt])
     |> add_did_hash()
@@ -99,7 +102,7 @@ defmodule Mosslet.Bluesky.Account do
   @doc false
   def refresh_tokens_changeset(account, attrs) do
     account
-    |> cast(attrs, [:access_jwt, :refresh_jwt])
+    |> cast(attrs, [:access_jwt, :refresh_jwt, :access_jwt_expires_at])
     |> validate_required([:access_jwt, :refresh_jwt])
   end
 

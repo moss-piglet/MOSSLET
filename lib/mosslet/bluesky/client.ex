@@ -329,7 +329,12 @@ defmodule Mosslet.Bluesky.Client do
   def describe_repo(access_jwt, repo, opts \\ []) do
     pds_url = opts[:pds_url] || @default_pds
 
-    request(:get, pds_url, "/xrpc/com.atproto.repo.describeRepo", %{repo: repo}, auth: access_jwt)
+    request_opts =
+      [auth: access_jwt]
+      |> maybe_merge_opt(:dpop_proof, opts[:dpop_proof])
+      |> maybe_merge_opt(:signing_key, opts[:signing_key])
+
+    request(:get, pds_url, "/xrpc/com.atproto.repo.describeRepo", %{repo: repo}, request_opts)
   end
 
   @doc """
@@ -488,7 +493,12 @@ defmodule Mosslet.Bluesky.Client do
       |> maybe_put(:cursor, opts[:cursor])
       |> maybe_put(:reverse, opts[:reverse])
 
-    request(:get, pds_url, "/xrpc/com.atproto.repo.listRecords", params, auth: access_jwt)
+    request_opts =
+      [auth: access_jwt]
+      |> maybe_merge_opt(:dpop_proof, opts[:dpop_proof])
+      |> maybe_merge_opt(:signing_key, opts[:signing_key])
+
+    request(:get, pds_url, "/xrpc/com.atproto.repo.listRecords", params, request_opts)
   end
 
   @doc """
@@ -505,7 +515,12 @@ defmodule Mosslet.Bluesky.Client do
 
     params = %{repo: repo, collection: collection, rkey: rkey}
 
-    request(:get, pds_url, "/xrpc/com.atproto.repo.getRecord", params, auth: access_jwt)
+    request_opts =
+      [auth: access_jwt]
+      |> maybe_merge_opt(:dpop_proof, opts[:dpop_proof])
+      |> maybe_merge_opt(:signing_key, opts[:signing_key])
+
+    request(:get, pds_url, "/xrpc/com.atproto.repo.getRecord", params, request_opts)
   end
 
   @doc """

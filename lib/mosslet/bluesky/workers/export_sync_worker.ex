@@ -87,7 +87,7 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
       Logger.info("[BlueskyExport] No posts to export for @#{account.handle}")
       :ok
     else
-      case ensure_fresh_tokens(account) do
+      case Bluesky.with_valid_session(account) do
         {:ok, fresh_account} ->
           exported_count =
             posts
@@ -111,7 +111,7 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
     end
   end
 
-  defp export_single_post(post, account) do
+  defp export_single_post(post, account, retried? \\ false) do
     decrypted_body = decrypt_post_body(post, account.user)
     signing_key = parse_signing_key(account.signing_key)
 
@@ -138,13 +138,13 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
         Logger.debug("[BlueskyExport] Exported post #{post.id} -> #{uri}")
         :ok
 
-      {:error, {status, %{error: "ExpiredToken"}}} when status in [400, 401] ->
+      {:error, {status, %{error: "ExpiredToken"}}} when status in [400, 401] and not retried? ->
         Logger.warning("[BlueskyExport] Auth expired, will retry")
-        handle_token_refresh_and_retry(post, account, signing_key)
+        handle_token_refresh_and_retry(post, account)
 
-      {:error, {401, _}} ->
+      {:error, {401, _}} when not retried? ->
         Logger.warning("[BlueskyExport] Auth expired, will retry")
-        handle_token_refresh_and_retry(post, account, signing_key)
+        handle_token_refresh_and_retry(post, account)
 
       {:error, reason} ->
         Logger.error("[BlueskyExport] Failed to export post #{post.id}: #{inspect(reason)}")
@@ -248,7 +248,7 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
     end
   end
 
-  defp export_single_reply(reply, account) do
+  defp export_single_reply(reply, account, retried? \\ false) do
     reply = Mosslet.Repo.preload(reply, [:post, :parent_reply])
     decrypted_body = decrypt_reply_body(reply, account.user)
     signing_key = parse_signing_key(account.signing_key)
@@ -278,13 +278,13 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
           Logger.debug("[BlueskyExport] Exported reply #{reply.id} -> #{uri}")
           :ok
 
-        {:error, {status, %{error: "ExpiredToken"}}} when status in [400, 401] ->
+        {:error, {status, %{error: "ExpiredToken"}}} when status in [400, 401] and not retried? ->
           Logger.warning("[BlueskyExport] Auth expired for reply, will retry")
-          handle_reply_token_refresh_and_retry(reply, account, signing_key)
+          handle_reply_token_refresh_and_retry(reply, account)
 
-        {:error, {401, _}} ->
+        {:error, {401, _}} when not retried? ->
           Logger.warning("[BlueskyExport] Auth expired for reply, will retry")
-          handle_reply_token_refresh_and_retry(reply, account, signing_key)
+          handle_reply_token_refresh_and_retry(reply, account)
 
         {:error, reason} ->
           Logger.error("[BlueskyExport] Failed to export reply #{reply.id}: #{inspect(reason)}")
@@ -362,27 +362,10 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
     {final_text, facets}
   end
 
-  defp handle_reply_token_refresh_and_retry(reply, account, signing_key) do
-    result =
-      if signing_key do
-        Client.refresh_oauth_session(account.refresh_jwt, signing_key,
-          pds_url: account.pds_url || "https://bsky.social"
-        )
-      else
-        Client.refresh_session(account.refresh_jwt,
-          pds_url: account.pds_url || "https://bsky.social"
-        )
-      end
-
-    case result do
-      {:ok, tokens} ->
-        {:ok, updated_account} =
-          Bluesky.refresh_tokens(account, %{
-            access_jwt: tokens.access_token || tokens.access_jwt,
-            refresh_jwt: tokens.refresh_token || tokens.refresh_jwt
-          })
-
-        export_single_reply(reply, updated_account)
+  defp handle_reply_token_refresh_and_retry(reply, account) do
+    case Bluesky.with_valid_session(account, force: true) do
+      {:ok, updated_account} ->
+        export_single_reply(reply, updated_account, true)
 
       {:error, reason} ->
         Logger.error(
@@ -393,53 +376,10 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
     end
   end
 
-  defp ensure_fresh_tokens(account) do
-    signing_key = parse_signing_key(account.signing_key)
-
-    result =
-      if signing_key do
-        Client.refresh_oauth_session(account.refresh_jwt, signing_key,
-          pds_url: account.pds_url || "https://bsky.social"
-        )
-      else
-        Client.refresh_session(account.refresh_jwt,
-          pds_url: account.pds_url || "https://bsky.social"
-        )
-      end
-
-    case result do
-      {:ok, tokens} ->
-        Bluesky.refresh_tokens(account, %{
-          access_jwt: tokens.access_token || tokens.access_jwt,
-          refresh_jwt: tokens.refresh_token || tokens.refresh_jwt
-        })
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp handle_token_refresh_and_retry(post, account, signing_key) do
-    result =
-      if signing_key do
-        Client.refresh_oauth_session(account.refresh_jwt, signing_key,
-          pds_url: account.pds_url || "https://bsky.social"
-        )
-      else
-        Client.refresh_session(account.refresh_jwt,
-          pds_url: account.pds_url || "https://bsky.social"
-        )
-      end
-
-    case result do
-      {:ok, tokens} ->
-        {:ok, updated_account} =
-          Bluesky.refresh_tokens(account, %{
-            access_jwt: tokens.access_token || tokens.access_jwt,
-            refresh_jwt: tokens.refresh_token || tokens.refresh_jwt
-          })
-
-        export_single_post(post, updated_account)
+  defp handle_token_refresh_and_retry(post, account) do
+    case Bluesky.with_valid_session(account, force: true) do
+      {:ok, updated_account} ->
+        export_single_post(post, updated_account, true)
 
       {:error, reason} ->
         Logger.error(

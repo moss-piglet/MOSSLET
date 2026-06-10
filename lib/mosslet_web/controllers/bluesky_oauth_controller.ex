@@ -120,7 +120,8 @@ defmodule MossletWeb.BlueskyOAuthController do
         access_jwt: tokens.access_token,
         refresh_jwt: tokens.refresh_token,
         signing_key: Jason.encode!(oauth_state.dpop_private_key_jwk),
-        pds_url: pds_url
+        pds_url: pds_url,
+        access_jwt_expires_at: Bluesky.expires_at_from(tokens[:expires_in])
       }
 
       case Bluesky.create_account(user, attrs) do
@@ -161,6 +162,7 @@ defmodule MossletWeb.BlueskyOAuthController do
 
     case Mosslet.Bluesky.Client.describe_repo(access_token, did,
            dpop_proof: dpop_proof,
+           signing_key: oauth_state.dpop_private_key_jwk,
            pds_url: pds_url
          ) do
       {:ok, %{handle: handle}} ->

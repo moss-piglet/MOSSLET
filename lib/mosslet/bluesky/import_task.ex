@@ -80,7 +80,8 @@ defmodule Mosslet.Bluesky.ImportTask do
 
     cursor = if full_sync, do: nil, else: account.last_cursor
 
-    with {:ok, stats} <-
+    with {:ok, account} <- Bluesky.with_valid_session(account),
+         {:ok, stats} <-
            fetch_and_import(account, user, session_key, cursor, limit, %{imported: 0, skipped: 0}),
          {:ok, account} <- maybe_sync_likes(account, user, session_key),
          {:ok, _account} <- maybe_sync_bookmarks(account, user, session_key) do
@@ -219,7 +220,7 @@ defmodule Mosslet.Bluesky.ImportTask do
     end)
   end
 
-  defp fetch_and_import(account, user, session_key, cursor, limit, stats) do
+  defp fetch_and_import(account, user, session_key, cursor, limit, stats, retried? \\ false) do
     signing_key = parse_signing_key(account.signing_key)
 
     opts =
@@ -248,7 +249,11 @@ defmodule Mosslet.Bluesky.ImportTask do
         batch_stats = import_batch(records, account, user, session_key, stats)
         {:ok, merge_stats(stats, batch_stats)}
 
-      {:error, {401, _}} ->
+      {:error, {status, %{error: "ExpiredToken"}}} when status in [400, 401] and not retried? ->
+        Logger.warning("[BlueskyImportTask] Auth expired, attempting refresh")
+        handle_token_refresh(account, user, session_key, cursor, limit, stats)
+
+      {:error, {401, _}} when not retried? ->
         Logger.warning("[BlueskyImportTask] Auth expired, attempting refresh")
         handle_token_refresh(account, user, session_key, cursor, limit, stats)
 
@@ -381,28 +386,9 @@ defmodule Mosslet.Bluesky.ImportTask do
   end
 
   defp handle_token_refresh(account, user, session_key, cursor, limit, stats) do
-    signing_key = parse_signing_key(account.signing_key)
-
-    result =
-      if signing_key do
-        Client.refresh_oauth_session(account.refresh_jwt, signing_key,
-          pds_url: account.pds_url || "https://bsky.social"
-        )
-      else
-        Client.refresh_session(account.refresh_jwt,
-          pds_url: account.pds_url || "https://bsky.social"
-        )
-      end
-
-    case result do
-      {:ok, tokens} ->
-        {:ok, updated_account} =
-          Bluesky.refresh_tokens(account, %{
-            access_jwt: tokens.access_token || tokens.access_jwt,
-            refresh_jwt: tokens.refresh_token || tokens.refresh_jwt
-          })
-
-        fetch_and_import(updated_account, user, session_key, cursor, limit, stats)
+    case Bluesky.with_valid_session(account, force: true) do
+      {:ok, updated_account} ->
+        fetch_and_import(updated_account, user, session_key, cursor, limit, stats, true)
 
       {:error, _reason} ->
         {:error, :token_refresh_failed}
