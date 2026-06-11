@@ -13,7 +13,6 @@ defmodule MossletWeb.ManageDataLive do
      assign(socket,
        page_title: "Settings",
        current_password: nil,
-       legacy_expanded: false,
        export_format: "txt",
        exporting: false,
        export_error: nil,
@@ -28,7 +27,6 @@ defmodule MossletWeb.ManageDataLive do
      assign(socket,
        page_title: "Settings",
        current_password: nil,
-       legacy_expanded: false,
        form: to_form(Accounts.change_user_delete_data(socket.assigns.current_scope.user))
      )}
   end
@@ -45,15 +43,11 @@ defmodule MossletWeb.ManageDataLive do
   attr :icon, :string, required: true
   attr :label, :string, required: true
   attr :description, :string, required: true
-  attr :legacy, :boolean, default: false
   attr :checked, :boolean, default: false
 
   defp data_checkbox(assigns) do
     ~H"""
-    <div class={[
-      "group relative overflow-hidden rounded-xl p-3 -m-3 transition-all duration-200 ease-out hover:bg-slate-50 dark:hover:bg-slate-800/50",
-      @legacy && "opacity-75"
-    ]}>
+    <div class="group relative overflow-hidden rounded-xl p-3 -m-3 transition-all duration-200 ease-out hover:bg-slate-50 dark:hover:bg-slate-800/50">
       <div class="relative flex items-start gap-4">
         <div class="relative flex-shrink-0 pt-0.5">
           <input type="hidden" name={@name} value="false" />
@@ -401,44 +395,6 @@ defmodule MossletWeb.ManageDataLive do
                     checked={data_checked?(@form, "replies")}
                   />
                 </div>
-
-                <%!-- Legacy Data Section --%>
-                <details class="group" open={@legacy_expanded}>
-                  <summary
-                    class="flex items-center gap-2 cursor-pointer text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
-                    phx-click="toggle_legacy"
-                  >
-                    <.phx_icon
-                      name="hero-chevron-right"
-                      class="h-4 w-4 transition-transform group-open:rotate-90"
-                    />
-                    <span>Legacy data options</span>
-                    <span class="text-xs text-slate-500 dark:text-slate-400">
-                      (from previous app versions)
-                    </span>
-                  </summary>
-                  <div class="mt-3 ml-6 space-y-3 border-l-2 border-slate-200 dark:border-slate-700 pl-4">
-                    <.data_checkbox
-                      id="user_data_memories"
-                      name="user[data][memories]"
-                      icon="hero-photo"
-                      label="Memories"
-                      description="Permanently delete all your saved memories and media"
-                      legacy={true}
-                      checked={data_checked?(@form, "memories")}
-                    />
-
-                    <.data_checkbox
-                      id="user_data_remarks"
-                      name="user[data][remarks]"
-                      icon="hero-chat-bubble-left"
-                      label="Remarks"
-                      description="Delete all remarks you've made"
-                      legacy={true}
-                      checked={data_checked?(@form, "remarks")}
-                    />
-                  </div>
-                </details>
               </div>
 
               <%!-- Password Confirmation Section --%>
@@ -848,10 +804,6 @@ defmodule MossletWeb.ManageDataLive do
     {:noreply, assign(socket, form: form, current_password: password)}
   end
 
-  def handle_event("toggle_legacy", _params, socket) do
-    {:noreply, assign(socket, legacy_expanded: !socket.assigns.legacy_expanded)}
-  end
-
   def handle_event("delete_data", params, socket) do
     %{"current_password" => password, "user" => user_params} = params
     user = socket.assigns.current_scope.user
@@ -887,14 +839,6 @@ defmodule MossletWeb.ManageDataLive do
          |> put_flash(:success, info)
          |> push_patch(to: ~p"/app/users/manage-data")}
     end
-  end
-
-  def handle_info(
-        {_ref, {:ok, :memory_deleted_from_storj, info}},
-        socket
-      ) do
-    socket = put_flash(socket, :success, info)
-    {:noreply, socket |> put_flash(:success, info)}
   end
 
   # Chunked ZK export — sends book_data + loose_entries in batches

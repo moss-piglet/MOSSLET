@@ -4,7 +4,6 @@ defmodule MossletWeb.AdminDashLive do
 
   alias Mosslet.Accounts
   alias Mosslet.Accounts.User
-  alias Mosslet.Memories
   alias Mosslet.Timeline
 
   alias Mosslet.Repo
@@ -84,12 +83,6 @@ defmodule MossletWeb.AdminDashLive do
               color="amber"
             />
             <.stat_card
-              title="Memories"
-              value={@memory_count}
-              icon="hero-photo"
-              color="purple"
-            />
-            <.stat_card
               title="Posts"
               value={@post_count}
               icon="hero-document-text"
@@ -147,7 +140,6 @@ defmodule MossletWeb.AdminDashLive do
   def mount(_params, _session, socket) do
     if connected?(socket) do
       Accounts.admin_subscribe(socket.assigns.current_scope.user)
-      Memories.admin_subscribe(socket.assigns.current_scope.user)
       Timeline.admin_subscribe(socket.assigns.current_scope.user)
     end
 
@@ -155,7 +147,6 @@ defmodule MossletWeb.AdminDashLive do
       socket
       |> assign(:user_count, Accounts.count_all_users())
       |> assign(:confirmed_user_count, Accounts.count_all_confirmed_users())
-      |> assign(:memory_count, Memories.count_all_memories())
       |> assign(:post_count, Timeline.count_all_posts())
       |> assign(:paid_count, get_active_payment_intents())
 
@@ -175,14 +166,6 @@ defmodule MossletWeb.AdminDashLive do
      socket
      |> assign(:user_count, socket.assigns.user_count - 1)
      |> assign(:confirmed_user_count, socket.assigns.confirmed_user_count - 1)}
-  end
-
-  def handle_info({:memory_created, _memory}, socket) do
-    {:noreply, assign(socket, :memory_count, socket.assigns.memory_count + 1)}
-  end
-
-  def handle_info({:memory_deleted, _memory}, socket) do
-    {:noreply, assign(socket, :memory_count, socket.assigns.memory_count - 1)}
   end
 
   def handle_info({:post_created, _post}, socket) do

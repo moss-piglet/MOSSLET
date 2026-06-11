@@ -24,7 +24,6 @@ defmodule Mosslet.Groups.Group do
 
     belongs_to :user, Mosslet.Accounts.User
 
-    has_many :memories, Mosslet.Memories.Memory
     has_many :messages, GroupMessage
     has_many :posts, Mosslet.Timeline.Post
     has_many :user_groups, UserGroup

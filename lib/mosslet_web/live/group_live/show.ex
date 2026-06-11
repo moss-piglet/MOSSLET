@@ -5,7 +5,6 @@ defmodule MossletWeb.GroupLive.Show do
   alias Mosslet.Groups
   alias Mosslet.GroupMessages
   alias MossletWeb.GroupLive.{Group, GroupMessage.EditForm}
-  alias Mosslet.Memories
   alias Mosslet.Timeline
   alias Mosslet.Timeline.Reply
 
@@ -359,30 +358,6 @@ defmodule MossletWeb.GroupLive.Show do
   end
 
   @impl true
-  def handle_event("blur-memory", %{"id" => id}, socket) do
-    memory = Memories.get_memory!(id)
-    current_scope = socket.assigns.current_scope
-
-    {:ok, memory} =
-      Memories.blur_memory(
-        memory,
-        %{
-          "shared_users" =>
-            Enum.into(memory.shared_users, [], fn shared_user ->
-              if shared_user.user_id == current_scope.user.id,
-                do: put_in(shared_user.blur, blur_shared_user(shared_user))
-
-              put_in(shared_user.current_user_id, current_scope.user.id)
-              Map.from_struct(shared_user)
-            end)
-        },
-        current_scope.user,
-        blur: true
-      )
-
-    {:noreply, stream_insert(socket, :memories, memory, at: -1)}
-  end
-
   def handle_event("fav", %{"id" => id}, socket) do
     post = Timeline.get_post!(id)
     current_scope = socket.assigns.current_scope
@@ -545,14 +520,6 @@ defmodule MossletWeb.GroupLive.Show do
       {:noreply, socket}
     else
       {:noreply, socket}
-    end
-  end
-
-  defp blur_shared_user(shared_user) do
-    if shared_user.blur do
-      false
-    else
-      true
     end
   end
 
@@ -767,7 +734,6 @@ defmodule MossletWeb.GroupLive.Show do
   defp page_title(:edit), do: "Edit Group"
   defp page_title(:slide_over), do: "Show Group"
   defp page_title(:posts), do: "Show Group Posts"
-  defp page_title(:memories), do: "Show Group Memories"
   defp page_title(:reply), do: "Show Group Post"
 
   defp notify_self(msg), do: send(self(), {__MODULE__, msg})

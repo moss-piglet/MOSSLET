@@ -52,9 +52,6 @@ defmodule MossletWeb.HomeLive do
       |> assign_new(:people_details_img, fn ->
         ~p"/images/screenshots/connections_light.png"
       end)
-      |> assign_new(:memory_promo_img, fn ->
-        ~p"/images/screenshots/memories_light.png"
-      end)
       |> assign_new(:onboarding_promo_img, fn ->
         ~p"/images/screenshots/memory_upload_light.png"
       end)

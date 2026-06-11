@@ -23,7 +23,6 @@ defmodule Mosslet.Groups.UserGroup do
     belongs_to :group, Mosslet.Groups.Group
     belongs_to :user, Mosslet.Accounts.User
 
-    has_many :memories, Mosslet.Memories.Memory
     has_many :posts, Mosslet.Timeline.Post
 
     timestamps()

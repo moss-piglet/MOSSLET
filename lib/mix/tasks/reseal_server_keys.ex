@@ -62,7 +62,6 @@ defmodule Mix.Tasks.ResealServerKeys do
     tables = [
       {Mosslet.Timeline.UserPost, :key, "user_posts"},
       {Mosslet.Groups.UserGroup, :key, "user_groups"},
-      {Mosslet.Memories.UserMemory, :key, "user_memories"},
       {Mosslet.Timeline.UserPostReport, :key, "user_post_reports"}
     ]
 

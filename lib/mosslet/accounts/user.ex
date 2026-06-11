@@ -13,7 +13,6 @@ defmodule Mosslet.Accounts.User do
   alias Mosslet.Security.EmailBlocklist
   alias Mosslet.Groups.{Group, UserGroup}
   alias Mosslet.Orgs.Org
-  alias Mosslet.Memories.{Memory, Remark, UserMemory}
   alias Mosslet.Timeline.{Post, UserPost}
 
   @primary_key {:id, :binary_id, autogenerate: true}
@@ -133,12 +132,9 @@ defmodule Mosslet.Accounts.User do
 
     has_many :groups, Group
     has_many :posts, Post
-    has_many :memories, Memory
     has_many :user_connections, UserConnection
     has_many :user_groups, UserGroup
     has_many :user_posts, UserPost
-    has_many :user_memories, UserMemory
-    has_many :remarks, Remark
 
     many_to_many :orgs, Org, join_through: "orgs_memberships", unique: true
 

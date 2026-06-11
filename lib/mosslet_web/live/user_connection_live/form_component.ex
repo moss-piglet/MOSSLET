@@ -168,10 +168,10 @@ defmodule MossletWeb.UserConnectionLive.FormComponent do
         <.phx_input
           field={@form[:photos?]}
           type="checkbox"
-          label="Memory mode"
+          label="Photo downloads"
         >
           <:description_block>
-            Allow this person to be able to download and save any Memories you share with them.
+            Allow this person to be able to download and save any photos you share with them.
           </:description_block>
         </.phx_input>
 

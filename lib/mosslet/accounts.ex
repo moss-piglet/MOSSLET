@@ -1244,7 +1244,6 @@ defmodule Mosslet.Accounts do
     uconns = get_all_user_connections(user.id)
 
     Enum.each(uconns, fn uconn ->
-      delete_data_filter(uconn, attrs, key, "user_memories")
       delete_data_filter(uconn, attrs, key, "user_posts")
     end)
 
@@ -1265,21 +1264,6 @@ defmodule Mosslet.Accounts do
 
       {:error, _reason} ->
         {:error, "There was an error deleting all groups."}
-    end
-  end
-
-  defp delete_data_filter(user, _attrs, key, "memories") do
-    memories = adapter().get_all_memories_for_user(user.id)
-    urls = get_urls_from_deleted_memories(user, key, memories)
-    Mosslet.Memories.make_async_aws_requests(urls)
-    uconns = get_all_user_connections(user.id)
-
-    case adapter().delete_all_memories(user.id) do
-      {:ok, _count} ->
-        broadcast_user_connections(uconns, :memories_deleted)
-
-      {:error, _reason} ->
-        {:error, "There was an error deleting all memories."}
     end
   end
 
@@ -1311,29 +1295,10 @@ defmodule Mosslet.Accounts do
     end
   end
 
-  defp delete_data_filter(uconn, _attrs, _key, "user_memories") do
-    case adapter().delete_all_user_memories(uconn) do
-      {:ok, _} -> :ok
-      {:error, _reason} -> {:error, "There was an error deleting all user memories."}
-    end
-  end
-
   defp delete_data_filter(uconn, _attrs, _key, "user_posts") do
     case adapter().delete_all_user_posts(uconn) do
       {:ok, _} -> :ok
       {:error, _reason} -> {:error, "There was an error deleting all user posts."}
-    end
-  end
-
-  defp delete_data_filter(user, _attrs, _key, "remarks") do
-    uconns = get_all_user_connections(user.id)
-
-    case adapter().delete_all_remarks(user.id) do
-      {:ok, _count} ->
-        broadcast_user_connections(uconns, :remarks_deleted)
-
-      {:error, _reason} ->
-        {:error, "There was an error deleting all remarks."}
     end
   end
 
@@ -1491,18 +1456,6 @@ defmodule Mosslet.Accounts do
   end
 
   defp get_all_replies_from_posts(_replies), do: nil
-
-  defp get_urls_from_deleted_memories(user, key, memories) when is_list(memories) do
-    Enum.map(memories, fn memory ->
-      MossletWeb.Helpers.decr_item(
-        memory.memory_url,
-        user,
-        Mosslet.Memories.get_user_memory(memory, user).key,
-        key,
-        memory
-      )
-    end)
-  end
 
   defp delete_object_storage_post_worker(params) do
     params
@@ -2130,7 +2083,6 @@ defmodule Mosslet.Accounts do
     uconns = get_all_user_connections(user_id)
 
     Enum.each(uconns, fn uconn ->
-      adapter().delete_all_user_memories(uconn)
       adapter().delete_all_user_posts(uconn)
     end)
 
@@ -2156,38 +2108,12 @@ defmodule Mosslet.Accounts do
     end
   end
 
-  def bulk_delete_all_memories(user_id) do
-    uconns = get_all_user_connections(user_id)
-
-    case adapter().delete_all_memories(user_id) do
-      {:ok, count} ->
-        broadcast_user_connections(uconns, :memories_deleted)
-        {:ok, count}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
   def bulk_delete_all_posts(user_id) do
     uconns = get_all_user_connections(user_id)
 
     case adapter().delete_all_posts(user_id) do
       {:ok, count} ->
         broadcast_user_connections(uconns, :posts_deleted)
-        {:ok, count}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  def bulk_delete_all_remarks(user_id) do
-    uconns = get_all_user_connections(user_id)
-
-    case adapter().delete_all_remarks(user_id) do
-      {:ok, count} ->
-        broadcast_user_connections(uconns, :remarks_deleted)
         {:ok, count}
 
       {:error, reason} ->
@@ -2210,10 +2136,6 @@ defmodule Mosslet.Accounts do
 
   def bulk_delete_all_bookmarks(user_id) do
     adapter().delete_all_bookmarks(user_id)
-  end
-
-  def bulk_delete_user_connection_memories(uconn) do
-    adapter().delete_all_user_memories(uconn)
   end
 
   def bulk_delete_user_connection_posts(uconn) do

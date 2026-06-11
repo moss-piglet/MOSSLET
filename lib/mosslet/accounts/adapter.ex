@@ -777,34 +777,16 @@ defmodule Mosslet.Accounts.Adapter do
               {:ok, integer()} | {:error, any()}
 
   @doc """
-  Deletes all memories for a user.
-  """
-  @callback delete_all_memories(user_id :: String.t()) ::
-              {:ok, integer()} | {:error, any()}
-
-  @doc """
   Deletes all posts for a user.
   """
   @callback delete_all_posts(user_id :: String.t()) ::
               {:ok, integer()} | {:error, any()}
 
   @doc """
-  Deletes all user_memories for a user connection.
-  """
-  @callback delete_all_user_memories(uconn :: UserConnection.t()) ::
-              {:ok, any()} | {:error, any()}
-
-  @doc """
   Deletes all user_posts for a user connection.
   """
   @callback delete_all_user_posts(uconn :: UserConnection.t()) ::
               {:ok, any()} | {:error, any()}
-
-  @doc """
-  Deletes all remarks for a user.
-  """
-  @callback delete_all_remarks(user_id :: String.t()) ::
-              {:ok, integer()} | {:error, any()}
 
   @doc """
   Deletes all replies for a user.
@@ -837,19 +819,6 @@ defmodule Mosslet.Accounts.Adapter do
               uconn_user_id :: String.t(),
               uconn_reverse_user_id :: String.t()
             ) :: {:ok, :cleaned}
-
-  @doc """
-  Cleans up shared_users embeds from memories when a connection is deleted.
-  """
-  @callback cleanup_shared_users_from_memories(
-              uconn_user_id :: String.t(),
-              uconn_reverse_user_id :: String.t()
-            ) :: {:ok, :cleaned}
-
-  @doc """
-  Gets all memories for a user (for extracting URLs before deletion).
-  """
-  @callback get_all_memories_for_user(user_id :: String.t()) :: [any()]
 
   @doc """
   Gets all posts for a user with replies preloaded (for extracting URLs before deletion).

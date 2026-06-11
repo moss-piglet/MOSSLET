@@ -459,24 +459,12 @@ defmodule Mosslet.API.Client do
     request(:delete, "/api/users/#{user_id}/groups", %{}, auth: token)
   end
 
-  def delete_all_memories(token, user_id) do
-    request(:delete, "/api/users/#{user_id}/memories", %{}, auth: token)
-  end
-
   def delete_all_posts(token, user_id) do
     request(:delete, "/api/users/#{user_id}/posts", %{}, auth: token)
   end
 
-  def delete_all_user_memories(token, uconn_id) do
-    request(:delete, "/api/connections/#{uconn_id}/memories", %{}, auth: token)
-  end
-
   def delete_all_user_posts(token, uconn_id) do
     request(:delete, "/api/connections/#{uconn_id}/posts", %{}, auth: token)
-  end
-
-  def delete_all_remarks(token, user_id) do
-    request(:delete, "/api/users/#{user_id}/remarks", %{}, auth: token)
   end
 
   def delete_all_replies(token, user_id) do
@@ -494,19 +482,6 @@ defmodule Mosslet.API.Client do
       %{type: "posts", user_id: uconn_user_id, reverse_user_id: uconn_reverse_user_id},
       auth: token
     )
-  end
-
-  def cleanup_shared_users_from_memories(token, uconn_user_id, uconn_reverse_user_id) do
-    request(
-      :post,
-      "/api/users/cleanup-shared-users",
-      %{type: "memories", user_id: uconn_user_id, reverse_user_id: uconn_reverse_user_id},
-      auth: token
-    )
-  end
-
-  def get_all_memories_for_user(token, user_id) do
-    request(:get, "/api/users/#{user_id}/all-memories", %{}, auth: token)
   end
 
   def get_all_posts_for_user(token, user_id) do
@@ -1118,128 +1093,8 @@ defmodule Mosslet.API.Client do
     request(:post, "/api/org-invitations/#{invitation_id}/reject", %{}, auth: token)
   end
 
-  # =============================================================================
-  # Memories API Stubs (to be implemented - legacy feature)
-  # =============================================================================
-
-  def get_memory(token, memory_id) do
-    request(:get, "/api/memories/#{memory_id}", %{}, auth: token)
-  end
-
-  def list_memories(token, user_id, options) do
-    request(:get, "/api/memories", %{user_id: user_id, options: options}, auth: token)
-  end
-
-  def list_public_memories(token, user_id, options) do
-    request(:get, "/api/memories/public", %{user_id: user_id, options: options}, auth: token)
-  end
-
-  def list_group_memories(token, group_id, options) do
-    request(:get, "/api/groups/#{group_id}/memories", %{options: options}, auth: token)
-  end
-
-  def filter_timeline_memories(token, user_id, options) do
-    request(:get, "/api/memories/timeline", %{user_id: user_id, options: options}, auth: token)
-  end
-
-  def filter_memories_shared_with_current_user(token, user_id, options) do
-    request(:get, "/api/memories/shared-with-me", %{user_id: user_id, options: options},
-      auth: token
-    )
-  end
-
-  def get_memory_count(token, user_id) do
-    request(:get, "/api/memories/count", %{user_id: user_id}, auth: token)
-  end
-
-  def get_shared_with_user_memory_count(token, user_id) do
-    request(:get, "/api/memories/shared-count", %{user_id: user_id}, auth: token)
-  end
-
-  def get_timeline_memory_count(token, user_id) do
-    request(:get, "/api/memories/timeline-count", %{user_id: user_id}, auth: token)
-  end
-
-  def get_shared_between_users_memory_count(token, user_id, other_user_id) do
-    request(
-      :get,
-      "/api/memories/shared-between-count",
-      %{user_id: user_id, other_user_id: other_user_id},
-      auth: token
-    )
-  end
-
-  def get_public_memory_count(token, user_id) do
-    request(:get, "/api/memories/public-count", %{user_id: user_id}, auth: token)
-  end
-
-  def get_group_memory_count(token, group_id) do
-    request(:get, "/api/groups/#{group_id}/memories/count", %{}, auth: token)
-  end
-
   def get_total_storage(token, user_id) do
     request(:get, "/api/users/#{user_id}/storage", %{}, auth: token)
-  end
-
-  def create_memory(token, attrs) do
-    request(:post, "/api/memories", %{memory: attrs}, auth: token)
-  end
-
-  def update_memory(token, memory_id, attrs) do
-    request(:put, "/api/memories/#{memory_id}", %{memory: attrs}, auth: token)
-  end
-
-  def delete_memory(token, memory_id) do
-    request(:delete, "/api/memories/#{memory_id}", %{}, auth: token)
-  end
-
-  def inc_memory_favs(token, memory_id) do
-    request(:post, "/api/memories/#{memory_id}/fav", %{}, auth: token)
-  end
-
-  def decr_memory_favs(token, memory_id) do
-    request(:delete, "/api/memories/#{memory_id}/fav", %{}, auth: token)
-  end
-
-  # Remarks (memory comments)
-  def get_remark(token, remark_id) do
-    request(:get, "/api/remarks/#{remark_id}", %{}, auth: token)
-  end
-
-  def list_remarks(token, memory_id, options) do
-    request(:get, "/api/memories/#{memory_id}/remarks", %{options: options}, auth: token)
-  end
-
-  def last_ten_remarks_for(token, memory_id) do
-    request(:get, "/api/memories/#{memory_id}/remarks/last-ten", %{}, auth: token)
-  end
-
-  def last_user_remark_for_memory(token, memory_id, user_id) do
-    request(:get, "/api/memories/#{memory_id}/remarks/last-user", %{user_id: user_id},
-      auth: token
-    )
-  end
-
-  def get_previous_n_remarks(token, memory_id, before_id, n) do
-    request(:get, "/api/memories/#{memory_id}/remarks/previous", %{before_id: before_id, n: n},
-      auth: token
-    )
-  end
-
-  def get_remark_count(token, memory_id) do
-    request(:get, "/api/memories/#{memory_id}/remarks/count", %{}, auth: token)
-  end
-
-  def get_remarks_mood_count(token, memory_id, mood) do
-    request(:get, "/api/memories/#{memory_id}/remarks/mood-count", %{mood: mood}, auth: token)
-  end
-
-  def create_remark(token, attrs) do
-    request(:post, "/api/remarks", %{remark: attrs}, auth: token)
-  end
-
-  def delete_remark(token, remark_id) do
-    request(:delete, "/api/remarks/#{remark_id}", %{}, auth: token)
   end
 
   # =============================================================================

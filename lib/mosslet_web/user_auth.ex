@@ -792,7 +792,6 @@ defmodule MossletWeb.UserAuth do
     paths_requiring_connection_check = [
       "connections",
       "posts",
-      "memories",
       "groups"
     ]
 

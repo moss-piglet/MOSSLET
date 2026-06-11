@@ -17,7 +17,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
 
   alias Mosslet.Encrypted
   alias Mosslet.Groups.Group
-  alias Mosslet.Memories.{Memory, Remark, UserMemory}
   alias Mosslet.Timeline.{Bookmark, Post, Reply, UserPost}
 
   alias Mosslet.Accounts.{
@@ -1563,19 +1562,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
   end
 
   @impl true
-  def delete_all_memories(user_id) do
-    query = from(m in Memory, where: m.user_id == ^user_id)
-
-    Ecto.Multi.new()
-    |> Ecto.Multi.delete_all(:delete_all_memories, query)
-    |> Repo.transaction_on_primary()
-    |> case do
-      {:ok, %{delete_all_memories: {count, _}}} -> {:ok, count}
-      {:error, _op, reason, _changes} -> {:error, reason}
-    end
-  end
-
-  @impl true
   def delete_all_posts(user_id) do
     query = from(p in Post, where: p.user_id == ^user_id)
 
@@ -1584,28 +1570,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
     |> Repo.transaction_on_primary()
     |> case do
       {:ok, %{delete_all_posts: {count, _}}} -> {:ok, count}
-      {:error, _op, reason, _changes} -> {:error, reason}
-    end
-  end
-
-  @impl true
-  def delete_all_user_memories(uconn) do
-    query =
-      from(
-        um in UserMemory,
-        inner_join: m in Memory,
-        on: um.memory_id == m.id,
-        where: m.user_id == ^uconn.reverse_user_id and ^uconn.user_id == um.user_id
-      )
-
-    Ecto.Multi.new()
-    |> Ecto.Multi.delete_all(:delete_all_user_memories, query)
-    |> Ecto.Multi.run(:cleanup_memory_shared_users, fn _repo, _changes ->
-      cleanup_shared_users_from_memories(uconn.user_id, uconn.reverse_user_id)
-    end)
-    |> Repo.transaction_on_primary()
-    |> case do
-      {:ok, _changes} -> {:ok, :deleted}
       {:error, _op, reason, _changes} -> {:error, reason}
     end
   end
@@ -1628,19 +1592,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
     |> Repo.transaction_on_primary()
     |> case do
       {:ok, _changes} -> {:ok, :deleted}
-      {:error, _op, reason, _changes} -> {:error, reason}
-    end
-  end
-
-  @impl true
-  def delete_all_remarks(user_id) do
-    query = from(r in Remark, where: r.user_id == ^user_id)
-
-    Ecto.Multi.new()
-    |> Ecto.Multi.delete_all(:delete_all_remarks, query)
-    |> Repo.transaction_on_primary()
-    |> case do
-      {:ok, %{delete_all_remarks: {count, _}}} -> {:ok, count}
       {:error, _op, reason, _changes} -> {:error, reason}
     end
   end
@@ -1747,39 +1698,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
     end)
 
     {:ok, :cleaned}
-  end
-
-  @impl true
-  def cleanup_shared_users_from_memories(uconn_user_id, uconn_reverse_user_id) do
-    memories_to_clean =
-      from(m in Memory, where: m.user_id == ^uconn_reverse_user_id)
-      |> Repo.all()
-
-    memories_to_clean
-    |> Enum.filter(fn memory ->
-      Enum.any?(memory.shared_users, fn shared_user ->
-        shared_user.user_id == uconn_user_id
-      end)
-    end)
-    |> Enum.each(fn memory ->
-      updated_shared_users =
-        Enum.reject(memory.shared_users, fn shared_user ->
-          shared_user.user_id == uconn_user_id
-        end)
-
-      memory
-      |> Ecto.Changeset.change()
-      |> Ecto.Changeset.put_embed(:shared_users, updated_shared_users)
-      |> Repo.update()
-    end)
-
-    {:ok, :cleaned}
-  end
-
-  @impl true
-  def get_all_memories_for_user(user_id) do
-    from(m in Memory, where: m.user_id == ^user_id)
-    |> Repo.all()
   end
 
   @impl true

@@ -256,14 +256,6 @@ defmodule MossletWeb.API.UserController do
       end
 
     result =
-      if data["memories"] == "true" do
-        memories = Accounts.adapter().get_all_memories_for_user(user.id)
-        Map.put(result, :memories, Enum.map(memories, &serialize_deletable_memory/1))
-      else
-        result
-      end
-
-    result =
       if data["replies"] == "true" do
         replies = Accounts.adapter().get_all_replies_for_user(user.id)
         Map.put(result, :replies, Enum.map(replies, &serialize_deletable_reply/1))
@@ -295,15 +287,6 @@ defmodule MossletWeb.API.UserController do
       visibility: to_string(post.visibility),
       image_urls: encode_image_urls(post.image_urls),
       e_key: encode_binary(post.e_key)
-    }
-  end
-
-  defp serialize_deletable_memory(memory) do
-    %{
-      id: memory.id,
-      user_id: memory.user_id,
-      image_url: encode_binary(memory.image_url),
-      e_key: encode_binary(memory.e_key)
     }
   end
 
@@ -894,26 +877,6 @@ defmodule MossletWeb.API.UserController do
     end
   end
 
-  def delete_all_memories(conn, %{"user_id" => user_id}) do
-    user = conn.assigns.current_user
-
-    if user.id == user_id do
-      case Accounts.bulk_delete_all_memories(user.id) do
-        {:ok, count} ->
-          conn
-          |> put_status(:ok)
-          |> json(%{count: count, message: "All memories deleted"})
-
-        {:error, reason} ->
-          conn
-          |> put_status(:unprocessable_entity)
-          |> json(%{error: inspect(reason)})
-      end
-    else
-      {:error, :unauthorized}
-    end
-  end
-
   def delete_all_posts(conn, %{"user_id" => user_id}) do
     user = conn.assigns.current_user
 
@@ -923,26 +886,6 @@ defmodule MossletWeb.API.UserController do
           conn
           |> put_status(:ok)
           |> json(%{count: count, message: "All posts deleted"})
-
-        {:error, reason} ->
-          conn
-          |> put_status(:unprocessable_entity)
-          |> json(%{error: inspect(reason)})
-      end
-    else
-      {:error, :unauthorized}
-    end
-  end
-
-  def delete_all_remarks(conn, %{"user_id" => user_id}) do
-    user = conn.assigns.current_user
-
-    if user.id == user_id do
-      case Accounts.bulk_delete_all_remarks(user.id) do
-        {:ok, count} ->
-          conn
-          |> put_status(:ok)
-          |> json(%{count: count, message: "All remarks deleted"})
 
         {:error, reason} ->
           conn
@@ -994,20 +937,6 @@ defmodule MossletWeb.API.UserController do
     end
   end
 
-  def get_all_memories(conn, %{"user_id" => user_id}) do
-    user = conn.assigns.current_user
-
-    if user.id == user_id do
-      memories = Accounts.adapter().get_all_memories_for_user(user.id)
-
-      conn
-      |> put_status(:ok)
-      |> json(%{memories: Enum.map(memories, &serialize_deletable_memory/1)})
-    else
-      {:error, :unauthorized}
-    end
-  end
-
   def get_all_posts(conn, %{"user_id" => user_id}) do
     user = conn.assigns.current_user
 
@@ -1048,9 +977,6 @@ defmodule MossletWeb.API.UserController do
         case type do
           "posts" ->
             Accounts.adapter().cleanup_shared_users_from_posts(user_id, reverse_user_id)
-
-          "memories" ->
-            Accounts.adapter().cleanup_shared_users_from_memories(user_id, reverse_user_id)
 
           _ ->
             {:ok, :cleaned}

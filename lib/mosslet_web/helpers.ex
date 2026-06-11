@@ -12,8 +12,6 @@ defmodule MossletWeb.Helpers do
   alias Mosslet.Extensions.BannerProcessor
   alias Mosslet.Groups
   alias Mosslet.Groups.{Group, UserGroup}
-  alias Mosslet.Memories
-  alias Mosslet.Memories.{Memory, Remark}
   alias Mosslet.Timeline
   alias Mosslet.Timeline.{Post, Reply}
 
@@ -352,9 +350,6 @@ defmodule MossletWeb.Helpers do
         decr_public_item(payload, owner_key)
 
       group?(item) ->
-        Encrypted.Users.Utils.decrypt_user_item(payload, user, item_key, key)
-
-      remark?(item) ->
         Encrypted.Users.Utils.decrypt_user_item(payload, user, item_key, key)
 
       item && item.visibility == :public ->
@@ -1493,7 +1488,7 @@ defmodule MossletWeb.Helpers do
 
   def decr_uconn_item(payload, user, uconn, key) do
     if is_nil(uconn) || is_nil(uconn.key) do
-      # if the owner of the Memory is trying to decrypt their own data
+      # if the owner is trying to decrypt their own data
       Encrypted.Users.Utils.decrypt_item(payload, user, user.conn_key, key)
     else
       # shared with people decrypting their connections data
@@ -1711,19 +1706,6 @@ defmodule MossletWeb.Helpers do
     end)
   end
 
-  def decrypt_shared_user_connections(user_connections, current_user, key, :memory) do
-    uconns = Enum.with_index(user_connections)
-
-    Enum.into(uconns, [], fn {uconn, _index} ->
-      %Memory.SharedUser{
-        sender_id: current_user.id,
-        username: decr_uconn(uconn.connection.username, current_user, uconn.key, key),
-        user_id: uconn.connection.user_id,
-        color: uconn.color
-      }
-    end)
-  end
-
   def decrypt_shared_user_connections(_user_connections, _current_user, _key, nil), do: []
 
   # Fetches the UserGroup for the user and group.
@@ -1745,9 +1727,6 @@ defmodule MossletWeb.Helpers do
 
   def group?(%Group{} = _struct), do: true
   def group?(_struct), do: false
-
-  def remark?(%Remark{} = _struct), do: true
-  def remark?(_struct), do: false
 
   def user_group?(%UserGroup{} = _struct), do: true
   def user_group?(_struct), do: false
@@ -2057,19 +2036,6 @@ defmodule MossletWeb.Helpers do
   def get_user!(id), do: Accounts.get_user!(id)
   def get_user_with_preloads(id), do: Accounts.get_user_with_preloads(id)
 
-  def get_item_connection(%Memory{} = item, current_user) do
-    cond do
-      item.visibility == :public && not is_nil(current_user) ->
-        Accounts.get_connection_from_item(item, current_user)
-
-      item.visibility == :public && is_nil(current_user) ->
-        "Sign in to view name"
-
-      true ->
-        Accounts.get_connection_from_item(item, current_user)
-    end
-  end
-
   def get_item_connection(item, current_user) do
     cond do
       item && item.visibility == :public && not is_nil(current_user) ->
@@ -2080,32 +2046,6 @@ defmodule MossletWeb.Helpers do
 
       true ->
         Accounts.get_connection_from_item(item, current_user)
-    end
-  end
-
-  def get_username_remark_key(remark, current_user) do
-    memory = Memories.get_memory!(remark.memory_id)
-
-    cond do
-      remark.user_id != current_user.id ->
-        uconn = get_uconn_for_shared_item(remark, current_user)
-        maybe_get_uconn_key(uconn, memory)
-
-      remark.user_id == current_user.id ->
-        current_user.conn_key
-
-      true ->
-        Enum.at(memory.user_memories, 0).key
-    end
-  end
-
-  defp maybe_get_uconn_key(uconn, %Memory{} = item) do
-    case uconn do
-      nil ->
-        Enum.at(item.user_memories, 0).key
-
-      _rest ->
-        uconn.key
     end
   end
 
@@ -2220,21 +2160,6 @@ defmodule MossletWeb.Helpers do
 
   def get_shared_post_label(post, user, key) do
     case get_uconn_for_shared_item(post, user) do
-      %UserConnection{} = uconn ->
-        Encrypted.Users.Utils.decrypt_user_item(
-          uconn.label,
-          user,
-          uconn.key,
-          key
-        )
-
-      _rest ->
-        "nil"
-    end
-  end
-
-  def get_shared_memory_label(memory, user, key) do
-    case get_uconn_for_shared_item(memory, user) do
       %UserConnection{} = uconn ->
         Encrypted.Users.Utils.decrypt_user_item(
           uconn.label,
@@ -2445,13 +2370,13 @@ defmodule MossletWeb.Helpers do
   end
 
   @doc """
-  Checks if a user can download photos from a shared post/memory.
+  Checks if a user can download photos from a shared post.
 
   When user Dino views Isabella's post, this checks if Isabella has granted
   photos? permission to Dino.
 
   Args:
-    - item: The post/memory being viewed
+    - item: The post being viewed
     - current_user: The user trying to download
 
   Returns boolean indicating if download is allowed.
@@ -2461,14 +2386,6 @@ defmodule MossletWeb.Helpers do
       %{photos?: true} -> true
       _ -> false
     end
-  end
-
-  @doc """
-  Checks if the Memory's user_id matches the user_id, enabling them
-  to download their own memory.
-  """
-  def check_if_user_can_download_memory(memory_user_id, user_id) do
-    memory_user_id == user_id
   end
 
   ## Profile
@@ -2588,8 +2505,6 @@ defmodule MossletWeb.Helpers do
       end
     end)
   end
-
-  ## Memories
 
   defp preload_connection(user) do
     Accounts.preload_connection(user)

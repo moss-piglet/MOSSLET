@@ -265,7 +265,7 @@ defmodule MossletWeb.TimelineLive.Index do
       current_scope: socket.assigns.current_scope
     }
 
-    # create the return_url with memory and post pagination options
+    # create the return_url with post pagination options
     url = construct_return_url(options)
 
     # Get the current active tab from socket assigns or default to "home"
@@ -1031,20 +1031,6 @@ defmodule MossletWeb.TimelineLive.Index do
       |> recalculate_counts_after_post_update(current_user, options)
 
     # No notification needed for deleted reposts - just remove silently
-
-    {:noreply, socket}
-  end
-
-  def handle_info({:memory_created, _memory}, socket) do
-    return_url = socket.assigns.return_url
-
-    {:noreply, socket |> push_patch(to: return_url)}
-  end
-
-  def handle_info({:memory_deleted, memory}, socket) do
-    socket =
-      socket
-      |> stream_delete(:memories, memory)
 
     {:noreply, socket}
   end

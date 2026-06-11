@@ -3,7 +3,6 @@ defmodule MossletWeb.UserDashLive do
 
   alias Mosslet.Accounts
   alias Mosslet.Groups
-  alias Mosslet.Memories
   alias Mosslet.Timeline
 
   import MossletWeb.DesignSystem
@@ -93,8 +92,6 @@ defmodule MossletWeb.UserDashLive do
       if connected?(socket) do
         Accounts.private_subscribe(current_user)
         Groups.private_subscribe(current_user)
-        Memories.private_subscribe(current_user)
-        Memories.connections_subscribe(current_user)
         Timeline.private_subscribe(current_user)
         Timeline.connections_subscribe(current_user)
       end

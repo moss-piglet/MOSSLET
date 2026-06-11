@@ -60,7 +60,6 @@ defmodule Mosslet.Workers.PqResealWorker do
         [
           reseal_table(Mosslet.Timeline.UserPost, :key, user.id, keys, unseal_opts, pq_opts),
           reseal_table(Mosslet.Groups.UserGroup, :key, user.id, keys, unseal_opts, pq_opts),
-          reseal_table(Mosslet.Memories.UserMemory, :key, user.id, keys, unseal_opts, pq_opts),
           reseal_table(Mosslet.Accounts.UserConnection, :key, user.id, keys, unseal_opts, pq_opts)
         ]
 

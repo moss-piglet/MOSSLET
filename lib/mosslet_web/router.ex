@@ -245,18 +245,14 @@ defmodule MossletWeb.Router do
     # Bulk delete operations (for user data management - zero knowledge)
     delete "/users/:user_id/connections", UserController, :delete_all_connections
     delete "/users/:user_id/groups", UserController, :delete_all_groups
-    delete "/users/:user_id/memories", UserController, :delete_all_memories
     delete "/users/:user_id/posts", UserController, :delete_all_posts
-    delete "/users/:user_id/remarks", UserController, :delete_all_remarks
     delete "/users/:user_id/replies", UserController, :delete_all_replies
     delete "/users/:user_id/bookmarks", UserController, :delete_all_bookmarks
-    get "/users/:user_id/all-memories", UserController, :get_all_memories
     get "/users/:user_id/all-posts", UserController, :get_all_posts
     get "/users/:user_id/all-replies", UserController, :get_all_replies
     post "/users/cleanup-shared-users", UserController, :cleanup_shared_users
 
     # Connection-scoped delete operations
-    delete "/connections/:id/memories", ConnectionController, :delete_all_memories
     delete "/connections/:id/posts", ConnectionController, :delete_all_posts
 
     # User connections (friends)

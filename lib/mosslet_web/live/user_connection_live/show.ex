@@ -9,8 +9,6 @@ defmodule MossletWeb.UserConnectionLive.Show do
   alias Mosslet.Conversations
   alias Mosslet.Encrypted
   alias Mosslet.Groups
-  alias Mosslet.Memories
-  alias Mosslet.Memories.Memory
 
   alias Mosslet.Timeline
   alias Mosslet.Timeline.{Post, Reply}
@@ -68,7 +66,7 @@ defmodule MossletWeb.UserConnectionLive.Show do
       current_user_id: current_user.id
     }
 
-    # create the return_url with memory and post pagination options
+    # create the return_url with post pagination options
     url = construct_return_url(user_connection, options)
 
     key = socket.assigns.current_scope.key
@@ -286,22 +284,6 @@ defmodule MossletWeb.UserConnectionLive.Show do
     {:noreply, socket}
   end
 
-  def handle_info({:memory_created, _memory}, socket) do
-    return_url = socket.assigns.return_url
-    {:noreply, socket |> push_patch(to: return_url)}
-  end
-
-  def handle_info({:memory_deleted, memory}, socket) do
-    return_url = socket.assigns.return_url
-    current_user = socket.assigns.current_user
-
-    if memory.user_id != current_user.id do
-      {:noreply, push_patch(socket, to: return_url)}
-    else
-      {:noreply, socket}
-    end
-  end
-
   def handle_info({:post_created, post}, socket) do
     if post.user_id != socket.assigns.current_user.id && post.visibility == :connections &&
          is_nil(post.group_id) do
@@ -344,10 +326,6 @@ defmodule MossletWeb.UserConnectionLive.Show do
      socket
      |> stream_delete(:posts, post)
      |> push_patch(to: socket.assigns.return_url)}
-  end
-
-  def handle_info({:remark_created, _remark}, socket) do
-    {:noreply, socket}
   end
 
   def handle_info({:reply_created, post, reply}, socket) do
@@ -467,64 +445,6 @@ defmodule MossletWeb.UserConnectionLive.Show do
     end
   end
 
-  def handle_info({_ref, {"get_user_memory", memory_id, memory_list, _user_id}}, socket) do
-    memory_loading_count = socket.assigns.memory_loading_count
-    finished_loading_list = socket.assigns.finished_loading_list
-
-    cond do
-      memory_loading_count < Enum.count(memory_list) - 1 ->
-        socket =
-          socket
-          |> assign(:memory_loading, true)
-          |> assign(:memory_loading_count, memory_loading_count + 1)
-          |> assign(:finished_loading_list, [memory_id | finished_loading_list] |> Enum.uniq())
-
-        memory = Memories.get_memory!(memory_id)
-
-        {:noreply, stream_insert(socket, :memories, memory, at: -1, reset: true)}
-
-      memory_loading_count == Enum.count(memory_list) - 1 ->
-        finished_loading_list = [memory_id | finished_loading_list] |> Enum.uniq()
-
-        socket =
-          socket
-          |> assign(:memory_loading, false)
-          |> assign(:finished_loading_list, [memory_id | finished_loading_list] |> Enum.uniq())
-
-        if Enum.count(finished_loading_list) == Enum.count(memory_list) do
-          memory = Memories.get_memory!(memory_id)
-
-          socket =
-            socket
-            |> assign(:memory_loading_count, 0)
-            |> assign(:memory_loading, false)
-            |> assign(:memory_loading_done, true)
-            |> assign(:finished_loading_list, [])
-
-          {:noreply, stream_insert(socket, :memories, memory, at: -1)}
-        else
-          {:noreply, socket}
-        end
-
-      true ->
-        socket =
-          socket
-          |> assign(:memory_loading, true)
-          |> assign(:finished_loading_list, [memory_id | finished_loading_list] |> Enum.uniq())
-
-        {:noreply, socket}
-    end
-  end
-
-  def handle_info({_ref, {:ok, :memory_deleted_from_storj, info}}, socket) do
-    socket =
-      socket
-      |> clear_flash(:success)
-      |> put_flash(:success, info)
-
-    {:noreply, socket}
-  end
-
   def handle_info(_message, socket) do
     {:noreply, socket}
   end
@@ -545,44 +465,6 @@ defmodule MossletWeb.UserConnectionLive.Show do
        |> assign(:user_connection, user_connection)
        |> assign(:conn_fields, encrypted_connection_fields(user_connection))}
     end
-  end
-
-  def handle_event(
-        "new_memory",
-        %{"url" => return_url, "username" => username, "email" => email},
-        socket
-      ) do
-    # we assign the user from the user_connection to the
-    # new_memory_shared_user to programatically enforce only sharing a memory
-    # with the user from the user_connection
-    #
-    # the shared_user assign is for the UI
-    user_connection = socket.assigns.user_connection
-    current_user = socket.assigns.current_user
-
-    socket =
-      socket
-      |> assign(:live_action, :new_memory)
-      |> assign(:return_url, return_url)
-      |> assign(:memory, %Memory{})
-      |> assign(:group, "")
-      |> assign(:groups_for_memory, [])
-      |> assign(:selector, "connections")
-      |> assign(:new_memory_shared_user_list, [
-        %Memory.SharedUser{
-          id: nil,
-          username: username,
-          user_id: user_connection.reverse_user_id,
-          sender_id: current_user.id
-        }
-      ])
-      |> assign(:shared_user, %{
-        username: username,
-        user_id: user_connection.reverse_user_id,
-        email: email
-      })
-
-    {:noreply, socket}
   end
 
   def handle_event("reply", %{"id" => id, "url" => return_url}, socket) do
@@ -898,30 +780,6 @@ defmodule MossletWeb.UserConnectionLive.Show do
      socket
      |> assign(:pending_repost, nil)
      |> put_flash(:error, "Encryption failed. Please refresh and try again.")}
-  end
-
-  def handle_event("blur-memory", %{"id" => id}, socket) do
-    memory = Memories.get_memory!(id)
-    current_user = socket.assigns.current_user
-
-    {:ok, memory} =
-      Memories.blur_memory(
-        memory,
-        %{
-          "shared_users" =>
-            Enum.into(memory.shared_users, [], fn shared_user ->
-              if shared_user.user_id == current_user.id,
-                do: put_in(shared_user.blur, blur_shared_user(shared_user))
-
-              put_in(shared_user.current_user_id, current_user.id)
-              Map.from_struct(shared_user)
-            end)
-        },
-        current_user,
-        blur: true
-      )
-
-    {:noreply, stream_insert(socket, :memories, memory, at: -1)}
   end
 
   def handle_event("validate_post", %{"post_params" => post_params}, socket) do
@@ -1726,14 +1584,6 @@ defmodule MossletWeb.UserConnectionLive.Show do
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Failed to repost. Please try again.")}
-    end
-  end
-
-  defp blur_shared_user(shared_user) do
-    if shared_user.blur do
-      false
-    else
-      true
     end
   end
 

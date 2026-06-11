@@ -311,7 +311,15 @@ defmodule MossletWeb.PublicLive.About do
                 We don't chase venture capital or need investors — we're customer-funded and family-owned. We believe in building a sustainable business that puts people first, not profits. Our team is small but mighty, and we take pride in our work.
               </p>
               <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
-                MOSSLET is run by Mark (developer) and Isabella (marketing) from the United States. We're always listening, and we build new features based on what you tell us.
+                MOSSLET is developed by <a
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  href="https://mosspiglet.dev"
+                  class={[
+                    "font-medium transition-colors duration-200 ease-out",
+                    "text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+                  ]}
+                >Moss Piglet</a>, a family-founded public benefit corporation from the United States. We're always listening, and we want to hear from you.
               </p>
               <h3 class="mt-10 font-semibold text-lg font-bold tracking-tight text-pretty sm:text-xl lg:text-2xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                 Privacy is our business model
@@ -336,7 +344,7 @@ defmodule MossletWeb.PublicLive.About do
               <div class="mt-8 flex flex-col sm:flex-row gap-4 items-start">
                 <div class="flex-1">
                   <p class="text-lg/8 text-slate-600 dark:text-slate-400">
-                    — Isabella & Mark
+                    — Mark
                   </p>
                   <p class="mt-2 text-sm text-gray-500 dark:text-gray-500 italic">
                     Say "hello" at support@mosslet.com

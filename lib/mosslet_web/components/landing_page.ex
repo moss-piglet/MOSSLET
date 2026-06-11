@@ -539,7 +539,7 @@ defmodule MossletWeb.Components.LandingPage do
                 Distributed cloud.
               </dt>
               <dd class="inline">
-                Memories and other multimedia are stored on a private, encrypted, and distributed cloud network spread across the world. If Amazon and Facebook go down, your data and your ability to continue sharing and connecting on MOSSLET stays up.
+                Your photos and other multimedia are stored on a private, encrypted, and distributed cloud network spread across the world. If Amazon and Facebook go down, your data and your ability to continue sharing and connecting on MOSSLET stays up.
               </dd>
             </div>
             <div class="relative pl-9">
@@ -557,10 +557,10 @@ defmodule MossletWeb.Components.LandingPage do
                   />
                   <path d="M5.082 14.254a8.287 8.287 0 0 0-1.308 5.135 9.687 9.687 0 0 1-1.764-.44l-.115-.04a.563.563 0 0 1-.373-.487l-.01-.121a3.75 3.75 0 0 1 3.57-4.047ZM20.226 19.389a8.287 8.287 0 0 0-1.308-5.135 3.75 3.75 0 0 1 3.57 4.047l-.01.121a.563.563 0 0 1-.373.486l-.115.04c-.567.2-1.156.349-1.764.441Z" />
                 </svg>
-                Circles, Memories, Posts, and more.
+                Circles, Posts, and more.
               </dt>
               <dd class="inline">
-                Make Circles to chat live, store photos for yourself or share with others in Memories, and express your thoughts with Posts — always in real-time with the privacy you need. Non-public images are checked for safety right in your browser; public images are checked server-side with a local AI model.
+                Make Circles to chat live and express your thoughts with Posts — always in real-time with the privacy you need. Non-public images are checked for safety right in your browser; public images are checked server-side with a local AI model.
               </dd>
             </div>
             <div class="relative pl-9">
@@ -582,7 +582,7 @@ defmodule MossletWeb.Components.LandingPage do
                 The right to start over.
               </dt>
               <dd class="inline">
-                Empower your personal growth and discovery by starting fresh whenever you want. Easily delete all of your Connections, Posts, Memories, Circles, Remarks and more across our service in real-time without deleting your account. On MOSSLET, you're in control of your identity and free to be any version of your self, every time.
+                Empower your personal growth and discovery by starting fresh whenever you want. Easily delete all of your Connections, Posts, Circles and more across our service in real-time without deleting your account. On MOSSLET, you're in control of your identity and free to be any version of your self, every time.
               </dd>
             </div>
             <div class="relative pl-9">
@@ -3559,7 +3559,7 @@ defmodule MossletWeb.Components.LandingPage do
                   How is my data shared with my friends?
                 </dt>
                 <dd class="mt-2 text-base leading-7 text-gray-600 dark:text-gray-400">
-                  When you share your data with your friends, they receive an encrypted copy of a unique key specific to that piece of data (think a Post or Memory). Their copy is encrypted with their public key so that they can unlock it and thus access the data you shared with them.
+                  When you share your data with your friends, they receive an encrypted copy of a unique key specific to that piece of data (think a Post). Their copy is encrypted with their public key so that they can unlock it and thus access the data you shared with them.
                 </dd>
                 <dd class="mt-2 text-base leading-7 text-gray-600 dark:text-gray-400">
                   This ensures that only the people you choose to share with can access whatever you are sharing. When you delete a friend or stop sharing with them, their access to your data is also removed.
@@ -3579,7 +3579,7 @@ defmodule MossletWeb.Components.LandingPage do
                     Fly</.link>. The network is protected with the WireGuard protocol and your personal data is encrypted twice before being stored in the database.
                 </dd>
                 <dd class="mt-4 text-base leading-7 text-gray-600 dark:text-gray-400">
-                  Any media data, like Memories and avatars (photos), are stored with our private, decentralized cloud storage provider <.link
+                  Any media data, like avatars (photos), are stored with our private, decentralized cloud storage provider <.link
                     href="https://tigrisdata.com"
                     rel="noopener"
                     target="_blank"
@@ -3598,36 +3598,6 @@ defmodule MossletWeb.Components.LandingPage do
                 </dd>
               </div>
             </dl>
-
-            <%!--
-            <div class="mb-12"></div>
-            <.faq_section_heading title="Memories" anchor_tag="memories" />
-            <div class="mt-12"></div>
-
-            <dl class="space-y-16 sm:grid sm:grid-cols-2 sm:gap-x-6 sm:gap-y-16 sm:space-y-0 lg:gap-x-10">
-              <div>
-                <dt class="text-base font-semibold leading-7 text-gray-900 dark:text-gray-100">
-                  What are Memories? Can I share them publicly?
-                </dt>
-                <dd class="mt-2 text-base leading-7 text-gray-600 dark:text-gray-400">
-                  Memories are photos. You can share them with anyone you're connected to but not publicly. Publicly sharing a Memory is a feature that we are considering for the future.
-                </dd>
-              </div>
-
-              <div>
-                <dt class="text-base font-semibold leading-7 text-gray-900 dark:text-gray-100">
-                  How do you ensure images are safe?
-                </dt>
-                <dd class="mt-2 text-base leading-7 text-gray-600 dark:text-gray-400">
-                  We currently check all images against an AI model fine-tuned for detecting NSFW images (not safe for work). If an image is deemed NSFW, then it cannot be uploaded. This is not a foolproof system and won't catch everything, but it is a start. Please report to us any harmful images at <.link
-                    class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 "
-                    href="mailto:support@mosslet.com"
-                  >support</.link>.
-                </dd>
-              </div>
-            </dl>
-
-            --%>
 
             <div class="mb-12"></div>
             <.faq_section_heading title="Password" anchor_tag="password" />
@@ -4103,7 +4073,7 @@ defmodule MossletWeb.Components.LandingPage do
                   How is my data shared with my friends?
                 </dt>
                 <dd class="mt-2 text-base leading-7 text-gray-600 dark:text-gray-400">
-                  When you share your data with your friends, they receive an encrypted copy of a unique key specific to that piece of data (think a Post or Memory). Their copy is encrypted with their public key so that they can unlock it and thus access the data you shared with them.
+                  When you share your data with your friends, they receive an encrypted copy of a unique key specific to that piece of data (think a Post). Their copy is encrypted with their public key so that they can unlock it and thus access the data you shared with them.
                 </dd>
                 <dd class="mt-2 text-base leading-7 text-gray-600 dark:text-gray-400">
                   This ensures that only the people you choose to share with can access whatever you are sharing. When you delete a friend or stop sharing with them, their access to your data is also removed.
@@ -4123,7 +4093,7 @@ defmodule MossletWeb.Components.LandingPage do
                     Fly</.link>. The network is protected with the WireGuard protocol and your personal data is encrypted twice before being stored in the database.
                 </dd>
                 <dd class="mt-4 text-base leading-7 text-gray-600 dark:text-gray-400">
-                  Any media data, like Memories and avatars (photos), are stored with our private, decentralized cloud storage provider <.link
+                  Any media data, like avatars (photos), are stored with our private, decentralized cloud storage provider <.link
                     href="https://tigrisdata.com"
                     rel="noopener"
                     target="_blank"
@@ -4142,36 +4112,6 @@ defmodule MossletWeb.Components.LandingPage do
                 </dd>
               </div>
             </dl>
-
-            <%!--
-            <div class="mb-12"></div>
-            <.faq_section_heading title="Memories" anchor_tag="memories" />
-            <div class="mt-12"></div>
-
-            <dl class="space-y-16 sm:grid sm:grid-cols-2 sm:gap-x-6 sm:gap-y-16 sm:space-y-0 lg:gap-x-10">
-              <div>
-                <dt class="text-base font-semibold leading-7 text-gray-900 dark:text-gray-100">
-                  What are Memories? Can I share them publicly?
-                </dt>
-                <dd class="mt-2 text-base leading-7 text-gray-600 dark:text-gray-400">
-                  Memories are photos. You can share them with anyone you're connected to but not publicly. Publicly sharing a Memory is a feature that we are considering for the future.
-                </dd>
-              </div>
-
-              <div>
-                <dt class="text-base font-semibold leading-7 text-gray-900 dark:text-gray-100">
-                  How do you ensure images are safe?
-                </dt>
-                <dd class="mt-2 text-base leading-7 text-gray-600 dark:text-gray-400">
-                  We currently check all images against an AI model fine-tuned for detecting NSFW images (not safe for work). If an image is deemed NSFW, then it cannot be uploaded. This is not a foolproof system and won't catch everything, but it is a start. Please report to us any harmful images at <.link
-                    class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 "
-                    href="mailto:support@mosslet.com"
-                  >support</.link>.
-                </dd>
-              </div>
-            </dl>
-
-            --%>
 
             <div class="mb-12"></div>
             <.faq_section_heading_app title="Password" anchor_tag="password" />
