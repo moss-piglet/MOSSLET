@@ -180,6 +180,7 @@ defmodule MossletWeb.ModernSidebarMenu do
             <% true -> %>
               <.link
                 {if child[:method], do: %{method: child[:method], href: child[:path]}, else: %{navigate: child[:path]}}
+                aria-current={if @current_page == child[:name], do: "page"}
                 class={[
                   "group relative flex items-start gap-x-3 text-sm",
                   "rounded-lg px-2 py-2.5 lg:px-3 lg:py-2.5",
@@ -236,6 +237,7 @@ defmodule MossletWeb.ModernSidebarMenu do
     <.link
       :if={!@item[:children]}
       {if @item[:method], do: %{method: @item[:method], href: @item[:path]}, else: %{navigate: @item[:path]}}
+      aria-current={if @current_page == @item[:name], do: "page"}
       x-bind:title={"sidebarCollapsed ? '#{@item[:label]}' : ''"}
       class={[
         "group relative flex items-center text-sm font-medium",

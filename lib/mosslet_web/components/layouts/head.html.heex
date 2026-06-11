@@ -97,21 +97,59 @@
 
   <script nonce={assigns[:csp_nonce] || @conn.assigns[:csp_nonce]}>
     (() => {
+      const root = document.documentElement;
+      const prefersDark = () =>
+        window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+      // Resolve a stored preference ("light" | "dark" | "system" | null) to a
+      // concrete theme. "system" (or no stored value) follows the OS setting.
+      const resolve = (pref) =>
+        pref === "light" || pref === "dark" ? pref : prefersDark() ? "dark" : "light";
+
+      const apply = (theme) => {
+        root.setAttribute("data-theme", theme);
+      };
+
       const setTheme = (theme) => {
         if (theme === "system") {
           localStorage.removeItem("phx:theme");
-          document.documentElement.removeAttribute("data-theme");
+          apply(resolve("system"));
         } else {
           localStorage.setItem("phx:theme", theme);
-          document.documentElement.setAttribute("data-theme", theme);
+          apply(theme);
         }
       };
-      if (!document.documentElement.hasAttribute("data-theme")) {
-        setTheme(localStorage.getItem("phx:theme") || "system");
+
+      // Initial paint: honor stored preference, otherwise follow the OS.
+      if (!root.hasAttribute("data-theme")) {
+        apply(resolve(localStorage.getItem("phx:theme")));
       }
-      window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "system"));
-      
-      window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
+
+      // Keep tabs in sync.
+      window.addEventListener(
+        "storage",
+        (e) => e.key === "phx:theme" && apply(resolve(e.newValue)),
+      );
+
+      // Follow OS changes only while the user is on "system" (no stored value).
+      if (window.matchMedia) {
+        window
+          .matchMedia("(prefers-color-scheme: dark)")
+          .addEventListener("change", () => {
+            if (!localStorage.getItem("phx:theme")) apply(resolve("system"));
+          });
+      }
+
+      window.addEventListener("phx:set-theme", (e) => {
+        const requested = e.target.dataset.phxTheme;
+        if (requested === "toggle") {
+          // Single-toggle: flip the currently applied theme.
+          const current = root.getAttribute("data-theme") || resolve("system");
+          setTheme(current === "dark" ? "light" : "dark");
+        } else {
+          setTheme(requested);
+        }
+      });
     })();
   </script>
 

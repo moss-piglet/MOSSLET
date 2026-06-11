@@ -347,6 +347,7 @@ defmodule MossletWeb.JournalLive.Index do
                   <div class="flex items-center gap-2 mb-1">
                     <h3
                       data-decrypt-journal-title={entry.id}
+                      aria-label="Journal entry title"
                       class={[
                         "text-base font-medium truncate transition-all duration-500",
                         if(entry.id in @revealed_entries,
@@ -476,6 +477,7 @@ defmodule MossletWeb.JournalLive.Index do
                   <div class="flex items-center gap-2 mb-1">
                     <h3
                       data-decrypt-journal-title={entry.id}
+                      aria-label="Journal entry title"
                       class={[
                         "text-base font-medium truncate transition-all duration-500",
                         if(entry.id in @revealed_entries,
