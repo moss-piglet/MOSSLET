@@ -1129,1457 +1129,89 @@ defmodule MossletWeb.TimelineComponents do
       ]}>
       </div>
 
-      <%!-- Subtle left-side shared indicator for posts shared WITH you --%>
-      <button
-        :if={@is_repost && @current_user_id != @post.user_id}
-        type="button"
-        phx-click={
-          JS.show(
-            to: "#share-overlay-#{@post.id}",
-            transition:
-              {"ease-out duration-200", "opacity-0 -translate-x-4", "opacity-100 translate-x-0"}
-          )
-        }
-        class="absolute left-0 top-4 bottom-4 w-1 bg-gradient-to-b from-emerald-400 via-teal-400 to-emerald-400 dark:from-emerald-500 dark:via-teal-500 dark:to-emerald-500 rounded-r-full opacity-70 hover:opacity-100 hover:w-1.5 transition-all duration-200 cursor-pointer group z-10"
-        aria-label="View shared message"
-      >
-        <span class="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 touch-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-white/90 dark:bg-slate-800/90 px-2 py-1 rounded-md shadow-sm border border-emerald-200/50 dark:border-emerald-700/50">
-          Shared with you
-        </span>
-      </button>
+      <.liquid_post_indicators post={@post} current_user_id={@current_user_id} is_repost={@is_repost} />
 
-      <%!-- Subtle left-side indicator for posts YOU shared with others (reposts only) --%>
-      <button
-        :if={@is_repost && @current_user_id == @post.user_id && !Enum.empty?(@post.shared_users)}
-        type="button"
-        phx-click={
-          JS.show(
-            to: "#shared-by-you-overlay-#{@post.id}",
-            transition:
-              {"ease-out duration-200", "opacity-0 -translate-x-4", "opacity-100 translate-x-0"}
-          )
-        }
-        class="absolute left-0 top-4 bottom-4 w-1 bg-gradient-to-b from-sky-400 via-blue-400 to-sky-400 dark:from-sky-500 dark:via-blue-500 dark:to-sky-500 rounded-r-full opacity-70 hover:opacity-100 hover:w-1.5 transition-all duration-200 cursor-pointer group z-10"
-        aria-label="View who you shared with"
-      >
-        <span class="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 touch-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium text-sky-600 dark:text-sky-400 bg-white/90 dark:bg-slate-800/90 px-2 py-1 rounded-md shadow-sm border border-sky-200/50 dark:border-sky-700/50">
-          You shared this
-        </span>
-      </button>
+      <.liquid_post_overlays
+        post={@post}
+        current_user_id={@current_user_id}
+        is_repost={@is_repost}
+        user_name={@user_name}
+        share_note={@share_note}
+        post_shared_users={@post_shared_users}
+        removing_shared_user_id={@removing_shared_user_id}
+        adding_shared_user={@adding_shared_user}
+      />
 
-      <%!-- Right-side visibility indicator for post owner (non-public posts) --%>
-      <button
-        :if={@current_user_id == @post.user_id && @post.visibility != :public}
-        type="button"
-        phx-click={
-          JS.show(
-            to: "#visibility-overlay-#{@post.id}",
-            transition:
-              {"ease-out duration-200", "opacity-0 translate-x-4", "opacity-100 translate-x-0"}
-          )
-        }
-        class={"absolute right-0 top-4 bottom-4 w-1 bg-gradient-to-b #{visibility_indicator_gradient(@post.visibility)} rounded-l-full opacity-70 hover:opacity-100 hover:w-1.5 transition-all duration-200 cursor-pointer group z-10"}
-        aria-label="View visibility settings"
-        id={"visibility-indicator-#{@post.id}"}
-      >
-        <span class={"absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 touch-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium px-2 py-1 rounded-md shadow-sm border #{visibility_indicator_hover_text_classes(@post.visibility)}"}>
-          {visibility_badge_text(@post.visibility)}
-        </span>
-      </button>
-
-      <%!-- Right-side visibility indicator for non-owner or public posts (non-interactive) --%>
-      <div
-        :if={@current_user_id != @post.user_id || @post.visibility == :public}
-        class={"absolute right-0 top-4 bottom-4 w-1 bg-gradient-to-b #{visibility_indicator_gradient(@post.visibility)} rounded-l-full opacity-50 group z-10"}
-        aria-label={visibility_badge_text(@post.visibility)}
-      >
-        <span class={"absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 touch-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium px-2 py-1 rounded-md shadow-sm border #{visibility_indicator_hover_text_classes(@post.visibility)}"}>
-          {visibility_badge_text(@post.visibility)}
-        </span>
-      </div>
-
-      <%!-- Share note overlay modal for posts shared WITH you --%>
-      <div
-        :if={@is_repost && @current_user_id != @post.user_id}
-        id={"share-overlay-#{@post.id}"}
-        class="hidden absolute inset-0 z-20 bg-white/98 dark:bg-slate-800/98 backdrop-blur-sm rounded-2xl overflow-hidden"
-        phx-window-keydown={
-          JS.hide(
-            to: "#share-overlay-#{@post.id}",
-            transition:
-              {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
-          )
-        }
-        phx-key="Escape"
-      >
-        <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-emerald-400 via-teal-400 to-emerald-400 dark:from-emerald-500 dark:via-teal-500 dark:to-emerald-500 rounded-r-full shadow-[0_0_8px_rgba(52,211,153,0.4)] dark:shadow-[0_0_8px_rgba(52,211,153,0.3)]">
-        </div>
-        <div class="h-full flex flex-col p-4 pl-5 overflow-hidden">
-          <div class="flex items-center gap-3 mb-3 shrink-0">
-            <div class="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/50 dark:to-teal-900/50 shadow-sm">
-              <.phx_icon
-                name="hero-paper-airplane-solid"
-                class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
-              />
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                Shared by {@user_name}
-              </p>
-            </div>
-            <button
-              type="button"
-              phx-click={
-                JS.hide(
-                  to: "#share-overlay-#{@post.id}",
-                  transition:
-                    {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
-                )
-              }
-              class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors duration-200"
-              aria-label="Close"
-            >
-              <.phx_icon name="hero-x-mark" class="h-4 w-4" />
-            </button>
-          </div>
-          <%= if @share_note do %>
-            <div class="flex-1 min-h-0 overflow-y-auto">
-              <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed break-words whitespace-pre-wrap">
-                {@share_note}
-              </p>
-            </div>
-          <% else %>
-            <p
-              data-decrypt-share-note-target={@post.id}
-              class="text-sm text-slate-500 dark:text-slate-400"
-            >
-              No message included
-            </p>
-          <% end %>
-          <button
-            type="button"
-            phx-click={
-              JS.hide(
-                to: "#share-overlay-#{@post.id}",
-                transition:
-                  {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
-              )
-            }
-            class="mt-3 inline-flex items-center gap-1.5 self-start text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50/80 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 px-3 py-1.5 rounded-lg border border-emerald-200/50 dark:border-emerald-700/50 transition-colors duration-200 shrink-0"
-          >
-            <.phx_icon name="hero-arrow-left-mini" class="h-3.5 w-3.5" /> Back to post
-          </button>
-        </div>
-      </div>
-
-      <%!-- Overlay modal for posts YOU shared with others --%>
-      <div
-        :if={@current_user_id == @post.user_id && !Enum.empty?(@post.shared_users)}
-        id={"shared-by-you-overlay-#{@post.id}"}
-        class="hidden absolute inset-0 z-20 bg-white/98 dark:bg-slate-800/98 backdrop-blur-sm rounded-2xl overflow-hidden"
-        phx-window-keydown={
-          JS.hide(
-            to: "#shared-by-you-overlay-#{@post.id}",
-            transition:
-              {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
-          )
-        }
-        phx-key="Escape"
-      >
-        <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-sky-400 via-blue-400 to-sky-400 dark:from-sky-500 dark:via-blue-500 dark:to-sky-500 rounded-r-full shadow-[0_0_8px_rgba(56,189,248,0.4)] dark:shadow-[0_0_8px_rgba(56,189,248,0.3)]">
-        </div>
-        <div class="h-full flex flex-col p-4 pl-5 overflow-hidden">
-          <div class="flex items-center gap-3 mb-3 shrink-0">
-            <div class="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-sky-100 to-blue-100 dark:from-sky-900/50 dark:to-blue-900/50 shadow-sm">
-              <.phx_icon
-                name="hero-share-solid"
-                class="h-4 w-4 text-sky-600 dark:text-sky-400"
-              />
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                You shared this
-              </p>
-            </div>
-            <button
-              type="button"
-              phx-click={
-                JS.hide(
-                  to: "#shared-by-you-overlay-#{@post.id}",
-                  transition:
-                    {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
-                )
-              }
-              class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors duration-200"
-              aria-label="Close"
-            >
-              <.phx_icon name="hero-x-mark" class="h-4 w-4" />
-            </button>
-          </div>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mb-3 shrink-0">
-            Shared with {length(@post.shared_users)} {if length(@post.shared_users) == 1,
-              do: "person",
-              else: "people"}
-          </p>
-          <div class="flex-1 min-h-0 overflow-y-auto space-y-1.5">
-            <%= for shared_user <- @post.shared_users do %>
-              <% shared_post_user =
-                MossletWeb.ReplyComponents.get_shared_connection(
-                  shared_user.user_id,
-                  @post_shared_users
-                ) %>
-              <div class="flex items-center gap-3 p-2 bg-slate-50/80 dark:bg-slate-700/50 rounded-lg">
-                <%= if shared_post_user do %>
-                  <div class={[
-                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-                    "bg-gradient-to-br transition-all duration-200",
-                    MossletWeb.ConnectionComponents.get_post_shared_user_classes(
-                      shared_post_user.color
-                    )
-                  ]}>
-                    <span class={[
-                      "text-sm font-semibold",
-                      MossletWeb.ConnectionComponents.get_post_shared_user_text_classes(
-                        shared_post_user.color
-                      )
-                    ]}>
-                      {String.first(shared_post_user.username || "?") |> String.upcase()}
-                    </span>
-                  </div>
-                  <span class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                    {shared_post_user.username}
-                  </span>
-                <% else %>
-                  <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-200 dark:bg-slate-700">
-                    <.phx_icon
-                      name="hero-user-minus"
-                      class="w-4 h-4 text-slate-400 dark:text-slate-500"
-                    />
-                  </div>
-                  <span class="text-sm font-medium text-slate-500 dark:text-slate-400 truncate italic">
-                    Former connection
-                  </span>
-                <% end %>
-              </div>
-            <% end %>
-          </div>
-          <button
-            type="button"
-            phx-click={
-              JS.hide(
-                to: "#shared-by-you-overlay-#{@post.id}",
-                transition:
-                  {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
-              )
-            }
-            class="mt-3 inline-flex items-center gap-1.5 self-start text-xs font-medium text-sky-600 dark:text-sky-400 bg-sky-50/80 dark:bg-sky-900/30 hover:bg-sky-100 dark:hover:bg-sky-900/50 px-3 py-1.5 rounded-lg border border-sky-200/50 dark:border-sky-700/50 transition-colors duration-200 shrink-0"
-          >
-            <.phx_icon name="hero-arrow-left-mini" class="h-3.5 w-3.5" /> Back to post
-          </button>
-        </div>
-      </div>
-
-      <%!-- Visibility/Shared users overlay for post owner --%>
-      <div
-        :if={@current_user_id == @post.user_id && @post.visibility != :public}
-        id={"visibility-overlay-#{@post.id}"}
-        class="hidden absolute inset-0 z-20 bg-white/98 dark:bg-slate-800/98 backdrop-blur-sm rounded-2xl overflow-hidden"
-        phx-window-keydown={
-          JS.hide(
-            to: "#visibility-overlay-#{@post.id}",
-            transition:
-              {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 translate-x-4"}
-          )
-        }
-        phx-key="Escape"
-      >
-        <div class={"absolute right-0 top-0 bottom-0 w-1.5 bg-gradient-to-b #{visibility_overlay_gradient(@post.visibility)} rounded-l-full shadow-[0_0_8px_rgba(168,85,247,0.4)] dark:shadow-[0_0_8px_rgba(168,85,247,0.3)]"}>
-        </div>
-        <div class="h-full flex flex-col p-4 pr-5 overflow-hidden">
-          <div class="flex items-center gap-3 mb-3 shrink-0">
-            <div class={"flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br #{visibility_overlay_icon_bg(@post.visibility)} shadow-sm"}>
-              <.phx_icon
-                name={visibility_overlay_icon(@post.visibility)}
-                class={"h-4 w-4 #{visibility_overlay_icon_color(@post.visibility)}"}
-              />
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                {visibility_badge_text(@post.visibility)}
-              </p>
-              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                <%= if @post.visibility == :private do %>
-                  Only visible to you
-                <% else %>
-                  {length(@post.shared_users)} {if length(@post.shared_users) == 1,
-                    do: "person",
-                    else: "people"}
-                <% end %>
-              </p>
-            </div>
-            <button
-              type="button"
-              phx-click={
-                JS.hide(
-                  to: "#visibility-overlay-#{@post.id}",
-                  transition:
-                    {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 translate-x-4"}
-                )
-              }
-              class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors duration-200"
-              aria-label="Close"
-            >
-              <.phx_icon name="hero-x-mark" class="h-4 w-4" />
-            </button>
-          </div>
-
-          <%= if @post.visibility == :private do %>
-            <div class="flex-1 flex flex-col items-center justify-center text-center">
-              <div class="inline-flex items-center justify-center w-12 h-12 mb-3 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600">
-                <.phx_icon name="hero-lock-closed" class="w-6 h-6 text-slate-500 dark:text-slate-400" />
-              </div>
-              <p class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Private post
-              </p>
-              <p class="text-xs text-slate-500 dark:text-slate-400 max-w-[200px]">
-                This post is only visible to you.
-              </p>
-            </div>
-            <div class="pt-3 mt-3 border-t border-slate-200/60 dark:border-slate-700/60 shrink-0 flex justify-end">
-              <button
-                type="button"
-                phx-click={
-                  JS.hide(
-                    to: "#visibility-overlay-#{@post.id}",
-                    transition:
-                      {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 translate-x-4"}
-                  )
-                }
-                class={"inline-flex items-center gap-1.5 text-xs font-medium #{visibility_overlay_back_button_classes(@post.visibility)} px-3 py-1.5 rounded-lg border transition-colors duration-200"}
-              >
-                Back to post <.phx_icon name="hero-arrow-right-mini" class="h-3.5 w-3.5" />
-              </button>
-            </div>
-          <% else %>
-            <div class="flex-1 min-h-0 overflow-y-auto">
-              <div class="grid grid-cols-2 gap-1.5">
-                <%= for shared_user <- @post.shared_users do %>
-                  <% shared_post_user =
-                    MossletWeb.ReplyComponents.get_shared_connection(
-                      shared_user.user_id,
-                      @post_shared_users
-                    ) %>
-                  <% shared_user_id_str =
-                    if is_binary(shared_user.user_id),
-                      do: Ecto.UUID.cast!(shared_user.user_id),
-                      else: shared_user.user_id %>
-                  <% is_removing = @removing_shared_user_id == shared_user_id_str %>
-                  <div class={[
-                    "relative flex items-center gap-2 p-1.5 bg-slate-50/80 dark:bg-slate-700/50 rounded-lg transition-all duration-200",
-                    is_removing && "opacity-50 pointer-events-none"
-                  ]}>
-                    <%= if shared_post_user do %>
-                      <.link
-                        :if={MossletWeb.ReplyComponents.show_profile?(shared_post_user)}
-                        id={"profile-link-#{@post.id}-person-#{shared_user.user_id}"}
-                        phx-hook="TippyHook"
-                        data-tippy-content="View profile"
-                        navigate={~p"/app/profile/#{shared_post_user.profile_slug}"}
-                        class="flex items-center gap-2 flex-1 min-w-0"
-                      >
-                        <div class={[
-                          "flex h-6 w-6 shrink-0 items-center justify-center rounded",
-                          "bg-gradient-to-br transition-all duration-200",
-                          MossletWeb.ConnectionComponents.get_post_shared_user_classes(
-                            shared_post_user.color
-                          )
-                        ]}>
-                          <span class={[
-                            "text-xs font-semibold",
-                            MossletWeb.ConnectionComponents.get_post_shared_user_text_classes(
-                              shared_post_user.color
-                            )
-                          ]}>
-                            {String.first(shared_post_user.username || "?") |> String.upcase()}
-                          </span>
-                        </div>
-                        <span class="text-xs font-medium text-slate-900 dark:text-slate-100 truncate">
-                          {shared_post_user.username}
-                        </span>
-                      </.link>
-                      <div
-                        :if={!MossletWeb.ReplyComponents.show_profile?(shared_post_user)}
-                        class="flex items-center gap-2 flex-1 min-w-0"
-                      >
-                        <div class={[
-                          "flex h-6 w-6 shrink-0 items-center justify-center rounded",
-                          "bg-gradient-to-br transition-all duration-200",
-                          MossletWeb.ConnectionComponents.get_post_shared_user_classes(
-                            shared_post_user.color
-                          )
-                        ]}>
-                          <span class={[
-                            "text-xs font-semibold",
-                            MossletWeb.ConnectionComponents.get_post_shared_user_text_classes(
-                              shared_post_user.color
-                            )
-                          ]}>
-                            {String.first(shared_post_user.username || "?") |> String.upcase()}
-                          </span>
-                        </div>
-                        <span class="text-xs font-medium text-slate-900 dark:text-slate-100 truncate">
-                          {shared_post_user.username}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        phx-click="remove_shared_user"
-                        phx-value-post-id={@post.id}
-                        phx-value-user-id={shared_user.user_id}
-                        phx-value-shared-username={shared_post_user.username}
-                        class="p-0.5 rounded text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200 shrink-0"
-                        phx-hook="TippyHook"
-                        data-tippy-content="Remove access"
-                        id={"remove-access-#{@post.id}-person-#{shared_user.user_id}"}
-                      >
-                        <span class="sr-only">Remove access for {shared_post_user.username}</span>
-                        <%= if is_removing do %>
-                          <.phx_icon name="hero-arrow-path-mini" class="w-3.5 h-3.5 animate-spin" />
-                        <% else %>
-                          <.phx_icon name="hero-trash-mini" class="w-3.5 h-3.5" />
-                        <% end %>
-                      </button>
-                    <% else %>
-                      <div class="flex items-center gap-2 flex-1 min-w-0">
-                        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slate-200 dark:bg-slate-700">
-                          <.phx_icon
-                            name="hero-user-minus"
-                            class="w-3 h-3 text-slate-400 dark:text-slate-500"
-                          />
-                        </div>
-                        <span class="text-xs font-medium text-slate-500 dark:text-slate-400 truncate italic">
-                          Former
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        phx-click="remove_shared_user"
-                        phx-value-post-id={@post.id}
-                        phx-value-user-id={shared_user.user_id}
-                        phx-value-shared-username=""
-                        class="p-0.5 rounded text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200 shrink-0"
-                        title="Remove"
-                      >
-                        <%= if is_removing do %>
-                          <.phx_icon name="hero-arrow-path-mini" class="w-3.5 h-3.5 animate-spin" />
-                        <% else %>
-                          <.phx_icon name="hero-trash-mini" class="w-3.5 h-3.5" />
-                        <% end %>
-                      </button>
-                    <% end %>
-                  </div>
-                <% end %>
-              </div>
-
-              <div :if={Enum.empty?(@post.shared_users)} class="py-2 text-center">
-                <div class="inline-flex items-center justify-center w-8 h-8 mb-1.5 rounded-full bg-slate-100 dark:bg-slate-700">
-                  <.phx_icon
-                    name="hero-user-group"
-                    class="w-4 h-4 text-slate-400 dark:text-slate-500"
-                  />
-                </div>
-                <p class="text-xs text-slate-500 dark:text-slate-400">
-                  Not shared with anyone yet
-                </p>
-              </div>
-            </div>
-
-            <div class="pt-3 mt-3 border-t border-slate-200/60 dark:border-slate-700/60 shrink-0">
-              <% available_connections =
-                Enum.reject(@post_shared_users, fn psu ->
-                  Enum.any?(@post.shared_users, &(&1.user_id == psu.user_id))
-                end) %>
-
-              <%= if @adding_shared_user && @adding_shared_user.post_id == @post.id do %>
-                <div class="flex items-center gap-2 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 animate-pulse">
-                  <.phx_icon
-                    name="hero-arrow-path"
-                    class="w-4 h-4 text-emerald-600 dark:text-emerald-400 animate-spin"
-                  />
-                  <span class="text-sm text-emerald-700 dark:text-emerald-300">
-                    Adding {@adding_shared_user.username}...
-                  </span>
-                </div>
-              <% else %>
-                <%= if Enum.empty?(available_connections) do %>
-                  <p class="text-xs text-slate-400 dark:text-slate-500 text-center py-1">
-                    All connections have access
-                  </p>
-                <% else %>
-                  <div class="relative" id={"add-shared-user-overlay-#{@post.id}"}>
-                    <button
-                      type="button"
-                      phx-click={JS.toggle(to: "#add-shared-user-overlay-list-#{@post.id}")}
-                      class={"w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-dashed transition-all duration-200 #{visibility_add_button_classes(@post.visibility)}"}
-                    >
-                      <.phx_icon name="hero-plus-mini" class="w-4 h-4" /> Add someone
-                    </button>
-
-                    <div
-                      id={"add-shared-user-overlay-list-#{@post.id}"}
-                      phx-click-away={JS.hide(to: "#add-shared-user-overlay-list-#{@post.id}")}
-                      phx-key="escape"
-                      phx-window-keydown={JS.hide(to: "#add-shared-user-overlay-list-#{@post.id}")}
-                      class="hidden absolute bottom-full left-0 right-0 mb-2 max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-xl ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-150"
-                    >
-                      <div class="p-1.5 space-y-0.5">
-                        <div
-                          :for={conn <- available_connections}
-                          id={"add-shared-user-item-#{@post.id}-#{conn.user_id}"}
-                          phx-click={
-                            JS.hide(to: "#add-shared-user-overlay-list-#{@post.id}")
-                            |> JS.push("add_shared_user")
-                          }
-                          phx-value-post-id={@post.id}
-                          phx-value-user-id={conn.user_id}
-                          phx-value-username={conn.username}
-                          class={[
-                            "flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/60 active:bg-slate-200 dark:active:bg-slate-600/60 transition-colors duration-150",
-                            @adding_shared_user && @adding_shared_user.post_id == @post.id &&
-                              @adding_shared_user.username == conn.username &&
-                              "opacity-50 pointer-events-none"
-                          ]}
-                        >
-                          <%= if @adding_shared_user && @adding_shared_user.post_id == @post.id && @adding_shared_user.username == conn.username do %>
-                            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-                              <.phx_icon
-                                name="hero-arrow-path"
-                                class="w-4 h-4 text-emerald-600 dark:text-emerald-400 animate-spin"
-                              />
-                            </div>
-                            <span class="text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                              Adding...
-                            </span>
-                          <% else %>
-                            <div class={[
-                              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-sm",
-                              "bg-gradient-to-br",
-                              MossletWeb.ConnectionComponents.get_post_shared_user_classes(conn.color)
-                            ]}>
-                              <span class={[
-                                "text-xs font-bold",
-                                MossletWeb.ConnectionComponents.get_post_shared_user_text_classes(
-                                  conn.color
-                                )
-                              ]}>
-                                {String.first(conn.username || "?") |> String.upcase()}
-                              </span>
-                            </div>
-                            <span class={[
-                              "text-sm font-medium truncate",
-                              MossletWeb.ConnectionComponents.get_post_shared_user_text_classes(
-                                conn.color
-                              )
-                            ]}>
-                              {conn.username}
-                            </span>
-                          <% end %>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                <% end %>
-              <% end %>
-            </div>
-            <button
-              type="button"
-              phx-click={
-                JS.hide(
-                  to: "#visibility-overlay-#{@post.id}",
-                  transition:
-                    {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 translate-x-4"}
-                )
-              }
-              class={"mt-3 inline-flex items-center gap-1.5 self-end text-xs font-medium #{visibility_overlay_back_button_classes(@post.visibility)} px-3 py-1.5 rounded-lg border transition-colors duration-200 shrink-0"}
-            >
-              Back to post <.phx_icon name="hero-arrow-right-mini" class="h-3.5 w-3.5" />
-            </button>
-          <% end %>
-        </div>
-      </div>
-
-      <%!-- Content Warning Overlay (covers entire post) --%>
-      <div
-        :if={(@content_warning? && @content_warning) || @post.mature_content}
-        id={"content-warning-#{@post.id}"}
-        class={[
-          "content-warning-overlay absolute inset-0 z-20 rounded-2xl backdrop-blur-sm transition-all duration-300 ease-out overflow-hidden",
-          if(@post.mature_content && !(@content_warning? && @content_warning),
-            do: "bg-amber-50/95 dark:bg-slate-800/98",
-            else: "bg-teal-50/95 dark:bg-slate-800/98"
-          )
-        ]}
-      >
-        <div class={[
-          "absolute inset-0",
-          if(@post.mature_content && !(@content_warning? && @content_warning),
-            do:
-              "bg-gradient-to-b from-amber-100/50 via-amber-50/30 to-amber-100/50 dark:from-amber-900/40 dark:via-slate-800/20 dark:to-amber-900/40",
-            else:
-              "bg-gradient-to-b from-teal-100/50 via-teal-50/30 to-teal-100/50 dark:from-teal-900/40 dark:via-slate-800/20 dark:to-teal-900/40"
-          )
-        ]}>
-        </div>
-        <div class={[
-          "absolute top-0 left-0 right-0 h-1 opacity-60",
-          if(@post.mature_content && !(@content_warning? && @content_warning),
-            do:
-              "bg-gradient-to-r from-amber-400 via-orange-400 to-amber-400 dark:from-amber-500 dark:via-orange-500 dark:to-amber-500",
-            else:
-              "bg-gradient-to-r from-teal-400 via-cyan-400 to-teal-400 dark:from-teal-500 dark:via-cyan-500 dark:to-teal-500"
-          )
-        ]}>
-        </div>
-        <div class="relative h-full flex flex-col justify-center p-4 sm:p-6">
-          <div class="flex items-start gap-4">
-            <div class={[
-              "flex-shrink-0 flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full border shadow-sm",
-              if(@post.mature_content && !(@content_warning? && @content_warning),
-                do:
-                  "bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-800/60 dark:to-orange-800/60 border-amber-200 dark:border-amber-700",
-                else:
-                  "bg-gradient-to-br from-teal-100 to-cyan-100 dark:from-teal-800/60 dark:to-cyan-800/60 border-teal-200 dark:border-teal-700"
-              )
-            ]}>
-              <.phx_icon
-                name={
-                  if @post.mature_content && !(@content_warning? && @content_warning),
-                    do: "hero-exclamation-triangle",
-                    else: "hero-hand-raised"
-                }
-                class={[
-                  "h-5 w-5 sm:h-6 sm:w-6",
-                  if(@post.mature_content && !(@content_warning? && @content_warning),
-                    do: "text-amber-600 dark:text-amber-400",
-                    else: "text-teal-600 dark:text-teal-400"
-                  )
-                ]}
-              />
-            </div>
-            <div class="flex-1 min-w-0">
-              <div class="flex flex-wrap items-center gap-2 mb-1">
-                <span class={[
-                  "text-base sm:text-lg font-semibold",
-                  if(@post.mature_content && !(@content_warning? && @content_warning),
-                    do: "text-amber-700 dark:text-amber-300",
-                    else: "text-teal-700 dark:text-teal-300"
-                  )
-                ]}>
-                  <%= if @post.mature_content && !(@content_warning? && @content_warning) do %>
-                    18+ Mature Content
-                  <% else %>
-                    Content Warning
-                  <% end %>
-                </span>
-                <%= if @content_warning_category do %>
-                  <span
-                    data-decrypt-cw-category-target={@post.id}
-                    class={[
-                      "text-xs px-2 py-0.5 rounded-full border",
-                      if(@post.mature_content && !(@content_warning? && @content_warning),
-                        do:
-                          "bg-amber-100 dark:bg-amber-800/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700",
-                        else:
-                          "bg-teal-100 dark:bg-teal-800/50 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-700"
-                      )
-                    ]}
-                  >
-                    {format_content_warning_category(@content_warning_category)}
-                  </span>
-                <% else %>
-                  <%!-- For browser_decrypt? posts, show placeholder badge that the hook will fill --%>
-                  <span
-                    :if={@post.decrypted[:browser_decrypt?] && @content_warning?}
-                    data-decrypt-cw-category-target={@post.id}
-                    class={[
-                      "text-xs px-2 py-0.5 rounded-full border",
-                      "bg-teal-100 dark:bg-teal-800/50 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-700"
-                    ]}
-                  >
-                  </span>
-                <% end %>
-                <%= if @post.mature_content && !@content_warning_category do %>
-                  <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-800/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700">
-                    Age Restricted
-                  </span>
-                <% end %>
-              </div>
-              <%= if @content_warning? && @content_warning do %>
-                <p
-                  data-decrypt-cw-text-target={@post.id}
-                  class={[
-                    "text-sm leading-relaxed line-clamp-2",
-                    if(@post.mature_content,
-                      do: "text-amber-600 dark:text-amber-400",
-                      else: "text-teal-600 dark:text-teal-400"
-                    )
-                  ]}
-                >
-                  {@content_warning}
-                </p>
-              <% else %>
-                <%!-- For browser_decrypt? posts with CW, show placeholder for hook --%>
-                <p
-                  :if={@post.decrypted[:browser_decrypt?] && @content_warning?}
-                  data-decrypt-cw-text-target={@post.id}
-                  class="text-sm leading-relaxed line-clamp-2 text-teal-600 dark:text-teal-400"
-                >
-                </p>
-                <p
-                  :if={
-                    !(@post.decrypted[:browser_decrypt?] && @content_warning?) && @post.mature_content
-                  }
-                  class="text-sm text-amber-600 dark:text-amber-400 leading-relaxed"
-                >
-                  This post contains mature content.
-                </p>
-              <% end %>
-            </div>
-            <button
-              type="button"
-              id={"content-warning-button-#{@post.id}"}
-              aria-label="Show content"
-              phx-click={
-                JS.hide(
-                  to: "#content-warning-#{@post.id}",
-                  transition:
-                    {"ease-in duration-200", "opacity-100 translate-y-0", "opacity-0 -translate-y-4"}
-                )
-                |> JS.show(
-                  to: "#content-warning-bar-#{@post.id}",
-                  transition:
-                    {"ease-out duration-200", "opacity-0 translate-y-4", "opacity-100 translate-y-0"}
-                )
-              }
-              class={[
-                "flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white rounded-lg shadow-lg transition-all duration-200 ease-out transform hover:scale-105 active:scale-95",
-                if(@post.mature_content && !(@content_warning? && @content_warning),
-                  do:
-                    "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 dark:from-amber-600 dark:to-orange-600 dark:hover:from-amber-500 dark:hover:to-orange-500 shadow-amber-500/25 dark:shadow-amber-900/40",
-                  else:
-                    "bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 dark:from-teal-600 dark:to-cyan-600 dark:hover:from-teal-500 dark:hover:to-cyan-500 shadow-teal-500/25 dark:shadow-teal-900/40"
-                )
-              ]}
-            >
-              <.phx_icon name="hero-eye" class="h-4 w-4" />
-              <span class="hidden sm:inline">Show</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      <.liquid_post_content_warning
+        post={@post}
+        content_warning?={@content_warning?}
+        content_warning={@content_warning}
+        content_warning_category={@content_warning_category}
+      />
 
       <%!-- Post content --%>
       <div class="relative p-6 flex-1 flex flex-col">
-        <%!-- User header --%>
-        <div class="flex items-start gap-4 mb-4">
-          <%!-- Enhanced liquid metal avatar - conditionally linked to author profile --%>
-          <.link
-            :if={
-              MossletWeb.ReplyComponents.show_author_profile?(
-                @author_profile_slug,
-                @author_profile_visibility
-              )
-            }
-            navigate={~p"/app/profile/#{@author_profile_slug}"}
-            class="flex-shrink-0"
-          >
-            <.liquid_avatar
-              src={@user_avatar}
-              encrypted_avatar_data={@encrypted_avatar_data}
-              name={@user_name}
-              size="md"
-              verified={@verified}
-              clickable={true}
-              status={@user_status}
-              status_message={@user_status_message}
-              encrypted_status_data={@encrypted_status_data}
-              show_status={@show_post_author_status}
-              user_id={@post.user_id}
-              id={"avatar-#{@post.id}"}
-            />
-          </.link>
-          <.liquid_avatar
-            :if={
-              !MossletWeb.ReplyComponents.show_author_profile?(
-                @author_profile_slug,
-                @author_profile_visibility
-              )
-            }
-            src={@user_avatar}
-            encrypted_avatar_data={@encrypted_avatar_data}
-            name={@user_name}
-            size="md"
-            verified={@verified}
-            clickable={true}
-            status={@user_status}
-            status_message={@user_status_message}
-            encrypted_status_data={@encrypted_status_data}
-            show_status={@show_post_author_status}
-            user_id={@post.user_id}
-            id={"avatar-noprofile-#{@post.id}"}
-          />
+        <.liquid_post_header
+          post={@post}
+          current_user_id={@current_user_id}
+          user_name={@user_name}
+          user_handle={@user_handle}
+          user_avatar={@user_avatar}
+          encrypted_avatar_data={@encrypted_avatar_data}
+          encrypted_author_name_data={@encrypted_author_name_data}
+          user_status={@user_status}
+          user_status_message={@user_status_message}
+          encrypted_status_data={@encrypted_status_data}
+          show_post_author_status={@show_post_author_status}
+          author_profile_slug={@author_profile_slug}
+          author_profile_visibility={@author_profile_visibility}
+          timestamp={@timestamp}
+          verified={@verified}
+        />
 
-          <%!-- User info --%>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2 mb-1">
-              <.link
-                :if={
-                  MossletWeb.ReplyComponents.show_author_profile?(
-                    @author_profile_slug,
-                    @author_profile_visibility
-                  )
-                }
-                navigate={~p"/app/profile/#{@author_profile_slug}"}
-                class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
-                data-decrypt-author-name-target={@post.id}
-              >
-                {@user_name}
-              </.link>
-              <span
-                :if={
-                  !MossletWeb.ReplyComponents.show_author_profile?(
-                    @author_profile_slug,
-                    @author_profile_visibility
-                  )
-                }
-                class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate"
-                data-decrypt-author-name-target={@post.id}
-              >
-                {@user_name}
-              </span>
-              <.phx_icon
-                :if={@verified}
-                name="hero-check-badge"
-                class="h-5 w-5 text-emerald-500 flex-shrink-0"
-              />
-              <%!-- Interaction controls indicators --%>
-              <div class="flex items-center gap-1 ml-2">
-                <%!-- Ephemeral indicator with countdown --%>
-                <.phx_icon
-                  :if={@post.is_ephemeral}
-                  id={"ephemeral-indicator-#{@post.id}"}
-                  name="hero-clock"
-                  class="h-3 w-3 text-amber-500 dark:text-amber-400"
-                  phx_hook="TippyHook"
-                  data_tippy_content={
-                    if @post.expires_at do
-                      expires_in = MossletWeb.Helpers.get_expiration_time_remaining(@post)
-
-                      if expires_in do
-                        "Ephemeral post - expires in #{expires_in}"
-                      else
-                        "Ephemeral post - expired"
-                      end
-                    else
-                      "Ephemeral post - will auto-delete"
-                    end
-                  }
-                />
-
-                <%!-- Mature content indicator --%>
-                <.phx_icon
-                  :if={@post.mature_content}
-                  id={"mature-content-indicator-#{@post.id}"}
-                  name="hero-exclamation-triangle"
-                  class="h-3 w-3 text-orange-500 dark:text-orange-400"
-                  phx_hook="TippyHook"
-                  data_tippy_content="Mature content (18+)"
-                />
-
-                <%!-- No replies indicator --%>
-                <.phx_icon
-                  :if={!@post.allow_replies}
-                  id={"allow-replies-indicator-#{@post.id}"}
-                  name="hero-chat-bubble-oval-left-ellipsis"
-                  class="h-3 w-3 text-slate-400 dark:text-slate-500 line-through"
-                  phx_hook="TippyHook"
-                  data_tippy_content="Replies disabled"
-                />
-
-                <%!-- No shares indicator --%>
-                <.phx_icon
-                  :if={!@post.allow_shares}
-                  id={"allow-shares-indicator-#{@post.id}"}
-                  name="hero-arrow-path"
-                  class="h-3 w-3 text-slate-400 dark:text-slate-500 line-through"
-                  phx_hook="TippyHook"
-                  data_tippy_content="Sharing disabled"
-                />
-
-                <%!-- No bookmarks indicator --%>
-                <.phx_icon
-                  :if={!@post.allow_bookmarks}
-                  id={"allow-bookmarks-indicator-#{@post.id}"}
-                  name="hero-bookmark"
-                  class="h-3 w-3 text-slate-400 dark:text-slate-500 line-through"
-                  phx_hook="TippyHook"
-                  data_tippy_content="Bookmarking disabled"
-                />
-
-                <%!-- Connection required for replies indicator --%>
-                <.phx_icon
-                  :if={@post.require_follow_to_reply && @post.visibility == :public}
-                  id={"connection-required-reply-indicator-#{@post.id}"}
-                  name="hero-shield-check"
-                  class="h-3 w-3 text-emerald-500 dark:text-emerald-400"
-                  phx_hook="TippyHook"
-                  data_tippy_content="Connection required to reply"
-                />
-              </div>
-            </div>
-            <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-              <span class="truncate" data-decrypt-handle-target={@post.id}>
-                {if(@post.decrypted[:browser_decrypt?], do: "@...", else: @user_handle)}
-              </span>
-              <span class="text-slate-400 dark:text-slate-500">•</span>
-              <time class="flex-shrink-0">{@timestamp}</time>
-              <.bluesky_badge
-                :if={
-                  @post.external_uri && @post.source == :mosslet &&
-                    @post.bluesky_link_verified != false
-                }
-                id={"bluesky-badge-#{@post.id}"}
-                external_uri={@post.external_uri}
-                type={:synced}
-              />
-              <.bluesky_badge
-                :if={@post.source == :bluesky && @post.external_uri}
-                id={"bluesky-import-badge-#{@post.id}"}
-                external_uri={@post.external_uri}
-                type={:imported}
-              />
-            </div>
-          </div>
-
-          <%!-- Post menu with liquid dropdown - show for both owned and other posts --%>
-          <.liquid_dropdown
-            :if={@current_user_id == @post.user_id or @current_user_id != @post.user_id}
-            id={"post-menu-#{@post.id}"}
-            trigger_class="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100/50 dark:hover:bg-slate-700/50 transition-all duration-200 ease-out"
-            placement="bottom-end"
-          >
-            <:trigger>
-              <.phx_icon name="hero-ellipsis-horizontal" class="h-5 w-5" />
-            </:trigger>
-
-            <%!-- Own post actions --%>
-            <:item
-              :if={@current_user_id == @post.user_id}
-              phx_click="delete_post"
-              phx_value_id={@post.id}
-              data_confirm="Are you sure you want to delete this post?"
-              color="red"
-            >
-              <.phx_icon name="hero-trash" class="h-4 w-4" /> Delete Post
-            </:item>
-
-            <%!-- Other user's post actions --%>
-            <:item
-              :if={@current_user_id != @post.user_id}
-              phx_click="report_post"
-              phx_value_id={@post.id}
-              color="amber"
-            >
-              <.phx_icon name="hero-flag" class="h-4 w-4" /> Report Post
-            </:item>
-
-            <:item
-              :if={@current_user_id != @post.user_id}
-              phx_click="block_user"
-              phx_value_id={@post.user_id}
-              phx_value_user_name={@user_name}
-              phx_value_item_id={@post.id}
-              color="red"
-            >
-              <.phx_icon name="hero-no-symbol" class="h-4 w-4" /> Block Author
-            </:item>
-
-            <:item
-              :if={@current_user_id != @post.user_id && is_shared_recipient?(@post, @current_user_id)}
-              phx_click="remove_self_from_post"
-              phx_value_post_id={@post.id}
-              data_confirm="Are you sure you want to remove yourself from this post? You will no longer be able to see it."
-              color="slate"
-            >
-              <.phx_icon name="hero-x-circle" class="h-4 w-4" /> Remove Post
-            </:item>
-          </.liquid_dropdown>
-        </div>
-
-        <%!-- Content Warning Bar (shown after reveal - click to hide content again) --%>
-        <button
-          :if={(@content_warning? && @content_warning) || @post.mature_content}
-          type="button"
-          id={"content-warning-bar-#{@post.id}"}
-          phx-click={
-            JS.hide(
-              to: "#content-warning-bar-#{@post.id}",
-              transition:
-                {"ease-in duration-150", "opacity-100 translate-y-0", "opacity-0 -translate-y-4"}
-            )
-            |> JS.show(
-              to: "#content-warning-#{@post.id}",
-              transition:
-                {"ease-out duration-200", "opacity-0 translate-y-4", "opacity-100 translate-y-0"}
-            )
-          }
-          class={[
-            "content-warning-bar hidden absolute left-4 right-4 top-0 h-1 rounded-b-lg opacity-70 hover:opacity-100 hover:h-1.5 transition-all duration-200 cursor-pointer group/cw z-30",
-            if(@post.mature_content && !(@content_warning? && @content_warning),
-              do:
-                "bg-gradient-to-r from-amber-400 via-orange-400 to-amber-400 dark:from-amber-500 dark:via-orange-500 dark:to-amber-500",
-              else:
-                "bg-gradient-to-r from-teal-400 via-cyan-400 to-teal-400 dark:from-teal-500 dark:via-cyan-500 dark:to-teal-500"
-            )
-          ]}
-          aria-label="Hide content"
-        >
-          <span class={[
-            "absolute left-1/2 -translate-x-1/2 top-3 opacity-60 group-hover/cw:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium bg-white/90 dark:bg-slate-800/90 px-2 py-1 rounded-md shadow-sm border",
-            if(@post.mature_content && !(@content_warning? && @content_warning),
-              do: "text-amber-600 dark:text-amber-400 border-amber-200/50 dark:border-amber-700/50",
-              else: "text-teal-600 dark:text-teal-400 border-teal-200/50 dark:border-teal-700/50"
-            )
-          ]}>
-            Hide content
-          </span>
-        </button>
+        <.liquid_post_content_warning_bar
+          post={@post}
+          content_warning?={@content_warning?}
+          content_warning={@content_warning}
+        />
 
         <%!-- Post content with markdown support --%>
         <div class="mb-4 flex-1">
-          <%!-- Collapsible text content wrapper --%>
-          <div class="relative">
-            <div
-              data-post-content
-              class="max-h-40 overflow-hidden transition-[max-height] duration-300 ease-out"
-            >
-              <%= if @post.decrypted[:browser_decrypt?] do %>
-                <%!-- Non-public post: browser-side decryption via DecryptPost hook --%>
-                <div
-                  id={"decrypt-post-#{@post.id}"}
-                  phx-hook="DecryptPost"
-                  phx-update="ignore"
-                  data-post-id={@post.id}
-                  data-current-user-id={@current_user_id}
-                  data-sealed-post-key={@post.decrypted[:sealed_post_key]}
-                  data-encrypted-body={@post.decrypted[:encrypted_body]}
-                  data-encrypted-username={@post.decrypted[:encrypted_username]}
-                  data-encrypted-content-warning={@post.decrypted[:encrypted_content_warning]}
-                  data-encrypted-content-warning-category={
-                    @post.decrypted[:encrypted_content_warning_category]
-                  }
-                  data-encrypted-url-preview={
-                    if(@post.decrypted[:encrypted_url_preview],
-                      do: Jason.encode!(@post.decrypted[:encrypted_url_preview])
-                    )
-                  }
-                  data-encrypted-favs-list={
-                    if(@post.decrypted[:encrypted_favs_list],
-                      do: Jason.encode!(@post.decrypted[:encrypted_favs_list])
-                    )
-                  }
-                  data-encrypted-reposts-list={
-                    if(@post.decrypted[:encrypted_reposts_list],
-                      do: Jason.encode!(@post.decrypted[:encrypted_reposts_list])
-                    )
-                  }
-                  data-encrypted-share-note={@post.decrypted[:encrypted_share_note]}
-                  data-encrypted-image-alt-texts={
-                    if(@post.decrypted[:encrypted_image_alt_texts],
-                      do: Jason.encode!(@post.decrypted[:encrypted_image_alt_texts])
-                    )
-                  }
-                  data-post-user-id={@post.user_id}
-                  data-allow-shares={to_string(@post.allow_shares)}
-                  data-is-ephemeral={to_string(@post.is_ephemeral || false)}
-                  data-sealed-uconn-key={
-                    @encrypted_author_name_data && @encrypted_author_name_data[:sealed_uconn_key]
-                  }
-                  data-encrypted-author-name={
-                    @encrypted_author_name_data && @encrypted_author_name_data[:encrypted_name]
-                  }
-                  data-encrypted-author-username={
-                    @encrypted_author_name_data && @encrypted_author_name_data[:encrypted_username]
-                  }
-                  data-author-show-name={
-                    @encrypted_author_name_data && to_string(@encrypted_author_name_data[:show_name])
-                  }
-                >
-                  <div
-                    data-decrypt-target
-                    class="prose prose-slate dark:prose-invert prose-base prose-p:leading-relaxed prose-p:my-2 prose-headings:mt-4 prose-headings:mb-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-pre:my-3 prose-code:text-emerald-600 dark:prose-code:text-emerald-400 prose-a:text-emerald-600 dark:prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline [&_pre_code]:text-inherit [&_pre_*]:text-inherit"
-                  >
-                    <%!-- Loading skeleton shown until JS decrypts --%>
-                    <div class="animate-pulse space-y-2">
-                      <div class="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
-                      <div class="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/2"></div>
-                    </div>
-                  </div>
-                </div>
-              <% else %>
-                <%!-- Public post: server-decrypted content rendered directly --%>
-                <p
-                  :if={contains_html?(@content)}
-                  class="text-slate-900 dark:text-slate-100 leading-loose whitespace-pre-wrap text-base"
-                >
-                  {html_block(@content)}
-                </p>
-                <div
-                  :if={!contains_html?(@content)}
-                  class="prose prose-slate dark:prose-invert prose-base prose-p:leading-relaxed prose-p:my-2 prose-headings:mt-4 prose-headings:mb-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-pre:my-3 prose-code:text-emerald-600 dark:prose-code:text-emerald-400 prose-a:text-emerald-600 dark:prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline [&_pre_code]:text-inherit [&_pre_*]:text-inherit"
-                >
-                  {format_decrypted_content(@content)}
-                </div>
-              <% end %>
-            </div>
+          <.liquid_post_body
+            post={@post}
+            content={@content}
+            current_user_id={@current_user_id}
+            encrypted_author_name_data={@encrypted_author_name_data}
+          />
 
-            <%!-- Gradient fade overlay --%>
-            <div
-              data-post-gradient
-              class="hidden absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white/95 via-white/80 to-transparent dark:from-slate-800/95 dark:via-slate-800/80 pointer-events-none"
-            >
-            </div>
-          </div>
-
-          <%!-- Show more/less toggle button --%>
-          <button
-            type="button"
-            data-post-toggle
-            class="mt-2 items-center gap-1 text-sm font-medium text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors duration-200"
-            style="display: none;"
-          >
-            <span data-expand-text class="flex items-center gap-1">
-              <.phx_icon name="hero-chevron-down-mini" class="h-4 w-4" /> Show more
-            </span>
-            <span data-collapse-text class="hidden flex items-center gap-1">
-              <.phx_icon name="hero-chevron-up-mini" class="h-4 w-4" /> Show less
-            </span>
-          </button>
-
-          <%!-- Images with enhanced encrypted display system --%>
-          <div :if={@post && photos?(@post.image_urls)} class="mt-4">
-            <.liquid_post_photo_gallery post={@post} current_scope={@current_scope} class="" />
-          </div>
-
-          <%!-- URL Preview Card (if available) --%>
-          <div :if={@decrypted_url_preview} class="mt-4">
-            <a
-              href={@decrypted_url_preview["url"]}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="flex gap-3 p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-800/95 hover:border-emerald-400 dark:hover:border-emerald-500 transition-all duration-200 group"
-            >
-              <div
-                :if={@decrypted_url_preview["image"] && @decrypted_url_preview["image"] != ""}
-                class="w-20 h-14 shrink-0 overflow-hidden rounded-lg"
-                phx-hook="URLPreviewHook"
-                id={"url-preview-#{@post.id}"}
-                data-post-id={@post.id}
-                data-image-hash={@decrypted_url_preview["image_hash"]}
-                data-url-preview-fetched-at={@post.url_preview_fetched_at}
-                data-presigned-url={@decrypted_url_preview["image"]}
-              >
-                <img
-                  alt={@decrypted_url_preview["title"] || "Preview image"}
-                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-              </div>
-
-              <div class="flex-1 min-w-0 py-0.5">
-                <div class="flex items-center gap-1.5 mb-0.5">
-                  <.phx_icon name="hero-link" class="h-3 w-3 text-slate-400" />
-                  <span class="text-xs text-slate-500 dark:text-slate-400 truncate">
-                    {@decrypted_url_preview["site_name"] || "External Link"}
-                  </span>
-                </div>
-
-                <p
-                  :if={@decrypted_url_preview["title"]}
-                  class="font-medium text-sm text-slate-900 dark:text-slate-100 line-clamp-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"
-                >
-                  {@decrypted_url_preview["title"]}
-                </p>
-
-                <p
-                  :if={@decrypted_url_preview["description"]}
-                  class="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mt-0.5"
-                >
-                  {@decrypted_url_preview["description"]}
-                </p>
-              </div>
-            </a>
-          </div>
-          <%!-- URL Preview placeholder for ZK browser-decrypted posts --%>
-          <div
-            :if={!@decrypted_url_preview && @post.decrypted[:encrypted_url_preview]}
-            data-decrypt-url-preview-target={@post.id}
-            class="mt-4 hidden"
-          >
-          </div>
+          <.liquid_post_media
+            post={@post}
+            current_scope={@current_scope}
+            decrypted_url_preview={@decrypted_url_preview}
+          />
         </div>
 
-        <%!-- Bookmark notes display — shown when this post has notes attached --%>
-        <%= if @bookmark_notes do %>
-          <%!-- Public post: server-decrypted bookmark notes --%>
-          <div class="mx-1 mb-2">
-            <div class="px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-900/15 border border-amber-200/40 dark:border-amber-700/30">
-              <div class="flex items-start gap-2">
-                <.phx_icon
-                  name="hero-bookmark-solid"
-                  class="h-3.5 w-3.5 mt-0.5 text-amber-500 dark:text-amber-400 shrink-0"
-                />
-                <p class="text-xs text-amber-800 dark:text-amber-200 leading-relaxed break-words whitespace-pre-wrap">
-                  {@bookmark_notes}
-                </p>
-              </div>
-            </div>
-          </div>
-        <% end %>
-        <%= if @encrypted_bookmark_notes do %>
-          <%!-- Non-public post: browser-side ZK decryption of bookmark notes --%>
-          <div
-            id={"decrypt-bookmark-notes-#{@post.id}"}
-            phx-hook="DecryptBookmarkNote"
-            phx-update="ignore"
-            data-post-id={@post.id}
-            data-encrypted-notes={@encrypted_bookmark_notes}
-            class="mx-1 mb-2 hidden"
-          >
-            <div class="px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-900/15 border border-amber-200/40 dark:border-amber-700/30">
-              <div class="flex items-start gap-2">
-                <.phx_icon
-                  name="hero-bookmark-solid"
-                  class="h-3.5 w-3.5 mt-0.5 text-amber-500 dark:text-amber-400 shrink-0"
-                />
-                <p
-                  data-decrypt-notes-target
-                  class="text-xs text-amber-800 dark:text-amber-200 leading-relaxed break-words whitespace-pre-wrap"
-                >
-                </p>
-              </div>
-            </div>
-          </div>
-        <% end %>
-
-        <div class="flex items-center justify-between pt-2.5 border-t border-slate-200/40 dark:border-slate-700/40">
-          <div class="flex items-center gap-0.5">
-            <button
-              id={
-                if @unread?,
-                  do: "mark-read-button-#{@post_id}",
-                  else: "mark-as-unread-button-#{@post_id}"
-              }
-              class={[
-                "p-1.5 sm:p-2 rounded-lg transition-all duration-200 ease-out group/read active:scale-95 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-1 sm:focus:ring-offset-2",
-                "phx-click-loading:opacity-60 phx-click-loading:cursor-wait phx-click-loading:pointer-events-none",
-                if(@unread?,
-                  do: "text-teal-600 dark:text-cyan-400 bg-teal-50/50 dark:bg-teal-900/20",
-                  else:
-                    "text-slate-400 hover:text-teal-600 dark:hover:text-cyan-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/20"
-                )
-              ]}
-              phx-hook="TippyHook"
-              data-tippy-content={if @unread?, do: "Mark post as read.", else: "Mark post as unread."}
-              phx-click="toggle-read-status"
-              phx-value-id={@post_id}
-            >
-              <.phx_icon
-                name={if @unread?, do: "hero-eye-solid", else: "hero-eye-slash"}
-                class="h-4 w-4 transition-transform duration-200 group-hover/read:scale-110 phx-click-loading:hidden"
-              />
-              <svg
-                class="hidden phx-click-loading:block h-4 w-4 animate-spin text-teal-500"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  class="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  stroke-width="4"
-                >
-                </circle>
-                <path
-                  class="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                >
-                </path>
-              </svg>
-              <span class="sr-only">{if @unread?, do: "Mark as read", else: "Mark as unread"}</span>
-            </button>
-
-            <.liquid_timeline_action
-              :if={@can_reply?}
-              icon="hero-chat-bubble-oval-left"
-              active_icon="hero-chat-bubble-oval-left-solid"
-              count={Map.get(@stats, :replies, 0)}
-              notification_count={
-                if @calm_notifications && @post.user_id == @current_scope.user.id,
-                  do: @unread_replies_count,
-                  else: 0
-              }
-              label="Reply"
-              color="emerald"
-              icon_id={"reply-icon-#{@post_id}"}
-              id={"reply-button-#{@post_id}"}
-              phx-hook="TippyHook"
-              data-tippy-content="Toggle reply composer"
-              phx-click={
-                MossletWeb.ReplyComponents.toggle_reply_section(
-                  @post_id,
-                  (@calm_notifications && @post.user_id == @current_scope.user.id) and
-                    @unread_replies_count > 0
-                )
-              }
-            />
-            <.liquid_timeline_action
-              :if={@can_repost}
-              icon="hero-paper-airplane"
-              id={"share-button-#{@post.id}"}
-              icon_id={"share-icon-#{@post.id}"}
-              count={Map.get(@stats, :shares, 0)}
-              soft_text={if Map.get(@stats, :shares, 0) > 0, do: "People are sharing"}
-              label="Share"
-              color="emerald"
-              repost_post_id={@post.id}
-              phx-hook="TippyHook"
-              data-tippy-content="Share with someone"
-              phx-click="open_share_modal"
-              phx-value-id={@post_id}
-              phx-value-body={@content}
-              phx-value-username={@user_handle}
-            />
-            <.liquid_timeline_action
-              :if={!@can_repost && @post.user_id == @current_scope.user.id && @post.allow_shares}
-              icon="hero-paper-airplane"
-              id={"share-button-disabled-#{@post.id}"}
-              icon_id={"share-icon-disabled-#{@post.id}"}
-              count={Map.get(@stats, :shares, 0)}
-              soft_text={if Map.get(@stats, :shares, 0) > 0, do: "People are sharing"}
-              label="Share"
-              color="emerald"
-              repost_post_id={@post.id}
-              phx-hook="TippyHook"
-              class="cursor-not-allowed"
-              data-tippy-content="You cannot share your own post"
-              phx-click={nil}
-              phx-value-id={nil}
-              phx-value-body={nil}
-              phx-value-username={nil}
-            />
-            <.liquid_timeline_action
-              :if={!@can_repost && @post.user_id != @current_scope.user.id}
-              icon="hero-paper-airplane-solid"
-              id={"share-button-disabled-#{@post.id}"}
-              icon_id={"share-icon-disabled-#{@post.id}"}
-              count={Map.get(@stats, :shares, 0)}
-              soft_text="You shared"
-              label="Share"
-              color="emerald"
-              repost_post_id={@post.id}
-              phx-hook="TippyHook"
-              class="cursor-not-allowed"
-              data-tippy-content="You have already shared this"
-              phx-click={nil}
-              phx-value-id={nil}
-              phx-value-body={nil}
-              phx-value-username={nil}
-            />
-            <.liquid_timeline_action
-              id={
-                if @liked,
-                  do: "hero-heart-solid-button-#{@post_id}",
-                  else: "hero-heart-button-#{@post_id}"
-              }
-              icon_id={
-                if @liked,
-                  do: "hero-heart-solid-icon-#{@post_id}",
-                  else: "hero-heart-icon-#{@post_id}"
-              }
-              icon={if @liked, do: "hero-heart-solid", else: "hero-heart"}
-              count={Map.get(@stats, :likes, 0)}
-              soft_text={soft_like_text(Map.get(@stats, :likes, 0), @liked)}
-              label={if @liked, do: "Unlike", else: "Like"}
-              color="rose"
-              active={@liked}
-              post_id={@post_id}
-              phx-hook="TippyHook"
-              data-tippy-content={if @liked, do: "Remove love", else: "Show love"}
-              phx-click={if @liked, do: "unfav", else: "fav"}
-              phx-value-id={@post_id}
-            />
-          </div>
-
-          <button
-            :if={@can_bookmark?}
-            id={
-              if @bookmarked,
-                do: "hero-bookmark-solid-button-#{@post_id}",
-                else: "hero-bookmark-button-#{@post_id}"
-            }
-            class={[
-              "p-1.5 sm:p-2 rounded-lg transition-all duration-200 ease-out group/bookmark active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-1 sm:focus:ring-offset-2",
-              "phx-click-loading:opacity-60 phx-click-loading:cursor-wait phx-click-loading:pointer-events-none",
-              if(@bookmarked,
-                do: "text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/20",
-                else:
-                  "text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20"
-              )
-            ]}
-            phx-click={if(@bookmarked, do: "bookmark_post")}
-            phx-value-id={@post_id}
-            phx-hook={if(@bookmarked, do: "TippyHook", else: "BookmarkNoteHook")}
-            data-tippy-content={if @bookmarked, do: "Remove bookmark", else: "Bookmark this post"}
-            data-post-id={@post_id}
-            data-bookmarked={to_string(@bookmarked)}
-            data-is-public={to_string(@post.visibility == :public)}
-          >
-            <.phx_icon
-              id={
-                if @bookmarked,
-                  do: "hero-bookmark-solid-icon-#{@post_id}",
-                  else: "hero-bookmark-icon-#{@post_id}"
-              }
-              name={if @bookmarked, do: "hero-bookmark-solid", else: "hero-bookmark"}
-              class="h-4 w-4 transition-transform duration-200 group-hover/bookmark:scale-110 phx-click-loading:hidden"
-            />
-            <svg
-              class="hidden phx-click-loading:block h-4 w-4 animate-spin text-amber-500"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
-              </circle>
-              <path
-                class="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              >
-              </path>
-            </svg>
-            <span class="sr-only">
-              {if @bookmarked, do: "Remove bookmark", else: "Bookmark this post"}
-            </span>
-          </button>
-        </div>
+        <.liquid_post_actions
+          post={@post}
+          post_id={@post_id}
+          content={@content}
+          user_handle={@user_handle}
+          current_scope={@current_scope}
+          current_user_id={@current_user_id}
+          stats={@stats}
+          liked={@liked}
+          bookmarked={@bookmarked}
+          can_repost={@can_repost}
+          can_reply?={@can_reply?}
+          can_bookmark?={@can_bookmark?}
+          unread?={@unread?}
+          unread_replies_count={@unread_replies_count}
+          calm_notifications={@calm_notifications}
+          bookmark_notes={@bookmark_notes}
+          encrypted_bookmark_notes={@encrypted_bookmark_notes}
+        />
       </div>
     </article>
-
     <%!-- Collapsible reply composer LiveComponent (hidden by default, toggled by JS) --%>
     <.live_component
       :if={@can_reply?}
@@ -2616,6 +1248,1552 @@ defmodule MossletWeb.TimelineComponents do
       calm_notifications={@calm_notifications}
       class="mt-3"
     />
+    """
+  end
+
+  @doc false
+  attr :post, :map, required: true
+  attr :current_user_id, :string, required: true
+  attr :is_repost, :boolean, default: false
+
+  def liquid_post_indicators(assigns) do
+    ~H"""
+    <%!-- Subtle left-side shared indicator for posts shared WITH you --%>
+    <button
+      :if={@is_repost && @current_user_id != @post.user_id}
+      type="button"
+      phx-click={
+        JS.show(
+          to: "#share-overlay-#{@post.id}",
+          transition:
+            {"ease-out duration-200", "opacity-0 -translate-x-4", "opacity-100 translate-x-0"}
+        )
+      }
+      class="absolute left-0 top-4 bottom-4 w-1 bg-gradient-to-b from-emerald-400 via-teal-400 to-emerald-400 dark:from-emerald-500 dark:via-teal-500 dark:to-emerald-500 rounded-r-full opacity-70 hover:opacity-100 hover:w-1.5 transition-all duration-200 cursor-pointer group z-10"
+      aria-label="View shared message"
+    >
+      <span class="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 touch-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-white/90 dark:bg-slate-800/90 px-2 py-1 rounded-md shadow-sm border border-emerald-200/50 dark:border-emerald-700/50">
+        Shared with you
+      </span>
+    </button>
+
+    <%!-- Subtle left-side indicator for posts YOU shared with others (reposts only) --%>
+    <button
+      :if={@is_repost && @current_user_id == @post.user_id && !Enum.empty?(@post.shared_users)}
+      type="button"
+      phx-click={
+        JS.show(
+          to: "#shared-by-you-overlay-#{@post.id}",
+          transition:
+            {"ease-out duration-200", "opacity-0 -translate-x-4", "opacity-100 translate-x-0"}
+        )
+      }
+      class="absolute left-0 top-4 bottom-4 w-1 bg-gradient-to-b from-sky-400 via-blue-400 to-sky-400 dark:from-sky-500 dark:via-blue-500 dark:to-sky-500 rounded-r-full opacity-70 hover:opacity-100 hover:w-1.5 transition-all duration-200 cursor-pointer group z-10"
+      aria-label="View who you shared with"
+    >
+      <span class="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 touch-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium text-sky-600 dark:text-sky-400 bg-white/90 dark:bg-slate-800/90 px-2 py-1 rounded-md shadow-sm border border-sky-200/50 dark:border-sky-700/50">
+        You shared this
+      </span>
+    </button>
+
+    <%!-- Right-side visibility indicator for post owner (non-public posts) --%>
+    <button
+      :if={@current_user_id == @post.user_id && @post.visibility != :public}
+      type="button"
+      phx-click={
+        JS.show(
+          to: "#visibility-overlay-#{@post.id}",
+          transition:
+            {"ease-out duration-200", "opacity-0 translate-x-4", "opacity-100 translate-x-0"}
+        )
+      }
+      class={"absolute right-0 top-4 bottom-4 w-1 bg-gradient-to-b #{visibility_indicator_gradient(@post.visibility)} rounded-l-full opacity-70 hover:opacity-100 hover:w-1.5 transition-all duration-200 cursor-pointer group z-10"}
+      aria-label="View visibility settings"
+      id={"visibility-indicator-#{@post.id}"}
+    >
+      <span class={"absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 touch-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium px-2 py-1 rounded-md shadow-sm border #{visibility_indicator_hover_text_classes(@post.visibility)}"}>
+        {visibility_badge_text(@post.visibility)}
+      </span>
+    </button>
+
+    <%!-- Right-side visibility indicator for non-owner or public posts (non-interactive) --%>
+    <div
+      :if={@current_user_id != @post.user_id || @post.visibility == :public}
+      class={"absolute right-0 top-4 bottom-4 w-1 bg-gradient-to-b #{visibility_indicator_gradient(@post.visibility)} rounded-l-full opacity-50 group z-10"}
+      aria-label={visibility_badge_text(@post.visibility)}
+    >
+      <span class={"absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 touch-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium px-2 py-1 rounded-md shadow-sm border #{visibility_indicator_hover_text_classes(@post.visibility)}"}>
+        {visibility_badge_text(@post.visibility)}
+      </span>
+    </div>
+    """
+  end
+
+  @doc false
+  attr :post, :map, required: true
+  attr :current_user_id, :string, required: true
+  attr :is_repost, :boolean, default: false
+  attr :user_name, :string, required: true
+  attr :share_note, :any, default: nil
+  attr :post_shared_users, :list, default: []
+  attr :removing_shared_user_id, :string, default: nil
+  attr :adding_shared_user, :map, default: nil
+
+  def liquid_post_overlays(assigns) do
+    ~H"""
+    <%!-- Share note overlay modal for posts shared WITH you --%>
+    <div
+      :if={@is_repost && @current_user_id != @post.user_id}
+      id={"share-overlay-#{@post.id}"}
+      class="hidden absolute inset-0 z-20 bg-white/98 dark:bg-slate-800/98 backdrop-blur-sm rounded-2xl overflow-hidden"
+      phx-window-keydown={
+        JS.hide(
+          to: "#share-overlay-#{@post.id}",
+          transition:
+            {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
+        )
+      }
+      phx-key="Escape"
+    >
+      <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-emerald-400 via-teal-400 to-emerald-400 dark:from-emerald-500 dark:via-teal-500 dark:to-emerald-500 rounded-r-full shadow-[0_0_8px_rgba(52,211,153,0.4)] dark:shadow-[0_0_8px_rgba(52,211,153,0.3)]">
+      </div>
+      <div class="h-full flex flex-col p-4 pl-5 overflow-hidden">
+        <div class="flex items-center gap-3 mb-3 shrink-0">
+          <div class="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/50 dark:to-teal-900/50 shadow-sm">
+            <.phx_icon
+              name="hero-paper-airplane-solid"
+              class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+            />
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              Shared by {@user_name}
+            </p>
+          </div>
+          <button
+            type="button"
+            phx-click={
+              JS.hide(
+                to: "#share-overlay-#{@post.id}",
+                transition:
+                  {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
+              )
+            }
+            class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors duration-200"
+            aria-label="Close"
+          >
+            <.phx_icon name="hero-x-mark" class="h-4 w-4" />
+          </button>
+        </div>
+        <%= if @share_note do %>
+          <div class="flex-1 min-h-0 overflow-y-auto">
+            <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed break-words whitespace-pre-wrap">
+              {@share_note}
+            </p>
+          </div>
+        <% else %>
+          <p
+            data-decrypt-share-note-target={@post.id}
+            class="text-sm text-slate-500 dark:text-slate-400"
+          >
+            No message included
+          </p>
+        <% end %>
+        <button
+          type="button"
+          phx-click={
+            JS.hide(
+              to: "#share-overlay-#{@post.id}",
+              transition:
+                {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
+            )
+          }
+          class="mt-3 inline-flex items-center gap-1.5 self-start text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50/80 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 px-3 py-1.5 rounded-lg border border-emerald-200/50 dark:border-emerald-700/50 transition-colors duration-200 shrink-0"
+        >
+          <.phx_icon name="hero-arrow-left-mini" class="h-3.5 w-3.5" /> Back to post
+        </button>
+      </div>
+    </div>
+
+    <%!-- Overlay modal for posts YOU shared with others --%>
+    <div
+      :if={@current_user_id == @post.user_id && !Enum.empty?(@post.shared_users)}
+      id={"shared-by-you-overlay-#{@post.id}"}
+      class="hidden absolute inset-0 z-20 bg-white/98 dark:bg-slate-800/98 backdrop-blur-sm rounded-2xl overflow-hidden"
+      phx-window-keydown={
+        JS.hide(
+          to: "#shared-by-you-overlay-#{@post.id}",
+          transition:
+            {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
+        )
+      }
+      phx-key="Escape"
+    >
+      <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-sky-400 via-blue-400 to-sky-400 dark:from-sky-500 dark:via-blue-500 dark:to-sky-500 rounded-r-full shadow-[0_0_8px_rgba(56,189,248,0.4)] dark:shadow-[0_0_8px_rgba(56,189,248,0.3)]">
+      </div>
+      <div class="h-full flex flex-col p-4 pl-5 overflow-hidden">
+        <div class="flex items-center gap-3 mb-3 shrink-0">
+          <div class="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-sky-100 to-blue-100 dark:from-sky-900/50 dark:to-blue-900/50 shadow-sm">
+            <.phx_icon
+              name="hero-share-solid"
+              class="h-4 w-4 text-sky-600 dark:text-sky-400"
+            />
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              You shared this
+            </p>
+          </div>
+          <button
+            type="button"
+            phx-click={
+              JS.hide(
+                to: "#shared-by-you-overlay-#{@post.id}",
+                transition:
+                  {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
+              )
+            }
+            class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors duration-200"
+            aria-label="Close"
+          >
+            <.phx_icon name="hero-x-mark" class="h-4 w-4" />
+          </button>
+        </div>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mb-3 shrink-0">
+          Shared with {length(@post.shared_users)} {if length(@post.shared_users) == 1,
+            do: "person",
+            else: "people"}
+        </p>
+        <div class="flex-1 min-h-0 overflow-y-auto space-y-1.5">
+          <%= for shared_user <- @post.shared_users do %>
+            <% shared_post_user =
+              MossletWeb.ReplyComponents.get_shared_connection(
+                shared_user.user_id,
+                @post_shared_users
+              ) %>
+            <div class="flex items-center gap-3 p-2 bg-slate-50/80 dark:bg-slate-700/50 rounded-lg">
+              <%= if shared_post_user do %>
+                <div class={[
+                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                  "bg-gradient-to-br transition-all duration-200",
+                  MossletWeb.ConnectionComponents.get_post_shared_user_classes(shared_post_user.color)
+                ]}>
+                  <span class={[
+                    "text-sm font-semibold",
+                    MossletWeb.ConnectionComponents.get_post_shared_user_text_classes(
+                      shared_post_user.color
+                    )
+                  ]}>
+                    {String.first(shared_post_user.username || "?") |> String.upcase()}
+                  </span>
+                </div>
+                <span class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                  {shared_post_user.username}
+                </span>
+              <% else %>
+                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-200 dark:bg-slate-700">
+                  <.phx_icon
+                    name="hero-user-minus"
+                    class="w-4 h-4 text-slate-400 dark:text-slate-500"
+                  />
+                </div>
+                <span class="text-sm font-medium text-slate-500 dark:text-slate-400 truncate italic">
+                  Former connection
+                </span>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+        <button
+          type="button"
+          phx-click={
+            JS.hide(
+              to: "#shared-by-you-overlay-#{@post.id}",
+              transition:
+                {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
+            )
+          }
+          class="mt-3 inline-flex items-center gap-1.5 self-start text-xs font-medium text-sky-600 dark:text-sky-400 bg-sky-50/80 dark:bg-sky-900/30 hover:bg-sky-100 dark:hover:bg-sky-900/50 px-3 py-1.5 rounded-lg border border-sky-200/50 dark:border-sky-700/50 transition-colors duration-200 shrink-0"
+        >
+          <.phx_icon name="hero-arrow-left-mini" class="h-3.5 w-3.5" /> Back to post
+        </button>
+      </div>
+    </div>
+
+    <%!-- Visibility/Shared users overlay for post owner --%>
+    <div
+      :if={@current_user_id == @post.user_id && @post.visibility != :public}
+      id={"visibility-overlay-#{@post.id}"}
+      class="hidden absolute inset-0 z-20 bg-white/98 dark:bg-slate-800/98 backdrop-blur-sm rounded-2xl overflow-hidden"
+      phx-window-keydown={
+        JS.hide(
+          to: "#visibility-overlay-#{@post.id}",
+          transition: {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 translate-x-4"}
+        )
+      }
+      phx-key="Escape"
+    >
+      <div class={"absolute right-0 top-0 bottom-0 w-1.5 bg-gradient-to-b #{visibility_overlay_gradient(@post.visibility)} rounded-l-full shadow-[0_0_8px_rgba(168,85,247,0.4)] dark:shadow-[0_0_8px_rgba(168,85,247,0.3)]"}>
+      </div>
+      <div class="h-full flex flex-col p-4 pr-5 overflow-hidden">
+        <div class="flex items-center gap-3 mb-3 shrink-0">
+          <div class={"flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br #{visibility_overlay_icon_bg(@post.visibility)} shadow-sm"}>
+            <.phx_icon
+              name={visibility_overlay_icon(@post.visibility)}
+              class={"h-4 w-4 #{visibility_overlay_icon_color(@post.visibility)}"}
+            />
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {visibility_badge_text(@post.visibility)}
+            </p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <%= if @post.visibility == :private do %>
+                Only visible to you
+              <% else %>
+                {length(@post.shared_users)} {if length(@post.shared_users) == 1,
+                  do: "person",
+                  else: "people"}
+              <% end %>
+            </p>
+          </div>
+          <button
+            type="button"
+            phx-click={
+              JS.hide(
+                to: "#visibility-overlay-#{@post.id}",
+                transition:
+                  {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 translate-x-4"}
+              )
+            }
+            class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors duration-200"
+            aria-label="Close"
+          >
+            <.phx_icon name="hero-x-mark" class="h-4 w-4" />
+          </button>
+        </div>
+
+        <%= if @post.visibility == :private do %>
+          <div class="flex-1 flex flex-col items-center justify-center text-center">
+            <div class="inline-flex items-center justify-center w-12 h-12 mb-3 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600">
+              <.phx_icon name="hero-lock-closed" class="w-6 h-6 text-slate-500 dark:text-slate-400" />
+            </div>
+            <p class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              Private post
+            </p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 max-w-[200px]">
+              This post is only visible to you.
+            </p>
+          </div>
+          <div class="pt-3 mt-3 border-t border-slate-200/60 dark:border-slate-700/60 shrink-0 flex justify-end">
+            <button
+              type="button"
+              phx-click={
+                JS.hide(
+                  to: "#visibility-overlay-#{@post.id}",
+                  transition:
+                    {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 translate-x-4"}
+                )
+              }
+              class={"inline-flex items-center gap-1.5 text-xs font-medium #{visibility_overlay_back_button_classes(@post.visibility)} px-3 py-1.5 rounded-lg border transition-colors duration-200"}
+            >
+              Back to post <.phx_icon name="hero-arrow-right-mini" class="h-3.5 w-3.5" />
+            </button>
+          </div>
+        <% else %>
+          <div class="flex-1 min-h-0 overflow-y-auto">
+            <div class="grid grid-cols-2 gap-1.5">
+              <%= for shared_user <- @post.shared_users do %>
+                <% shared_post_user =
+                  MossletWeb.ReplyComponents.get_shared_connection(
+                    shared_user.user_id,
+                    @post_shared_users
+                  ) %>
+                <% shared_user_id_str =
+                  if is_binary(shared_user.user_id),
+                    do: Ecto.UUID.cast!(shared_user.user_id),
+                    else: shared_user.user_id %>
+                <% is_removing = @removing_shared_user_id == shared_user_id_str %>
+                <div class={[
+                  "relative flex items-center gap-2 p-1.5 bg-slate-50/80 dark:bg-slate-700/50 rounded-lg transition-all duration-200",
+                  is_removing && "opacity-50 pointer-events-none"
+                ]}>
+                  <%= if shared_post_user do %>
+                    <.link
+                      :if={MossletWeb.ReplyComponents.show_profile?(shared_post_user)}
+                      id={"profile-link-#{@post.id}-person-#{shared_user.user_id}"}
+                      phx-hook="TippyHook"
+                      data-tippy-content="View profile"
+                      navigate={~p"/app/profile/#{shared_post_user.profile_slug}"}
+                      class="flex items-center gap-2 flex-1 min-w-0"
+                    >
+                      <div class={[
+                        "flex h-6 w-6 shrink-0 items-center justify-center rounded",
+                        "bg-gradient-to-br transition-all duration-200",
+                        MossletWeb.ConnectionComponents.get_post_shared_user_classes(
+                          shared_post_user.color
+                        )
+                      ]}>
+                        <span class={[
+                          "text-xs font-semibold",
+                          MossletWeb.ConnectionComponents.get_post_shared_user_text_classes(
+                            shared_post_user.color
+                          )
+                        ]}>
+                          {String.first(shared_post_user.username || "?") |> String.upcase()}
+                        </span>
+                      </div>
+                      <span class="text-xs font-medium text-slate-900 dark:text-slate-100 truncate">
+                        {shared_post_user.username}
+                      </span>
+                    </.link>
+                    <div
+                      :if={!MossletWeb.ReplyComponents.show_profile?(shared_post_user)}
+                      class="flex items-center gap-2 flex-1 min-w-0"
+                    >
+                      <div class={[
+                        "flex h-6 w-6 shrink-0 items-center justify-center rounded",
+                        "bg-gradient-to-br transition-all duration-200",
+                        MossletWeb.ConnectionComponents.get_post_shared_user_classes(
+                          shared_post_user.color
+                        )
+                      ]}>
+                        <span class={[
+                          "text-xs font-semibold",
+                          MossletWeb.ConnectionComponents.get_post_shared_user_text_classes(
+                            shared_post_user.color
+                          )
+                        ]}>
+                          {String.first(shared_post_user.username || "?") |> String.upcase()}
+                        </span>
+                      </div>
+                      <span class="text-xs font-medium text-slate-900 dark:text-slate-100 truncate">
+                        {shared_post_user.username}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      phx-click="remove_shared_user"
+                      phx-value-post-id={@post.id}
+                      phx-value-user-id={shared_user.user_id}
+                      phx-value-shared-username={shared_post_user.username}
+                      class="p-0.5 rounded text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200 shrink-0"
+                      phx-hook="TippyHook"
+                      data-tippy-content="Remove access"
+                      id={"remove-access-#{@post.id}-person-#{shared_user.user_id}"}
+                    >
+                      <span class="sr-only">Remove access for {shared_post_user.username}</span>
+                      <%= if is_removing do %>
+                        <.phx_icon name="hero-arrow-path-mini" class="w-3.5 h-3.5 animate-spin" />
+                      <% else %>
+                        <.phx_icon name="hero-trash-mini" class="w-3.5 h-3.5" />
+                      <% end %>
+                    </button>
+                  <% else %>
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                      <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slate-200 dark:bg-slate-700">
+                        <.phx_icon
+                          name="hero-user-minus"
+                          class="w-3 h-3 text-slate-400 dark:text-slate-500"
+                        />
+                      </div>
+                      <span class="text-xs font-medium text-slate-500 dark:text-slate-400 truncate italic">
+                        Former
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      phx-click="remove_shared_user"
+                      phx-value-post-id={@post.id}
+                      phx-value-user-id={shared_user.user_id}
+                      phx-value-shared-username=""
+                      class="p-0.5 rounded text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200 shrink-0"
+                      title="Remove"
+                    >
+                      <%= if is_removing do %>
+                        <.phx_icon name="hero-arrow-path-mini" class="w-3.5 h-3.5 animate-spin" />
+                      <% else %>
+                        <.phx_icon name="hero-trash-mini" class="w-3.5 h-3.5" />
+                      <% end %>
+                    </button>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+
+            <div :if={Enum.empty?(@post.shared_users)} class="py-2 text-center">
+              <div class="inline-flex items-center justify-center w-8 h-8 mb-1.5 rounded-full bg-slate-100 dark:bg-slate-700">
+                <.phx_icon
+                  name="hero-user-group"
+                  class="w-4 h-4 text-slate-400 dark:text-slate-500"
+                />
+              </div>
+              <p class="text-xs text-slate-500 dark:text-slate-400">
+                Not shared with anyone yet
+              </p>
+            </div>
+          </div>
+
+          <div class="pt-3 mt-3 border-t border-slate-200/60 dark:border-slate-700/60 shrink-0">
+            <% available_connections =
+              Enum.reject(@post_shared_users, fn psu ->
+                Enum.any?(@post.shared_users, &(&1.user_id == psu.user_id))
+              end) %>
+
+            <%= if @adding_shared_user && @adding_shared_user.post_id == @post.id do %>
+              <div class="flex items-center gap-2 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 animate-pulse">
+                <.phx_icon
+                  name="hero-arrow-path"
+                  class="w-4 h-4 text-emerald-600 dark:text-emerald-400 animate-spin"
+                />
+                <span class="text-sm text-emerald-700 dark:text-emerald-300">
+                  Adding {@adding_shared_user.username}...
+                </span>
+              </div>
+            <% else %>
+              <%= if Enum.empty?(available_connections) do %>
+                <p class="text-xs text-slate-400 dark:text-slate-500 text-center py-1">
+                  All connections have access
+                </p>
+              <% else %>
+                <div class="relative" id={"add-shared-user-overlay-#{@post.id}"}>
+                  <button
+                    type="button"
+                    phx-click={JS.toggle(to: "#add-shared-user-overlay-list-#{@post.id}")}
+                    class={"w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-dashed transition-all duration-200 #{visibility_add_button_classes(@post.visibility)}"}
+                  >
+                    <.phx_icon name="hero-plus-mini" class="w-4 h-4" /> Add someone
+                  </button>
+
+                  <div
+                    id={"add-shared-user-overlay-list-#{@post.id}"}
+                    phx-click-away={JS.hide(to: "#add-shared-user-overlay-list-#{@post.id}")}
+                    phx-key="escape"
+                    phx-window-keydown={JS.hide(to: "#add-shared-user-overlay-list-#{@post.id}")}
+                    class="hidden absolute bottom-full left-0 right-0 mb-2 max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-xl ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-150"
+                  >
+                    <div class="p-1.5 space-y-0.5">
+                      <div
+                        :for={conn <- available_connections}
+                        id={"add-shared-user-item-#{@post.id}-#{conn.user_id}"}
+                        phx-click={
+                          JS.hide(to: "#add-shared-user-overlay-list-#{@post.id}")
+                          |> JS.push("add_shared_user")
+                        }
+                        phx-value-post-id={@post.id}
+                        phx-value-user-id={conn.user_id}
+                        phx-value-username={conn.username}
+                        class={[
+                          "flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/60 active:bg-slate-200 dark:active:bg-slate-600/60 transition-colors duration-150",
+                          @adding_shared_user && @adding_shared_user.post_id == @post.id &&
+                            @adding_shared_user.username == conn.username &&
+                            "opacity-50 pointer-events-none"
+                        ]}
+                      >
+                        <%= if @adding_shared_user && @adding_shared_user.post_id == @post.id && @adding_shared_user.username == conn.username do %>
+                          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+                            <.phx_icon
+                              name="hero-arrow-path"
+                              class="w-4 h-4 text-emerald-600 dark:text-emerald-400 animate-spin"
+                            />
+                          </div>
+                          <span class="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                            Adding...
+                          </span>
+                        <% else %>
+                          <div class={[
+                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-sm",
+                            "bg-gradient-to-br",
+                            MossletWeb.ConnectionComponents.get_post_shared_user_classes(conn.color)
+                          ]}>
+                            <span class={[
+                              "text-xs font-bold",
+                              MossletWeb.ConnectionComponents.get_post_shared_user_text_classes(
+                                conn.color
+                              )
+                            ]}>
+                              {String.first(conn.username || "?") |> String.upcase()}
+                            </span>
+                          </div>
+                          <span class={[
+                            "text-sm font-medium truncate",
+                            MossletWeb.ConnectionComponents.get_post_shared_user_text_classes(
+                              conn.color
+                            )
+                          ]}>
+                            {conn.username}
+                          </span>
+                        <% end %>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+            <% end %>
+          </div>
+          <button
+            type="button"
+            phx-click={
+              JS.hide(
+                to: "#visibility-overlay-#{@post.id}",
+                transition:
+                  {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 translate-x-4"}
+              )
+            }
+            class={"mt-3 inline-flex items-center gap-1.5 self-end text-xs font-medium #{visibility_overlay_back_button_classes(@post.visibility)} px-3 py-1.5 rounded-lg border transition-colors duration-200 shrink-0"}
+          >
+            Back to post <.phx_icon name="hero-arrow-right-mini" class="h-3.5 w-3.5" />
+          </button>
+        <% end %>
+      </div>
+    </div>
+    """
+  end
+
+  @doc false
+  attr :post, :map, required: true
+  attr :content_warning?, :boolean, default: false
+  attr :content_warning, :any, default: nil
+  attr :content_warning_category, :any, default: nil
+
+  def liquid_post_content_warning(assigns) do
+    ~H"""
+    <%!-- Content Warning Overlay (covers entire post) --%>
+    <div
+      :if={(@content_warning? && @content_warning) || @post.mature_content}
+      id={"content-warning-#{@post.id}"}
+      class={[
+        "content-warning-overlay absolute inset-0 z-20 rounded-2xl backdrop-blur-sm transition-all duration-300 ease-out overflow-hidden",
+        if(@post.mature_content && !(@content_warning? && @content_warning),
+          do: "bg-amber-50/95 dark:bg-slate-800/98",
+          else: "bg-teal-50/95 dark:bg-slate-800/98"
+        )
+      ]}
+    >
+      <div class={[
+        "absolute inset-0",
+        if(@post.mature_content && !(@content_warning? && @content_warning),
+          do:
+            "bg-gradient-to-b from-amber-100/50 via-amber-50/30 to-amber-100/50 dark:from-amber-900/40 dark:via-slate-800/20 dark:to-amber-900/40",
+          else:
+            "bg-gradient-to-b from-teal-100/50 via-teal-50/30 to-teal-100/50 dark:from-teal-900/40 dark:via-slate-800/20 dark:to-teal-900/40"
+        )
+      ]}>
+      </div>
+      <div class={[
+        "absolute top-0 left-0 right-0 h-1 opacity-60",
+        if(@post.mature_content && !(@content_warning? && @content_warning),
+          do:
+            "bg-gradient-to-r from-amber-400 via-orange-400 to-amber-400 dark:from-amber-500 dark:via-orange-500 dark:to-amber-500",
+          else:
+            "bg-gradient-to-r from-teal-400 via-cyan-400 to-teal-400 dark:from-teal-500 dark:via-cyan-500 dark:to-teal-500"
+        )
+      ]}>
+      </div>
+      <div class="relative h-full flex flex-col justify-center p-4 sm:p-6">
+        <div class="flex items-start gap-4">
+          <div class={[
+            "flex-shrink-0 flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full border shadow-sm",
+            if(@post.mature_content && !(@content_warning? && @content_warning),
+              do:
+                "bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-800/60 dark:to-orange-800/60 border-amber-200 dark:border-amber-700",
+              else:
+                "bg-gradient-to-br from-teal-100 to-cyan-100 dark:from-teal-800/60 dark:to-cyan-800/60 border-teal-200 dark:border-teal-700"
+            )
+          ]}>
+            <.phx_icon
+              name={
+                if @post.mature_content && !(@content_warning? && @content_warning),
+                  do: "hero-exclamation-triangle",
+                  else: "hero-hand-raised"
+              }
+              class={[
+                "h-5 w-5 sm:h-6 sm:w-6",
+                if(@post.mature_content && !(@content_warning? && @content_warning),
+                  do: "text-amber-600 dark:text-amber-400",
+                  else: "text-teal-600 dark:text-teal-400"
+                )
+              ]}
+            />
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex flex-wrap items-center gap-2 mb-1">
+              <span class={[
+                "text-base sm:text-lg font-semibold",
+                if(@post.mature_content && !(@content_warning? && @content_warning),
+                  do: "text-amber-700 dark:text-amber-300",
+                  else: "text-teal-700 dark:text-teal-300"
+                )
+              ]}>
+                <%= if @post.mature_content && !(@content_warning? && @content_warning) do %>
+                  18+ Mature Content
+                <% else %>
+                  Content Warning
+                <% end %>
+              </span>
+              <%= if @content_warning_category do %>
+                <span
+                  data-decrypt-cw-category-target={@post.id}
+                  class={[
+                    "text-xs px-2 py-0.5 rounded-full border",
+                    if(@post.mature_content && !(@content_warning? && @content_warning),
+                      do:
+                        "bg-amber-100 dark:bg-amber-800/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700",
+                      else:
+                        "bg-teal-100 dark:bg-teal-800/50 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-700"
+                    )
+                  ]}
+                >
+                  {format_content_warning_category(@content_warning_category)}
+                </span>
+              <% else %>
+                <%!-- For browser_decrypt? posts, show placeholder badge that the hook will fill --%>
+                <span
+                  :if={@post.decrypted[:browser_decrypt?] && @content_warning?}
+                  data-decrypt-cw-category-target={@post.id}
+                  class={[
+                    "text-xs px-2 py-0.5 rounded-full border",
+                    "bg-teal-100 dark:bg-teal-800/50 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-700"
+                  ]}
+                >
+                </span>
+              <% end %>
+              <%= if @post.mature_content && !@content_warning_category do %>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-800/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700">
+                  Age Restricted
+                </span>
+              <% end %>
+            </div>
+            <%= if @content_warning? && @content_warning do %>
+              <p
+                data-decrypt-cw-text-target={@post.id}
+                class={[
+                  "text-sm leading-relaxed line-clamp-2",
+                  if(@post.mature_content,
+                    do: "text-amber-600 dark:text-amber-400",
+                    else: "text-teal-600 dark:text-teal-400"
+                  )
+                ]}
+              >
+                {@content_warning}
+              </p>
+            <% else %>
+              <%!-- For browser_decrypt? posts with CW, show placeholder for hook --%>
+              <p
+                :if={@post.decrypted[:browser_decrypt?] && @content_warning?}
+                data-decrypt-cw-text-target={@post.id}
+                class="text-sm leading-relaxed line-clamp-2 text-teal-600 dark:text-teal-400"
+              >
+              </p>
+              <p
+                :if={
+                  !(@post.decrypted[:browser_decrypt?] && @content_warning?) && @post.mature_content
+                }
+                class="text-sm text-amber-600 dark:text-amber-400 leading-relaxed"
+              >
+                This post contains mature content.
+              </p>
+            <% end %>
+          </div>
+          <button
+            type="button"
+            id={"content-warning-button-#{@post.id}"}
+            aria-label="Show content"
+            phx-click={
+              JS.hide(
+                to: "#content-warning-#{@post.id}",
+                transition:
+                  {"ease-in duration-200", "opacity-100 translate-y-0", "opacity-0 -translate-y-4"}
+              )
+              |> JS.show(
+                to: "#content-warning-bar-#{@post.id}",
+                transition:
+                  {"ease-out duration-200", "opacity-0 translate-y-4", "opacity-100 translate-y-0"}
+              )
+            }
+            class={[
+              "flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white rounded-lg shadow-lg transition-all duration-200 ease-out transform hover:scale-105 active:scale-95",
+              if(@post.mature_content && !(@content_warning? && @content_warning),
+                do:
+                  "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 dark:from-amber-600 dark:to-orange-600 dark:hover:from-amber-500 dark:hover:to-orange-500 shadow-amber-500/25 dark:shadow-amber-900/40",
+                else:
+                  "bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 dark:from-teal-600 dark:to-cyan-600 dark:hover:from-teal-500 dark:hover:to-cyan-500 shadow-teal-500/25 dark:shadow-teal-900/40"
+              )
+            ]}
+          >
+            <.phx_icon name="hero-eye" class="h-4 w-4" />
+            <span class="hidden sm:inline">Show</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc false
+  attr :post, :map, required: true
+  attr :content_warning?, :boolean, default: false
+  attr :content_warning, :any, default: nil
+
+  def liquid_post_content_warning_bar(assigns) do
+    ~H"""
+    <%!-- Content Warning Bar (shown after reveal - click to hide content again) --%>
+    <button
+      :if={(@content_warning? && @content_warning) || @post.mature_content}
+      type="button"
+      id={"content-warning-bar-#{@post.id}"}
+      phx-click={
+        JS.hide(
+          to: "#content-warning-bar-#{@post.id}",
+          transition:
+            {"ease-in duration-150", "opacity-100 translate-y-0", "opacity-0 -translate-y-4"}
+        )
+        |> JS.show(
+          to: "#content-warning-#{@post.id}",
+          transition:
+            {"ease-out duration-200", "opacity-0 translate-y-4", "opacity-100 translate-y-0"}
+        )
+      }
+      class={[
+        "content-warning-bar hidden absolute left-4 right-4 top-0 h-1 rounded-b-lg opacity-70 hover:opacity-100 hover:h-1.5 transition-all duration-200 cursor-pointer group/cw z-30",
+        if(@post.mature_content && !(@content_warning? && @content_warning),
+          do:
+            "bg-gradient-to-r from-amber-400 via-orange-400 to-amber-400 dark:from-amber-500 dark:via-orange-500 dark:to-amber-500",
+          else:
+            "bg-gradient-to-r from-teal-400 via-cyan-400 to-teal-400 dark:from-teal-500 dark:via-cyan-500 dark:to-teal-500"
+        )
+      ]}
+      aria-label="Hide content"
+    >
+      <span class={[
+        "absolute left-1/2 -translate-x-1/2 top-3 opacity-60 group-hover/cw:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium bg-white/90 dark:bg-slate-800/90 px-2 py-1 rounded-md shadow-sm border",
+        if(@post.mature_content && !(@content_warning? && @content_warning),
+          do: "text-amber-600 dark:text-amber-400 border-amber-200/50 dark:border-amber-700/50",
+          else: "text-teal-600 dark:text-teal-400 border-teal-200/50 dark:border-teal-700/50"
+        )
+      ]}>
+        Hide content
+      </span>
+    </button>
+    """
+  end
+
+  @doc false
+  attr :post, :map, required: true
+  attr :current_user_id, :string, required: true
+  attr :user_name, :string, required: true
+  attr :user_handle, :string, required: true
+  attr :user_avatar, :string, default: nil
+  attr :encrypted_avatar_data, :map, default: nil
+  attr :encrypted_author_name_data, :map, default: nil
+  attr :user_status, :string, default: nil
+  attr :user_status_message, :string, default: nil
+  attr :encrypted_status_data, :map, default: nil
+  attr :show_post_author_status, :boolean, default: true
+  attr :author_profile_slug, :string, default: nil
+  attr :author_profile_visibility, :atom, default: nil
+  attr :timestamp, :string, required: true
+  attr :verified, :boolean, default: false
+
+  def liquid_post_header(assigns) do
+    ~H"""
+    <%!-- User header --%>
+    <div class="flex items-start gap-4 mb-4">
+      <%!-- Enhanced liquid metal avatar - conditionally linked to author profile --%>
+      <.link
+        :if={
+          MossletWeb.ReplyComponents.show_author_profile?(
+            @author_profile_slug,
+            @author_profile_visibility
+          )
+        }
+        navigate={~p"/app/profile/#{@author_profile_slug}"}
+        class="flex-shrink-0"
+      >
+        <.liquid_avatar
+          src={@user_avatar}
+          encrypted_avatar_data={@encrypted_avatar_data}
+          name={@user_name}
+          size="md"
+          verified={@verified}
+          clickable={true}
+          status={@user_status}
+          status_message={@user_status_message}
+          encrypted_status_data={@encrypted_status_data}
+          show_status={@show_post_author_status}
+          user_id={@post.user_id}
+          id={"avatar-#{@post.id}"}
+        />
+      </.link>
+      <.liquid_avatar
+        :if={
+          !MossletWeb.ReplyComponents.show_author_profile?(
+            @author_profile_slug,
+            @author_profile_visibility
+          )
+        }
+        src={@user_avatar}
+        encrypted_avatar_data={@encrypted_avatar_data}
+        name={@user_name}
+        size="md"
+        verified={@verified}
+        clickable={true}
+        status={@user_status}
+        status_message={@user_status_message}
+        encrypted_status_data={@encrypted_status_data}
+        show_status={@show_post_author_status}
+        user_id={@post.user_id}
+        id={"avatar-noprofile-#{@post.id}"}
+      />
+
+      <%!-- User info --%>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 mb-1">
+          <.link
+            :if={
+              MossletWeb.ReplyComponents.show_author_profile?(
+                @author_profile_slug,
+                @author_profile_visibility
+              )
+            }
+            navigate={~p"/app/profile/#{@author_profile_slug}"}
+            class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+            data-decrypt-author-name-target={@post.id}
+          >
+            {@user_name}
+          </.link>
+          <span
+            :if={
+              !MossletWeb.ReplyComponents.show_author_profile?(
+                @author_profile_slug,
+                @author_profile_visibility
+              )
+            }
+            class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate"
+            data-decrypt-author-name-target={@post.id}
+          >
+            {@user_name}
+          </span>
+          <.phx_icon
+            :if={@verified}
+            name="hero-check-badge"
+            class="h-5 w-5 text-emerald-500 flex-shrink-0"
+          />
+          <%!-- Interaction controls indicators --%>
+          <div class="flex items-center gap-1 ml-2">
+            <%!-- Ephemeral indicator with countdown --%>
+            <.phx_icon
+              :if={@post.is_ephemeral}
+              id={"ephemeral-indicator-#{@post.id}"}
+              name="hero-clock"
+              class="h-3 w-3 text-amber-500 dark:text-amber-400"
+              phx_hook="TippyHook"
+              data_tippy_content={
+                if @post.expires_at do
+                  expires_in = MossletWeb.Helpers.get_expiration_time_remaining(@post)
+
+                  if expires_in do
+                    "Ephemeral post - expires in #{expires_in}"
+                  else
+                    "Ephemeral post - expired"
+                  end
+                else
+                  "Ephemeral post - will auto-delete"
+                end
+              }
+            />
+
+            <%!-- Mature content indicator --%>
+            <.phx_icon
+              :if={@post.mature_content}
+              id={"mature-content-indicator-#{@post.id}"}
+              name="hero-exclamation-triangle"
+              class="h-3 w-3 text-orange-500 dark:text-orange-400"
+              phx_hook="TippyHook"
+              data_tippy_content="Mature content (18+)"
+            />
+
+            <%!-- No replies indicator --%>
+            <.phx_icon
+              :if={!@post.allow_replies}
+              id={"allow-replies-indicator-#{@post.id}"}
+              name="hero-chat-bubble-oval-left-ellipsis"
+              class="h-3 w-3 text-slate-400 dark:text-slate-500 line-through"
+              phx_hook="TippyHook"
+              data_tippy_content="Replies disabled"
+            />
+
+            <%!-- No shares indicator --%>
+            <.phx_icon
+              :if={!@post.allow_shares}
+              id={"allow-shares-indicator-#{@post.id}"}
+              name="hero-arrow-path"
+              class="h-3 w-3 text-slate-400 dark:text-slate-500 line-through"
+              phx_hook="TippyHook"
+              data_tippy_content="Sharing disabled"
+            />
+
+            <%!-- No bookmarks indicator --%>
+            <.phx_icon
+              :if={!@post.allow_bookmarks}
+              id={"allow-bookmarks-indicator-#{@post.id}"}
+              name="hero-bookmark"
+              class="h-3 w-3 text-slate-400 dark:text-slate-500 line-through"
+              phx_hook="TippyHook"
+              data_tippy_content="Bookmarking disabled"
+            />
+
+            <%!-- Connection required for replies indicator --%>
+            <.phx_icon
+              :if={@post.require_follow_to_reply && @post.visibility == :public}
+              id={"connection-required-reply-indicator-#{@post.id}"}
+              name="hero-shield-check"
+              class="h-3 w-3 text-emerald-500 dark:text-emerald-400"
+              phx_hook="TippyHook"
+              data_tippy_content="Connection required to reply"
+            />
+          </div>
+        </div>
+        <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+          <span class="truncate" data-decrypt-handle-target={@post.id}>
+            {if(@post.decrypted[:browser_decrypt?], do: "@...", else: @user_handle)}
+          </span>
+          <span class="text-slate-400 dark:text-slate-500">•</span>
+          <time class="flex-shrink-0">{@timestamp}</time>
+          <.bluesky_badge
+            :if={
+              @post.external_uri && @post.source == :mosslet &&
+                @post.bluesky_link_verified != false
+            }
+            id={"bluesky-badge-#{@post.id}"}
+            external_uri={@post.external_uri}
+            type={:synced}
+          />
+          <.bluesky_badge
+            :if={@post.source == :bluesky && @post.external_uri}
+            id={"bluesky-import-badge-#{@post.id}"}
+            external_uri={@post.external_uri}
+            type={:imported}
+          />
+        </div>
+      </div>
+
+      <%!-- Post menu with liquid dropdown - show for both owned and other posts --%>
+      <.liquid_dropdown
+        :if={@current_user_id == @post.user_id or @current_user_id != @post.user_id}
+        id={"post-menu-#{@post.id}"}
+        trigger_class="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100/50 dark:hover:bg-slate-700/50 transition-all duration-200 ease-out"
+        placement="bottom-end"
+      >
+        <:trigger>
+          <.phx_icon name="hero-ellipsis-horizontal" class="h-5 w-5" />
+        </:trigger>
+
+        <%!-- Own post actions --%>
+        <:item
+          :if={@current_user_id == @post.user_id}
+          phx_click="delete_post"
+          phx_value_id={@post.id}
+          data_confirm="Are you sure you want to delete this post?"
+          color="red"
+        >
+          <.phx_icon name="hero-trash" class="h-4 w-4" /> Delete Post
+        </:item>
+
+        <%!-- Other user's post actions --%>
+        <:item
+          :if={@current_user_id != @post.user_id}
+          phx_click="report_post"
+          phx_value_id={@post.id}
+          color="amber"
+        >
+          <.phx_icon name="hero-flag" class="h-4 w-4" /> Report Post
+        </:item>
+
+        <:item
+          :if={@current_user_id != @post.user_id}
+          phx_click="block_user"
+          phx_value_id={@post.user_id}
+          phx_value_user_name={@user_name}
+          phx_value_item_id={@post.id}
+          color="red"
+        >
+          <.phx_icon name="hero-no-symbol" class="h-4 w-4" /> Block Author
+        </:item>
+
+        <:item
+          :if={@current_user_id != @post.user_id && is_shared_recipient?(@post, @current_user_id)}
+          phx_click="remove_self_from_post"
+          phx_value_post_id={@post.id}
+          data_confirm="Are you sure you want to remove yourself from this post? You will no longer be able to see it."
+          color="slate"
+        >
+          <.phx_icon name="hero-x-circle" class="h-4 w-4" /> Remove Post
+        </:item>
+      </.liquid_dropdown>
+    </div>
+    """
+  end
+
+  @doc false
+  attr :post, :map, required: true
+  attr :content, :string, required: true
+  attr :current_user_id, :string, required: true
+  attr :encrypted_author_name_data, :map, default: nil
+
+  def liquid_post_body(assigns) do
+    ~H"""
+    <%!-- Collapsible text content wrapper --%>
+    <div class="relative">
+      <div
+        data-post-content
+        class="max-h-40 overflow-hidden transition-[max-height] duration-300 ease-out"
+      >
+        <%= if @post.decrypted[:browser_decrypt?] do %>
+          <%!-- Non-public post: browser-side decryption via DecryptPost hook --%>
+          <div
+            id={"decrypt-post-#{@post.id}"}
+            phx-hook="DecryptPost"
+            phx-update="ignore"
+            data-post-id={@post.id}
+            data-current-user-id={@current_user_id}
+            data-sealed-post-key={@post.decrypted[:sealed_post_key]}
+            data-encrypted-body={@post.decrypted[:encrypted_body]}
+            data-encrypted-username={@post.decrypted[:encrypted_username]}
+            data-encrypted-content-warning={@post.decrypted[:encrypted_content_warning]}
+            data-encrypted-content-warning-category={
+              @post.decrypted[:encrypted_content_warning_category]
+            }
+            data-encrypted-url-preview={
+              if(@post.decrypted[:encrypted_url_preview],
+                do: Jason.encode!(@post.decrypted[:encrypted_url_preview])
+              )
+            }
+            data-encrypted-favs-list={
+              if(@post.decrypted[:encrypted_favs_list],
+                do: Jason.encode!(@post.decrypted[:encrypted_favs_list])
+              )
+            }
+            data-encrypted-reposts-list={
+              if(@post.decrypted[:encrypted_reposts_list],
+                do: Jason.encode!(@post.decrypted[:encrypted_reposts_list])
+              )
+            }
+            data-encrypted-share-note={@post.decrypted[:encrypted_share_note]}
+            data-encrypted-image-alt-texts={
+              if(@post.decrypted[:encrypted_image_alt_texts],
+                do: Jason.encode!(@post.decrypted[:encrypted_image_alt_texts])
+              )
+            }
+            data-post-user-id={@post.user_id}
+            data-allow-shares={to_string(@post.allow_shares)}
+            data-is-ephemeral={to_string(@post.is_ephemeral || false)}
+            data-sealed-uconn-key={
+              @encrypted_author_name_data && @encrypted_author_name_data[:sealed_uconn_key]
+            }
+            data-encrypted-author-name={
+              @encrypted_author_name_data && @encrypted_author_name_data[:encrypted_name]
+            }
+            data-encrypted-author-username={
+              @encrypted_author_name_data && @encrypted_author_name_data[:encrypted_username]
+            }
+            data-author-show-name={
+              @encrypted_author_name_data && to_string(@encrypted_author_name_data[:show_name])
+            }
+          >
+            <div
+              data-decrypt-target
+              class="prose prose-slate dark:prose-invert prose-base prose-p:leading-relaxed prose-p:my-2 prose-headings:mt-4 prose-headings:mb-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-pre:my-3 prose-code:text-emerald-600 dark:prose-code:text-emerald-400 prose-a:text-emerald-600 dark:prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline [&_pre_code]:text-inherit [&_pre_*]:text-inherit"
+            >
+              <%!-- Loading skeleton shown until JS decrypts --%>
+              <div class="animate-pulse space-y-2">
+                <div class="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
+                <div class="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/2"></div>
+              </div>
+            </div>
+          </div>
+        <% else %>
+          <%!-- Public post: server-decrypted content rendered directly --%>
+          <p
+            :if={contains_html?(@content)}
+            class="text-slate-900 dark:text-slate-100 leading-loose whitespace-pre-wrap text-base"
+          >
+            {html_block(@content)}
+          </p>
+          <div
+            :if={!contains_html?(@content)}
+            class="prose prose-slate dark:prose-invert prose-base prose-p:leading-relaxed prose-p:my-2 prose-headings:mt-4 prose-headings:mb-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-pre:my-3 prose-code:text-emerald-600 dark:prose-code:text-emerald-400 prose-a:text-emerald-600 dark:prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline [&_pre_code]:text-inherit [&_pre_*]:text-inherit"
+          >
+            {format_decrypted_content(@content)}
+          </div>
+        <% end %>
+      </div>
+
+      <%!-- Gradient fade overlay --%>
+      <div
+        data-post-gradient
+        class="hidden absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white/95 via-white/80 to-transparent dark:from-slate-800/95 dark:via-slate-800/80 pointer-events-none"
+      >
+      </div>
+    </div>
+
+    <%!-- Show more/less toggle button --%>
+    <button
+      type="button"
+      data-post-toggle
+      class="mt-2 items-center gap-1 text-sm font-medium text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors duration-200"
+      style="display: none;"
+    >
+      <span data-expand-text class="flex items-center gap-1">
+        <.phx_icon name="hero-chevron-down-mini" class="h-4 w-4" /> Show more
+      </span>
+      <span data-collapse-text class="hidden flex items-center gap-1">
+        <.phx_icon name="hero-chevron-up-mini" class="h-4 w-4" /> Show less
+      </span>
+    </button>
+    """
+  end
+
+  @doc false
+  attr :post, :map, required: true
+  attr :current_scope, :map, default: nil
+  attr :decrypted_url_preview, :any, default: nil
+
+  def liquid_post_media(assigns) do
+    ~H"""
+    <%!-- Images with enhanced encrypted display system --%>
+    <div :if={@post && photos?(@post.image_urls)} class="mt-4">
+      <.liquid_post_photo_gallery post={@post} current_scope={@current_scope} class="" />
+    </div>
+
+    <%!-- URL Preview Card (if available) --%>
+    <div :if={@decrypted_url_preview} class="mt-4">
+      <a
+        href={@decrypted_url_preview["url"]}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="flex gap-3 p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-800/95 hover:border-emerald-400 dark:hover:border-emerald-500 transition-all duration-200 group"
+      >
+        <div
+          :if={@decrypted_url_preview["image"] && @decrypted_url_preview["image"] != ""}
+          class="w-20 h-14 shrink-0 overflow-hidden rounded-lg"
+          phx-hook="URLPreviewHook"
+          id={"url-preview-#{@post.id}"}
+          data-post-id={@post.id}
+          data-image-hash={@decrypted_url_preview["image_hash"]}
+          data-url-preview-fetched-at={@post.url_preview_fetched_at}
+          data-presigned-url={@decrypted_url_preview["image"]}
+        >
+          <img
+            alt={@decrypted_url_preview["title"] || "Preview image"}
+            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        </div>
+
+        <div class="flex-1 min-w-0 py-0.5">
+          <div class="flex items-center gap-1.5 mb-0.5">
+            <.phx_icon name="hero-link" class="h-3 w-3 text-slate-400" />
+            <span class="text-xs text-slate-500 dark:text-slate-400 truncate">
+              {@decrypted_url_preview["site_name"] || "External Link"}
+            </span>
+          </div>
+
+          <p
+            :if={@decrypted_url_preview["title"]}
+            class="font-medium text-sm text-slate-900 dark:text-slate-100 line-clamp-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"
+          >
+            {@decrypted_url_preview["title"]}
+          </p>
+
+          <p
+            :if={@decrypted_url_preview["description"]}
+            class="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mt-0.5"
+          >
+            {@decrypted_url_preview["description"]}
+          </p>
+        </div>
+      </a>
+    </div>
+    <%!-- URL Preview placeholder for ZK browser-decrypted posts --%>
+    <div
+      :if={!@decrypted_url_preview && @post.decrypted[:encrypted_url_preview]}
+      data-decrypt-url-preview-target={@post.id}
+      class="mt-4 hidden"
+    >
+    </div>
+    """
+  end
+
+  @doc false
+  attr :post, :map, required: true
+  attr :post_id, :string, default: nil
+  attr :content, :string, required: true
+  attr :user_handle, :string, required: true
+  attr :current_scope, :map, default: nil
+  attr :current_user_id, :string, required: true
+  attr :stats, :map, default: %{}
+  attr :liked, :boolean, default: false
+  attr :bookmarked, :boolean, default: false
+  attr :can_repost, :boolean, default: false
+  attr :can_reply?, :boolean, default: false
+  attr :can_bookmark?, :boolean, default: false
+  attr :unread?, :boolean, default: false
+  attr :unread_replies_count, :integer, default: 0
+  attr :calm_notifications, :boolean, default: false
+  attr :bookmark_notes, :any, default: nil
+  attr :encrypted_bookmark_notes, :any, default: nil
+
+  def liquid_post_actions(assigns) do
+    ~H"""
+    <%!-- Bookmark notes display — shown when this post has notes attached --%>
+    <%= if @bookmark_notes do %>
+      <%!-- Public post: server-decrypted bookmark notes --%>
+      <div class="mx-1 mb-2">
+        <div class="px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-900/15 border border-amber-200/40 dark:border-amber-700/30">
+          <div class="flex items-start gap-2">
+            <.phx_icon
+              name="hero-bookmark-solid"
+              class="h-3.5 w-3.5 mt-0.5 text-amber-500 dark:text-amber-400 shrink-0"
+            />
+            <p class="text-xs text-amber-800 dark:text-amber-200 leading-relaxed break-words whitespace-pre-wrap">
+              {@bookmark_notes}
+            </p>
+          </div>
+        </div>
+      </div>
+    <% end %>
+    <%= if @encrypted_bookmark_notes do %>
+      <%!-- Non-public post: browser-side ZK decryption of bookmark notes --%>
+      <div
+        id={"decrypt-bookmark-notes-#{@post.id}"}
+        phx-hook="DecryptBookmarkNote"
+        phx-update="ignore"
+        data-post-id={@post.id}
+        data-encrypted-notes={@encrypted_bookmark_notes}
+        class="mx-1 mb-2 hidden"
+      >
+        <div class="px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-900/15 border border-amber-200/40 dark:border-amber-700/30">
+          <div class="flex items-start gap-2">
+            <.phx_icon
+              name="hero-bookmark-solid"
+              class="h-3.5 w-3.5 mt-0.5 text-amber-500 dark:text-amber-400 shrink-0"
+            />
+            <p
+              data-decrypt-notes-target
+              class="text-xs text-amber-800 dark:text-amber-200 leading-relaxed break-words whitespace-pre-wrap"
+            >
+            </p>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <div class="flex items-center justify-between pt-2.5 border-t border-slate-200/40 dark:border-slate-700/40">
+      <div class="flex items-center gap-0.5">
+        <button
+          id={
+            if @unread?,
+              do: "mark-read-button-#{@post_id}",
+              else: "mark-as-unread-button-#{@post_id}"
+          }
+          class={[
+            "p-1.5 sm:p-2 rounded-lg transition-all duration-200 ease-out group/read active:scale-95 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-1 sm:focus:ring-offset-2",
+            "phx-click-loading:opacity-60 phx-click-loading:cursor-wait phx-click-loading:pointer-events-none",
+            if(@unread?,
+              do: "text-teal-600 dark:text-cyan-400 bg-teal-50/50 dark:bg-teal-900/20",
+              else:
+                "text-slate-400 hover:text-teal-600 dark:hover:text-cyan-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/20"
+            )
+          ]}
+          phx-hook="TippyHook"
+          data-tippy-content={if @unread?, do: "Mark post as read.", else: "Mark post as unread."}
+          phx-click="toggle-read-status"
+          phx-value-id={@post_id}
+        >
+          <.phx_icon
+            name={if @unread?, do: "hero-eye-solid", else: "hero-eye-slash"}
+            class="h-4 w-4 transition-transform duration-200 group-hover/read:scale-110 phx-click-loading:hidden"
+          />
+          <svg
+            class="hidden phx-click-loading:block h-4 w-4 animate-spin text-teal-500"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              class="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              stroke-width="4"
+            >
+            </circle>
+            <path
+              class="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            >
+            </path>
+          </svg>
+          <span class="sr-only">{if @unread?, do: "Mark as read", else: "Mark as unread"}</span>
+        </button>
+
+        <.liquid_timeline_action
+          :if={@can_reply?}
+          icon="hero-chat-bubble-oval-left"
+          active_icon="hero-chat-bubble-oval-left-solid"
+          count={Map.get(@stats, :replies, 0)}
+          notification_count={
+            if @calm_notifications && @post.user_id == @current_scope.user.id,
+              do: @unread_replies_count,
+              else: 0
+          }
+          label="Reply"
+          color="emerald"
+          icon_id={"reply-icon-#{@post_id}"}
+          id={"reply-button-#{@post_id}"}
+          phx-hook="TippyHook"
+          data-tippy-content="Toggle reply composer"
+          phx-click={
+            MossletWeb.ReplyComponents.toggle_reply_section(
+              @post_id,
+              (@calm_notifications && @post.user_id == @current_scope.user.id) and
+                @unread_replies_count > 0
+            )
+          }
+        />
+        <.liquid_timeline_action
+          :if={@can_repost}
+          icon="hero-paper-airplane"
+          id={"share-button-#{@post.id}"}
+          icon_id={"share-icon-#{@post.id}"}
+          count={Map.get(@stats, :shares, 0)}
+          soft_text={if Map.get(@stats, :shares, 0) > 0, do: "People are sharing"}
+          label="Share"
+          color="emerald"
+          repost_post_id={@post.id}
+          phx-hook="TippyHook"
+          data-tippy-content="Share with someone"
+          phx-click="open_share_modal"
+          phx-value-id={@post_id}
+          phx-value-body={@content}
+          phx-value-username={@user_handle}
+        />
+        <.liquid_timeline_action
+          :if={!@can_repost && @post.user_id == @current_scope.user.id && @post.allow_shares}
+          icon="hero-paper-airplane"
+          id={"share-button-disabled-#{@post.id}"}
+          icon_id={"share-icon-disabled-#{@post.id}"}
+          count={Map.get(@stats, :shares, 0)}
+          soft_text={if Map.get(@stats, :shares, 0) > 0, do: "People are sharing"}
+          label="Share"
+          color="emerald"
+          repost_post_id={@post.id}
+          phx-hook="TippyHook"
+          class="cursor-not-allowed"
+          data-tippy-content="You cannot share your own post"
+          phx-click={nil}
+          phx-value-id={nil}
+          phx-value-body={nil}
+          phx-value-username={nil}
+        />
+        <.liquid_timeline_action
+          :if={!@can_repost && @post.user_id != @current_scope.user.id}
+          icon="hero-paper-airplane-solid"
+          id={"share-button-disabled-#{@post.id}"}
+          icon_id={"share-icon-disabled-#{@post.id}"}
+          count={Map.get(@stats, :shares, 0)}
+          soft_text="You shared"
+          label="Share"
+          color="emerald"
+          repost_post_id={@post.id}
+          phx-hook="TippyHook"
+          class="cursor-not-allowed"
+          data-tippy-content="You have already shared this"
+          phx-click={nil}
+          phx-value-id={nil}
+          phx-value-body={nil}
+          phx-value-username={nil}
+        />
+        <.liquid_timeline_action
+          id={
+            if @liked,
+              do: "hero-heart-solid-button-#{@post_id}",
+              else: "hero-heart-button-#{@post_id}"
+          }
+          icon_id={
+            if @liked,
+              do: "hero-heart-solid-icon-#{@post_id}",
+              else: "hero-heart-icon-#{@post_id}"
+          }
+          icon={if @liked, do: "hero-heart-solid", else: "hero-heart"}
+          count={Map.get(@stats, :likes, 0)}
+          soft_text={soft_like_text(Map.get(@stats, :likes, 0), @liked)}
+          label={if @liked, do: "Unlike", else: "Like"}
+          color="rose"
+          active={@liked}
+          post_id={@post_id}
+          phx-hook="TippyHook"
+          data-tippy-content={if @liked, do: "Remove love", else: "Show love"}
+          phx-click={if @liked, do: "unfav", else: "fav"}
+          phx-value-id={@post_id}
+        />
+      </div>
+
+      <button
+        :if={@can_bookmark?}
+        id={
+          if @bookmarked,
+            do: "hero-bookmark-solid-button-#{@post_id}",
+            else: "hero-bookmark-button-#{@post_id}"
+        }
+        class={[
+          "p-1.5 sm:p-2 rounded-lg transition-all duration-200 ease-out group/bookmark active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-1 sm:focus:ring-offset-2",
+          "phx-click-loading:opacity-60 phx-click-loading:cursor-wait phx-click-loading:pointer-events-none",
+          if(@bookmarked,
+            do: "text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/20",
+            else:
+              "text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20"
+          )
+        ]}
+        phx-click={if(@bookmarked, do: "bookmark_post")}
+        phx-value-id={@post_id}
+        phx-hook={if(@bookmarked, do: "TippyHook", else: "BookmarkNoteHook")}
+        data-tippy-content={if @bookmarked, do: "Remove bookmark", else: "Bookmark this post"}
+        data-post-id={@post_id}
+        data-bookmarked={to_string(@bookmarked)}
+        data-is-public={to_string(@post.visibility == :public)}
+      >
+        <.phx_icon
+          id={
+            if @bookmarked,
+              do: "hero-bookmark-solid-icon-#{@post_id}",
+              else: "hero-bookmark-icon-#{@post_id}"
+          }
+          name={if @bookmarked, do: "hero-bookmark-solid", else: "hero-bookmark"}
+          class="h-4 w-4 transition-transform duration-200 group-hover/bookmark:scale-110 phx-click-loading:hidden"
+        />
+        <svg
+          class="hidden phx-click-loading:block h-4 w-4 animate-spin text-amber-500"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+          </circle>
+          <path
+            class="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          >
+          </path>
+        </svg>
+        <span class="sr-only">
+          {if @bookmarked, do: "Remove bookmark", else: "Bookmark this post"}
+        </span>
+      </button>
+    </div>
     """
   end
 
