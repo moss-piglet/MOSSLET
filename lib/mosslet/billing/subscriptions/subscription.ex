@@ -19,6 +19,10 @@ defmodule Mosslet.Billing.Subscriptions.Subscription do
   schema "billing_subscriptions" do
     field :status, :string
     field :plan_id, :string
+    # Number of seats/members on the subscription (per-seat billing). Defaults to
+    # 1 for single-seat plans (e.g. Personal). Family/Business plans set this to
+    # the chosen member/seat count at checkout and keep it in sync with Stripe.
+    field :quantity, :integer, default: 1
     field :cancel_at, :naive_datetime
     field :canceled_at, :naive_datetime
     field :current_period_end_at, :naive_datetime
@@ -41,6 +45,7 @@ defmodule Mosslet.Billing.Subscriptions.Subscription do
     |> cast(attrs, [
       :status,
       :plan_id,
+      :quantity,
       :provider_subscription_id,
       :provider_subscription_items,
       :cancel_at,
@@ -58,6 +63,7 @@ defmodule Mosslet.Billing.Subscriptions.Subscription do
       :billing_customer_id
     ])
     |> validate_inclusion(:status, @status_options)
+    |> validate_number(:quantity, greater_than_or_equal_to: 1)
     |> put_hashed_fields()
   end
 

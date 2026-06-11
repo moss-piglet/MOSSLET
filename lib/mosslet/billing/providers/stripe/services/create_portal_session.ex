@@ -15,6 +15,10 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.CreatePortalSession do
       |> then(fn {:ok, stripe_subscription} -> stripe_subscription end)
       |> get_subscription_item()
 
+    # Reflect the subscription's actual seat count (per-seat plans). Single-seat
+    # plans (e.g. Personal) keep quantity 1 via the schema default.
+    quantity = subscription.quantity || 1
+
     # provider_customer_id is now Cloak-only — read directly
     Provider.create_portal_session(%{
       customer: customer.provider_customer_id,
@@ -22,7 +26,7 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.CreatePortalSession do
         type: :subscription_update_confirm,
         subscription_update_confirm: %{
           subscription: subscription.provider_subscription_id,
-          items: Enum.map(items, &%{id: subscription_item_id, price: &1, quantity: 1})
+          items: Enum.map(items, &%{id: subscription_item_id, price: &1, quantity: quantity})
         },
         after_completion: %{
           type: :redirect,

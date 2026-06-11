@@ -99,4 +99,66 @@ defmodule Mosslet.Billing.Plans do
       Enum.any?(product.line_items, &(&1.id == plan_id))
     end)
   end
+
+  @doc """
+  Returns true when a plan/line-item supports per-seat (member) billing.
+
+  Per-seat plans declare an `:seat_addon_price` (the Stripe price ID used for
+  additional seats beyond the base allotment). Single-seat plans (e.g. Personal)
+  omit it and bill a single base line item.
+  """
+  def seat_based_plan?(plan) when is_map(plan) do
+    is_binary(Map.get(plan, :seat_addon_price))
+  end
+
+  def seat_based_plan?(_), do: false
+
+  @doc """
+  The number of seats included in a plan's base price.
+
+  Defaults to 1 for plans that don't declare `:included_seats`.
+  """
+  def included_seats(plan) when is_map(plan) do
+    Map.get(plan, :included_seats, 1)
+  end
+
+  @doc """
+  The maximum number of seats a per-seat plan allows.
+
+  Defaults to `:infinity` when `:max_seats` is not declared.
+  """
+  def max_seats(plan) when is_map(plan) do
+    Map.get(plan, :max_seats, :infinity)
+  end
+
+  @doc """
+  Clamps a requested seat count to the plan's allowed range.
+
+  Non-seat plans always resolve to 1 seat. Seat-based plans are clamped between
+  the included seat count and `:max_seats` (when present).
+  """
+  def clamp_seats(plan, requested) when is_map(plan) do
+    if seat_based_plan?(plan) do
+      requested = to_integer(requested, included_seats(plan))
+      requested = max(requested, included_seats(plan))
+
+      case max_seats(plan) do
+        :infinity -> requested
+        max when is_integer(max) -> min(requested, max)
+      end
+    else
+      1
+    end
+  end
+
+  defp to_integer(value, _default) when is_integer(value), do: value
+
+  defp to_integer(value, default) when is_binary(value) do
+    case Integer.parse(value) do
+      {int, _} -> int
+      :error -> default
+    end
+  end
+
+  defp to_integer(_value, default), do: default
 end

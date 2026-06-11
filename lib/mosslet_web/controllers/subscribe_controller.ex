@@ -13,33 +13,41 @@ defmodule MossletWeb.SubscribeController do
   Redirect here when someone wants to purchase a subscription.
   If the purchaser is an org, include "org_slug" in the params.
   """
-  def checkout(conn, %{"org_slug" => org_slug, "plan_id" => plan_id}) do
+  def checkout(conn, %{"org_slug" => org_slug, "plan_id" => plan_id} = params) do
     plan = Plans.get_plan_by_id!(plan_id)
     org = Orgs.get_org!(org_slug)
+    seats = parse_seats(plan, params)
 
     case get_subscription(:org, org.id) do
-      nil -> handle_checkout(conn, plan, :org, org.id)
+      nil -> handle_checkout(conn, plan, :org, org.id, seats)
       _sub -> handle_subscription(conn, :org, org.id)
     end
   end
 
-  def checkout(conn, %{"plan_id" => plan_id}) do
+  def checkout(conn, %{"plan_id" => plan_id} = params) do
     plan = Plans.get_plan_by_id!(plan_id)
     user = conn.assigns.current_user
+    seats = parse_seats(plan, params)
 
     case get_subscription(:user, user.id) do
       nil ->
-        handle_checkout(conn, plan, :user, user.id)
+        handle_checkout(conn, plan, :user, user.id, seats)
 
       sub ->
         case Mosslet.Repo.delete(sub) do
           {:ok, _sub_deleted} ->
-            handle_checkout(conn, plan, :user, user.id)
+            handle_checkout(conn, plan, :user, user.id, seats)
 
           _error ->
             handle_subscription(conn, :user, user.id)
         end
     end
+  end
+
+  # Seat count is only honored for per-seat plans (Family/Business); single-seat
+  # plans always resolve to 1. Clamping guards against tampered query params.
+  defp parse_seats(plan, params) do
+    Plans.clamp_seats(plan, Map.get(params, "seats", Plans.included_seats(plan)))
   end
 
   defp handle_subscription(conn, source, source_id) do
@@ -50,7 +58,7 @@ defmodule MossletWeb.SubscribeController do
     |> redirect(to: billing_url)
   end
 
-  defp handle_checkout(conn, plan, source, source_id) do
+  defp handle_checkout(conn, plan, source, source_id, seats) do
     user = conn.assigns.current_user
     referral = Referrals.get_pending_referral_for_user(user.id)
     session_key = conn.private.plug_session["key"]
@@ -61,7 +69,8 @@ defmodule MossletWeb.SubscribeController do
            source,
            source_id,
            session_key,
-           referral
+           referral,
+           seats
          ) do
       {:ok, _customer, session} ->
         redirect(conn, external: billing_provider().checkout_url(session))

@@ -179,6 +179,83 @@ config :mosslet, :billing_products, [
     ],
     mode: "payment",
     automatic_tax: %{enabled: true}
+  },
+  # MOSSLET (Family) — subscription only, per-seat (Phase 2, Test mode).
+  # Base price covers 5 members; additional members billed via the add-on seat
+  # price. Stripe price IDs are read from env vars (Metamorphic-style) with
+  # dev/test fallbacks so checkout works locally without extra setup.
+  %{
+    id: "prod_family",
+    name: "MOSSLET (Family)",
+    description:
+      "Bring your whole family into a calm, private space. MOSSLET (Family) includes 5 members and adds consent-based guardianship for younger members — you stay in the loop without surveillance, because content is shared cryptographically, never read by us.",
+    most_popular: false,
+    features: [
+      "Everything in Personal, for up to 5 members",
+      "Add more members any time ($3/mo each)",
+      "Consent-based guardianship (no master key, no surveillance)",
+      "Always-visible transparency: members see who can read their content",
+      "Privacy toggle: stop sharing future content with a guardian at any time",
+      "Shared family circle & connections",
+      "Zero-knowledge, post-quantum encryption",
+      "Email support"
+    ],
+    line_items: [
+      %{
+        id: "family-monthly",
+        interval: :month,
+        price: System.get_env("STRIPE_PRICE_FAMILY_MONTHLY") || "price_family_monthly_test",
+        quantity: 1,
+        amount: 2000,
+        included_seats: 5,
+        seat_addon_price:
+          System.get_env("STRIPE_PRICE_FAMILY_SEAT_MONTHLY") || "price_family_seat_monthly_test",
+        max_seats: 30,
+        save_percent: 0,
+        trial_days: 14,
+        allow_promotion_codes: true
+      }
+    ],
+    mode: "subscription",
+    subscription_data: %{trial_period_days: 14},
+    automatic_tax: %{enabled: true}
+  },
+  %{
+    id: "prod_family",
+    name: "MOSSLET (Family)",
+    description:
+      "Get a full year of MOSSLET (Family) at our best rate. Includes 5 members with consent-based guardianship for younger members — privacy that keeps families connected, never watched.",
+    most_popular: true,
+    features: [
+      "Everything in Personal, for up to 5 members",
+      "Add more members any time ($24/yr each)",
+      "Consent-based guardianship (no master key, no surveillance)",
+      "Always-visible transparency: members see who can read their content",
+      "Privacy toggle: stop sharing future content with a guardian at any time",
+      "Shared family circle & connections",
+      "Zero-knowledge, post-quantum encryption",
+      "Email support"
+    ],
+    line_items: [
+      %{
+        id: "family-yearly",
+        interval: :year,
+        price: System.get_env("STRIPE_PRICE_FAMILY_YEARLY") || "price_family_yearly_test",
+        quantity: 1,
+        amount: 16000,
+        monthly_equivalent: 1333,
+        included_seats: 5,
+        seat_addon_price:
+          System.get_env("STRIPE_PRICE_FAMILY_SEAT_YEARLY") || "price_family_seat_yearly_test",
+        max_seats: 30,
+        save_percent: 33,
+        trial_days: 14,
+        allow_promotion_codes: true
+      }
+    ],
+    mode: "subscription",
+    subscription_data: %{trial_period_days: 14},
+    automatic_tax: %{enabled: true}
   }
 ]
 

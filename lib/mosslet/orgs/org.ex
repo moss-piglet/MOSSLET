@@ -16,6 +16,12 @@ defmodule Mosslet.Orgs.Org do
     field :name_hash, Encrypted.HMAC
     field :slug, :string
 
+    # Org kind drives plan/feature differentiation (Phase 2/3):
+    #   :family   -> Family plan (consent-based guardianship, family features)
+    #   :business -> Business plan (private business circles, ZK file sharing)
+    # Plaintext system enum (non-sensitive) per encryption architecture guidelines.
+    field :type, Ecto.Enum, values: [:family, :business], default: :family
+
     has_many :memberships, Membership
     has_many :invitations, Invitation
     many_to_many :users, User, join_through: "orgs_memberships", unique: true
@@ -26,8 +32,9 @@ defmodule Mosslet.Orgs.Org do
 
   def insert_changeset(attrs) do
     %__MODULE__{}
-    |> cast(attrs, [:name])
+    |> cast(attrs, [:name, :type])
     |> validate_name()
+    |> validate_type()
     |> name_to_slug()
     |> unique_constraint(:slug)
     |> unsafe_validate_unique(:slug, Mosslet.Repo)
@@ -40,10 +47,17 @@ defmodule Mosslet.Orgs.Org do
     |> validate_length(:name, min: 2, max: 160)
   end
 
+  def validate_type(changeset) do
+    changeset
+    |> validate_required([:type])
+    |> validate_inclusion(:type, [:family, :business])
+  end
+
   def update_changeset(org, attrs) do
     org
-    |> cast(attrs, [:name])
+    |> cast(attrs, [:name, :type])
     |> validate_name()
+    |> validate_type()
   end
 
   defp name_to_slug(changeset) do

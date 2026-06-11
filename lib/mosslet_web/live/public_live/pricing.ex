@@ -202,13 +202,37 @@ defmodule MossletWeb.PublicLive.Pricing do
   attr :subscription_products, :list, required: true
 
   defp pricing_cards(assigns) do
+    # Group subscription products by plan family (e.g. Personal, Family) so each
+    # family renders as its own row of monthly/yearly cards, preserving the
+    # first-seen config order of plan-family names.
+    ordered_names =
+      assigns.subscription_products
+      |> Enum.map(& &1.name)
+      |> Enum.uniq()
+
+    plan_families =
+      Enum.map(ordered_names, fn name ->
+        {name, Enum.filter(assigns.subscription_products, &(&1.name == name))}
+      end)
+
+    assigns = assign(assigns, :plan_families, plan_families)
+
     ~H"""
-    <div
-      :if={@subscription_products != []}
-      class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-3xl mx-auto"
-    >
-      <%= for product <- @subscription_products do %>
-        <.pricing_card product={product} />
+    <div :if={@subscription_products != []} class="space-y-12 sm:space-y-16">
+      <%= for {name, products} <- @plan_families do %>
+        <div>
+          <div class="flex items-center gap-3 mb-6">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              {name}
+            </h2>
+            <div class="flex-1 border-t border-slate-200 dark:border-slate-700/50"></div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-3xl mx-auto">
+            <%= for product <- products do %>
+              <.pricing_card product={product} />
+            <% end %>
+          </div>
+        </div>
       <% end %>
     </div>
 
@@ -387,9 +411,9 @@ defmodule MossletWeb.PublicLive.Pricing do
         <div class="flex-1">
           <div class="flex items-start justify-between gap-4 mb-4">
             <div>
-              <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">
-                {@product.name}
-              </h2>
+              <h3 class="text-xl font-bold text-slate-900 dark:text-slate-100">
+                {interval_label(@item)}
+              </h3>
               <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 {@product.description}
               </p>
@@ -449,15 +473,7 @@ defmodule MossletWeb.PublicLive.Pricing do
       </div>
       <div class="flex items-baseline gap-2">
         <span class="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent">
-          <%= if @is_one_time do %>
-            {Util.format_money(@item.amount)}
-          <% else %>
-            <%= if Map.get(@item, :monthly_equivalent) do %>
-              {Util.format_money(@item.monthly_equivalent)}
-            <% else %>
-              {Util.format_money(@item.amount)}
-            <% end %>
-          <% end %>
+          {Util.format_money(@item.amount)}
         </span>
         <div class="flex flex-col">
           <span class="text-base font-medium text-slate-600 dark:text-slate-400">
@@ -531,6 +547,11 @@ defmodule MossletWeb.PublicLive.Pricing do
   defp button_label(%{interval: :month}), do: "Get Started"
   defp button_label(%{interval: :year}), do: "Get Started"
   defp button_label(_), do: "Get Started"
+
+  defp interval_label(%{interval: :month}), do: "Monthly"
+  defp interval_label(%{interval: :year}), do: "Yearly"
+  defp interval_label(%{interval: :one_time}), do: "Lifetime"
+  defp interval_label(_), do: "Plan"
 
   defp pricing_footer(assigns) do
     ~H"""

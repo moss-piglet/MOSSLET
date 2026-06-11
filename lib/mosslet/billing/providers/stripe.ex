@@ -15,7 +15,7 @@ defmodule Mosslet.Billing.Providers.Stripe do
   alias Mosslet.Billing.Providers.Stripe.Services.SyncCustomer
   alias Mosslet.Billing.Subscriptions.Subscription
 
-  def checkout(%User{} = user, plan, source, source_id, session_key, referral \\ nil) do
+  def checkout(%User{} = user, plan, source, source_id, session_key, referral \\ nil, seats \\ 1) do
     mode = determine_checkout_mode(plan)
 
     with {:ok, customer} <- FindOrCreateCustomer.call(user, source, source_id, session_key) do
@@ -31,7 +31,7 @@ defmodule Mosslet.Billing.Providers.Stripe do
              cancel_url: cancel_url(source, source_id),
              allow_promotion_codes: Map.get(plan, :allow_promotion_codes, false),
              trial_period_days: trial_days,
-             line_items: format_line_items(plan, mode),
+             line_items: format_line_items(plan, mode, seats),
              mode: mode,
              referral: referral
            }) do
@@ -65,11 +65,39 @@ defmodule Mosslet.Billing.Providers.Stripe do
     end
   end
 
-  defp format_line_items(plan, _mode) do
-    plan =
-      Map.drop(plan, [:id, :interval, :amount, :allow_promotion_codes, :trial_days, :save_percent])
+  # Builds the Stripe `line_items` list for a checkout session.
+  #
+  # Single-seat plans (e.g. Personal) emit a single base line item — unchanged
+  # behaviour. Per-seat plans (Family/Business, declared via `:seat_addon_price`
+  # in config) emit the base plan line item plus an add-on seat line item for any
+  # seats requested beyond the plan's included allotment.
+  defp format_line_items(plan, _mode, seats \\ 1) do
+    base_item =
+      Map.drop(plan, [
+        :id,
+        :interval,
+        :amount,
+        :allow_promotion_codes,
+        :trial_days,
+        :save_percent,
+        :included_seats,
+        :seat_addon_price,
+        :max_seats,
+        :monthly_equivalent
+      ])
 
-    [plan]
+    if Plans.seat_based_plan?(plan) do
+      seats = Plans.clamp_seats(plan, seats)
+      extra_seats = seats - Plans.included_seats(plan)
+
+      if extra_seats > 0 do
+        [base_item, %{price: plan.seat_addon_price, quantity: extra_seats}]
+      else
+        [base_item]
+      end
+    else
+      [base_item]
+    end
   end
 
   def checkout_url(session), do: session.url

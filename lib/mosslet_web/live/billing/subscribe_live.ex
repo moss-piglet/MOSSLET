@@ -517,6 +517,9 @@ defmodule MossletWeb.SubscribeLive do
       |> assign(:is_current, is_current)
       |> assign(:can_upgrade, can_upgrade)
       |> assign(:cancellation_pending, cancellation_pending)
+      |> assign(:seat_based?, Plans.seat_based_plan?(item))
+      |> assign(:included_seats, Plans.included_seats(item))
+      |> assign(:max_seats, Plans.max_seats(item))
 
     ~H"""
     <div class={[
@@ -572,6 +575,9 @@ defmodule MossletWeb.SubscribeLive do
               is_most_popular={@is_most_popular}
               cancellation_pending={@cancellation_pending}
               current_subscription={@current_subscription}
+              seat_based?={@seat_based?}
+              included_seats={@included_seats}
+              max_seats={@max_seats}
             />
           </div>
 
@@ -603,12 +609,7 @@ defmodule MossletWeb.SubscribeLive do
   attr :referral_discount, :integer, default: nil
 
   defp price_display(assigns) do
-    original_amount =
-      if assigns.is_one_time do
-        assigns.item.amount
-      else
-        Map.get(assigns.item, :monthly_equivalent) || assigns.item.amount
-      end
+    original_amount = assigns.item.amount
 
     discounted_amount =
       if assigns.referral_discount && !assigns.is_one_time do
@@ -697,6 +698,9 @@ defmodule MossletWeb.SubscribeLive do
   attr :is_most_popular, :boolean, required: true
   attr :cancellation_pending, :boolean, required: true
   attr :current_subscription, :any, default: nil
+  attr :seat_based?, :boolean, default: false
+  attr :included_seats, :integer, default: 1
+  attr :max_seats, :any, default: :infinity
 
   defp action_button(assigns) do
     ~H"""
@@ -743,6 +747,13 @@ defmodule MossletWeb.SubscribeLive do
         >
           {gettext("Already a Member")}
         </DesignSystem.liquid_button>
+      <% @seat_based? -> %>
+        <.seat_checkout_form
+          item={@item}
+          is_most_popular={@is_most_popular}
+          included_seats={@included_seats}
+          max_seats={@max_seats}
+        />
       <% true -> %>
         <DesignSystem.liquid_button
           variant={if @is_most_popular, do: "primary", else: "secondary"}
@@ -755,6 +766,68 @@ defmodule MossletWeb.SubscribeLive do
           {button_label(@item)}
         </DesignSystem.liquid_button>
     <% end %>
+    """
+  end
+
+  attr :item, :map, required: true
+  attr :is_most_popular, :boolean, required: true
+  attr :included_seats, :integer, required: true
+  attr :max_seats, :any, required: true
+
+  # Seat selector + checkout submission for per-seat plans (Family/Business).
+  # Submits the chosen member/seat count with the "checkout" event so the count
+  # threads through to Stripe. The seat count is re-clamped server-side, so this
+  # input is purely a convenience.
+  defp seat_checkout_form(assigns) do
+    max_attr =
+      case assigns.max_seats do
+        :infinity -> nil
+        max when is_integer(max) -> max
+      end
+
+    assigns = assign(assigns, :max_attr, max_attr)
+
+    ~H"""
+    <.form
+      for={%{}}
+      as={:checkout}
+      id={"seat-checkout-#{@item.id}"}
+      phx-submit="checkout"
+      class="space-y-3"
+    >
+      <input type="hidden" name="plan" value={@item.id} />
+      <div>
+        <label
+          for={"seats-#{@item.id}"}
+          class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5"
+        >
+          {gettext("Members")}
+          <span class="text-slate-400 dark:text-slate-500 font-normal">
+            ({gettext("%{count} included", count: @included_seats)})
+          </span>
+        </label>
+        <input
+          type="number"
+          id={"seats-#{@item.id}"}
+          name="seats"
+          value={@included_seats}
+          min={@included_seats}
+          max={@max_attr}
+          step="1"
+          inputmode="numeric"
+          class="block w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+        />
+      </div>
+      <DesignSystem.liquid_button
+        type="submit"
+        variant={if @is_most_popular, do: "primary", else: "secondary"}
+        size="lg"
+        class="w-full"
+        icon={button_icon(@item)}
+      >
+        {button_label(@item)}
+      </DesignSystem.liquid_button>
+    </.form>
     """
   end
 
@@ -823,14 +896,17 @@ defmodule MossletWeb.SubscribeLive do
   end
 
   @impl true
-  def handle_event("checkout", %{"plan" => plan_id}, socket) do
+  def handle_event("checkout", %{"plan" => plan_id} = params, socket) do
     source = socket.assigns.source
-    checkout_url = checkout_url(socket, source, plan_id)
+    plan = Plans.get_plan_by_id!(plan_id)
+    seats = Plans.clamp_seats(plan, Map.get(params, "seats", Plans.included_seats(plan)))
+    checkout_url = checkout_url(socket, source, plan_id, seats)
 
     Logs.log("billing.click_subscribe_button", %{
       user: socket.assigns.current_user,
       metadata: %{
         plan_id: plan_id,
+        seats: seats,
         org_id: current_org_id(socket)
       }
     })
@@ -924,11 +1000,12 @@ defmodule MossletWeb.SubscribeLive do
     end
   end
 
-  defp checkout_url(_socket, :user, plan_id), do: ~p"/app/checkout/#{plan_id}"
+  defp checkout_url(_socket, :user, plan_id, seats),
+    do: ~p"/app/checkout/#{plan_id}?#{%{seats: seats}}"
 
-  defp checkout_url(socket, :org, plan_id) do
+  defp checkout_url(socket, :org, plan_id, seats) do
     org_slug = current_org_slug(socket)
-    ~p"/app/org/#{org_slug}/checkout/#{plan_id}"
+    ~p"/app/org/#{org_slug}/checkout/#{plan_id}?#{%{seats: seats}}"
   end
 
   defp current_org_id(socket) do
