@@ -17,7 +17,7 @@ defmodule MossletWeb.PublicLive.Faq do
       <.liquid_faq_simple
         title="Frequently Asked Questions"
         subtitle="Everything you need to know about MOSSLET"
-        description="A zero-knowledge, post-quantum encrypted social network that keeps your data private by encrypting everything in your browser. Find answers to common questions below."
+        description="A privacy-first social network that keeps your data yours — everything is locked in your browser before it ever reaches us. Find answers to common questions below."
         sections={@faq_sections}
       />
     </.layout>
@@ -68,7 +68,7 @@ defmodule MossletWeb.PublicLive.Faq do
           %{
             q: "What data does MOSSLET collect?",
             a:
-              "We store only encrypted blobs and blind-index hashes needed for lookups (like finding your account by email). We never track your browsing habits or sell your information. Your plaintext email is used only transiently for sending emails — only the encrypted version and a one-way hash are stored."
+              "As little as possible. Your content is stored only as encrypted blobs we can't read. To find your account when you sign in, we store a one-way scrambled version of your email (a 'blind index') — never the readable address. Your real email is used only in the moment we send you a message, then forgotten. We don't track your browsing or sell anything."
           },
           %{
             q: "Can I delete my account and data?",
@@ -78,12 +78,12 @@ defmodule MossletWeb.PublicLive.Faq do
           %{
             q: "Where is my data stored?",
             a:
-              "Your encrypted data is stored on secure servers provided by Fly.io, protected by a private WireGuard network. All data has two layers of encryption: zero-knowledge encryption from your browser plus AES-256-GCM at-rest encryption in the database."
+              "On secure servers run by Fly.io, behind a private encrypted network. Everything gets two locks: the zero-knowledge encryption from your browser, plus a second layer of strong encryption (AES-256-GCM) on our side. Even if someone broke into the database, they'd find nothing readable."
           },
           %{
             q: "Is my data encrypted?",
             a:
-              "Yes! Your data is encrypted in your browser before it ever reaches our servers, using the same open-source Rust code that runs on both your browser (via WebAssembly) and our server (as a native module). On top of that, all stored data is wrapped in a second layer of AES-256-GCM encryption. Key distribution uses hybrid post-quantum key encapsulation (ML-KEM-1024 + X25519)."
+              "Yes — your data is locked in your browser before it ever reaches our servers. The same open-source code runs in your browser and on our server, so it behaves identically everywhere. On top of that, everything we store gets a second layer of encryption. The keys that protect it are designed to stay safe even against future quantum computers (ML-KEM-1024 + X25519)."
           }
         ]
       },
@@ -188,7 +188,7 @@ defmodule MossletWeb.PublicLive.Faq do
           %{
             q: "Is my data encrypted?",
             a:
-              "Yes! Your data is encrypted in your browser before it ever reaches our servers — that's what zero-knowledge means. We then add a second layer of AES-256-GCM encryption at rest. Key distribution uses hybrid post-quantum encryption (ML-KEM-1024, NIST Cat-5) to protect against future quantum computers."
+              "Yes! It's locked in your browser before it ever reaches us — that's what zero-knowledge means. We add a second layer of encryption on our side, and the keys are protected against future quantum computers (ML-KEM-1024, NIST Cat-5)."
           },
           %{
             q: "How do I get help or report issues?",

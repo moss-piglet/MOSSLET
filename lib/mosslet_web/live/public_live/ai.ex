@@ -95,7 +95,7 @@ defmodule MossletWeb.PublicLive.Ai do
             Tokens are how the LLMs "see" the data and how the companies behind their services charge for them. So, rather than paying for the number of words or characters of text, we pay based on the number of tokens used in an exchange with a LLM. Here's a <.link
               navigate="https://www.theguardian.com/technology/ng-interactive/2023/nov/01/how-ai-chatbots-like-chatgpt-or-bard-work-visual-explainer"
               class="text-emerald-600 hover:text-emerald-500"
-              rel="_noopener"
+              rel="noopener"
               target="_blank"
             >great visual explainer of how it all works</.link>.
           </p>

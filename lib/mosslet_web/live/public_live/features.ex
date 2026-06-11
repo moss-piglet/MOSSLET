@@ -14,16 +14,12 @@ defmodule MossletWeb.PublicLive.Features do
       container_max_width={@max_width}
       socket={@socket}
     >
-      <%!-- Enhanced liquid metal background matching other pages --%>
+      <%!-- Liquid metal background matching landing + other pages --%>
       <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-emerald-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">
         <div class="isolate">
-          <%!-- Hero section with gradient orbs but cleaner background --%>
+          <%!-- Hero --%>
           <div class="relative isolate">
-            <%!-- Floating gradient orbs for liquid metal effect - responsive and contained --%>
-            <div
-              class="absolute inset-0 -z-10 overflow-hidden"
-              aria-hidden="true"
-            >
+            <div class="absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
               <div class="absolute left-1/2 top-0 -translate-x-1/2 lg:translate-x-6 xl:translate-x-12 transform-gpu blur-3xl">
                 <div
                   class="aspect-[801/1036] w-[30rem] sm:w-[35rem] lg:w-[40rem] xl:w-[45rem] bg-gradient-to-tr from-teal-400/30 via-emerald-400/20 to-cyan-400/30 opacity-40 dark:opacity-20"
@@ -34,25 +30,20 @@ defmodule MossletWeb.PublicLive.Features do
             </div>
 
             <div class="overflow-hidden">
-              <div class="mx-auto max-w-7xl px-6 pb-32 pt-36 sm:pt-60 lg:px-8 lg:pt-32">
+              <div class="mx-auto max-w-7xl px-6 pb-24 pt-36 sm:pt-48 lg:px-8 lg:pt-32">
                 <div class="mx-auto max-w-2xl text-center">
-                  <%!-- Enhanced hero title focused on connection --%>
-                  <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent transition-all duration-300 ease-out">
-                    Built for meaningful sharing
+                  <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+                    Everything you need, nothing you don't
                   </h1>
-
-                  <%!-- Enhanced subtitle focused on connection --%>
-                  <p class="mt-8 text-pretty text-lg font-medium sm:text-xl/8 text-slate-600 dark:text-slate-400 transition-colors duration-300 ease-out">
-                    Share moments with the people who matter most. MOSSLET encrypts your data in your browser with post-quantum protection — even we can't read it.
+                  <p class="mt-8 text-pretty text-lg font-medium sm:text-xl/8 text-slate-600 dark:text-slate-400">
+                    Share photos, write privately, and stay close to the people who matter — on a calm, ad-free network. Everything you post is encrypted in your browser before it ever leaves.
                   </p>
 
-                  <%!-- Decorative accent line matching other pages --%>
                   <div class="mt-8 flex justify-center">
-                    <div class="h-1 w-24 rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400 shadow-sm shadow-emerald-500/30">
+                    <div class="h-1 w-24 rounded-full bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400 shadow-sm shadow-emerald-500/30">
                     </div>
                   </div>
 
-                  <%!-- Call-to-action buttons using design system --%>
                   <div class="mt-12 flex flex-col sm:flex-row gap-4 justify-center">
                     <.liquid_button
                       navigate="/auth/register"
@@ -70,7 +61,7 @@ defmodule MossletWeb.PublicLive.Features do
                       icon="hero-banknotes"
                       size="lg"
                     >
-                      See Pricing Options
+                      See Pricing
                     </.liquid_button>
                   </div>
                 </div>
@@ -78,192 +69,65 @@ defmodule MossletWeb.PublicLive.Features do
             </div>
           </div>
 
-          <%!-- Social Features Section with Timeline Screenshot --%>
-          <.liquid_container max_width="full" class="relative mt-16 sm:mt-24 py-16 sm:py-20">
-            <div class="absolute inset-0 bg-gradient-to-b from-teal-50/30 via-emerald-50/20 to-transparent dark:from-teal-950/20 dark:via-emerald-950/10 dark:to-transparent">
-            </div>
+          <%!-- What you can do — action-led feature rows with real screenshots --%>
+          <.liquid_container max_width="full" class="relative py-12 sm:py-16">
             <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
-              <div class="flex items-center justify-center gap-3 mb-4">
-                <div class="h-px w-12 bg-gradient-to-r from-transparent to-teal-400 dark:to-teal-600">
-                </div>
-                <span class="text-sm font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">
-                  Social
-                </span>
-                <div class="h-px w-12 bg-gradient-to-l from-transparent to-teal-400 dark:to-teal-600">
-                </div>
-              </div>
-              <div class="text-center mb-12">
-                <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                  Connect simply with friends and family
-                </h2>
-                <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-                  Share moments and memories with the people who matter most. Private, calm, and beautifully simple.
-                </p>
-              </div>
+              <.section_eyebrow accent="teal">What you can do</.section_eyebrow>
+              <h2 class="mt-4 text-center text-3xl font-bold tracking-tight sm:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+                Built for the people who matter
+              </h2>
 
-              <div class="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3 mb-4">
-                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-cyan-500 to-blue-500 shadow-lg">
-                        <.phx_icon name="hero-users" class="h-5 w-5 text-white" />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        Made for People
-                      </span>
-                    </div>
-                  </:title>
+              <div class="mt-16 space-y-20 sm:space-y-28">
+                <.feature_row
+                  eyebrow="Timeline"
+                  icon="hero-photo"
+                  accent="teal"
+                  title="Share with your people"
+                  body="Post photos and updates to friends and family — or keep them just for you. You decide who sees each post, every time. It's encrypted in your browser before it leaves your device."
+                  image_light={~p"/images/screenshots/timeline_light.png"}
+                  image_dark={~p"/images/screenshots/timeline_dark.png"}
+                  image_alt="MOSSLET timeline with posts from friends and family"
+                />
 
-                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Share photos, updates, and memories with your friends and family. No ads, no algorithms. Simple, genuine connections without the noise.
-                  </p>
-                </.liquid_card>
+                <.feature_row
+                  eyebrow="Journal"
+                  icon="hero-book-open"
+                  accent="violet"
+                  title="A private space, just for you"
+                  body="Write, track your mood, and reflect in a journal only you can open. Optional AI insights run privately in your browser and are never stored. Even photos of handwritten pages can become searchable text — without leaving your device."
+                  image_light={~p"/images/screenshots/journal_light.png"}
+                  image_dark={~p"/images/screenshots/journal_dark.png"}
+                  image_alt="MOSSLET private encrypted journal"
+                  reverse
+                />
 
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3 mb-4">
-                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-purple-500 to-violet-500 shadow-lg">
-                        <.phx_icon name="hero-shield-check" class="h-5 w-5 text-white" />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        Zero-Knowledge Privacy
-                      </span>
-                    </div>
-                  </:title>
+                <.feature_row
+                  eyebrow="Connections"
+                  icon="hero-users"
+                  accent="emerald"
+                  title="Stay close, on your terms"
+                  body="Connect only with people you choose. Blind requests let you accept or decline without revealing anything — not even that you have an account. Your profile, your circle, your call."
+                  image_light={~p"/images/screenshots/connections_light.png"}
+                  image_dark={~p"/images/screenshots/connections_dark.png"}
+                  image_alt="MOSSLET connections — choosing who you share with"
+                />
 
-                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Your data is encrypted and decrypted entirely in your browser. Our servers only ever see encrypted blobs — we genuinely cannot read your content.
-                  </p>
-                </.liquid_card>
-
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3 mb-4">
-                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-500 shadow-lg">
-                        <.phx_icon name="hero-heart" class="h-5 w-5 text-white" />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        Calm and Peaceful
-                      </span>
-                    </div>
-                  </:title>
-
-                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    No endless scroll, no anxiety-inducing algorithms. Just a calm space to stay connected with loved ones.
-                  </p>
-                </.liquid_card>
-
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3 mb-4">
-                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-rose-500 to-pink-500 shadow-lg">
-                        <.phx_icon name="hero-shield-exclamation" class="h-5 w-5 text-white" />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        Community Health
-                      </span>
-                    </div>
-                  </:title>
-
-                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Public posts are moderated server-side for content and images. Private content runs image safety checks entirely in your browser — your encrypted data is never decrypted for moderation. AI-generated images are clearly labeled.
-                  </p>
-                </.liquid_card>
-
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3 mb-4">
-                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-indigo-500 to-violet-500 shadow-lg">
-                        <.phx_icon name="hero-sparkles" class="h-5 w-5 text-white" />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        AI Transparency
-                      </span>
-                    </div>
-                  </:title>
-
-                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    We automatically detect AI-generated imagery and display a clear badge so you always know what's real. Authenticity matters in meaningful connections.
-                  </p>
-                </.liquid_card>
-
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3 mb-4">
-                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg">
-                        <.phx_icon name="hero-cpu-chip" class="h-5 w-5 text-white" />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        Privacy-First AI
-                      </span>
-                    </div>
-                  </:title>
-
-                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Public content uses server-side AI via OpenRouter with data collection disabled. Private content safety checks run entirely in your browser — your encrypted data never leaves your device for AI processing.
-                  </p>
-                </.liquid_card>
-
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3 mb-4">
-                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-sky-500 to-blue-500 shadow-lg">
-                        <.phx_icon name="hero-pencil-square" class="h-5 w-5 text-white" />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        Rich Text & Emoji
-                      </span>
-                    </div>
-                  </:title>
-
-                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Format your posts and replies with full Markdown support. Use our accessible emoji picker to add personality, with a handy Markdown guide always available.
-                  </p>
-                </.liquid_card>
-              </div>
-
-              <%!-- Timeline Screenshot --%>
-              <div class="relative mt-12 mx-auto max-w-5xl">
-                <div class="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
-                  <div class="absolute inset-0 bg-gradient-to-tr from-teal-500/5 via-transparent to-emerald-500/5 dark:from-teal-500/10 dark:to-emerald-500/10">
-                  </div>
-                  <img
-                    src={~p"/images/screenshots/timeline_light.png"}
-                    alt="MOSSLET timeline showing social posts from friends and family"
-                    class="relative w-full h-auto dark:hidden"
-                  />
-                  <img
-                    src={~p"/images/screenshots/timeline_dark.png"}
-                    alt="MOSSLET timeline showing social posts from friends and family"
-                    class="relative w-full h-auto hidden dark:block"
-                  />
-                </div>
+                <.feature_row
+                  eyebrow="Circles & Messages"
+                  icon="hero-chat-bubble-left-right"
+                  accent="cyan"
+                  title="Talk privately, together"
+                  body="Group circles and direct messages are end-to-end encrypted. Every conversation has its own key — we only ever store encrypted blobs. Real-time, private, and yours."
+                  image_light={~p"/images/screenshots/circles_chat_light.png"}
+                  image_dark={~p"/images/screenshots/circles_chat_dark.png"}
+                  image_alt="MOSSLET Circles private group chat"
+                  reverse
+                />
               </div>
             </div>
           </.liquid_container>
 
-          <%!-- Actual Timeline Feature Preview Section --%>
+          <%!-- See MOSSLET in action — interactive demos (preserved) --%>
           <.liquid_container max_width="full" class="relative mt-16 sm:mt-24">
             <div class="mx-auto max-w-7xl px-6 lg:px-8">
               <div class="text-center mb-12">
@@ -271,7 +135,7 @@ defmodule MossletWeb.PublicLive.Features do
                   See MOSSLET in action
                 </h2>
                 <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-                  Simple, thoughtful features designed for genuine connection and peace of mind.
+                  A real post, the way it looks on your timeline. Try the controls — they actually work.
                 </p>
               </div>
 
@@ -694,1783 +558,96 @@ defmodule MossletWeb.PublicLive.Features do
             </div>
           </.liquid_container>
 
-          <%!-- Journal Features Section with Violet/Purple Accent --%>
-          <.liquid_container max_width="full" class="relative mt-24 sm:mt-32 py-16 sm:py-20">
+          <%!-- Privacy-first AI — condensed --%>
+          <.liquid_container
+            max_width="full"
+            id="privacy-first-ai"
+            class="relative mt-24 sm:mt-32 py-16 sm:py-20"
+          >
             <div class="absolute inset-0 bg-gradient-to-b from-violet-50/30 via-purple-50/20 to-transparent dark:from-violet-950/20 dark:via-purple-950/10 dark:to-transparent">
             </div>
             <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
-              <div class="flex items-center justify-center gap-3 mb-4">
-                <div class="h-px w-12 bg-gradient-to-r from-transparent to-violet-400 dark:to-violet-600">
-                </div>
-                <span class="text-sm font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400">
-                  Journal
-                </span>
-                <div class="h-px w-12 bg-gradient-to-l from-transparent to-violet-400 dark:to-violet-600">
-                </div>
-              </div>
-              <div class="text-center mb-12">
-                <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-violet-500 to-purple-500 bg-clip-text text-transparent">
-                  Connect with yourself
-                </h2>
-                <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-                  Your private space for reflection. Our encrypted journal helps you capture thoughts, track your mood, and gain insights — just for you.
-                </p>
-              </div>
-
-              <div class="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3 mb-4">
-                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-500 shadow-lg">
-                        <.phx_icon name="hero-lock-closed" class="h-5 w-5 text-white" />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        Encrypted & Private
-                      </span>
-                    </div>
-                  </:title>
-
-                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Your journal entries are encrypted with your personal key. Only you can read them — not even we can access your private thoughts.
-                  </p>
-                </.liquid_card>
-
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3 mb-4">
-                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-pink-500 to-rose-500 shadow-lg">
-                        <.phx_icon name="hero-face-smile" class="h-5 w-5 text-white" />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        Mood Tracking
-                      </span>
-                    </div>
-                  </:title>
-
-                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Record how you're feeling with each entry. Track your emotional journey over time and discover patterns in your well-being.
-                  </p>
-                </.liquid_card>
-
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3 mb-4">
-                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg">
-                        <.phx_icon name="hero-light-bulb" class="h-5 w-5 text-white" />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        Privacy-First AI Insights
-                      </span>
-                    </div>
-                  </:title>
-
-                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Get thoughtful AI reflections on your journal entries to help you understand patterns and gain perspective. Disabled by default — toggle on or off anytime.
-                  </p>
-                </.liquid_card>
-
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3 mb-4">
-                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-indigo-500 to-violet-500 shadow-lg">
-                        <.phx_icon name="hero-pencil-square" class="h-5 w-5 text-white" />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        Rich Formatting
-                      </span>
-                    </div>
-                  </:title>
-
-                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Write beautifully with full Markdown support and an accessible emoji picker. A handy Markdown guide helps you format your thoughts just right.
-                  </p>
-                </.liquid_card>
-
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3 mb-4">
-                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-teal-500 to-cyan-500 shadow-lg">
-                        <.phx_icon name="hero-arrows-up-down" class="h-5 w-5 text-white" />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        Drag & Drop
-                      </span>
-                    </div>
-                  </:title>
-
-                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Organize your thoughts intuitively. Drag entries between books and rearrange your bookshelf — like organizing a real journal collection.
-                  </p>
-                </.liquid_card>
-
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3 mb-4">
-                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-sky-500 to-blue-500 shadow-lg">
-                        <.phx_icon name="hero-language" class="h-5 w-5 text-white" />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        Privacy-First Spellcheck
-                      </span>
-                    </div>
-                  </:title>
-
-                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Write confidently with our built-in spellchecker and dictionary. Everything runs locally in your browser — your words never leave your device for spelling analysis.
-                  </p>
-                </.liquid_card>
-              </div>
-
-              <%!-- Journal Screenshot --%>
-              <div class="relative mt-12 mx-auto max-w-5xl">
-                <div class="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
-                  <div class="absolute inset-0 bg-gradient-to-tr from-violet-500/5 via-transparent to-purple-500/5 dark:from-violet-500/10 dark:to-purple-500/10">
-                  </div>
-                  <img
-                    src={~p"/images/screenshots/journal_light.png"}
-                    alt="MOSSLET private journal for personal reflection and mood tracking"
-                    class="relative w-full h-auto dark:hidden"
-                  />
-                  <img
-                    src={~p"/images/screenshots/journal_dark.png"}
-                    alt="MOSSLET private journal for personal reflection and mood tracking"
-                    class="relative w-full h-auto hidden dark:block"
-                  />
-                </div>
-              </div>
-
-              <%!-- Additional Journal Screenshots Grid --%>
-              <div class="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-                <div class="relative rounded-2xl overflow-hidden shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
-                  <div class="absolute inset-0 bg-gradient-to-tr from-violet-500/5 via-transparent to-purple-500/5 dark:from-violet-500/10 dark:to-purple-500/10">
-                  </div>
-                  <img
-                    src={~p"/images/screenshots/journal_book_light.png"}
-                    alt="MOSSLET journal books for organizing your thoughts"
-                    class="relative w-full h-auto dark:hidden"
-                  />
-                  <img
-                    src={~p"/images/screenshots/journal_book_dark.png"}
-                    alt="MOSSLET journal books for organizing your thoughts"
-                    class="relative w-full h-auto hidden dark:block"
-                  />
-                </div>
-                <div class="relative rounded-2xl overflow-hidden shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
-                  <div class="absolute inset-0 bg-gradient-to-tr from-violet-500/5 via-transparent to-purple-500/5 dark:from-violet-500/10 dark:to-purple-500/10">
-                  </div>
-                  <img
-                    src={~p"/images/screenshots/journal_new_entry_light.png"}
-                    alt="MOSSLET new journal entry with mood tracking"
-                    class="relative w-full h-auto dark:hidden"
-                  />
-                  <img
-                    src={~p"/images/screenshots/journal_new_entry_dark.png"}
-                    alt="MOSSLET new journal entry with mood tracking"
-                    class="relative w-full h-auto hidden dark:block"
-                  />
-                </div>
-              </div>
-
-              <div class="relative mt-8 mx-auto max-w-5xl">
-                <div class="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
-                  <div class="absolute inset-0 bg-gradient-to-tr from-violet-500/5 via-transparent to-purple-500/5 dark:from-violet-500/10 dark:to-purple-500/10">
-                  </div>
-                  <img
-                    src={~p"/images/screenshots/journal_immersive_reading_light.png"}
-                    alt="MOSSLET journal immersive reader for distraction-free reading"
-                    class="relative w-full h-auto dark:hidden"
-                  />
-                  <img
-                    src={~p"/images/screenshots/journal_immersive_reading_dark.png"}
-                    alt="MOSSLET journal immersive reader for distraction-free reading"
-                    class="relative w-full h-auto hidden dark:block"
-                  />
-                </div>
-              </div>
-            </div>
-          </.liquid_container>
-
-          <%!-- Real Timeline Experience Section --%>
-          <.liquid_container max_width="full" class="mt-24 sm:mt-32 lg:mt-40">
-            <div class="text-center mb-16">
-              <h2 class="text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-5xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                Features that put you in control
+              <.section_eyebrow accent="violet">Privacy-first AI</.section_eyebrow>
+              <h2 class="mt-4 text-center text-3xl font-bold tracking-tight sm:text-4xl bg-gradient-to-r from-violet-500 to-purple-500 bg-clip-text text-transparent">
+                Helpful AI that never sees your private life
               </h2>
-              <p class="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
-                Simple, thoughtful tools to share moments and stay connected with the people who matter most.
+              <p class="mx-auto mt-4 max-w-2xl text-center text-lg text-slate-600 dark:text-slate-400">
+                For your private content, AI runs entirely in your browser — nothing is sent away, nothing is stored, and your content is never used to train anyone's model.
               </p>
-            </div>
 
-            <%!-- Full Timeline Feature Showcase --%>
-            <div class="grid max-w-xl mx-auto grid-cols-1 gap-8 lg:max-w-none lg:grid-cols-2 mb-20">
-              <%!-- Real-time Updates with Privacy Protection --%>
-              <.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-4">
-                    <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 shadow-lg">
-                      <.phx_icon name="hero-bell" class="size-7 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent font-bold">
-                      Gentle Notifications
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
-                  Stay updated without the overwhelm. In-app notifications appear only while you're using MOSSLET, with optional daily email digests.
-                </p>
-                <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
-                  <div class="text-xs text-cyan-600 dark:text-cyan-400 font-medium flex items-center gap-2">
-                    <div class="w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></div>
-                    Simple alerts • Private • Respect your time
-                  </div>
-                </div>
-              </.liquid_card>
-
-              <%!-- Email Notifications Feature --%>
-              <.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-4">
-                    <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 shadow-lg">
-                      <.phx_icon name="hero-envelope" class="size-7 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent font-bold">
-                      Daily Email Digests
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
-                  Stay connected without inbox clutter. Get a simple daily summary of what's new from your connections.
-                </p>
-                <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
-                  <div class="text-xs text-cyan-600 dark:text-cyan-400 font-medium flex items-center gap-2">
-                    <.phx_icon name="hero-calendar-days" class="size-3" />
-                    Max 1 email/day • Your choice • No spam
-                  </div>
-                </div>
-              </.liquid_card>
-
-              <%!-- Content Protection Features --%>
-              <.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-4">
-                    <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 shadow-lg">
-                      <.phx_icon name="hero-funnel" class="size-7 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent font-bold">
-                      Content Preferences
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
-                  Customize your feed to see what matters to you. Simple filters help create a positive experience.
-                </p>
-                <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
-                  <div class="text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-2">
-                    <.phx_icon name="hero-heart" class="size-3" />
-                    Your preferences • Private settings • Positive feed
-                  </div>
-                </div>
-              </.liquid_card>
-
-              <%!-- Private Bookmark Collections --%>
-              <.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-4">
-                    <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 shadow-lg">
-                      <.phx_icon name="hero-bookmark" class="size-7 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-rose-500 to-pink-500 bg-clip-text text-transparent font-bold">
-                      Personal Bookmarks
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
-                  Save posts that matter to you. Your bookmarks are private — only you can see what you've saved.
-                </p>
-                <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
-                  <div class="text-xs text-rose-600 dark:text-rose-400 font-medium flex items-center gap-2">
-                    <.phx_icon name="hero-lock-closed" class="size-3" />
-                    Private • Organized • Your personal library
-                  </div>
-                </div>
-              </.liquid_card>
-
-              <%!-- Read Status Without Pressure --%>
-              <.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-4">
-                    <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-blue-500 shadow-lg">
-                      <.phx_icon name="hero-eye" class="size-7 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-indigo-500 to-blue-500 bg-clip-text text-transparent font-bold">
-                      Simple Read Tracking
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
-                  Keep track of what you've seen. Read status is just for your convenience — totally private.
-                </p>
-                <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
-                  <div class="text-xs text-indigo-600 dark:text-indigo-400 font-medium flex items-center gap-2">
-                    <div class="w-2 h-2 bg-indigo-500 rounded-full"></div>
-                    Your convenience • Private • Easy to manage
-                  </div>
-                </div>
-              </.liquid_card>
-
-              <%!-- Encrypted Photo Sharing --%>
-              <.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-4">
-                    <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 shadow-lg">
-                      <.phx_icon name="hero-photo" class="size-7 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent font-bold">
-                      Private Photo Sharing
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
-                  Share photos with the people you choose. Your memories stay between you and your connections.
-                </p>
-                <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
-                  <div class="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-2">
-                    <.phx_icon name="hero-shield-check" class="size-3" />
-                    Private • Secure • Your photos, your choice
-                  </div>
-                </div>
-              </.liquid_card>
-
-              <%!-- Private Journal --%>
-              <.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-4">
-                    <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 shadow-lg">
-                      <.phx_icon name="hero-book-open" class="size-7 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-amber-500 to-yellow-500 bg-clip-text text-transparent font-bold">
-                      Private Journal
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
-                  Capture your thoughts in encrypted journals. Organize entries into books and reflect on your journey — completely private.
-                </p>
-                <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
-                  <div class="text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-2">
-                    <.phx_icon name="hero-lock-closed" class="size-3" />
-                    Unlimited entries • Unlimited books • End-to-end encrypted
-                  </div>
-                </div>
-              </.liquid_card>
-
-              <%!-- Healthy Design --%>
-              <.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-4">
-                    <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-purple-500 to-violet-500 shadow-lg">
-                      <.phx_icon name="hero-clock" class="size-7 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-purple-500 to-violet-500 bg-clip-text text-transparent font-bold">
-                      Thoughtful Design
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
-                  Built to respect your time. Clear endings, no endless scroll — just catch up and get back to life.
-                </p>
-                <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
-                  <div class="text-xs text-purple-600 dark:text-purple-400 font-medium flex items-center gap-2">
-                    <.phx_icon name="hero-heart" class="size-3" />
-                    Natural stopping points • Simple • Life comes first
-                  </div>
-                </div>
-              </.liquid_card>
-            </div>
-
-            <%!-- Connections & Profile Screenshots --%>
-            <div class="mt-16 mx-auto max-w-7xl px-6 lg:px-8">
-              <div class="flex items-center justify-center gap-3 mb-4">
-                <div class="h-px w-12 bg-gradient-to-r from-transparent to-cyan-400 dark:to-cyan-600">
-                </div>
-                <span class="text-sm font-semibold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
-                  Connections
-                </span>
-                <div class="h-px w-12 bg-gradient-to-l from-transparent to-cyan-400 dark:to-cyan-600">
-                </div>
-              </div>
-              <div class="text-center mb-12">
-                <h3 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent">
-                  Your people, your way
-                </h3>
-                <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-                  Manage your connections and share your profile with the people who matter most.
-                </p>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-                <div class="relative rounded-2xl overflow-hidden shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
-                  <div class="absolute inset-0 bg-gradient-to-tr from-cyan-500/5 via-transparent to-blue-500/5 dark:from-cyan-500/10 dark:to-blue-500/10">
-                  </div>
-                  <img
-                    src={~p"/images/screenshots/connections_light.png"}
-                    alt="MOSSLET connections - manage who you share with"
-                    class="relative w-full h-auto dark:hidden"
-                  />
-                  <img
-                    src={~p"/images/screenshots/connections_dark.png"}
-                    alt="MOSSLET connections - manage who you share with"
-                    class="relative w-full h-auto hidden dark:block"
-                  />
-                </div>
-                <div class="relative rounded-2xl overflow-hidden shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
-                  <div class="absolute inset-0 bg-gradient-to-tr from-cyan-500/5 via-transparent to-blue-500/5 dark:from-cyan-500/10 dark:to-blue-500/10">
-                  </div>
-                  <img
-                    src={~p"/images/screenshots/profile_light.png"}
-                    alt="MOSSLET profile - your personal space"
-                    class="relative w-full h-auto dark:hidden"
-                  />
-                  <img
-                    src={~p"/images/screenshots/profile_dark.png"}
-                    alt="MOSSLET profile - your personal space"
-                    class="relative w-full h-auto hidden dark:block"
-                  />
-                </div>
+              <div class="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                <.simple_feature_card
+                  icon="hero-photo"
+                  accent="violet"
+                  title="On-device image safety"
+                  body="A lightweight model checks private images right in your browser to help keep things safe — your photos never leave your device."
+                />
+                <.simple_feature_card
+                  icon="hero-sparkles"
+                  accent="purple"
+                  title="Optional mood insights"
+                  body="Reflect on patterns in your journal with insights that run privately and on demand. Off by default, always your choice."
+                />
+                <.simple_feature_card
+                  icon="hero-pencil-square"
+                  accent="cyan"
+                  title="Handwriting to text"
+                  body="Snap a photo of a handwritten page and turn it into searchable text — transcribed locally, never uploaded."
+                />
               </div>
             </div>
           </.liquid_container>
 
-          <%!-- Privacy-First AI Deep Dive Section --%>
+          <%!-- Works with Bluesky — condensed --%>
           <.liquid_container
             max_width="full"
-            class="relative mt-24 sm:mt-32 py-16 sm:py-20"
-            id="privacy-first-ai"
+            id="bluesky-interop"
+            class="relative mt-16 sm:mt-24 py-16 sm:py-20"
           >
-            <div class="absolute inset-0 bg-gradient-to-b from-amber-50/30 via-orange-50/20 to-transparent dark:from-amber-950/20 dark:via-orange-950/10 dark:to-transparent">
-            </div>
             <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
-              <div class="flex items-center justify-center gap-3 mb-4">
-                <div class="h-px w-12 bg-gradient-to-r from-transparent to-amber-400 dark:to-amber-600">
-                </div>
-                <span class="text-sm font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                  Privacy-First AI
-                </span>
-                <div class="h-px w-12 bg-gradient-to-l from-transparent to-amber-400 dark:to-amber-600">
-                </div>
-              </div>
-              <div class="text-center mb-12">
-                <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
-                  How our AI respects your privacy
-                </h2>
-                <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
-                  We believe AI should enhance your experience without compromising your privacy. Here's how we've built every AI feature with your data protection in mind.
-                </p>
-              </div>
-
-              <%!-- Core Privacy Principles --%>
-              <div class="mb-16">
-                <div class="max-w-4xl mx-auto">
-                  <.liquid_card
-                    padding="lg"
-                    class="bg-gradient-to-br from-amber-50/60 via-orange-50/40 to-amber-50/60 dark:from-amber-900/20 dark:via-orange-900/15 dark:to-amber-900/20 border-amber-200/60 dark:border-amber-700/40"
-                  >
-                    <:title>
-                      <div class="flex items-center gap-4 mb-6">
-                        <div class="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg shadow-amber-500/30">
-                          <.phx_icon name="hero-shield-check" class="size-8 text-white" />
-                        </div>
-                        <div>
-                          <h3 class="text-xl font-bold text-slate-900 dark:text-slate-100">
-                            Our AI Privacy Promise
-                          </h3>
-                          <p class="text-sm text-amber-600 dark:text-amber-400 font-medium">
-                            Safety without surveillance
-                          </p>
-                        </div>
-                      </div>
-                    </:title>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div class="flex items-start gap-3">
-                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
-                          <.phx_icon
-                            name="hero-x-mark"
-                            class="w-4 h-4 text-amber-600 dark:text-amber-400"
-                          />
-                        </div>
-                        <div>
-                          <p class="font-semibold text-slate-900 dark:text-slate-100 text-sm">
-                            No Storage
-                          </p>
-                          <p class="text-xs text-slate-600 dark:text-slate-400">
-                            Data collection explicitly disabled on AI requests
-                          </p>
-                        </div>
-                      </div>
-                      <div class="flex items-start gap-3">
-                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
-                          <.phx_icon
-                            name="hero-x-mark"
-                            class="w-4 h-4 text-amber-600 dark:text-amber-400"
-                          />
-                        </div>
-                        <div>
-                          <p class="font-semibold text-slate-900 dark:text-slate-100 text-sm">
-                            No Training
-                          </p>
-                          <p class="text-xs text-slate-600 dark:text-slate-400">
-                            Your data is never used to train AI models
-                          </p>
-                        </div>
-                      </div>
-                      <div class="flex items-start gap-3">
-                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
-                          <.phx_icon
-                            name="hero-check"
-                            class="w-4 h-4 text-amber-600 dark:text-amber-400"
-                          />
-                        </div>
-                        <div>
-                          <p class="font-semibold text-slate-900 dark:text-slate-100 text-sm">
-                            Encrypted After
-                          </p>
-                          <p class="text-xs text-slate-600 dark:text-slate-400">
-                            All content is zero-knowledge encrypted — your browser encrypts before our servers ever see it
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </.liquid_card>
-                </div>
-              </div>
-
-              <%!-- AI Features Grid --%>
-              <div class="grid grid-cols-1 gap-8 lg:grid-cols-2 max-w-6xl mx-auto">
-                <%!-- Image Safety Checking --%>
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-[1.02] transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-4 mb-4">
-                      <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 shadow-lg">
-                        <.phx_icon name="hero-shield-exclamation" class="size-7 text-white" />
-                      </div>
-                      <div>
-                        <span class="bg-gradient-to-r from-rose-500 to-pink-500 bg-clip-text text-transparent font-bold text-lg">
-                          Image Safety Checking
-                        </span>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">All uploaded images</p>
-                      </div>
-                    </div>
-                  </:title>
-                  <div class="space-y-4">
-                    <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Public images are checked server-side via AI. Private image safety checks run entirely in your browser using an on-device model — your encrypted content is never decrypted for moderation.
-                    </p>
-                    <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
-                      <p class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                        <.phx_icon name="hero-cog-6-tooth" class="w-4 h-4 text-rose-500" />
-                        How it works
-                      </p>
-                      <ul class="text-sm text-slate-600 dark:text-slate-400 space-y-2">
-                        <li class="flex items-start gap-2">
-                          <.phx_icon
-                            name="hero-check-circle"
-                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                          />
-                          <span>
-                            Public images: server-side AI via OpenRouter (data collection disabled) with local Bumblebee fallback
-                          </span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                          <.phx_icon
-                            name="hero-check-circle"
-                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                          />
-                          <span>
-                            Private images: client-side NSFWJS model runs in your browser — the server never sees the unencrypted image
-                          </span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                          <.phx_icon
-                            name="hero-check-circle"
-                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                          />
-                          <span>
-                            AI-generated images are detected via metadata (EXIF, XMP) and labeled with a badge
-                          </span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                          <.phx_icon
-                            name="hero-check-circle"
-                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                          />
-                          <span>
-                            Images are encrypted in your browser with your post key before upload — our servers store only ciphertext
-                          </span>
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-                </.liquid_card>
-
-                <%!-- Content Moderation --%>
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-[1.02] transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-4 mb-4">
-                      <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 shadow-lg">
-                        <.phx_icon name="hero-chat-bubble-left-right" class="size-7 text-white" />
-                      </div>
-                      <div>
-                        <span class="bg-gradient-to-r from-indigo-500 to-violet-500 bg-clip-text text-transparent font-bold text-lg">
-                          Content Moderation
-                        </span>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Public posts only</p>
-                      </div>
-                    </div>
-                  </:title>
-                  <div class="space-y-4">
-                    <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Public posts are checked for community guideline compliance to keep MOSSLET a healthy space. Private and connections-only content is never moderated for text content.
-                    </p>
-                    <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
-                      <p class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                        <.phx_icon name="hero-cog-6-tooth" class="w-4 h-4 text-indigo-500" />
-                        Privacy tiers
-                      </p>
-                      <ul class="text-sm text-slate-600 dark:text-slate-400 space-y-2">
-                        <li class="flex items-start gap-2">
-                          <.phx_icon
-                            name="hero-globe-alt"
-                            class="w-4 h-4 text-indigo-500 mt-0.5 flex-shrink-0"
-                          />
-                          <span>
-                            <strong class="text-slate-900 dark:text-slate-100">Public posts:</strong>
-                            Text and images are checked
-                          </span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                          <.phx_icon
-                            name="hero-user-group"
-                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                          />
-                          <span>
-                            <strong class="text-slate-900 dark:text-slate-100">
-                              Connections posts:
-                            </strong>
-                            Images only are checked
-                          </span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                          <.phx_icon
-                            name="hero-lock-closed"
-                            class="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0"
-                          />
-                          <span>
-                            <strong class="text-slate-900 dark:text-slate-100">Private posts:</strong>
-                            Images only are checked
-                          </span>
-                        </li>
-                      </ul>
-                    </div>
-                    <div class="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 font-medium bg-indigo-50 dark:bg-indigo-900/30 px-3 py-2 rounded-lg">
-                      <.phx_icon name="hero-shield-check" class="w-4 h-4" />
-                      Your private thoughts stay private — we only moderate what you choose to share publicly
-                    </div>
-                  </div>
-                </.liquid_card>
-
-                <%!-- Mood Insights --%>
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-[1.02] transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-4 mb-4">
-                      <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 shadow-lg">
-                        <.phx_icon name="hero-heart" class="size-7 text-white" />
-                      </div>
-                      <div>
-                        <span class="bg-gradient-to-r from-pink-500 to-rose-500 bg-clip-text text-transparent font-bold text-lg">
-                          Mood Insights
-                        </span>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">
-                          Journal feature • Opt-in
-                        </p>
-                      </div>
-                    </div>
-                  </:title>
-                  <div class="space-y-4">
-                    <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Get thoughtful AI-generated insights about your emotional patterns over time. This feature is completely optional and disabled by default — you're always in control.
-                    </p>
-                    <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
-                      <p class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                        <.phx_icon name="hero-cog-6-tooth" class="w-4 h-4 text-pink-500" />
-                        How it works
-                      </p>
-                      <ul class="text-sm text-slate-600 dark:text-slate-400 space-y-2">
-                        <li class="flex items-start gap-2">
-                          <.phx_icon
-                            name="hero-check-circle"
-                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                          />
-                          <span>
-                            Only metadata is sent: entry date, mood label, and word count —
-                            <strong class="text-slate-900 dark:text-slate-100">
-                              never your actual journal content
-                            </strong>
-                          </span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                          <.phx_icon
-                            name="hero-check-circle"
-                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                          />
-                          <span>OpenRouter processes with data collection disabled</span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                          <.phx_icon
-                            name="hero-check-circle"
-                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                          />
-                          <span>Insights are generated and immediately encrypted with your key</span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                          <.phx_icon
-                            name="hero-check-circle"
-                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                          />
-                          <span>Only you can read the insights — we can't access them</span>
-                        </li>
-                      </ul>
-                    </div>
-                    <div class="flex items-center gap-2 text-xs text-pink-700 dark:text-pink-300 font-medium bg-pink-50 dark:bg-pink-900/30 px-3 py-2 rounded-lg">
-                      <.phx_icon name="hero-adjustments-horizontal" class="w-4 h-4" />
-                      Toggle on or off anytime in your journal settings
-                    </div>
-                  </div>
-                </.liquid_card>
-
-                <%!-- Journal Prompts --%>
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-[1.02] transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-4 mb-4">
-                      <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 shadow-lg">
-                        <.phx_icon name="hero-light-bulb" class="size-7 text-white" />
-                      </div>
-                      <div>
-                        <span class="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent font-bold text-lg">
-                          Journal Prompts
-                        </span>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">
-                          Journal feature • On-demand
-                        </p>
-                      </div>
-                    </div>
-                  </:title>
-                  <div class="space-y-4">
-                    <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Stuck on what to write? Get AI-generated prompts to inspire your journaling. Prompts are generated fresh each time you request them.
-                    </p>
-                    <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
-                      <p class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                        <.phx_icon name="hero-cog-6-tooth" class="w-4 h-4 text-amber-500" />
-                        How it works
-                      </p>
-                      <ul class="text-sm text-slate-600 dark:text-slate-400 space-y-2">
-                        <li class="flex items-start gap-2">
-                          <.phx_icon
-                            name="hero-check-circle"
-                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                          />
-                          <span>
-                            Prompts are generated without sending any of your journal content
-                          </span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                          <.phx_icon
-                            name="hero-check-circle"
-                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                          />
-                          <span>
-                            Only basic context (like time of day) is used for relevant prompts
-                          </span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                          <.phx_icon
-                            name="hero-check-circle"
-                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                          />
-                          <span>Completely optional — use them when you want inspiration</span>
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-                </.liquid_card>
-
-                <%!-- Handwritten Upload Digitization --%>
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-[1.02] transition-all duration-300 ease-out h-full lg:col-span-2"
-                >
-                  <:title>
-                    <div class="flex items-center gap-4 mb-4">
-                      <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 shadow-lg">
-                        <.phx_icon name="hero-pencil" class="size-7 text-white" />
-                      </div>
-                      <div>
-                        <span class="bg-gradient-to-r from-teal-500 to-cyan-500 bg-clip-text text-transparent font-bold text-lg">
-                          Handwritten Journal Digitization
-                        </span>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">
-                          Journal feature • On-demand
-                        </p>
-                      </div>
-                    </div>
-                  </:title>
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="space-y-4">
-                      <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
-                        Upload photos of your handwritten journal pages and let AI transcribe them into digital text. Perfect for preserving old journals or switching between paper and digital.
-                      </p>
-                      <div class="flex items-center gap-2 text-xs text-teal-700 dark:text-teal-300 font-medium bg-teal-50 dark:bg-teal-900/30 px-3 py-2 rounded-lg">
-                        <.phx_icon name="hero-camera" class="w-4 h-4" />
-                        Just snap a photo of your handwritten page and upload
-                      </div>
-                    </div>
-                    <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
-                      <p class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                        <.phx_icon name="hero-cog-6-tooth" class="w-4 h-4 text-teal-500" />
-                        How it works
-                      </p>
-                      <ul class="text-sm text-slate-600 dark:text-slate-400 space-y-2">
-                        <li class="flex items-start gap-2">
-                          <.phx_icon
-                            name="hero-check-circle"
-                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                          />
-                          <span>Image is sent via OpenRouter with data retention disabled</span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                          <.phx_icon
-                            name="hero-check-circle"
-                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                          />
-                          <span>AI extracts the text from your handwriting</span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                          <.phx_icon
-                            name="hero-check-circle"
-                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                          />
-                          <span>Transcribed text is immediately encrypted with your key</span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                          <.phx_icon
-                            name="hero-check-circle"
-                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                          />
-                          <span>Original image is not stored — only the encrypted text remains</span>
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-                </.liquid_card>
-              </div>
-
-              <%!-- Technical Details Callout --%>
-              <div class="mt-12 max-w-4xl mx-auto">
-                <.liquid_card
-                  padding="lg"
-                  class="bg-gradient-to-br from-slate-50/80 via-slate-100/60 to-slate-50/80 dark:from-slate-800/60 dark:via-slate-700/40 dark:to-slate-800/60 border-slate-200/60 dark:border-slate-700/40"
-                >
-                  <div class="flex flex-col md:flex-row md:items-center gap-6">
-                    <div class="flex-shrink-0">
-                      <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-600 to-slate-700 shadow-lg">
-                        <.phx_icon name="hero-server-stack" class="h-7 w-7 text-white" />
-                      </div>
-                    </div>
-                    <div class="flex-1">
-                      <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">
-                        Technical Implementation
-                      </h3>
-                      <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                        AI requests are routed through
-                        <strong class="text-slate-900 dark:text-slate-100">OpenRouter</strong>
-                        with
-                        <code class="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 rounded text-xs text-slate-800 dark:text-slate-200">
-                          data_collection: "deny"
-                        </code>
-                        in provider preferences — meaning your content is never logged, stored, or used for training.                         Your data is then encrypted using
-                        <strong class="text-slate-900 dark:text-slate-100">
-                          zero-knowledge encryption
-                        </strong>
-                        — an open-source Rust cryptography library (metamorphic-crypto) compiled to WebAssembly encrypts your data directly in your browser, with post-quantum protection via
-                        <strong class="text-slate-900 dark:text-slate-100">ML-KEM-1024</strong>
-                        (NIST FIPS 203, Cat-5). Data is then wrapped in an additional layer of
-                        <strong class="text-slate-900 dark:text-slate-100">AES-256-GCM</strong>
-                        symmetric encryption at rest. Even our team cannot access your encrypted data.
-                      </p>
-                    </div>
-                  </div>
-                </.liquid_card>
-              </div>
-            </div>
-          </.liquid_container>
-
-          <%!-- Privacy & Encryption Deep Dive --%>
-          <.liquid_container max_width="full" class="mt-16">
-            <div class="text-center mb-12">
-              <h2 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-4xl bg-gradient-to-r from-purple-500 to-violet-500 bg-clip-text text-transparent">
-                Privacy built in from the start
+              <.section_eyebrow accent="cyan">Open social</.section_eyebrow>
+              <h2 class="mt-4 text-center text-3xl font-bold tracking-tight sm:text-4xl bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent">
+                Works with Bluesky
               </h2>
-              <p class="mt-4 text-lg leading-8 text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-                Strong encryption keeps your moments between you and the people you choose.
+              <p class="mx-auto mt-4 max-w-2xl text-center text-lg text-slate-600 dark:text-slate-400">
+                Bring your Bluesky posts in, cross-post out, and stay connected to the wider web — all while your private MOSSLET content stays encrypted and yours.
               </p>
-            </div>
 
-            <div class="grid max-w-xl mx-auto grid-cols-1 gap-8 lg:max-w-none lg:grid-cols-3">
-              <%!-- Strong Encryption --%>
-              <.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-4">
-                    <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-red-500 to-rose-500 shadow-lg">
-                      <.phx_icon name="hero-key" class="size-7 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-red-500 to-rose-500 bg-clip-text text-transparent font-bold">
-                      Strong Encryption
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  Your data is encrypted in your browser using an open-source Rust cryptography library compiled to WebAssembly. Post-quantum key wrapping (ML-KEM-1024, NIST Cat-5) protects against future quantum attacks, plus AES-256-GCM at rest provides double-layer protection.
-                </p>
-              </.liquid_card>
-
-              <%!-- Zero Knowledge --%>
-              <.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-4">
-                    <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 shadow-lg">
-                      <.phx_icon name="hero-eye-slash" class="size-7 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-green-500 to-emerald-500 bg-clip-text text-transparent font-bold">
-                      Your Data, Your Eyes Only
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  We designed MOSSLET so we can't read your posts, messages, or username. You control who sees what — that's how it should be.
-                </p>
-              </.liquid_card>
-
-              <%!-- User-Controlled Sharing --%>
-              <.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-4">
-                    <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 shadow-lg">
-                      <.phx_icon name="hero-user-group" class="size-7 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent font-bold">
-                      Share On Your Terms
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  Choose who sees each post: private, connections, or public. Set expiration dates for posts, and when you delete something, it's gone everywhere — instantly and completely.
-                </p>
-              </.liquid_card>
-            </div>
-
-            <%!-- Circles Chat Screenshots --%>
-            <div class="mt-16 mx-auto max-w-7xl px-6 lg:px-8">
-              <div class="flex items-center justify-center gap-3 mb-4">
-                <div class="h-px w-12 bg-gradient-to-r from-transparent to-rose-400 dark:to-rose-600">
-                </div>
-                <span class="text-sm font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400">
-                  Circles
-                </span>
-                <div class="h-px w-12 bg-gradient-to-l from-transparent to-rose-400 dark:to-rose-600">
-                </div>
-              </div>
-              <div class="text-center mb-12">
-                <h3 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl bg-gradient-to-r from-rose-500 to-pink-500 bg-clip-text text-transparent">
-                  Private group conversations
-                </h3>
-                <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-                  Create Circles for your closest groups — family, friends, or any community you choose.
-                </p>
-              </div>
-
-              <div class="relative mx-auto max-w-4xl">
-                <div class="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
-                  <div class="absolute inset-0 bg-gradient-to-tr from-rose-500/5 via-transparent to-pink-500/5 dark:from-rose-500/10 dark:to-pink-500/10">
-                  </div>
-                  <img
-                    src={~p"/images/screenshots/circles_chat_light.png"}
-                    alt="MOSSLET Circles - private group chat with your closest people"
-                    class="relative w-full h-auto dark:hidden"
-                  />
-                  <img
-                    src={~p"/images/screenshots/circles_chat_dark.png"}
-                    alt="MOSSLET Circles - private group chat with your closest people"
-                    class="relative w-full h-auto hidden dark:block"
-                  />
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 gap-8 md:grid-cols-3 max-w-5xl mx-auto mt-12">
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3 mb-4">
-                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-rose-500 to-pink-500 shadow-lg">
-                        <.phx_icon name="hero-key" class="h-5 w-5 text-white" />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        Circle-Level Encryption
-                      </span>
-                    </div>
-                  </:title>
-
-                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Each Circle is encrypted with its own unique private key. Our privacy-first architecture means we can't read your conversations — only Circle members can.
-                  </p>
-                </.liquid_card>
-
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3 mb-4">
-                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-pink-500 to-fuchsia-500 shadow-lg">
-                        <.phx_icon name="hero-bolt" class="h-5 w-5 text-white" />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        Realtime Updates
-                      </span>
-                    </div>
-                  </:title>
-
-                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Messages appear instantly as they're sent. Stay connected with live updates that keep everyone in the loop without refreshing.
-                  </p>
-                </.liquid_card>
-
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3 mb-4">
-                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-fuchsia-500 to-purple-500 shadow-lg">
-                        <.phx_icon name="hero-pencil-square" class="h-5 w-5 text-white" />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        Rich Messaging
-                      </span>
-                    </div>
-                  </:title>
-
-                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Express yourself with full Markdown support and an accessible emoji picker. A handy Markdown guide helps you format messages beautifully.
-                  </p>
-                </.liquid_card>
-              </div>
-            </div>
-          </.liquid_container>
-
-          <%!-- Zero-Knowledge Direct Messaging Section --%>
-          <.liquid_container
-            max_width="full"
-            class="relative mt-24 sm:mt-32 py-16 sm:py-20"
-            id="encrypted-messaging"
-          >
-            <div class="absolute inset-0 bg-gradient-to-b from-cyan-50/30 via-teal-50/20 to-transparent dark:from-cyan-950/20 dark:via-teal-950/10 dark:to-transparent">
-            </div>
-            <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
-              <div class="flex items-center justify-center gap-3 mb-4">
-                <div class="h-px w-12 bg-gradient-to-r from-transparent to-cyan-400 dark:to-cyan-600">
-                </div>
-                <span class="text-sm font-semibold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
-                  Messaging
-                </span>
-                <div class="h-px w-12 bg-gradient-to-l from-transparent to-cyan-400 dark:to-cyan-600">
-                </div>
-              </div>
-              <div class="text-center mb-12">
-                <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">
-                  Zero-knowledge direct messages
-                </h2>
-                <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-                  Private conversations that are truly private. Every message is encrypted in your browser with post-quantum protection before it reaches our servers — we store only encrypted blobs and never have access to your plaintext.
-                </p>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12">
-                <.liquid_card
-                  padding="lg"
-                  class="bg-gradient-to-br from-cyan-50/30 to-teal-50/20 dark:from-cyan-900/10 dark:to-teal-900/10 border-cyan-200/50 dark:border-cyan-700/25"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3">
-                      <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-teal-500 shadow-md">
-                        <.phx_icon name="hero-lock-closed" class="h-4.5 w-4.5 text-white" />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        How It Works
-                      </span>
-                    </div>
-                  </:title>
-                  <ul class="space-y-2.5">
-                    <li class="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
-                      <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-900/40">
-                        <.phx_icon
-                          name="hero-check-mini"
-                          class="h-3 w-3 text-cyan-600 dark:text-cyan-400"
-                        />
-                      </span>
-                      Each conversation generates a unique symmetric key (XSalsa20-Poly1305)
-                    </li>
-                    <li class="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
-                      <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-900/40">
-                        <.phx_icon
-                          name="hero-check-mini"
-                          class="h-3 w-3 text-cyan-600 dark:text-cyan-400"
-                        />
-                      </span>
-                      Your conversation key is encrypted with your public key and stored securely
-                    </li>
-                    <li class="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
-                      <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-900/40">
-                        <.phx_icon
-                          name="hero-check-mini"
-                          class="h-3 w-3 text-cyan-600 dark:text-cyan-400"
-                        />
-                      </span>
-                      Messages are encrypted client-side before reaching our servers
-                    </li>
-                    <li class="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
-                      <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-900/40">
-                        <.phx_icon
-                          name="hero-check-mini"
-                          class="h-3 w-3 text-cyan-600 dark:text-cyan-400"
-                        />
-                      </span>
-                      Images are safety-checked using privacy-respecting methods before encryption
-                    </li>
-                    <li class="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
-                      <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-900/40">
-                        <.phx_icon
-                          name="hero-check-mini"
-                          class="h-3 w-3 text-cyan-600 dark:text-cyan-400"
-                        />
-                      </span>
-                      Only participants with the conversation key can decrypt messages
-                    </li>
-                  </ul>
-                </.liquid_card>
-
-                <.liquid_card
-                  padding="lg"
-                  class="bg-gradient-to-br from-slate-50/40 to-slate-100/30 dark:from-slate-800/40 dark:to-slate-900/30 border-slate-200/50 dark:border-slate-700/25"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3">
-                      <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-slate-500 to-slate-600 dark:from-slate-400 dark:to-slate-500 shadow-md">
-                        <.phx_icon
-                          name="hero-eye-slash"
-                          class="h-4.5 w-4.5 text-white dark:text-slate-900"
-                        />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        What We Can't See
-                      </span>
-                    </div>
-                  </:title>
-                  <ul class="space-y-2.5">
-                    <li class="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
-                      <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-900/40">
-                        <.phx_icon
-                          name="hero-x-mark-mini"
-                          class="h-3 w-3 text-rose-500 dark:text-rose-400"
-                        />
-                      </span>
-                      Message content — we only store encrypted blobs
-                    </li>
-                    <li class="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
-                      <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-900/40">
-                        <.phx_icon
-                          name="hero-x-mark-mini"
-                          class="h-3 w-3 text-rose-500 dark:text-rose-400"
-                        />
-                      </span>
-                      Shared images — encrypted with the same conversation key
-                    </li>
-                    <li class="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
-                      <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-900/40">
-                        <.phx_icon
-                          name="hero-x-mark-mini"
-                          class="h-3 w-3 text-rose-500 dark:text-rose-400"
-                        />
-                      </span>
-                      Conversation keys — encrypted per-user with public key cryptography
-                    </li>
-                    <li class="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
-                      <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-900/40">
-                        <.phx_icon
-                          name="hero-x-mark-mini"
-                          class="h-3 w-3 text-rose-500 dark:text-rose-400"
-                        />
-                      </span>
-                      Your private keys — derived from your password, never stored
-                    </li>
-                  </ul>
-                </.liquid_card>
-              </div>
-
-              <div class="grid grid-cols-1 gap-8 md:grid-cols-3 max-w-5xl mx-auto">
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3 mb-4">
-                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-cyan-500 to-teal-500 shadow-lg">
-                        <.phx_icon name="hero-chat-bubble-left-right" class="h-5 w-5 text-white" />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        Real-Time Messaging
-                      </span>
-                    </div>
-                  </:title>
-
-                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Messages arrive instantly via WebSocket connections. Typing indicators, markdown support, and calm unread badges keep you connected — all without compromising encryption.
-                  </p>
-                </.liquid_card>
-
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3 mb-4">
-                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-teal-500 to-emerald-500 shadow-lg">
-                        <.phx_icon name="hero-photo" class="h-5 w-5 text-white" />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        Encrypted Image Sharing
-                      </span>
-                    </div>
-                  </:title>
-
-                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Share photos in your conversations with the same zero-knowledge encryption protecting every pixel. Images are encrypted in your browser with the conversation key and uploaded — our servers never see unencrypted content.
-                  </p>
-                </.liquid_card>
-
-                <.liquid_card
-                  padding="lg"
-                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
-                >
-                  <:title>
-                    <div class="flex items-center gap-3 mb-4">
-                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-emerald-500 to-green-500 shadow-lg">
-                        <.phx_icon name="hero-pencil-square" class="h-5 w-5 text-white" />
-                      </div>
-                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                        Block, Delete & Archive
-                      </span>
-                    </div>
-                  </:title>
-
-                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Full control over your conversations. Block or delete messages, archive conversations to keep things tidy, and everything syncs in real-time across all participants.
-                  </p>
-                </.liquid_card>
-              </div>
-            </div>
-          </.liquid_container>
-
-          <%!-- Features Section --%>
-          <.liquid_container max_width="full" class="mt-24">
-            <div class="text-center mb-16">
-              <h2 class="text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-5xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                What makes MOSSLET different?
-              </h2>
-              <p class="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
-                Social sharing built around what matters — genuine connection with the people you care about.
-              </p>
-            </div>
-
-            <%!-- Priority Features using liquid cards --%>
-            <div class="grid max-w-xl mx-auto grid-cols-1 gap-8 lg:max-w-none lg:grid-cols-3 mb-20">
-              <.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-4">
-                    <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 shadow-lg">
-                      <.phx_icon name="hero-heart" class="size-7 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent font-bold">
-                      Calm and Simple
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  A peaceful experience designed around you. Share moments with loved ones, then get back to living.
-                </p>
-              </.liquid_card>
-
-              <.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-4">
-                    <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 shadow-lg">
-                      <.phx_icon name="hero-shield-check" class="size-7 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent font-bold">
-                      Privacy First
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  Your moments stay between you and the people you choose. Strong encryption and simple privacy controls.
-                </p>
-              </.liquid_card>
-
-              <.liquid_card
-                padding="lg"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-4">
-                    <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-purple-500 to-violet-500 shadow-lg">
-                      <.phx_icon name="hero-adjustments-horizontal" class="size-7 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-purple-500 to-violet-500 bg-clip-text text-transparent font-bold">
-                      Back to Basics
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  Just the essentials for connecting and sharing. Simple, intuitive, no clutter.
-                </p>
-              </.liquid_card>
-            </div>
-
-            <%!-- Secondary Features Grid using liquid cards --%>
-            <div class="grid max-w-xl mx-auto grid-cols-1 gap-8 lg:max-w-none lg:grid-cols-2">
-              <.liquid_card
-                padding="md"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-3">
-                    <div class="flex size-10 items-center justify-center rounded-lg bg-gradient-to-r from-amber-500 to-orange-500">
-                      <.phx_icon name="hero-chart-pie" class="size-6 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent font-semibold">
-                      No Tracking
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  We don't build profiles or track behavior. Your activity stays private and isn't used to target you.
-                </p>
-              </.liquid_card>
-
-              <.liquid_card
-                padding="md"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-3">
-                    <div class="flex size-10 items-center justify-center rounded-lg bg-gradient-to-r from-cyan-500 to-teal-500">
-                      <.phx_icon name="hero-sparkles" class="size-6 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent font-semibold">
-                      Fresh Start Anytime
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  Clear your history and start fresh whenever you want without losing your account.
-                </p>
-              </.liquid_card>
-
-              <.liquid_card
-                padding="md"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-3">
-                    <div class="flex size-10 items-center justify-center rounded-lg bg-gradient-to-r from-rose-500 to-pink-500">
-                      <.phx_icon name="hero-sun" class="size-6 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-rose-500 to-pink-500 bg-clip-text text-transparent font-semibold">
-                      Honest Design
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  Clear, straightforward interface. No tricks or hidden complexity — just simple sharing.
-                </p>
-              </.liquid_card>
-
-              <.liquid_card
-                padding="md"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-3">
-                    <div class="flex size-10 items-center justify-center rounded-lg bg-gradient-to-r from-indigo-500 to-blue-500">
-                      <.phx_icon name="hero-user" class="size-6 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-indigo-500 to-blue-500 bg-clip-text text-transparent font-semibold">
-                      You Own Your Data
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  Your data is yours. Delete everything instantly, anytime — no questions asked.
-                </p>
-              </.liquid_card>
-
-              <.liquid_card
-                padding="md"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-3">
-                    <div class="flex size-10 items-center justify-center rounded-lg bg-gradient-to-r from-teal-500 to-emerald-500">
-                      <.phx_icon name="hero-hand-raised" class="size-6 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent font-semibold">
-                      Your Experience, Your Way
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  Full control over what you see and share. Customize your experience to fit your life.
-                </p>
-              </.liquid_card>
-
-              <.liquid_card
-                padding="md"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-3">
-                    <div class="flex size-10 items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500">
-                      <.phx_icon name="hero-bell" class="size-6 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent font-semibold">
-                      Gentle Notifications
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  In-app notifications that don't interrupt your day. Optional daily email digest — max 1 per day.
-                </p>
-              </.liquid_card>
-
-              <.liquid_card
-                padding="md"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-3">
-                    <div class="flex size-10 items-center justify-center rounded-lg bg-gradient-to-r from-purple-500 to-violet-500">
-                      <.phx_icon name="hero-lock-closed" class="size-6 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-purple-500 to-violet-500 bg-clip-text text-transparent font-semibold">
-                      Private by Default
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  Your account starts private. Choose what to share and with whom on your terms.
-                </p>
-              </.liquid_card>
-
-              <.liquid_card
-                padding="md"
-                class="group hover:scale-105 transition-all duration-300 ease-out"
-              >
-                <:title>
-                  <div class="flex items-center gap-3">
-                    <div class="flex size-10 items-center justify-center rounded-lg bg-gradient-to-r from-amber-500 to-orange-500">
-                      <.phx_icon name="hero-shield-check" class="size-6 text-white" />
-                    </div>
-                    <span class="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent font-semibold">
-                      Strong Encryption
-                    </span>
-                  </div>
-                </:title>
-                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  Multiple layers of encryption protect your content. Your data stays secure and private.
-                </p>
-              </.liquid_card>
-            </div>
-          </.liquid_container>
-
-          <%!-- Bluesky Interoperability Section --%>
-          <.liquid_container max_width="full" class="mt-24 sm:mt-32" id="bluesky-interop">
-            <div class="mx-auto max-w-7xl px-6 lg:px-8">
-              <div class="flex items-center justify-center gap-3 mb-4">
-                <div class="h-px w-12 bg-gradient-to-r from-transparent to-sky-400 dark:to-sky-600">
-                </div>
-                <span class="text-sm font-semibold uppercase tracking-wider text-sky-600 dark:text-sky-400">
-                  Open Social
-                </span>
-                <div class="h-px w-12 bg-gradient-to-l from-transparent to-sky-400 dark:to-sky-600">
-                </div>
-              </div>
-              <div class="text-center mb-12">
-                <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-sky-500 to-blue-500 bg-clip-text text-transparent">
-                  Bluesky Interoperability
-                </h2>
-                <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
-                  Mosslet becomes your private "source of truth" for social posts. Import from Bluesky, export to Bluesky, and maintain true data ownership with zero-knowledge encryption that means we can't read your private content.
-                </p>
-              </div>
-
-              <%!-- Main value prop cards --%>
-              <div class="grid grid-cols-1 gap-8 lg:grid-cols-2 max-w-5xl mx-auto mb-16">
-                <.liquid_card
-                  padding="lg"
-                  class="bg-gradient-to-br from-sky-50/40 via-blue-50/30 to-indigo-50/40 dark:from-sky-900/15 dark:via-blue-900/10 dark:to-indigo-900/15 border-sky-200/60 dark:border-sky-700/30"
-                >
-                  <:title>
-                    <div class="flex items-center gap-4 mb-4">
-                      <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-500 shadow-lg shadow-sky-500/30">
-                        <.phx_icon name="hero-arrow-down-tray" class="h-6 w-6 text-white" />
-                      </div>
-                      <span class="text-xl font-bold text-slate-900 dark:text-slate-100">
-                        Import from Bluesky
-                      </span>
-                    </div>
-                  </:title>
-                  <p class="text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
-                    Bring your Bluesky posts into Mosslet with a single click. Choose your visibility level — public, connections-only, or completely private.
-                  </p>
-                  <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-400">
-                    <li class="flex items-start gap-2">
-                      <.phx_icon
-                        name="hero-check-circle"
-                        class="h-5 w-5 text-sky-500 shrink-0 mt-0.5"
-                      />
-                      <span>Full content import including images</span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                      <.phx_icon
-                        name="hero-check-circle"
-                        class="h-5 w-5 text-sky-500 shrink-0 mt-0.5"
-                      />
-                      <span>All content moderated through same safety pipelines</span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                      <.phx_icon
-                        name="hero-check-circle"
-                        class="h-5 w-5 text-sky-500 shrink-0 mt-0.5"
-                      />
-                      <span>Background sync for public posts, manual for private</span>
-                    </li>
-                  </ul>
-                </.liquid_card>
-
-                <.liquid_card
-                  padding="lg"
-                  class="bg-gradient-to-br from-blue-50/40 via-indigo-50/30 to-violet-50/40 dark:from-blue-900/15 dark:via-indigo-900/10 dark:to-violet-900/15 border-blue-200/60 dark:border-blue-700/30"
-                >
-                  <:title>
-                    <div class="flex items-center gap-4 mb-4">
-                      <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 shadow-lg shadow-blue-500/30">
-                        <.phx_icon name="hero-arrow-up-tray" class="h-6 w-6 text-white" />
-                      </div>
-                      <span class="text-xl font-bold text-slate-900 dark:text-slate-100">
-                        Export to Bluesky
-                      </span>
-                    </div>
-                  </:title>
-                  <p class="text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
-                    Publish your Mosslet posts to Bluesky for broader reach. Use the open social web for discovery while keeping Mosslet as your private home base.
-                  </p>
-                  <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-400">
-                    <li class="flex items-start gap-2">
-                      <.phx_icon
-                        name="hero-check-circle"
-                        class="h-5 w-5 text-blue-500 shrink-0 mt-0.5"
-                      />
-                      <span>Automatic sync for public posts via background workers</span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                      <.phx_icon
-                        name="hero-check-circle"
-                        class="h-5 w-5 text-blue-500 shrink-0 mt-0.5"
-                      />
-                      <span>Session-based export for private posts (your keys required)</span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                      <.phx_icon
-                        name="hero-check-circle"
-                        class="h-5 w-5 text-blue-500 shrink-0 mt-0.5"
-                      />
-                      <span>Full OAuth with secure token management</span>
-                    </li>
-                  </ul>
-                </.liquid_card>
-              </div>
-
-              <%!-- Technical privacy explanation --%>
-              <.liquid_card
-                padding="lg"
-                class="max-w-4xl mx-auto bg-gradient-to-br from-indigo-50/40 via-violet-50/30 to-purple-50/40 dark:from-indigo-900/15 dark:via-violet-900/10 dark:to-purple-900/15 border-indigo-200/60 dark:border-indigo-700/30"
-              >
-                <:title>
-                  <div class="flex items-center gap-4 mb-4">
-                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 shadow-lg shadow-indigo-500/30">
-                      <.phx_icon name="hero-lock-closed" class="h-6 w-6 text-white" />
-                    </div>
-                    <span class="text-xl font-bold text-slate-900 dark:text-slate-100">
-                      Why Asymmetric Encryption Matters
-                    </span>
-                  </div>
-                </:title>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div>
-                    <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 mb-3">
-                      For Private & Connections Posts
-                    </h3>
-                    <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-3">
-                      Your posts are encrypted with your personal key pair. Only you (and people you explicitly share with) can decrypt them — not Mosslet, not Bluesky, not anyone.
-                    </p>
-                    <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                      This is why private imports and exports require your active session: <span class="font-medium text-indigo-600 dark:text-indigo-400">we literally don't have the keys</span>.
-                    </p>
-                  </div>
-                  <div>
-                    <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 mb-3">
-                      The Result: No Lock-In, Anywhere
-                    </h3>
-                    <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-400">
-                      <li class="flex items-start gap-2">
-                        <.phx_icon name="hero-check" class="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
-                        <span>Use Bluesky for reach and discovery</span>
-                      </li>
-                      <li class="flex items-start gap-2">
-                        <.phx_icon name="hero-check" class="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
-                        <span>Use Mosslet for ownership, control, and privacy</span>
-                      </li>
-                      <li class="flex items-start gap-2">
-                        <.phx_icon name="hero-check" class="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
-                        <span>Leave either platform and keep your content</span>
-                      </li>
-                      <li class="flex items-start gap-2">
-                        <.phx_icon name="hero-check" class="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
-                        <span>Your data is yours — take it wherever you go</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </.liquid_card>
-
-              <%!-- Visual representation of the flow --%>
-              <div class="mt-16 text-center">
-                <div class="inline-flex flex-wrap items-center justify-center gap-4 text-sm font-medium">
-                  <div class="flex items-center gap-2 px-4 py-2 rounded-full bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300">
+              <div class="mx-auto mt-12 max-w-3xl">
+                <.liquid_card padding="lg" class="text-center">
+                  <div class="flex flex-col sm:flex-row items-center justify-center gap-6">
                     <img
                       src={~p"/images/landing_page/bluesky_logo.png"}
-                      alt="Bluesky"
-                      class="h-5 w-5"
+                      alt="Bluesky logo"
+                      class="h-12 w-12 object-contain"
                     />
-                    <span>Bluesky</span>
+                    <.phx_icon
+                      name="hero-arrows-right-left"
+                      class="h-7 w-7 text-cyan-500 dark:text-cyan-400"
+                    />
+                    <img
+                      src={~p"/images/logo.svg"}
+                      alt="MOSSLET logo"
+                      class="h-12 w-12 object-contain"
+                    />
+                    <.phx_icon
+                      name="hero-arrow-right"
+                      class="h-7 w-7 text-emerald-500 hidden sm:block"
+                    />
+                    <span class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                      You own your data
+                    </span>
                   </div>
-                  <.phx_icon name="hero-arrows-right-left" class="h-5 w-5 text-slate-400" />
-                  <div class="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
-                    <.phx_icon name="hero-lock-closed" class="h-5 w-5" />
-                    <span>Mosslet (Encrypted)</span>
-                  </div>
-                  <span class="text-slate-500 dark:text-slate-400">=</span>
-                  <div class="flex items-center gap-2 px-4 py-2 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300">
-                    <.phx_icon name="hero-shield-check" class="h-5 w-5" />
-                    <span>You Own Your Data</span>
-                  </div>
-                </div>
+                  <p class="mt-6 text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Import and export run through your own connected account. Public posts can cross-post to Bluesky; everything you keep private on MOSSLET stays zero-knowledge encrypted.
+                  </p>
+                </.liquid_card>
               </div>
             </div>
           </.liquid_container>
 
-          <%!-- Referral Program Section --%>
-          <.liquid_container max_width="xl" class="mt-24">
+          <%!-- Referral — condensed --%>
+          <.liquid_container max_width="xl" class="relative mt-16 sm:mt-24">
             <div class="mx-auto max-w-4xl">
               <.liquid_card
                 padding="lg"
@@ -2483,28 +660,12 @@ defmodule MossletWeb.PublicLive.Features do
                     </div>
                   </div>
                   <div class="flex-1">
-                    <div class="flex flex-wrap items-center gap-3 mb-2">
-                      <h3 class="text-xl font-bold text-slate-900 dark:text-slate-100">
-                        Get paid to share what you love
-                      </h3>
-                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+                      Get paid to share what you love
+                    </h3>
                     <p class="text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
-                      When's the last time your social network paid you? With MOSSLET's referral program, you earn real money when friends join — all while maintaining our privacy-first encryption architecture.
+                      When's the last time your social network paid you? Earn commissions when friends join — and they save 20% too. 15% recurring, 20% on lifetime, paid directly via Stripe.
                     </p>
-                    <div class="flex flex-wrap items-center gap-4 text-sm">
-                      <div class="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
-                        <.phx_icon name="hero-arrow-path" class="h-4 w-4" />
-                        <span>
-                          <span class="font-semibold">15%</span> recurring on subscriptions
-                        </span>
-                      </div>
-                      <div class="flex items-center gap-2 text-amber-700 dark:text-amber-300">
-                        <.phx_icon name="hero-bolt" class="h-4 w-4" />
-                        <span>
-                          <span class="font-semibold">20%</span> on lifetime purchases
-                        </span>
-                      </div>
-                    </div>
                   </div>
                   <div class="flex-shrink-0">
                     <.liquid_button
@@ -2521,8 +682,8 @@ defmodule MossletWeb.PublicLive.Features do
             </div>
           </.liquid_container>
 
-          <%!-- Call to action section matching pricing and in-the-know style --%>
-          <.liquid_container max_width="xl" class="mt-32 sm:mt-48">
+          <%!-- Final CTA --%>
+          <.liquid_container max_width="xl" class="relative mt-24 sm:mt-32">
             <div class="mx-auto max-w-4xl">
               <.liquid_card
                 padding="lg"
@@ -2534,10 +695,9 @@ defmodule MossletWeb.PublicLive.Features do
                   </span>
                 </:title>
                 <p class="mt-6 text-lg leading-8 text-slate-700 dark:text-slate-300 max-w-2xl mx-auto">
-                  Join people who've found a simpler, more meaningful way to stay connected with friends and family.
+                  Start sharing in a calm, private space that's genuinely yours. No ads, no algorithms, no one watching.
                 </p>
 
-                <%!-- Action buttons with enhanced spacing and layout --%>
                 <div class="mt-10 flex flex-col sm:flex-row sm:items-center sm:justify-center gap-6">
                   <.liquid_button
                     navigate="/auth/register"
@@ -2545,7 +705,6 @@ defmodule MossletWeb.PublicLive.Features do
                     icon="hero-rocket-launch"
                     color="teal"
                     variant="primary"
-                    class="group/btn"
                   >
                     Get Started Today
                   </.liquid_button>
@@ -2555,16 +714,14 @@ defmodule MossletWeb.PublicLive.Features do
                     color="blue"
                     icon="hero-banknotes"
                     size="lg"
-                    class="group/btn"
                   >
-                    See Pricing Options
+                    See Pricing
                   </.liquid_button>
                 </div>
 
-                <%!-- Trust indicator --%>
                 <div class="mt-8 pt-6 border-t border-slate-200/60 dark:border-slate-700/60">
                   <p class="text-sm text-slate-600 dark:text-slate-400">
-                    Lifetime access • Privacy-first design • Human support team
+                    Free trial • 30-day money-back guarantee • Human support
                   </p>
                 </div>
               </.liquid_card>
@@ -2578,6 +735,134 @@ defmodule MossletWeb.PublicLive.Features do
     </.layout>
     """
   end
+
+  attr :accent, :string, default: "teal", values: ~w(teal emerald cyan violet)
+  slot :inner_block, required: true
+
+  defp section_eyebrow(assigns) do
+    ~H"""
+    <div class="flex items-center justify-center gap-3">
+      <div class={[
+        "h-px w-12 bg-gradient-to-r from-transparent",
+        eyebrow_line_class(@accent)
+      ]}>
+      </div>
+      <span class={[
+        "text-sm font-semibold uppercase tracking-wider",
+        eyebrow_text_class(@accent)
+      ]}>
+        {render_slot(@inner_block)}
+      </span>
+      <div class={[
+        "h-px w-12 bg-gradient-to-l from-transparent",
+        eyebrow_line_class(@accent)
+      ]}>
+      </div>
+    </div>
+    """
+  end
+
+  attr :eyebrow, :string, required: true
+  attr :icon, :string, required: true
+  attr :title, :string, required: true
+  attr :body, :string, required: true
+  attr :image_light, :string, required: true
+  attr :image_dark, :string, required: true
+  attr :image_alt, :string, required: true
+  attr :accent, :string, default: "teal", values: ~w(teal emerald cyan violet)
+  attr :reverse, :boolean, default: false
+
+  defp feature_row(assigns) do
+    ~H"""
+    <div class={[
+      "flex flex-col gap-10 lg:gap-16 lg:items-center",
+      if(@reverse, do: "lg:flex-row-reverse", else: "lg:flex-row")
+    ]}>
+      <div class="flex-1">
+        <div class="flex items-center gap-3 mb-4">
+          <div class={[
+            "flex h-11 w-11 items-center justify-center rounded-xl shadow-sm bg-gradient-to-br",
+            icon_gradient_class(@accent)
+          ]}>
+            <.phx_icon name={@icon} class="h-6 w-6 text-white" />
+          </div>
+          <span class={["text-sm font-semibold uppercase tracking-wider", eyebrow_text_class(@accent)]}>
+            {@eyebrow}
+          </span>
+        </div>
+        <h3 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
+          {@title}
+        </h3>
+        <p class="mt-4 text-lg leading-relaxed text-slate-600 dark:text-slate-400">
+          {@body}
+        </p>
+      </div>
+
+      <div class="flex-1">
+        <div class={[
+          "rounded-2xl overflow-hidden ring-1 shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30",
+          ring_class(@accent)
+        ]}>
+          <img src={@image_light} alt={@image_alt} class="w-full dark:hidden" loading="lazy" />
+          <img src={@image_dark} alt={@image_alt} class="w-full hidden dark:block" loading="lazy" />
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  attr :icon, :string, required: true
+  attr :title, :string, required: true
+  attr :body, :string, required: true
+  attr :accent, :string, default: "violet", values: ~w(teal emerald cyan violet purple)
+
+  defp simple_feature_card(assigns) do
+    ~H"""
+    <.liquid_card
+      padding="lg"
+      class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+    >
+      <:title>
+        <div class="flex items-center gap-3 mb-2">
+          <div class={[
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm bg-gradient-to-br",
+            icon_gradient_class(@accent)
+          ]}>
+            <.phx_icon name={@icon} class="h-5 w-5 text-white" />
+          </div>
+          <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+            {@title}
+          </span>
+        </div>
+      </:title>
+      <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+        {@body}
+      </p>
+    </.liquid_card>
+    """
+  end
+
+  defp eyebrow_line_class("teal"), do: "to-teal-400 dark:to-teal-600"
+  defp eyebrow_line_class("emerald"), do: "to-emerald-400 dark:to-emerald-600"
+  defp eyebrow_line_class("cyan"), do: "to-cyan-400 dark:to-cyan-600"
+  defp eyebrow_line_class("violet"), do: "to-violet-400 dark:to-violet-600"
+
+  defp eyebrow_text_class("teal"), do: "text-teal-600 dark:text-teal-400"
+  defp eyebrow_text_class("emerald"), do: "text-emerald-600 dark:text-emerald-400"
+  defp eyebrow_text_class("cyan"), do: "text-cyan-600 dark:text-cyan-400"
+  defp eyebrow_text_class("violet"), do: "text-violet-600 dark:text-violet-400"
+  defp eyebrow_text_class("purple"), do: "text-purple-600 dark:text-purple-400"
+
+  defp icon_gradient_class("teal"), do: "from-teal-500 to-emerald-500"
+  defp icon_gradient_class("emerald"), do: "from-emerald-500 to-cyan-500"
+  defp icon_gradient_class("cyan"), do: "from-cyan-500 to-blue-500"
+  defp icon_gradient_class("violet"), do: "from-violet-500 to-purple-500"
+  defp icon_gradient_class("purple"), do: "from-purple-500 to-pink-500"
+
+  defp ring_class("teal"), do: "ring-teal-200/50 dark:ring-teal-700/40"
+  defp ring_class("emerald"), do: "ring-emerald-200/50 dark:ring-emerald-700/40"
+  defp ring_class("cyan"), do: "ring-cyan-200/50 dark:ring-cyan-700/40"
+  defp ring_class("violet"), do: "ring-violet-200/50 dark:ring-violet-700/40"
 
   @impl true
   def mount(_params, _session, socket) do

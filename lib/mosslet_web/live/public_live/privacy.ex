@@ -233,7 +233,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                         Renowned author and CEW Professor Emerita at Harvard Business School, Shoshana Zuboff, dedicated 12 years to unmasking and naming the "emergence of a fundamentally anti-democratic economic logic" that she calls <.link
                           navigate="https://shoshanazuboff.com/book/about/"
                           target="_blank"
-                          rel="_noopener"
+                          rel="noopener"
                           class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300"
                         >surveillance capitalism</.link>. Thanks to her we now have a framework around which to guide our efforts at preserving a more human future.
                       </p>
@@ -242,7 +242,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                         <.link
                           navigate="https://bookshop.org/a/14891/9781984854636"
                           target="_blank"
-                          rel="_noopener"
+                          rel="noopener"
                           class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300"
                         >
                           book
@@ -337,7 +337,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                         (avatars, photos, images) is encrypted in your browser before upload using our open-source Rust cryptography library (compiled to WebAssembly). The encrypted blob is then stored on a decentralized cloud network by <.link
                           navigate="https://tigrisdata.com"
                           target="_blank"
-                          rel="_noopener"
+                          rel="noopener"
                           class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                         >Tigris</.link>. Our servers never see the unencrypted content. Each file is then split into 80 pieces and stored on different nodes — all with different operators, power supplies, networks, and geographies.
                       </p>
@@ -351,7 +351,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                         (text, messages, email, name, etc.) is encrypted in your browser using our open-source Rust WASM cryptography module before being sent to our servers. The encrypted data is stored on databases managed by our hosting provider on an internal and private network encrypted with <.link
                           navigate="https://en.wikipedia.org/wiki/WireGuard"
                           target="_blank"
-                          rel="_noopener"
+                          rel="noopener"
                           class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                         >WireGuard</.link>. The data arrives already encrypted (zero-knowledge), is then wrapped in another layer of symmetric encryption by our server, and stored in the database. Your email is also hashed for look-up functionality.
                       </p>
@@ -475,7 +475,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                         navigate="https://github.com/moss-piglet/metamorphic-crypto"
                         class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                         target="_blank"
-                        rel="_noopener"
+                        rel="noopener"
                       >metamorphic-crypto</.link>), which compiles to both WebAssembly (for your browser) and native code (for our server) — the same auditable code everywhere.
                     </p>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -619,7 +619,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                         navigate="https://spreadprivacy.com/browser-fingerprinting/"
                         class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                         target="_blank"
-                        rel="_noopener"
+                        rel="noopener"
                       >
                         fingerprinting
                       </.link>
@@ -707,7 +707,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                           href="https://stripe.com"
                           class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                           target="_blank"
-                          rel="_noopener"
+                          rel="noopener"
                         >
                           Stripe
                         </a>
@@ -715,12 +715,12 @@ defmodule MossletWeb.PublicLive.Privacy do
                           class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                           href="https://stripe.com/climate"
                           target="_blank"
-                          rel="_noopener"
+                          rel="noopener"
                         >climate initiative</a>, and strong <a
                           class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                           href="https://stripe.com/privacy"
                           target="_blank"
-                          rel="_noopener"
+                          rel="noopener"
                         >data policies</a>.
                       </p>
                       <p class="mt-2">
@@ -770,7 +770,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                                 class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                                 href="https://www.torproject.org/"
                                 target="_blank"
-                                rel="_noopener"
+                                rel="noopener"
                               >
                                 Tor
                               </a>
@@ -787,7 +787,7 @@ defmodule MossletWeb.PublicLive.Privacy do
 
                       <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                         <p class="text-sm">
-                          While it is very difficult to minimize metadata, the metadata that can be gleamed from your Stripe payment (with the proper court orders) does not change the fact that only you can access the contents of your account.
+                          While it is very difficult to minimize metadata, the metadata that can be gleaned from your Stripe payment (with the proper court orders) does not change the fact that only you can access the contents of your account.
                         </p>
                         <p class="text-sm mt-2">
                           Again, it is important to remember that none of this metadata can give someone access to your account or provide them with the actual information in your account.
@@ -835,7 +835,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                           class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                           href="https://clickclickclick.click/"
                           target="_blank"
-                          rel="_noopener"
+                          rel="noopener"
                         >
                           ClickClickClick
                         </a>
@@ -847,7 +847,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                           class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                           href="https://usefathom.com/ref/6PUHXH"
                           target="_blank"
-                          rel="_noopener"
+                          rel="noopener"
                         >
                           Fathom Analytics
                         </a>

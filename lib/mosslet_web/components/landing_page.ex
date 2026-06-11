@@ -3572,7 +3572,7 @@ defmodule MossletWeb.Components.LandingPage do
                 <dd class="mt-2 text-base leading-7 text-gray-600 dark:text-gray-400">
                   Your data is stored in our secure, private database network that is distributed and run by our hardware provider <.link
                     href="https://fly.io"
-                    rel="_noopener"
+                    rel="noopener"
                     target="_blank"
                     class="text-emerald-600 hover:text-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300"
                   >
@@ -3581,7 +3581,7 @@ defmodule MossletWeb.Components.LandingPage do
                 <dd class="mt-4 text-base leading-7 text-gray-600 dark:text-gray-400">
                   Any media data, like Memories and avatars (photos), are stored with our private, decentralized cloud storage provider <.link
                     href="https://tigrisdata.com"
-                    rel="_noopener"
+                    rel="noopener"
                     target="_blank"
                     class="text-emerald-600 hover:text-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300"
                   >
@@ -4116,7 +4116,7 @@ defmodule MossletWeb.Components.LandingPage do
                 <dd class="mt-2 text-base leading-7 text-gray-600 dark:text-gray-400">
                   Your data is stored in our secure, private database network that is distributed and run by our hardware provider <.link
                     href="https://fly.io"
-                    rel="_noopener"
+                    rel="noopener"
                     target="_blank"
                     class="text-emerald-600 hover:text-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300"
                   >
@@ -4125,7 +4125,7 @@ defmodule MossletWeb.Components.LandingPage do
                 <dd class="mt-4 text-base leading-7 text-gray-600 dark:text-gray-400">
                   Any media data, like Memories and avatars (photos), are stored with our private, decentralized cloud storage provider <.link
                     href="https://tigrisdata.com"
-                    rel="_noopener"
+                    rel="noopener"
                     target="_blank"
                     class="text-emerald-600 hover:text-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300"
                   >

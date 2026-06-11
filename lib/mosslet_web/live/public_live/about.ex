@@ -135,40 +135,53 @@ defmodule MossletWeb.PublicLive.About do
               <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                 Our mission
               </h2>
-              <div class="mt-6 flex flex-col gap-x-8 gap-y-20 lg:flex-row">
+              <div class="mt-6 flex flex-col gap-x-12 gap-y-16 lg:flex-row">
                 <div class="lg:w-full lg:max-w-2xl lg:flex-auto">
                   <p class="text-xl/8 text-slate-600 dark:text-slate-400">
-                    We are part of the growing community for simple and ethical software choices. We think social networks shouldn't operate at the expense of your privacy and dignity. Apparently, that's a hot take for a world accustomed to modern social media.
+                    Social networks shouldn't cost you your privacy or your dignity. Apparently that's a hot take — so we built the alternative ourselves.
                   </p>
-                  <p class="mt-10 max-w-xl text-base/7 text-slate-700 dark:text-slate-300">
-                    The alarming trend of authorities targeting individuals because of their opinions expressed online adds to the concern. The utilization of personal photographs, including those of minors, for the training of AI systems presents serious dangers as well. None of this is inevitable. People make these systems and people can change them. We aim to provide a safer, private online space where you can connect without being monitored or having your humanity sold to the highest bidder.
+                  <p class="mt-8 max-w-xl text-base/7 text-slate-700 dark:text-slate-300">
+                    None of what's wrong with social media is inevitable. People built these systems, and people can build better ones. MOSSLET is a calm, private place to share with the people you love — without being watched, profiled, or sold to the highest bidder.
                   </p>
                 </div>
+
+                <%!-- What we stand for — qualitative, verifiable, not invented metrics --%>
                 <div class="lg:flex lg:flex-auto lg:justify-center">
-                  <dl class="w-64 space-y-8 xl:w-80">
-                    <div class="flex flex-col-reverse gap-y-4">
-                      <dt class="text-base/7 text-slate-600 dark:text-slate-400">
-                        Data brokers thwarted
-                      </dt>
-                      <dd class="text-5xl font-semibold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                        2,230
-                      </dd>
+                  <dl class="w-full max-w-sm space-y-6">
+                    <div class="flex items-start gap-4">
+                      <div class="flex size-10 flex-none items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 shadow-sm shadow-emerald-500/30">
+                        <.phx_icon name="hero-no-symbol" class="size-5 text-white" />
+                      </div>
+                      <div>
+                        <dt class="font-semibold text-slate-900 dark:text-slate-100">No ads, ever</dt>
+                        <dd class="text-sm/6 text-slate-600 dark:text-slate-400">
+                          You're our customer, not our product. We're funded by members, not advertisers.
+                        </dd>
+                      </div>
                     </div>
-                    <div class="flex flex-col-reverse gap-y-4">
-                      <dt class="text-base/7 text-slate-600 dark:text-slate-400">
-                        Protected every 24 hours
-                      </dt>
-                      <dd class="text-5xl font-semibold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                        775 mb
-                      </dd>
+                    <div class="flex items-start gap-4">
+                      <div class="flex size-10 flex-none items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 shadow-sm shadow-teal-500/30">
+                        <.phx_icon name="hero-banknotes" class="size-5 text-white" />
+                      </div>
+                      <div>
+                        <dt class="font-semibold text-slate-900 dark:text-slate-100">No investors</dt>
+                        <dd class="text-sm/6 text-slate-600 dark:text-slate-400">
+                          No venture capital, no board, no pressure to monetize you. Just a family who answers to you.
+                        </dd>
+                      </div>
                     </div>
-                    <div class="flex flex-col-reverse gap-y-4">
-                      <dt class="text-base/7 text-slate-600 dark:text-slate-400">
-                        Data collection companies blocked
-                      </dt>
-                      <dd class="text-5xl font-semibold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                        186,892
-                      </dd>
+                    <div class="flex items-start gap-4">
+                      <div class="flex size-10 flex-none items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 shadow-sm shadow-cyan-500/30">
+                        <.phx_icon name="hero-lock-closed" class="size-5 text-white" />
+                      </div>
+                      <div>
+                        <dt class="font-semibold text-slate-900 dark:text-slate-100">
+                          Nothing to sell
+                        </dt>
+                        <dd class="text-sm/6 text-slate-600 dark:text-slate-400">
+                          Your data is encrypted in your browser before it reaches us — we genuinely can't read it, let alone sell it.
+                        </dd>
+                      </div>
                     </div>
                   </dl>
                 </div>
@@ -298,36 +311,27 @@ defmodule MossletWeb.PublicLive.About do
                 We don't chase venture capital or need investors — we're customer-funded and family-owned. We believe in building a sustainable business that puts people first, not profits. Our team is small but mighty, and we take pride in our work.
               </p>
               <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
-                MOSSLET is run by Mark (developer) and Isabella (marketing). We're located in the United States and take pride in our work. We're always listening to our customers and making decisions for features and improvements based on what you tell us.
+                MOSSLET is run by Mark (developer) and Isabella (marketing) from the United States. We're always listening, and we build new features based on what you tell us.
               </p>
               <h3 class="mt-10 font-semibold text-lg font-bold tracking-tight text-pretty sm:text-xl lg:text-2xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                 Privacy is our business model
               </h3>
               <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
-                It's simple, you pay us
-                and we provide you with a service that respects and protects your digital privacy. That's it. We're not in this to get-rich-quick or take the big exit — we're here for the long haul, for you (and us!).
+                It's simple: you pay us, and we give you a service that respects and protects your privacy. That's the whole deal. We're not chasing a quick exit — we're here for the long haul, for you (and us!).
               </p>
               <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
-                We use MOSSLET and trust it with our own families (unlike the leaders of Big Tech who knowingly forbid their children from using their services). We're tired of data collection business models and their influence on our lives. We're tired of never-ending subscription fees, making the cost for a service increase the longer you use it, yikes! We think you're tired too, which is why you're probably here.
+                We use MOSSLET and trust it with our own families — unlike the Big Tech leaders who quietly keep their own kids off the apps they build. We're tired of business models built on harvesting your life, and so are you. That's probably why you're here.
               </p>
 
               <h3 class="mt-10 font-semibold text-lg font-bold tracking-tight text-pretty sm:text-xl lg:text-2xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                 Hope for a human future
               </h3>
               <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
-                MOSSLET is our hope for a better internet and a more human future.
+                We want a future where you're a person, not raw material — free to share with the people you love without it quietly shaping your credit score, your insurance premium, or your job prospects.
               </p>
 
               <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
-                A future where you are not raw material in a soul-plundering, mind-shredding, behavior-controlling economic pipeline. In this future you are free to think, feel, believe, and behave as yourself. You can share with your loved ones and not watch your credit score, insurace premium, job opportunties, prison sentences, mortage qualifications, and airline prices be negatively affected.
-              </p>
-
-              <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
-                It is a future with a shared reality, with empathy and compassion, with critical thinking. It is a future for everyone, for you and me. It is a future necessary for healthy and prosperous societies, a future necessary for life on Earth.
-              </p>
-
-              <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
-                MOSSLET is our small step toward this future. We hope you'll join us.
+                A future with shared reality, empathy, and room to think. A future that's good for people, and good for the world. MOSSLET is our small step toward it — we hope you'll join us.
               </p>
               <div class="mt-8 flex flex-col sm:flex-row gap-4 items-start">
                 <div class="flex-1">

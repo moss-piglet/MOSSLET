@@ -21,7 +21,7 @@ defmodule MossletWeb.Components.Copyright do
             class="text-gray-500 underline dark:text-gray-300"
             href="https://mosspiglet.dev"
             target="_blank"
-            rel="_noopener"
+            rel="noopener"
           >Moss Piglet Corporation</a>. &copy; 2023 All rights reserved.
         </span>
       </span>

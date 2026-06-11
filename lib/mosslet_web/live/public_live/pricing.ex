@@ -50,12 +50,12 @@ defmodule MossletWeb.PublicLive.Pricing do
           <.liquid_container max_width="xl" section_padding class="mt-32 sm:mt-40">
             <div class="text-center mb-16">
               <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl text-slate-900 dark:text-white">
-                <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                  $700+ per year
-                </span>
+                Pay us, not with your privacy
               </h2>
               <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
-                That's how much your personal data was worth more than 3 years ago. And it's only going up. This means you are paying more than $700 per year to share a photo on Instagram or Facebook, search on Google, watch a video on YouTube, or dance on TikTok.
+                When you pay for MOSSLET, we work for you — no ads, no tracking, no algorithm deciding what you see. The big "free" apps cost you something quieter: your personal data was valued at
+                <span class="font-semibold text-slate-900 dark:text-slate-100">$700+ per year</span>
+                over three years ago, and it's only climbed since. Here you keep the money and the data.
               </p>
             </div>
 
