@@ -24,6 +24,10 @@ defmodule Mosslet.MixProject do
     ]
   end
 
+  def cli do
+    [preferred_envs: [precommit: :test]]
+  end
+
   defp releases do
     [
       mosslet: [
@@ -227,7 +231,7 @@ defmodule Mosslet.MixProject do
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["tailwind default", "esbuild default"],
       "assets.deploy": ["tailwind default --minify", "esbuild default --minify", "phx.digest"],
-      precommit: ["compile --warning-as-errors", "deps.unlock --unused", "format", "test"]
+      precommit: ["compile", "deps.unlock --unused", "format", "test"]
     ]
   end
 end

@@ -198,6 +198,58 @@ defmodule Mosslet.TimelineTest do
       post = post_fixture(%{}, user: user, key: key)
       assert %Ecto.Changeset{} = Timeline.change_post(post)
     end
+
+    test "decrypt_post_favs_list/3 round-trips the encrypted favs_list to plaintext user ids", %{
+      user: user,
+      key: key
+    } do
+      post =
+        post_fixture(%{visibility: :connections}, user: user, key: key)
+        |> Mosslet.Repo.preload([:user_posts])
+
+      # Adding a fav encrypts each user id into the stored favs_list.
+      assert {:ok, _post} =
+               Timeline.update_post_fav(
+                 post,
+                 %{favs_list: [user.id], favs_count: 1},
+                 user: user,
+                 key: key,
+                 post_key: Timeline.get_post_sealed_key(post, user)
+               )
+
+      stored = Timeline.get_post!(post.id) |> Mosslet.Repo.preload([:user_posts])
+
+      # The raw stored list must NOT contain the plaintext user id (ZK invariant).
+      refute user.id in stored.favs_list
+
+      # The shared context helper decrypts it back to the plaintext user id.
+      assert Timeline.decrypt_post_favs_list(stored, user, key) == [user.id]
+
+      # Empty / nil lists return [] without attempting decryption.
+      assert Timeline.decrypt_post_favs_list(%{stored | favs_list: []}, user, key) == []
+      assert Timeline.decrypt_post_favs_list(%{stored | favs_list: nil}, user, key) == []
+    end
+
+    test "decrypt_post_reposts_list/3 round-trips the encrypted reposts_list to plaintext user ids",
+         %{user: user, key: key} do
+      post =
+        post_fixture(%{visibility: :connections}, user: user, key: key)
+        |> Mosslet.Repo.preload([:user_posts])
+
+      assert {:ok, _post} =
+               Timeline.update_post_reposts_list(
+                 post,
+                 %{reposts_list: [user.id], reposts_count: 1},
+                 user: user,
+                 key: key,
+                 post_key: Timeline.get_post_sealed_key(post, user)
+               )
+
+      stored = Timeline.get_post!(post.id) |> Mosslet.Repo.preload([:user_posts])
+
+      refute user.id in stored.reposts_list
+      assert Timeline.decrypt_post_reposts_list(stored, user, key) == [user.id]
+    end
   end
 
   defp get_session_key(user, password) do

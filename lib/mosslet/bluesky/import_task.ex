@@ -168,17 +168,27 @@ defmodule Mosslet.Bluesky.ImportTask do
 
           post ->
             post = Mosslet.Repo.preload(post, [:user_posts])
-            current_favs = post.favs_list || []
 
-            unless user.id in current_favs do
-              new_favs = [user.id | current_favs]
+            # Guard: only mutate the favs_list if we can derive the post_key
+            # (proven by a successful body decrypt). Otherwise an unrelated
+            # decryption failure could yield an empty list and clobber the
+            # existing (still-encrypted) favs on re-encryption.
+            with {:ok, _body} <- Timeline.decrypt_post_body(post, user, session_key) do
+              current_favs = Timeline.decrypt_post_favs_list(post, user, session_key)
 
-              Timeline.update_post_fav(post, %{favs_list: new_favs, favs_count: length(new_favs)},
-                user: user,
-                key: session_key
-              )
+              unless user.id in current_favs do
+                new_favs = [user.id | current_favs]
 
-              Logger.debug("[BlueskyImportTask] Added like to post #{post.id}")
+                Timeline.update_post_fav(
+                  post,
+                  %{favs_list: new_favs, favs_count: length(new_favs)},
+                  user: user,
+                  key: session_key,
+                  post_key: Timeline.get_post_sealed_key(post, user)
+                )
+
+                Logger.debug("[BlueskyImportTask] Added like to post #{post.id}")
+              end
             end
         end
       end
@@ -222,19 +232,25 @@ defmodule Mosslet.Bluesky.ImportTask do
 
           post ->
             post = Mosslet.Repo.preload(post, [:user_posts])
-            current_reposts = post.reposts_list || []
 
-            unless user.id in current_reposts do
-              new_reposts = [user.id | current_reposts]
+            # Guard: only mutate reposts_list when the post_key is derivable
+            # (see sync_likes_batch comment) to avoid clobbering existing data.
+            with {:ok, _body} <- Timeline.decrypt_post_body(post, user, session_key) do
+              current_reposts = Timeline.decrypt_post_reposts_list(post, user, session_key)
 
-              Timeline.update_post_reposts_list(
-                post,
-                %{reposts_list: new_reposts, reposts_count: length(new_reposts)},
-                user: user,
-                key: session_key
-              )
+              unless user.id in current_reposts do
+                new_reposts = [user.id | current_reposts]
 
-              Logger.debug("[BlueskyImportTask] Added repost to post #{post.id}")
+                Timeline.update_post_reposts_list(
+                  post,
+                  %{reposts_list: new_reposts, reposts_count: length(new_reposts)},
+                  user: user,
+                  key: session_key,
+                  post_key: Timeline.get_post_sealed_key(post, user)
+                )
+
+                Logger.debug("[BlueskyImportTask] Added repost to post #{post.id}")
+              end
             end
         end
       end

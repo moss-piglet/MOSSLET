@@ -306,8 +306,8 @@ defmodule Mosslet.Bluesky.ExportTask do
     |> Mosslet.Repo.all()
     |> Mosslet.Repo.preload([:user_posts])
     |> Enum.filter(fn post ->
-      favs_list = decrypt_favs_list(post, user, session_key)
-      user.id in (favs_list || [])
+      favs_list = Timeline.decrypt_post_favs_list(post, user, session_key)
+      user.id in favs_list
     end)
   end
 
@@ -321,8 +321,8 @@ defmodule Mosslet.Bluesky.ExportTask do
     |> Mosslet.Repo.all()
     |> Mosslet.Repo.preload([:user_posts])
     |> Enum.filter(fn post ->
-      reposts_list = decrypt_reposts_list(post, user, session_key)
-      user.id in (reposts_list || [])
+      reposts_list = Timeline.decrypt_post_reposts_list(post, user, session_key)
+      user.id in reposts_list
     end)
   end
 
@@ -336,30 +336,6 @@ defmodule Mosslet.Bluesky.ExportTask do
     |> where([b, p], not is_nil(p.external_uri))
     |> select([b, p], p)
     |> Mosslet.Repo.all()
-  end
-
-  defp decrypt_favs_list(post, user, session_key) do
-    case Timeline.decrypt_post_body(post, user, session_key) do
-      {:ok, _} ->
-        post.favs_list
-
-      _ ->
-        []
-    end
-  rescue
-    _ -> []
-  end
-
-  defp decrypt_reposts_list(post, user, session_key) do
-    case Timeline.decrypt_post_body(post, user, session_key) do
-      {:ok, _} ->
-        post.reposts_list
-
-      _ ->
-        []
-    end
-  rescue
-    _ -> []
   end
 
   defp build_request_opts(account, signing_key) do

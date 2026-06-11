@@ -4990,6 +4990,64 @@ defmodule Mosslet.Timeline do
     end
   end
 
+  @doc """
+  Decrypts a post's `favs_list` to a list of plaintext user IDs.
+
+  The stored `favs_list` is an `Encrypted.StringList` where each entry is a
+  user ID asymmetrically encrypted with the post_key. This derives the post_key
+  (from the user's `user_post`, honoring visibility) and decrypts each entry.
+
+  Returns `[]` when the list is empty or the post_key cannot be derived.
+  """
+  def decrypt_post_favs_list(post, user, key) do
+    decrypt_post_user_id_list(post.favs_list, post, user, key)
+  end
+
+  @doc """
+  Decrypts a post's `reposts_list` to a list of plaintext user IDs.
+
+  Mirrors `decrypt_post_favs_list/3` — each entry is a user ID asymmetrically
+  encrypted with the post_key.
+  """
+  def decrypt_post_reposts_list(post, user, key) do
+    decrypt_post_user_id_list(post.reposts_list, post, user, key)
+  end
+
+  defp decrypt_post_user_id_list(nil, _post, _user, _key), do: []
+  defp decrypt_post_user_id_list([], _post, _user, _key), do: []
+
+  defp decrypt_post_user_id_list(list, post, user, key) when is_list(list) do
+    case get_user_post_key_for_export(post, user, key) do
+      {:ok, post_key} ->
+        list
+        |> Enum.map(fn encrypted_user_id ->
+          case Mosslet.Encrypted.Utils.decrypt(%{key: post_key, payload: encrypted_user_id}) do
+            {:ok, user_id} -> user_id
+            _ -> nil
+          end
+        end)
+        |> Enum.reject(&is_nil/1)
+
+      _ ->
+        []
+    end
+  end
+
+  @doc """
+  Returns the sealed `user_post.key` for a post and user, suitable for passing
+  as `:post_key` to the favs/reposts changesets (which decrypt it server-side
+  to re-encrypt the list). Returns `nil` if no `user_post` exists.
+
+  This is the context-level counterpart to the web `get_post_key/2` helper and
+  is used by the Bluesky import sync, which has no LiveView socket assigns.
+  """
+  def get_post_sealed_key(post, user) do
+    case Enum.find(post.user_posts || [], &(&1.user_id == user.id)) do
+      %{key: key} -> key
+      _ -> nil
+    end
+  end
+
   defp get_user_post_key_for_export(post, user, key) do
     user_post = Enum.find(post.user_posts, &(&1.user_id == user.id))
 
