@@ -176,7 +176,7 @@ defmodule MossletWeb.UserLoginLive do
                   "transition-colors duration-200"
                 ]}
               >
-                <.icon name="hero-envelope" class="w-4 h-4" /> Reset via email
+                <.phx_icon name="hero-envelope" class="w-4 h-4" /> Reset via email
               </.link>
               <.link
                 navigate={~p"/auth/recover-account"}
@@ -186,7 +186,7 @@ defmodule MossletWeb.UserLoginLive do
                   "transition-colors duration-200"
                 ]}
               >
-                <.icon name="hero-key" class="w-4 h-4" /> Use recovery key
+                <.phx_icon name="hero-key" class="w-4 h-4" /> Use recovery key
               </.link>
             </div>
 
@@ -198,7 +198,7 @@ defmodule MossletWeb.UserLoginLive do
                 "transition-colors duration-200"
               ]}
             >
-              <.icon name="hero-user-plus" class="w-4 h-4" /> Create account
+              <.phx_icon name="hero-user-plus" class="w-4 h-4" /> Create account
             </.link>
           </div>
         </div>

@@ -3,7 +3,6 @@ defmodule MossletWeb.Components.MossletAuthLayout do
   Modern auth layout component with liquid metal aesthetics and improved visual hierarchy.
   """
   use Phoenix.Component
-  use PetalComponents, except: [:button]
   use MossletWeb, :verified_routes
 
   attr :conn, :any, required: true

@@ -2,7 +2,6 @@ defmodule MossletWeb.BillingComponents do
   @moduledoc false
   use Phoenix.Component
   use MossletWeb, :verified_routes
-  use PetalComponents
 
   use Gettext, backend: MossletWeb.Gettext
 

@@ -19,7 +19,7 @@ defmodule MossletWeb.PublicLive.Ai do
               <span class="group">
                 <div class="group-hover:bg-emerald-50 sm:group-hover:scale-105 transition rounded-2xl bg-gray-50 p-10">
                   <h3 class=" text-base font-semibold leading-7 text-emerald-600 inline-flex items-center align-middle">
-                    <.icon
+                    <.phx_icon
                       name="hero-cpu-chip-solid"
                       class="h-5 w-5 mr-1 inline-flex items-center align-middle"
                     /> Conversational
@@ -36,8 +36,10 @@ defmodule MossletWeb.PublicLive.Ai do
               <span class="group">
                 <div class="group-hover:bg-emerald-50 sm:group-hover:scale-105 transition rounded-2xl bg-gray-50 p-10">
                   <h3 class=" text-base font-semibold leading-7 text-emerald-600">
-                    <.icon name="hero-banknotes-solid" class="h-5 w-5 mr-1 inline-flex items-center" />
-                    Tokens
+                    <.phx_icon
+                      name="hero-banknotes-solid"
+                      class="h-5 w-5 mr-1 inline-flex items-center"
+                    /> Tokens
                   </h3>
                   <dl class="mt-3 space-y-1 text-sm leading-6 text-zinc-600">
                     <div class="mt-1">

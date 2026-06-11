@@ -51,7 +51,7 @@ defmodule MossletWeb.UserRegistrationLive do
         class="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 dark:bg-rose-900/20 dark:border-rose-800/50"
       >
         <div class="flex items-start gap-3">
-          <.icon
+          <.phx_icon
             name="hero-exclamation-triangle"
             class="w-5 h-5 text-rose-600 dark:text-rose-400 mt-0.5 flex-shrink-0"
           />
@@ -74,7 +74,7 @@ defmodule MossletWeb.UserRegistrationLive do
       >
         <div class="flex items-center gap-3">
           <div class="flex-shrink-0">
-            <.icon name="hero-gift" class="w-6 h-6 text-amber-600 dark:text-amber-400" />
+            <.phx_icon name="hero-gift" class="w-6 h-6 text-amber-600 dark:text-amber-400" />
           </div>
           <div>
             <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">
@@ -222,7 +222,7 @@ defmodule MossletWeb.UserRegistrationLive do
                 <div class="p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200/50 dark:border-emerald-700/30">
                   <div class="flex items-start gap-3">
                     <div class="relative">
-                      <.icon
+                      <.phx_icon
                         name="hero-sparkles"
                         class="w-6 h-6 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0"
                       />
@@ -249,9 +249,9 @@ defmodule MossletWeb.UserRegistrationLive do
                           "border-b border-emerald-300/50 hover:border-emerald-500"
                         ]}
                       >
-                        <.icon name="hero-academic-cap" class="w-3 h-3" />
+                        <.phx_icon name="hero-academic-cap" class="w-3 h-3" />
                         Learn about EFF's diceware method
-                        <.icon name="hero-arrow-top-right-on-square" class="w-3 h-3" />
+                        <.phx_icon name="hero-arrow-top-right-on-square" class="w-3 h-3" />
                       </.link>
                     </div>
                   </div>
@@ -260,7 +260,7 @@ defmodule MossletWeb.UserRegistrationLive do
                 <%!-- User-friendly security reminder --%>
                 <div class="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50">
                   <div class="flex items-center gap-2">
-                    <.icon
+                    <.phx_icon
                       name="hero-cog-6-tooth"
                       class="w-4 h-4 text-slate-600 dark:text-slate-400 flex-shrink-0"
                     />
@@ -342,7 +342,7 @@ defmodule MossletWeb.UserRegistrationLive do
               <div class="space-y-4 mb-6">
                 <div class="p-4 rounded-xl bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border border-blue-200/50 dark:border-blue-700/30">
                   <div class="flex items-start gap-3">
-                    <.icon
+                    <.phx_icon
                       name="hero-shield-check"
                       class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0"
                     />
@@ -359,7 +359,7 @@ defmodule MossletWeb.UserRegistrationLive do
 
                 <div class="p-4 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200/50 dark:border-amber-700/30">
                   <div class="flex items-start gap-3">
-                    <.icon
+                    <.phx_icon
                       name="hero-exclamation-triangle"
                       class="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0"
                     />
@@ -530,7 +530,7 @@ defmodule MossletWeb.UserRegistrationLive do
                 "transition-colors duration-200"
               ]}
             >
-              <.icon name="hero-arrow-right-end-on-rectangle" class="w-4 h-4" /> Sign in instead
+              <.phx_icon name="hero-arrow-right-end-on-rectangle" class="w-4 h-4" /> Sign in instead
             </.link>
           </div>
         </div>

@@ -24,16 +24,16 @@ defmodule MossletWeb.UserOrgInvitationsLive do
     >
       <%= if @current_user.confirmed_at do %>
         <%= if Util.blank?(@invitations) do %>
-          <.p>
+          <p class="text-gray-600 dark:text-gray-300 mb-4">
             {gettext("You have no pending invitations.")}
-          </.p>
+          </p>
         <% else %>
           <div class="grid grid-cols-1 mt-6 md:grid-cols-2 xl:grid-cols-3">
             <%= for invitation <- @invitations do %>
               <.box padded id={"invitation-#{invitation.id}"}>
                 <div>
                   <div class="flex items-center justify-center w-12 h-12 mx-auto bg-blue-100 rounded-full">
-                    <.icon name={:envelope} class="w-6 h-6 text-emerald-600" />
+                    <.phx_icon name="hero-envelope" class="w-6 h-6 text-emerald-600" />
                   </div>
                   <div class="mt-3 text-center sm:mt-5">
                     <div class="text-lg font-medium leading-6 text-gray-900 dark:text-white">
@@ -50,20 +50,18 @@ defmodule MossletWeb.UserOrgInvitationsLive do
                 </div>
                 <div class="mt-5 sm:mt-6">
                   <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
-                    <.button
+                    <.phx_button
                       phx-click="reject_invitation"
                       phx-value-id={invitation.id}
-                      label={gettext("Reject")}
                       data-confirm={gettext("Are you sure you want to reject this invitation?")}
-                      color="white"
-                    />
+                      class="bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
+                    >
+                      {gettext("Reject")}
+                    </.phx_button>
 
-                    <.button
-                      phx-click="accept_invitation"
-                      phx-value-id={invitation.id}
-                      label={gettext("Accept")}
-                      color="primary"
-                    />
+                    <.phx_button phx-click="accept_invitation" phx-value-id={invitation.id}>
+                      {gettext("Accept")}
+                    </.phx_button>
                   </div>
                 </div>
               </.box>
@@ -71,14 +69,20 @@ defmodule MossletWeb.UserOrgInvitationsLive do
           </div>
         <% end %>
       <% else %>
-        <.alert color="warning" class="my-5" heading={gettext("Unconfirmed account")}>
-          {gettext(
-            "You may have pending invitations. To see them please confirm your account by clicking the link in the e-mail we sent you. If you didn't receive an e-mail,"
-          )}
-          <a href="#" phx-click="confirmation_resend" class="underline">
-            {gettext("click here to resend it")}.
-          </a>
-        </.alert>
+        <div
+          class="my-5 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40 p-4 text-amber-800 dark:text-amber-200"
+          role="alert"
+        >
+          <p class="font-semibold">{gettext("Unconfirmed account")}</p>
+          <p class="mt-1 text-sm">
+            {gettext(
+              "You may have pending invitations. To see them please confirm your account by clicking the link in the e-mail we sent you. If you didn't receive an e-mail,"
+            )}
+            <a href="#" phx-click="confirmation_resend" class="underline">
+              {gettext("click here to resend it")}.
+            </a>
+          </p>
+        </div>
       <% end %>
     </.settings_layout>
     """

@@ -31,9 +31,9 @@
             class="block w-full resize-none border-0 bg-transparent py-1.5 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-300 focus:ring-0 sm:text-sm sm:leading-6"
           />
         </div>
-        <.input field={@form[:visibility]} type="hidden" value={@memory.visibility} />
-        <.input field={@form[:user_id]} type="hidden" value={@current_user.id} />
-        <.input field={@form[:memory_id]} type="hidden" value={@memory.id} />
+        <.phx_input field={@form[:visibility]} type="hidden" value={@memory.visibility} />
+        <.phx_input field={@form[:user_id]} type="hidden" value={@current_user.id} />
+        <.phx_input field={@form[:memory_id]} type="hidden" value={@memory.id} />
         <!-- Spacer element to match the height of the toolbar -->
         <div class="py-2" aria-hidden="true">
           <!-- Matches height of button in toolbar (1px border + 36px content height) -->
@@ -384,9 +384,9 @@
           </div>
         </div>
         <div class="flex-shrink-0">
-          <.button type="submit" class="rounded-full" disabled={!@form.source.valid?}>
+          <.phx_button type="submit" class="rounded-full" disabled={!@form.source.valid?}>
             Remark
-          </.button>
+          </.phx_button>
         </div>
       </div>
     </.form>

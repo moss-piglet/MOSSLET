@@ -11,17 +11,19 @@ defmodule MossletWeb.PostLive.FormComponent do
     <div>
       <.page_header title={@title} />
 
-      <.p :if={@action == :new}>
+      <p :if={@action == :new} class="text-gray-600 dark:text-gray-300 mb-4">
         Use this form to create a new post.
-      </.p>
-      <.p :if={@action == :new} class="my-4">
+      </p>
+      <p :if={@action == :new} class="my-4 text-gray-600 dark:text-gray-300">
         <.phx_icon name="hero-question-mark-circle" class="size-5" /> Leave the
         <span class="italic font-semibold text-emerald-600 dark:text-emerald-400">
           Add people to share with
         </span>
         selection blank to share with everyone you are connected to.
-      </.p>
-      <.p :if={@action == :edit}>Use this form to edit your existing post.</.p>
+      </p>
+      <p :if={@action == :edit} class="text-gray-600 dark:text-gray-300 mb-4">
+        Use this form to edit your existing post.
+      </p>
 
       <.simple_form
         for={@form}
@@ -30,49 +32,49 @@ defmodule MossletWeb.PostLive.FormComponent do
         phx-change="validate"
         phx-submit="save"
       >
-        <.field field={@form[:user_id]} type="hidden" value={@user.id} />
+        <.phx_input field={@form[:user_id]} type="hidden" value={@user.id} />
         <span data-decrypt-field="username">
-          <.field
+          <.phx_input
             :if={@action == :new}
             field={@form[:username]}
             type="hidden"
             value={@user.decrypted[:username]}
           />
-          <.field
+          <.phx_input
             :if={@action == :new_group}
             field={@form[:username]}
             type="hidden"
             value={@user.decrypted[:username]}
           />
-          <.field
+          <.phx_input
             :if={@action == :edit}
             field={@form[:username]}
             type="hidden"
             value={@user.decrypted[:username]}
           />
         </span>
-        <.field
+        <.phx_input
           :if={@action not in [:new_group, :edit]}
           field={@form[:visibility]}
           type="hidden"
           value="connections"
         />
 
-        <.field
+        <.phx_input
           :if={@action == :new_group}
           field={@form[:group_id]}
           type="hidden"
           label="Group"
           value={@group.id}
         />
-        <.field
+        <.phx_input
           :if={@action == :new_group}
           field={@form[:visibility]}
           type="hidden"
           value={:connections}
         />
 
-        <.field
+        <.phx_input
           :if={@action == :new_group}
           field={@form[:group]}
           type="text"
@@ -163,25 +165,22 @@ defmodule MossletWeb.PostLive.FormComponent do
           @action in [:edit] && @selector == "connections" && has_any_user_connections?(@user) &&
             @group == "" && @form.data.shared_users == []
         }>
-          <.badge label="Sharing with all of your connections" class="rounded-full" />
+          <.liquid_badge class="rounded-full">Sharing with all of your connections</.liquid_badge>
         </div>
 
         <div :if={@action in [:edit] && @group}>
-          <.p>
+          <p class="text-gray-600 dark:text-gray-300 mb-4">
             Sharing with group:
-            <.badge
-              label={
-                decr_item(
-                  @group.name,
-                  @user,
-                  Groups.get_user_group_for_group_and_user(@group, @user).key,
-                  @key,
-                  @group
-                )
-              }
-              class="rounded-full"
-            />
-          </.p>
+            <.liquid_badge class="rounded-full">
+              {decr_item(
+                @group.name,
+                @user,
+                Groups.get_user_group_for_group_and_user(@group, @user).key,
+                @key,
+                @group
+              )}
+            </.liquid_badge>
+          </p>
         </div>
 
         <div
@@ -191,7 +190,7 @@ defmodule MossletWeb.PostLive.FormComponent do
           }
           class="space-x-2"
         >
-          <.h5 label="Sharing with" class="rounded-full" />
+          <h5 class="text-base font-semibold text-gray-900 dark:text-gray-100">Sharing with</h5>
           <div
             :for={option <- @user_list}
             class="inline-flex bg-gray-100 dark:bg-blue-600 rounded-md py-1 px-1.5"
@@ -290,13 +289,14 @@ defmodule MossletWeb.PostLive.FormComponent do
             />
             <span>Your words are important.</span>
           </div>
-          <.button
+          <.phx_button
             :if={@form.source.valid? && !@uploads_in_progress}
+            type="submit"
             phx-disable-with="Saving..."
             class="rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
           >
             Save Post
-          </.button>
+          </.phx_button>
 
           <button
             :if={!@form.source.valid?}

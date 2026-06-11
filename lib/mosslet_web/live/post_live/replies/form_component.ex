@@ -11,10 +11,14 @@ defmodule MossletWeb.PostLive.Replies.FormComponent do
     <div>
       <.page_header title="Reply" />
 
-      <.p :if={@action == :reply}>Create a new reply to the following post:</.p>
-      <.p :if={@action == :reply_edit}>Edit your reply to the following post:</.p>
+      <p :if={@action == :reply} class="text-gray-600 dark:text-gray-300 mb-4">
+        Create a new reply to the following post:
+      </p>
+      <p :if={@action == :reply_edit} class="text-gray-600 dark:text-gray-300 mb-4">
+        Edit your reply to the following post:
+      </p>
 
-      <.p>
+      <div class="text-gray-600 dark:text-gray-300 mb-4">
         <div class="px-4 py-5 mt-4 sm:px-0 sm:py-0 max-h-24 overflow-y-auto">
           <dl class="space-y-0 divide-y divide-gray-200 dark:divide-gray-700 border border-secondary-600 dark:border-secondary-400 rounded-md">
             <div class="sm:flex px-6 py-5">
@@ -35,7 +39,7 @@ defmodule MossletWeb.PostLive.Replies.FormComponent do
             </div>
           </dl>
         </div>
-      </.p>
+      </div>
 
       <.simple_form
         for={@form}
@@ -47,18 +51,18 @@ defmodule MossletWeb.PostLive.Replies.FormComponent do
         data-post-id={@post.id}
         data-visibility={to_string(@post.visibility)}
       >
-        <.field field={@form[:user_id]} type="hidden" value={@user.id} />
-        <.field field={@form[:post_id]} type="hidden" value={@post.id} />
-        <.field field={@form[:group_id]} type="hidden" value={@post.group_id} />
-        <.field field={@form[:visibility]} type="hidden" value={@post.visibility} />
+        <.phx_input field={@form[:user_id]} type="hidden" value={@user.id} />
+        <.phx_input field={@form[:post_id]} type="hidden" value={@post.id} />
+        <.phx_input field={@form[:group_id]} type="hidden" value={@post.group_id} />
+        <.phx_input field={@form[:visibility]} type="hidden" value={@post.visibility} />
         <span data-decrypt-field="username">
-          <.field
+          <.phx_input
             :if={@action == :reply}
             field={@form[:username]}
             type="hidden"
             value={@user.decrypted[:username]}
           />
-          <.field
+          <.phx_input
             :if={@action == :reply_edit}
             field={@form[:username]}
             type="hidden"
@@ -130,13 +134,14 @@ defmodule MossletWeb.PostLive.Replies.FormComponent do
         />
 
         <:actions>
-          <.button
+          <.phx_button
             :if={@form.source.valid? && !@uploads_in_progress}
+            type="submit"
             phx-disable-with="Replying..."
             class="rounded-full"
           >
             Reply
-          </.button>
+          </.phx_button>
 
           <button
             :if={!@form.source.valid?}

@@ -160,17 +160,25 @@ defmodule MossletWeb.SubscribeSuccessLive do
 
   def billing_status(assigns) do
     ~H"""
-    <.container class="my-12" id="billing-status">
-      <.spinner show={@billing_status == :loading} size="lg" />
-      <.h2 :if={@billing_status == :failed}>
+    <.liquid_container class="my-12" id="billing-status">
+      <div :if={@billing_status == :loading} class="loading">
+        <div class="spinner"></div>
+      </div>
+      <h2
+        :if={@billing_status == :failed}
+        class="text-2xl font-bold text-slate-900 dark:text-slate-100"
+      >
         {gettext(
           "There was a failure to communicate with our payment provider (this could be an internet speed/connection issue). Please refresh your browser. If this error continues, then please contact support@mosslet.com."
         )}
-      </.h2>
-      <.h2 :if={@billing_status == :success} class="text-center">
+      </h2>
+      <h2
+        :if={@billing_status == :success}
+        class="text-center text-2xl font-bold text-slate-900 dark:text-slate-100"
+      >
         {gettext("Success! You will be redirected shortly.")}
-      </.h2>
-    </.container>
+      </h2>
+    </.liquid_container>
     """
   end
 end

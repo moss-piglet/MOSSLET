@@ -3,7 +3,6 @@ defmodule MossletWeb.Components.LandingPage do
   A set of components for use in a landing page.
   """
   use Phoenix.Component
-  use PetalComponents
   use MossletWeb, :verified_routes
   use Gettext, backend: MossletWeb.Gettext
   import MossletWeb.CoreComponents
@@ -627,7 +626,7 @@ defmodule MossletWeb.Components.LandingPage do
       class="overflow-hidden transition duration-500 ease-in-out bg-gray-50 md:pt-0 dark:bg-gray-800 dark:text-white"
       data-offset="false"
     >
-      <.container max_width={@max_width}>
+      <DesignSystem.liquid_container max_width={@max_width}>
         <div class={
           "#{if @inverted, do: "flex-row-reverse", else: ""} flex flex-wrap items-center gap-20 py-32 md:flex-nowrap"
         }>
@@ -660,7 +659,7 @@ defmodule MossletWeb.Components.LandingPage do
             </div>
           </div>
         </div>
-      </.container>
+      </DesignSystem.liquid_container>
     </section>
     """
   end
@@ -678,7 +677,7 @@ defmodule MossletWeb.Components.LandingPage do
       class="relative z-10 transition duration-500 ease-in-out bg-white py-36 dark:bg-gray-900"
     >
       <div class="overflow-hidden content-wrapper">
-        <.container max_width={@max_width} class="relative z-10">
+        <DesignSystem.liquid_container max_width={@max_width} class="relative z-10">
           <div class="mb-5 text-center md:mb-12 section-header stagger-fade-in-animation">
             <div class="mb-3 text-3xl font-bold leading-none dark:text-white md:mb-5 fade-in-animation md:text-5xl">
               {@title}
@@ -690,7 +689,7 @@ defmodule MossletWeb.Components.LandingPage do
               <.testimonial_panel {testimonial} />
             <% end %>
           </div>
-        </.container>
+        </DesignSystem.liquid_container>
       </div>
     </section>
 
@@ -759,7 +758,7 @@ defmodule MossletWeb.Components.LandingPage do
       id="pricing"
       class="py-24 transition duration-500 ease-in-out text-gray-700 md:py-32 dark:bg-gray-800 bg-gray-50 dark:text-white stagger-fade-in-animation"
     >
-      <.container max_width={@max_width}>
+      <DesignSystem.liquid_container max_width={@max_width}>
         <div class="mx-auto mb-16 text-center md:mb-20 lg:w-7/12 ">
           <div class="mb-5 text-3xl font-bold md:mb-7 md:text-5xl fade-in-animation">
             {@title}
@@ -774,7 +773,7 @@ defmodule MossletWeb.Components.LandingPage do
             <.pricing_table {plan} />
           <% end %>
         </div>
-      </.container>
+      </DesignSystem.liquid_container>
     </section>
     """
   end
@@ -823,7 +822,10 @@ defmodule MossletWeb.Components.LandingPage do
       <ul class="-mb-3 text-gray-600 dark:text-gray-400 grow">
         <%= for feature <- @features do %>
           <li class="flex items-center mb-3">
-            <.icon name="hero-check" solid class="w-3 h-3 mr-3 text-green-500 fill-current shrink-0" />
+            <.phx_icon
+              name="hero-check-solid"
+              class="w-3 h-3 mr-3 text-green-500 fill-current shrink-0"
+            />
             <span>{feature}</span>
           </li>
         <% end %>
@@ -1015,21 +1017,19 @@ defmodule MossletWeb.Components.LandingPage do
                 Privacy isn't just a feature — it's the foundation of human dignity. Your personal life should stay personal, whether online or offline.
               </p>
               <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-y-4 gap-x-6">
-                <.button
-                  link_type="live_redirect"
-                  to="/auth/register"
+                <.link
+                  navigate="/auth/register"
                   class="w-full sm:w-auto block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
                 >
                   Get lifetime access
-                </.button>
-                <.button
-                  link_type="live_redirect"
-                  to="/features"
-                  variant="outline"
+                </.link>
+                <DesignSystem.liquid_button
+                  navigate="/features"
+                  variant="secondary"
                   class="w-full sm:w-auto !rounded-full"
                 >
                   Explore features
-                </.button>
+                </DesignSystem.liquid_button>
               </div>
             </div>
 
@@ -1221,21 +1221,19 @@ defmodule MossletWeb.Components.LandingPage do
 
             <%!-- Call to Action --%>
             <div class="mt-12 flex flex-col sm:flex-row items-center justify-center gap-y-4 gap-x-6">
-              <.button
-                link_type="live_redirect"
-                to="/auth/register"
+              <.link
+                navigate="/auth/register"
                 class="w-full sm:w-auto block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
               >
                 Get lifetime access
-              </.button>
-              <.button
-                link_type="live_redirect"
-                to="/features"
-                variant="outline"
+              </.link>
+              <DesignSystem.liquid_button
+                navigate="/features"
+                variant="secondary"
                 class="w-full sm:w-auto !rounded-full"
               >
                 Explore features
-              </.button>
+              </DesignSystem.liquid_button>
             </div>
           </div>
         </div>
@@ -1259,21 +1257,19 @@ defmodule MossletWeb.Components.LandingPage do
 
           <%!-- Call-to-action buttons --%>
           <div class="mt-12 flex flex-col sm:flex-row items-center justify-center gap-y-4 gap-x-6">
-            <.button
-              link_type="live_redirect"
-              to="/auth/register"
+            <.link
+              navigate="/auth/register"
               class="w-full sm:w-auto block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
             >
               Get lifetime access
-            </.button>
-            <.button
-              link_type="live_redirect"
-              to="/pricing"
-              variant="outline"
+            </.link>
+            <DesignSystem.liquid_button
+              navigate="/pricing"
+              variant="secondary"
               class="w-full sm:w-auto !rounded-full"
             >
               See pricing options
-            </.button>
+            </DesignSystem.liquid_button>
           </div>
         </div>
 
@@ -1464,21 +1460,18 @@ defmodule MossletWeb.Components.LandingPage do
             Join others who've already discovered what social media feels like without the stress, tracking, and manipulation.
           </p>
           <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-y-4 gap-x-6">
-            <.button
-              link_type="live_redirect"
-              to="/auth/register"
+            <.link
+              navigate="/auth/register"
               class="w-full sm:w-auto block rounded-full py-3 px-8 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
             >
               Get lifetime access
-            </.button>
-            <.button
-              link_type="live_redirect"
-              to="/pricing"
-              variant="outline"
-              class="w-full sm:w-auto !rounded-full border-emerald-600 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-400 dark:text-emerald-400 dark:hover:bg-emerald-950/50"
+            </.link>
+            <.link
+              navigate="/pricing"
+              class="w-full sm:w-auto block rounded-full py-3 px-8 text-center text-sm font-bold border focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 transition-all duration-200 border-emerald-600 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-400 dark:text-emerald-400 dark:hover:bg-emerald-950/50"
             >
               See pricing options
-            </.button>
+            </.link>
           </div>
         </div>
       </div>
@@ -1843,7 +1836,13 @@ defmodule MossletWeb.Components.LandingPage do
               >
                 Personal
               </h3>
-              <.badge color="success" label="Lifetime" variant="outline" class="rounded-full text-xs" />
+              <DesignSystem.liquid_badge
+                color="emerald"
+                variant="outline"
+                class="rounded-full text-xs"
+              >
+                Lifetime
+              </DesignSystem.liquid_badge>
             </span>
             <p class="mt-4 flex flex-col sm:flex-row sm:items-baseline gap-x-2">
               <span class="flex items-baseline gap-x-2">

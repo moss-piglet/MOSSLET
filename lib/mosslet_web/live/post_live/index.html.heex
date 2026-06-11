@@ -1,19 +1,19 @@
 <.layout current_page={:posts} current_scope={@current_scope} type="sidebar">
-  <.container class="py-16">
+  <.liquid_container class="py-16">
     <.page_header title="Posts" class="ml-2 sm:ml-6">
       <div class="inline-flex space-x-2">
-        <.button
-          link_type="live_patch"
-          class="rounded-full"
-          label="New Post"
-          to={~p"/app/posts/new"}
-        />
+        <.link
+          patch={~p"/app/posts/new"}
+          class="inline-flex items-center justify-center rounded-full bg-emerald-600 hover:bg-emerald-500 py-2 px-4 text-sm font-semibold text-white"
+        >
+          New Post
+        </.link>
       </div>
     </.page_header>
     <!-- filter -->
     <div id="filter-for-posts" class="flex justify-start py-2 ml-2 sm:ml-6">
       <form phx-change="filter">
-        <.field
+        <.phx_input
           type="select"
           label="Filter"
           name="user_id"
@@ -22,9 +22,9 @@
         />
       </form>
     </div>
-  </.container>
+  </.liquid_container>
   <!-- cards -->
-  <.container class="-mt-10 max-w-prose">
+  <.liquid_container class="-mt-10 max-w-prose">
     <Components.cards
       id="timeline"
       stream={@streams.posts}
@@ -58,9 +58,10 @@
       />
     </.phx_modal>
 
-    <.modal
+    <.phx_modal
       :if={@live_action in [:new_group]}
       id="group-post-modal"
+      show
       on_cancel={JS.patch(@return_url)}
     >
       <.live_component
@@ -76,11 +77,12 @@
         key={@key}
         patch={@return_url}
       />
-    </.modal>
+    </.phx_modal>
 
-    <.modal
+    <.phx_modal
       :if={@live_action in [:reply, :reply_edit]}
       id="reply-modal"
+      show
       on_cancel={JS.patch(@return_url)}
     >
       <.live_component
@@ -96,6 +98,6 @@
         key={@key}
         patch={@return_url}
       />
-    </.modal>
-  </.container>
+    </.phx_modal>
+  </.liquid_container>
 </.layout>

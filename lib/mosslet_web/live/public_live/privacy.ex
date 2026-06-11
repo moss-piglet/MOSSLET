@@ -174,21 +174,21 @@ defmodule MossletWeb.PublicLive.Privacy do
                     </h4>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                       <div class="flex items-center lg:flex-col lg:text-center lg:items-center">
-                        <.icon
+                        <.phx_icon
                           name="hero-check-badge"
                           class="text-emerald-600 dark:text-emerald-400 mr-2 lg:mr-0 lg:mb-2 h-6 w-6 flex-shrink-0"
                         />
                         <span class="text-sm lg:text-xs">You own 100% of your data</span>
                       </div>
                       <div class="flex items-center lg:flex-col lg:text-center lg:items-center">
-                        <.icon
+                        <.phx_icon
                           name="hero-check-badge"
                           class="text-emerald-600 dark:text-emerald-400 mr-2 lg:mr-0 lg:mb-2 h-6 w-6 flex-shrink-0"
                         />
                         <span class="text-sm lg:text-xs">Your data is zero-knowledge encrypted</span>
                       </div>
                       <div class="flex items-center lg:flex-col lg:text-center lg:items-center">
-                        <.icon
+                        <.phx_icon
                           name="hero-check-badge"
                           class="text-emerald-600 dark:text-emerald-400 mr-2 lg:mr-0 lg:mb-2 h-6 w-6 flex-shrink-0"
                         />
@@ -197,7 +197,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                         </span>
                       </div>
                       <div class="flex items-center lg:flex-col lg:text-center lg:items-center">
-                        <.icon
+                        <.phx_icon
                           name="hero-check-badge"
                           class="text-emerald-600 dark:text-emerald-400 mr-2 lg:mr-0 lg:mb-2 h-6 w-6 flex-shrink-0"
                         />
@@ -206,7 +206,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                         </span>
                       </div>
                       <div class="flex items-center lg:flex-col lg:text-center lg:items-center sm:col-span-2 lg:col-span-1">
-                        <.icon
+                        <.phx_icon
                           name="hero-check-badge"
                           class="text-emerald-600 dark:text-emerald-400 mr-2 lg:mr-0 lg:mb-2 h-6 w-6 flex-shrink-0"
                         />
@@ -223,7 +223,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                   <details class="group">
                     <summary class="cursor-pointer text-teal-700 dark:text-teal-300 hover:text-teal-600 dark:hover:text-teal-200 font-medium flex items-center">
                       <span>Learn more about surveillance capitalism</span>
-                      <.icon
+                      <.phx_icon
                         name="hero-chevron-down"
                         class="h-4 w-4 ml-2 transition-transform group-open:rotate-180"
                       />
@@ -269,7 +269,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         What is your data?
                       </h3>
-                      <.icon
+                      <.phx_icon
                         id="chevron-1"
                         name="hero-chevron-down"
                         class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
@@ -316,7 +316,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         Where is your data stored?
                       </h3>
-                      <.icon
+                      <.phx_icon
                         name="hero-chevron-down"
                         class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
                         x-bind:class="{ 'rotate-180': open }"
@@ -391,7 +391,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                         You own 100% of your data
                         <span class="text-sm opacity-70 line-through ml-2">data harvesting</span>
                       </h3>
-                      <.icon
+                      <.phx_icon
                         name="hero-chevron-down"
                         class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
                         x-bind:class="{ 'rotate-180': open }"
@@ -458,7 +458,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                         Your data is zero-knowledge encrypted
                         <span class="text-sm opacity-70 line-through ml-2">backdoors</span>
                       </h3>
-                      <.icon
+                      <.phx_icon
                         name="hero-chevron-down"
                         class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
                         x-bind:class="{ 'rotate-180': open }"
@@ -520,7 +520,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                           algorithmic manipulation
                         </span>
                       </h3>
-                      <.icon
+                      <.phx_icon
                         name="hero-chevron-down"
                         class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
                         x-bind:class="{ 'rotate-180': open }"
@@ -559,7 +559,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                           behavior modification
                         </span>
                       </h3>
-                      <.icon
+                      <.phx_icon
                         name="hero-chevron-down"
                         class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
                         x-bind:class="{ 'rotate-180': open }"
@@ -601,7 +601,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                         </span>
                         <span class="text-sm text-rose-600 dark:text-rose-400 ml-2">(updated)</span>
                       </h3>
-                      <.icon
+                      <.phx_icon
                         name="hero-chevron-down"
                         class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
                         x-bind:class="{ 'rotate-180': open }"
@@ -669,7 +669,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                         Metadata & Payments
                         <span class="text-sm text-rose-600 dark:text-rose-400 ml-2">(updated)</span>
                       </h3>
-                      <.icon
+                      <.phx_icon
                         name="hero-chevron-down"
                         class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
                         x-bind:class="{ 'rotate-180': open }"
@@ -813,7 +813,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         Additional Resources
                       </h3>
-                      <.icon
+                      <.phx_icon
                         name="hero-chevron-down"
                         class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
                         x-bind:class="{ 'rotate-180': open }"
@@ -878,7 +878,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         Updates & Feedback
                       </h3>
-                      <.icon
+                      <.phx_icon
                         name="hero-chevron-down"
                         class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
                         x-bind:class="{ 'rotate-180': open }"

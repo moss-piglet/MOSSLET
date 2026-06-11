@@ -53,28 +53,30 @@ defmodule MossletWeb.UserDashLive do
             </div>
           </.liquid_card>
         </div>
-        <.alert
+        <div
           :if={
             (is_nil(@current_scope.user.connection.profile) ||
                is_nil(@current_scope.user.connection.profile.slug)) &&
               !@current_scope.user.confirmed_at
           }
-          color="warning"
-          class="my-5 max-w-prose"
-          heading={gettext("🤫 Unconfirmed account")}
+          class="my-5 max-w-prose rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40 p-4 text-amber-800 dark:text-amber-200"
+          role="alert"
         >
-          {gettext(
-            "Please check your email for a confirmation link or click the button below to enter your email and send another. Once your email has been confirmed then you can get started creating your profile! 🥳"
-          )}
-          <.button
-            type="button"
-            color="secondary"
-            class="block mt-4"
+          <p class="font-semibold">{gettext("🤫 Unconfirmed account")}</p>
+          <p class="mt-1 text-sm">
+            {gettext(
+              "Please check your email for a confirmation link or click the button below to enter your email and send another. Once your email has been confirmed then you can get started creating your profile! 🥳"
+            )}
+          </p>
+          <.liquid_button
+            variant="secondary"
+            color="amber"
+            class="mt-4"
             phx-click={JS.patch(~p"/auth/confirm")}
           >
             Confirm my account
-          </.button>
-        </.alert>
+          </.liquid_button>
+        </div>
       </.liquid_container>
     </.layout>
     """

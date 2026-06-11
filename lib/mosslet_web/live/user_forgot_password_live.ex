@@ -121,7 +121,7 @@ defmodule MossletWeb.UserForgotPasswordLive do
                 "transition-colors duration-200"
               ]}
             >
-              <.icon name="hero-arrow-left-on-rectangle" class="w-4 h-4" /> Back to sign in
+              <.phx_icon name="hero-arrow-left-on-rectangle" class="w-4 h-4" /> Back to sign in
             </.link>
 
             <.link
@@ -132,7 +132,7 @@ defmodule MossletWeb.UserForgotPasswordLive do
                 "transition-colors duration-200"
               ]}
             >
-              <.icon name="hero-user-plus" class="w-4 h-4" /> Create account
+              <.phx_icon name="hero-user-plus" class="w-4 h-4" /> Create account
             </.link>
           </div>
         </div>

@@ -189,7 +189,7 @@ defmodule MossletWeb.EditProfileLive do
                   </div>
 
                   <%!-- Hidden fields --%>
-                  <.field
+                  <.phx_input
                     :if={@current_user.connection.avatar_url}
                     field={f_nested[:avatar_url]}
                     type="hidden"
@@ -203,14 +203,14 @@ defmodule MossletWeb.EditProfileLive do
                     }
                   />
                   <span data-decrypt-field="email">
-                    <.input
+                    <.phx_input
                       field={f_nested[:email]}
                       type="hidden"
                       value={@current_user.decrypted[:email]}
                     />
                   </span>
                   <span data-decrypt-field="name">
-                    <.input
+                    <.phx_input
                       :if={@current_user.name}
                       field={f_nested[:name]}
                       type="hidden"
@@ -218,23 +218,23 @@ defmodule MossletWeb.EditProfileLive do
                     />
                   </span>
                   <span data-decrypt-field="username">
-                    <.input
+                    <.phx_input
                       field={f_nested[:username]}
                       type="hidden"
                       value={@current_user.decrypted[:username]}
                     />
-                    <.input
+                    <.phx_input
                       field={f_nested[:temp_username]}
                       type="hidden"
                       value={@current_user.decrypted[:username]}
                     />
                   </span>
-                  <.input
+                  <.phx_input
                     field={f_nested[:visibility]}
                     type="hidden"
                     value={@current_user.visibility}
                   />
-                  <.input field={f_nested[:user_id]} type="hidden" value={@current_user.id} />
+                  <.phx_input field={f_nested[:user_id]} type="hidden" value={@current_user.id} />
 
                   <%!-- Profile URL Section --%>
                   <div class="space-y-3">

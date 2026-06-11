@@ -129,7 +129,6 @@ defmodule MossletWeb do
     quote do
       # HTML escaping functionality
       # Core UI components and translation
-      use PetalComponents
       use MossletComponents
 
       use Gettext, backend: MossletWeb.Gettext

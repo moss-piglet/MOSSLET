@@ -35,13 +35,13 @@ defmodule MossletWeb.GroupLive.GroupMessage.EditForm do
           data-sealed-group-key={not @public? && @user_group_key}
           data-message-id={@message.id}
         >
-          <.input
+          <.phx_input
             id="edit_group_message_content"
             autocomplete="off"
             field={@message_form[:content]}
           />
           <:actions>
-            <.button>save</.button>
+            <.phx_button type="submit">save</.phx_button>
           </:actions>
         </.simple_form>
       </.phx_modal>

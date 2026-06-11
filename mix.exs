@@ -183,7 +183,6 @@ defmodule Mosslet.MixProject do
       {:oban_web, "~> 2.11"},
       {:password, "~> 1.1"},
       {:oban_met, "~> 1.0"},
-      {:petal_components, "~> 3.0"},
       {:phoenix, "~> 1.8"},
       {:phoenix_ecto, "~> 4.6"},
       {:phoenix_html, "~> 4.0"},

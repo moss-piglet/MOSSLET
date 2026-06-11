@@ -81,21 +81,21 @@ defmodule MossletWeb.PublicLive.Terms do
                     </h3>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       <div class="flex items-center lg:flex-col lg:text-center lg:items-center">
-                        <.icon
+                        <.phx_icon
                           name="hero-shield-check"
                           class="text-emerald-600 dark:text-emerald-400 mr-2 lg:mr-0 lg:mb-2 h-6 w-6 flex-shrink-0"
                         />
                         <span class="text-sm lg:text-xs">Privacy First</span>
                       </div>
                       <div class="flex items-center lg:flex-col lg:text-center lg:items-center">
-                        <.icon
+                        <.phx_icon
                           name="hero-heart"
                           class="text-emerald-600 dark:text-emerald-400 mr-2 lg:mr-0 lg:mb-2 h-6 w-6 flex-shrink-0"
                         />
                         <span class="text-sm lg:text-xs">Human Dignity</span>
                       </div>
                       <div class="flex items-center lg:flex-col lg:text-center lg:items-center sm:col-span-2 lg:col-span-1">
-                        <.icon
+                        <.phx_icon
                           name="hero-scale"
                           class="text-emerald-600 dark:text-emerald-400 mr-2 lg:mr-0 lg:mb-2 h-6 w-6 flex-shrink-0"
                         />
@@ -125,7 +125,7 @@ defmodule MossletWeb.PublicLive.Terms do
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         1. Acceptance of Terms
                       </h3>
-                      <.icon
+                      <.phx_icon
                         name="hero-chevron-down"
                         class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
                         x-bind:class="{ 'rotate-180': open }"
@@ -156,7 +156,7 @@ defmodule MossletWeb.PublicLive.Terms do
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         2. User Conduct
                       </h3>
-                      <.icon
+                      <.phx_icon
                         name="hero-chevron-down"
                         class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
                         x-bind:class="{ 'rotate-180': open }"
@@ -226,7 +226,7 @@ defmodule MossletWeb.PublicLive.Terms do
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         3. Privacy and Data Protection
                       </h3>
-                      <.icon
+                      <.phx_icon
                         name="hero-chevron-down"
                         class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
                         x-bind:class="{ 'rotate-180': open }"
@@ -265,7 +265,7 @@ defmodule MossletWeb.PublicLive.Terms do
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         4. Attribution
                       </h3>
-                      <.icon
+                      <.phx_icon
                         name="hero-chevron-down"
                         class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
                         x-bind:class="{ 'rotate-180': open }"
@@ -318,7 +318,7 @@ defmodule MossletWeb.PublicLive.Terms do
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         5. Compliance with Applicable Laws
                       </h3>
-                      <.icon
+                      <.phx_icon
                         name="hero-chevron-down"
                         class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
                         x-bind:class="{ 'rotate-180': open }"
@@ -349,7 +349,7 @@ defmodule MossletWeb.PublicLive.Terms do
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         6. Changes to Terms
                       </h3>
-                      <.icon
+                      <.phx_icon
                         name="hero-chevron-down"
                         class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
                         x-bind:class="{ 'rotate-180': open }"
@@ -380,7 +380,7 @@ defmodule MossletWeb.PublicLive.Terms do
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         7. Limitation of Liability
                       </h3>
-                      <.icon
+                      <.phx_icon
                         name="hero-chevron-down"
                         class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
                         x-bind:class="{ 'rotate-180': open }"
@@ -411,7 +411,7 @@ defmodule MossletWeb.PublicLive.Terms do
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         8. Governing Law
                       </h3>
-                      <.icon
+                      <.phx_icon
                         name="hero-chevron-down"
                         class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
                         x-bind:class="{ 'rotate-180': open }"
@@ -442,7 +442,7 @@ defmodule MossletWeb.PublicLive.Terms do
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         9. Contact Information
                       </h3>
-                      <.icon
+                      <.phx_icon
                         name="hero-chevron-down"
                         class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
                         x-bind:class="{ 'rotate-180': open }"

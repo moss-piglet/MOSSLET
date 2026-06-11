@@ -2,9 +2,9 @@
   Account Settings
   <:subtitle>Manage your account email address and password settings</:subtitle>
   <:actions :if={!@current_user.confirmed_at}>
-    <.button type="button" class="bg-emerald-600" phx-click={JS.patch(~p"/auth/confirm")}>
+    <.phx_button type="button" class="bg-emerald-600" phx-click={JS.patch(~p"/auth/confirm")}>
       Confirm my account
-    </.button>
+    </.phx_button>
   </:actions>
 </.header>
 
@@ -82,7 +82,7 @@
             </div>
 
             <.link phx-click="cancel" phx-value-ref={entry.ref}>
-              <.icon name="hero-x-circle" class="h-6 w-6" />
+              <.phx_icon name="hero-x-circle" class="h-6 w-6" />
             </.link>
           </div>
         </div>
@@ -92,17 +92,22 @@
       </div>
       <.live_file_input upload={@uploads.avatar} />
       <:actions>
-        <.button :if={!Enum.empty?(@uploads.avatar.entries)} phx-disable-with="Uploading...">
+        <.phx_button
+          :if={!Enum.empty?(@uploads.avatar.entries)}
+          type="submit"
+          phx-disable-with="Uploading..."
+        >
           Upload avatar
-        </.button>
-        <.button
+        </.phx_button>
+        <.phx_button
           :if={Enum.empty?(@uploads.avatar.entries)}
+          type="submit"
           phx-disable-with="Uploading..."
           disabled
           class="opacity-25"
         >
           Upload avatar
-        </.button>
+        </.phx_button>
         <.link
           :if={@current_user.connection.avatar_url}
           phx-click="delete_avatar"
@@ -110,7 +115,7 @@
           class="rounded-full bg-pink-600 p-2 text-white shadow-sm hover:bg-pink-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
           title="Delete avatar"
         >
-          <.icon name="hero-trash" class="h-6 w-6" />
+          <.phx_icon name="hero-trash" class="h-6 w-6" />
         </.link>
       </:actions>
     </.simple_form>
@@ -118,7 +123,7 @@
   <div>
     <.simple_form for={@email_form} id="email_form" phx-submit="update_email">
       <span data-decrypt-field="email">
-        <.input
+        <.phx_input
           field={@email_form[:email]}
           type="email"
           label="Email"
@@ -126,7 +131,7 @@
           required
         />
       </span>
-      <.input
+      <.phx_input
         field={@email_form[:current_password]}
         name="current_password"
         id="current_password_for_email"
@@ -136,7 +141,7 @@
         required
       />
       <:actions>
-        <.button phx-disable-with="Changing...">Change Email</.button>
+        <.phx_button type="submit" phx-disable-with="Changing...">Change Email</.phx_button>
       </:actions>
     </.simple_form>
   </div>
@@ -151,20 +156,20 @@
       phx-trigger-action={@trigger_submit}
     >
       <span data-decrypt-field="email">
-        <.input
+        <.phx_input
           field={@password_form[:email]}
           type="hidden"
           id="hidden_user_email"
           value={@current_user.decrypted[:email]}
         />
       </span>
-      <.input field={@password_form[:password]} type="password" label="New password" required />
-      <.input
+      <.phx_input field={@password_form[:password]} type="password" label="New password" required />
+      <.phx_input
         field={@password_form[:password_confirmation]}
         type="password"
         label="Confirm new password"
       />
-      <.input
+      <.phx_input
         field={@password_form[:current_password]}
         name="current_password"
         type="password"
@@ -174,14 +179,14 @@
         required
       />
       <:actions>
-        <.button phx-disable-with="Changing...">Change Password</.button>
+        <.phx_button type="submit" phx-disable-with="Changing...">Change Password</.phx_button>
       </:actions>
     </.simple_form>
   </div>
   <div id="name-change-form">
     <.simple_form for={@name_form} id="name_form" phx-submit="update_name">
       <span data-decrypt-field="name">
-        <.input
+        <.phx_input
           field={@name_form[:name]}
           type="text"
           label="Name"
@@ -190,14 +195,14 @@
         />
       </span>
       <:actions>
-        <.button phx-disable-with="Changing...">Change Name</.button>
+        <.phx_button type="submit" phx-disable-with="Changing...">Change Name</.phx_button>
       </:actions>
     </.simple_form>
   </div>
   <div>
     <.simple_form for={@username_form} id="username_form" phx-submit="update_username">
       <span data-decrypt-field="username">
-        <.input
+        <.phx_input
           field={@username_form[:username]}
           type="text"
           label="Username"
@@ -206,13 +211,13 @@
         />
       </span>
       <:actions>
-        <.button phx-disable-with="Changing...">Change Username</.button>
+        <.phx_button type="submit" phx-disable-with="Changing...">Change Username</.phx_button>
       </:actions>
     </.simple_form>
   </div>
   <div>
     <.simple_form for={@visibility_form} id="visibility_form" phx-submit="update_visibility">
-      <.input
+      <.phx_input
         field={@username_form[:visibility]}
         type="select"
         options={Ecto.Enum.values(Accounts.User, :visibility)}
@@ -244,9 +249,9 @@
             </dl>
           </div>
         </:description_block>
-      </.input>
+      </.phx_input>
       <:actions>
-        <.button phx-disable-with="Changing...">Change Visibility</.button>
+        <.phx_button type="submit" phx-disable-with="Changing...">Change Visibility</.phx_button>
       </:actions>
     </.simple_form>
   </div>
@@ -265,8 +270,8 @@
       apply_classes?={true}
       class="rounded-md my-12 p-10 bg-yellow-50"
     >
-      <.input field={@profile_form[:id]} type="hidden" value={@current_user.connection.id} />
-      <.inputs_for :let={f_nested} field={@profile_form[:profile]}>
+      <.phx_input field={@profile_form[:id]} type="hidden" value={@current_user.connection.id} />
+      <.phx_inputs_for :let={f_nested} field={@profile_form[:profile]}>
         <div class="pb-12">
           <h2 class="text-base font-semibold leading-7 text-gray-900">
             Profile
@@ -287,21 +292,21 @@
             This information will be displayed based on your visibility setting. It is possible to have a different profile visibility than your account visibility setting. Always check the badge next to "Profile" in this section to know what your profile's current visibility is, and hit "Update Profile" if you wish to realign it with your account visibility setting.
           </p>
 
-          <.input
+          <.phx_input
             :if={@current_user.connection.avatar_url}
             field={f_nested[:avatar_url]}
             type="hidden"
             value="encrypted-avatar-exists"
           />
           <span data-decrypt-field="email">
-            <.input
+            <.phx_input
               field={f_nested[:email]}
               type="hidden"
               value={@current_user.decrypted[:email]}
             />
           </span>
           <span data-decrypt-field="name">
-            <.input
+            <.phx_input
               :if={@current_user.name}
               field={f_nested[:name]}
               type="hidden"
@@ -320,7 +325,7 @@
                     mosslet.com/app/
                   </span>
                   <span data-decrypt-field="username">
-                    <.input
+                    <.phx_input
                       type="text"
                       field={f_nested[:username]}
                       apply_classes?={true}
@@ -329,28 +334,28 @@
                       placeholder="janesmith"
                       disabled
                     />
-                    <.input
+                    <.phx_input
                       field={f_nested[:username]}
                       type="hidden"
                       value={@current_user.decrypted[:username]}
                     />
-                    <.input
+                    <.phx_input
                       field={f_nested[:temp_username]}
                       type="hidden"
                       value={@current_user.decrypted[:username]}
                     />
                   </span>
-                  <.input
+                  <.phx_input
                     field={f_nested[:visibility]}
                     type="hidden"
                     value={@current_user.visibility}
                   />
-                  <.input field={f_nested[:user_id]} type="hidden" value={@current_user.id} />
+                  <.phx_input field={f_nested[:user_id]} type="hidden" value={@current_user.id} />
                 </div>
               </div>
               <div class="divide-y divide-yellow-900/25">
                 <div :if={@current_user.connection.avatar_url} class="mt-2">
-                  <.input
+                  <.phx_input
                     field={f_nested[:show_avatar?]}
                     type="checkbox"
                     label="Show your avatar?"
@@ -359,10 +364,10 @@
                     <:description_block>
                       <p>Show your avatar on your profile page.</p>
                     </:description_block>
-                  </.input>
+                  </.phx_input>
                 </div>
                 <div class="mt-2">
-                  <.input
+                  <.phx_input
                     field={f_nested[:show_email?]}
                     type="checkbox"
                     label="Show your email?"
@@ -371,10 +376,10 @@
                     <:description_block>
                       <p>Show your email on your profile page.</p>
                     </:description_block>
-                  </.input>
+                  </.phx_input>
                 </div>
                 <div :if={@current_user.name} class="mt-2">
-                  <.input
+                  <.phx_input
                     field={f_nested[:show_name?]}
                     type="checkbox"
                     label="Show your name?"
@@ -383,7 +388,7 @@
                     <:description_block>
                       <p>Show your name on your profile page.</p>
                     </:description_block>
-                  </.input>
+                  </.phx_input>
                 </div>
               </div>
             </div>
@@ -396,7 +401,7 @@
                 About
               </label>
               <div class="mt-2">
-                <.input
+                <.phx_input
                   field={f_nested[:about]}
                   value={@profile_about}
                   type="textarea"
@@ -411,15 +416,16 @@
             </div>
           </div>
         </div>
-      </.inputs_for>
+      </.phx_inputs_for>
       <:actions>
-        <.button
+        <.phx_button
           :if={@current_user.connection.profile}
+          type="submit"
           phx-disable-with="Updating..."
           class="bg-yellow-600 hover:bg-yellow-500"
         >
           Update Profile
-        </.button>
+        </.phx_button>
         <.link
           :if={@current_user.connection.profile}
           phx-disable-with="Deleting..."
@@ -430,13 +436,14 @@
         >
           Delete Profile
         </.link>
-        <.button
+        <.phx_button
           :if={is_nil(@current_user.connection.profile)}
+          type="submit"
           phx-disable-with="Creating..."
           class="bg-yellow-600 hover:bg-yellow-500"
         >
           Create Profile
-        </.button>
+        </.phx_button>
       </:actions>
     </.simple_form>
   </div>
@@ -456,7 +463,7 @@
       id="forgot_password_form"
       phx-submit="update_forgot_password"
     >
-      <.input
+      <.phx_input
         field={@forgot_password_form[:is_forgot_pwd?]}
         type="checkbox"
         label={
@@ -519,9 +526,11 @@
             </dl>
           </div>
         </:description_block>
-      </.input>
+      </.phx_input>
       <:actions>
-        <.button phx-disable-with="Changing...">Change Forgot Password</.button>
+        <.phx_button type="submit" phx-disable-with="Changing...">
+          Change Forgot Password
+        </.phx_button>
       </:actions>
     </.simple_form>
   </div>
@@ -536,7 +545,7 @@
     >
       <div class="mx-auto pb-6">
         <span class="inline-flex">
-          <.icon name="hero-exclamation-triangle" class="text-rose-700 h-6 w-6" />
+          <.phx_icon name="hero-exclamation-triangle" class="text-rose-700 h-6 w-6" />
           <h2 class="ml-2 text-lg font-semibold leading-6 text-rose-700">Delete your account</h2>
         </span>
         <p class="mt-1 text-sm text-gray-700">
@@ -544,8 +553,13 @@
         </p>
       </div>
 
-      <.input field={@delete_account_form[:id]} type="hidden" value={@current_user.id} required />
-      <.input
+      <.phx_input
+        field={@delete_account_form[:id]}
+        type="hidden"
+        value={@current_user.id}
+        required
+      />
+      <.phx_input
         field={@delete_account_form[:current_password]}
         name="current_password"
         type="password"
@@ -555,12 +569,13 @@
         required
       />
       <:actions>
-        <.button
+        <.phx_button
+          type="submit"
           class="bg-rose-700 hover:bg-rose-600 text-white active:text-white/80"
           phx-disable-with="Deleting..."
         >
           Delete Account
-        </.button>
+        </.phx_button>
       </:actions>
     </.simple_form>
   </div>

@@ -170,7 +170,7 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
           <label for="message_form[content]" class="sr-only">Add new message to group</label>
           <.phx_input
             autocomplete="off"
-            phx-keydown={show_modal("edit_message")}
+            phx-keydown={phx_show_modal("edit_message")}
             phx-key="ArrowUp"
             phx-hook="MentionPicker"
             phx-target={@myself}

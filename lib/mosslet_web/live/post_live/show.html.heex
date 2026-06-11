@@ -1,31 +1,21 @@
 <.layout current_page={:timeline} current_scope={@current_scope} type="sidebar">
-  <.container class="py-16">
+  <.liquid_container class="py-16">
     <.page_header title="Viewing Post" class="ml-2 sm:ml-6">
       <div class="inline-flex space-x-2">
-        <%!--
-        <.button
-          :if={@current_user && can_edit?(@current_user, @post)}
-          link_type="live_patch"
-          class="rounded-full inline-flex"
-          label="Edit Post"
-          to={~p"/app/posts/#{@post}/show/edit"}
-          phx-click={JS.push_focus()}
-        />
-        --%>
-        <.button
-          icon="hero-arrow-long-left"
-          link_type="live_redirect"
-          class="rounded-full"
-          label="Back to Timeline"
-          to={~p"/app/timeline"}
-        />
+        <.link
+          navigate={~p"/app/timeline"}
+          class="inline-flex items-center gap-1 rounded-full bg-emerald-600 hover:bg-emerald-500 py-2 px-4 text-sm font-semibold text-white"
+        >
+          <.phx_icon name="hero-arrow-long-left" class="w-4 h-4" /> Back to Timeline
+        </.link>
       </div>
     </.page_header>
-  </.container>
-  <.container class="-mt-10 pb-10 max-w-prose">
+  </.liquid_container>
+  <.liquid_container class="-mt-10 pb-10 max-w-prose">
     <div phx-hook="RepostFormHook" id="repost-form-handler" style="display: none;"></div>
-    <.p>This is a
-      post from <.local_time_full id={@post.id} at={@post.updated_at} />.</.p>
+    <p class="text-gray-600 dark:text-gray-300 mb-4">
+      This is a post from <.local_time_full id={@post.id} at={@post.updated_at} />.
+    </p>
 
     <Components.single_post
       :if={@post}
@@ -85,5 +75,5 @@
         patch={@return_url}
       />
     </.phx_modal>
-  </.container>
+  </.liquid_container>
 </.layout>

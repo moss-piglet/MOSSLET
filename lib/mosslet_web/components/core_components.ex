@@ -16,15 +16,12 @@ defmodule MossletWeb.CoreComponents do
   """
   use Phoenix.Component
   use MossletWeb, :verified_routes
-  use PetalComponents
 
   use Gettext, backend: MossletWeb.Gettext
   import MossletWeb.Helpers
 
-  import MossletWeb.Helpers
   import MossletWeb.PublicLayout
   import MossletWeb.ModernSidebarLayout
-  import MossletWeb.StackedLayout
   import MossletWeb.FocusLayout
   import MossletWeb.ReaderLayout
 
@@ -170,7 +167,7 @@ defmodule MossletWeb.CoreComponents do
                   phx-hook="TippyHook"
                   aria-label={gettext("close")}
                 >
-                  <.icon
+                  <.phx_icon
                     name="hero-x-circle"
                     class="size-8 text-gray-500 dark:text-gray-400 group-hover:text-gray-400 dark:group-hover:text-gray-300"
                   />
@@ -1674,7 +1671,7 @@ defmodule MossletWeb.CoreComponents do
         navigate={@navigate}
         class="text-sm font-semibold leading-6 text-zinc-900 hover:text-zinc-700"
       >
-        <.icon name="hero-arrow-left-solid" class="h-3 w-3" />
+        <.phx_icon name="hero-arrow-left-solid" class="h-3 w-3" />
         {render_slot(@inner_block)}
       </.link>
     </div>
@@ -1841,7 +1838,7 @@ defmodule MossletWeb.CoreComponents do
                   "inline-flex text-#{@size} items-center justify-center rounded-md bg-background-50 dark:bg-gray-900",
                 else: "inline-flex #{@class} #{@size} items-center justify-center"
             }>
-              <.spinner size="md" class="text-primary-500" />
+              <.phx_icon name="hero-arrow-path" class="h-5 w-5 animate-spin text-primary-500" />
             </span>
           <% else %>
             <img
@@ -1927,7 +1924,7 @@ defmodule MossletWeb.CoreComponents do
                   "inline-flex text-#{@size} items-center justify-center overflow-hidden rounded-md bg-white dark:bg-gray-900",
                 else: "inline-flex #{@class} #{@size} items-center justify-center overflow-hidden"
             }>
-              <.spinner size="md" class="text-primary-500" />
+              <.phx_icon name="hero-arrow-path" class="h-5 w-5 animate-spin text-primary-500" />
             </span>
           <% else %>
             <img
@@ -1970,6 +1967,7 @@ defmodule MossletWeb.CoreComponents do
   attr :id, :string, default: nil
   attr :phx_hook, :string, default: nil
   attr :data_tippy_content, :string, default: nil
+  attr :rest, :global
 
   def phx_icon(%{name: "hero-" <> _} = assigns) do
     assigns = assign_new(assigns, :style, fn -> nil end)
@@ -1981,6 +1979,7 @@ defmodule MossletWeb.CoreComponents do
       id={@id}
       phx-hook={@phx_hook}
       data-tippy-content={@data_tippy_content}
+      {@rest}
     />
     """
   end
@@ -2453,23 +2452,6 @@ defmodule MossletWeb.CoreComponents do
           </:top_right>
           {render_slot(@inner_block)}
         </.modern_sidebar_layout>
-      <% "stacked" -> %>
-        <.stacked_layout {assigns}>
-          <:logo>
-            <div class="flex items-center flex-shrink-0 w-24 h-full">
-              <div class="hidden lg:block">
-                <.logo class="h-8" />
-              </div>
-              <div class="block lg:hidden">
-                <.logo class="w-auto h-8" />
-              </div>
-            </div>
-          </:logo>
-          <:top_right>
-            <MossletWeb.Layouts.theme_toggle />
-          </:top_right>
-          {render_slot(@inner_block)}
-        </.stacked_layout>
       <% "public" -> %>
         <.mosslet_public_layout
           {assigns}
