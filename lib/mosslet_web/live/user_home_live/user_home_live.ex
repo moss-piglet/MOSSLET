@@ -1170,6 +1170,9 @@ defmodule MossletWeb.UserHomeLive do
             pending.shared_users
         end
 
+      # Co-seal for the reposter's active guardian(s) (server-authoritative, ZK).
+      shared_users = MossletWeb.Helpers.append_guardian_shared_users(shared_users, user)
+
       visibility =
         if params["repost_type"] == "share",
           do: :connections,

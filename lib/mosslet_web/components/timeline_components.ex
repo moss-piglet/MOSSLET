@@ -531,6 +531,10 @@ defmodule MossletWeb.TimelineComponents do
   attr :collapsed, :boolean, default: false
   attr :bluesky_sync_enabled, :boolean, default: false
 
+  attr :guardian_names, :list,
+    default: [],
+    doc: "active guardian display names that will co-read this post (I2 transparency chip)"
+
   attr :encrypted_avatar_data, :map,
     default: nil,
     doc: "ZK mode: encrypted avatar data for browser-side decryption"
@@ -607,6 +611,12 @@ defmodule MossletWeb.TimelineComponents do
 
           <%!-- Compose area with character counter --%>
           <div class="flex-1 min-w-0">
+            <%!-- Guardianship transparency chip (I2): show when a guardian will co-read --%>
+            <MossletWeb.FamilyComponents.composer_guardian_chip
+              :if={@selector != "public" && @guardian_names != []}
+              guardian_names={@guardian_names}
+              class="mb-2"
+            />
             <div class="relative group">
               <%!-- Hidden fields required for post creation --%>
               <.phx_input

@@ -256,6 +256,78 @@ config :mosslet, :billing_products, [
     mode: "subscription",
     subscription_data: %{trial_period_days: 14},
     automatic_tax: %{enabled: true}
+  },
+  %{
+    id: "prod_business",
+    name: "MOSSLET (Business)",
+    description:
+      "Run your team on a calm, private platform. MOSSLET (Business) includes 20 members with private business circles and zero-knowledge file sharing — your team's work stays cryptographically private, never read by us.",
+    most_popular: false,
+    features: [
+      "Everything in Personal, for up to 20 members",
+      "Add more members any time ($5/mo each)",
+      "Private business circles (org-scoped)",
+      "Zero-knowledge file sharing across your team",
+      "Shared business connections",
+      "Zero-knowledge, post-quantum encryption",
+      "Priority email support"
+    ],
+    line_items: [
+      %{
+        id: "business-monthly",
+        interval: :month,
+        price: System.get_env("STRIPE_PRICE_BUSINESS_MONTHLY") || "price_business_monthly_test",
+        quantity: 1,
+        amount: 10000,
+        included_seats: 20,
+        seat_addon_price:
+          System.get_env("STRIPE_PRICE_BUSINESS_SEAT_MONTHLY") ||
+            "price_business_seat_monthly_test",
+        max_seats: 200,
+        save_percent: 0,
+        trial_days: 14,
+        allow_promotion_codes: true
+      }
+    ],
+    mode: "subscription",
+    subscription_data: %{trial_period_days: 14},
+    automatic_tax: %{enabled: true}
+  },
+  %{
+    id: "prod_business",
+    name: "MOSSLET (Business)",
+    description:
+      "Get a full year of MOSSLET (Business) at our best rate. Includes 20 members with private business circles and zero-knowledge file sharing — privacy-first collaboration for your whole team.",
+    most_popular: false,
+    features: [
+      "Everything in Personal, for up to 20 members",
+      "Add more members any time ($48/yr each)",
+      "Private business circles (org-scoped)",
+      "Zero-knowledge file sharing across your team",
+      "Shared business connections",
+      "Zero-knowledge, post-quantum encryption",
+      "Priority email support"
+    ],
+    line_items: [
+      %{
+        id: "business-yearly",
+        interval: :year,
+        price: System.get_env("STRIPE_PRICE_BUSINESS_YEARLY") || "price_business_yearly_test",
+        quantity: 1,
+        amount: 80000,
+        monthly_equivalent: 6667,
+        included_seats: 20,
+        seat_addon_price:
+          System.get_env("STRIPE_PRICE_BUSINESS_SEAT_YEARLY") || "price_business_seat_yearly_test",
+        max_seats: 200,
+        save_percent: 33,
+        trial_days: 14,
+        allow_promotion_codes: true
+      }
+    ],
+    mode: "subscription",
+    subscription_data: %{trial_period_days: 14},
+    automatic_tax: %{enabled: true}
   }
 ]
 

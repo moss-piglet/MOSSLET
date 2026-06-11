@@ -67,6 +67,7 @@ defmodule MossletWeb.Menus do
             :connections,
             :conversations,
             :timeline,
+            :family,
             :settings,
             :subscribe
           ],
@@ -83,6 +84,7 @@ defmodule MossletWeb.Menus do
             :connections,
             :conversations,
             :timeline,
+            :family,
             :settings,
             :subscribe
           ],
@@ -490,6 +492,15 @@ defmodule MossletWeb.Menus do
       label: gettext("Circles"),
       path: ~p"/app/circles",
       icon: "hero-circle-stack"
+    }
+  end
+
+  def get_link(:family = name, _current_user) do
+    %{
+      name: name,
+      label: gettext("Family"),
+      path: ~p"/app/family",
+      icon: "hero-users"
     }
   end
 

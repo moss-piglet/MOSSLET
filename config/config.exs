@@ -343,7 +343,7 @@ config :mosslet, :billing_products, [
   # price. Stripe price IDs are read from env vars (Metamorphic-style) so the
   # same release works across Stripe accounts; fallbacks are the live IDs.
   %{
-    id: "prod_family",
+    id: "prod_Ugc48UDU9hdbji",
     name: "MOSSLET (Family)",
     description:
       "Bring your whole family into a calm, private space. MOSSLET (Family) includes 5 members and adds consent-based guardianship for younger members — you stay in the loop without surveillance, because content is shared cryptographically, never read by us.",
@@ -379,7 +379,7 @@ config :mosslet, :billing_products, [
     automatic_tax: %{enabled: true}
   },
   %{
-    id: "prod_family",
+    id: "prod_Ugc48UDU9hdbji",
     name: "MOSSLET (Family)",
     description:
       "Get a full year of MOSSLET (Family) at our best rate. Includes 5 members with consent-based guardianship for younger members — privacy that keeps families connected, never watched.",
@@ -414,6 +414,82 @@ config :mosslet, :billing_products, [
     mode: "subscription",
     subscription_data: %{trial_period_days: 14},
     automatic_tax: %{enabled: true}
+  },
+  # MOSSLET (Business) — subscription only, per-seat (Phase 3).
+  # Base price covers 20 members; additional members billed via the add-on
+  # seat price. Stripe price IDs are read from env vars (Metamorphic-style) so
+  # the same release works across Stripe accounts; fallbacks are the live IDs.
+  # Business orgs use private business circles + ZK file sharing (no guardianship).
+  %{
+    id: "prod_UgdkpX4fDFkSTx",
+    name: "MOSSLET (Business)",
+    description:
+      "Run your team on a calm, private platform. MOSSLET (Business) includes 20 members with private business circles and zero-knowledge file sharing — your team's work stays cryptographically private, never read by us.",
+    most_popular: false,
+    features: [
+      "Everything in Personal, for up to 20 members",
+      "Add more members any time ($5/mo each)",
+      "Private business circles (org-scoped)",
+      "Zero-knowledge file sharing across your team",
+      "Shared business connections",
+      "Zero-knowledge, post-quantum encryption",
+      "Priority email support"
+    ],
+    line_items: [
+      %{
+        id: "business-monthly",
+        interval: :month,
+        price: System.get_env("STRIPE_PRICE_BUSINESS_MONTHLY") || "price_business_monthly",
+        quantity: 1,
+        amount: 10000,
+        included_seats: 20,
+        seat_addon_price:
+          System.get_env("STRIPE_PRICE_BUSINESS_SEAT_MONTHLY") || "price_business_seat_monthly",
+        max_seats: 200,
+        save_percent: 0,
+        trial_days: 14,
+        allow_promotion_codes: true
+      }
+    ],
+    mode: "subscription",
+    subscription_data: %{trial_period_days: 14},
+    automatic_tax: %{enabled: true}
+  },
+  %{
+    id: "prod_UgdkpX4fDFkSTx",
+    name: "MOSSLET (Business)",
+    description:
+      "Get a full year of MOSSLET (Business) at our best rate. Includes 20 members with private business circles and zero-knowledge file sharing — privacy-first collaboration for your whole team.",
+    most_popular: false,
+    features: [
+      "Everything in Personal, for up to 20 members",
+      "Add more members any time ($48/yr each)",
+      "Private business circles (org-scoped)",
+      "Zero-knowledge file sharing across your team",
+      "Shared business connections",
+      "Zero-knowledge, post-quantum encryption",
+      "Priority email support"
+    ],
+    line_items: [
+      %{
+        id: "business-yearly",
+        interval: :year,
+        price: System.get_env("STRIPE_PRICE_BUSINESS_YEARLY") || "price_business_yearly",
+        quantity: 1,
+        amount: 80000,
+        monthly_equivalent: 6667,
+        included_seats: 20,
+        seat_addon_price:
+          System.get_env("STRIPE_PRICE_BUSINESS_SEAT_YEARLY") || "price_business_seat_yearly",
+        max_seats: 200,
+        save_percent: 33,
+        trial_days: 14,
+        allow_promotion_codes: true
+      }
+    ],
+    mode: "subscription",
+    subscription_data: %{trial_period_days: 14},
+    automatic_tax: %{enabled: true}
   }
 ]
 
@@ -426,12 +502,16 @@ config :mosslet, :mobile_product_mapping, %{
   "com.mosslet.personal.lifetime" => "personal-lifetime",
   "com.mosslet.family.monthly" => "family-monthly",
   "com.mosslet.family.yearly" => "family-yearly",
+  "com.mosslet.business.monthly" => "business-monthly",
+  "com.mosslet.business.yearly" => "business-yearly",
   # Android product IDs (configured in Google Play Console)
   "personal_monthly" => "personal-monthly",
   "personal_yearly" => "personal-yearly",
   "personal_lifetime" => "personal-lifetime",
   "family_monthly" => "family-monthly",
-  "family_yearly" => "family-yearly"
+  "family_yearly" => "family-yearly",
+  "business_monthly" => "business-monthly",
+  "business_yearly" => "business-yearly"
 }
 
 # Referral Program Configuration

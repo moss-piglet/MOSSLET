@@ -36,11 +36,21 @@ defmodule MossletWeb.PublicLive.Pricing do
             <div class="relative z-10 px-4 pt-20 pb-12 sm:px-6 lg:px-8 sm:pt-24 sm:pb-16 lg:pt-20 lg:pb-20">
               <.pricing_header />
 
-              <div class="mx-auto max-w-6xl">
+              <.family_switcher families={@families} selected_family={@selected_family} />
+
+              <div class="mx-auto max-w-6xl mt-10 sm:mt-12">
                 <.pricing_cards
                   one_time_products={@one_time_products}
                   subscription_products={@subscription_products}
+                  selected_family={@selected_family}
                 />
+              </div>
+
+              <div
+                :if={@selected_family == "Business"}
+                class="mx-auto max-w-4xl mt-12 lg:mt-16"
+              >
+                <.enterprise_cta />
               </div>
 
               <.pricing_footer />
@@ -198,45 +208,86 @@ defmodule MossletWeb.PublicLive.Pricing do
     """
   end
 
-  attr :one_time_products, :list, required: true
-  attr :subscription_products, :list, required: true
+  attr :families, :list, required: true
+  attr :selected_family, :string, required: true
 
-  defp pricing_cards(assigns) do
-    # Group subscription products by plan family (e.g. Personal, Family) so each
-    # family renders as its own row of monthly/yearly cards, preserving the
-    # first-seen config order of plan-family names.
-    ordered_names =
-      assigns.subscription_products
-      |> Enum.map(& &1.name)
-      |> Enum.uniq()
-
-    plan_families =
-      Enum.map(ordered_names, fn name ->
-        {name, Enum.filter(assigns.subscription_products, &(&1.name == name))}
-      end)
-
-    assigns = assign(assigns, :plan_families, plan_families)
+  defp family_switcher(assigns) do
+    selected = Enum.find(assigns.families, &(&1.key == assigns.selected_family))
+    assigns = assign(assigns, :selected, selected)
 
     ~H"""
-    <div :if={@subscription_products != []} class="space-y-12 sm:space-y-16">
-      <%= for {name, products} <- @plan_families do %>
-        <div>
-          <div class="flex items-center gap-3 mb-6">
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {name}
-            </h2>
-            <div class="flex-1 border-t border-slate-200 dark:border-slate-700/50"></div>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-3xl mx-auto">
-            <%= for product <- products do %>
-              <.pricing_card product={product} />
-            <% end %>
-          </div>
+    <div :if={length(@families) > 1} class="mx-auto max-w-3xl">
+      <div class="flex justify-center">
+        <div
+          role="tablist"
+          aria-label="Plan types"
+          class="flex w-full max-w-md sm:w-auto sm:max-w-none items-center gap-1 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-800/60 backdrop-blur-sm p-1.5 shadow-sm"
+        >
+          <button
+            :for={family <- @families}
+            type="button"
+            role="tab"
+            id={"family-tab-#{family.key}"}
+            aria-selected={to_string(family.key == @selected_family)}
+            phx-click="select_family"
+            phx-value-family={family.key}
+            class={[
+              "group relative flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ease-out transform-gpu focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50",
+              if(family.key == @selected_family,
+                do:
+                  "bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg shadow-emerald-500/25",
+                else:
+                  "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-700/50"
+              )
+            ]}
+          >
+            <.phx_icon name={family.icon} class="h-4 w-4" />
+            <span>{family.label}</span>
+          </button>
         </div>
+      </div>
+
+      <p
+        :if={@selected && @selected.tagline != ""}
+        class="mt-5 text-center text-base text-slate-600 dark:text-slate-400"
+      >
+        {@selected.tagline}
+      </p>
+    </div>
+    """
+  end
+
+  attr :one_time_products, :list, required: true
+  attr :subscription_products, :list, required: true
+  attr :selected_family, :string, required: true
+
+  defp pricing_cards(assigns) do
+    products =
+      Enum.filter(
+        assigns.subscription_products,
+        &(short_name(&1.name) == assigns.selected_family)
+      )
+
+    # The one-time/lifetime offer belongs to the Personal family.
+    one_time =
+      if assigns.selected_family == "Personal", do: assigns.one_time_products, else: []
+
+    assigns =
+      assigns
+      |> assign(:products, products)
+      |> assign(:one_time, one_time)
+
+    ~H"""
+    <div
+      :if={@products != []}
+      class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-3xl mx-auto"
+    >
+      <%= for product <- @products do %>
+        <.pricing_card product={product} />
       <% end %>
     </div>
 
-    <div :if={@one_time_products != []} class="mt-16 lg:mt-20">
+    <div :if={@one_time != []} class="mt-16 lg:mt-20">
       <div class="relative">
         <div class="absolute inset-0 flex items-center" aria-hidden="true">
           <div class="w-full border-t border-slate-200 dark:border-slate-700/50"></div>
@@ -252,10 +303,63 @@ defmodule MossletWeb.PublicLive.Pricing do
       </div>
 
       <div class="mt-10 mx-auto max-w-4xl">
-        <%= for product <- @one_time_products do %>
+        <%= for product <- @one_time do %>
           <.one_time_card product={product} />
         <% end %>
       </div>
+    </div>
+    """
+  end
+
+  defp enterprise_cta(assigns) do
+    ~H"""
+    <div class="relative group">
+      <div class="absolute -inset-1 bg-gradient-to-r from-slate-400/10 via-teal-400/10 to-emerald-400/10 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+      </div>
+
+      <.liquid_card
+        padding="lg"
+        class="relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-teal-50/40 dark:from-slate-800/90 dark:via-slate-800/70 dark:to-teal-900/10 border-slate-200/70 dark:border-slate-700/50 shadow-xl"
+      >
+        <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-teal-200/30 via-emerald-200/20 to-transparent dark:from-teal-500/10 dark:via-emerald-500/5 rounded-bl-full pointer-events-none">
+        </div>
+
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-8">
+          <div class="flex-shrink-0">
+            <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-600 dark:to-slate-800 shadow-lg shadow-slate-900/20">
+              <.phx_icon name="hero-building-office-2" class="h-8 w-8 text-white" />
+            </div>
+          </div>
+
+          <div class="flex-1 min-w-0">
+            <div class="flex flex-wrap items-center gap-3 mb-2">
+              <h3 class="text-xl font-bold text-slate-900 dark:text-slate-100">
+                Enterprise
+              </h3>
+              <span class="inline-flex items-center rounded-full bg-slate-100 dark:bg-slate-700/60 px-2.5 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-300">
+                200+ members
+              </span>
+            </div>
+            <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+              Need more than 200 members, custom onboarding, or a tailored agreement? Our
+              Business plan scales to 200 members — beyond that, let's talk. Same
+              zero-knowledge, post-quantum encryption, built for your organization.
+            </p>
+          </div>
+
+          <div class="flex-shrink-0">
+            <.liquid_button
+              href="mailto:support@mosslet.com?subject=MOSSLET%20Enterprise%20enquiry"
+              variant="secondary"
+              color="slate"
+              size="lg"
+              icon="hero-envelope"
+            >
+              Contact us
+            </.liquid_button>
+          </div>
+        </div>
+      </.liquid_card>
     </div>
     """
   end
@@ -488,6 +592,12 @@ defmodule MossletWeb.PublicLive.Pricing do
           </span>
         </div>
       </div>
+      <p
+        :if={Plans.seat_based_plan?(@item)}
+        class="mt-2 text-sm text-slate-500 dark:text-slate-400"
+      >
+        for up to {Plans.included_seats(@item)} members
+      </p>
     </div>
     """
   end
@@ -594,6 +704,9 @@ defmodule MossletWeb.PublicLive.Pricing do
         item && item.interval in [:month, :year]
       end)
 
+    families = build_families(subscription_products)
+    default_family = default_family(families)
+
     {:ok,
      socket
      |> assign_new(:max_width, fn -> "full" end)
@@ -601,6 +714,8 @@ defmodule MossletWeb.PublicLive.Pricing do
      |> assign(:products, products)
      |> assign(:one_time_products, one_time_products)
      |> assign(:subscription_products, subscription_products)
+     |> assign(:families, families)
+     |> assign(:selected_family, default_family)
      |> assign_new(:meta_description, fn ->
        "Simple, flexible pricing. Choose monthly, yearly, or lifetime access. With our pay-once lifetime option you get access to our service forever. No hidden fees, no surprises. We also support lowering your upfront lifetime payment with Affirm."
      end)
@@ -611,4 +726,64 @@ defmodule MossletWeb.PublicLive.Pricing do
        "Pay once, own forever. No subscriptions. No recurring fees. No surprises."
      )}
   end
+
+  @impl true
+  def handle_event("select_family", %{"family" => key}, socket) do
+    valid? = Enum.any?(socket.assigns.families, &(&1.key == key))
+    {:noreply, if(valid?, do: assign(socket, :selected_family, key), else: socket)}
+  end
+
+  # Builds the ordered list of plan families from the configured subscription
+  # products, preserving first-seen config order. Each family carries marketing
+  # metadata used by the switcher and section header.
+  defp build_families(subscription_products) do
+    subscription_products
+    |> Enum.map(&short_name(&1.name))
+    |> Enum.uniq()
+    |> Enum.map(fn key -> Map.put(family_meta(key), :key, key) end)
+  end
+
+  # Default the switcher to the "Family" plan (our most popular) when present,
+  # otherwise the first available family.
+  defp default_family(families) do
+    keys = Enum.map(families, & &1.key)
+
+    cond do
+      "Family" in keys -> "Family"
+      keys != [] -> List.first(keys)
+      true -> nil
+    end
+  end
+
+  # "MOSSLET (Family)" -> "Family"
+  defp short_name(name) do
+    case Regex.run(~r/\(([^)]+)\)/, name) do
+      [_, inner] -> inner
+      _ -> name
+    end
+  end
+
+  defp family_meta("Personal"),
+    do: %{
+      label: "Personal",
+      icon: "hero-user",
+      tagline: "For you. Private by design, owned by you."
+    }
+
+  defp family_meta("Family"),
+    do: %{
+      label: "Family",
+      icon: "hero-users",
+      tagline: "For the people you love. Stay close without surveillance."
+    }
+
+  defp family_meta("Business"),
+    do: %{
+      label: "Business",
+      icon: "hero-building-office-2",
+      tagline: "For your team. Private collaboration that scales."
+    }
+
+  defp family_meta(other),
+    do: %{label: other, icon: "hero-sparkles", tagline: ""}
 end

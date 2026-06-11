@@ -35,6 +35,7 @@ defmodule Mosslet.Orgs.Org do
     |> cast(attrs, [:name, :type])
     |> validate_name()
     |> validate_type()
+    |> add_name_hash()
     |> name_to_slug()
     |> unique_constraint(:slug)
     |> unsafe_validate_unique(:slug, Mosslet.Repo)
@@ -58,6 +59,16 @@ defmodule Mosslet.Orgs.Org do
     |> cast(attrs, [:name, :type])
     |> validate_name()
     |> validate_type()
+    |> add_name_hash()
+  end
+
+  # Blind index for the encrypted name (HMAC). Lets us look up an org by name
+  # without decrypting. Only set when the name changes.
+  defp add_name_hash(changeset) do
+    case get_change(changeset, :name) do
+      nil -> changeset
+      name -> put_change(changeset, :name_hash, String.downcase(name))
+    end
   end
 
   defp name_to_slug(changeset) do

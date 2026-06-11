@@ -563,6 +563,10 @@ defmodule MossletWeb.PostLive.Show do
       original_post_id = params["original_post_id"]
       post = Timeline.get_post!(original_post_id)
 
+      # Co-seal for the reposter's active guardian(s) (server-authoritative, ZK).
+      shared_users =
+        MossletWeb.Helpers.append_guardian_shared_users(pending.shared_users, user)
+
       repost_attrs = %{
         body: params["encrypted_body"],
         username: params["encrypted_username"],
@@ -580,7 +584,7 @@ defmodule MossletWeb.PostLive.Show do
         user_id: user.id,
         original_post_id: original_post_id,
         visibility: pending.visibility,
-        shared_users: pending.shared_users,
+        shared_users: shared_users,
         user_post_map: %{
           sealed_author_key: params["sealed_author_key"],
           sealed_recipient_keys: params["sealed_recipient_keys"] || []

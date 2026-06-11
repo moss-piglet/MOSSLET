@@ -87,6 +87,25 @@ defmodule MossletWeb.ConversationLive.Show do
           </div>
         </div>
 
+        <div
+          :if={@guardian_banner}
+          id="guardian-coread-banner"
+          class={[
+            "flex-shrink-0 flex items-start gap-2.5 px-4 sm:px-6 py-2.5",
+            "bg-amber-50/90 dark:bg-amber-900/20 border-b border-amber-200/70 dark:border-amber-800/40"
+          ]}
+          role="status"
+        >
+          <.phx_icon
+            name="hero-eye"
+            class="size-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5"
+          />
+          <p class="text-xs leading-relaxed text-amber-800 dark:text-amber-200">
+            <span class="font-semibold">{@guardian_banner}</span>
+            They use their own private key — Mosslet's servers still can't read this conversation.
+          </p>
+        </div>
+
         <%= if @is_blocked do %>
           <div class="flex-1 flex items-center justify-center px-4">
             <div class="text-center max-w-sm">
@@ -687,6 +706,18 @@ defmodule MossletWeb.ConversationLive.Show do
           _ -> ""
         end
 
+      # I2b mandatory transparency: if this conversation is co-sealed for a
+      # guardian, show a persistent banner to ALL participants. We never let a
+      # guardian read a third party's messages covertly.
+      participant_user_ids =
+        Enum.map(conversation.user_conversations, & &1.user_id)
+
+      coreading_managed_ids =
+        Mosslet.Orgs.managed_members_with_coreading_guardians(participant_user_ids)
+
+      guardian_banner =
+        guardian_banner_text(coreading_managed_ids, current_user.id, partner_name)
+
       if connected?(socket) do
         Conversations.subscribe_to_conversation(conversation_id)
         Conversations.mark_conversation_read(conversation_id, current_user.id)
@@ -706,6 +737,7 @@ defmodule MossletWeb.ConversationLive.Show do
        |> assign(:messages_empty?, messages == [])
        |> stream(:messages, messages)
        |> assign(:conversation_key_encrypted, conversation_key_encrypted)
+       |> assign(:guardian_banner, guardian_banner)
        |> assign(:show_dm_link_previews, show_dm_link_previews)
        |> assign(:show_markdown_guide, false)
        |> assign(:show_delete_message_confirm, false)
@@ -1291,14 +1323,31 @@ defmodule MossletWeb.ConversationLive.Show do
 
   defp encode_message_content(_), do: ""
 
-  defp find_my_user_connection(conversation, current_user) do
-    partner_user_id =
-      conversation.user_conversations
-      |> Enum.find(fn uc -> uc.user_id != current_user.id end)
-      |> case do
-        nil -> nil
-        uc -> uc.user_id
+  # Builds the mandatory I2b transparency banner text for a co-sealed DM.
+  # Names the managed member(s) whose guardian can read this conversation.
+  # Shown to ALL participants — the third party is never read silently.
+  defp guardian_banner_text([], _current_user_id, _partner_name), do: nil
+
+  defp guardian_banner_text(coreading_managed_ids, current_user_id, partner_name) do
+    names =
+      coreading_managed_ids
+      |> Enum.map(fn uid ->
+        if uid == current_user_id, do: "Your", else: "#{partner_name}'s"
+      end)
+      |> Enum.uniq()
+
+    subject =
+      case names do
+        ["Your"] -> "Your"
+        [other] -> other
+        _ -> Enum.join(names, " and ")
       end
+
+    "#{subject} guardian can read this conversation."
+  end
+
+  defp find_my_user_connection(conversation, current_user) do
+    partner_user_id = get_partner_user_id(conversation, current_user.id)
 
     if partner_user_id do
       from(uc in Mosslet.Accounts.UserConnection,
@@ -1313,11 +1362,23 @@ defmodule MossletWeb.ConversationLive.Show do
   end
 
   defp get_partner_user_id(conversation, current_user_id) do
-    conversation.user_conversations
-    |> Enum.find(fn uc -> uc.user_id != current_user_id end)
-    |> case do
-      nil -> nil
-      uc -> uc.user_id
+    # The true 1:1 partner is identified by the conversation's user_connection,
+    # NOT "first other participant" — a co-reading guardian may be a 3rd
+    # participant and must never be mistaken for the conversation partner.
+    case conversation.user_connection do
+      %{user_id: ^current_user_id, reverse_user_id: partner_id} ->
+        partner_id
+
+      %{reverse_user_id: ^current_user_id, user_id: partner_id} ->
+        partner_id
+
+      _ ->
+        conversation.user_conversations
+        |> Enum.find(fn uc -> uc.user_id != current_user_id end)
+        |> case do
+          nil -> nil
+          uc -> uc.user_id
+        end
     end
   end
 

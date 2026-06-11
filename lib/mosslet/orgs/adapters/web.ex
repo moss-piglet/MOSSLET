@@ -12,7 +12,7 @@ defmodule Mosslet.Orgs.Adapters.Web do
   import Ecto.Query, only: [from: 2]
 
   alias Mosslet.Repo
-  alias Mosslet.Orgs.{Org, Membership, Invitation}
+  alias Mosslet.Orgs.{Org, Membership, Invitation, Guardianship}
 
   @impl true
   def list_orgs(user) do
@@ -204,5 +204,185 @@ defmodule Mosslet.Orgs.Adapters.Web do
     user
     |> Invitation.by_user()
     |> Repo.get!(id)
+  end
+
+  ## Guardianships
+
+  @impl true
+  def establish_guardianship(
+        %Membership{} = guardian,
+        %Membership{} = managed,
+        opts
+      ) do
+    requires_consent = Keyword.get(opts, :requires_consent, true)
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    # Minor/dependent accounts (requires_consent: false) may start :active.
+    # Of-age members must explicitly accept, so the link starts :pending.
+    {status, consented_at} =
+      if requires_consent, do: {:pending, nil}, else: {:active, now}
+
+    cond do
+      guardian.org_id != managed.org_id ->
+        {:error, :different_orgs}
+
+      guardian.role != :guardian ->
+        {:error, :guardian_role_required}
+
+      managed.role != :managed_member ->
+        {:error, :managed_member_role_required}
+
+      Repo.exists?(
+        from(g in Guardianship,
+          where:
+            g.guardian_membership_id == ^guardian.id and
+                g.managed_membership_id == ^managed.id
+        )
+      ) ->
+        {:error, :already_exists}
+
+      true ->
+        attrs = %{
+          org_id: guardian.org_id,
+          guardian_membership_id: guardian.id,
+          managed_membership_id: managed.id,
+          status: status,
+          requires_consent: requires_consent,
+          established_at: now,
+          consented_at: consented_at
+        }
+
+        case Repo.transaction_on_primary(fn ->
+               attrs
+               |> Guardianship.insert_changeset()
+               |> Repo.insert()
+             end) do
+          {:ok, {:ok, guardianship}} -> {:ok, guardianship}
+          {:ok, {:error, changeset}} -> {:error, changeset}
+          error -> error
+        end
+    end
+  end
+
+  @impl true
+  def accept_guardianship(%Guardianship{} = guardianship) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    update_guardianship_status(guardianship, %{status: :active, consented_at: now})
+  end
+
+  @impl true
+  def decline_guardianship(%Guardianship{} = guardianship) do
+    update_guardianship_status(guardianship, %{status: :declined})
+  end
+
+  @impl true
+  def pause_guardianship(%Guardianship{} = guardianship) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    update_guardianship_status(guardianship, %{status: :paused, paused_at: now})
+  end
+
+  @impl true
+  def resume_guardianship(%Guardianship{} = guardianship) do
+    update_guardianship_status(guardianship, %{status: :active})
+  end
+
+  @impl true
+  def revoke_guardianship(%Guardianship{} = guardianship) do
+    case Repo.transaction_on_primary(fn -> Repo.delete(guardianship) end) do
+      {:ok, {:ok, guardianship}} -> {:ok, guardianship}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
+  end
+
+  @impl true
+  def list_active_guardians_for(%Org{} = org, managed_user_id) do
+    # Server-authoritative consent gate: only :active guardianships whose managed
+    # membership belongs to this user in this org. Returns full User structs so
+    # the write path can read public_key + pq_public_key.
+    from(g in Guardianship,
+      join: managed in Membership,
+      on: managed.id == g.managed_membership_id,
+      join: guardian in Membership,
+      on: guardian.id == g.guardian_membership_id,
+      join: guardian_user in assoc(guardian, :user),
+      where: g.org_id == ^org.id and g.status == :active and managed.user_id == ^managed_user_id,
+      select: guardian_user
+    )
+    |> Repo.all()
+  end
+
+  @impl true
+  def list_active_guardian_users_for_user(user_id) when is_binary(user_id) do
+    # Cross-org consent gate: all :active guardianships across every family org
+    # where this user is the managed member. Distinct guardian users.
+    from(g in Guardianship,
+      join: managed in Membership,
+      on: managed.id == g.managed_membership_id,
+      join: guardian in Membership,
+      on: guardian.id == g.guardian_membership_id,
+      join: guardian_user in assoc(guardian, :user),
+      where: g.status == :active and managed.user_id == ^user_id,
+      distinct: guardian_user.id,
+      select: guardian_user
+    )
+    |> Repo.all()
+  end
+
+  def list_active_guardian_users_for_user(_), do: []
+
+  @impl true
+  def list_guardianships_by_org(%Org{} = org) do
+    org
+    |> Guardianship.by_org()
+    |> Repo.all()
+    |> Repo.preload(
+      guardian_membership: [:user],
+      managed_membership: [:user]
+    )
+  end
+
+  @impl true
+  def list_guardianships_for_managed_membership(%Membership{} = membership) do
+    membership.id
+    |> Guardianship.for_managed_membership()
+    |> Repo.all()
+    |> Repo.preload(
+      guardian_membership: [:user],
+      managed_membership: [:user]
+    )
+  end
+
+  @impl true
+  def list_guardianships_for_guardian_membership(%Membership{} = membership) do
+    membership.id
+    |> Guardianship.for_guardian_membership()
+    |> Repo.all()
+    |> Repo.preload(
+      guardian_membership: [:user],
+      managed_membership: [:user]
+    )
+  end
+
+  @impl true
+  def get_guardianship!(id) do
+    Guardianship
+    |> Repo.get!(id)
+    |> Repo.preload(
+      guardian_membership: [:user],
+      managed_membership: [:user]
+    )
+  end
+
+  defp update_guardianship_status(guardianship, attrs) do
+    case Repo.transaction_on_primary(fn ->
+           guardianship
+           |> Guardianship.status_changeset(attrs)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, guardianship}} -> {:ok, guardianship}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
   end
 end

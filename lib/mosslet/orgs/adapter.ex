@@ -23,7 +23,7 @@ defmodule Mosslet.Orgs.Adapter do
   """
 
   alias Mosslet.Accounts.User
-  alias Mosslet.Orgs.{Org, Membership, Invitation}
+  alias Mosslet.Orgs.{Org, Membership, Invitation, Guardianship}
 
   @callback list_orgs(user :: User.t()) :: [Org.t()]
   @callback list_orgs() :: [Org.t()]
@@ -62,4 +62,30 @@ defmodule Mosslet.Orgs.Adapter do
   @callback list_invitations_by_user(user :: User.t()) :: [Invitation.t()]
   @callback accept_invitation!(user :: User.t(), id :: String.t()) :: Membership.t()
   @callback reject_invitation!(user :: User.t(), id :: String.t()) :: Invitation.t()
+
+  @callback establish_guardianship(
+              guardian :: Membership.t(),
+              managed :: Membership.t(),
+              opts :: keyword()
+            ) :: {:ok, Guardianship.t()} | {:error, Ecto.Changeset.t() | term()}
+
+  @callback accept_guardianship(guardianship :: Guardianship.t()) ::
+              {:ok, Guardianship.t()} | {:error, Ecto.Changeset.t()}
+  @callback decline_guardianship(guardianship :: Guardianship.t()) ::
+              {:ok, Guardianship.t()} | {:error, Ecto.Changeset.t()}
+  @callback pause_guardianship(guardianship :: Guardianship.t()) ::
+              {:ok, Guardianship.t()} | {:error, Ecto.Changeset.t()}
+  @callback resume_guardianship(guardianship :: Guardianship.t()) ::
+              {:ok, Guardianship.t()} | {:error, Ecto.Changeset.t()}
+  @callback revoke_guardianship(guardianship :: Guardianship.t()) ::
+              {:ok, Guardianship.t()} | {:error, Ecto.Changeset.t()}
+
+  @callback list_active_guardians_for(org :: Org.t(), managed_user_id :: String.t()) :: [User.t()]
+  @callback list_active_guardian_users_for_user(user_id :: String.t()) :: [User.t()]
+  @callback list_guardianships_by_org(org :: Org.t()) :: [Guardianship.t()]
+  @callback list_guardianships_for_managed_membership(membership :: Membership.t()) ::
+              [Guardianship.t()]
+  @callback list_guardianships_for_guardian_membership(membership :: Membership.t()) ::
+              [Guardianship.t()]
+  @callback get_guardianship!(id :: String.t()) :: Guardianship.t()
 end

@@ -214,6 +214,8 @@ defmodule MossletWeb.Helpers do
           }
         end)
 
+      recipient_keys = append_guardian_recipient_keys(recipient_keys, opts[:user])
+
       payload = %{
         post_id: post.id,
         original_post_id: post.id,
@@ -232,6 +234,120 @@ defmodule MossletWeb.Helpers do
 
       {:zk, payload}
     end
+  end
+
+  @doc """
+  Appends the author's active guardian(s) to a `recipient_keys` list (the
+  browser-side seal targets) when the author is a managed member.
+
+  Server-authoritative: the guardian set is derived from `Orgs.Guardianship`
+  records, never from client params (GUARDIANSHIP_DESIGN.md I1). Each guardian is
+  a normal recipient `%{user_id, public_key, pq_public_key}`; the browser seals
+  the post/conversation key for the guardian's PUBLIC key exactly like any other
+  recipient. Skips entries already present and the author themselves.
+  """
+  def append_guardian_recipient_keys(recipient_keys, %{id: author_id} = _author) do
+    guardians = Mosslet.Orgs.list_active_guardian_users_for_user(author_id)
+
+    if guardians == [] do
+      recipient_keys
+    else
+      existing_ids = MapSet.new(recipient_keys, &recipient_user_id/1)
+
+      guardian_keys =
+        guardians
+        |> Enum.reject(fn g ->
+          g.id == author_id || MapSet.member?(existing_ids, to_string(g.id))
+        end)
+        |> Enum.map(fn g ->
+          %{
+            user_id: g.id,
+            public_key: g.key_pair["public"],
+            pq_public_key: g.pq_public_key
+          }
+        end)
+
+      recipient_keys ++ guardian_keys
+    end
+  end
+
+  def append_guardian_recipient_keys(recipient_keys, _author), do: recipient_keys
+
+  @doc """
+  Appends the author's active guardian(s) to a `shared_users` map list (for
+  persistence of `UserPost` rows). Mirrors `append_guardian_recipient_keys/2` but
+  produces the `shared_users` shape consumed by the repost/share persistence
+  path. Server-authoritative (I1).
+  """
+  def append_guardian_shared_users(shared_users, %{id: author_id} = _author) do
+    guardians = Mosslet.Orgs.list_active_guardian_users_for_user(author_id)
+
+    if guardians == [] do
+      shared_users
+    else
+      existing_ids = MapSet.new(shared_users, &recipient_user_id/1)
+
+      guardian_shared_users =
+        guardians
+        |> Enum.reject(fn g ->
+          g.id == author_id || MapSet.member?(existing_ids, to_string(g.id))
+        end)
+        |> Enum.map(fn g ->
+          %{user_id: g.id, sender_id: author_id, guardian?: true}
+        end)
+
+      shared_users ++ guardian_shared_users
+    end
+  end
+
+  def append_guardian_shared_users(shared_users, _author), do: shared_users
+
+  # Extracts the `user_id` (as a string) from a recipient/shared_user map,
+  # tolerating either atom or string keys by normalizing once.
+  defp recipient_user_id(map) do
+    map
+    |> Map.new(fn {k, v} -> {to_string(k), v} end)
+    |> Map.get("user_id")
+    |> to_string()
+  end
+
+  @doc """
+  Returns the DISTINCT guardian recipient list for a DM between two participants.
+
+  Per GUARDIANSHIP_DESIGN.md Q2, once a managed member has an active
+  guardianship, EVERY conversation they participate in co-seals the
+  `conversation_key` for their guardian(s) — regardless of who started it. This
+  unions the active guardians of BOTH participants, excluding the participants
+  themselves and any duplicates.
+
+  Each entry is `%{user_id, public_key, pq_public_key}` so the
+  `start-conversation.js` seal loop can seal the conversation key for the
+  guardian's PUBLIC key. Server-authoritative (I1).
+  """
+  def guardian_recipients_for_conversation(participant_user_ids)
+      when is_list(participant_user_ids) do
+    participant_set = MapSet.new(participant_user_ids, &to_string/1)
+
+    participant_user_ids
+    |> Enum.flat_map(&Mosslet.Orgs.list_active_guardian_users_for_user/1)
+    |> Enum.reject(fn g -> MapSet.member?(participant_set, to_string(g.id)) end)
+    |> Enum.uniq_by(& &1.id)
+    |> Enum.map(fn g ->
+      %{
+        user_id: g.id,
+        public_key: g.key_pair["public"],
+        pq_public_key: g.pq_public_key
+      }
+    end)
+  end
+
+  @doc """
+  Whether a conversation between the given participants will be co-sealed for at
+  least one guardian (used to decide whether to show the I2b transparency
+  banner).
+  """
+  def conversation_has_guardian_recipients?(participant_user_ids) do
+    guardian_recipients_for_conversation(participant_user_ids) != []
   end
 
   def build_image_from_binary_for_trix(image, ext) do

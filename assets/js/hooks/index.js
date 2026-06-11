@@ -90,6 +90,7 @@ import ConnectionLabelFormHook from "./connection-label-form-hook";
 import VisibilityGroupFormHook from "./visibility-group-form-hook";
 import ConversationTouchReveal from "./conversation-touch-reveal";
 import StartConversation from "./start-conversation";
+import SeatStepper from "./seat-stepper";
 import ZkExportHook from "./zk-export-hook";
 import ZkMoodInsights from "./zk-mood-insights";
 
@@ -188,6 +189,7 @@ export default {
   PlatformDetector,
   PostExpandHook,
   StartConversation,
+  SeatStepper,
   ZkExportHook,
   ZkMoodInsights,
 };

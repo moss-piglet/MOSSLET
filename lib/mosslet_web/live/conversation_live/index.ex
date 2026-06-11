@@ -589,7 +589,12 @@ defmodule MossletWeb.ConversationLive.Index do
            current_user_pq_public_key: current_user.pq_public_key,
            other_user_id: conn_data.reverse_user_id,
            other_user_public_key: conn_data.other_user_public_key,
-           other_user_pq_public_key: conn_data.other_user_pq_public_key
+           other_user_pq_public_key: conn_data.other_user_pq_public_key,
+           guardian_recipients:
+             MossletWeb.Helpers.guardian_recipients_for_conversation([
+               current_user.id,
+               conn_data.reverse_user_id
+             ])
          })}
       end
     else
@@ -819,7 +824,12 @@ defmodule MossletWeb.ConversationLive.Index do
           current_user_pq_public_key: current_user.pq_public_key,
           other_user_id: conn.reverse_user_id,
           other_user_public_key: other_keys.public_key,
-          other_user_pq_public_key: other_keys.pq_public_key
+          other_user_pq_public_key: other_keys.pq_public_key,
+          guardian_recipients:
+            MossletWeb.Helpers.guardian_recipients_for_conversation([
+              current_user.id,
+              conn.reverse_user_id
+            ])
         })
       end
     else

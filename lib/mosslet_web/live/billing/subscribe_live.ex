@@ -806,17 +806,61 @@ defmodule MossletWeb.SubscribeLive do
             ({gettext("%{count} included", count: @included_seats)})
           </span>
         </label>
-        <input
-          type="number"
-          id={"seats-#{@item.id}"}
-          name="seats"
-          value={@included_seats}
-          min={@included_seats}
-          max={@max_attr}
-          step="1"
-          inputmode="numeric"
-          class="block w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-        />
+        <div
+          id={"seat-stepper-#{@item.id}"}
+          phx-hook="SeatStepper"
+          class={[
+            "inline-flex items-stretch w-full overflow-hidden rounded-xl",
+            "border border-slate-300 dark:border-slate-600",
+            "bg-white dark:bg-slate-800 shadow-sm",
+            "focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500",
+            "transition-colors duration-200"
+          ]}
+        >
+          <button
+            type="button"
+            data-seat-step="-1"
+            aria-label={gettext("Decrease members")}
+            class={[
+              "flex items-center justify-center w-11 shrink-0 text-slate-500 dark:text-slate-400",
+              "hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600",
+              "hover:text-emerald-600 dark:hover:text-emerald-400",
+              "disabled:opacity-40 disabled:pointer-events-none",
+              "transition-colors duration-150 focus:outline-none"
+            ]}
+          >
+            <.phx_icon name="hero-minus" class="size-4" />
+          </button>
+          <input
+            type="number"
+            id={"seats-#{@item.id}"}
+            name="seats"
+            value={@included_seats}
+            min={@included_seats}
+            max={@max_attr}
+            step="1"
+            inputmode="numeric"
+            class={[
+              "min-w-0 flex-1 border-0 bg-transparent text-center font-semibold tabular-nums",
+              "text-slate-900 dark:text-slate-100 focus:ring-0 sm:text-sm",
+              "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            ]}
+          />
+          <button
+            type="button"
+            data-seat-step="1"
+            aria-label={gettext("Increase members")}
+            class={[
+              "flex items-center justify-center w-11 shrink-0 text-slate-500 dark:text-slate-400",
+              "hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600",
+              "hover:text-emerald-600 dark:hover:text-emerald-400",
+              "disabled:opacity-40 disabled:pointer-events-none",
+              "transition-colors duration-150 focus:outline-none"
+            ]}
+          >
+            <.phx_icon name="hero-plus" class="size-4" />
+          </button>
+        </div>
       </div>
       <DesignSystem.liquid_button
         type="submit"

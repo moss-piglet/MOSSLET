@@ -366,10 +366,28 @@ defmodule Mosslet.Timeline.Post do
   end
 
   def shared_user_changeset(shared_user, attrs \\ %{}, _opts \\ []) do
-    shared_user
-    |> cast(attrs, [:user_id, :sender_id, :username])
-    |> validate_shared_username()
+    attrs = normalize_attrs(attrs)
+
+    # Guardianship co-seal entries are server-authoritative and identified by a
+    # pre-resolved `user_id` (no connection username). They are appended by the
+    # write path (GUARDIANSHIP_DESIGN.md I1) so we skip username resolution for
+    # them and trust the already-resolved `user_id`.
+    if attrs["guardian?"] in [true, "true"] && attrs["user_id"] do
+      shared_user
+      |> cast(attrs, [:user_id, :sender_id])
+      |> validate_required([:user_id])
+    else
+      shared_user
+      |> cast(attrs, [:user_id, :sender_id, :username])
+      |> validate_shared_username()
+    end
   end
+
+  defp normalize_attrs(attrs) when is_map(attrs) do
+    Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
+  end
+
+  defp normalize_attrs(attrs), do: attrs
 
   def shared_user_repost_changeset(shared_user, attrs \\ %{}, _opts \\ []) do
     shared_user

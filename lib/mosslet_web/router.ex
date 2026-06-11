@@ -464,6 +464,12 @@ defmodule MossletWeb.Router do
       live "/users/org-invitations", UserOrgInvitationsLive
       live "/users/two-factor-authentication", EditTotpLive
 
+      # Family plan (guardianship)
+      live "/family", FamilyLive.Index, :index
+      live "/family/new", FamilyLive.Index, :new
+      live "/family/:slug", FamilyLive.Show, :show
+      live "/family/:slug/feed", FamilyLive.Feed, :feed
+
       # moved to subscription routes
     end
   end

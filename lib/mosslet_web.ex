@@ -140,6 +140,7 @@ defmodule MossletWeb do
       import MossletWeb.ChatComponents
       import MossletWeb.MediaComponents
       import MossletWeb.ConnectionComponents
+      import MossletWeb.FamilyComponents
       import MossletWeb.Helpers
       import MossletWeb.Helpers.StatusHelpers
       import MossletWeb.Helpers.StatusHelpers

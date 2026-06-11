@@ -10,7 +10,7 @@ defmodule Mosslet.Orgs do
   """
 
   alias Mosslet.Platform
-  alias Mosslet.Orgs.{Org, Membership, Invitation}
+  alias Mosslet.Orgs.{Org, Membership, Invitation, Guardianship}
 
   @membership_roles ~w(member admin)
 
@@ -141,5 +141,153 @@ defmodule Mosslet.Orgs do
 
   def reject_invitation!(user, id) do
     adapter().reject_invitation!(user, id)
+  end
+
+  ## Guardianships
+
+  @doc """
+  Establishes a guardianship link between a guardian membership and a managed
+  member membership within the same family org.
+
+  For of-age managed members (`requires_consent: true`) the link starts as
+  `:pending` and only begins co-sealing after the managed member explicitly
+  accepts. For minor/dependent accounts (`requires_consent: false`) the link may
+  start `:active`.
+
+  Options:
+
+    * `:requires_consent` — boolean, defaults to `true`. When `false` the link
+      starts `:active`.
+
+  Co-sealing only ever happens for `:active` guardianships (the cryptographic
+  consent gate).
+  """
+  def establish_guardianship(%Membership{} = guardian, %Membership{} = managed, opts \\ []) do
+    adapter().establish_guardianship(guardian, managed, opts)
+  end
+
+  @doc """
+  Of-age managed member accepts a pending guardianship → `:active`, sets
+  `consented_at`. Co-sealing begins from this point forward.
+  """
+  def accept_guardianship(%Guardianship{} = guardianship) do
+    adapter().accept_guardianship(guardianship)
+  end
+
+  @doc """
+  Of-age managed member declines a pending guardianship → `:declined`. Nothing is
+  ever co-sealed for a declined guardianship.
+  """
+  def decline_guardianship(%Guardianship{} = guardianship) do
+    adapter().decline_guardianship(guardianship)
+  end
+
+  @doc """
+  Pauses an active guardianship → `:paused`, sets `paused_at`. Stops FUTURE
+  co-seals only; already-shared content stays shared (cannot un-ring the bell).
+  Either the managed member or the guardian may pause.
+  """
+  def pause_guardianship(%Guardianship{} = guardianship) do
+    adapter().pause_guardianship(guardianship)
+  end
+
+  @doc """
+  Resumes a paused guardianship → `:active`. Only content created while active is
+  ever co-sealed.
+  """
+  def resume_guardianship(%Guardianship{} = guardianship) do
+    adapter().resume_guardianship(guardianship)
+  end
+
+  @doc """
+  Revokes (deletes) a guardianship record. Stops future co-seals. Already-created
+  `UserPost`/`UserConversation` rows for the guardian are NOT deleted (honesty
+  about the past — see GUARDIANSHIP_DESIGN.md §7).
+  """
+  def revoke_guardianship(%Guardianship{} = guardianship) do
+    adapter().revoke_guardianship(guardianship)
+  end
+
+  @doc """
+  Returns the list of guardian `User` structs (with public keys + PQ public keys)
+  who currently co-read the given managed member's content within the given org.
+
+  Only `:active` guardianships are returned — this is the server-authoritative
+  consent gate that the write path consumes. `nil`/empty when the user is not a
+  managed member or has no active guardianships.
+
+  Each user is a full `Mosslet.Accounts.User` struct so the write path can read
+  `user.key_pair["public"]` and `user.pq_public_key` directly.
+  """
+  def list_active_guardians_for(%Org{} = org, managed_user_id) do
+    adapter().list_active_guardians_for(org, managed_user_id)
+  end
+
+  @doc """
+  Server-authoritative write-path helper.
+
+  Given a managed member's `user_id`, returns the DISTINCT list of guardian
+  `User` structs (with public keys + PQ public keys) across ALL family orgs where
+  that user is a managed member with an **active** guardianship.
+
+  This is what the post/conversation write paths consume to co-seal the context
+  key for the guardian(s). Returns `[]` when the user is not a managed member or
+  has no active guardianships. The guardian set is derived purely from
+  `Guardianship` records — never from client params (I1).
+  """
+  def list_active_guardian_users_for_user(user_id) when is_binary(user_id) do
+    adapter().list_active_guardian_users_for_user(user_id)
+  end
+
+  def list_active_guardian_users_for_user(_), do: []
+
+  @doc """
+  Returns all guardianships for an org, preloaded with guardian/managed
+  memberships and their users (for dashboards/transparency panels).
+  """
+  def list_guardianships_by_org(%Org{} = org) do
+    adapter().list_guardianships_by_org(org)
+  end
+
+  @doc """
+  Returns guardianships where the given membership is the MANAGED member
+  (the transparency-panel view for the managed member's own dashboard).
+  """
+  def list_guardianships_for_managed_membership(%Membership{} = membership) do
+    adapter().list_guardianships_for_managed_membership(membership)
+  end
+
+  @doc """
+  Returns guardianships where the given membership is the GUARDIAN
+  (the guardian's "Family" reading surface).
+  """
+  def list_guardianships_for_guardian_membership(%Membership{} = membership) do
+    adapter().list_guardianships_for_guardian_membership(membership)
+  end
+
+  def get_guardianship!(id) do
+    adapter().get_guardianship!(id)
+  end
+
+  @doc """
+  Given the full set of participant `user_id`s in a conversation, returns the
+  list of MANAGED-MEMBER `user_id`s whose active guardian is ALSO a participant
+  in this conversation.
+
+  Used to render the mandatory I2b transparency banner: "[Managed member]'s
+  guardian can read this conversation." Returns `[]` when no co-reading is
+  happening. Server-authoritative.
+  """
+  def managed_members_with_coreading_guardians(participant_user_ids)
+      when is_list(participant_user_ids) do
+    participant_set = MapSet.new(participant_user_ids, &to_string/1)
+
+    participant_user_ids
+    |> Enum.filter(fn uid ->
+      uid
+      |> list_active_guardian_users_for_user()
+      |> Enum.any?(fn guardian -> MapSet.member?(participant_set, to_string(guardian.id)) end)
+    end)
+    |> Enum.uniq()
   end
 end

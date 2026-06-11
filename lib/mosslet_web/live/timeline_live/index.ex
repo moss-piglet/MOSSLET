@@ -290,6 +290,7 @@ defmodule MossletWeb.TimelineLive.Index do
       socket
       |> assign(:user_connections, user_connections)
       |> assign(:post_shared_users, post_shared_users)
+      |> assign(:composer_guardian_names, composer_guardian_names(current_user, key))
       |> assign(:content_filters, hydrated_content_filters)
       |> assign(:options, options)
       |> assign(:return_url, url)
@@ -4208,6 +4209,9 @@ defmodule MossletWeb.TimelineLive.Index do
             pending.shared_users
         end
 
+      # Co-seal for the reposter's active guardian(s) (server-authoritative, ZK).
+      shared_users = MossletWeb.Helpers.append_guardian_shared_users(shared_users, user)
+
       visibility =
         if params["repost_type"] == "share",
           do: :connections,
@@ -5886,63 +5890,132 @@ defmodule MossletWeb.TimelineLive.Index do
     current_user = options[:current_user]
     key = options[:key]
 
-    cond do
-      visibility_setting == "private" ->
-        Map.put(post_params, "shared_users", [])
+    base_params =
+      cond do
+        visibility_setting == "private" ->
+          Map.put(post_params, "shared_users", [])
 
-      # If visibility is "connections" and no specific groups/users are selected,
-      # automatically use all shared_users (all connections)
-      visibility_setting == "connections" &&
-        Enum.empty?(post_params["visibility_groups"] || []) &&
-          Enum.empty?(post_params["visibility_users"] || []) ->
-        Map.update(
-          post_params,
-          "shared_users",
-          Enum.map(shared_users, fn shared_user ->
-            Map.from_struct(shared_user)
-          end),
-          fn _shared_users_list ->
+        # If visibility is "connections" and no specific groups/users are selected,
+        # automatically use all shared_users (all connections)
+        visibility_setting == "connections" &&
+          Enum.empty?(post_params["visibility_groups"] || []) &&
+            Enum.empty?(post_params["visibility_users"] || []) ->
+          Map.update(
+            post_params,
+            "shared_users",
             Enum.map(shared_users, fn shared_user ->
               Map.from_struct(shared_user)
-            end)
-          end
-        )
+            end),
+            fn _shared_users_list ->
+              Enum.map(shared_users, fn shared_user ->
+                Map.from_struct(shared_user)
+              end)
+            end
+          )
 
-      # For specific groups or users, filter the shared_users list
-      true ->
-        # Get the visibility_groups and visibility_users from post_params
-        visibility_groups = post_params["visibility_groups"] || []
-        visibility_users = post_params["visibility_users"] || []
+        # For specific groups or users, filter the shared_users list
+        true ->
+          # Get the visibility_groups and visibility_users from post_params
+          visibility_groups = post_params["visibility_groups"] || []
+          visibility_users = post_params["visibility_users"] || []
 
-        # Filter shared_users based on what's selected
-        filtered_shared_users =
-          if !Enum.empty?(visibility_groups) || !Enum.empty?(visibility_users) do
-            # Implement filtering based on visibility groups and users
-            resolve_visibility_to_shared_users(
-              visibility_groups,
-              visibility_users,
-              visibility_setting,
-              current_user,
-              key
-            )
-          else
-            # Use existing shared_users from socket assigns
-            shared_users
-          end
+          # Filter shared_users based on what's selected
+          filtered_shared_users =
+            if !Enum.empty?(visibility_groups) || !Enum.empty?(visibility_users) do
+              # Implement filtering based on visibility groups and users
+              resolve_visibility_to_shared_users(
+                visibility_groups,
+                visibility_users,
+                visibility_setting,
+                current_user,
+                key
+              )
+            else
+              # Use existing shared_users from socket assigns
+              shared_users
+            end
 
-        Map.update(
-          post_params,
-          "shared_users",
-          Enum.map(filtered_shared_users, fn shared_user ->
-            Map.from_struct(shared_user)
-          end),
-          fn _shared_users_list ->
+          Map.update(
+            post_params,
+            "shared_users",
             Enum.map(filtered_shared_users, fn shared_user ->
               Map.from_struct(shared_user)
-            end)
-          end
-        )
+            end),
+            fn _shared_users_list ->
+              Enum.map(filtered_shared_users, fn shared_user ->
+                Map.from_struct(shared_user)
+              end)
+            end
+          )
+      end
+
+    # Guardianship co-seal (server-authoritative, public-key only, ZK):
+    # when the author is a managed member with active guardianship(s), append
+    # each active guardian as a recipient so the browser seals the post_key for
+    # the guardian's PUBLIC key exactly like any other recipient. Public posts
+    # are sealed for the server key (already readable), so we skip them.
+    append_guardian_shared_users(base_params, current_user, visibility_setting)
+  end
+
+  # Appends the author's active guardian(s) to the post's shared_users list when
+  # the author is a managed member. Derives the guardian set from Guardianship
+  # records only (never client params) per GUARDIANSHIP_DESIGN.md I1.
+  defp append_guardian_shared_users(post_params, current_user, visibility_setting) do
+    if visibility_setting == "public" do
+      post_params
+    else
+      guardians = Mosslet.Orgs.list_active_guardian_users_for_user(current_user.id)
+
+      if guardians == [] do
+        post_params
+      else
+        existing = post_params["shared_users"] || []
+        existing_ids = MapSet.new(existing, &shared_user_id/1)
+
+        guardian_shared_users =
+          guardians
+          |> Enum.reject(fn guardian ->
+            guardian.id == current_user.id ||
+              MapSet.member?(existing_ids, to_string(guardian.id))
+          end)
+          |> Enum.map(fn guardian ->
+            %{
+              "user_id" => guardian.id,
+              "sender_id" => current_user.id,
+              "guardian?" => true
+            }
+          end)
+
+        Map.put(post_params, "shared_users", existing ++ guardian_shared_users)
+      end
     end
+  end
+
+  # Extracts a shared_user's `user_id` as a string, tolerating maps with either
+  # atom or string keys (post_params arrive in both shapes).
+  defp shared_user_id(shared_user) do
+    shared_user
+    |> Map.new(fn {k, v} -> {to_string(k), v} end)
+    |> Map.get("user_id")
+    |> to_string()
+  end
+
+  # Resolves the display names of the current user's active guardians for the
+  # composer transparency chip (I2 — no surprise at authorship time). Uses the
+  # author's own connection to each guardian where one exists.
+  defp composer_guardian_names(current_user, key) do
+    current_user.id
+    |> Mosslet.Orgs.list_active_guardian_users_for_user()
+    |> Enum.map(fn guardian ->
+      case Accounts.get_user_connection_between_users(guardian.id, current_user.id) do
+        %{} = uconn ->
+          uconn = Mosslet.Repo.preload(uconn, :connection)
+          MossletWeb.ConnectionComponents.get_decrypted_connection_name(uconn, current_user, key)
+
+        _ ->
+          "your guardian"
+      end
+    end)
   end
 
   defp value_mapper(%Post.SharedUser{username: username} = value) do

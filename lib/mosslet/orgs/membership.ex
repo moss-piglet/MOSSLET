@@ -8,9 +8,11 @@ defmodule Mosslet.Orgs.Membership do
   alias Mosslet.Accounts.User
   alias Mosslet.Orgs.Org
 
-  @role_options ~w(admin member)a
+  @role_options ~w(admin member guardian managed_member)a
   @default_role :member
   @admin_role :admin
+
+  def role_options, do: @role_options
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -55,6 +57,7 @@ defmodule Mosslet.Orgs.Membership do
     membership
     |> cast(attrs, [:role])
     |> validate_required([:role])
+    |> validate_inclusion(:role, @role_options)
     |> prepare_changes(fn changeset ->
       current_role = membership.role
       new_role = get_change(changeset, :role)
