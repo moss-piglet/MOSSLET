@@ -84,6 +84,7 @@ defmodule Mosslet.Bluesky.ImportTask do
          {:ok, stats} <-
            fetch_and_import(account, user, session_key, cursor, limit, %{imported: 0, skipped: 0}),
          {:ok, account} <- maybe_sync_likes(account, user, session_key),
+         {:ok, account} <- maybe_sync_reposts(account, user, session_key),
          {:ok, _account} <- maybe_sync_bookmarks(account, user, session_key) do
       broadcast_progress(user.id, %{
         status: :completed,
@@ -106,6 +107,15 @@ defmodule Mosslet.Bluesky.ImportTask do
     if account.sync_likes do
       broadcast_progress(user.id, %{status: :syncing_likes, imported: 0, total: 0, skipped: 0})
       sync_likes_from_bluesky(account, user, session_key)
+    else
+      {:ok, account}
+    end
+  end
+
+  defp maybe_sync_reposts(account, user, session_key) do
+    if account.sync_reposts do
+      broadcast_progress(user.id, %{status: :syncing_reposts, imported: 0, total: 0, skipped: 0})
+      sync_reposts_from_bluesky(account, user, session_key)
     else
       {:ok, account}
     end
@@ -169,6 +179,62 @@ defmodule Mosslet.Bluesky.ImportTask do
               )
 
               Logger.debug("[BlueskyImportTask] Added like to post #{post.id}")
+            end
+        end
+      end
+    end)
+  end
+
+  defp sync_reposts_from_bluesky(account, user, session_key) do
+    signing_key = parse_signing_key(account.signing_key)
+
+    opts = [
+      limit: 100,
+      pds_url: account.pds_url || "https://bsky.social",
+      dpop_proof: build_dpop_proof(account, "GET", "list_records"),
+      signing_key: signing_key
+    ]
+
+    case Client.list_reposts(account.access_jwt, account.did, opts) do
+      {:ok, %{records: repost_records}} ->
+        sync_reposts_batch(repost_records, account, user, session_key)
+
+        Logger.info(
+          "[BlueskyImportTask] Synced #{length(repost_records)} reposts for @#{account.handle}"
+        )
+
+        {:ok, account}
+
+      {:error, reason} ->
+        Logger.warning("[BlueskyImportTask] Failed to fetch reposts: #{inspect(reason)}")
+        {:ok, account}
+    end
+  end
+
+  defp sync_reposts_batch(repost_records, account, user, session_key) do
+    Enum.each(repost_records, fn repost_record ->
+      subject_uri = get_in(repost_record, [:value, :subject, :uri])
+
+      if subject_uri do
+        case Timeline.get_post_by_external_uri(subject_uri, account.id) do
+          nil ->
+            :skip
+
+          post ->
+            post = Mosslet.Repo.preload(post, [:user_posts])
+            current_reposts = post.reposts_list || []
+
+            unless user.id in current_reposts do
+              new_reposts = [user.id | current_reposts]
+
+              Timeline.update_post_reposts_list(
+                post,
+                %{reposts_list: new_reposts, reposts_count: length(new_reposts)},
+                user: user,
+                key: session_key
+              )
+
+              Logger.debug("[BlueskyImportTask] Added repost to post #{post.id}")
             end
         end
       end
@@ -356,7 +422,9 @@ defmodule Mosslet.Bluesky.ImportTask do
           "external_cid" => cid,
           "bluesky_account_id" => account.id,
           "image_urls" => processed.image_urls,
-          "ai_generated" => processed.ai_generated
+          "image_alt_texts" => processed.image_alt_texts,
+          "ai_generated" => processed.ai_generated,
+          "mature_content" => processed.mature_content
         }
 
         opts = [

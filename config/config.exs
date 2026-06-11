@@ -140,7 +140,11 @@ config :mosslet, Oban,
        {"*/15 * * * *", Mosslet.Bluesky.Workers.ExportSyncWorker,
         args: %{"action" => "sync_all"}},
        # Bluesky sync: Import posts from Bluesky every 15 minutes
-       {"*/15 * * * *", Mosslet.Bluesky.Workers.ImportSyncWorker, args: %{"action" => "sync_all"}}
+       {"*/15 * * * *", Mosslet.Bluesky.Workers.ImportSyncWorker,
+        args: %{"action" => "sync_all"}},
+       # Bluesky link verification: self-heal broken external links daily at 4 AM UTC (off-peak)
+       {"0 4 * * *", Mosslet.Bluesky.Workers.LinkVerificationWorker,
+        args: %{"action" => "verify_all"}}
      ]}
   ],
   queues: [

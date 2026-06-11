@@ -2710,6 +2710,25 @@ defmodule Mosslet.Timeline do
     {:ok, post |> Repo.preload([:user_posts, :user, :replies, :user_post_receipts])}
   end
 
+  # Server-side update of an imported post's reposts_list/reposts_count (who
+  # reposted it), mirroring update_post_fav. Used by the Bluesky repost import.
+  def update_post_reposts_list(%Post{} = post, attrs, opts \\ []) do
+    case Repo.transaction_on_primary(fn ->
+           Post.reposts_list_changeset(post, attrs, opts)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, post}} ->
+        {:ok, post |> Repo.preload([:user_posts, :user, :replies, :user_post_receipts])}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      _rest ->
+        Logger.warning("Error updating post reposts_list")
+        {:error, "error"}
+    end
+  end
+
   # ZK path: stores pre-encrypted reposts_list directly, no server-side decryption.
   def update_post_repost_zk(%Post{} = post, attrs) do
     {:ok, {:ok, post}} =

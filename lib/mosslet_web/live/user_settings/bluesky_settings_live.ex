@@ -47,17 +47,6 @@ defmodule MossletWeb.BlueskySettingsLive do
       type="sidebar"
     >
       <DesignSystem.liquid_container max_width="lg" class="py-8">
-        <div class="mb-6 flex items-center gap-3 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 max-w-3xl">
-          <.phx_icon
-            name="hero-wrench-screwdriver"
-            class="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0"
-          />
-          <p class="text-sm text-amber-800 dark:text-amber-200">
-            <span class="font-semibold">Under Construction</span>
-            — Bluesky integration is actively being developed. Some features may be incomplete, not work, or change. Reach out to us anytime at support@mosslet.com. We're excited for comprehensive interoperability! 🦋
-          </p>
-        </div>
-
         <div class="mb-8">
           <div class="mb-6">
             <h1 class="text-2xl font-bold tracking-tight sm:text-3xl bg-gradient-to-r from-sky-500 to-blue-600 bg-clip-text text-transparent">
@@ -656,7 +645,7 @@ defmodule MossletWeb.BlueskySettingsLive do
               class={[
                 "overflow-hidden transition-all duration-300 ease-in-out",
                 if(@sync_form[:sync_enabled].value,
-                  do: "max-h-[500px] opacity-100",
+                  do: "max-h-[900px] opacity-100",
                   else: "max-h-0 opacity-0"
                 )
               ]}
@@ -780,6 +769,52 @@ defmodule MossletWeb.BlueskySettingsLive do
                   </div>
                 </label>
 
+                <label class="flex items-start gap-3 cursor-pointer group">
+                  <input type="hidden" name="sync[sync_likes]" value="off" />
+                  <input
+                    type="checkbox"
+                    name="sync[sync_likes]"
+                    value="on"
+                    checked={@sync_form[:sync_likes].value}
+                    class="h-4 w-4 mt-0.5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500 transition-colors"
+                  />
+                  <div>
+                    <span class="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors font-medium">
+                      Sync likes &amp; bookmarks
+                    </span>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      <%= if @sync_form[:sync_likes].value do %>
+                        Your likes and bookmarks stay in sync both ways for posts that exist on both Mosslet and Bluesky.
+                      <% else %>
+                        When enabled, likes and bookmarks are kept in sync both ways.
+                      <% end %>
+                    </p>
+                  </div>
+                </label>
+
+                <label class="flex items-start gap-3 cursor-pointer group">
+                  <input type="hidden" name="sync[sync_reposts]" value="off" />
+                  <input
+                    type="checkbox"
+                    name="sync[sync_reposts]"
+                    value="on"
+                    checked={@sync_form[:sync_reposts].value}
+                    class="h-4 w-4 mt-0.5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500 transition-colors"
+                  />
+                  <div>
+                    <span class="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors font-medium">
+                      Sync reposts
+                    </span>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      <%= if @sync_form[:sync_reposts].value do %>
+                        Reposts are kept in sync both ways for posts that exist on both Mosslet and Bluesky.
+                      <% else %>
+                        When enabled, your reposts are kept in sync both ways.
+                      <% end %>
+                    </p>
+                  </div>
+                </label>
+
                 <div class="mt-4 p-3 rounded-lg bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800">
                   <div class="flex items-start gap-2">
                     <.phx_icon
@@ -796,6 +831,12 @@ defmodule MossletWeb.BlueskySettingsLive do
                           <li>
                             • Bluesky posts are imported as {@sync_form[:import_visibility].value} posts on Mosslet
                           </li>
+                        <% end %>
+                        <%= if @sync_form[:sync_likes].value do %>
+                          <li>• Likes and bookmarks stay in sync both ways</li>
+                        <% end %>
+                        <%= if @sync_form[:sync_reposts].value do %>
+                          <li>• Reposts stay in sync both ways</li>
                         <% end %>
                         <%= if @sync_form[:auto_delete_from_bsky].value do %>
                           <li>• Deleting synced posts on Mosslet removes them from Bluesky</li>
@@ -908,88 +949,53 @@ defmodule MossletWeb.BlueskySettingsLive do
               <h4 class="text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400 mb-2 flex items-center gap-1.5">
                 <.phx_icon name="hero-check-circle" class="h-4 w-4" /> Supported
               </h4>
-              <ul class="space-y-1.5 text-sm text-slate-600 dark:text-slate-400">
-                <li class="flex items-center gap-2">
+              <ul class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-slate-600 dark:text-slate-400">
+                <li
+                  :for={
+                    feature <- [
+                      "Text posts import & export",
+                      "Image attachments (with alt text)",
+                      "Link preview cards",
+                      "Quote posts",
+                      "Hashtags & mentions",
+                      "Content warnings",
+                      "Likes & bookmarks",
+                      "Reposts",
+                      "Reply export",
+                      "Post deletion",
+                      "Account deletion"
+                    ]
+                  }
+                  class="flex items-center gap-2"
+                >
                   <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
-                  Text posts import & export
-                </li>
-                <li class="flex items-center gap-2">
-                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
-                  Link preview cards
-                </li>
-                <li class="flex items-center gap-2">
-                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
-                  Hashtags & mentions
-                </li>
-                <li class="flex items-center gap-2">
-                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
-                  Likes & bookmarks import
-                </li>
-                <li class="flex items-center gap-2">
-                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
-                  Post deletion
-                </li>
-                <li class="flex items-center gap-2">
-                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
-                  Account deletion
+                  {feature}
                 </li>
               </ul>
             </div>
             <div>
-              <h4 class="text-xs font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-400 mb-2 flex items-center gap-1.5">
-                <.phx_icon name="hero-wrench-screwdriver" class="h-4 w-4" /> Partial Support
+              <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1.5">
+                <.phx_icon name="hero-clock" class="h-4 w-4" /> Not yet
               </h4>
-              <ul class="space-y-1.5 text-sm text-slate-600 dark:text-slate-400">
-                <li class="flex items-center gap-2">
-                  <span class="h-1.5 w-1.5 rounded-full bg-sky-500 flex-shrink-0"></span>
-                  Reply export (replies to imported Bluesky posts)
+              <ul class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-slate-500 dark:text-slate-500">
+                <li
+                  :for={
+                    feature <- [
+                      "Video attachments",
+                      "Reply thread import",
+                      "Followers & following",
+                      "List management"
+                    ]
+                  }
+                  class="flex items-center gap-2"
+                >
+                  <span class="h-1.5 w-1.5 rounded-full bg-slate-400 flex-shrink-0"></span>
+                  {feature}
                 </li>
               </ul>
-            </div>
-            <div>
-              <h4 class="text-xs font-semibold uppercase tracking-wide text-purple-600 dark:text-purple-400 mb-2 flex items-center gap-1.5">
-                <.phx_icon name="hero-clock" class="h-4 w-4" /> Pending Support
-              </h4>
-              <ul class="space-y-1.5 text-sm text-slate-600 dark:text-slate-400">
-                <li class="flex items-center gap-2">
-                  <span class="h-1.5 w-1.5 rounded-full bg-purple-500 flex-shrink-0"></span>
-                  Content warning sync
-                </li>
-                <li class="flex items-center gap-2">
-                  <span class="h-1.5 w-1.5 rounded-full bg-purple-500 flex-shrink-0"></span>
-                  Image attachments
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h4 class="text-xs font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400 mb-2 flex items-center gap-1.5">
-                <.phx_icon name="hero-light-bulb" class="h-4 w-4" /> Considering
-              </h4>
-              <ul class="space-y-1.5 text-sm text-slate-600 dark:text-slate-400">
-                <li class="flex items-center gap-2">
-                  <span class="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>
-                  Quote posts
-                </li>
-                <li class="flex items-center gap-2">
-                  <span class="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>
-                  Reply thread import
-                </li>
-                <li class="flex items-center gap-2">
-                  <span class="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>
-                  Video attachments
-                </li>
-                <li class="flex items-center gap-2">
-                  <span class="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>
-                  Followers & following import
-                </li>
-                <li class="flex items-center gap-2">
-                  <span class="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0"></span> Reposts
-                </li>
-                <li class="flex items-center gap-2">
-                  <span class="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>
-                  List management
-                </li>
-              </ul>
+              <p class="mt-2 text-xs text-slate-400 dark:text-slate-500">
+                Reply export threads under posts originally imported from Bluesky, which is a limit of the AT Protocol — replies need an existing Bluesky post to attach to.
+              </p>
             </div>
           </div>
         </.collapsible_section>
@@ -1107,6 +1113,11 @@ defmodule MossletWeb.BlueskySettingsLive do
   end
 
   @impl true
+  def handle_event("update_sync_settings", _params, %{assigns: %{bluesky_account: nil}} = socket) do
+    # No connected account (e.g. dev preview "Connected" mode) — nothing to persist.
+    {:noreply, socket}
+  end
+
   def handle_event("update_sync_settings", params, socket) do
     account = socket.assigns.bluesky_account
     sync_params = params["sync"] || %{}
@@ -1116,6 +1127,8 @@ defmodule MossletWeb.BlueskySettingsLive do
       sync_posts_to_bsky: sync_params["sync_posts_to_bsky"] == "on",
       sync_posts_from_bsky: sync_params["sync_posts_from_bsky"] == "on",
       auto_delete_from_bsky: sync_params["auto_delete_from_bsky"] == "on",
+      sync_likes: sync_params["sync_likes"] == "on",
+      sync_reposts: sync_params["sync_reposts"] == "on",
       import_visibility: parse_visibility(sync_params["import_visibility"])
     }
 
@@ -1376,6 +1389,8 @@ defmodule MossletWeb.BlueskySettingsLive do
         "sync_posts_to_bsky" => account.sync_posts_to_bsky,
         "sync_posts_from_bsky" => account.sync_posts_from_bsky,
         "auto_delete_from_bsky" => account.auto_delete_from_bsky,
+        "sync_likes" => account.sync_likes,
+        "sync_reposts" => account.sync_reposts,
         "import_visibility" => account.import_visibility
       },
       as: :sync
@@ -1437,6 +1452,8 @@ defmodule MossletWeb.BlueskySettingsLive do
         "sync_posts_to_bsky" => true,
         "sync_posts_from_bsky" => true,
         "auto_delete_from_bsky" => false,
+        "sync_likes" => true,
+        "sync_reposts" => true,
         "import_visibility" => :private
       },
       as: :sync

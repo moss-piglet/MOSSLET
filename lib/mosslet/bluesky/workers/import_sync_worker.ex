@@ -184,7 +184,9 @@ defmodule Mosslet.Bluesky.Workers.ImportSyncWorker do
             "external_cid" => cid,
             "bluesky_account_id" => account.id,
             "image_urls" => processed.image_urls,
-            "ai_generated" => processed.ai_generated
+            "image_alt_texts" => processed.image_alt_texts,
+            "ai_generated" => processed.ai_generated,
+            "mature_content" => processed.mature_content
           }
           |> maybe_add_reply_refs(processed.reply_ref)
 

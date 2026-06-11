@@ -31,6 +31,7 @@ defmodule Mosslet.Bluesky.Account do
     field :sync_posts_from_bsky, :boolean, default: false
     field :auto_delete_from_bsky, :boolean, default: false
     field :sync_likes, :boolean, default: false
+    field :sync_reposts, :boolean, default: false
 
     field :import_visibility, Ecto.Enum,
       values: [:public, :private, :connections],
@@ -95,6 +96,7 @@ defmodule Mosslet.Bluesky.Account do
       :sync_posts_from_bsky,
       :auto_delete_from_bsky,
       :sync_likes,
+      :sync_reposts,
       :import_visibility
     ])
   end

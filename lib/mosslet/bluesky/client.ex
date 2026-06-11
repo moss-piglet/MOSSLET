@@ -40,7 +40,7 @@ defmodule Mosslet.Bluesky.Client do
     followedBy displayName avatar banner followsCount followersCount
     postsCount associated invitesDisabled emailConfirmed
     scope token_type expires_in access_token refresh_token sub
-    $type items pinned saved
+    $type items pinned saved values val record media
   ))
 
   @type session :: %{
@@ -532,6 +532,7 @@ defmodule Mosslet.Bluesky.Client do
     * `:embed` - Embed object (images, links, quotes)
     * `:facets` - Rich text facets (mentions, links, hashtags)
     * `:langs` - Language tags (e.g., ["en"])
+    * `:labels` - Self-labels object (`com.atproto.label.defs#selfLabels`) for sensitive content
     * `:created_at` - Custom timestamp (defaults to now)
 
   ## Examples
@@ -559,6 +560,7 @@ defmodule Mosslet.Bluesky.Client do
       |> maybe_put("embed", opts[:embed])
       |> maybe_put("facets", opts[:facets])
       |> maybe_put("langs", opts[:langs])
+      |> maybe_put("labels", opts[:labels])
 
     body = %{
       repo: repo,
@@ -757,7 +759,79 @@ defmodule Mosslet.Bluesky.Client do
       record: record
     }
 
-    request(:post, pds_url, "/xrpc/com.atproto.repo.createRecord", body, auth: access_jwt)
+    request_opts =
+      [auth: access_jwt]
+      |> maybe_merge_opt(:dpop_proof, opts[:dpop_proof])
+      |> maybe_merge_opt(:signing_key, opts[:signing_key])
+
+    request(:post, pds_url, "/xrpc/com.atproto.repo.createRecord", body, request_opts)
+  end
+
+  @doc """
+  Deletes a repost (unrepost) from Bluesky.
+
+  ## Examples
+
+      :ok = delete_repost(jwt, did, "rkey123")
+  """
+  @spec delete_repost(String.t(), String.t(), String.t(), keyword()) :: :ok | {:error, term()}
+  def delete_repost(access_jwt, repo, rkey, opts \\ []) do
+    pds_url = opts[:pds_url] || @default_pds
+
+    body = %{
+      repo: repo,
+      collection: "app.bsky.feed.repost",
+      rkey: rkey
+    }
+
+    request_opts =
+      [auth: access_jwt]
+      |> maybe_merge_opt(:dpop_proof, opts[:dpop_proof])
+      |> maybe_merge_opt(:signing_key, opts[:signing_key])
+
+    case request(:post, pds_url, "/xrpc/com.atproto.repo.deleteRecord", body, request_opts) do
+      {:ok, _} -> :ok
+      {:error, _} = error -> error
+    end
+  end
+
+  @doc """
+  Lists the user's reposts from their repository.
+
+  ## Options
+
+    * `:limit` - Number of records (default: 50, max: 100)
+    * `:cursor` - Pagination cursor
+
+  ## Examples
+
+      {:ok, %{records: reposts, cursor: cursor}} = list_reposts(jwt, did)
+  """
+  @spec list_reposts(String.t(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def list_reposts(access_jwt, repo, opts \\ []) do
+    list_records(access_jwt, repo, "app.bsky.feed.repost", opts)
+  end
+
+  @doc """
+  Finds a user's repost record for a specific post URI.
+
+  Returns the repost record if found, nil otherwise.
+  """
+  @spec find_repost_for_post(String.t(), String.t(), String.t(), keyword()) ::
+          {:ok, map() | nil} | {:error, term()}
+  def find_repost_for_post(access_jwt, repo, subject_uri, opts \\ []) do
+    case list_reposts(access_jwt, repo, Keyword.put(opts, :limit, 100)) do
+      {:ok, %{records: records}} ->
+        repost =
+          Enum.find(records, fn record ->
+            get_in(record, [:value, :subject, :uri]) == subject_uri
+          end)
+
+        {:ok, repost}
+
+      {:error, _} = error ->
+        error
+    end
   end
 
   @doc """

@@ -130,6 +130,7 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
         pds_url: pds_url
       ]
       |> maybe_put_embed(embed)
+      |> maybe_put_labels(post)
       |> maybe_add_dpop_proof(account, signing_key)
 
     case Client.create_post(account.access_jwt, account.did, export_text, opts) do
@@ -234,6 +235,7 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
         pds_url: pds_url
       ]
       |> maybe_put_embed(embed)
+      |> maybe_put_labels(post)
       |> maybe_add_dpop_proof(account, signing_key)
 
     case Client.create_post(account.access_jwt, account.did, export_text, opts) do
@@ -270,6 +272,7 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
           pds_url: pds_url,
           reply: reply_ref
         ]
+        |> maybe_put_labels(reply.post)
         |> maybe_add_dpop_proof(account, signing_key)
 
       case Client.create_post(account.access_jwt, account.did, export_text, opts) do
@@ -392,6 +395,18 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
 
   defp maybe_put_embed(opts, nil), do: opts
   defp maybe_put_embed(opts, embed), do: Keyword.put(opts, :embed, embed)
+
+  defp maybe_put_labels(opts, nil), do: opts
+
+  defp maybe_put_labels(opts, post) do
+    case Mosslet.Bluesky.Labels.self_labels_for_export(
+           Map.get(post, :mature_content, false),
+           Map.get(post, :content_warning?, false)
+         ) do
+      nil -> opts
+      labels -> Keyword.put(opts, :labels, labels)
+    end
+  end
 
   defp build_post_embed(post, export_text, account, signing_key, pds_url) do
     case build_images_embed(post, account, signing_key, pds_url) do

@@ -34,17 +34,60 @@ defmodule Mosslet.Bluesky.ImportProcessor do
 
     text = get_in(post_data, [:record, :text]) || ""
     reply_ref = extract_reply_ref(post_data)
+    mature_content = extract_mature_content(post_data)
+    quote_url = extract_quote_url(post_data)
 
     with {:ok, _} <- moderate_text(text, visibility),
          {:ok, image_results} <- process_images(post_data, visibility, post_key) do
       {:ok,
        %{
-         text: text,
+         text: append_quote_attribution(text, quote_url),
          image_urls: Enum.map(image_results, & &1.url),
+         image_alt_texts: Enum.map(image_results, &(&1.alt || "")),
          ai_generated: Enum.any?(image_results, & &1.ai_generated),
+         mature_content: mature_content,
+         quote_url: quote_url,
          reply_ref: reply_ref
        }}
     end
+  end
+
+  # Quote posts reference another post via a strongRef (uri/cid) inside
+  # embed.record or embed.recordWithMedia.record. We don't fetch the quoted
+  # post (privacy + rate limits); instead we surface a link to it so the
+  # imported Mosslet post preserves the quote context.
+  defp extract_quote_url(post_data) do
+    embed = get_in(post_data, [:record, :embed]) || get_in(post_data, [:embed])
+
+    quoted_uri =
+      case embed do
+        %{record: %{record: %{uri: uri}}} when is_binary(uri) -> uri
+        %{record: %{uri: uri}} when is_binary(uri) -> uri
+        _ -> nil
+      end
+
+    case quoted_uri do
+      uri when is_binary(uri) -> Mosslet.Bluesky.Client.at_uri_to_web_url(uri)
+      _ -> nil
+    end
+  end
+
+  defp append_quote_attribution(text, nil), do: text
+
+  defp append_quote_attribution(text, quote_url) do
+    suffix = "↪ Quoting #{quote_url}"
+
+    cond do
+      String.contains?(text, quote_url) -> text
+      String.trim(text) == "" -> suffix
+      true -> text <> "\n\n" <> suffix
+    end
+  end
+
+  defp extract_mature_content(post_data) do
+    post_data
+    |> get_in([:record, :labels])
+    |> Mosslet.Bluesky.Labels.sensitive?()
   end
 
   defp extract_reply_ref(post_data) do
@@ -100,16 +143,24 @@ defmodule Mosslet.Bluesky.ImportProcessor do
 
     case embed do
       %{images: images} when is_list(images) ->
-        Enum.map(images, fn img ->
-          %{
-            url: img[:fullsize] || img[:thumb],
-            alt: img[:alt]
-          }
-        end)
+        map_images(images)
+
+      # Quote post with media: images live under recordWithMedia.media.images
+      %{media: %{images: images}} when is_list(images) ->
+        map_images(images)
 
       _ ->
         []
     end
+  end
+
+  defp map_images(images) do
+    Enum.map(images, fn img ->
+      %{
+        url: img[:fullsize] || img[:thumb],
+        alt: img[:alt]
+      }
+    end)
   end
 
   defp process_single_image(%{url: url} = image_info, visibility, post_key) when is_binary(url) do

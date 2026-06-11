@@ -73,6 +73,7 @@ defmodule Mosslet.Bluesky.ExportTask do
          {:ok, exported_count} <-
            fetch_and_export(account, user, session_key, batch_size, 0, 0, public_only),
          {:ok, account} <- maybe_sync_likes_to_bluesky(account, user, session_key, public_only),
+         {:ok, account} <- maybe_sync_reposts_to_bluesky(account, user, session_key, public_only),
          {:ok, _account} <-
            maybe_sync_bookmarks_to_bluesky(account, user, session_key, public_only) do
       broadcast_progress(user.id, %{
@@ -95,6 +96,15 @@ defmodule Mosslet.Bluesky.ExportTask do
     if account.sync_likes and not public_only do
       broadcast_progress(user.id, %{status: :syncing_likes, exported: 0, total: 0})
       sync_likes_to_bluesky(account, user, session_key)
+    else
+      {:ok, account}
+    end
+  end
+
+  defp maybe_sync_reposts_to_bluesky(account, user, session_key, public_only) do
+    if account.sync_reposts and not public_only do
+      broadcast_progress(user.id, %{status: :syncing_reposts, exported: 0, total: 0})
+      sync_reposts_to_bluesky(account, user, session_key)
     else
       {:ok, account}
     end
@@ -214,6 +224,46 @@ defmodule Mosslet.Bluesky.ExportTask do
     {:ok, account}
   end
 
+  defp sync_reposts_to_bluesky(account, user, session_key) do
+    signing_key = parse_signing_key(account.signing_key)
+    reposted_posts = get_reposted_bluesky_posts(user, session_key)
+
+    Enum.each(reposted_posts, fn post ->
+      if post.external_uri && post.external_cid do
+        opts = build_request_opts(account, signing_key)
+
+        case Client.find_repost_for_post(account.access_jwt, account.did, post.external_uri, opts) do
+          {:ok, nil} ->
+            case Client.create_repost(
+                   account.access_jwt,
+                   account.did,
+                   post.external_uri,
+                   post.external_cid,
+                   opts
+                 ) do
+              {:ok, _} ->
+                Logger.debug("[BlueskyExportTask] Created repost for post #{post.id}")
+
+              {:error, reason} ->
+                Logger.warning("[BlueskyExportTask] Failed to create repost: #{inspect(reason)}")
+            end
+
+          {:ok, _repost} ->
+            :already_reposted
+
+          {:error, reason} ->
+            Logger.warning("[BlueskyExportTask] Failed to check repost: #{inspect(reason)}")
+        end
+      end
+    end)
+
+    Logger.info(
+      "[BlueskyExportTask] Synced #{length(reposted_posts)} reposts for @#{account.handle}"
+    )
+
+    {:ok, account}
+  end
+
   defp sync_bookmarks_to_bluesky(account, user) do
     signing_key = parse_signing_key(account.signing_key)
     bookmarked_posts = get_bookmarked_bluesky_posts(user)
@@ -261,6 +311,21 @@ defmodule Mosslet.Bluesky.ExportTask do
     end)
   end
 
+  defp get_reposted_bluesky_posts(user, session_key) do
+    import Ecto.Query
+
+    Mosslet.Timeline.Post
+    |> where([p], p.source == :bluesky)
+    |> where([p], not is_nil(p.external_uri))
+    |> where([p], not is_nil(p.external_cid))
+    |> Mosslet.Repo.all()
+    |> Mosslet.Repo.preload([:user_posts])
+    |> Enum.filter(fn post ->
+      reposts_list = decrypt_reposts_list(post, user, session_key)
+      user.id in (reposts_list || [])
+    end)
+  end
+
   defp get_bookmarked_bluesky_posts(user) do
     import Ecto.Query
 
@@ -277,6 +342,18 @@ defmodule Mosslet.Bluesky.ExportTask do
     case Timeline.decrypt_post_body(post, user, session_key) do
       {:ok, _} ->
         post.favs_list
+
+      _ ->
+        []
+    end
+  rescue
+    _ -> []
+  end
+
+  defp decrypt_reposts_list(post, user, session_key) do
+    case Timeline.decrypt_post_body(post, user, session_key) do
+      {:ok, _} ->
+        post.reposts_list
 
       _ ->
         []
@@ -422,6 +499,7 @@ defmodule Mosslet.Bluesky.ExportTask do
         opts =
           [facets: facets, pds_url: pds_url]
           |> maybe_add_embed(embed)
+          |> maybe_add_labels(post)
 
         case Client.create_post(account.access_jwt, account.did, decrypted_body, opts) do
           {:ok, %{uri: uri, cid: cid}} ->
@@ -449,6 +527,16 @@ defmodule Mosslet.Bluesky.ExportTask do
 
   defp maybe_add_embed(opts, nil), do: opts
   defp maybe_add_embed(opts, embed), do: Keyword.put(opts, :embed, embed)
+
+  defp maybe_add_labels(opts, post) do
+    case Mosslet.Bluesky.Labels.self_labels_for_export(
+           Map.get(post, :mature_content, false),
+           Map.get(post, :content_warning?, false)
+         ) do
+      nil -> opts
+      labels -> Keyword.put(opts, :labels, labels)
+    end
+  end
 
   defp build_images_embed(post, account, user, session_key, pds_url) do
     case decrypt_post_image_urls(post, user, session_key) do

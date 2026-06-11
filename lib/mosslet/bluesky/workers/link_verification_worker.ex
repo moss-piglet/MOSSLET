@@ -24,6 +24,12 @@ defmodule Mosslet.Bluesky.Workers.LinkVerificationWorker do
   @delay_between_checks_ms 500
 
   @impl Oban.Worker
+  def perform(%Oban.Job{args: %{"action" => "verify_all"}}) do
+    Logger.info("[BlueskyLinkVerify] Running scheduled verification for all accounts")
+    enqueue_all_verifications()
+    :ok
+  end
+
   def perform(%Oban.Job{args: %{"account_id" => account_id}}) do
     account = Bluesky.get_account!(account_id)
 
@@ -112,30 +118,10 @@ defmodule Mosslet.Bluesky.Workers.LinkVerificationWorker do
     |> Mosslet.Repo.all()
   end
 
+  # Refresh tokens via the shared, per-account lock so we never double-spend the
+  # single-use OAuth refresh token concurrently with the import/export workers.
   defp ensure_fresh_tokens(account) do
-    signing_key = parse_signing_key(account.signing_key)
-
-    result =
-      if signing_key do
-        Client.refresh_oauth_session(account.refresh_jwt, signing_key,
-          pds_url: account.pds_url || "https://bsky.social"
-        )
-      else
-        Client.refresh_session(account.refresh_jwt,
-          pds_url: account.pds_url || "https://bsky.social"
-        )
-      end
-
-    case result do
-      {:ok, tokens} ->
-        Bluesky.refresh_tokens(account, %{
-          access_jwt: tokens.access_token || tokens.access_jwt,
-          refresh_jwt: tokens.refresh_token || tokens.refresh_jwt
-        })
-
-      {:error, reason} ->
-        {:error, reason}
-    end
+    Bluesky.with_valid_session(account, force: true)
   end
 
   defp parse_signing_key(nil), do: nil
@@ -172,5 +158,14 @@ defmodule Mosslet.Bluesky.Workers.LinkVerificationWorker do
     %{"account_id" => account_id}
     |> __MODULE__.new()
     |> Oban.insert()
+  end
+
+  @doc """
+  Enqueue a link verification job for every sync-enabled account. Used by the
+  daily cron entry.
+  """
+  def enqueue_all_verifications do
+    Bluesky.list_sync_enabled_accounts()
+    |> Enum.each(fn account -> enqueue_verification(account.id) end)
   end
 end

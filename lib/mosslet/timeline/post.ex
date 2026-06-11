@@ -239,6 +239,7 @@ defmodule Mosslet.Timeline.Post do
       :external_cid,
       :bluesky_account_id,
       :ai_generated,
+      :mature_content,
       :external_reply_root_uri,
       :external_reply_root_cid,
       :external_reply_parent_uri,
@@ -303,6 +304,20 @@ defmodule Mosslet.Timeline.Post do
     ])
     |> validate_required([:favs_count, :favs_list])
     |> encrypt_favs_list_with_post_key(opts)
+  end
+
+  # Server-side update of just the reposts_list/reposts_count tracking on a post
+  # (who reposted it), mirroring favs_changeset. Used by the Bluesky import path,
+  # which must add a user to an imported post's reposts_list without converting
+  # the post into a repost record.
+  def reposts_list_changeset(post, attrs, opts \\ []) do
+    post
+    |> cast(attrs, [
+      :reposts_count,
+      :reposts_list
+    ])
+    |> validate_required([:reposts_count, :reposts_list])
+    |> encrypt_reposts_list_with_post_key(opts)
   end
 
   # ZK path: accepts pre-encrypted favs_list directly from browser.
