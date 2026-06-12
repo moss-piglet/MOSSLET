@@ -107,21 +107,6 @@ defmodule MossletWeb.Components.LandingPage do
                   Sign in
                 </MossletWeb.DesignSystem.liquid_button>
               </div>
-
-              <div class="mt-8 flex justify-center">
-                <a
-                  target="_blank"
-                  href="https://betalist.com/startups/mosslet?utm_campaign=badge-mosslet&amp;utm_medium=badge&amp;utm_source=badge-featured"
-                  class="group inline-block transition-all duration-300 hover:scale-105 opacity-80 hover:opacity-100"
-                >
-                  <img
-                    alt="MOSSLET - Private sharing with friends and an encrypted, private journal | BetaList"
-                    width="156"
-                    height="54"
-                    src="https://betalist.com/badges/featured?id=145320&amp;theme=color"
-                  />
-                </a>
-              </div>
             </div>
           </div>
 

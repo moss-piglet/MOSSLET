@@ -13,6 +13,14 @@ defmodule MossletWeb.Menus do
     current_user.is_admin? && current_user.confirmed_at
   end
 
+  # Returns true when the user is a member of at least one :business org.
+  # Used to gate the Business sidebar item (Q4).
+  defp belongs_to_business_org?(current_user) do
+    current_user
+    |> Mosslet.Orgs.list_orgs()
+    |> Enum.any?(&(&1.type == :business))
+  end
+
   # Public menu (marketing related pages)
   def public_menu_items(_user \\ nil),
     do: [
@@ -68,6 +76,7 @@ defmodule MossletWeb.Menus do
             :conversations,
             :timeline,
             :family,
+            :business,
             :settings,
             :subscribe
           ],
@@ -85,6 +94,7 @@ defmodule MossletWeb.Menus do
             :conversations,
             :timeline,
             :family,
+            :business,
             :settings,
             :subscribe
           ],
@@ -502,6 +512,19 @@ defmodule MossletWeb.Menus do
       path: ~p"/app/family",
       icon: "hero-users"
     }
+  end
+
+  # Business nav item is only shown when the user belongs to >= 1 business org
+  # (Q4 — keeps the sidebar clean for the majority who never use it).
+  def get_link(:business = name, current_user) do
+    if current_user && belongs_to_business_org?(current_user) do
+      %{
+        name: name,
+        label: gettext("Business"),
+        path: ~p"/app/business",
+        icon: "hero-building-office"
+      }
+    end
   end
 
   # def get_link(:orgs = name, _current_user) do

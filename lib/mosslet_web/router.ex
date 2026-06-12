@@ -470,6 +470,11 @@ defmodule MossletWeb.Router do
       live "/family/:slug", FamilyLive.Show, :show
       live "/family/:slug/feed", FamilyLive.Feed, :feed
 
+      # Business plan (private business circles)
+      live "/business", BusinessLive.Index, :index
+      live "/business/new", BusinessLive.Index, :new
+      live "/business/:slug", BusinessLive.Show, :show
+
       # moved to subscription routes
     end
   end

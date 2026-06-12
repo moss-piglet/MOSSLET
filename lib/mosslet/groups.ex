@@ -600,6 +600,21 @@ defmodule Mosslet.Groups do
     |> Mosslet.Repo.all()
   end
 
+  @doc """
+  Lists ALL business circles for the given org (every circle stamped with this
+  `org_id`), regardless of the caller's membership. Org-scoped (I4).
+
+  Used by admin offboarding (Q5) to remove a departing member from every circle
+  in the org.
+  """
+  def list_org_business_circles(%Mosslet.Orgs.Org{} = org) do
+    Group
+    |> where([g], g.org_id == ^org.id)
+    |> order_by([g], desc: g.inserted_at)
+    |> preload([:user_groups])
+    |> Mosslet.Repo.all()
+  end
+
   defp maybe_put_org_id(changeset, nil), do: changeset
 
   defp maybe_put_org_id(changeset, org_id),

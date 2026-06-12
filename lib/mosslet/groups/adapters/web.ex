@@ -221,7 +221,7 @@ defmodule Mosslet.Groups.Adapters.Web do
       where: ug.group_id == ^group.id,
       where: not is_nil(ug.confirmed_at),
       select: ug,
-      preload: [:group, :memories, :posts, :user]
+      preload: [:group, :posts, :user]
     )
     |> Repo.all()
   end
@@ -236,7 +236,7 @@ defmodule Mosslet.Groups.Adapters.Web do
     from(ug in UserGroup,
       where: ug.user_id == ^user.id,
       select: ug,
-      preload: [:group, :memories, :posts, :user]
+      preload: [:group, :posts, :user]
     )
     |> Repo.all()
   end

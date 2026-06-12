@@ -504,19 +504,6 @@ defmodule MossletWeb.DesignSystem do
                   alt="Stripe Climate"
                 />
               </.link>
-              <a
-                target="_blank"
-                href="https://betalist.com/startups/mosslet?utm_campaign=badge-mosslet&amp;utm_medium=badge&amp;utm_source=badge-featured"
-                class="group inline-block transition-all duration-300 hover:scale-105 opacity-70 hover:opacity-100"
-              >
-                <img
-                  alt="Featured on BetaList"
-                  width="78"
-                  height="27"
-                  style="width: 78px; height: 27px"
-                  src="https://betalist.com/badges/featured?id=145320&amp;theme=color"
-                />
-              </a>
             </div>
           </div>
         </div>
