@@ -20,18 +20,33 @@ defmodule MossletWeb.UserSessionController do
     create(conn, params, gettext("Welcome back!"))
   end
 
-  defp create(conn, %{"user" => user_params}, info) do
+  defp create(conn, %{"user" => user_params} = params, info) do
     %{"email" => email, "password" => password} = user_params
 
     if user = Accounts.get_user_by_email_and_password(email, password) do
+      # Carry plan funnel context (plan/billing) — posted as top-level form
+      # fields — into the params UserAuth persists into the session, so
+      # onboarding/subscribe can pre-select the chosen plan (Task #215).
+      auth_params =
+        user_params
+        |> maybe_put(params, "plan")
+        |> maybe_put(params, "billing")
+
       conn
       |> put_flash(:success, info)
-      |> UserAuth.log_in_user(user, user_params)
+      |> UserAuth.log_in_user(user, auth_params)
     else
       # In order to prevent user enumeration attacks, don't disclose whether the email is registered.
       conn
       |> put_flash(:error, gettext("Invalid email or password, please try again."))
       |> redirect(to: ~p"/auth/sign_in")
+    end
+  end
+
+  defp maybe_put(target, source, key) do
+    case Map.get(source, key) do
+      nil -> target
+      value -> Map.put(target, key, value)
     end
   end
 

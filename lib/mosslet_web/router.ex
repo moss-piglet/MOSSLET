@@ -446,9 +446,6 @@ defmodule MossletWeb.Router do
         {MossletWeb.SubscriptionPlugs, :subscribed_entity},
         MossletWeb.SyncStatusHook
       ] do
-      # Onboarding
-      live "/users/onboarding", UserOnboardingLive
-
       # Settings
       live "/users/edit-details", EditDetailsLive
       live "/users/edit-profile", EditProfileLive
@@ -464,6 +461,35 @@ defmodule MossletWeb.Router do
       live "/users/org-invitations", UserOrgInvitationsLive
       live "/users/two-factor-authentication", EditTotpLive
 
+      # moved to subscription routes
+    end
+  end
+
+  # Family/Business org surfaces. Confirmation-gated AND subscription-gated: a
+  # user must have finalized their own subscription signup (active/trialing sub
+  # or lifetime payment intent) before creating or managing org infrastructure
+  # (Task #215 follow-up). Unsubscribed users are redirected to /app/subscribe by
+  # the :subscribed_user plug; org creation is also gated server-side in
+  # Mosslet.Orgs.create_org/2.
+  scope "/app", MossletWeb do
+    pipe_through [
+      :browser,
+      :authenticated,
+      :require_confirmed_user,
+      :require_session_key,
+      :maybe_require_connection,
+      :subscribed_user
+    ]
+
+    live_session :org_subscribed_user,
+      on_mount: [
+        {MossletWeb.UserAuth, :ensure_authenticated},
+        {MossletWeb.UserAuth, :ensure_confirmed},
+        {MossletWeb.UserAuth, :ensure_session_key},
+        {MossletWeb.UserAuth, :maybe_ensure_connection},
+        {MossletWeb.SubscriptionPlugs, :require_subscribed_user},
+        MossletWeb.SyncStatusHook
+      ] do
       # Family plan (guardianship)
       live "/family", FamilyLive.Index, :index
       live "/family/new", FamilyLive.Index, :new
@@ -474,17 +500,42 @@ defmodule MossletWeb.Router do
       live "/business", BusinessLive.Index, :index
       live "/business/new", BusinessLive.Index, :new
       live "/business/:slug", BusinessLive.Show, :show
-
-      # moved to subscription routes
     end
   end
 
-  # Billing routes - accessible to authenticated users without subscription
+  # Setup + checkout surfaces reachable BEFORE email confirmation.
+  #
+  # Onboarding and the plan picker (/subscribe) must be completable right after
+  # signup so the smooth, zero-knowledge registration flow lands the user on an
+  # authenticated page (which primes the persistent browser key cache) before we
+  # ask them to confirm their email (Task #215). Sensitive, email-sending
+  # actions (org creation/invites, the full product) stay confirmation-gated.
   scope "/app", MossletWeb do
     pipe_through [
       :browser,
-      :authenticated,
-      :require_confirmed_user,
+      :authenticated_not_confirmed,
+      :require_session_key,
+      :maybe_require_connection
+    ]
+
+    live_session :setup_authenticated_user_not_confirmed,
+      on_mount: [
+        {MossletWeb.UserAuth, :ensure_authenticated},
+        {MossletWeb.UserAuth, :ensure_session_key},
+        {MossletWeb.UserAuth, :maybe_ensure_connection},
+        MossletWeb.SyncStatusHook
+      ] do
+      # Onboarding
+      live "/users/onboarding", UserOnboardingLive
+    end
+  end
+
+  # Billing routes - accessible to authenticated users without subscription,
+  # and BEFORE email confirmation (see setup live_session note above).
+  scope "/app", MossletWeb do
+    pipe_through [
+      :browser,
+      :authenticated_not_confirmed,
       :require_session_key,
       :maybe_require_connection
     ]
@@ -492,7 +543,6 @@ defmodule MossletWeb.Router do
     live_session :billing_authenticated_user,
       on_mount: [
         {MossletWeb.UserAuth, :ensure_authenticated},
-        {MossletWeb.UserAuth, :ensure_confirmed},
         {MossletWeb.UserAuth, :ensure_session_key},
         {MossletWeb.UserAuth, :maybe_ensure_connection},
         MossletWeb.SyncStatusHook

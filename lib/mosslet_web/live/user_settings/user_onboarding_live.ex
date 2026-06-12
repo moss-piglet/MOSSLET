@@ -9,6 +9,7 @@ defmodule MossletWeb.UserOnboardingLive do
       socket
       |> assign(user_return_to: Map.get(params, "user_return_to", nil))
       |> assign(:plan_intent, plan_intent(session))
+      |> assign(:plan_interval, plan_interval(session))
       |> assign(:name, nil)
       |> assign(:show_details, false)
       |> assign(:show_payment_info, false)
@@ -18,16 +19,26 @@ defmodule MossletWeb.UserOnboardingLive do
   end
 
   # Plan-aware signup intent persisted at sign-in (UserAuth.maybe_put_plan_intent).
-  # Drives where the user lands after onboarding (Task #214):
-  #   personal -> /app/subscribe
-  #   family/business -> guided "create your {family|business}" step, then
-  #                      org-scoped subscribe.
+  # Drives where the user lands after onboarding (Task #214/#215). All plans land
+  # on the plan picker (/app/subscribe), which is reachable before email
+  # confirmation so the smooth ZK signup flow is uninterrupted. The picker
+  # pre-selects the chosen plan family + billing interval and, for family/
+  # business, subscribes them (as a :user sub) before guiding into org create.
   defp plan_intent(%{"plan_intent" => plan}) when plan in ~w(personal family business), do: plan
   defp plan_intent(_), do: "personal"
 
-  defp post_onboarding_path("family"), do: ~p"/app/family/new?#{%{onboarding: "1"}}"
-  defp post_onboarding_path("business"), do: ~p"/app/business/new?#{%{onboarding: "1"}}"
-  defp post_onboarding_path(_), do: ~p"/app/subscribe"
+  defp plan_interval(%{"plan_interval" => b}) when b in ~w(month year), do: b
+  defp plan_interval(_), do: nil
+
+  defp post_onboarding_path(plan, interval) when plan in ~w(personal family business) do
+    params = %{plan: plan} |> maybe_put_billing(interval)
+    ~p"/app/subscribe?#{params}"
+  end
+
+  defp post_onboarding_path(_plan, _interval), do: ~p"/app/subscribe"
+
+  defp maybe_put_billing(params, b) when b in ~w(month year), do: Map.put(params, :billing, b)
+  defp maybe_put_billing(params, _), do: params
 
   def render(assigns) do
     ~H"""
@@ -365,7 +376,9 @@ defmodule MossletWeb.UserOnboardingLive do
         socket =
           socket
           |> put_flash(:success, gettext("Welcome aboard! Let's get you set up."))
-          |> push_navigate(to: post_onboarding_path(socket.assigns.plan_intent))
+          |> push_navigate(
+            to: post_onboarding_path(socket.assigns.plan_intent, socket.assigns.plan_interval)
+          )
 
         {:noreply, socket}
 
@@ -397,7 +410,9 @@ defmodule MossletWeb.UserOnboardingLive do
         {:noreply,
          socket
          |> put_flash(:success, gettext("Welcome aboard! Let's get you set up."))
-         |> push_navigate(to: post_onboarding_path(socket.assigns.plan_intent))}
+         |> push_navigate(
+           to: post_onboarding_path(socket.assigns.plan_intent, socket.assigns.plan_interval)
+         )}
 
       {:error, _changeset} ->
         {:noreply,

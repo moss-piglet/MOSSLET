@@ -1,5 +1,6 @@
 defmodule MossletWeb.SubscribeController do
   use MossletWeb, :controller
+  require Logger
 
   alias Mosslet.Billing.Customers
   alias Mosslet.Billing.Plans
@@ -75,12 +76,40 @@ defmodule MossletWeb.SubscribeController do
       {:ok, _customer, session} ->
         redirect(conn, external: billing_provider().checkout_url(session))
 
-      {:error, _reason} ->
+      {:error, reason} ->
+        Logger.error(
+          "Checkout failed for plan #{inspect(plan.id)} (#{source}): #{inspect(reason)}"
+        )
+
         conn
-        |> put_flash(:error, gettext("Unable to start checkout. Please try again later."))
-        |> redirect(to: ~p"/app/subscribe")
+        |> put_flash(:error, checkout_error_message(reason))
+        |> redirect(to: checkout_failure_path(source, source_id))
     end
   end
+
+  # Surface an honest, actionable message. A misconfigured Stripe price (common
+  # in dev/test when STRIPE_PRICE_* env vars are unset) is distinct from a
+  # transient failure (Task #215).
+  defp checkout_error_message({:stripe_price_misconfigured, _}),
+    do:
+      gettext(
+        "This plan isn't available for checkout yet. Please contact support or try a different plan."
+      )
+
+  defp checkout_error_message(:stripe_customer_creation_failed),
+    do: gettext("We couldn't set up your billing account. Please try again in a moment.")
+
+  defp checkout_error_message(_reason),
+    do: gettext("Unable to start checkout. Please try again later.")
+
+  defp checkout_failure_path(:org, source_id) do
+    case Mosslet.Orgs.get_org_by_id(source_id) do
+      %{slug: slug} -> ~p"/app/org/#{slug}/subscribe"
+      _ -> ~p"/app/subscribe"
+    end
+  end
+
+  defp checkout_failure_path(_source, _source_id), do: ~p"/app/subscribe"
 
   defp get_subscription(source, source_id) do
     source

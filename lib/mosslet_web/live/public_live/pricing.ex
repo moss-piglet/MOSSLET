@@ -644,12 +644,15 @@ defmodule MossletWeb.PublicLive.Pricing do
   end
 
   # Maps a plan line-item to the plan-aware registration path. The funnel reads
-  # `?plan=` to tailor copy and route the user to the correct post-onboarding
-  # step (Task #214). Family/Business per-seat plans carry their plan; everything
-  # else (Personal monthly/yearly/lifetime) is the personal plan.
+  # `?plan=` to tailor copy/route and `?billing=` to preserve the monthly/yearly
+  # choice all the way to the in-app subscribe page (Task #214/#215).
   defp register_path(item) do
-    ~p"/auth/register?#{%{plan: plan_param(item)}}"
+    ~p"/auth/register?#{%{plan: plan_param(item), billing: billing_param(item)}}"
   end
+
+  defp billing_param(%{interval: :month}), do: "month"
+  defp billing_param(%{interval: :year}), do: "year"
+  defp billing_param(_), do: "year"
 
   defp plan_param(item) do
     cond do
@@ -759,13 +762,13 @@ defmodule MossletWeb.PublicLive.Pricing do
     |> Enum.map(fn key -> Map.put(family_meta(key), :key, key) end)
   end
 
-  # Default the switcher to the "Family" plan (our most popular) when present,
-  # otherwise the first available family.
+  # Default the switcher to the "Personal" plan when present, otherwise the
+  # first available family.
   defp default_family(families) do
     keys = Enum.map(families, & &1.key)
 
     cond do
-      "Family" in keys -> "Family"
+      "Personal" in keys -> "Personal"
       keys != [] -> List.first(keys)
       true -> nil
     end

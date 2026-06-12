@@ -111,6 +111,28 @@ defmodule MossletWeb.SubscriptionPlugs do
     {:cont, socket}
   end
 
+  # Halting variant: redirects to /app/subscribe unless the user has finalized
+  # their own subscription signup (active/trialing subscription or active lifetime
+  # payment intent). Used to gate org-creation surfaces on live navigation, where
+  # the `subscribed_user_only` plug does not run (Task #215 follow-up).
+  def on_mount(:require_subscribed_user, params, session, socket) do
+    {:cont, socket} = on_mount(:subscribed_user, params, session, socket)
+
+    if socket.assigns[:subscription] || socket.assigns[:payment_intent] do
+      {:cont, socket}
+    else
+      socket =
+        socket
+        |> Phoenix.LiveView.put_flash(
+          :warning,
+          gettext("You must have a paid account to access this page.")
+        )
+        |> Phoenix.LiveView.redirect(to: ~p"/app/subscribe")
+
+      {:halt, socket}
+    end
+  end
+
   defp assign_customer(socket, :org) do
     Phoenix.Component.assign_new(socket, :customer, fn ->
       current_org = socket.assigns.current_org

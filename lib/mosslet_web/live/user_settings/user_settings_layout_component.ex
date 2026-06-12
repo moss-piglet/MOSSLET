@@ -36,7 +36,10 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
       <.liquid_container max_width="xl" class="py-4 sm:py-8 xl:py-12">
         <div class="space-y-4 sm:space-y-8">
           <%!-- Settings header with modern styling --%>
-          <.settings_header title="Settings" />
+          <.settings_header
+            title="Settings"
+            plan_type={MossletWeb.Menus.plan_type(@current_scope.user)}
+          />
 
           <%!-- Settings content with sidebar navigation --%>
           <.settings_tabs_container
@@ -113,21 +116,27 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
 
   # Modern settings header with liquid metal styling
   defp settings_header(assigns) do
-    assigns = assign_new(assigns, :inner_block, fn -> [] end)
+    assigns =
+      assigns
+      |> assign_new(:inner_block, fn -> [] end)
+      |> assign_new(:plan_type, fn -> :personal end)
 
     ~H"""
     <div class="flex flex-col gap-4">
       <div class="min-w-0">
-        <h1 class={[
-          "text-2xl sm:text-3xl font-bold tracking-tight",
-          "bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900",
-          "dark:from-slate-100 dark:via-white dark:to-slate-100",
-          "bg-clip-text text-transparent"
-        ]}>
-          {@title}
-        </h1>
+        <div class="flex flex-wrap items-center gap-3">
+          <h1 class={[
+            "text-2xl sm:text-3xl font-bold tracking-tight",
+            "bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900",
+            "dark:from-slate-100 dark:via-white dark:to-slate-100",
+            "bg-clip-text text-transparent"
+          ]}>
+            {@title}
+          </h1>
+          <.plan_badge plan_type={@plan_type} />
+        </div>
         <p class="mt-2 text-sm sm:text-base text-slate-600 dark:text-slate-400">
-          Manage your account settings and preferences
+          {settings_subtitle(@plan_type)}
         </p>
       </div>
 
@@ -137,6 +146,46 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
     </div>
     """
   end
+
+  # Small plan pill shown next to the Settings title for quick orientation.
+  defp plan_badge(assigns) do
+    {label, classes} =
+      case assigns.plan_type do
+        :business ->
+          {gettext("Business"),
+           "bg-indigo-50 text-indigo-700 ring-indigo-600/20 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-400/30"}
+
+        :family ->
+          {gettext("Family"),
+           "bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-400/30"}
+
+        _ ->
+          {gettext("Personal"),
+           "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/30"}
+      end
+
+    assigns = assign(assigns, label: label, badge_classes: classes)
+
+    ~H"""
+    <span class={[
+      "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
+      "ring-1 ring-inset",
+      @badge_classes
+    ]}>
+      <span class="size-1.5 rounded-full bg-current"></span>
+      {@label}
+    </span>
+    """
+  end
+
+  defp settings_subtitle(:business),
+    do: gettext("Business plan — manage your account, team, and privacy.")
+
+  defp settings_subtitle(:family),
+    do: gettext("Family plan — manage your account, family, and privacy.")
+
+  defp settings_subtitle(_),
+    do: gettext("Personal plan — manage your account and privacy.")
 
   # Modern group settings header with liquid metal styling
   defp group_settings_header(assigns) do
@@ -410,13 +459,45 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
       MossletWeb.Menus.get_link(:edit_notifications, current_user),
       MossletWeb.Menus.get_link(:blocked_users, current_user),
       %{type: :section, label: "Integrations"},
-      MossletWeb.Menus.get_link(:bluesky_settings, current_user),
+      MossletWeb.Menus.get_link(:bluesky_settings, current_user)
+    ]
+    |> Kernel.++(plan_and_org_section(current_user))
+    |> Kernel.++([
       %{type: :section, label: "Account"},
       MossletWeb.Menus.get_link(:manage_data, current_user),
-      MossletWeb.Menus.get_link(:billing, current_user),
       MossletWeb.Menus.get_link(:delete_account, current_user)
+    ])
+    |> drop_empty_sections()
+  end
+
+  # Plan & Organization section: billing plus contextual org-management entries
+  # (only those that resolve to a link for this user are kept).
+  defp plan_and_org_section(current_user) do
+    [
+      %{type: :section, label: "Plan & Organization"},
+      MossletWeb.Menus.get_link(:billing, current_user),
+      MossletWeb.Menus.get_link(:org_invitations, current_user),
+      MossletWeb.Menus.get_link(:manage_family, current_user),
+      MossletWeb.Menus.get_link(:manage_business, current_user)
     ]
-    |> Enum.filter(& &1)
+  end
+
+  # Removes section headers that have no menu items following them, then drops
+  # any nil links. Keeps the menu tidy when contextual links are absent.
+  defp drop_empty_sections(items) do
+    items
+    |> Enum.reverse()
+    |> Enum.reduce({[], false}, fn
+      %{type: :section} = section, {acc, saw_item?} ->
+        if saw_item?, do: {[section | acc], false}, else: {acc, false}
+
+      nil, {acc, saw_item?} ->
+        {acc, saw_item?}
+
+      item, {acc, _saw_item?} ->
+        {[item | acc], true}
+    end)
+    |> elem(0)
   end
 
   defp settings_menu_items_group(current_user, group, user_group) do

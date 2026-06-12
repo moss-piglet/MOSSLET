@@ -184,6 +184,15 @@ defmodule MossletWeb.FamilyLive.Index do
          )
          |> push_patch(to: ~p"/app/family")}
 
+      {:error, :subscription_required} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :warning,
+           "Please start your subscription before creating a family."
+         )
+         |> push_navigate(to: ~p"/app/subscribe?#{%{plan: "family"}}")}
+
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not create family. Please try again.")}
     end

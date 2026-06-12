@@ -5,6 +5,8 @@ defmodule MossletWeb.FamilyLiveTest do
   import Mosslet.AccountsFixtures
 
   alias Mosslet.Accounts
+  alias Mosslet.Billing.Customers
+  alias Mosslet.Billing.Subscriptions
   alias Mosslet.Orgs
 
   @password "hello world hello world!"
@@ -27,11 +29,37 @@ defmodule MossletWeb.FamilyLiveTest do
     |> Plug.Conn.put_session(:key, key)
   end
 
+  # Active personal (:user) subscription so the user can create/manage orgs.
+  defp subscribe_user(user) do
+    {:ok, customer} =
+      Customers.create_customer_for_source(:user, user.id, %{
+        email: "billing-#{System.unique_integer([:positive])}@example.com",
+        provider: "stripe",
+        provider_customer_id: "cus_#{System.unique_integer([:positive])}"
+      })
+
+    {:ok, _subscription} =
+      Subscriptions.create_subscription(%{
+        billing_customer_id: customer.id,
+        plan_id: "personal-monthly",
+        status: "active",
+        quantity: 1,
+        provider_subscription_id: "sub_#{System.unique_integer([:positive])}",
+        provider_subscription_items: [%{price: "price_test"}],
+        current_period_start: NaiveDateTime.utc_now()
+      })
+
+    :ok
+  end
+
   defp onboarded_user(name_seed) do
     email = "#{name_seed}#{System.unique_integer([:positive])}@example.com"
     user = user_fixture(%{email: email, password: @password})
     user = Accounts.confirm_user!(user)
     {:ok, user} = Accounts.update_user_onboarding(user, %{is_onboarded?: true})
+    # Org creation/management requires an active personal subscription (Task #215
+    # follow-up), so give the test user one.
+    subscribe_user(user)
     key = get_key(user)
 
     name =

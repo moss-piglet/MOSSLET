@@ -17,7 +17,23 @@ defmodule Mosslet.Billing.Providers.Stripe do
 
   def checkout(%User{} = user, plan, source, source_id, session_key, referral \\ nil, seats \\ 1) do
     mode = determine_checkout_mode(plan)
+    line_items = format_line_items(plan, mode, seats)
 
+    case validate_line_item_prices(line_items) do
+      :ok ->
+        do_checkout(user, plan, source, source_id, session_key, referral, mode, line_items)
+
+      {:error, bad_price} ->
+        Logger.error(
+          "Refusing checkout for plan #{inspect(plan.id)}: price #{inspect(bad_price)} " <>
+            "is not a configured Stripe price (set the STRIPE_PRICE_* env var)."
+        )
+
+        {:error, {:stripe_price_misconfigured, bad_price}}
+    end
+  end
+
+  defp do_checkout(user, plan, source, source_id, session_key, referral, mode, line_items) do
     with {:ok, customer} <- FindOrCreateCustomer.call(user, source, source_id, session_key) do
       trial_days = determine_trial_days(plan, customer)
 
@@ -31,7 +47,7 @@ defmodule Mosslet.Billing.Providers.Stripe do
              cancel_url: cancel_url(source, source_id),
              allow_promotion_codes: Map.get(plan, :allow_promotion_codes, false),
              trial_period_days: trial_days,
-             line_items: format_line_items(plan, mode, seats),
+             line_items: line_items,
              mode: mode,
              referral: referral
            }) do
@@ -44,6 +60,36 @@ defmodule Mosslet.Billing.Providers.Stripe do
         Logger.debug("Failed to create Stripe Customer: #{inspect(error)}")
         {:error, :stripe_customer_creation_failed}
     end
+  end
+
+  # Guards against the dev/test fallback price IDs (e.g. "price_*_test") that
+  # are used when the real STRIPE_PRICE_* env vars are unset. Hitting Stripe with
+  # one of these yields a confusing generic failure; instead we fail fast with a
+  # tagged, actionable error (Task #215).
+  defp validate_line_item_prices(line_items) do
+    Enum.reduce_while(line_items, :ok, fn item, _acc ->
+      price = Map.get(item, :price)
+
+      if is_binary(price) and configured_stripe_price?(price) do
+        {:cont, :ok}
+      else
+        {:halt, {:error, price}}
+      end
+    end)
+  end
+
+  defp configured_stripe_price?(price) do
+    String.starts_with?(price, "price_") and not String.ends_with?(price, "_test") and
+      price not in [
+        "price_family_monthly_test",
+        "price_family_yearly_test",
+        "price_business_monthly_test",
+        "price_business_yearly_test",
+        "price_family_seat_monthly_test",
+        "price_family_seat_yearly_test",
+        "price_business_seat_monthly_test",
+        "price_business_seat_yearly_test"
+      ]
   end
 
   defp determine_trial_days(plan, customer) do
@@ -71,7 +117,7 @@ defmodule Mosslet.Billing.Providers.Stripe do
   # behaviour. Per-seat plans (Family/Business, declared via `:seat_addon_price`
   # in config) emit the base plan line item plus an add-on seat line item for any
   # seats requested beyond the plan's included allotment.
-  defp format_line_items(plan, _mode, seats \\ 1) do
+  defp format_line_items(plan, _mode, seats) do
     base_item =
       Map.drop(plan, [
         :id,

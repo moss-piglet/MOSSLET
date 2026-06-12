@@ -11,6 +11,7 @@ defmodule Mosslet.Orgs do
 
   alias Mosslet.Platform
   alias Mosslet.Billing.Customers
+  alias Mosslet.Billing.PaymentIntents
   alias Mosslet.Billing.Plans
   alias Mosslet.Billing.Subscriptions
   alias Mosslet.Orgs.{Org, Membership, Invitation, Guardianship}
@@ -59,17 +60,43 @@ defmodule Mosslet.Orgs do
 
     type = org_type(attrs)
 
-    case check_create_org_limit(user, type) do
-      :ok ->
-        changeset =
-          attrs
-          |> Org.insert_changeset()
-          |> Org.put_creator(user)
+    cond do
+      not user_has_active_billing?(user) ->
+        {:error, :subscription_required}
 
-        adapter().create_org(user, changeset)
+      true ->
+        case check_create_org_limit(user, type) do
+          :ok ->
+            changeset =
+              attrs
+              |> Org.insert_changeset()
+              |> Org.put_creator(user)
 
-      {:error, _reason} = error ->
-        error
+            adapter().create_org(user, changeset)
+
+          {:error, _reason} = error ->
+            error
+        end
+    end
+  end
+
+  @doc """
+  Returns `true` when the user has finalized their own subscription signup —
+  i.e. their personal billing account has an active/trialing subscription or an
+  active lifetime payment intent.
+
+  Creating a family/business org requires this (Task #215 follow-up): a user must
+  commit to a paid (or trialing) relationship before spinning up org
+  infrastructure, even though the org itself is billed per-seat afterward.
+  """
+  def user_has_active_billing?(user) do
+    case Customers.get_customer_by_source(:user, user.id) do
+      nil ->
+        false
+
+      customer ->
+        Subscriptions.get_active_subscription_by_customer_id(customer.id) != nil or
+          PaymentIntents.get_active_payment_intent_by_customer_id(customer.id) != nil
     end
   end
 

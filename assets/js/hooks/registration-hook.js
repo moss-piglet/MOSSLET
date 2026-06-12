@@ -142,11 +142,32 @@ const RegistrationHook = {
         sessionStorage.removeItem(TEMP_USER_KEY);
       }
 
-      // Submit the form — either with ZK fields injected or without (server fallback)
-      form.submit();
+      // Push the registration to the LiveView with the (now-injected) ZK fields.
+      // We drive the "save" event from here — rather than relying on phx-submit —
+      // so the server always receives the encrypted blobs. The server's "save"
+      // handler creates the user and sets trigger_submit, which fires
+      // phx-trigger-action to natively POST the form to /auth/sign_in.
+      this.pushEvent("save", { user: serializeUserFields(form) });
     });
   },
 };
+
+// Serialize all `user[...]` inputs in the form into a flat map of field => value.
+function serializeUserFields(form) {
+  const data = {};
+  const inputs = form.querySelectorAll('input[name^="user["], textarea[name^="user["]');
+  inputs.forEach((input) => {
+    const match = input.name.match(/^user\[([^\]]+)\]$/);
+    if (!match) return;
+    const field = match[1];
+    if (input.type === "checkbox") {
+      data[field] = input.checked;
+    } else {
+      data[field] = input.value;
+    }
+  });
+  return data;
+}
 
 /**
  * Set (or create) a hidden input inside the form.

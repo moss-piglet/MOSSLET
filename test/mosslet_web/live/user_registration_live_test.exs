@@ -214,21 +214,33 @@ defmodule MossletWeb.UserRegistrationLiveTest do
           }
         )
 
-      render_submit(form)
+      # The registration form has no phx-submit: RegistrationHook intercepts the
+      # native submit, encrypts/injects the zk_* fields, then pushes the "save"
+      # event (Task #215). LiveViewTest can't run the JS hook, so we simulate it
+      # by pushing "save" directly. The handler then sets trigger_submit: true,
+      # and phx-trigger-action natively POSTs the form to /auth/sign_in.
+      render_hook(lv, "save", %{
+        user: %{
+          email: email,
+          username: username,
+          password: password,
+          password_confirmation: password,
+          password_reminder: true
+        }
+      })
+
       conn = follow_trigger_action(form, conn)
 
       # Assert that the user will be redirected to the onboarding page
       assert redirected_to(conn) == ~p"/app/users/onboarding"
       assert Phoenix.Flash.get(conn.assigns.flash, :success) =~ "Account created successfully"
 
-      # Assert that the user must confirm their email
+      # The smooth, zero-knowledge signup flow lets the user reach onboarding
+      # BEFORE confirming their email (Task #215), so the persistent browser key
+      # cache is primed before we ask them to confirm. Onboarding must be
+      # reachable (not bounced to /auth/confirm).
       conn = get(conn, ~p"/app/users/onboarding")
-      assert html_response(conn, 302)
-      assert redirected_to(conn) == ~p"/auth/confirm"
-
-      conn = get(conn, ~p"/auth/confirm")
-      response = html_response(conn, 200)
-      assert response =~ "Please check your email"
+      assert html_response(conn, 200)
     end
 
     test "renders errors for duplicated email only at final submission", %{conn: conn} do
@@ -243,9 +255,14 @@ defmodule MossletWeb.UserRegistrationLiveTest do
 
       assert result =~ "Continue"
 
-      # Now submit the form
-      form =
-        form(lv, "#registration_form",
+      # The registration form has no phx-submit: RegistrationHook intercepts the
+      # native submit, encrypts/injects the zk_* fields, then pushes the "save"
+      # event (Task #215). LiveViewTest can't run the JS hook, so we simulate it
+      # by pushing "save" directly with the plain (server-fallback) params.
+      result =
+        lv
+        |> element("#registration_form")
+        |> render_hook("save", %{
           user: %{
             email: "test@email.com",
             username: unique_username(),
@@ -253,9 +270,8 @@ defmodule MossletWeb.UserRegistrationLiveTest do
             password_confirmation: valid_user_password(),
             password_reminder: true
           }
-        )
+        })
 
-      result = render_submit(form)
       assert result =~ "Please check the following errors"
       assert result =~ "Email invalid or already taken"
     end

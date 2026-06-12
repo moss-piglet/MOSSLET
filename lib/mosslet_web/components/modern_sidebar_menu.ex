@@ -127,6 +127,19 @@ defmodule MossletWeb.ModernSidebarMenu do
           {@item[:label]}
         </span>
 
+        <%!-- Optional contextual badge (e.g. plan type next to Settings) --%>
+        <span
+          :if={@item[:badge]}
+          class={[
+            "relative ml-1.5 inline-flex items-center rounded-full px-2 py-0.5",
+            "text-[10px] font-semibold uppercase tracking-wide",
+            "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20",
+            "dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/30"
+          ]}
+          x-show="!sidebarCollapsed"
+        >
+          {@item[:badge]}
+        </span>
         <%!-- Submenu indicator with rotation --%>
         <div
           class="relative w-4 h-4 transition-transform duration-200 transform-gpu"

@@ -11,6 +11,7 @@ defmodule MossletWeb.UserRegistrationLive do
     changeset = Accounts.change_user_registration(%User{})
     referral_code = get_referral_code(params, session)
     plan = get_plan(params)
+    billing = get_billing(params)
 
     {:ok,
      socket
@@ -22,6 +23,7 @@ defmodule MossletWeb.UserRegistrationLive do
      |> assign(:error_message, nil)
      |> assign(:loading, false)
      |> assign(:plan, plan)
+     |> assign(:billing, billing)
      |> assign(:referral_code, referral_code)
      |> assign(:referral_discount, get_referral_discount(referral_code))
      |> assign(trigger_submit: false, check_errors: false)
@@ -162,13 +164,19 @@ defmodule MossletWeb.UserRegistrationLive do
             for={@form}
             id="registration_form"
             phx-hook="RegistrationHook"
-            phx-submit="save"
             phx-change="validate"
             phx-trigger-action={@trigger_submit}
-            action={~p"/auth/sign_in?#{%{_action: "registered", plan: @plan}}"}
+            action={~p"/auth/sign_in?#{%{_action: "registered", plan: @plan, billing: @billing}}"}
             method="post"
             autocomplete="off"
           >
+            <%!-- Plan funnel context posted to /auth/sign_in so it survives the
+                 native trigger-action submit (query-string on action is not
+                 reliable through phx-trigger-action). Persisted into the session
+                 by UserAuth so onboarding/subscribe pre-select the chosen plan. --%>
+            <input type="hidden" name="_action" value="registered" />
+            <input type="hidden" name="plan" value={@plan} />
+            <input type="hidden" name="billing" value={@billing} />
             <div class={unless @current_step === 1, do: "hidden"}>
               <.phx_input
                 field={@form[:email]}
@@ -740,6 +748,13 @@ defmodule MossletWeb.UserRegistrationLive do
   # the correct next step (Task #214).
   defp get_plan(%{"plan" => plan}) when plan in ~w(personal family business), do: plan
   defp get_plan(_), do: "personal"
+
+  # Preserves the monthly/yearly choice from the pricing page through the funnel
+  # so the in-app subscribe page can pre-select the same price (Task #215).
+  defp get_billing(%{"billing" => b}) when b in ~w(month year), do: b
+  defp get_billing(%{"billing" => "monthly"}), do: "month"
+  defp get_billing(%{"billing" => "yearly"}), do: "year"
+  defp get_billing(_), do: "year"
 
   defp plan_badge_label("family"), do: "Set up your family"
   defp plan_badge_label("business"), do: "Set up your team"

@@ -136,6 +136,7 @@ defmodule MossletWeb.UserAuth do
     |> put_session(:user_token, token)
     |> put_session(:user_return_to, params["user_return_to"])
     |> maybe_put_plan_intent(params)
+    |> maybe_put_plan_interval(params)
     |> put_token_in_session(token)
     |> put_key_in_session(key)
   end
@@ -149,6 +150,20 @@ defmodule MossletWeb.UserAuth do
   end
 
   defp maybe_put_plan_intent(conn, _params), do: conn
+
+  # Persists the monthly/yearly billing choice across session renewal so the
+  # in-app subscribe page can pre-select the same price (Task #215).
+  defp maybe_put_plan_interval(conn, %{"billing" => b}) when b in ~w(month year) do
+    put_session(conn, :plan_interval, b)
+  end
+
+  defp maybe_put_plan_interval(conn, %{"billing" => "monthly"}),
+    do: put_session(conn, :plan_interval, "month")
+
+  defp maybe_put_plan_interval(conn, %{"billing" => "yearly"}),
+    do: put_session(conn, :plan_interval, "year")
+
+  defp maybe_put_plan_interval(conn, _params), do: conn
 
   @doc """
   Returns to or redirects home and potentially set remember_me token. If the

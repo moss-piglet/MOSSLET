@@ -272,11 +272,15 @@ defmodule Mosslet.Accounts.Connection do
   # from the user changeset.
 
   defp add_name_hash(changeset) do
-    if Map.has_key?(changeset.changes, :name) do
-      changeset
-      |> put_change(:name_hash, String.downcase(get_field(changeset, :name_hash)))
-    else
-      changeset
+    case get_field(changeset, :name_hash) do
+      name_hash when is_binary(name_hash) ->
+        put_change(changeset, :name_hash, String.downcase(name_hash))
+
+      # ZK write path: the name is stored encrypted and there is no plaintext
+      # name_hash to compute (the browser never sends one). Leave it untouched
+      # rather than crashing on String.downcase(nil).
+      _ ->
+        changeset
     end
   end
 

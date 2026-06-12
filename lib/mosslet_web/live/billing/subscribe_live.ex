@@ -16,7 +16,7 @@ defmodule MossletWeb.SubscribeLive do
   defp billing_provider, do: Application.get_env(:mosslet, :billing_provider)
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
     products = Plans.products()
 
     one_time_products =
@@ -33,6 +33,8 @@ defmodule MossletWeb.SubscribeLive do
 
     referral_discount = get_referral_discount(socket.assigns.current_user)
 
+    families = build_families(subscription_products)
+
     socket =
       socket
       |> assign(:page_title, gettext("Pricing"))
@@ -42,11 +44,27 @@ defmodule MossletWeb.SubscribeLive do
       |> assign(:one_time_products, one_time_products)
       |> assign(:subscription_products, subscription_products)
       |> assign(:referral_discount, referral_discount)
+      |> assign(:families, families)
+      |> assign(:plan_intent, session_plan_intent(session))
+      |> assign(:selected_family, nil)
+      |> assign(:selected_interval, session_plan_interval(session))
 
     socket = assign_billing_status(socket)
 
     {:ok, socket}
   end
+
+  # Plan-aware signup intent persisted at sign-in (UserAuth.maybe_put_plan_intent),
+  # used as a fallback when no explicit `?plan=` is present in the URL (Task #215).
+  defp session_plan_intent(%{"plan_intent" => plan}) when plan in ~w(personal family business),
+    do: plan
+
+  defp session_plan_intent(_), do: nil
+
+  # Billing interval (monthly/yearly) preserved from the pricing page through
+  # sign-in, used as the default when no explicit `?billing=` is present (#215).
+  defp session_plan_interval(%{"plan_interval" => b}) when b in ~w(month year), do: b
+  defp session_plan_interval(_), do: "year"
 
   defp assign_billing_status(socket) do
     source = socket.assigns.source
@@ -73,7 +91,59 @@ defmodule MossletWeb.SubscribeLive do
 
   @impl true
   def handle_params(params, _url, socket) do
-    {:noreply, maybe_assign_org(socket, params)}
+    socket =
+      socket
+      |> maybe_assign_org(params)
+      |> resolve_selection(params)
+
+    {:noreply, socket}
+  end
+
+  # Resolve which plan family + billing interval to show. Priority for family:
+  # explicit `?plan=` > persisted signup intent > existing selection > default.
+  # The interval comes from `?billing=monthly|yearly`, defaulting to yearly
+  # (our best value). For the org-scoped source the family is fixed by the org's
+  # type, so the switcher is hidden and we just resolve the interval.
+  defp resolve_selection(socket, params) do
+    interval = billing_param(params) || socket.assigns.selected_interval
+
+    family =
+      case socket.assigns.source do
+        :org ->
+          org_family(socket)
+
+        _ ->
+          plan_param(params) ||
+            family_from_intent(socket.assigns.plan_intent) ||
+            socket.assigns.selected_family ||
+            default_family(socket.assigns.families)
+      end
+
+    socket
+    |> assign(:selected_family, family)
+    |> assign(:selected_interval, interval)
+  end
+
+  defp billing_param(%{"billing" => b}) when b in ~w(month monthly), do: "month"
+  defp billing_param(%{"billing" => b}) when b in ~w(year yearly annual), do: "year"
+  defp billing_param(_), do: nil
+
+  defp plan_param(%{"plan" => "family"}), do: "Family"
+  defp plan_param(%{"plan" => "business"}), do: "Business"
+  defp plan_param(%{"plan" => "personal"}), do: "Personal"
+  defp plan_param(_), do: nil
+
+  defp family_from_intent("family"), do: "Family"
+  defp family_from_intent("business"), do: "Business"
+  defp family_from_intent("personal"), do: "Personal"
+  defp family_from_intent(_), do: nil
+
+  defp org_family(socket) do
+    case socket.assigns[:current_org] do
+      %Mosslet.Orgs.Org{type: :business} -> "Business"
+      %Mosslet.Orgs.Org{type: :family} -> "Family"
+      _ -> nil
+    end
   end
 
   # For the org-scoped subscribe route (/app/org/:org_slug/subscribe), load the
@@ -126,12 +196,27 @@ defmodule MossletWeb.SubscribeLive do
         <.pricing_header has_active_billing={@has_active_billing} />
 
         <div class="mx-auto max-w-6xl">
+          <.confirm_email_banner :if={is_nil(@current_user.confirmed_at)} />
+
           <.referral_banner :if={@referral_discount} discount={@referral_discount} />
 
           <.active_billing_notice
             :if={@has_active_billing}
             current_payment_intent={@current_payment_intent}
             current_subscription={@current_subscription}
+            source={@source}
+          />
+
+          <.plan_switcher
+            :if={!@has_active_billing && @source == :user}
+            families={@families}
+            selected_family={@selected_family}
+            selected_interval={@selected_interval}
+          />
+
+          <.interval_switcher
+            :if={!@has_active_billing && @source == :org}
+            selected_interval={@selected_interval}
             source={@source}
           />
 
@@ -143,6 +228,8 @@ defmodule MossletWeb.SubscribeLive do
             has_active_billing={@has_active_billing}
             source={@source}
             referral_discount={@referral_discount}
+            selected_family={@selected_family}
+            selected_interval={@selected_interval}
           />
         </div>
 
@@ -180,6 +267,40 @@ defmodule MossletWeb.SubscribeLive do
           {gettext("Start your free trial today—cancel anytime before it ends.")}
         <% end %>
       </p>
+    </div>
+    """
+  end
+
+  # Friendly, non-blocking reminder shown to users who haven't confirmed their
+  # email yet. They can still pick a plan; confirmation is required before
+  # sensitive actions (Task #215).
+  defp confirm_email_banner(assigns) do
+    ~H"""
+    <div class="mb-10 max-w-2xl mx-auto">
+      <div class="p-4 rounded-xl bg-gradient-to-r from-sky-50 to-cyan-50 dark:from-sky-900/20 dark:to-cyan-900/20 border border-sky-200/60 dark:border-sky-700/40">
+        <div class="flex items-start gap-3">
+          <div class="flex-shrink-0 mt-0.5">
+            <.phx_icon name="hero-envelope" class="w-5 h-5 text-sky-600 dark:text-sky-400" />
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-sky-800 dark:text-sky-200">
+              {gettext("Confirm your email to unlock everything")}
+            </p>
+            <p class="mt-0.5 text-sm text-sky-700 dark:text-sky-300">
+              {gettext(
+                "You can choose a plan now. We've sent a confirmation link to your inbox—confirm it to start connecting, posting, and inviting people."
+              )}
+            </p>
+            <.link
+              navigate={~p"/auth/confirm"}
+              class="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-sky-700 hover:text-sky-900 dark:text-sky-300 dark:hover:text-sky-100 transition-colors"
+            >
+              <.phx_icon name="hero-paper-airplane" class="w-4 h-4" />
+              {gettext("Resend confirmation email")}
+            </.link>
+          </div>
+        </div>
+      </div>
     </div>
     """
   end
@@ -267,6 +388,113 @@ defmodule MossletWeb.SubscribeLive do
     """
   end
 
+  attr :families, :list, required: true
+  attr :selected_family, :string, default: nil
+  attr :selected_interval, :string, default: "year"
+
+  # Plan-family tab switcher (Personal / Family / Business) + billing interval
+  # toggle, mirroring the marketing /pricing page so the in-app picker feels
+  # like a continuation rather than a second round (Task #215).
+  defp plan_switcher(assigns) do
+    ~H"""
+    <div :if={length(@families) > 1} class="mx-auto max-w-3xl mb-10">
+      <div class="flex justify-center">
+        <div
+          role="tablist"
+          aria-label={gettext("Plan types")}
+          class="flex w-full max-w-md sm:w-auto sm:max-w-none items-center gap-1 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-800/60 backdrop-blur-sm p-1.5 shadow-sm"
+        >
+          <button
+            :for={family <- @families}
+            type="button"
+            role="tab"
+            id={"family-tab-#{family.key}"}
+            aria-selected={to_string(family.key == @selected_family)}
+            phx-click="select_family"
+            phx-value-family={family.key}
+            class={[
+              "group relative flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ease-out transform-gpu focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50",
+              if(family.key == @selected_family,
+                do:
+                  "bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg shadow-emerald-500/25",
+                else:
+                  "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-700/50"
+              )
+            ]}
+          >
+            <.phx_icon name={family.icon} class="h-4 w-4" />
+            <span>{family.label}</span>
+          </button>
+        </div>
+      </div>
+
+      <.interval_toggle selected_interval={@selected_interval} class="mt-6" />
+    </div>
+    """
+  end
+
+  attr :selected_interval, :string, default: "year"
+  attr :source, :atom, required: true
+
+  # Org-scoped subscribe shows just the billing-interval toggle (family is fixed
+  # by the org's type).
+  defp interval_switcher(assigns) do
+    ~H"""
+    <div class="mx-auto max-w-3xl mb-10">
+      <.interval_toggle selected_interval={@selected_interval} class="" />
+    </div>
+    """
+  end
+
+  attr :selected_interval, :string, default: "year"
+  attr :class, :string, default: ""
+
+  defp interval_toggle(assigns) do
+    ~H"""
+    <div class={["flex justify-center", @class]}>
+      <div class="inline-flex items-center gap-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-800/60 backdrop-blur-sm p-1 shadow-sm">
+        <button
+          type="button"
+          id="interval-toggle-month"
+          aria-pressed={to_string(@selected_interval == "month")}
+          phx-click="select_interval"
+          phx-value-interval="month"
+          class={[
+            "rounded-full px-4 py-1.5 text-sm font-semibold transition-all duration-200",
+            if(@selected_interval == "month",
+              do: "bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow",
+              else:
+                "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
+            )
+          ]}
+        >
+          {gettext("Monthly")}
+        </button>
+        <button
+          type="button"
+          id="interval-toggle-year"
+          aria-pressed={to_string(@selected_interval == "year")}
+          phx-click="select_interval"
+          phx-value-interval="year"
+          class={[
+            "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition-all duration-200",
+            if(@selected_interval == "year",
+              do: "bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow",
+              else:
+                "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
+            )
+          ]}
+        >
+          {gettext("Yearly")}
+          <span class="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">
+            {gettext("Save")}
+          </span>
+        </button>
+      </div>
+    </div>
+    """
+  end
+
   attr :one_time_products, :list, required: true
   attr :subscription_products, :list, required: true
   attr :current_payment_intent, :any, default: nil
@@ -275,14 +503,50 @@ defmodule MossletWeb.SubscribeLive do
   attr :source, :atom, required: true
 
   attr :referral_discount, :integer, default: nil
+  attr :selected_family, :string, default: nil
+  attr :selected_interval, :string, default: "year"
 
   defp pricing_cards(assigns) do
+    # When the user already has billing, show everything (manage view). Otherwise
+    # show only the selected family + billing interval so the page reflects the
+    # plan they picked on /pricing instead of a flat list to scroll (Task #215).
+    products =
+      cond do
+        assigns.has_active_billing ->
+          assigns.subscription_products
+
+        assigns.selected_family ->
+          Enum.filter(assigns.subscription_products, fn product ->
+            item = List.first(product.line_items)
+
+            short_name(product.name) == assigns.selected_family &&
+              item && to_string(item.interval) == assigns.selected_interval
+          end)
+
+        true ->
+          assigns.subscription_products
+      end
+
+    # The one-time/lifetime offer belongs to the Personal family.
+    one_time =
+      if assigns.has_active_billing || assigns.selected_family in [nil, "Personal"],
+        do: assigns.one_time_products,
+        else: []
+
+    assigns =
+      assigns
+      |> assign(:products, products)
+      |> assign(:one_time, one_time)
+
     ~H"""
     <div
-      :if={@subscription_products != []}
-      class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-3xl mx-auto"
+      :if={@products != []}
+      class={[
+        "grid grid-cols-1 gap-6 lg:gap-8 mx-auto",
+        if(length(@products) > 1, do: "md:grid-cols-2 max-w-3xl", else: "max-w-md")
+      ]}
     >
-      <%= for product <- @subscription_products do %>
+      <%= for product <- @products do %>
         <.pricing_card
           product={product}
           current_payment_intent={@current_payment_intent}
@@ -294,7 +558,7 @@ defmodule MossletWeb.SubscribeLive do
       <% end %>
     </div>
 
-    <div :if={@one_time_products != []} class="mt-16 lg:mt-20">
+    <div :if={@one_time != []} class="mt-16 lg:mt-20">
       <div class="relative">
         <div class="absolute inset-0 flex items-center" aria-hidden="true">
           <div class="w-full border-t border-slate-200 dark:border-slate-700/50"></div>
@@ -310,7 +574,7 @@ defmodule MossletWeb.SubscribeLive do
       </div>
 
       <div class="mt-10 mx-auto max-w-4xl">
-        <%= for product <- @one_time_products do %>
+        <%= for product <- @one_time do %>
           <.one_time_card
             product={product}
             current_payment_intent={@current_payment_intent}
@@ -1068,6 +1332,27 @@ defmodule MossletWeb.SubscribeLive do
     end
   end
 
+  def handle_event("select_family", %{"family" => key}, socket) do
+    if Enum.any?(socket.assigns.families, &(&1.key == key)) do
+      {:noreply,
+       push_patch(socket,
+         to: subscribe_patch_path(socket, key, socket.assigns.selected_interval)
+       )}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("select_interval", %{"interval" => interval}, socket)
+      when interval in ~w(month year) do
+    {:noreply,
+     push_patch(socket,
+       to: subscribe_patch_path(socket, socket.assigns.selected_family, interval)
+     )}
+  end
+
+  def handle_event("select_interval", _params, socket), do: {:noreply, socket}
+
   defp checkout_url(_socket, :user, plan_id, seats),
     do: ~p"/app/checkout/#{plan_id}?#{%{seats: seats}}"
 
@@ -1107,4 +1392,58 @@ defmodule MossletWeb.SubscribeLive do
       _ -> nil
     end
   end
+
+  # --- Plan family switcher helpers (mirrors PublicLive.Pricing) ------------
+
+  # Patch the URL so the selection survives reloads/back-button and matches the
+  # `?plan=`/`?billing=` contract the funnel uses elsewhere.
+  defp subscribe_patch_path(%{assigns: %{source: :org}} = socket, _family, interval) do
+    org_slug = current_org_slug(socket)
+    ~p"/app/org/#{org_slug}/subscribe?#{%{billing: interval}}"
+  end
+
+  defp subscribe_patch_path(_socket, family, interval) do
+    ~p"/app/subscribe?#{%{plan: family_to_plan(family), billing: interval}}"
+  end
+
+  defp family_to_plan("Family"), do: "family"
+  defp family_to_plan("Business"), do: "business"
+  defp family_to_plan(_), do: "personal"
+
+  defp build_families(subscription_products) do
+    subscription_products
+    |> Enum.map(&short_name(&1.name))
+    |> Enum.uniq()
+    |> Enum.map(fn key -> Map.put(family_meta(key), :key, key) end)
+  end
+
+  defp default_family(families) do
+    keys = Enum.map(families, & &1.key)
+
+    cond do
+      "Personal" in keys -> "Personal"
+      keys != [] -> List.first(keys)
+      true -> nil
+    end
+  end
+
+  # "MOSSLET (Family)" -> "Family"
+  defp short_name(name) do
+    case Regex.run(~r/\(([^)]+)\)/, name) do
+      [_, inner] -> inner
+      _ -> name
+    end
+  end
+
+  defp family_meta("Personal"),
+    do: %{label: gettext("Personal"), icon: "hero-user"}
+
+  defp family_meta("Family"),
+    do: %{label: gettext("Family"), icon: "hero-users"}
+
+  defp family_meta("Business"),
+    do: %{label: gettext("Business"), icon: "hero-building-office-2"}
+
+  defp family_meta(other),
+    do: %{label: other, icon: "hero-sparkles"}
 end

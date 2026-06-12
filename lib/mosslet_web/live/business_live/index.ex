@@ -57,40 +57,6 @@ defmodule MossletWeb.BusinessLive.Index do
           </.phx_button>
         </header>
 
-        <%!-- Multi-business upsell: the first business is free; creating another
-              requires every business you already own to be on an active paid plan
-              (Task #214, Q1-B). --%>
-        <div
-          :if={@live_action != :new && @businesses != [] && !@can_create_business?}
-          id="business-upsell"
-          class="mb-8 rounded-2xl border border-amber-200/70 dark:border-amber-700/40 bg-gradient-to-br from-amber-50/80 to-orange-50/50 dark:from-amber-900/15 dark:to-orange-900/10 p-5"
-        >
-          <div class="flex items-start gap-3">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-sm">
-              <.phx_icon name="hero-sparkles" class="size-5 text-white" />
-            </div>
-            <div class="min-w-0 flex-1">
-              <h2 class="text-sm font-semibold text-amber-900 dark:text-amber-200">
-                Want another business workspace?
-              </h2>
-              <p class="mt-1 text-sm text-amber-800/80 dark:text-amber-300/80">
-                Your first business is free. To open an additional business, your current
-                business needs an active paid plan. Subscribe your existing business, then come
-                back to create another.
-              </p>
-              <div class="mt-3 flex flex-wrap gap-2">
-                <.link
-                  :for={business <- @businesses}
-                  navigate={~p"/app/org/#{business.org.slug}/subscribe"}
-                  class="inline-flex items-center gap-1.5 rounded-full bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-700 transition-colors duration-200"
-                >
-                  <.phx_icon name="hero-credit-card" class="size-3.5" /> Subscribe {business.org.name}
-                </.link>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <div
           :if={@live_action == :new}
           id="new-business-form-wrapper"
@@ -177,6 +143,26 @@ defmodule MossletWeb.BusinessLive.Index do
             </.link>
           </li>
         </ul>
+
+        <%!-- Quiet, secondary note about adding MORE businesses. Most people only
+              want one, so this is intentionally low-key (no alarm box). When the
+              first business is on a trial, the requirement is just that the plan
+              becomes paid — by waiting for the trial to convert, or starting the
+              paid plan early. (Task #214, Q1-B / #218.) --%>
+        <p
+          :if={@live_action != :new && @businesses != [] && !@can_create_business?}
+          id="business-upsell-note"
+          class="mt-4 text-xs text-slate-400 dark:text-slate-500"
+        >
+          {add_business_note(@personal_billing)}
+          <.link
+            :if={List.first(@businesses)}
+            navigate={~p"/app/org/#{List.first(@businesses).org.slug}/subscribe"}
+            class="font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline"
+          >
+            {add_business_link_text(@personal_billing)}
+          </.link>
+        </p>
       </div>
     </.layout>
     """
@@ -221,6 +207,15 @@ defmodule MossletWeb.BusinessLive.Index do
          )
          |> push_patch(to: ~p"/app/business")}
 
+      {:error, :subscription_required} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :warning,
+           "Please start your subscription before creating a business."
+         )
+         |> push_navigate(to: ~p"/app/subscribe?#{%{plan: "business"}}")}
+
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not create business. Please try again.")}
     end
@@ -248,15 +243,70 @@ defmodule MossletWeb.BusinessLive.Index do
         membership = Orgs.get_membership!(current_user, org.slug)
         members = Orgs.list_members_by_org(org)
 
-        %{org: org, membership: membership, member_count: length(members)}
+        %{
+          org: org,
+          membership: membership,
+          member_count: length(members)
+        }
       end)
 
     socket
     |> assign(:businesses, businesses)
     |> assign(:can_create_business?, Orgs.can_create_org?(current_user, :business))
+    |> assign(:personal_billing, personal_billing_context(current_user))
     |> assign(:form, to_form(%{"name" => ""}, as: :business))
   end
 
+  # Summarizes the user's PERSONAL (`:user`-source) subscription so the upsell
+  # can speak to it accurately. Returns one of:
+  #
+  #   * `{:trialing, plan_label}` — e.g. `{:trialing, "Business"}`
+  #   * `{:active, plan_label}`
+  #   * `nil`                     — no active/trialing personal subscription
+  defp personal_billing_context(user) do
+    with %{} = customer <- Mosslet.Billing.Customers.get_customer_by_source(:user, user.id),
+         %{} = sub <-
+           Mosslet.Billing.Subscriptions.get_active_subscription_by_customer_id(customer.id) do
+      status = if sub.status == "trialing", do: :trialing, else: :active
+      {status, personal_plan_label(sub.plan_id)}
+    else
+      _ -> nil
+    end
+  end
+
+  defp personal_plan_label(plan_id) when is_binary(plan_id) do
+    cond do
+      String.starts_with?(plan_id, "business-") -> "Business"
+      String.starts_with?(plan_id, "family-") -> "Family"
+      true -> "Personal"
+    end
+  end
+
+  defp personal_plan_label(_), do: "Personal"
+
   defp page_title(:new), do: "New business"
   defp page_title(_), do: "Business"
+
+  # Quiet note about adding ADDITIONAL businesses (most users only want one).
+  # When the existing business is on a trial, it already has a plan — the only
+  # requirement is that the plan be paid, so we frame it as "wait for the trial
+  # to convert, or start it now" rather than "subscribe".
+  defp add_business_note({:trialing, _plan}),
+    do:
+      "Want more than one business? Each additional business is billed separately, and your " <>
+        "current one needs to be on a paid plan first — that happens automatically when your " <>
+        "trial ends, or you can"
+
+  defp add_business_note({:active, _plan}),
+    do:
+      "Want more than one business? Each additional business is billed separately. Subscribe " <>
+        "your current business to unlock another —"
+
+  defp add_business_note(_),
+    do:
+      "Want more than one business? Each additional business is billed separately. Subscribe " <>
+        "your current business to unlock another —"
+
+  defp add_business_link_text({:trialing, _plan}), do: "start your paid plan early"
+  defp add_business_link_text(_), do: "manage billing"
 end

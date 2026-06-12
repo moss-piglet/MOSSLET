@@ -644,14 +644,13 @@ defmodule MossletWeb.DeleteAccountLive do
   end
 
   defp proceed_with_account_deletion(socket, user, key, user_params) do
-    # if a stripe account hasn't been created yet
+    # provider_customer_id is Cloak-encrypted at rest (Encrypted.Binary) and
+    # auto-decrypted by Ecto on load — read it directly. (It is NOT user-key
+    # encrypted; applying decrypt_user_data here returned :failed_verification
+    # and crashed Stripe.Customer.delete/1.)
     stripe_customer_id =
       if user.customer && user.customer.provider_customer_id do
-        Mosslet.Encrypted.Users.Utils.decrypt_user_data(
-          user.customer.provider_customer_id,
-          user,
-          key
-        )
+        user.customer.provider_customer_id
       else
         nil
       end

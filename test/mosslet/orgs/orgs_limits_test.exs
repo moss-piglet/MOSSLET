@@ -8,11 +8,44 @@ defmodule Mosslet.OrgsLimitsTest do
   alias Mosslet.Billing.Subscriptions
   alias Mosslet.Orgs
 
+  # A confirmed user with an active personal (:user) subscription, so they are
+  # allowed to create orgs (org creation requires the owner to have finalized
+  # their own subscription signup — Task #215 follow-up).
   defp confirmed_user(seed) do
+    user = confirmed_user_no_billing(seed)
+    subscribe_user(user)
+    user
+  end
+
+  # A confirmed user with NO billing — used to assert the org-creation gate.
+  defp confirmed_user_no_billing(seed) do
     email = "#{seed}#{System.unique_integer([:positive])}@example.com"
 
     user_fixture(%{email: email})
     |> Accounts.confirm_user!()
+  end
+
+  # Attaches an active personal (:user) subscription so the user can create orgs.
+  defp subscribe_user(user) do
+    {:ok, customer} =
+      Customers.create_customer_for_source(:user, user.id, %{
+        email: "billing-#{System.unique_integer([:positive])}@example.com",
+        provider: "stripe",
+        provider_customer_id: "cus_#{System.unique_integer([:positive])}"
+      })
+
+    {:ok, subscription} =
+      Subscriptions.create_subscription(%{
+        billing_customer_id: customer.id,
+        plan_id: "personal-monthly",
+        status: "active",
+        quantity: 1,
+        provider_subscription_id: "sub_#{System.unique_integer([:positive])}",
+        provider_subscription_items: [%{price: "price_test"}],
+        current_period_start: NaiveDateTime.utc_now()
+      })
+
+    {customer, subscription}
   end
 
   # Attaches an active org-scoped subscription so the org counts as "paid" for
@@ -61,6 +94,28 @@ defmodule Mosslet.OrgsLimitsTest do
       assert Orgs.count_owned_orgs(user, :family) == 1
       assert Orgs.count_owned_orgs(user, :business) == 1
       assert [%{type: :business}] = Orgs.list_owned_orgs(user, :business)
+    end
+  end
+
+  describe "create_org/2 subscription gate" do
+    test "blocks org creation when the user has no active billing" do
+      user = confirmed_user_no_billing("nobilling")
+
+      refute Orgs.user_has_active_billing?(user)
+
+      assert {:error, :subscription_required} =
+               Orgs.create_org(user, %{"name" => "NoPay Fam", "type" => "family"})
+
+      assert {:error, :subscription_required} =
+               Orgs.create_org(user, %{"name" => "NoPay Biz", "type" => "business"})
+    end
+
+    test "allows org creation once the user has an active subscription" do
+      user = confirmed_user_no_billing("willpay")
+      subscribe_user(user)
+
+      assert Orgs.user_has_active_billing?(user)
+      assert {:ok, _org} = Orgs.create_org(user, %{"name" => "Paid Fam", "type" => "family"})
     end
   end
 

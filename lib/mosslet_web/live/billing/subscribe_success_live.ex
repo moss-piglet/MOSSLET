@@ -9,7 +9,7 @@ defmodule MossletWeb.SubscribeSuccessLive do
   alias Mosslet.Repo
 
   @impl true
-  def mount(%{"customer_id" => customer_id}, _session, socket) do
+  def mount(%{"customer_id" => customer_id}, session, socket) do
     socket =
       socket
       |> assign(:page_title, gettext("Payment Success"))
@@ -18,6 +18,7 @@ defmodule MossletWeb.SubscribeSuccessLive do
       |> assign(:subscription, nil)
       |> assign(:customer_id, customer_id)
       |> assign(:source, socket.assigns.live_action)
+      |> assign(:plan_intent, session_plan_intent(session))
       |> assign(:pings, 0)
       |> assign_billing_status()
 
@@ -25,7 +26,7 @@ defmodule MossletWeb.SubscribeSuccessLive do
   end
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
     user = socket.assigns[:current_user] |> Repo.preload(:customer)
 
     if user && user.customer do
@@ -37,6 +38,7 @@ defmodule MossletWeb.SubscribeSuccessLive do
         |> assign(:subscription, nil)
         |> assign(:customer_id, user.customer.id)
         |> assign(:source, socket.assigns.live_action)
+        |> assign(:plan_intent, session_plan_intent(session))
         |> assign(:pings, 0)
         |> assign_billing_status()
 
@@ -50,6 +52,12 @@ defmodule MossletWeb.SubscribeSuccessLive do
     end
   end
 
+  # Plan-aware signup intent persisted at sign-in (UserAuth.maybe_put_plan_intent).
+  defp session_plan_intent(%{"plan_intent" => plan}) when plan in ~w(personal family business),
+    do: plan
+
+  defp session_plan_intent(_), do: "personal"
+
   @impl true
   def handle_info(:check_billing_status, socket) do
     {:noreply, assign_billing_status(socket)}
@@ -57,7 +65,7 @@ defmodule MossletWeb.SubscribeSuccessLive do
 
   @impl true
   def handle_info(:redirect, socket) do
-    {:noreply, push_navigate(socket, to: "/app")}
+    {:noreply, push_navigate(socket, to: post_success_path(socket))}
   end
 
   @impl true
@@ -71,6 +79,17 @@ defmodule MossletWeb.SubscribeSuccessLive do
   def handle_info(_message, socket) do
     {:noreply, socket}
   end
+
+  # After the user's own subscription is active, family/business signups are
+  # guided to create their org (now allowed — org creation requires an active
+  # user subscription, Task #215 follow-up). Personal subscribers land on the app.
+  defp post_success_path(%{assigns: %{source: :user, plan_intent: "family"}}),
+    do: ~p"/app/family/new?#{%{onboarding: "1"}}"
+
+  defp post_success_path(%{assigns: %{source: :user, plan_intent: "business"}}),
+    do: ~p"/app/business/new?#{%{onboarding: "1"}}"
+
+  defp post_success_path(_socket), do: ~p"/app"
 
   defp assign_billing_status(%{assigns: %{pings: 10}} = socket) do
     assign(socket, :billing_status, :failed)

@@ -13,12 +13,78 @@ defmodule MossletWeb.Menus do
     current_user.is_admin? && current_user.confirmed_at
   end
 
-  # Returns true when the user is a member of at least one :business org.
-  # Used to gate the Business sidebar item (Q4).
-  defp belongs_to_business_org?(current_user) do
+  # Returns true when the user is a member of at least one org of the given type.
+  defp belongs_to_org_type?(current_user, type) do
     current_user
     |> Mosslet.Orgs.list_orgs()
-    |> Enum.any?(&(&1.type == :business))
+    |> Enum.any?(&(&1.type == type))
+  end
+
+  # Resolves the user's active subscription plan type (:family | :business | nil)
+  # from their (`:user`-source) billing customer. A fresh Family/Business
+  # subscriber has an active plan before they've created an org, so we surface
+  # the matching sidebar item to lead them to org creation.
+  defp active_plan_type(current_user) do
+    alias Mosslet.Billing.{Customers, Subscriptions}
+
+    with %Customers.Customer{} = customer <-
+           Customers.get_customer_by_source(:user, current_user.id),
+         %Subscriptions.Subscription{plan_id: plan_id} <-
+           Subscriptions.get_active_subscription_by_customer_id(customer.id) do
+      cond do
+        String.starts_with?(plan_id, "family-") -> :family
+        String.starts_with?(plan_id, "business-") -> :business
+        true -> nil
+      end
+    else
+      _ -> nil
+    end
+  end
+
+  # Show an org-scoped nav item when the user belongs to an org of that type OR
+  # holds an active plan of that type (so new subscribers can reach org creation).
+  defp show_org_nav?(current_user, type) do
+    belongs_to_org_type?(current_user, type) or active_plan_type(current_user) == type
+  end
+
+  @doc """
+  Resolves a user's plan type for UI tailoring: `:family`, `:business`, or
+  `:personal`.
+
+  A user is considered Family/Business if they belong to an org of that type OR
+  hold an active subscription of that type (fresh subscribers who haven't created
+  their org yet). Everyone else is `:personal`.
+  """
+  def plan_type(nil), do: :personal
+
+  def plan_type(current_user) do
+    cond do
+      show_org_nav?(current_user, :business) -> :business
+      show_org_nav?(current_user, :family) -> :family
+      true -> :personal
+    end
+  end
+
+  @doc """
+  A human-friendly label for a user's plan type (for badges/headers).
+  """
+  def plan_label(current_user) do
+    case plan_type(current_user) do
+      :business -> gettext("Business")
+      :family -> gettext("Family")
+      :personal -> gettext("Personal")
+    end
+  end
+
+  @doc """
+  Returns true when the user has at least one pending org invitation.
+  """
+  def has_pending_invitations?(nil), do: false
+
+  def has_pending_invitations?(current_user) do
+    current_user
+    |> Mosslet.Orgs.list_invitations_by_user()
+    |> Enum.any?()
   end
 
   # Public menu (marketing related pages)
@@ -204,124 +270,14 @@ defmodule MossletWeb.Menus do
     }
   end
 
-  def get_link(:settings = name, _current_user) do
+  def get_link(:settings = name, current_user) do
     %{
       name: name,
       label: gettext("Settings"),
       path: ~p"/app/users/edit-details",
       icon: "hero-cog",
-      children: [
-        %{type: :category, label: gettext("Profile")},
-        %{
-          name: :edit_details,
-          label: gettext("Profile Details"),
-          description: gettext("Update your name, username, and avatar"),
-          path: ~p"/app/users/edit-details",
-          icon: "hero-user-circle"
-        },
-        %{
-          name: :edit_profile,
-          label: gettext("Profile"),
-          description: gettext("Manage your public profile and bio"),
-          path: ~p"/app/users/edit-profile",
-          icon: "hero-identification"
-        },
-        %{
-          name: :edit_email,
-          label: gettext("Email"),
-          description: gettext("Change your email address"),
-          path: ~p"/app/users/edit-email",
-          icon: "hero-at-symbol"
-        },
-        %{
-          name: :edit_visibility,
-          label: gettext("Visibility"),
-          description: gettext("Control who can see your profile"),
-          path: ~p"/app/users/edit-visibility",
-          icon: "hero-eye"
-        },
-        %{
-          name: :edit_status,
-          label: gettext("Status"),
-          description: gettext("Manage your online status and presence"),
-          path: ~p"/app/users/edit-status",
-          icon: "hero-signal"
-        },
-        %{type: :category, label: gettext("Security")},
-        %{
-          name: :edit_password,
-          label: gettext("Password"),
-          description: gettext("Update your login password"),
-          path: ~p"/app/users/change-password",
-          icon: "hero-key"
-        },
-        %{
-          name: :edit_forgot_password,
-          label: gettext("Recovery"),
-          description: gettext("Set up account recovery options"),
-          path: ~p"/app/users/change-forgot-password",
-          icon: "hero-lifebuoy"
-        },
-        %{
-          name: :edit_notifications,
-          label: gettext("Notifications"),
-          description: gettext("Manage email and push notifications"),
-          path: ~p"/app/users/edit-notifications",
-          icon: "hero-bell"
-        },
-        %{
-          name: :edit_totp,
-          label: gettext("2FA"),
-          description: gettext("Two-factor authentication security"),
-          path: ~p"/app/users/two-factor-authentication",
-          icon: "hero-shield-check"
-        },
-        %{
-          name: :blocked_users,
-          label: gettext("Blocked Users"),
-          description: gettext("Manage users you've blocked"),
-          path: ~p"/app/users/blocked-users",
-          icon: "hero-user-minus"
-        },
-        %{type: :category, label: gettext("Integrations")},
-        %{
-          name: :bluesky_settings,
-          label: gettext("Bluesky"),
-          description: gettext("Connect and sync with Bluesky"),
-          path: ~p"/app/users/bluesky",
-          icon: "hero-cloud"
-        },
-        %{type: :category, label: gettext("Account")},
-        %{
-          name: :manage_data,
-          label: gettext("Data"),
-          description: gettext("Export or manage your personal data"),
-          path: ~p"/app/users/manage-data",
-          icon: "hero-circle-stack"
-        },
-        %{
-          name: :billing,
-          label: gettext("Billing"),
-          description: gettext("Manage subscription and payments"),
-          path: ~p"/app/billing",
-          icon: "hero-credit-card"
-        },
-        %{
-          name: :referrals,
-          label: gettext("Referrals"),
-          description: gettext("Earn rewards by inviting friends"),
-          path: ~p"/app/referrals",
-          icon: "hero-banknotes"
-        },
-        %{type: :category, label: gettext("Danger Zone")},
-        %{
-          name: :delete_account,
-          label: gettext("Delete Account"),
-          description: gettext("Permanently delete your account"),
-          path: ~p"/app/users/delete-account",
-          icon: "hero-trash"
-        }
-      ]
+      badge: plan_label(current_user),
+      children: settings_children(current_user)
     }
   end
 
@@ -406,13 +362,17 @@ defmodule MossletWeb.Menus do
     }
   end
 
-  def get_link(:org_invitations = name, _current_user) do
-    %{
-      name: name,
-      label: gettext("Invitations"),
-      path: ~p"/app/users/org-invitations",
-      icon: "hero-envelope"
-    }
+  # Only surfaced when the user actually has a pending org invitation, so the
+  # settings menu stays clean for everyone else.
+  def get_link(:org_invitations = name, current_user) do
+    if has_pending_invitations?(current_user) do
+      %{
+        name: name,
+        label: gettext("Invitations"),
+        path: ~p"/app/users/org-invitations",
+        icon: "hero-envelope"
+      }
+    end
   end
 
   def get_link(:edit_totp = name, _current_user) do
@@ -505,19 +465,24 @@ defmodule MossletWeb.Menus do
     }
   end
 
-  def get_link(:family = name, _current_user) do
-    %{
-      name: name,
-      label: gettext("Family"),
-      path: ~p"/app/family",
-      icon: "hero-users"
-    }
+  # Family nav item is only shown when the user belongs to a :family org OR
+  # holds an active family plan (so new subscribers can reach org creation).
+  def get_link(:family = name, current_user) do
+    if current_user && show_org_nav?(current_user, :family) do
+      %{
+        name: name,
+        label: gettext("Family"),
+        path: ~p"/app/family",
+        icon: "hero-users"
+      }
+    end
   end
 
-  # Business nav item is only shown when the user belongs to >= 1 business org
-  # (Q4 — keeps the sidebar clean for the majority who never use it).
+  # Business nav item is only shown when the user belongs to a :business org OR
+  # holds an active business plan (Q4 — keeps the sidebar clean for the majority
+  # who never use it).
   def get_link(:business = name, current_user) do
-    if current_user && belongs_to_business_org?(current_user) do
+    if current_user && show_org_nav?(current_user, :business) do
       %{
         name: name,
         label: gettext("Business"),
@@ -535,6 +500,31 @@ defmodule MossletWeb.Menus do
   #    icon: "hero-building-office"
   #  }
   # end
+
+  # Settings-menu variants of the family/business links. Same gating as the
+  # sidebar items, but worded as a management entry point ("Manage ...") and
+  # placed under the settings "Plan & Organization" section.
+  def get_link(:manage_family = name, current_user) do
+    if current_user && show_org_nav?(current_user, :family) do
+      %{
+        name: name,
+        label: gettext("Manage Family"),
+        path: ~p"/app/family",
+        icon: "hero-users"
+      }
+    end
+  end
+
+  def get_link(:manage_business = name, current_user) do
+    if current_user && show_org_nav?(current_user, :business) do
+      %{
+        name: name,
+        label: gettext("Manage Business"),
+        path: ~p"/app/business",
+        icon: "hero-building-office"
+      }
+    end
+  end
 
   def get_link(:subscribe = name, current_user) do
     if Customers.entity() == :user && not MossletWeb.Helpers.user_has_paid?(current_user) do
@@ -731,4 +721,188 @@ defmodule MossletWeb.Menus do
   #    icon: "hero-bell"
   #  }
   # end
+
+  # Builds the settings submenu, tailored to the user's plan. Profile/Security/
+  # Integrations stay constant; the "Plan & Organization" category surfaces
+  # Billing plus contextual entries (pending Invitations, Manage Family/Business)
+  # for Family/Business subscribers and org members.
+  defp settings_children(current_user) do
+    profile_and_security() ++
+      plan_and_org_category(current_user) ++
+      account_category()
+  end
+
+  defp profile_and_security do
+    [
+      %{type: :category, label: gettext("Profile")},
+      %{
+        name: :edit_details,
+        label: gettext("Profile Details"),
+        description: gettext("Update your name, username, and avatar"),
+        path: ~p"/app/users/edit-details",
+        icon: "hero-user-circle"
+      },
+      %{
+        name: :edit_profile,
+        label: gettext("Profile"),
+        description: gettext("Manage your public profile and bio"),
+        path: ~p"/app/users/edit-profile",
+        icon: "hero-identification"
+      },
+      %{
+        name: :edit_email,
+        label: gettext("Email"),
+        description: gettext("Change your email address"),
+        path: ~p"/app/users/edit-email",
+        icon: "hero-at-symbol"
+      },
+      %{
+        name: :edit_visibility,
+        label: gettext("Visibility"),
+        description: gettext("Control who can see your profile"),
+        path: ~p"/app/users/edit-visibility",
+        icon: "hero-eye"
+      },
+      %{
+        name: :edit_status,
+        label: gettext("Status"),
+        description: gettext("Manage your online status and presence"),
+        path: ~p"/app/users/edit-status",
+        icon: "hero-signal"
+      },
+      %{type: :category, label: gettext("Security")},
+      %{
+        name: :edit_password,
+        label: gettext("Password"),
+        description: gettext("Update your login password"),
+        path: ~p"/app/users/change-password",
+        icon: "hero-key"
+      },
+      %{
+        name: :edit_forgot_password,
+        label: gettext("Recovery"),
+        description: gettext("Set up account recovery options"),
+        path: ~p"/app/users/change-forgot-password",
+        icon: "hero-lifebuoy"
+      },
+      %{
+        name: :edit_notifications,
+        label: gettext("Notifications"),
+        description: gettext("Manage email and push notifications"),
+        path: ~p"/app/users/edit-notifications",
+        icon: "hero-bell"
+      },
+      %{
+        name: :edit_totp,
+        label: gettext("2FA"),
+        description: gettext("Two-factor authentication security"),
+        path: ~p"/app/users/two-factor-authentication",
+        icon: "hero-shield-check"
+      },
+      %{
+        name: :blocked_users,
+        label: gettext("Blocked Users"),
+        description: gettext("Manage users you've blocked"),
+        path: ~p"/app/users/blocked-users",
+        icon: "hero-user-minus"
+      },
+      %{type: :category, label: gettext("Integrations")},
+      %{
+        name: :bluesky_settings,
+        label: gettext("Bluesky"),
+        description: gettext("Connect and sync with Bluesky"),
+        path: ~p"/app/users/bluesky",
+        icon: "hero-cloud"
+      }
+    ]
+  end
+
+  # Plan & Organization: Billing for everyone, plus plan-specific management and
+  # any pending invitations. Filters out entries that don't apply to this user.
+  defp plan_and_org_category(current_user) do
+    plan = plan_type(current_user)
+
+    contextual =
+      [
+        if has_pending_invitations?(current_user) do
+          %{
+            name: :org_invitations,
+            label: gettext("Invitations"),
+            description: gettext("Review pending family or business invitations"),
+            path: ~p"/app/users/org-invitations",
+            icon: "hero-envelope"
+          }
+        end,
+        if plan == :family do
+          %{
+            name: :manage_family,
+            label: gettext("Manage Family"),
+            description: gettext("Members, guardianship, and your family circle"),
+            path: ~p"/app/family",
+            icon: "hero-users"
+          }
+        end,
+        if plan == :business do
+          %{
+            name: :manage_business,
+            label: gettext("Manage Business"),
+            description: gettext("Team members, business circles, and file sharing"),
+            path: ~p"/app/business",
+            icon: "hero-building-office"
+          }
+        end
+      ]
+      |> Enum.reject(&is_nil/1)
+
+    [
+      %{type: :category, label: gettext("Plan & Organization")},
+      %{
+        name: :billing,
+        label: gettext("Billing"),
+        description: billing_description(plan),
+        path: ~p"/app/billing",
+        icon: "hero-credit-card"
+      }
+      | contextual
+    ] ++
+      [
+        %{
+          name: :referrals,
+          label: gettext("Referrals"),
+          description: gettext("Earn rewards by inviting friends"),
+          path: ~p"/app/referrals",
+          icon: "hero-banknotes"
+        }
+      ]
+  end
+
+  defp billing_description(:family),
+    do: gettext("Manage your family subscription, seats, and payments")
+
+  defp billing_description(:business),
+    do: gettext("Manage your business subscription, seats, and payments")
+
+  defp billing_description(_),
+    do: gettext("Manage subscription and payments")
+
+  defp account_category do
+    [
+      %{type: :category, label: gettext("Account")},
+      %{
+        name: :manage_data,
+        label: gettext("Data"),
+        description: gettext("Export or manage your personal data"),
+        path: ~p"/app/users/manage-data",
+        icon: "hero-circle-stack"
+      },
+      %{type: :category, label: gettext("Danger Zone")},
+      %{
+        name: :delete_account,
+        label: gettext("Delete Account"),
+        description: gettext("Permanently delete your account"),
+        path: ~p"/app/users/delete-account",
+        icon: "hero-trash"
+      }
+    ]
+  end
 end
