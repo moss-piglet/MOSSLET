@@ -56,29 +56,60 @@ const RegistrationHook = {
   mounted() {
     const form = this.el;
 
-    form.addEventListener("submit", async (e) => {
-      // Prevent default form submission — we'll re-submit after encryption
-      e.preventDefault();
+    // The user-initiated submit MUST always be intercepted so that (a) the
+    // browser generates ZK key material before anything reaches the server and
+    // (b) the user is created via the "save" event BEFORE the native auto-login
+    // POST fires. The auto-login POST itself is driven by the server setting
+    // `phx-trigger-action`, which submits via HTMLFormElement.submit() and does
+    // NOT dispatch a "submit" event — so it bypasses this listener cleanly.
+    //
+    // We listen in the CAPTURE phase and guard with a re-entrancy flag so a
+    // stray/native submission can never race ahead of the encrypt+save step and
+    // POST plaintext credentials to the session controller (which would create
+    // no user and bounce the user to a misleading "invalid email or password").
+    this.submitting = false;
 
-      const emailInput = form.querySelector('input[name="user[email]"]');
-      const usernameInput = form.querySelector('input[name="user[username]"]');
-      const passwordInput = form.querySelector('input[name="user[password]"]');
+    form.addEventListener(
+      "submit",
+      async (e) => {
+        // Always stop the native submission of the user-clicked form.
+        e.preventDefault();
+        e.stopPropagation();
 
-      if (!emailInput || !usernameInput || !passwordInput) {
-        form.submit();
-        return;
-      }
+        if (this.submitting) return;
+        this.submitting = true;
 
-      const email = emailInput.value.trim();
-      const username = usernameInput.value.trim();
-      const password = passwordInput.value;
+        const finish = () => {
+          this.submitting = false;
+        };
 
-      if (!email || !username || !password) {
-        form.submit();
-        return;
-      }
+        const emailInput = form.querySelector('input[name="user[email]"]');
+        const usernameInput = form.querySelector('input[name="user[username]"]');
+        const passwordInput = form.querySelector('input[name="user[password]"]');
 
-      try {
+        // Required inputs missing/empty: do NOT silently native-submit plaintext.
+        // Hand the (unencrypted) params to the LiveView "save" handler, which
+        // re-validates and surfaces field errors to the user. The server never
+        // creates a user from an invalid changeset, and no auto-login fires
+        // because `trigger_submit` stays false.
+        if (
+          !emailInput ||
+          !usernameInput ||
+          !passwordInput ||
+          !emailInput.value.trim() ||
+          !usernameInput.value.trim() ||
+          !passwordInput.value
+        ) {
+          this.pushEvent("save", { user: serializeUserFields(form) });
+          finish();
+          return;
+        }
+
+        const email = emailInput.value.trim();
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value;
+
+        try {
         // 1. Generate random symmetric keys
         const userKey = await generateKey();
         const userAttributesKey = await generateKey();
@@ -147,8 +178,11 @@ const RegistrationHook = {
       // so the server always receives the encrypted blobs. The server's "save"
       // handler creates the user and sets trigger_submit, which fires
       // phx-trigger-action to natively POST the form to /auth/sign_in.
-      this.pushEvent("save", { user: serializeUserFields(form) });
-    });
+        this.pushEvent("save", { user: serializeUserFields(form) });
+        finish();
+      },
+      true,
+    );
   },
 };
 

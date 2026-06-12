@@ -37,11 +37,38 @@ defmodule MossletWeb.UserSessionController do
       |> put_flash(:success, info)
       |> UserAuth.log_in_user(user, auth_params)
     else
-      # In order to prevent user enumeration attacks, don't disclose whether the email is registered.
-      conn
-      |> put_flash(:error, gettext("Invalid email or password, please try again."))
-      |> redirect(to: ~p"/auth/sign_in")
+      # No matching user. For a just-registered flow this means the account was
+      # not actually created (e.g. the browser-side ZK key generation + "save"
+      # step did not complete before this auto-login POST fired). Rather than
+      # bouncing to sign-in with a misleading "invalid email or password", send
+      # the user back to registration with their funnel context intact so they
+      # can simply try again. (Graceful fallback for Task #213/#222 funnel.)
+      handle_failed_create(conn, params)
     end
+  end
+
+  # Post-registration auto-login that found no user: return to /auth/register,
+  # preserving plan/billing/invite_token, with a friendly retry message.
+  defp handle_failed_create(conn, %{"_action" => "registered"} = params) do
+    query =
+      params
+      |> Map.take(["plan", "billing", "invite_token"])
+      |> Enum.reject(fn {_k, v} -> is_nil(v) or v == "" end)
+      |> Map.new()
+
+    conn
+    |> put_flash(
+      :error,
+      gettext("We couldn't finish creating your account. Please try registering again.")
+    )
+    |> redirect(to: ~p"/auth/register?#{query}")
+  end
+
+  # Normal sign-in that failed: don't disclose whether the email is registered.
+  defp handle_failed_create(conn, _params) do
+    conn
+    |> put_flash(:error, gettext("Invalid email or password, please try again."))
+    |> redirect(to: ~p"/auth/sign_in")
   end
 
   # When a public org invite link funneled the user through sign-in/registration,
