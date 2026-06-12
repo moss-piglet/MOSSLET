@@ -57,6 +57,7 @@ defmodule Mosslet.Orgs.Adapter do
               {:ok, Membership.t()} | {:error, Ecto.Changeset.t()}
 
   @callback get_invitation_by_org!(org :: Org.t(), id :: String.t()) :: Invitation.t()
+  @callback get_invitation_with_org(id :: String.t()) :: Invitation.t() | nil
   @callback delete_invitation!(invitation :: Invitation.t()) :: Invitation.t()
 
   @callback create_invitation(org :: Org.t(), params :: map()) ::

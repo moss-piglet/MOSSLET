@@ -16,8 +16,8 @@
 
 <%= if @invitation.user_id do %>
   <p>
-    Since you already have a MOSSLET account, you can review and accept this invitation
-    from your invitations page by clicking the button below:
+    Since you already have a MOSSLET account, you can review and accept this
+    invitation by clicking the button below:
   </p>
 
   <EmailComponents.button_centered to={@url} color="purple" size="lg">
@@ -25,11 +25,13 @@
   </EmailComponents.button_centered>
 <% else %>
   <p>
-    To join <strong>{@org.name}</strong>, you'll first need to create your free MOSSLET account. It only takes a minute — then your invitation will be waiting for you on your invitations page.
+    Click the button below to view your invitation. If you don't have a MOSSLET
+    account yet, you'll be able to create your free account first — it only takes
+    a minute, then your invitation will be waiting for you.
   </p>
 
   <EmailComponents.button_centered to={@url} color="purple" size="lg">
-    Create account &amp; join
+    View invitation
   </EmailComponents.button_centered>
 <% end %>
 

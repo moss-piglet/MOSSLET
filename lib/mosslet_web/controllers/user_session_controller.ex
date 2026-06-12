@@ -33,6 +33,7 @@ defmodule MossletWeb.UserSessionController do
         |> maybe_put(params, "billing")
 
       conn
+      |> maybe_put_invite_return_to(params)
       |> put_flash(:success, info)
       |> UserAuth.log_in_user(user, auth_params)
     else
@@ -42,6 +43,18 @@ defmodule MossletWeb.UserSessionController do
       |> redirect(to: ~p"/auth/sign_in")
     end
   end
+
+  # When a public org invite link funneled the user through sign-in/registration,
+  # the signed invite token rides along as a top-level form field. Persist it as
+  # `user_return_to` so UserAuth lands the freshly-authenticated user back on the
+  # public invite page (`/invite/:token`) to accept. ZK-safe: the token is a
+  # signed (not encrypted) wrapper of the invitation id, never secret material.
+  defp maybe_put_invite_return_to(conn, %{"invite_token" => token})
+       when is_binary(token) and token != "" do
+    put_session(conn, :user_return_to, ~p"/invite/#{token}")
+  end
+
+  defp maybe_put_invite_return_to(conn, _params), do: conn
 
   defp maybe_put(target, source, key) do
     case Map.get(source, key) do

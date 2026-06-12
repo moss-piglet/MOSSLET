@@ -28,6 +28,15 @@ defmodule MossletWeb.UserRegistrationLiveTest do
       assert html =~ "plan=family"
     end
 
+    test "carries a public invite token as a hidden field through the funnel", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/auth/register?plan=family&invite_token=abc.def.ghi")
+
+      assert has_element?(
+               lv,
+               ~s|#registration_form input[type="hidden"][name="invite_token"][value="abc.def.ghi"]|
+             )
+    end
+
     test "keeps step 2 copy aligned with the business plan", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/auth/register?plan=business")
 

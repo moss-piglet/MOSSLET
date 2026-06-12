@@ -166,6 +166,19 @@ defmodule Mosslet.Orgs.Adapters.Web do
   end
 
   @impl true
+  def get_invitation_with_org(id) do
+    case Ecto.UUID.cast(id) do
+      {:ok, uuid} ->
+        Invitation
+        |> Repo.get(uuid)
+        |> Repo.preload(:org)
+
+      :error ->
+        nil
+    end
+  end
+
+  @impl true
   def delete_invitation!(invitation) do
     case Repo.transaction_on_primary(fn -> Repo.delete!(invitation) end) do
       {:ok, result} -> result

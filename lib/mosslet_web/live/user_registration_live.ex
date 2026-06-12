@@ -12,6 +12,7 @@ defmodule MossletWeb.UserRegistrationLive do
     referral_code = get_referral_code(params, session)
     plan = get_plan(params)
     billing = get_billing(params)
+    invite_token = get_invite_token(params)
 
     {:ok,
      socket
@@ -24,6 +25,7 @@ defmodule MossletWeb.UserRegistrationLive do
      |> assign(:loading, false)
      |> assign(:plan, plan)
      |> assign(:billing, billing)
+     |> assign(:invite_token, invite_token)
      |> assign(:referral_code, referral_code)
      |> assign(:referral_discount, get_referral_discount(referral_code))
      |> assign(trigger_submit: false, check_errors: false)
@@ -177,6 +179,7 @@ defmodule MossletWeb.UserRegistrationLive do
             <input type="hidden" name="_action" value="registered" />
             <input type="hidden" name="plan" value={@plan} />
             <input type="hidden" name="billing" value={@billing} />
+            <input :if={@invite_token} type="hidden" name="invite_token" value={@invite_token} />
             <div class={unless @current_step === 1, do: "hidden"}>
               <.phx_input
                 field={@form[:email]}
@@ -755,6 +758,14 @@ defmodule MossletWeb.UserRegistrationLive do
   defp get_billing(%{"billing" => "monthly"}), do: "month"
   defp get_billing(%{"billing" => "yearly"}), do: "year"
   defp get_billing(_), do: "year"
+
+  # Public org-invite landing token (Task #222). Carried through the ZK
+  # registration funnel as a top-level hidden field so post-register sign-in can
+  # set `user_return_to` to `/invite/:token`. Signed (not encrypted) — no secret.
+  defp get_invite_token(%{"invite_token" => token}) when is_binary(token) and token != "",
+    do: token
+
+  defp get_invite_token(_), do: nil
 
   defp plan_badge_label("family"), do: "Set up your family"
   defp plan_badge_label("business"), do: "Set up your team"

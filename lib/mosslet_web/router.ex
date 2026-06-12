@@ -131,6 +131,7 @@ defmodule MossletWeb.Router do
       live "/updates", PublicLive.Updates, :updates
       live "/referrals", PublicLive.Referrals, :referrals
       live "/discover", PublicLive.PublicTimeline, :public_timeline
+      live "/invite/:token", OrgInviteLive, :show
     end
   end
 

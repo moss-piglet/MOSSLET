@@ -9,6 +9,8 @@ defmodule MossletWeb.OrgComponents do
 
   import MossletWeb.CoreComponents, only: [phx_icon: 1]
 
+  alias Mosslet.Orgs
+
   @doc """
   Renders the pending org invitations with Revoke / Resend actions.
 
@@ -48,10 +50,16 @@ defmodule MossletWeb.OrgComponents do
                 {invitation.sent_to}
               </p>
               <p class="text-xs text-slate-500 dark:text-slate-400">
-                <%= if invitation.user_id do %>
-                  Has a MOSSLET account — awaiting acceptance
-                <% else %>
-                  Awaiting sign-up &amp; acceptance
+                <%= cond do %>
+                  <% Orgs.invite_link_expired?(invitation) -> %>
+                    <span class="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
+                      <.phx_icon name="hero-clock" class="size-3.5" />
+                      Link expired — resend to send a fresh one
+                    </span>
+                  <% invitation.user_id -> %>
+                    Has a MOSSLET account — awaiting acceptance
+                  <% true -> %>
+                    Awaiting sign-up &amp; acceptance
                 <% end %>
               </p>
             </div>
@@ -63,7 +71,15 @@ defmodule MossletWeb.OrgComponents do
               phx-click="resend_invitation"
               phx-value-id={invitation.id}
               id={"resend-invitation-#{invitation.id}"}
-              class="text-xs font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 transition-colors"
+              class={[
+                "text-xs font-medium transition-colors",
+                if(Orgs.invite_link_expired?(invitation),
+                  do:
+                    "inline-flex items-center gap-1 rounded-lg bg-amber-100 dark:bg-amber-900/40 px-2 py-1 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/60",
+                  else:
+                    "text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300"
+                )
+              ]}
             >
               Resend
             </button>

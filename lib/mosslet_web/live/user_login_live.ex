@@ -47,6 +47,7 @@ defmodule MossletWeb.UserLoginLive do
           phx-update="ignore"
           class="space-y-6"
         >
+          <input :if={@invite_token} type="hidden" name="invite_token" value={@invite_token} />
           <%!-- Email field with liquid styling --%>
           <div class="space-y-2">
             <label
@@ -207,13 +208,20 @@ defmodule MossletWeb.UserLoginLive do
     """
   end
 
-  def mount(_params, _session, socket) do
+  def mount(params, _session, socket) do
     email = Phoenix.Flash.get(socket.assigns.flash, :email)
     form = to_form(%{"email" => email}, as: "user")
+
+    invite_token =
+      case params do
+        %{"invite_token" => token} when is_binary(token) and token != "" -> token
+        _ -> nil
+      end
 
     {:ok,
      socket
      |> assign(page_title: "Sign In")
+     |> assign(:invite_token, invite_token)
      |> assign_new(:meta_description, fn ->
        "Sign in. Your friends and family are waiting. Reconnect with privacy and peace of mind."
      end)

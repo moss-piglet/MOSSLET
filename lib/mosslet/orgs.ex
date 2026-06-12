@@ -306,12 +306,97 @@ defmodule Mosslet.Orgs do
   their invitations page, and an admin can resend), so we never roll back the
   invitation on a mail error — we just surface an honest flash.
 
-  ZK-safe: the email carries only the org name + a link to the recipient's
-  invitations page, never any key material or secrets.
+  ZK-safe: the email carries only the org name + a public, signed invite link,
+  never any key material or secrets.
   """
   def deliver_invitation_email(%Invitation{} = invitation, %Org{} = org) do
-    url = MossletWeb.Endpoint.url() <> "/app/users/org-invitations"
+    token = sign_invite_token(invitation)
+    url = MossletWeb.Endpoint.url() <> "/invite/" <> token
     Mosslet.Accounts.UserNotifier.deliver_org_invitation(invitation.sent_to, org, invitation, url)
+  end
+
+  # Salt for the public invite landing link token. The token is a signed
+  # (NOT encrypted) wrapper of the invitation id — it carries no secret material,
+  # it only prevents a guessed/edited invitation id from surfacing another org's
+  # name on the public landing page.
+  @invite_token_salt "org invitation link"
+
+  # Public invite links expire after 7 days. The invitation ROW never expires
+  # (pending = row exists, deleted on accept/reject); only the emailed link does.
+  # An org admin can always resend to mint a fresh 7-day link.
+  @invite_token_max_age_seconds 7 * 24 * 60 * 60
+
+  @doc """
+  The lifetime (in seconds) of a signed public invite link. After this the
+  emailed link no longer resolves and the admin must resend.
+  """
+  def invite_token_max_age_seconds, do: @invite_token_max_age_seconds
+
+  @doc """
+  Signs a public, non-enumerable invite token for the given invitation.
+
+  Uses `Phoenix.Token` (HMAC-signed, not encrypted) wrapping only the invitation
+  id. ZK-safe: no secret/PII is placed in the token or the URL.
+  """
+  def sign_invite_token(%Invitation{id: id}) do
+    Phoenix.Token.sign(MossletWeb.Endpoint, @invite_token_salt, id)
+  end
+
+  @doc """
+  Verifies a public invite token and loads the associated invitation (with `:org`
+  preloaded).
+
+  Returns:
+
+    * `{:ok, invitation}` — token valid, signed within the last 7 days, and the
+      invitation row still exists (pending).
+    * `{:error, :expired}` — the signed link is older than 7 days (admin can
+      resend a fresh link).
+    * `{:error, :invalid}` — malformed/tampered token, or the invitation row no
+      longer exists (already accepted/rejected/revoked).
+  """
+  def verify_invite_token(token) when is_binary(token) do
+    case Phoenix.Token.verify(MossletWeb.Endpoint, @invite_token_salt, token,
+           max_age: @invite_token_max_age_seconds
+         ) do
+      {:ok, invitation_id} ->
+        case get_invitation_with_org(invitation_id) do
+          %Invitation{} = invitation -> {:ok, invitation}
+          nil -> {:error, :invalid}
+        end
+
+      {:error, :expired} ->
+        {:error, :expired}
+
+      {:error, _reason} ->
+        {:error, :invalid}
+    end
+  end
+
+  def verify_invite_token(_), do: {:error, :invalid}
+
+  @doc """
+  Returns `true` when the public invite link minted for this invitation has
+  expired (older than 7 days). Used by the admin pending-invitations panel to
+  flag invites whose emailed link can no longer be opened, prompting a resend.
+
+  The age is measured from `updated_at` (resending bumps it), falling back to
+  `inserted_at`.
+  """
+  def invite_link_expired?(%Invitation{} = invitation) do
+    sent_at = invitation.updated_at || invitation.inserted_at
+
+    case sent_at do
+      nil ->
+        false
+
+      %NaiveDateTime{} = dt ->
+        NaiveDateTime.diff(NaiveDateTime.utc_now(), dt, :second) > @invite_token_max_age_seconds
+    end
+  end
+
+  defp get_invitation_with_org(invitation_id) do
+    adapter().get_invitation_with_org(invitation_id)
   end
 
   @doc """

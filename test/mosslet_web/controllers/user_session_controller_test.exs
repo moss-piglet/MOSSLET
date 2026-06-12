@@ -97,6 +97,19 @@ defmodule MossletWeb.UserSessionControllerTest do
       assert Phoenix.Flash.get(conn.assigns.flash, :success) =~ "Password updated successfully"
     end
 
+    test "an invite token carried through sign-in becomes the post-auth return_to",
+         %{conn: conn, user: user} do
+      {:ok, _user} = Mosslet.Accounts.update_user_onboarding(user, %{is_onboarded?: true})
+
+      conn =
+        post(conn, ~p"/auth/sign_in", %{
+          "invite_token" => "signed.invite.token",
+          "user" => %{"email" => @valid_email, "password" => valid_user_password()}
+        })
+
+      assert redirected_to(conn) == ~p"/invite/signed.invite.token"
+    end
+
     test "redirects to login page with invalid credentials", %{conn: conn} do
       conn =
         post(conn, ~p"/auth/sign_in", %{

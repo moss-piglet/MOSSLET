@@ -79,7 +79,7 @@ defmodule Mosslet.OrgsInvitationsTest do
         assert {"", "teammate@example.com"} in email.to
         assert email.subject =~ "Acme Inc"
         refute email.subject =~ "family"
-        assert email.html_body =~ "org-invitations"
+        assert email.html_body =~ "/invite/"
       end)
     end
 
@@ -93,7 +93,7 @@ defmodule Mosslet.OrgsInvitationsTest do
         assert {"", "cousin@example.com"} in email.to
         assert email.subject =~ "family"
         assert email.subject =~ "The Smiths"
-        assert email.html_body =~ "org-invitations"
+        assert email.html_body =~ "/invite/"
       end)
     end
   end
@@ -118,6 +118,73 @@ defmodule Mosslet.OrgsInvitationsTest do
       bare = %{invitation | org: %Ecto.Association.NotLoaded{}}
 
       assert {:ok, _email} = Orgs.resend_invitation(bare)
+    end
+  end
+
+  describe "sign_invite_token/1 + verify_invite_token/1" do
+    test "round-trips a token to its invitation (+ preloaded org)" do
+      org = family_org()
+      {:ok, invitation} = Orgs.create_invitation(org, %{"sent_to" => "round@example.com"})
+
+      token = Orgs.sign_invite_token(invitation)
+      assert {:ok, resolved} = Orgs.verify_invite_token(token)
+      assert resolved.id == invitation.id
+      assert resolved.org.id == org.id
+      assert resolved.sent_to == "round@example.com"
+    end
+
+    test "a tampered/garbage token is invalid (no enumeration)" do
+      assert {:error, :invalid} = Orgs.verify_invite_token("garbage")
+      assert {:error, :invalid} = Orgs.verify_invite_token("")
+      # A raw UUID is NOT a valid signed token — prevents guessing another org.
+      assert {:error, :invalid} = Orgs.verify_invite_token(Ecto.UUID.generate())
+    end
+
+    test "a token for a deleted (accepted/revoked) invitation is invalid" do
+      org = business_org()
+      {:ok, invitation} = Orgs.create_invitation(org, %{"sent_to" => "gone@example.com"})
+      token = Orgs.sign_invite_token(invitation)
+
+      Orgs.delete_invitation!(invitation)
+
+      assert {:error, :invalid} = Orgs.verify_invite_token(token)
+    end
+
+    test "an expired token reports :expired" do
+      org = family_org()
+      {:ok, invitation} = Orgs.create_invitation(org, %{"sent_to" => "old@example.com"})
+
+      # Sign with a backdated timestamp older than the 7-day max_age.
+      eight_days_ago =
+        System.system_time(:second) - (Orgs.invite_token_max_age_seconds() + 60)
+
+      token =
+        Phoenix.Token.sign(MossletWeb.Endpoint, "org invitation link", invitation.id,
+          signed_at: eight_days_ago
+        )
+
+      assert {:error, :expired} = Orgs.verify_invite_token(token)
+    end
+  end
+
+  describe "invite_link_expired?/1" do
+    test "false for a freshly-created invitation" do
+      org = family_org()
+      {:ok, invitation} = Orgs.create_invitation(org, %{"sent_to" => "fresh@example.com"})
+      refute Orgs.invite_link_expired?(invitation)
+    end
+
+    test "true when the invitation was last touched more than 7 days ago" do
+      org = business_org()
+      {:ok, invitation} = Orgs.create_invitation(org, %{"sent_to" => "stale@example.com"})
+
+      stale =
+        NaiveDateTime.utc_now()
+        |> NaiveDateTime.add(-(Orgs.invite_token_max_age_seconds() + 3600), :second)
+        |> NaiveDateTime.truncate(:second)
+
+      invitation = %{invitation | updated_at: stale, inserted_at: stale}
+      assert Orgs.invite_link_expired?(invitation)
     end
   end
 

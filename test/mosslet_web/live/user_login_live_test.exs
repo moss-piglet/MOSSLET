@@ -19,6 +19,15 @@ defmodule MossletWeb.UserLoginLiveTest do
       assert html =~ "Use recovery key"
     end
 
+    test "carries a public invite token as a hidden field for post-auth redirect", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/auth/sign_in?invite_token=abc.def.ghi")
+
+      assert has_element?(
+               lv,
+               ~s|#login_form input[type="hidden"][name="invite_token"][value="abc.def.ghi"]|
+             )
+    end
+
     test "redirects to onboarding if already logged in", %{conn: conn} do
       result =
         conn

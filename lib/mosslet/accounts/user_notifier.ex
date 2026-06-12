@@ -51,8 +51,8 @@ defmodule Mosslet.Accounts.UserNotifier do
 
   `to_email` is the decrypted recipient address (the invitation's `sent_to`
   field is Cloak-encrypted at rest, so the caller passes the plaintext email).
-  The email is ZK-safe: it carries only the org name and a link to the
-  recipient's invitations page — never any key material or secrets.
+  The email is ZK-safe: it carries only the org name and a public, signed invite
+  link — never any key material or secrets.
   """
   def deliver_org_invitation(to_email, org, invitation, url) do
     to_email

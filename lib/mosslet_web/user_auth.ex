@@ -44,7 +44,8 @@ defmodule MossletWeb.UserAuth do
     "Updates",
     "Referrals",
     "PublicTimeline",
-    "Press"
+    "Press",
+    "OrgInviteLive"
   ]
 
   @doc """
