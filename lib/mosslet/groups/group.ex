@@ -23,6 +23,10 @@ defmodule Mosslet.Groups.Group do
     field :public?, :boolean, default: false
 
     belongs_to :user, Mosslet.Accounts.User
+    # nil => personal circle; set => business circle scoped to a :business org.
+    # Set programmatically in the context (never via cast) — security-relevant
+    # field per Ecto guidelines. See docs/BUSINESS_CIRCLES_DESIGN.md.
+    belongs_to :org, Mosslet.Orgs.Org
 
     has_many :messages, GroupMessage
     has_many :posts, Mosslet.Timeline.Post

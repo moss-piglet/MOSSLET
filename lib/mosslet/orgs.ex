@@ -87,6 +87,28 @@ defmodule Mosslet.Orgs do
     adapter().list_members_by_org(org)
   end
 
+  @doc """
+  Returns the set of `user_id`s who are members of the given org.
+
+  Server-authoritative eligibility helper used by the business-circle write path
+  (see docs/BUSINESS_CIRCLES_DESIGN.md §6, I1) to ensure a circle's members may
+  only be drawn from the org's membership.
+  """
+  def list_member_user_ids_by_org(%Org{} = org) do
+    org
+    |> list_members_by_org()
+    |> Enum.map(& &1.id)
+  end
+
+  @doc """
+  Returns `true` if the given `user_id` is a member of the given org.
+  """
+  def member_of_org?(%Org{} = org, user_id) when is_binary(user_id) do
+    user_id in list_member_user_ids_by_org(org)
+  end
+
+  def member_of_org?(_, _), do: false
+
   def delete_membership(membership) do
     adapter().delete_membership(membership)
   end

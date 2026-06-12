@@ -384,10 +384,11 @@ defmodule Mosslet.Groups do
   `users` is the list of member User structs.
   `sealed_members` is a list of maps from the browser with sealed keys + encrypted names.
   """
-  def create_group_zk(zk_attrs, owner, users, sealed_members) do
+  def create_group_zk(zk_attrs, owner, users, sealed_members, opts \\ []) do
     group_changeset =
       Group.create_changeset_zk(zk_attrs)
       |> Ecto.Changeset.put_change(:user_id, owner.id)
+      |> maybe_put_org_id(opts[:org_id])
 
     owner_changeset =
       UserGroup.owner_changeset_zk(zk_attrs)
@@ -521,6 +522,88 @@ defmodule Mosslet.Groups do
 
     {:ok, inserted}
   end
+
+  ## Business circles (org-scoped) — see docs/BUSINESS_CIRCLES_DESIGN.md
+
+  @doc """
+  Creates a business circle: a ZK group scoped to a `:business` org and
+  restricted to that org's members.
+
+  Reuses the exact ZK group write path (`create_group_zk/5`) — the browser
+  generated the `group_key`, encrypted name/description, and sealed the key for
+  the creator + each member. The only differences from a personal circle are:
+
+    1. the group is stamped with `org_id` (server-authoritative, not from the
+       client), and
+    2. the candidate members are filtered to **current org members**
+       (server-authoritative eligibility — I1). Any `sealed_members`/`users`
+       entry for a non-member is dropped before insert, so a tampered client
+       cannot seal a circle key for an outsider.
+
+  `creator_membership` must be a membership of the given `:business` `org`.
+  Returns `{:ok, group}` or `{:error, reason}`.
+  """
+  def create_business_circle_zk(%Mosslet.Orgs.Org{} = org, owner, zk_attrs, users, sealed_members) do
+    cond do
+      org.type != :business ->
+        {:error, :not_a_business_org}
+
+      not Mosslet.Orgs.member_of_org?(org, owner.id) ->
+        {:error, :not_an_org_member}
+
+      true ->
+        eligible_ids = Mosslet.Orgs.list_member_user_ids_by_org(org)
+
+        # Server-authoritative eligibility (I1): only org members may be sealed in.
+        eligible_users = Enum.filter(users, &(&1.id in eligible_ids))
+
+        eligible_sealed =
+          Enum.filter(sealed_members, fn m -> m["user_id"] in eligible_ids end)
+
+        create_group_zk(zk_attrs, owner, eligible_users, eligible_sealed, org_id: org.id)
+    end
+  end
+
+  @doc """
+  Adds members to an existing business circle (ZK write path), enforcing
+  server-authoritative org-membership eligibility (I1).
+
+  Only `sealed_members` whose `user_id` is a current member of the circle's
+  `org_id` are inserted; ineligible entries are dropped. Falls back to the plain
+  `add_group_members_zk/2` behavior for the membership insert itself.
+  """
+  def add_business_circle_members_zk(%Group{org_id: org_id} = group, sealed_members)
+      when not is_nil(org_id) and is_list(sealed_members) do
+    case Mosslet.Orgs.get_org_by_id(org_id) do
+      nil ->
+        {:error, :org_not_found}
+
+      org ->
+        eligible_ids = Mosslet.Orgs.list_member_user_ids_by_org(org)
+        eligible = Enum.filter(sealed_members, fn m -> m["user_id"] in eligible_ids end)
+        add_group_members_zk(group, eligible)
+    end
+  end
+
+  @doc """
+  Lists the business circles for the given org that the user is a confirmed
+  member of. Always org-scoped (I4).
+  """
+  def list_business_circles(%Mosslet.Orgs.Org{} = org, %User{} = user) do
+    Group
+    |> join(:inner, [g], ug in UserGroup, on: ug.group_id == g.id)
+    |> where([g, ug], g.org_id == ^org.id)
+    |> where([g, ug], ug.user_id == ^user.id)
+    |> where([g, ug], not is_nil(ug.confirmed_at))
+    |> order_by([g], desc: g.inserted_at)
+    |> preload([:user_groups])
+    |> Mosslet.Repo.all()
+  end
+
+  defp maybe_put_org_id(changeset, nil), do: changeset
+
+  defp maybe_put_org_id(changeset, org_id),
+    do: Ecto.Changeset.put_change(changeset, :org_id, org_id)
 
   defp do_update_group(group, attrs, opts, user, user_group, d_group_key) do
     opts =

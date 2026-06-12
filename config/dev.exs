@@ -185,7 +185,7 @@ config :mosslet, :billing_products, [
   # price. Stripe price IDs are read from env vars (Metamorphic-style) with
   # dev/test fallbacks so checkout works locally without extra setup.
   %{
-    id: "prod_family",
+    id: "prod_Ugc48UDU9hdbji",
     name: "MOSSLET (Family)",
     description:
       "Bring your whole family into a calm, private space. MOSSLET (Family) includes 5 members and adds consent-based guardianship for younger members — you stay in the loop without surveillance, because content is shared cryptographically, never read by us.",
@@ -221,7 +221,7 @@ config :mosslet, :billing_products, [
     automatic_tax: %{enabled: true}
   },
   %{
-    id: "prod_family",
+    id: "prod_Ugc48UDU9hdbji",
     name: "MOSSLET (Family)",
     description:
       "Get a full year of MOSSLET (Family) at our best rate. Includes 5 members with consent-based guardianship for younger members — privacy that keeps families connected, never watched.",
@@ -258,7 +258,7 @@ config :mosslet, :billing_products, [
     automatic_tax: %{enabled: true}
   },
   %{
-    id: "prod_business",
+    id: "prod_UgdkpX4fDFkSTx",
     name: "MOSSLET (Business)",
     description:
       "Run your team on a calm, private platform. MOSSLET (Business) includes 20 members with private business circles and zero-knowledge file sharing — your team's work stays cryptographically private, never read by us.",
@@ -294,7 +294,7 @@ config :mosslet, :billing_products, [
     automatic_tax: %{enabled: true}
   },
   %{
-    id: "prod_business",
+    id: "prod_UgdkpX4fDFkSTx",
     name: "MOSSLET (Business)",
     description:
       "Get a full year of MOSSLET (Business) at our best rate. Includes 20 members with private business circles and zero-knowledge file sharing — privacy-first collaboration for your whole team.",
