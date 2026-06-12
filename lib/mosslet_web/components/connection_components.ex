@@ -1859,6 +1859,7 @@ defmodule MossletWeb.ConnectionComponents do
   attr :unread_mention_count, :integer, default: 0
   attr :browser_decrypt, :boolean, default: false
   attr :member_count, :integer, default: 0
+  attr :business?, :boolean, default: false
   slot :members
 
   def liquid_my_group_card(assigns) do
@@ -1904,22 +1905,37 @@ defmodule MossletWeb.ConnectionComponents do
         <div class="flex gap-4">
           <div class={[
             "relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-visible transition-all duration-200 ease-out transform-gpu will-change-transform shadow-sm",
-            if(@is_public,
-              do:
-                "bg-gradient-to-br from-cyan-100 via-cyan-50 to-teal-100 dark:from-cyan-900/30 dark:via-cyan-900/20 dark:to-teal-900/30",
-              else:
+            cond do
+              @business? ->
+                "bg-gradient-to-br from-teal-100 via-emerald-50 to-emerald-100 dark:from-teal-900/40 dark:via-emerald-900/25 dark:to-emerald-900/40"
+
+              @is_public ->
+                "bg-gradient-to-br from-cyan-100 via-cyan-50 to-teal-100 dark:from-cyan-900/30 dark:via-cyan-900/20 dark:to-teal-900/30"
+
+              true ->
                 "bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 group-hover/card:from-teal-100 group-hover/card:via-emerald-50 group-hover/card:to-cyan-100 dark:group-hover/card:from-teal-900/30 dark:group-hover/card:via-emerald-900/25 dark:group-hover/card:to-cyan-900/30"
-            )
+            end
           ]}>
             <.phx_icon
-              name={if @is_public, do: "hero-globe-alt", else: "hero-lock-closed"}
+              name={
+                cond do
+                  @business? -> "hero-building-office-2"
+                  @is_public -> "hero-globe-alt"
+                  true -> "hero-lock-closed"
+                end
+              }
               class={[
                 "h-6 w-6 transition-colors duration-200",
-                if(@is_public,
-                  do: "text-cyan-600 dark:text-cyan-400",
-                  else:
+                cond do
+                  @business? ->
+                    "text-teal-600 dark:text-teal-400"
+
+                  @is_public ->
+                    "text-cyan-600 dark:text-cyan-400"
+
+                  true ->
                     "text-slate-500 dark:text-slate-400 group-hover/card:text-teal-600 dark:group-hover/card:text-teal-400"
-                )
+                end
               ]}
             />
             <span
@@ -1953,6 +1969,13 @@ defmodule MossletWeb.ConnectionComponents do
                   title="End-to-end encrypted — only members can read this circle"
                 >
                   <.phx_icon name="hero-lock-closed" class="h-3 w-3 mr-1" /> Encrypted
+                </span>
+                <span
+                  :if={@business?}
+                  class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-teal-100 to-emerald-100 text-teal-700 dark:from-teal-900/40 dark:to-emerald-900/40 dark:text-teal-300 shrink-0 ring-1 ring-inset ring-teal-200/60 dark:ring-teal-700/40"
+                  title="A business circle — members are restricted to this organization"
+                >
+                  <.phx_icon name="hero-building-office-2" class="h-3 w-3 mr-1" /> Business
                 </span>
               </div>
 
@@ -2074,6 +2097,7 @@ defmodule MossletWeb.ConnectionComponents do
   attr :requires_password, :boolean, default: false
   attr :browser_decrypt, :boolean, default: false
   attr :class, :any, default: ""
+  attr :business?, :boolean, default: false
   slot :members
   slot :actions
 
@@ -2123,6 +2147,13 @@ defmodule MossletWeb.ConnectionComponents do
                   class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 dark:from-amber-900/40 dark:to-orange-900/40 dark:text-amber-300 shrink-0"
                 >
                   <.phx_icon name="hero-lock-closed" class="h-3 w-3" /> Password
+                </span>
+                <span
+                  :if={@business?}
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-teal-100 to-emerald-100 text-teal-700 dark:from-teal-900/40 dark:to-emerald-900/40 dark:text-teal-300 shrink-0 ring-1 ring-inset ring-teal-200/60 dark:ring-teal-700/40"
+                  title="A business circle — members are restricted to this organization"
+                >
+                  <.phx_icon name="hero-building-office-2" class="h-3 w-3" /> Business
                 </span>
               </div>
 

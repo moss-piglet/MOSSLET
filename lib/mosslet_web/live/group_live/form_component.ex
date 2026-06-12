@@ -203,7 +203,11 @@ defmodule MossletWeb.GroupLive.FormComponent do
             </:tag>
           </.live_select>
           <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-            Select connections to invite to this circle
+            <%= if @action in [:edit] && @business_circle? do %>
+              Only members of this organization can be added to a business circle.
+            <% else %>
+              Select connections to invite to this circle
+            <% end %>
           </p>
         </div>
 
@@ -259,7 +263,16 @@ defmodule MossletWeb.GroupLive.FormComponent do
   @impl true
   def update(%{group: group} = assigns, socket) do
     current_user = assigns.current_scope.user
-    user_connections = convert_options_for_live_select(assigns.user_connections)
+
+    # For a business circle (org_id != nil) the connection picker is narrowed to
+    # the org's members only (UI mirror of the server-authoritative I1 filter in
+    # Groups.add_group_members_zk/2). Personal circles are unaffected.
+    business_circle? = not is_nil(group.org_id)
+
+    eligible_user_connections =
+      filter_connections_to_org(assigns.user_connections, group.org_id)
+
+    user_connections = convert_options_for_live_select(eligible_user_connections)
 
     if assigns.action in [:new] do
       changeset = Groups.change_group(group)
@@ -267,13 +280,13 @@ defmodule MossletWeb.GroupLive.FormComponent do
       {:ok,
        socket
        |> assign(assigns)
+       |> assign(:business_circle?, business_circle?)
        |> assign(:sealed_group_key, nil)
        |> assign(:user_connections, user_connections)
        |> assign(:require_password?, false)
        |> assign_form(changeset)}
     else
       key = assigns.current_scope.key
-      user_connections = convert_options_for_live_select(assigns.user_connections)
       user_group = get_user_group(group, current_user)
 
       member_list =
@@ -311,6 +324,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
        |> assign(:group_description, decrypted_description)
        |> assign(:sealed_group_key, user_group.key)
        |> assign(assigns)
+       |> assign(:business_circle?, business_circle?)
        |> assign(:user_connections, user_connections)
        |> assign(:require_password?, group.require_password?)
        |> assign_form(changeset)}
@@ -737,6 +751,23 @@ defmodule MossletWeb.GroupLive.FormComponent do
     Enum.map(options, fn opt ->
       [label: opt[:key], value: opt[:value], current_user_id: opt[:current_user_id]]
     end)
+  end
+
+  # UI mirror of the server-authoritative I1 filter: when editing/creating a
+  # business circle (org_id present) narrow the candidate connections to the
+  # org's current members. Personal circles (org_id == nil) keep the full
+  # connection set. The server still enforces eligibility on write regardless.
+  defp filter_connections_to_org(connections, nil), do: connections
+
+  defp filter_connections_to_org(connections, org_id) when is_binary(org_id) do
+    case Mosslet.Orgs.get_org_by_id(org_id) do
+      nil ->
+        []
+
+      org ->
+        eligible_ids = Mosslet.Orgs.list_member_user_ids_by_org(org)
+        Enum.filter(connections, fn conn -> conn[:value] in eligible_ids end)
+    end
   end
 
   defp build_member_list_for_group(group, current_user, key) do

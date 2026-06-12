@@ -486,6 +486,14 @@ defmodule Mosslet.Groups do
       |> Map.get(:user_groups, [])
       |> Enum.map(& &1.user_id)
 
+    # Server-authoritative org-membership eligibility (I1, see
+    # docs/BUSINESS_CIRCLES_DESIGN.md §6). For a business circle (org_id != nil)
+    # only current org members may be sealed in; any sealed_members entry for a
+    # non-member is dropped BEFORE insert, so a tampered client can never seal a
+    # business-circle key for an outsider. Personal circles (org_id == nil) are
+    # unaffected and behave exactly as before.
+    sealed_members = filter_sealed_members_to_org_eligible(group, sealed_members)
+
     confirmed_at = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
 
     inserted =
@@ -521,6 +529,27 @@ defmodule Mosslet.Groups do
     |> broadcast(:group_updated)
 
     {:ok, inserted}
+  end
+
+  # Server-authoritative I1 enforcement (docs/BUSINESS_CIRCLES_DESIGN.md §6).
+  #
+  # Personal circles (org_id == nil) are returned untouched. For a business
+  # circle, keep only the sealed_members whose user_id is a current member of the
+  # circle's org. If the org can't be resolved, drop everything (fail closed) so
+  # we never persist a recipient we couldn't verify.
+  defp filter_sealed_members_to_org_eligible(%Group{org_id: nil}, sealed_members),
+    do: sealed_members
+
+  defp filter_sealed_members_to_org_eligible(%Group{org_id: org_id}, sealed_members)
+       when not is_nil(org_id) do
+    case Mosslet.Orgs.get_org_by_id(org_id) do
+      nil ->
+        []
+
+      org ->
+        eligible_ids = Mosslet.Orgs.list_member_user_ids_by_org(org)
+        Enum.filter(sealed_members, fn m -> m["user_id"] in eligible_ids end)
+    end
   end
 
   ## Business circles (org-scoped) — see docs/BUSINESS_CIRCLES_DESIGN.md
@@ -620,6 +649,23 @@ defmodule Mosslet.Groups do
   defp maybe_put_org_id(changeset, org_id),
     do: Ecto.Changeset.put_change(changeset, :org_id, org_id)
 
+  # Legacy (non-ZK) update path I1 enforcement. Mirrors
+  # filter_sealed_members_to_org_eligible/2 but for the list of user structs
+  # (`attrs["users"]`) that path adds as members.
+  defp filter_members_to_org_eligible(%Group{org_id: nil}, members), do: members || []
+
+  defp filter_members_to_org_eligible(%Group{org_id: org_id}, members)
+       when not is_nil(org_id) do
+    case Mosslet.Orgs.get_org_by_id(org_id) do
+      nil ->
+        []
+
+      org ->
+        eligible_ids = Mosslet.Orgs.list_member_user_ids_by_org(org)
+        Enum.filter(members || [], fn m -> m.id in eligible_ids end)
+    end
+  end
+
   defp do_update_group(group, attrs, opts, user, user_group, d_group_key) do
     opts =
       opts ++
@@ -647,7 +693,10 @@ defmodule Mosslet.Groups do
       {:ok, %{update_group: updated_group, update_user_group: _user_group}} ->
         user_groups = updated_group.user_groups
         user_groups_id_list = Enum.into(updated_group.user_groups, [], fn x -> x.user_id end)
-        members = attrs["users"]
+        # Server-authoritative I1 enforcement on the legacy (non-ZK) update path:
+        # for a business circle (org_id != nil) only current org members may be
+        # added. Personal circles are unaffected.
+        members = filter_members_to_org_eligible(updated_group, attrs["users"])
 
         Enum.each(user_groups, fn ug ->
           if ug.user_id not in attrs["user_connections"] do

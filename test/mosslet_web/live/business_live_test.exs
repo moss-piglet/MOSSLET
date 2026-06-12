@@ -388,5 +388,52 @@ defmodule MossletWeb.BusinessLiveTest do
       member_circles = Groups.list_business_circles(ctx.org, ctx.member)
       assert Enum.map(member_circles, & &1.id) == [group.id]
     end
+
+    test "add_group_members_zk enforces I1 by construction on a business circle", ctx do
+      # This is the function the UI edit path actually calls
+      # (form_component.ex finalize_group_members_zk). It must drop a non-org
+      # member even though it is NOT the business-specific helper.
+      {:ok, group} =
+        Groups.create_business_circle_zk(ctx.org, ctx.admin, zk_attrs(), [], [])
+
+      {newbie, _nk} = onboarded_user("ctxnewbie2")
+      add_member(ctx.org, newbie, :member)
+
+      {:ok, inserted} =
+        Groups.add_group_members_zk(group, [
+          sealed_for(newbie),
+          sealed_for(ctx.outsider)
+        ])
+
+      # Only the org member is sealed in; the outsider is dropped server-side.
+      assert inserted == 1
+      refreshed = Groups.get_group!(group.id)
+      member_ids = Enum.map(refreshed.user_groups, & &1.user_id)
+      assert newbie.id in member_ids
+      refute ctx.outsider.id in member_ids
+    end
+
+    test "add_group_members_zk does NOT filter members on a personal circle", ctx do
+      # A personal circle has org_id == nil — I1 must not apply, and any
+      # sealed_members are inserted as before (no org filtering).
+      {:ok, group} =
+        Groups.create_group_zk(zk_attrs(), ctx.admin, [], [])
+
+      assert is_nil(group.org_id)
+
+      {:ok, inserted} =
+        Groups.add_group_members_zk(group, [
+          sealed_for(ctx.member),
+          sealed_for(ctx.outsider)
+        ])
+
+      # Both are inserted: a personal circle is governed only by the editor's
+      # connections, exactly as before this change.
+      assert inserted == 2
+      refreshed = Groups.get_group!(group.id)
+      member_ids = Enum.map(refreshed.user_groups, & &1.user_id)
+      assert ctx.member.id in member_ids
+      assert ctx.outsider.id in member_ids
+    end
   end
 end

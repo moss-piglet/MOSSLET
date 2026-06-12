@@ -161,6 +161,13 @@
           <MossletWeb.DesignSystem.liquid_badge color={role_badge_color(@current_user_group.role)}>
             {String.capitalize(Atom.to_string(@current_user_group.role))}
           </MossletWeb.DesignSystem.liquid_badge>
+          <span
+            :if={!is_nil(@group.org_id)}
+            class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-teal-100 to-emerald-100 text-teal-700 dark:from-teal-900/40 dark:to-emerald-900/40 dark:text-teal-300 ring-1 ring-inset ring-teal-200/60 dark:ring-teal-700/40"
+            title="A business circle — members are restricted to this organization"
+          >
+            <.phx_icon name="hero-building-office-2" class="h-3 w-3" /> Business
+          </span>
         </div>
 
         <div class="space-y-3">

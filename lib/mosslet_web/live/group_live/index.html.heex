@@ -109,6 +109,7 @@
                   unread_mention_count={Map.get(@unread_mention_counts, group.id, 0)}
                   browser_decrypt={browser_decrypt?}
                   member_count={Enum.count(group.user_groups, & &1.confirmed_at)}
+                  business?={!is_nil(group.org_id)}
                 >
                   <:members>
                     <%= for user_group <- group.user_groups, user_group.confirmed_at do %>
@@ -200,6 +201,7 @@
                   inserted_at={group.inserted_at}
                   requires_password={group.require_password?}
                   browser_decrypt={browser_decrypt?}
+                  business?={!is_nil(group.org_id)}
                 >
                   <:members>
                     <%= for ug <- Enum.take(Enum.filter(group.user_groups, & &1.confirmed_at), 5) do %>
