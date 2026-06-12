@@ -261,5 +261,28 @@ defmodule MossletWeb.FamilyLiveTest do
       assert html =~ "All seats are in use"
       assert Orgs.seat_summary(ctx.org).pending == 1
     end
+
+    test "invites surface a pending-invitations list with resend + revoke", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/family/#{ctx.org.slug}")
+
+      refute has_element?(lv, "#pending-invitations")
+
+      lv |> form("#invite-form", invite: %{email: "cousin@example.com"}) |> render_submit()
+
+      assert has_element?(lv, "#pending-invitations")
+      assert render(lv) =~ "cousin@example.com"
+
+      [invitation] = Orgs.list_invitations_by_org(ctx.org)
+      assert has_element?(lv, "#resend-invitation-#{invitation.id}")
+      assert has_element?(lv, "#revoke-invitation-#{invitation.id}")
+
+      lv |> element("#resend-invitation-#{invitation.id}") |> render_click()
+      assert length(Orgs.list_invitations_by_org(ctx.org)) == 1
+
+      lv |> element("#revoke-invitation-#{invitation.id}") |> render_click()
+      assert Orgs.list_invitations_by_org(ctx.org) == []
+      refute has_element?(lv, "#pending-invitations")
+    end
   end
 end

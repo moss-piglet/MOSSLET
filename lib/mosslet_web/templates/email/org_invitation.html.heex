@@ -1,45 +1,71 @@
-<h1>Join {@org.name} on MOSSLET</h1>
+<%= if @org.type == :family do %>
+  <h1>Join the {@org.name} family on MOSSLET</h1>
 
-<p>
-  Great news! You've been invited to join <strong>{@org.name}</strong>
-  on MOSSLET, where organizations can collaborate privately without the stress and tracking of traditional platforms.
-</p>
+  <p>
+    You've been invited to join the <strong>{@org.name}</strong>
+    family on MOSSLET — a calm, private space to stay close without ads, tracking, or surveillance.
+  </p>
+<% else %>
+  <h1>Join {@org.name} on MOSSLET</h1>
+
+  <p>
+    Great news! You've been invited to join <strong>{@org.name}</strong>
+    on MOSSLET, where teams collaborate privately without the stress and tracking of traditional platforms.
+  </p>
+<% end %>
 
 <%= if @invitation.user_id do %>
   <p>
-    Since you already have a MOSSLET account, you can join <strong>{@org.name}</strong>
-    right away by clicking the button below:
+    Since you already have a MOSSLET account, you can review and accept this invitation
+    from your invitations page by clicking the button below:
   </p>
 
   <EmailComponents.button_centered to={@url} color="purple" size="lg">
-    Join {@org.name}
+    Review invitation
   </EmailComponents.button_centered>
 <% else %>
   <p>
-    To join <strong>{@org.name}</strong>, you'll first need to create your free MOSSLET account. Don't worry – it only takes a minute, and you'll love the privacy-first experience!
+    To join <strong>{@org.name}</strong>, you'll first need to create your free MOSSLET account. It only takes a minute — then your invitation will be waiting for you on your invitations page.
   </p>
 
   <EmailComponents.button_centered to={@url} color="purple" size="lg">
-    Create Account & Join {@org.name}
+    Create account &amp; join
   </EmailComponents.button_centered>
 <% end %>
 
 <EmailComponents.gap />
 
-<EmailComponents.status type="success">
-  <strong>🎉 Why organizations choose MOSSLET:</strong>
-  Private collaboration, no data mining, no distractions, just productive teamwork.
-</EmailComponents.status>
+<%= if @org.type == :family do %>
+  <EmailComponents.status type="success">
+    <strong>🌱 Why families choose MOSSLET:</strong>
+    A private place to share life's moments — no data mining, no ads, no algorithms deciding what you see.
+  </EmailComponents.status>
 
-<EmailComponents.gap />
+  <EmailComponents.gap />
 
-<p>As a member of <strong>{@org.name}</strong>, you'll enjoy:</p>
-<ul>
-  <li>🔒 Private team communication and updates</li>
-  <li>💬 Secure group messaging</li>
-  <li>🛡️ No corporate surveillance or data collection</li>
-  <li>🌱 A calm, focused environment for collaboration</li>
-</ul>
+  <p>As a member of the <strong>{@org.name}</strong> family, you'll enjoy:</p>
+  <ul>
+    <li>🔒 Private, end-to-end encrypted sharing</li>
+    <li>💬 Secure family conversations</li>
+    <li>🛡️ No corporate surveillance or data collection</li>
+    <li>🌿 A calm, focused space for the people who matter</li>
+  </ul>
+<% else %>
+  <EmailComponents.status type="success">
+    <strong>🎉 Why organizations choose MOSSLET:</strong>
+    Private collaboration, no data mining, no distractions — just productive teamwork.
+  </EmailComponents.status>
+
+  <EmailComponents.gap />
+
+  <p>As a member of <strong>{@org.name}</strong>, you'll enjoy:</p>
+  <ul>
+    <li>🔒 Private, end-to-end encrypted team spaces</li>
+    <li>💬 Secure group messaging</li>
+    <li>🛡️ No corporate surveillance or data collection</li>
+    <li>🌱 A calm, focused environment for collaboration</li>
+  </ul>
+<% end %>
 
 <EmailComponents.gap />
 

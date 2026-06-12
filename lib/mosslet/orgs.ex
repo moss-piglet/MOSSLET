@@ -298,6 +298,37 @@ defmodule Mosslet.Orgs do
   end
 
   @doc """
+  Sends (or re-sends) the invitation email for a pending invitation.
+
+  Returns `{:ok, email}` on success or `{:error, reason}` if delivery failed.
+  Per decision (a), callers treat a delivery failure as non-fatal: the
+  invitation row is the source of truth (the recipient can always accept from
+  their invitations page, and an admin can resend), so we never roll back the
+  invitation on a mail error — we just surface an honest flash.
+
+  ZK-safe: the email carries only the org name + a link to the recipient's
+  invitations page, never any key material or secrets.
+  """
+  def deliver_invitation_email(%Invitation{} = invitation, %Org{} = org) do
+    url = MossletWeb.Endpoint.url() <> "/app/users/org-invitations"
+    Mosslet.Accounts.UserNotifier.deliver_org_invitation(invitation.sent_to, org, invitation, url)
+  end
+
+  @doc """
+  Re-sends the invitation email for an existing pending invitation. Resolves the
+  org from the invitation if not preloaded. See `deliver_invitation_email/2`.
+  """
+  def resend_invitation(%Invitation{} = invitation) do
+    org =
+      case invitation.org do
+        %Org{} = org -> org
+        _ -> get_org_by_id(invitation.org_id)
+      end
+
+    deliver_invitation_email(invitation, org)
+  end
+
+  @doc """
   Returns the seat capacity for an org.
 
   Source of truth: the purchased subscription `quantity` when the org's billing
@@ -386,6 +417,16 @@ defmodule Mosslet.Orgs do
 
   defp count_pending_invitations(%Org{} = org) do
     adapter().count_pending_invitations(org)
+  end
+
+  @doc """
+  Lists all pending invitations for an org (most recent first), with `:org`
+  preloaded. A row exists only while pending (it is deleted on accept/reject),
+  so this is the pending list. Used by the Family/Business dashboards to show
+  outstanding invites with revoke/resend actions.
+  """
+  def list_invitations_by_org(%Org{} = org) do
+    adapter().list_invitations_by_org(org)
   end
 
   ## Invitations - user based

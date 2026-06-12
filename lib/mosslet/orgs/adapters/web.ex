@@ -205,6 +205,15 @@ defmodule Mosslet.Orgs.Adapters.Web do
   end
 
   @impl true
+  def list_invitations_by_org(org) do
+    org
+    |> Invitation.by_org()
+    |> order_by([i], desc: i.inserted_at)
+    |> Repo.all()
+    |> Repo.preload(:org)
+  end
+
+  @impl true
   def accept_invitation!(user, id) do
     invitation = get_invitation_by_user!(user, id)
     org = Repo.one!(Ecto.assoc(invitation, :org))

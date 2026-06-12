@@ -273,6 +273,10 @@ defmodule MossletWeb.API.OrgController do
         if can_manage_org?(user, org) do
           case Orgs.create_invitation(org, invitation_params) do
             {:ok, invitation} ->
+              # Send synchronously; a mail failure is non-fatal (decision (a)) —
+              # the invitation row is the source of truth.
+              _ = Orgs.deliver_invitation_email(invitation, org)
+
               conn
               |> put_status(:created)
               |> json(%{
@@ -396,9 +400,8 @@ defmodule MossletWeb.API.OrgController do
     %{
       id: invitation.id,
       org_id: invitation.org_id,
-      email: invitation.email,
+      sent_to: invitation.sent_to,
       user_id: invitation.user_id,
-      role: invitation.role,
       inserted_at: invitation.inserted_at
     }
   end

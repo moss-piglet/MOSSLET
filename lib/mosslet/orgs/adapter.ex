@@ -65,6 +65,7 @@ defmodule Mosslet.Orgs.Adapter do
   @callback count_pending_invitations(org :: Org.t()) :: non_neg_integer()
 
   @callback list_invitations_by_user(user :: User.t()) :: [Invitation.t()]
+  @callback list_invitations_by_org(org :: Org.t()) :: [Invitation.t()]
   @callback accept_invitation!(user :: User.t(), id :: String.t()) :: Membership.t()
   @callback reject_invitation!(user :: User.t(), id :: String.t()) :: Invitation.t()
 

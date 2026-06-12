@@ -57,12 +57,20 @@ defmodule Mosslet.Notifications.Email do
     |> premail()
   end
 
-  def org_invitation(org, invitation, url) do
+  def org_invitation(to_email, org, invitation, url) do
     base_email()
-    |> to(invitation.email)
-    |> subject(gettext("Invitation to join %{org_name}", org_name: org.name))
+    |> to(to_email)
+    |> subject(org_invitation_subject(org))
     |> render_body("org_invitation.html", %{org: org, invitation: invitation, url: url})
     |> premail()
+  end
+
+  defp org_invitation_subject(%{type: :family} = org) do
+    gettext("You're invited to join the %{org_name} family on MOSSLET", org_name: org.name)
+  end
+
+  defp org_invitation_subject(org) do
+    gettext("You're invited to join %{org_name} on MOSSLET", org_name: org.name)
   end
 
   def unread_posts_notification_with_email(email, unread_count, timeline_url) do

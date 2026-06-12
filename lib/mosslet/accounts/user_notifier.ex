@@ -48,10 +48,15 @@ defmodule Mosslet.Accounts.UserNotifier do
 
   @doc """
   Deliver instructions to accept an invite to an organization.
+
+  `to_email` is the decrypted recipient address (the invitation's `sent_to`
+  field is Cloak-encrypted at rest, so the caller passes the plaintext email).
+  The email is ZK-safe: it carries only the org name and a link to the
+  recipient's invitations page — never any key material or secrets.
   """
-  def deliver_org_invitation(org, invitation, url) do
-    org
-    |> Email.org_invitation(invitation, url)
+  def deliver_org_invitation(to_email, org, invitation, url) do
+    to_email
+    |> Email.org_invitation(org, invitation, url)
     |> deliver()
   end
 

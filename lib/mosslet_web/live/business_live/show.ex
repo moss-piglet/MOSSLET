@@ -158,6 +158,11 @@ defmodule MossletWeb.BusinessLive.Show do
             </li>
           </ul>
 
+          <.pending_invitations_panel
+            invitations={@pending_invitations}
+            can_manage={@can_manage?}
+          />
+
           <%!-- Invite member (admin) --%>
           <div
             :if={@can_manage?}
@@ -317,10 +322,12 @@ defmodule MossletWeb.BusinessLive.Show do
   @impl true
   def handle_event("invite_member", %{"invite" => %{"email" => email}}, socket) do
     case Orgs.create_invitation(socket.assigns.org, %{"sent_to" => email}) do
-      {:ok, _invitation} ->
+      {:ok, invitation} ->
+        flash = invitation_sent_flash(invitation, socket.assigns.org)
+
         {:noreply,
          socket
-         |> put_flash(:success, "Invitation sent")
+         |> put_invitation_flash(flash)
          |> assign(:invite_form, to_form(%{"email" => ""}, as: :invite))
          |> assign_business_data()}
 
@@ -329,6 +336,43 @@ defmodule MossletWeb.BusinessLive.Show do
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not send invitation")}
+    end
+  end
+
+  @impl true
+  def handle_event("resend_invitation", %{"id" => id}, socket) do
+    org = socket.assigns.org
+
+    if socket.assigns.can_manage? do
+      invitation = Orgs.get_invitation_by_org!(org, id)
+
+      flash =
+        case Orgs.resend_invitation(invitation) do
+          {:ok, _email} -> {:success, "Invitation re-sent to #{invitation.sent_to}"}
+          {:error, _reason} -> {:error, "Could not re-send the invitation. Please try again."}
+        end
+
+      {:noreply, socket |> put_invitation_flash(flash) |> assign_business_data()}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("revoke_invitation", %{"id" => id}, socket) do
+    org = socket.assigns.org
+
+    if socket.assigns.can_manage? do
+      org
+      |> Orgs.get_invitation_by_org!(id)
+      |> Orgs.delete_invitation!()
+
+      {:noreply,
+       socket
+       |> put_flash(:info, "Invitation revoked")
+       |> assign_business_data()}
+    else
+      {:noreply, socket}
     end
   end
 
@@ -568,6 +612,7 @@ defmodule MossletWeb.BusinessLive.Show do
     |> assign(:members, members)
     |> assign(:eligible_members, eligible_members)
     |> assign(:circles, circles)
+    |> assign(:pending_invitations, Orgs.list_invitations_by_org(org))
     |> assign(:seats, Orgs.seat_summary(org))
     |> assign(:can_manage?, socket.assigns.membership.role == :admin)
   end
@@ -577,6 +622,26 @@ defmodule MossletWeb.BusinessLive.Show do
 
     "All seats are in use (#{used} of #{cap}, including pending invites). " <>
       "Add more seats to invite another teammate."
+  end
+
+  # Sends the invitation email and returns a `{kind, message}` flash tuple.
+  # Per decision (a), a mail failure is non-fatal — the invitation row already
+  # exists, so the recipient can accept from their invitations page and an admin
+  # can resend.
+  defp invitation_sent_flash(invitation, org) do
+    case Orgs.deliver_invitation_email(invitation, org) do
+      {:ok, _email} ->
+        {:success, "Invitation sent to #{invitation.sent_to}"}
+
+      {:error, _reason} ->
+        {:info,
+         "Invited #{invitation.sent_to}, but the email couldn't be sent right now. " <>
+           "They can still accept from their invitations page, or you can resend below."}
+    end
+  end
+
+  defp put_invitation_flash(socket, {kind, message}) do
+    put_flash(socket, kind, message)
   end
 
   defp resolve_display_name(%{id: same_id}, %{id: same_id}, _key), do: "You"

@@ -142,6 +142,7 @@ defmodule MossletWeb do
       import MossletWeb.ConnectionComponents
       import MossletWeb.FamilyComponents
       import MossletWeb.BusinessComponents
+      import MossletWeb.OrgComponents
       import MossletWeb.Helpers
       import MossletWeb.Helpers.StatusHelpers
       import MossletWeb.Helpers.StatusHelpers

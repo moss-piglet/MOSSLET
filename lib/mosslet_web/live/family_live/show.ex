@@ -205,6 +205,11 @@ defmodule MossletWeb.FamilyLive.Show do
             </li>
           </ul>
 
+          <.pending_invitations_panel
+            invitations={@pending_invitations}
+            can_manage={@membership.role == :admin}
+          />
+
           <%!-- Invite member (admin) --%>
           <div
             :if={@membership.role == :admin}
@@ -330,10 +335,12 @@ defmodule MossletWeb.FamilyLive.Show do
   @impl true
   def handle_event("invite_member", %{"invite" => %{"email" => email}}, socket) do
     case Orgs.create_invitation(socket.assigns.org, %{"sent_to" => email}) do
-      {:ok, _invitation} ->
+      {:ok, invitation} ->
+        flash = invitation_sent_flash(invitation, socket.assigns.org)
+
         {:noreply,
          socket
-         |> put_flash(:success, "Invitation sent")
+         |> put_invitation_flash(flash)
          |> assign(:invite_form, to_form(%{"email" => ""}, as: :invite))
          |> assign_family_data()}
 
@@ -342,6 +349,43 @@ defmodule MossletWeb.FamilyLive.Show do
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not send invitation")}
+    end
+  end
+
+  @impl true
+  def handle_event("resend_invitation", %{"id" => id}, socket) do
+    org = socket.assigns.org
+
+    if socket.assigns.membership.role == :admin do
+      invitation = Orgs.get_invitation_by_org!(org, id)
+
+      flash =
+        case Orgs.resend_invitation(invitation) do
+          {:ok, _email} -> {:success, "Invitation re-sent to #{invitation.sent_to}"}
+          {:error, _reason} -> {:error, "Could not re-send the invitation. Please try again."}
+        end
+
+      {:noreply, socket |> put_invitation_flash(flash) |> assign_family_data()}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("revoke_invitation", %{"id" => id}, socket) do
+    org = socket.assigns.org
+
+    if socket.assigns.membership.role == :admin do
+      org
+      |> Orgs.get_invitation_by_org!(id)
+      |> Orgs.delete_invitation!()
+
+      {:noreply,
+       socket
+       |> put_flash(:info, "Invitation revoked")
+       |> assign_family_data()}
+    else
+      {:noreply, socket}
     end
   end
 
@@ -515,6 +559,7 @@ defmodule MossletWeb.FamilyLive.Show do
     |> assign(:my_pending_consent, my_pending_consent)
     |> assign(:guardian_options, guardian_options)
     |> assign(:managed_options, managed_options)
+    |> assign(:pending_invitations, Orgs.list_invitations_by_org(org))
     |> assign(:seats, Orgs.seat_summary(org))
     |> assign(:can_establish?, guardian_options != [] and managed_options != [])
   end
@@ -524,6 +569,26 @@ defmodule MossletWeb.FamilyLive.Show do
 
     "All seats are in use (#{used} of #{cap}, including pending invites). " <>
       "Add more members to invite another person."
+  end
+
+  # Sends the invitation email and returns a `{kind, message}` flash tuple.
+  # Per decision (a), a mail failure is non-fatal — the invitation row already
+  # exists, so the recipient can accept from their invitations page and an admin
+  # can resend.
+  defp invitation_sent_flash(invitation, org) do
+    case Orgs.deliver_invitation_email(invitation, org) do
+      {:ok, _email} ->
+        {:success, "Invitation sent to #{invitation.sent_to}"}
+
+      {:error, _reason} ->
+        {:info,
+         "Invited #{invitation.sent_to}, but the email couldn't be sent right now. " <>
+           "They can still accept from their invitations page, or you can resend below."}
+    end
+  end
+
+  defp put_invitation_flash(socket, {kind, message}) do
+    put_flash(socket, kind, message)
   end
 
   # Resolve a member's display name using the viewer's connection to them
