@@ -22,6 +22,13 @@ defmodule Mosslet.Orgs.Org do
     # Plaintext system enum (non-sensitive) per encryption architecture guidelines.
     field :type, Ecto.Enum, values: [:family, :business], default: :family
 
+    # Explicit ownership: the user who created the org. Set programmatically at
+    # creation (never via user params) and used by the org-limit + multi-business
+    # gating in `Mosslet.Orgs`. Ownership is intentionally NOT the `:admin`
+    # membership role (a user may be promoted to admin of an org they did not
+    # create).
+    belongs_to :created_by, User, foreign_key: :created_by_id
+
     has_many :memberships, Membership
     has_many :invitations, Invitation
     many_to_many :users, User, join_through: "orgs_memberships", unique: true
@@ -39,6 +46,18 @@ defmodule Mosslet.Orgs.Org do
     |> name_to_slug()
     |> unique_constraint(:slug)
     |> unsafe_validate_unique(:slug, Mosslet.Repo)
+  end
+
+  @doc """
+  Stamps the creator/owner on an org changeset.
+
+  `created_by_id` is set programmatically (never from user params) per the
+  encryption/security guidelines, so it lives outside `cast/3`.
+  """
+  def put_creator(changeset, %User{id: user_id}) do
+    changeset
+    |> put_change(:created_by_id, user_id)
+    |> assoc_constraint(:created_by)
   end
 
   def validate_name(changeset) do

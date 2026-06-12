@@ -12,6 +12,60 @@ defmodule MossletWeb.UserRegistrationLiveTest do
       assert html =~ "Sign in"
     end
 
+    test "tailors copy and sign-in action for the business plan", %{conn: conn} do
+      {:ok, _lv, html} = live(conn, ~p"/auth/register?plan=business")
+
+      assert html =~ "Set up your team"
+      assert html =~ "Work email address"
+      assert html =~ "_action=registered"
+      assert html =~ "plan=business"
+    end
+
+    test "tailors copy for the family plan", %{conn: conn} do
+      {:ok, _lv, html} = live(conn, ~p"/auth/register?plan=family")
+
+      assert html =~ "Set up your family"
+      assert html =~ "plan=family"
+    end
+
+    test "keeps step 2 copy aligned with the business plan", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/auth/register?plan=business")
+
+      lv
+      |> element("#registration_form")
+      |> render_change(user: %{"email" => "founder@acme.com"})
+
+      result =
+        lv
+        |> element("button", "Continue")
+        |> render_click()
+
+      assert result =~ "so your teammates can find and connect with you"
+      assert result =~ "Choose your work handle"
+    end
+
+    test "keeps step 2 copy aligned with the family plan", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/auth/register?plan=family")
+
+      lv
+      |> element("#registration_form")
+      |> render_change(user: %{"email" => "parent@example.com"})
+
+      result =
+        lv
+        |> element("button", "Continue")
+        |> render_click()
+
+      assert result =~ "so your family members can find and connect with you"
+    end
+
+    test "defaults to the personal plan when no plan param is given", %{conn: conn} do
+      {:ok, _lv, html} = live(conn, ~p"/auth/register")
+
+      assert html =~ "Join your people"
+      assert html =~ "plan=personal"
+    end
+
     test "redirects if already logged in", %{conn: conn} do
       result =
         conn

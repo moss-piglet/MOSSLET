@@ -15,8 +15,11 @@ defmodule MossletWeb.BusinessLive.Index do
   end
 
   @impl true
-  def handle_params(_params, _uri, socket) do
-    {:noreply, assign(socket, :page_title, page_title(socket.assigns.live_action))}
+  def handle_params(params, _uri, socket) do
+    {:noreply,
+     socket
+     |> assign(:page_title, page_title(socket.assigns.live_action))
+     |> assign(:onboarding?, params["onboarding"] == "1")}
   end
 
   @impl true
@@ -45,7 +48,7 @@ defmodule MossletWeb.BusinessLive.Index do
           </div>
 
           <.phx_button
-            :if={@live_action != :new && @businesses != []}
+            :if={@live_action != :new && @businesses != [] && @can_create_business?}
             phx-click="show_new"
             id="new-business-button"
             class="w-full sm:w-auto"
@@ -53,6 +56,40 @@ defmodule MossletWeb.BusinessLive.Index do
             <.phx_icon name="hero-plus" class="size-4 mr-1.5" /> New business
           </.phx_button>
         </header>
+
+        <%!-- Multi-business upsell: the first business is free; creating another
+              requires every business you already own to be on an active paid plan
+              (Task #214, Q1-B). --%>
+        <div
+          :if={@live_action != :new && @businesses != [] && !@can_create_business?}
+          id="business-upsell"
+          class="mb-8 rounded-2xl border border-amber-200/70 dark:border-amber-700/40 bg-gradient-to-br from-amber-50/80 to-orange-50/50 dark:from-amber-900/15 dark:to-orange-900/10 p-5"
+        >
+          <div class="flex items-start gap-3">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-sm">
+              <.phx_icon name="hero-sparkles" class="size-5 text-white" />
+            </div>
+            <div class="min-w-0 flex-1">
+              <h2 class="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                Want another business workspace?
+              </h2>
+              <p class="mt-1 text-sm text-amber-800/80 dark:text-amber-300/80">
+                Your first business is free. To open an additional business, your current
+                business needs an active paid plan. Subscribe your existing business, then come
+                back to create another.
+              </p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                <.link
+                  :for={business <- @businesses}
+                  navigate={~p"/app/org/#{business.org.slug}/subscribe"}
+                  class="inline-flex items-center gap-1.5 rounded-full bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-700 transition-colors duration-200"
+                >
+                  <.phx_icon name="hero-credit-card" class="size-3.5" /> Subscribe {business.org.name}
+                </.link>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div
           :if={@live_action == :new}
@@ -147,7 +184,16 @@ defmodule MossletWeb.BusinessLive.Index do
 
   @impl true
   def handle_event("show_new", _params, socket) do
-    {:noreply, push_patch(socket, to: ~p"/app/business/new")}
+    if socket.assigns.can_create_business? do
+      {:noreply, push_patch(socket, to: ~p"/app/business/new")}
+    else
+      {:noreply,
+       put_flash(
+         socket,
+         :info,
+         "Subscribe your current business to a paid plan before creating another."
+       )}
+    end
   end
 
   @impl true
@@ -164,10 +210,30 @@ defmodule MossletWeb.BusinessLive.Index do
         {:noreply,
          socket
          |> put_flash(:success, "Business created")
-         |> push_navigate(to: ~p"/app/business/#{org.slug}")}
+         |> push_navigate(to: next_path_after_create(socket, org))}
+
+      {:error, :business_entitlement_required} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           "Subscribe your current business to a paid plan before creating another."
+         )
+         |> push_patch(to: ~p"/app/business")}
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not create business. Please try again.")}
+    end
+  end
+
+  # After creating a business from the guided onboarding step, take the user
+  # straight to org-scoped checkout so billing ties to the real org. Otherwise
+  # land on the new business's dashboard.
+  defp next_path_after_create(socket, org) do
+    if socket.assigns[:onboarding?] do
+      ~p"/app/org/#{org.slug}/subscribe"
+    else
+      ~p"/app/business/#{org.slug}"
     end
   end
 
@@ -187,6 +253,7 @@ defmodule MossletWeb.BusinessLive.Index do
 
     socket
     |> assign(:businesses, businesses)
+    |> assign(:can_create_business?, Orgs.can_create_org?(current_user, :business))
     |> assign(:form, to_form(%{"name" => ""}, as: :business))
   end
 

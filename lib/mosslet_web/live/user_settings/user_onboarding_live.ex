@@ -4,10 +4,11 @@ defmodule MossletWeb.UserOnboardingLive do
 
   alias Mosslet.Accounts
 
-  def mount(params, _session, socket) do
+  def mount(params, session, socket) do
     socket =
       socket
       |> assign(user_return_to: Map.get(params, "user_return_to", nil))
+      |> assign(:plan_intent, plan_intent(session))
       |> assign(:name, nil)
       |> assign(:show_details, false)
       |> assign(:show_payment_info, false)
@@ -15,6 +16,18 @@ defmodule MossletWeb.UserOnboardingLive do
 
     {:ok, socket}
   end
+
+  # Plan-aware signup intent persisted at sign-in (UserAuth.maybe_put_plan_intent).
+  # Drives where the user lands after onboarding (Task #214):
+  #   personal -> /app/subscribe
+  #   family/business -> guided "create your {family|business}" step, then
+  #                      org-scoped subscribe.
+  defp plan_intent(%{"plan_intent" => plan}) when plan in ~w(personal family business), do: plan
+  defp plan_intent(_), do: "personal"
+
+  defp post_onboarding_path("family"), do: ~p"/app/family/new?#{%{onboarding: "1"}}"
+  defp post_onboarding_path("business"), do: ~p"/app/business/new?#{%{onboarding: "1"}}"
+  defp post_onboarding_path(_), do: ~p"/app/subscribe"
 
   def render(assigns) do
     ~H"""
@@ -352,7 +365,7 @@ defmodule MossletWeb.UserOnboardingLive do
         socket =
           socket
           |> put_flash(:success, gettext("Welcome aboard! Let's get you set up."))
-          |> push_navigate(to: ~p"/app/subscribe")
+          |> push_navigate(to: post_onboarding_path(socket.assigns.plan_intent))
 
         {:noreply, socket}
 
@@ -384,7 +397,7 @@ defmodule MossletWeb.UserOnboardingLive do
         {:noreply,
          socket
          |> put_flash(:success, gettext("Welcome aboard! Let's get you set up."))
-         |> push_navigate(to: ~p"/app/subscribe")}
+         |> push_navigate(to: post_onboarding_path(socket.assigns.plan_intent))}
 
       {:error, _changeset} ->
         {:noreply,

@@ -67,6 +67,43 @@ defmodule MossletWeb.FamilyLiveTest do
       assert html =~ "The Testers"
       assert has_element?(show_lv, "#establish-form, #invite-form")
     end
+
+    test "hides the New family CTA once a family is owned (max 1)", %{conn: conn} do
+      {user, key} = onboarded_user("familyadmin")
+      {:ok, _org} = Orgs.create_org(user, %{"name" => "Smiths", "type" => "family"})
+
+      conn = log_in(conn, user, key)
+      {:ok, lv, _html} = live(conn, ~p"/app/family")
+
+      refute has_element?(lv, "#new-family-button")
+    end
+
+    test "blocks creating a second owned family server-side", %{conn: conn} do
+      {user, key} = onboarded_user("familyadmin")
+      {:ok, _org} = Orgs.create_org(user, %{"name" => "Smiths", "type" => "family"})
+
+      assert {:error, :family_limit_reached} =
+               Orgs.create_org(user, %{"name" => "Joneses", "type" => "family"})
+
+      # The user can still reach the page; the server gate is the source of truth.
+      conn = log_in(conn, user, key)
+      {:ok, _lv, html} = live(conn, ~p"/app/family")
+      assert html =~ "Smiths"
+    end
+
+    test "guided onboarding create routes to org-scoped subscribe", %{conn: conn} do
+      {user, key} = onboarded_user("familyonboard")
+
+      conn = log_in(conn, user, key)
+      {:ok, new_lv, _html} = live(conn, ~p"/app/family/new?onboarding=1")
+
+      assert {:error, {:live_redirect, %{to: to}}} =
+               new_lv
+               |> form("#new-family-form", family: %{name: "The Onboarders"})
+               |> render_submit()
+
+      assert to =~ ~r{^/app/org/[^/]+/subscribe$}
+    end
   end
 
   describe "FamilyLive.Show guardianship management" do
@@ -149,6 +186,52 @@ defmodule MossletWeb.FamilyLiveTest do
         ctx.conn |> log_in(ctx.managed, ctx.managed_key) |> live(~p"/app/family/#{ctx.org.slug}")
 
       assert has_element?(lv, "#guardian-transparency-panel")
+    end
+  end
+
+  describe "FamilyLive.Show seat cap" do
+    setup do
+      {admin, admin_key} = onboarded_user("seatadmin")
+      {:ok, org} = Orgs.create_org(admin, %{"name" => "Smiths", "type" => "family"})
+      %{admin: admin, admin_key: admin_key, org: org}
+    end
+
+    test "shows seat usage and blocks invite at cap counting pending invites", ctx do
+      # Cap the family at 2 seats via a purchased subscription quantity.
+      {:ok, customer} =
+        Mosslet.Billing.Customers.create_customer_for_source(:org, ctx.org.id, %{
+          email: "billing-#{System.unique_integer([:positive])}@example.com",
+          provider: "stripe",
+          provider_customer_id: "cus_#{System.unique_integer([:positive])}"
+        })
+
+      {:ok, _sub} =
+        Mosslet.Billing.Subscriptions.create_subscription(%{
+          billing_customer_id: customer.id,
+          plan_id: "family-monthly",
+          status: "active",
+          quantity: 2,
+          provider_subscription_id: "sub_#{System.unique_integer([:positive])}",
+          provider_subscription_items: [%{price: "price_test"}],
+          current_period_start: NaiveDateTime.utc_now()
+        })
+
+      {:ok, lv, html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/family/#{ctx.org.slug}")
+
+      assert html =~ "1 of 2 seats used"
+
+      # First invite fills the 2nd seat (now 2 of 2 used, counting pending).
+      lv |> form("#invite-form", invite: %{email: "first@example.com"}) |> render_submit()
+      assert render(lv) =~ "2 of 2 seats used"
+      assert has_element?(lv, "#family-seat-full-notice")
+
+      # Second invite is blocked at the cap.
+      html =
+        lv |> form("#invite-form", invite: %{email: "second@example.com"}) |> render_submit()
+
+      assert html =~ "All seats are in use"
+      assert Orgs.seat_summary(ctx.org).pending == 1
     end
   end
 end

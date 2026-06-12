@@ -15,8 +15,11 @@ defmodule MossletWeb.FamilyLive.Index do
   end
 
   @impl true
-  def handle_params(_params, _uri, socket) do
-    {:noreply, assign(socket, :page_title, page_title(socket.assigns.live_action))}
+  def handle_params(params, _uri, socket) do
+    {:noreply,
+     socket
+     |> assign(:page_title, page_title(socket.assigns.live_action))
+     |> assign(:onboarding?, params["onboarding"] == "1")}
   end
 
   @impl true
@@ -45,7 +48,7 @@ defmodule MossletWeb.FamilyLive.Index do
           </div>
 
           <.phx_button
-            :if={@live_action != :new && @families != []}
+            :if={@live_action != :new && @families != [] && @can_create_family?}
             phx-click="show_new"
             id="new-family-button"
             class="w-full sm:w-auto"
@@ -144,7 +147,16 @@ defmodule MossletWeb.FamilyLive.Index do
 
   @impl true
   def handle_event("show_new", _params, socket) do
-    {:noreply, push_patch(socket, to: ~p"/app/family/new")}
+    if socket.assigns.can_create_family? do
+      {:noreply, push_patch(socket, to: ~p"/app/family/new")}
+    else
+      {:noreply,
+       put_flash(
+         socket,
+         :info,
+         "You already own a family. Each account can own one family."
+       )}
+    end
   end
 
   @impl true
@@ -161,10 +173,30 @@ defmodule MossletWeb.FamilyLive.Index do
         {:noreply,
          socket
          |> put_flash(:success, "Family created")
-         |> push_navigate(to: ~p"/app/family/#{org.slug}")}
+         |> push_navigate(to: next_path_after_create(socket, org))}
+
+      {:error, :family_limit_reached} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           "You can only own one family. Manage your existing family instead."
+         )
+         |> push_patch(to: ~p"/app/family")}
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not create family. Please try again.")}
+    end
+  end
+
+  # After creating a family from the guided onboarding step, take the user
+  # straight to org-scoped checkout so billing ties to the real org. Otherwise
+  # land on the new family's dashboard.
+  defp next_path_after_create(socket, org) do
+    if socket.assigns[:onboarding?] do
+      ~p"/app/org/#{org.slug}/subscribe"
+    else
+      ~p"/app/family/#{org.slug}"
     end
   end
 
@@ -184,6 +216,7 @@ defmodule MossletWeb.FamilyLive.Index do
 
     socket
     |> assign(:families, families)
+    |> assign(:can_create_family?, Orgs.can_create_org?(current_user, :family))
     |> assign(:form, to_form(%{"name" => ""}, as: :family))
   end
 

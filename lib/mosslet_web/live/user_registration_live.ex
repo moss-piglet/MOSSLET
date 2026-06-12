@@ -10,6 +10,7 @@ defmodule MossletWeb.UserRegistrationLive do
   def mount(params, session, socket) do
     changeset = Accounts.change_user_registration(%User{})
     referral_code = get_referral_code(params, session)
+    plan = get_plan(params)
 
     {:ok,
      socket
@@ -20,6 +21,7 @@ defmodule MossletWeb.UserRegistrationLive do
      |> assign(:temp_email, nil)
      |> assign(:error_message, nil)
      |> assign(:loading, false)
+     |> assign(:plan, plan)
      |> assign(:referral_code, referral_code)
      |> assign(:referral_discount, get_referral_discount(referral_code))
      |> assign(trigger_submit: false, check_errors: false)
@@ -94,7 +96,7 @@ defmodule MossletWeb.UserRegistrationLive do
           <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200/50 dark:border-emerald-700/30 mb-4">
             <span class="text-2xl">✨</span>
             <span class="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-              Join your people
+              {plan_badge_label(@plan)}
             </span>
           </div>
         </div>
@@ -109,7 +111,7 @@ defmodule MossletWeb.UserRegistrationLive do
               Let's get started
             </h1>
             <p class="text-lg text-slate-600 dark:text-slate-300 max-w-md mx-auto mb-4">
-              Enter your email to create your private space for connecting with friends and family.
+              {plan_step1_subtext(@plan)}
             </p>
             <.step_indicator current={1} total={4} label="Email setup" />
           <% 2 -> %>
@@ -122,7 +124,7 @@ defmodule MossletWeb.UserRegistrationLive do
               Choose your name
             </h1>
             <p class="text-lg text-slate-600 dark:text-slate-300 max-w-md mx-auto mb-4">
-              Pick a username so your friends and family can find and connect with you.
+              {plan_step2_subtext(@plan)}
             </p>
             <.step_indicator current={2} total={4} label="Username setup" />
           <% 3 -> %>
@@ -148,7 +150,7 @@ defmodule MossletWeb.UserRegistrationLive do
               Almost there!
             </h1>
             <p class="text-lg text-slate-600 dark:text-slate-300 max-w-md mx-auto mb-4">
-              Set up recovery options so you never lose access to your connections.
+              {plan_step4_subtext(@plan)}
             </p>
             <.step_indicator current={4} total={4} label="Final setup" />
         <% end %>
@@ -163,7 +165,7 @@ defmodule MossletWeb.UserRegistrationLive do
             phx-submit="save"
             phx-change="validate"
             phx-trigger-action={@trigger_submit}
-            action={~p"/auth/sign_in?_action=registered"}
+            action={~p"/auth/sign_in?#{%{_action: "registered", plan: @plan}}"}
             method="post"
             autocomplete="off"
           >
@@ -171,8 +173,12 @@ defmodule MossletWeb.UserRegistrationLive do
               <.phx_input
                 field={@form[:email]}
                 type="email"
-                label="Email address"
-                placeholder="Enter your email"
+                label={if @plan == "business", do: "Work email address", else: "Email address"}
+                placeholder={
+                  if @plan == "business",
+                    do: "you@yourcompany.com",
+                    else: "Enter your email"
+                }
                 required
                 autocomplete="email"
                 phx-debounce="500"
@@ -197,7 +203,7 @@ defmodule MossletWeb.UserRegistrationLive do
                 field={@form[:username]}
                 type="text"
                 label="Username"
-                placeholder="Choose your username"
+                placeholder={plan_username_placeholder(@plan)}
                 required
                 autocomplete="username"
                 phx-debounce="500"
@@ -727,6 +733,49 @@ defmodule MossletWeb.UserRegistrationLive do
       assign(socket, form: form, changeset: changeset)
     end
   end
+
+  # Plan-aware signup intent ("personal" | "family" | "business"). Read from the
+  # pricing CTA's `?plan=` param; defaults to "personal". Persisted through
+  # sign-in (UserAuth.maybe_put_plan_intent) so onboarding can route the user to
+  # the correct next step (Task #214).
+  defp get_plan(%{"plan" => plan}) when plan in ~w(personal family business), do: plan
+  defp get_plan(_), do: "personal"
+
+  defp plan_badge_label("family"), do: "Set up your family"
+  defp plan_badge_label("business"), do: "Set up your team"
+  defp plan_badge_label(_), do: "Join your people"
+
+  defp plan_step1_subtext("family"),
+    do:
+      "Create your account first — you'll set up your family space and invite members in the next steps."
+
+  defp plan_step1_subtext("business"),
+    do:
+      "Create your account with your work email — you'll set up your team space and invite teammates next."
+
+  defp plan_step1_subtext(_),
+    do: "Enter your email to create your private space for connecting with friends and family."
+
+  defp plan_step2_subtext("family"),
+    do: "Pick a username so your family members can find and connect with you."
+
+  defp plan_step2_subtext("business"),
+    do: "Pick a username so your teammates can find and connect with you."
+
+  defp plan_step2_subtext(_),
+    do: "Pick a username so your friends and family can find and connect with you."
+
+  defp plan_username_placeholder("business"), do: "Choose your work handle"
+  defp plan_username_placeholder(_), do: "Choose your username"
+
+  defp plan_step4_subtext("family"),
+    do: "Set up recovery options so you never lose access to your family and connections."
+
+  defp plan_step4_subtext("business"),
+    do: "Set up recovery options so you never lose access to your team and connections."
+
+  defp plan_step4_subtext(_),
+    do: "Set up recovery options so you never lose access to your connections."
 
   defp get_referral_code(params, session) do
     code = params["ref"] || session["referral_code"]

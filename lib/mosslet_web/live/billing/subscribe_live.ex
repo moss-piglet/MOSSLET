@@ -72,9 +72,33 @@ defmodule MossletWeb.SubscribeLive do
   end
 
   @impl true
-  def handle_params(_params, _url, socket) do
-    {:noreply, socket}
+  def handle_params(params, _url, socket) do
+    {:noreply, maybe_assign_org(socket, params)}
   end
+
+  # For the org-scoped subscribe route (/app/org/:org_slug/subscribe), load the
+  # org from the slug so checkout + customer lookups tie to the real org (Task
+  # #214). Membership is enforced by Orgs.get_org!/2 (scoped to the user).
+  defp maybe_assign_org(%{assigns: %{source: :org}} = socket, %{"org_slug" => org_slug}) do
+    current_user = socket.assigns.current_user
+
+    case Mosslet.Orgs.get_org!(current_user, org_slug) do
+      %Mosslet.Orgs.Org{} = org ->
+        socket
+        |> assign(:current_org, org)
+        |> assign_billing_status()
+
+      _ ->
+        socket
+    end
+  rescue
+    Ecto.NoResultsError ->
+      socket
+      |> put_flash(:error, gettext("Organization not found."))
+      |> push_navigate(to: ~p"/app/business")
+  end
+
+  defp maybe_assign_org(socket, _params), do: socket
 
   @impl true
   def render(assigns) do
@@ -1067,7 +1091,10 @@ defmodule MossletWeb.SubscribeLive do
   end
 
   defp get_customer(:org, socket) do
-    Customers.get_customer_by_source(:org, socket.assigns[:current_org].id)
+    case socket.assigns[:current_org] do
+      nil -> nil
+      org -> Customers.get_customer_by_source(:org, org.id)
+    end
   end
 
   defp get_customer(:user, socket) do

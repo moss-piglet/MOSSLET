@@ -121,7 +121,35 @@ defmodule MossletWeb.FamilyLive.Show do
         <section class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4">
           <div class="flex items-center justify-between">
             <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Members</h2>
+            <span
+              id="family-seat-usage"
+              class={[
+                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+                if(@seats.available == 0,
+                  do: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300",
+                  else: "bg-slate-100 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300"
+                )
+              ]}
+            >
+              <.phx_icon name="hero-user-group" class="size-3.5" />
+              {@seats.used} of {@seats.cap} seats used
+            </span>
           </div>
+
+          <p
+            :if={@membership.role == :admin && @seats.available == 0}
+            id="family-seat-full-notice"
+            class="rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-800 dark:text-amber-300"
+          >
+            All seats are in use (including pending invites).
+            <.link
+              navigate={~p"/app/org/#{@org.slug}/subscribe"}
+              class="font-semibold underline hover:no-underline"
+            >
+              Add more members
+            </.link>
+            to invite another family member.
+          </p>
 
           <ul role="list" class="divide-y divide-slate-100 dark:divide-slate-700/60">
             <li
@@ -306,7 +334,11 @@ defmodule MossletWeb.FamilyLive.Show do
         {:noreply,
          socket
          |> put_flash(:success, "Invitation sent")
-         |> assign(:invite_form, to_form(%{"email" => ""}, as: :invite))}
+         |> assign(:invite_form, to_form(%{"email" => ""}, as: :invite))
+         |> assign_family_data()}
+
+      {:error, :seat_limit_reached} ->
+        {:noreply, put_flash(socket, :error, seat_limit_message(socket.assigns.org))}
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not send invitation")}
@@ -483,7 +515,15 @@ defmodule MossletWeb.FamilyLive.Show do
     |> assign(:my_pending_consent, my_pending_consent)
     |> assign(:guardian_options, guardian_options)
     |> assign(:managed_options, managed_options)
+    |> assign(:seats, Orgs.seat_summary(org))
     |> assign(:can_establish?, guardian_options != [] and managed_options != [])
+  end
+
+  defp seat_limit_message(org) do
+    %{used: used, cap: cap} = Orgs.seat_summary(org)
+
+    "All seats are in use (#{used} of #{cap}, including pending invites). " <>
+      "Add more members to invite another person."
   end
 
   # Resolve a member's display name using the viewer's connection to them

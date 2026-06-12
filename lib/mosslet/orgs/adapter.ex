@@ -34,6 +34,9 @@ defmodule Mosslet.Orgs.Adapter do
   @callback create_org(user :: User.t(), changeset :: Ecto.Changeset.t()) ::
               {:ok, Org.t()} | {:error, Ecto.Changeset.t()}
 
+  @callback list_owned_orgs(user :: User.t(), type :: atom() | nil) :: [Org.t()]
+  @callback count_owned_orgs(user :: User.t(), type :: atom() | nil) :: non_neg_integer()
+
   @callback update_org(org :: Org.t(), attrs :: map()) ::
               {:ok, Org.t()} | {:error, Ecto.Changeset.t()}
 
@@ -58,6 +61,8 @@ defmodule Mosslet.Orgs.Adapter do
 
   @callback create_invitation(org :: Org.t(), params :: map()) ::
               {:ok, Invitation.t()} | {:error, Ecto.Changeset.t()}
+
+  @callback count_pending_invitations(org :: Org.t()) :: non_neg_integer()
 
   @callback list_invitations_by_user(user :: User.t()) :: [Invitation.t()]
   @callback accept_invitation!(user :: User.t(), id :: String.t()) :: Membership.t()

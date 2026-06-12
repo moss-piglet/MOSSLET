@@ -135,9 +135,20 @@ defmodule MossletWeb.UserAuth do
     |> renew_session()
     |> put_session(:user_token, token)
     |> put_session(:user_return_to, params["user_return_to"])
+    |> maybe_put_plan_intent(params)
     |> put_token_in_session(token)
     |> put_key_in_session(key)
   end
+
+  # Persists a plan-aware signup intent ("personal" | "family" | "business")
+  # across the session renewal that happens at sign-in, so the onboarding flow
+  # can route the user to the correct next step (Task #214). Ignored for any
+  # other/absent value.
+  defp maybe_put_plan_intent(conn, %{"plan" => plan}) when plan in ~w(personal family business) do
+    put_session(conn, :plan_intent, plan)
+  end
+
+  defp maybe_put_plan_intent(conn, _params), do: conn
 
   @doc """
   Returns to or redirects home and potentially set remember_me token. If the

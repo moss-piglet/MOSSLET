@@ -435,7 +435,7 @@ defmodule MossletWeb.PublicLive.Pricing do
                 </div>
 
                 <.liquid_button
-                  navigate="/auth/register"
+                  navigate={~p"/auth/register?#{%{plan: "personal"}}"}
                   variant="primary"
                   color="amber"
                   size="lg"
@@ -632,7 +632,7 @@ defmodule MossletWeb.PublicLive.Pricing do
   defp action_button(assigns) do
     ~H"""
     <.liquid_button
-      navigate="/auth/register"
+      navigate={register_path(@item)}
       variant={if @is_most_popular, do: "primary", else: "secondary"}
       size="lg"
       class="w-full"
@@ -641,6 +641,22 @@ defmodule MossletWeb.PublicLive.Pricing do
       {button_label(@item)}
     </.liquid_button>
     """
+  end
+
+  # Maps a plan line-item to the plan-aware registration path. The funnel reads
+  # `?plan=` to tailor copy and route the user to the correct post-onboarding
+  # step (Task #214). Family/Business per-seat plans carry their plan; everything
+  # else (Personal monthly/yearly/lifetime) is the personal plan.
+  defp register_path(item) do
+    ~p"/auth/register?#{%{plan: plan_param(item)}}"
+  end
+
+  defp plan_param(item) do
+    cond do
+      is_binary(Map.get(item, :id)) and String.starts_with?(item.id, "family") -> "family"
+      is_binary(Map.get(item, :id)) and String.starts_with?(item.id, "business") -> "business"
+      true -> "personal"
+    end
   end
 
   defp button_icon(%{interval: :one_time}), do: "hero-rocket-launch"

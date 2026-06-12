@@ -57,6 +57,31 @@ defmodule MossletWeb.BusinessLiveTest do
     membership
   end
 
+  defp subscribe_org(org, opts \\ []) do
+    quantity = Keyword.get(opts, :quantity, 1)
+    status = Keyword.get(opts, :status, "active")
+
+    {:ok, customer} =
+      Mosslet.Billing.Customers.create_customer_for_source(:org, org.id, %{
+        email: "billing-#{System.unique_integer([:positive])}@example.com",
+        provider: "stripe",
+        provider_customer_id: "cus_#{System.unique_integer([:positive])}"
+      })
+
+    {:ok, _sub} =
+      Mosslet.Billing.Subscriptions.create_subscription(%{
+        billing_customer_id: customer.id,
+        plan_id: "business-monthly",
+        status: status,
+        quantity: quantity,
+        provider_subscription_id: "sub_#{System.unique_integer([:positive])}",
+        provider_subscription_items: [%{price: "price_test"}],
+        current_period_start: NaiveDateTime.utc_now()
+      })
+
+    :ok
+  end
+
   describe "BusinessLive.Index" do
     test "lists only business orgs and creates a new one", %{conn: conn} do
       {user, key} = onboarded_user("bizadmin")
@@ -81,6 +106,53 @@ defmodule MossletWeb.BusinessLiveTest do
       assert html =~ "Acme Inc"
       assert has_element?(show_lv, "#invite-form")
       assert has_element?(show_lv, "#new-circle-button")
+    end
+
+    test "hides New business CTA + shows upsell when an unpaid business is owned", %{conn: conn} do
+      {user, key} = onboarded_user("bizupsell")
+      {:ok, _org} = Orgs.create_org(user, %{"name" => "Acme", "type" => "business"})
+
+      conn = log_in(conn, user, key)
+      {:ok, lv, _html} = live(conn, ~p"/app/business")
+
+      refute has_element?(lv, "#new-business-button")
+      assert has_element?(lv, "#business-upsell")
+    end
+
+    test "blocks creating a second unpaid owned business server-side", %{conn: _conn} do
+      {user, _key} = onboarded_user("bizupsell")
+      {:ok, _org} = Orgs.create_org(user, %{"name" => "Acme", "type" => "business"})
+
+      assert {:error, :business_entitlement_required} =
+               Orgs.create_org(user, %{"name" => "Beta", "type" => "business"})
+    end
+
+    test "allows a second business once the first is on an active paid plan", %{conn: conn} do
+      {user, key} = onboarded_user("bizupsell")
+      {:ok, first} = Orgs.create_org(user, %{"name" => "Acme", "type" => "business"})
+      subscribe_org(first)
+
+      conn = log_in(conn, user, key)
+      {:ok, lv, _html} = live(conn, ~p"/app/business")
+
+      assert has_element?(lv, "#new-business-button")
+      refute has_element?(lv, "#business-upsell")
+
+      assert {:ok, _second} = Orgs.create_org(user, %{"name" => "Beta", "type" => "business"})
+    end
+
+    test "guided onboarding create routes to org-scoped subscribe", %{conn: conn} do
+      {user, key} = onboarded_user("bizonboard")
+
+      conn = log_in(conn, user, key)
+      {:ok, new_lv, _html} = live(conn, ~p"/app/business/new?onboarding=1")
+
+      assert {:error, {:live_redirect, %{to: to}}} =
+               new_lv
+               |> form("#new-business-form", business: %{name: "Onboard Co"})
+               |> render_submit()
+
+      assert to =~ ~r{^/app/org/[^/]+/subscribe$}
     end
   end
 
@@ -116,6 +188,26 @@ defmodule MossletWeb.BusinessLiveTest do
       refute has_element?(lv, "#establish-form")
       refute has_element?(lv, "#guardian-transparency-panel")
       refute has_element?(lv, "#pending-consent-requests")
+    end
+
+    test "shows seat usage and blocks invite at cap counting pending invites", ctx do
+      # Cap the business at 2 seats via a purchased subscription quantity.
+      subscribe_org(ctx.org, quantity: 2)
+
+      {:ok, lv, html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      assert html =~ "1 of 2 seats used"
+
+      lv |> form("#invite-form", invite: %{email: "first@example.com"}) |> render_submit()
+      assert render(lv) =~ "2 of 2 seats used"
+      assert has_element?(lv, "#business-seat-full-notice")
+
+      html =
+        lv |> form("#invite-form", invite: %{email: "second@example.com"}) |> render_submit()
+
+      assert html =~ "All seats are in use"
+      assert Orgs.seat_summary(ctx.org).pending == 1
     end
   end
 
@@ -216,11 +308,13 @@ defmodule MossletWeb.BusinessLiveTest do
           sealed_for(ctx.member)
         ])
 
-      # A second business org with its own circle — must not leak.
-      {:ok, other_org} = Orgs.create_org(ctx.admin, %{"name" => "Initech", "type" => "business"})
+      # A second business org (owned by a different user, so it isn't gated by
+      # the multi-business entitlement) with its own circle — must not leak.
+      {:ok, other_org} =
+        Orgs.create_org(ctx.outsider, %{"name" => "Initech", "type" => "business"})
 
       {:ok, _other_group} =
-        Groups.create_business_circle_zk(other_org, ctx.admin, zk_attrs(), [], [])
+        Groups.create_business_circle_zk(other_org, ctx.outsider, zk_attrs(), [], [])
 
       admin_circles = Groups.list_business_circles(ctx.org, ctx.admin)
       assert Enum.map(admin_circles, & &1.id) == [group.id]

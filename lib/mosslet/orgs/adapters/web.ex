@@ -9,7 +9,7 @@ defmodule Mosslet.Orgs.Adapters.Web do
 
   @behaviour Mosslet.Orgs.Adapter
 
-  import Ecto.Query, only: [from: 2]
+  import Ecto.Query, only: [from: 2, where: 3, order_by: 3]
 
   alias Mosslet.Repo
   alias Mosslet.Orgs.{Org, Membership, Invitation, Guardianship}
@@ -40,6 +40,26 @@ defmodule Mosslet.Orgs.Adapters.Web do
   def get_org_by_id(id) do
     Repo.get(Org, id)
   end
+
+  @impl true
+  def list_owned_orgs(user, type) do
+    Org
+    |> where([o], o.created_by_id == ^user.id)
+    |> maybe_filter_type(type)
+    |> order_by([o], asc: o.inserted_at)
+    |> Repo.all()
+  end
+
+  @impl true
+  def count_owned_orgs(user, type) do
+    Org
+    |> where([o], o.created_by_id == ^user.id)
+    |> maybe_filter_type(type)
+    |> Repo.aggregate(:count, :id)
+  end
+
+  defp maybe_filter_type(query, nil), do: query
+  defp maybe_filter_type(query, type), do: where(query, [o], o.type == ^type)
 
   @impl true
   def create_org(user, changeset) do
@@ -164,6 +184,16 @@ defmodule Mosslet.Orgs.Adapters.Web do
       {:ok, {:error, changeset}} -> {:error, changeset}
       error -> error
     end
+  end
+
+  @impl true
+  def count_pending_invitations(org) do
+    # An invitation row exists only while pending: it is deleted on accept/reject
+    # (see accept_invitation!/reject_invitation!), so the row count is the pending
+    # count.
+    Invitation
+    |> where([i], i.org_id == ^org.id)
+    |> Repo.aggregate(:count, :id)
   end
 
   @impl true
