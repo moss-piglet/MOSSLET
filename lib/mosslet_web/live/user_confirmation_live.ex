@@ -93,11 +93,11 @@ defmodule MossletWeb.UserConfirmationLive do
   # Not currently being used (?) <- what does this mean?
   def handle_event("confirm_account", %{"user" => %{"token" => token}}, socket) do
     case Accounts.confirm_user(token) do
-      {:ok, _} ->
+      {:ok, user} ->
         {:noreply,
          socket
          |> put_flash(:success, "Account confirmed successfully.")
-         |> redirect(to: ~p"/app")}
+         |> redirect(to: post_confirm_path(user))}
 
       :error ->
         # If there is a current user and the account was already confirmed,
@@ -114,6 +114,22 @@ defmodule MossletWeb.UserConfirmationLive do
              |> put_flash(:error, "User confirmation link is invalid or it has expired.")
              |> redirect(to: ~p"/")}
         end
+    end
+  end
+
+  # After confirmation we auto-accept any matching org invitation (Task #223), so
+  # a freshly-confirmed invitee is already a covered member. Land them on their
+  # org dashboard rather than the generic app home (and never the personal
+  # paywall). Falls back to /app for non-invitees.
+  defp post_confirm_path(user) do
+    if Mosslet.Orgs.covered_by_org_seat?(user) do
+      case Mosslet.Orgs.list_orgs(user) do
+        [%{type: :family, slug: slug} | _] -> ~p"/app/family/#{slug}"
+        [%{slug: slug} | _] -> ~p"/app/business/#{slug}"
+        _ -> ~p"/app"
+      end
+    else
+      ~p"/app"
     end
   end
 end

@@ -227,9 +227,42 @@ defmodule Mosslet.Orgs.Adapters.Web do
   end
 
   @impl true
+  def list_pending_invitations_by_email_hash(email_hash) do
+    # NOTE: We compare the loaded HMAC values in Elixir rather than in SQL.
+    # `Encrypted.HMAC` (Cloak) hashes its input on *dump*, so binding a loaded
+    # hash into a query (`where: i.sent_to_hash == ^email_hash`) would hash it a
+    # second time and never match. Pending invitations are inherently low-volume
+    # (a row exists only while pending — deleted on accept/reject), so loading
+    # them and filtering on the already-loaded 64-byte hash is correct and cheap.
+    from(i in Invitation, where: not is_nil(i.org_id))
+    |> Repo.all()
+    |> Repo.preload(:org)
+    |> Enum.filter(&(&1.sent_to_hash == email_hash))
+  end
+
+  @impl true
   def accept_invitation!(user, id) do
     invitation = get_invitation_by_user!(user, id)
     org = Repo.one!(Ecto.assoc(invitation, :org))
+
+    {:ok, {:ok, %{membership: membership}}} =
+      Repo.transaction_on_primary(fn ->
+        Ecto.Multi.new()
+        |> Ecto.Multi.insert(:membership, Membership.insert_changeset(org, user))
+        |> Ecto.Multi.delete(:invitation, invitation)
+        |> Repo.transaction()
+      end)
+
+    %{membership | org: org}
+  end
+
+  @impl true
+  def accept_invitation_record!(user, invitation) do
+    org =
+      case invitation.org do
+        %Org{} = org -> org
+        _ -> Repo.one!(Ecto.assoc(invitation, :org))
+      end
 
     {:ok, {:ok, %{membership: membership}}} =
       Repo.transaction_on_primary(fn ->

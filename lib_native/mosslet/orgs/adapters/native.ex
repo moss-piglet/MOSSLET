@@ -295,6 +295,11 @@ defmodule Mosslet.Orgs.Adapters.Native do
   end
 
   @impl true
+  def list_pending_invitations_by_email_hash(_email_hash) do
+    []
+  end
+
+  @impl true
   def accept_invitation!(_user, id) do
     if Sync.online?() do
       with {:ok, token} <- NativeSession.get_token(),
@@ -307,6 +312,11 @@ defmodule Mosslet.Orgs.Adapters.Native do
     else
       raise "Offline - cannot accept invitation"
     end
+  end
+
+  @impl true
+  def accept_invitation_record!(_user, _invitation) do
+    raise "Offline - cannot accept invitation"
   end
 
   @impl true

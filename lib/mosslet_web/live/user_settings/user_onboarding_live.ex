@@ -40,6 +40,46 @@ defmodule MossletWeb.UserOnboardingLive do
   defp maybe_put_billing(params, b) when b in ~w(month year), do: Map.put(params, :billing, b)
   defp maybe_put_billing(params, _), do: params
 
+  # Where to send a freshly-onboarded user (Task #223). Org INVITEES must never be
+  # funneled to the personal `/app/subscribe` paywall — the org already pays for
+  # their seat. We branch, in priority order:
+  #
+  #   1. Already org-covered (their email was confirmed, so `sync_user_invitations`
+  #      auto-accepted the matching invite — decision #4) → straight to the org
+  #      dashboard. Server-authoritative via `Orgs.covered_by_org_seat?/1`.
+  #   2. Has a pending invitation for their email but is NOT yet confirmed → route
+  #      to `/auth/confirm`. The confirm-email click is the proof of inbox control
+  #      that safely auto-accepts them into the org (no paywall, no extra bump).
+  #   3. Otherwise (creators / personal signups) → the existing plan picker.
+  defp onboarding_destination(user, plan, interval) do
+    cond do
+      Mosslet.Orgs.covered_by_org_seat?(user) ->
+        covered_org_dashboard_path(user)
+
+      org_invitee?(user) ->
+        ~p"/auth/confirm"
+
+      true ->
+        post_onboarding_path(plan, interval)
+    end
+  end
+
+  defp org_invitee?(user) do
+    user.email_hash
+    |> Mosslet.Orgs.list_pending_invitations_by_email_hash()
+    |> Enum.any?()
+  end
+
+  # First covered org's dashboard (family vs business surface). Falls back to the
+  # app dashboard if, for any reason, we can't resolve an org.
+  defp covered_org_dashboard_path(user) do
+    case Mosslet.Orgs.list_orgs(user) do
+      [%{type: :family, slug: slug} | _] -> ~p"/app/family/#{slug}"
+      [%{slug: slug} | _] -> ~p"/app/business/#{slug}"
+      _ -> ~p"/app"
+    end
+  end
+
   def render(assigns) do
     ~H"""
     <main
@@ -377,7 +417,12 @@ defmodule MossletWeb.UserOnboardingLive do
           socket
           |> put_flash(:success, gettext("Welcome aboard! Let's get you set up."))
           |> push_navigate(
-            to: post_onboarding_path(socket.assigns.plan_intent, socket.assigns.plan_interval)
+            to:
+              onboarding_destination(
+                updated_user,
+                socket.assigns.plan_intent,
+                socket.assigns.plan_interval
+              )
           )
 
         {:noreply, socket}
@@ -411,7 +456,12 @@ defmodule MossletWeb.UserOnboardingLive do
          socket
          |> put_flash(:success, gettext("Welcome aboard! Let's get you set up."))
          |> push_navigate(
-           to: post_onboarding_path(socket.assigns.plan_intent, socket.assigns.plan_interval)
+           to:
+             onboarding_destination(
+               updated_user,
+               socket.assigns.plan_intent,
+               socket.assigns.plan_interval
+             )
          )}
 
       {:error, _changeset} ->

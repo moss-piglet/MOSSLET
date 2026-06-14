@@ -1826,7 +1826,10 @@ defmodule Mosslet.Accounts do
   in tests.
   """
   def confirm_user!(%User{confirmed_at: nil} = user) do
-    adapter().confirm_user!(user)
+    user = adapter().confirm_user!(user)
+    # Auto-accept matching org invitations once the email is confirmed (Task #223).
+    Mosslet.Orgs.sync_user_invitations(user)
+    user
   end
 
   def confirm_user!(user), do: user
@@ -1840,6 +1843,13 @@ defmodule Mosslet.Accounts do
   def confirm_user(token) do
     case adapter().confirm_user(token) do
       {:ok, user} ->
+        # Auto-accept any pending Family/Business org invitation now that the
+        # user has proven control of their inbox (Task #223, decision #4). The
+        # confirm-email click is the proof of inbox ownership, so this is the
+        # earliest safe point to admit them as an org member. Best-effort: a
+        # failure here must not break confirmation.
+        Mosslet.Orgs.sync_user_invitations(user)
+
         broadcast_admin({:ok, user}, :account_confirmed)
 
       :error ->
@@ -2296,6 +2306,12 @@ defmodule Mosslet.Accounts do
   def user_lifecycle_action("after_sign_in", user, %{ip: ip, key: key}) do
     Logs.log_async("sign_in", %{user: user})
     {:ok, user} = update_last_signed_in_info(user, ip, key)
+
+    # Self-healing org auto-accept (Task #223): admit a confirmed user into any
+    # org that invited them, in case the invite arrived after confirmation, or
+    # the user confirmed before this feature shipped. No-op for unconfirmed users
+    # and when there are no matching pending invitations.
+    Mosslet.Orgs.sync_user_invitations(user)
 
     # Progressive PQ key migration:
     # 1. No PQ keys at all → generate Cat-5 keypair + re-seal user_key/conn_key

@@ -45,7 +45,7 @@ defmodule Mosslet.Orgs.Invitation do
     from(i in __MODULE__,
       join: o in assoc(i, :org),
       join: m in "orgs_memberships",
-      on: m.org_id == o.id and m.user_id == ^user_id
+      on: m.org_id == o.id and m.user_id == type(^user_id, :binary_id)
     )
   end
 

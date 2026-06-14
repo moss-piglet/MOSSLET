@@ -12,6 +12,7 @@ defmodule MossletWeb.SubscriptionPlugs do
   alias Mosslet.Billing.PaymentIntents.PaymentIntent
   alias Mosslet.Billing.Subscriptions
   alias Mosslet.Billing.Subscriptions.Subscription
+  alias Mosslet.Orgs
 
   def subscribed_entity_only(conn, opts) do
     case Customers.entity() do
@@ -38,17 +39,57 @@ defmodule MossletWeb.SubscriptionPlugs do
   def subscribed_user_only(conn, _opts) do
     user_subscribe_route = ~p"/app/subscribe"
 
-    case Customers.get_customer_by_source(:user, conn.assigns.current_user.id) do
-      %Customer{} = customer ->
-        check_customer_membership(conn, customer, user_subscribe_route)
-
-      # check_customer_subscription(conn, customer, user_subscribe_route)
-
-      _rest ->
+    cond do
+      # Org-covered members (Family/Business) occupy a seat the ORG already pays
+      # for — they must NOT be funneled to the personal paywall (Task #223). This
+      # is server-authoritative: derived from confirmed membership rows + the
+      # org's `:org`-source subscription status, never client-trusted. Covers
+      # active/trialing orgs and the `past_due` grace window.
+      Orgs.covered_by_org_seat?(conn.assigns.current_user) ->
         conn
-        |> put_flash(:warning, gettext("You must have a paid account to access this page."))
-        |> redirect(to: user_subscribe_route)
-        |> halt()
+
+      true ->
+        case Customers.get_customer_by_source(:user, conn.assigns.current_user.id) do
+          %Customer{} = customer ->
+            check_customer_membership(conn, customer, user_subscribe_route)
+
+          _rest ->
+            {level, message} = coverage_paywall_flash(conn.assigns.current_user)
+
+            conn
+            |> put_flash(level, message)
+            |> redirect(to: user_subscribe_route)
+            |> halt()
+        end
+    end
+  end
+
+  # Tailors the loss-of-coverage message for a user who is NOT covered and has no
+  # personal subscription (Task #223). Distinguishes a member whose org plan has
+  # fully lapsed (state B — don't blame the member, point at their admin) from a
+  # plain unsubscribed user / removed member (state A — offer next steps). We
+  # never show a scary error; the copy is friendly and routes to /app/subscribe
+  # where the user can start a Personal/Family plan.
+  defp coverage_paywall_flash(user) do
+    case Orgs.org_coverage_status(user) do
+      {:lapsed, %{name: name}} when is_binary(name) and name != "" ->
+        {:warning,
+         gettext(
+           "Your organization (%{name}) doesn't have an active plan right now, so this page is paused. Reach out to your organization's admin, or start your own plan below.",
+           name: name
+         )}
+
+      {:lapsed, _org} ->
+        {:warning,
+         gettext(
+           "Your organization doesn't have an active plan right now, so this page is paused. Reach out to your organization's admin, or start your own plan below."
+         )}
+
+      _ ->
+        {:warning,
+         gettext(
+           "You need an active plan to access this page. Pick a plan below to get started, or join an organization."
+         )}
     end
   end
 
@@ -118,18 +159,26 @@ defmodule MossletWeb.SubscriptionPlugs do
   def on_mount(:require_subscribed_user, params, session, socket) do
     {:cont, socket} = on_mount(:subscribed_user, params, session, socket)
 
-    if socket.assigns[:subscription] || socket.assigns[:payment_intent] do
-      {:cont, socket}
-    else
-      socket =
-        socket
-        |> Phoenix.LiveView.put_flash(
-          :warning,
-          gettext("You must have a paid account to access this page.")
-        )
-        |> Phoenix.LiveView.redirect(to: ~p"/app/subscribe")
+    cond do
+      socket.assigns[:subscription] || socket.assigns[:payment_intent] ->
+        {:cont, socket}
 
-      {:halt, socket}
+      # Org-covered members are exempt from the personal paywall (Task #223).
+      # Server-authoritative; re-evaluated on every live mount so loss of
+      # coverage (seat revoked → membership row deleted, or org sub lapses past
+      # the `past_due` grace window) takes effect immediately on next navigation.
+      Orgs.covered_by_org_seat?(socket.assigns.current_user) ->
+        {:cont, socket}
+
+      true ->
+        {level, message} = coverage_paywall_flash(socket.assigns.current_user)
+
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(level, message)
+          |> Phoenix.LiveView.redirect(to: ~p"/app/subscribe")
+
+        {:halt, socket}
     end
   end
 

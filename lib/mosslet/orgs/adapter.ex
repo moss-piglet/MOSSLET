@@ -67,7 +67,10 @@ defmodule Mosslet.Orgs.Adapter do
 
   @callback list_invitations_by_user(user :: User.t()) :: [Invitation.t()]
   @callback list_invitations_by_org(org :: Org.t()) :: [Invitation.t()]
+  @callback list_pending_invitations_by_email_hash(email_hash :: term()) :: [Invitation.t()]
   @callback accept_invitation!(user :: User.t(), id :: String.t()) :: Membership.t()
+  @callback accept_invitation_record!(user :: User.t(), invitation :: Invitation.t()) ::
+              Membership.t()
   @callback reject_invitation!(user :: User.t(), id :: String.t()) :: Invitation.t()
 
   @callback establish_guardianship(

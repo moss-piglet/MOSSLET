@@ -31,6 +31,40 @@ defmodule Mosslet.Orgs do
     end
   end
 
+  ## PubSub
+  #
+  # Realtime org dashboard updates (Family/Business). Members of an org subscribe
+  # to its topic and re-fetch when memberships, invitations, roles, or
+  # guardianships change — keeping every connected admin/member in sync without a
+  # manual refresh. ZK-safe: payloads carry only non-secret identifiers
+  # (`org_id`); recipients re-fetch + decrypt locally, never trusting broadcast
+  # contents for any sensitive data.
+
+  @doc """
+  Subscribe the calling process to realtime updates for `org` (membership,
+  invitation, role, and guardianship changes). Call from a LiveView `mount/3`
+  when `connected?/1`. Handle `{:org_updated, org_id}` in `handle_info/2`.
+  """
+  def subscribe_org(%Org{} = org), do: subscribe_org(org.id)
+
+  def subscribe_org(org_id) when is_binary(org_id) do
+    Phoenix.PubSub.subscribe(Mosslet.PubSub, org_topic(org_id))
+  end
+
+  @doc """
+  Broadcasts an `{:org_updated, org_id}` event to all subscribers of the org.
+  Idempotent and side-effect-light; safe to call after any org mutation.
+  """
+  def broadcast_org_update(%Org{} = org), do: broadcast_org_update(org.id)
+
+  def broadcast_org_update(org_id) when is_binary(org_id) do
+    Phoenix.PubSub.broadcast(Mosslet.PubSub, org_topic(org_id), {:org_updated, org_id})
+  end
+
+  def broadcast_org_update(_), do: :ok
+
+  defp org_topic(org_id), do: "org:#{org_id}"
+
   ## Orgs
 
   def list_orgs(user) do
@@ -219,9 +253,72 @@ defmodule Mosslet.Orgs do
   This will find any invitations for a user's email address and assign them to the user.
   It will also delete any invitations to orgs the user is already a member of.
   Run this after a user has confirmed or changed their email.
+
+  Auto-accept (Task #223, decision #4): for a **confirmed** user, any pending
+  invitation whose `sent_to_hash` matches the now-confirmed email is accepted
+  automatically, so an invited Family/Business member lands in the org with zero
+  extra clicks. This is gated on `user.confirmed_at` on purpose — the
+  confirmation-email click is the proof the registrant controls the invited
+  inbox. We NEVER auto-accept (or auto-confirm) before that proof, since the
+  invite link is a signed, forwardable token that does not by itself establish
+  inbox ownership.
   """
   def sync_user_invitations(user) do
-    adapter().sync_user_invitations(user)
+    result = adapter().sync_user_invitations(user)
+    maybe_auto_accept_invitations(user)
+    result
+  end
+
+  # Confirmed users only. Best-effort: a seat-cap refusal or any single failure
+  # must not break confirmation/sign-in, so we accept what we can and move on.
+  # The user can still accept manually from /invite/:token if anything is skipped.
+  #
+  # We match pending invitations by the user's (loaded) `email_hash` directly,
+  # NOT via `list_invitations_by_user/1`. The legacy `user_id`-linking path
+  # (`Invitation.assign_to_user_by_email/1`) compares an already-hashed value in
+  # SQL, which Cloak re-hashes on dump and so never matches a confirmed user's
+  # loaded `email_hash` — see `list_pending_invitations_by_email_hash/1`.
+  defp maybe_auto_accept_invitations(%{confirmed_at: nil}), do: :ok
+
+  defp maybe_auto_accept_invitations(user) do
+    user.email_hash
+    |> list_pending_invitations_by_email_hash()
+    |> Enum.each(fn invitation ->
+      try do
+        accept_invitation_record(user, invitation)
+      rescue
+        _ -> :ok
+      end
+    end)
+  end
+
+  # Accepts a specific (already hash-matched) pending invitation for a confirmed
+  # user, with the same seat-neutral defensive re-check as `accept_invitation/2`.
+  defp accept_invitation_record(user, %Invitation{} = invitation) do
+    org =
+      case invitation do
+        %Invitation{org: %Org{} = org} -> org
+        %Invitation{org_id: org_id} -> get_org_by_id(org_id)
+      end
+
+    cond do
+      is_nil(org) ->
+        {:error, :org_not_found}
+
+      member_of_org?(org, user.id) ->
+        # Already a member (e.g. raced with another accept) — drop the stale invite.
+        delete_invitation!(invitation)
+        broadcast_org_update(org.id)
+        {:ok, :already_member}
+
+      count_members(org) >= seat_cap(org) ->
+        {:error, :seat_limit_reached}
+
+      true ->
+        membership = adapter().accept_invitation_record!(user, invitation)
+        broadcast_org_update(org.id)
+        {:ok, membership}
+    end
   end
 
   ## Members
@@ -253,7 +350,14 @@ defmodule Mosslet.Orgs do
   def member_of_org?(_, _), do: false
 
   def delete_membership(membership) do
-    adapter().delete_membership(membership)
+    result = adapter().delete_membership(membership)
+
+    case result do
+      {:ok, deleted} -> broadcast_org_update(deleted.org_id)
+      _ -> :ok
+    end
+
+    result
   end
 
   def get_membership!(user, org_slug) when is_binary(org_slug) do
@@ -273,13 +377,53 @@ defmodule Mosslet.Orgs do
   end
 
   def update_membership(%Membership{} = membership, attrs) do
-    adapter().update_membership(membership, attrs)
+    result = adapter().update_membership(membership, attrs)
+
+    case result do
+      {:ok, updated} -> broadcast_org_update(updated.org_id)
+      _ -> :ok
+    end
+
+    result
   end
 
   ## Invitations - org based
 
   def get_invitation_by_org!(org, id) do
     adapter().get_invitation_by_org!(org, id)
+  end
+
+  @doc """
+  Non-raising fetch of a pending invitation scoped to the given org. Returns the
+  `Invitation` (with `:org` preloaded) or `nil` when it no longer exists or
+  belongs to a different org. Use this on dashboards where the displayed list may
+  be stale (invitations are deleted on accept/reject/auto-accept).
+  """
+  def get_invitation_for_org(%Org{} = org, id) do
+    case get_invitation_with_org(id) do
+      %Invitation{org_id: org_id} = invitation when org_id == org.id -> invitation
+      _ -> nil
+    end
+  end
+
+  @doc """
+  Idempotently revokes (deletes) a pending invitation for the given org.
+
+  Returns `:ok` whether or not the invitation still exists. Pending invitations
+  are deleted on accept/reject and on auto-accept (Task #223), so a stale
+  dashboard may try to revoke a row that's already gone — that's a no-op here, no
+  crash. Only deletes the invitation when it belongs to the given org.
+  """
+  def revoke_invitation(%Org{} = org, id) do
+    case get_invitation_with_org(id) do
+      %Invitation{org_id: org_id} = invitation when org_id == org.id ->
+        delete_invitation!(invitation)
+        broadcast_org_update(org.id)
+        :ok
+
+      _ ->
+        :ok
+    end
   end
 
   def delete_invitation!(invitation) do
@@ -292,8 +436,18 @@ defmodule Mosslet.Orgs do
 
   def create_invitation(org, params) do
     case check_seat_capacity(org) do
-      :ok -> adapter().create_invitation(org, params)
-      {:error, _reason} = error -> error
+      :ok ->
+        case adapter().create_invitation(org, params) do
+          {:ok, _invitation} = ok ->
+            broadcast_org_update(org.id)
+            ok
+
+          {:error, _reason} = error ->
+            error
+        end
+
+      {:error, _reason} = error ->
+        error
     end
   end
 
@@ -483,6 +637,145 @@ defmodule Mosslet.Orgs do
     end
   end
 
+  ## Org-seat coverage (personal-paywall bridge)
+  #
+  # Global billing is per-`:user`, but Family/Business members occupy a seat the
+  # ORG already pays for. These helpers are the server-authoritative bridge that
+  # lets the personal paywall (see `MossletWeb.SubscriptionPlugs`) recognize a
+  # user as "covered by an org seat" so they are NOT charged for a personal
+  # account. Coverage is derived purely from confirmed membership rows (deleted
+  # immediately on seat revocation — `delete_membership/1`) and the org's
+  # subscription status (resolved from the owner's seat-based plan; see
+  # `org_subscription/1`). Never client-trusted.
+
+  @doc """
+  Returns `true` when the user is covered by an org seat with access — i.e.
+  `org_coverage_status/1` is `:covered` (active/trialing org sub) or
+  `{:grace, _org}` (org sub `past_due`, the grace window).
+
+  This is the single boolean the paywall gates consult to exempt org-covered
+  members. A lapsed (`unpaid`/`canceled`/no sub) org, or no membership at all,
+  returns `false`.
+  """
+  def covered_by_org_seat?(user) do
+    case org_coverage_status(user) do
+      :covered -> true
+      {:grace, _org} -> true
+      _ -> false
+    end
+  end
+
+  @doc """
+  Server-authoritative coverage status for a user across ALL their confirmed org
+  memberships. A user is covered if ANY org grants coverage; the best status
+  across orgs wins.
+
+  Returns:
+
+    * `:covered` — at least one org has an `active`/`trialing` subscription.
+    * `{:grace, org}` — no fully-active org, but at least one org's subscription
+      is `past_due` (Stripe's retry/grace window). Access is still granted; the
+      UI should surface a friendly "your org's plan is overdue → contact your
+      admin" notice (loss-of-coverage state B).
+    * `{:lapsed, org}` — the user has org membership(s) but every org's
+      subscription has fully lapsed (`unpaid`/`canceled`/`expired`/missing).
+      Access via org coverage is denied (state B, hardened).
+    * `:none` — the user has no confirmed org membership at all (state A).
+
+  Seat validity is implicit: a revoked seat deletes the membership row, so a
+  removed member with no other orgs resolves to `:none` (state A) immediately.
+  """
+  def org_coverage_status(user) do
+    case list_orgs(user) do
+      [] ->
+        :none
+
+      orgs ->
+        orgs
+        |> Enum.map(&org_coverage_for_org/1)
+        |> reduce_coverage()
+    end
+  end
+
+  # Per-org coverage from the org's subscription status.
+  defp org_coverage_for_org(%Org{} = org) do
+    case org_subscription(org) do
+      %{status: status} when status in ["active", "trialing"] -> :covered
+      %{status: "past_due"} -> {:grace, org}
+      _ -> {:lapsed, org}
+    end
+  end
+
+  # Resolves the subscription that pays for an org's seats.
+  #
+  # Billing model (verified): Family/Business plans are purchased on the org
+  # OWNER's personal (`:user`-source) customer — there is currently no
+  # `:org`-source subscription. So we resolve coverage from the owner's seat-based
+  # subscription whose plan TYPE matches the org (family/business). We still check
+  # an `:org`-source subscription first for forward-compatibility, should billing
+  # move onto the org customer later.
+  #
+  # Returns the active/trialing sub when present, else a payment-required
+  # (`past_due`/`incomplete`) sub so the caller can surface the grace state.
+  defp org_subscription(%Org{} = org) do
+    org_source_subscription(org) || owner_org_subscription(org)
+  end
+
+  defp org_source_subscription(%Org{} = org) do
+    case Customers.get_customer_by_source(:org, org.id) do
+      nil ->
+        nil
+
+      customer ->
+        Subscriptions.get_active_subscription_by_customer_id(customer.id) ||
+          Subscriptions.get_payment_required_subscription_by_customer_id(customer.id)
+    end
+  end
+
+  defp owner_org_subscription(%Org{created_by_id: nil}), do: nil
+
+  defp owner_org_subscription(%Org{created_by_id: owner_id} = org) do
+    case Customers.get_customer_by_source(:user, owner_id) do
+      nil ->
+        nil
+
+      customer ->
+        sub =
+          Subscriptions.get_active_subscription_by_customer_id(customer.id) ||
+            Subscriptions.get_payment_required_subscription_by_customer_id(customer.id)
+
+        if sub && org_plan_matches_type?(sub.plan_id, org.type), do: sub
+    end
+  end
+
+  # True when the subscription's plan is the seat-based org plan for the org type
+  # (e.g. "business-monthly"/"business-yearly" for a :business org). Guards against
+  # treating an owner's unrelated personal plan as org coverage.
+  defp org_plan_matches_type?(plan_id, type) when is_binary(plan_id) do
+    plan = Plans.get_plan_by_id(plan_id)
+    plan && Plans.seat_based_plan?(plan) && String.starts_with?(plan_id, "#{type}-")
+  end
+
+  defp org_plan_matches_type?(_plan_id, _type), do: false
+
+  # Best-status-wins reduction across a user's orgs:
+  # :covered > {:grace, _} > {:lapsed, _}. (`:none` handled by the caller.)
+  defp reduce_coverage(statuses) do
+    cond do
+      Enum.any?(statuses, &(&1 == :covered)) ->
+        :covered
+
+      grace = Enum.find(statuses, &match?({:grace, _}, &1)) ->
+        grace
+
+      lapsed = Enum.find(statuses, &match?({:lapsed, _}, &1)) ->
+        lapsed
+
+      true ->
+        :none
+    end
+  end
+
   defp included_seats_for_type(type) do
     case base_plan_for_type(type) do
       nil -> 1
@@ -520,13 +813,71 @@ defmodule Mosslet.Orgs do
     adapter().list_invitations_by_user(user)
   end
 
+  @doc """
+  Returns pending invitations addressed to the given `email_hash`, regardless of
+  whether they've been linked to a user yet (`user_id` is only set after email
+  confirmation — see `Invitation.put_user_id/1`). Used by the onboarding router
+  (Task #223) to recognize an invited Family/Business member BEFORE confirmation
+  so we don't wrongly funnel them to the personal `/app/subscribe` paywall. Each
+  invitation has its `:org` preloaded.
+  """
+  def list_pending_invitations_by_email_hash(email_hash) do
+    adapter().list_pending_invitations_by_email_hash(email_hash)
+  end
+
+  @doc """
+  Accepts a pending invitation, creating the membership and deleting the
+  invitation atomically (the adapter runs both in one transaction, so seat usage
+  — members + pending — nets to zero on a normal accept).
+
+  Defensive seat re-check (Task #223, decision #2): seats are reserved at invite
+  time (`create_invitation/2` → `check_seat_capacity/1`, and `seat_usage/1`
+  counts pending invitations), so the org should never be oversold while invites
+  are outstanding. We still re-verify here so a race or upstream bug can't push
+  confirmed membership past the cap: if the org has no room for this member
+  (counting members only, since this person's pending seat is being converted),
+  we refuse with `{:error, :seat_limit_reached}` instead of silently overselling.
+  """
   def accept_invitation!(user, id) do
-    adapter().accept_invitation!(user, id)
+    case accept_invitation(user, id) do
+      {:ok, membership} -> membership
+      {:error, reason} -> raise "could not accept invitation: #{inspect(reason)}"
+    end
+  end
+
+  @doc """
+  Non-raising variant of `accept_invitation!/2`. Returns `{:ok, membership}` or
+  `{:error, :seat_limit_reached}` (defensive seat re-check, decision #2).
+  """
+  def accept_invitation(user, id) do
+    org =
+      case get_invitation_with_org(id) do
+        %Invitation{org: %Org{} = org} -> org
+        _ -> nil
+      end
+
+    # Converting a pending invite to a membership is seat-neutral; the only way
+    # this fails is if confirmed members ALONE already meet/exceed the cap, which
+    # would indicate seats were oversold upstream. Guard against it.
+    if org && count_members(org) >= seat_cap(org) do
+      {:error, :seat_limit_reached}
+    else
+      membership = adapter().accept_invitation!(user, id)
+      if org, do: broadcast_org_update(org.id)
+      {:ok, membership}
+    end
   end
 
   def reject_invitation!(user, id) do
-    adapter().reject_invitation!(user, id)
+    result = adapter().reject_invitation!(user, id)
+    broadcast_org_update_from_invitation(result)
+    result
   end
+
+  defp broadcast_org_update_from_invitation(%Invitation{org_id: org_id}) when is_binary(org_id),
+    do: broadcast_org_update(org_id)
+
+  defp broadcast_org_update_from_invitation(_), do: :ok
 
   ## Guardianships
 
@@ -548,7 +899,9 @@ defmodule Mosslet.Orgs do
   consent gate).
   """
   def establish_guardianship(%Membership{} = guardian, %Membership{} = managed, opts \\ []) do
-    adapter().establish_guardianship(guardian, managed, opts)
+    guardian
+    |> adapter().establish_guardianship(managed, opts)
+    |> broadcast_guardianship_result()
   end
 
   @doc """
@@ -556,7 +909,9 @@ defmodule Mosslet.Orgs do
   `consented_at`. Co-sealing begins from this point forward.
   """
   def accept_guardianship(%Guardianship{} = guardianship) do
-    adapter().accept_guardianship(guardianship)
+    guardianship
+    |> adapter().accept_guardianship()
+    |> broadcast_guardianship_result()
   end
 
   @doc """
@@ -564,7 +919,9 @@ defmodule Mosslet.Orgs do
   ever co-sealed for a declined guardianship.
   """
   def decline_guardianship(%Guardianship{} = guardianship) do
-    adapter().decline_guardianship(guardianship)
+    guardianship
+    |> adapter().decline_guardianship()
+    |> broadcast_guardianship_result()
   end
 
   @doc """
@@ -573,7 +930,9 @@ defmodule Mosslet.Orgs do
   Either the managed member or the guardian may pause.
   """
   def pause_guardianship(%Guardianship{} = guardianship) do
-    adapter().pause_guardianship(guardianship)
+    guardianship
+    |> adapter().pause_guardianship()
+    |> broadcast_guardianship_result()
   end
 
   @doc """
@@ -581,7 +940,9 @@ defmodule Mosslet.Orgs do
   ever co-sealed.
   """
   def resume_guardianship(%Guardianship{} = guardianship) do
-    adapter().resume_guardianship(guardianship)
+    guardianship
+    |> adapter().resume_guardianship()
+    |> broadcast_guardianship_result()
   end
 
   @doc """
@@ -590,8 +951,20 @@ defmodule Mosslet.Orgs do
   about the past — see GUARDIANSHIP_DESIGN.md §7).
   """
   def revoke_guardianship(%Guardianship{} = guardianship) do
-    adapter().revoke_guardianship(guardianship)
+    guardianship
+    |> adapter().revoke_guardianship()
+    |> broadcast_guardianship_result()
   end
+
+  # Broadcasts an org update when a guardianship mutation succeeds, so the family
+  # dashboard reflects the change in realtime. Returns the result unchanged.
+  defp broadcast_guardianship_result({:ok, %Guardianship{org_id: org_id}} = result)
+       when is_binary(org_id) do
+    broadcast_org_update(org_id)
+    result
+  end
+
+  defp broadcast_guardianship_result(result), do: result
 
   @doc """
   Returns the list of guardian `User` structs (with public keys + PQ public keys)

@@ -380,23 +380,32 @@ defmodule MossletWeb.Helpers do
   def user_has_paid?(current_user) do
     alias Mosslet.Billing.{Customers, PaymentIntents, Subscriptions}
 
-    case Customers.get_customer_by_source(:user, current_user.id) do
-      %Customers.Customer{} = customer ->
-        # Check for active payment intent first (new one-time payment system)
-        case PaymentIntents.get_active_payment_intent_by_customer_id(customer.id) do
-          %PaymentIntents.PaymentIntent{} ->
-            true
+    cond do
+      # Org-covered members (Family/Business seat the org pays for) are treated as
+      # paid for menu/UX consistency with the paywall gates (Task #223). Covers
+      # active/trialing orgs and the `past_due` grace window; server-authoritative.
+      Mosslet.Orgs.covered_by_org_seat?(current_user) ->
+        true
+
+      true ->
+        case Customers.get_customer_by_source(:user, current_user.id) do
+          %Customers.Customer{} = customer ->
+            # Check for active payment intent first (new one-time payment system)
+            case PaymentIntents.get_active_payment_intent_by_customer_id(customer.id) do
+              %PaymentIntents.PaymentIntent{} ->
+                true
+
+              _ ->
+                # Check for legacy subscription
+                case Subscriptions.get_active_subscription_by_customer_id(customer.id) do
+                  %Subscriptions.Subscription{} -> true
+                  _ -> false
+                end
+            end
 
           _ ->
-            # Check for legacy subscription
-            case Subscriptions.get_active_subscription_by_customer_id(customer.id) do
-              %Subscriptions.Subscription{} -> true
-              _ -> false
-            end
+            false
         end
-
-      _ ->
-        false
     end
   end
 

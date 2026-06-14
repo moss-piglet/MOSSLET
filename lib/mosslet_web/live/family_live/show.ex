@@ -18,11 +18,14 @@ defmodule MossletWeb.FamilyLive.Show do
     membership = Orgs.get_membership!(current_user, slug)
 
     if org.type == :family do
+      if connected?(socket), do: Orgs.subscribe_org(org)
+
       {:ok,
        socket
        |> assign(:org, org)
        |> assign(:membership, membership)
        |> assign(:page_title, org.name)
+       |> assign(:coverage_status, Orgs.org_coverage_status(current_user))
        |> assign(:invite_form, to_form(%{"email" => ""}, as: :invite))
        |> assign_family_data()}
     else
@@ -72,6 +75,8 @@ defmodule MossletWeb.FamilyLive.Show do
             </div>
           </div>
         </header>
+
+        <.org_coverage_notice status={@coverage_status} />
 
         <%!-- Managed-member transparency panel (I2, always visible) --%>
         <.transparency_panel
@@ -357,12 +362,16 @@ defmodule MossletWeb.FamilyLive.Show do
     org = socket.assigns.org
 
     if socket.assigns.membership.role == :admin do
-      invitation = Orgs.get_invitation_by_org!(org, id)
-
       flash =
-        case Orgs.resend_invitation(invitation) do
-          {:ok, _email} -> {:success, "Invitation re-sent to #{invitation.sent_to}"}
-          {:error, _reason} -> {:error, "Could not re-send the invitation. Please try again."}
+        case Orgs.get_invitation_for_org(org, id) do
+          %{} = invitation ->
+            case Orgs.resend_invitation(invitation) do
+              {:ok, _email} -> {:success, "Invitation re-sent to #{invitation.sent_to}"}
+              {:error, _reason} -> {:error, "Could not re-send the invitation. Please try again."}
+            end
+
+          nil ->
+            {:info, "That invitation is no longer pending."}
         end
 
       {:noreply, socket |> put_invitation_flash(flash) |> assign_family_data()}
@@ -376,9 +385,7 @@ defmodule MossletWeb.FamilyLive.Show do
     org = socket.assigns.org
 
     if socket.assigns.membership.role == :admin do
-      org
-      |> Orgs.get_invitation_by_org!(id)
-      |> Orgs.delete_invitation!()
+      Orgs.revoke_invitation(org, id)
 
       {:noreply,
        socket
@@ -487,6 +494,33 @@ defmodule MossletWeb.FamilyLive.Show do
      |> put_flash(:info, "Guardianship revoked. Future co-sealing stopped.")
      |> assign_family_data()}
   end
+
+  @impl true
+  def handle_info({:org_updated, _org_id}, socket) do
+    current_user = socket.assigns.current_scope.user
+    org = socket.assigns.org
+
+    # Realtime org changes (Task #223 pubsub). Refresh when still a member;
+    # otherwise leave the org surface gracefully (loss-of-coverage state A).
+    if Orgs.member_of_org?(org, current_user.id) do
+      {:noreply,
+       socket
+       |> assign(:membership, Orgs.get_membership!(current_user, org.slug))
+       |> assign(:coverage_status, Orgs.org_coverage_status(current_user))
+       |> assign_family_data()}
+    else
+      {:noreply,
+       socket
+       |> put_flash(
+         :info,
+         "You're no longer a member of this family. You can start your own plan or join another anytime."
+       )
+       |> push_navigate(to: ~p"/app/family")}
+    end
+  end
+
+  # Ignore unrelated process messages (e.g. Swoosh test email delivery, telemetry).
+  def handle_info(_message, socket), do: {:noreply, socket}
 
   ## Data loading
 

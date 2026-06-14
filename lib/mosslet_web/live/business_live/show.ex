@@ -21,11 +21,14 @@ defmodule MossletWeb.BusinessLive.Show do
     membership = Orgs.get_membership!(current_user, slug)
 
     if org.type == :business do
+      if connected?(socket), do: Orgs.subscribe_org(org)
+
       {:ok,
        socket
        |> assign(:org, org)
        |> assign(:membership, membership)
        |> assign(:page_title, org.name)
+       |> assign(:coverage_status, Orgs.org_coverage_status(current_user))
        |> assign(:invite_form, to_form(%{"email" => ""}, as: :invite))
        |> assign(:show_circle_form?, false)
        |> assign(:circle_form, to_form(%{"name" => "", "description" => ""}, as: :circle))
@@ -72,6 +75,8 @@ defmodule MossletWeb.BusinessLive.Show do
             </div>
           </div>
         </header>
+
+        <.org_coverage_notice status={@coverage_status} />
 
         <%!-- Member management --%>
         <section class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4">
@@ -344,12 +349,16 @@ defmodule MossletWeb.BusinessLive.Show do
     org = socket.assigns.org
 
     if socket.assigns.can_manage? do
-      invitation = Orgs.get_invitation_by_org!(org, id)
-
       flash =
-        case Orgs.resend_invitation(invitation) do
-          {:ok, _email} -> {:success, "Invitation re-sent to #{invitation.sent_to}"}
-          {:error, _reason} -> {:error, "Could not re-send the invitation. Please try again."}
+        case Orgs.get_invitation_for_org(org, id) do
+          %{} = invitation ->
+            case Orgs.resend_invitation(invitation) do
+              {:ok, _email} -> {:success, "Invitation re-sent to #{invitation.sent_to}"}
+              {:error, _reason} -> {:error, "Could not re-send the invitation. Please try again."}
+            end
+
+          nil ->
+            {:info, "That invitation is no longer pending."}
         end
 
       {:noreply, socket |> put_invitation_flash(flash) |> assign_business_data()}
@@ -363,9 +372,7 @@ defmodule MossletWeb.BusinessLive.Show do
     org = socket.assigns.org
 
     if socket.assigns.can_manage? do
-      org
-      |> Orgs.get_invitation_by_org!(id)
-      |> Orgs.delete_invitation!()
+      Orgs.revoke_invitation(org, id)
 
       {:noreply,
        socket
@@ -559,6 +566,36 @@ defmodule MossletWeb.BusinessLive.Show do
       end
     end
   end
+
+  @impl true
+  def handle_info({:org_updated, _org_id}, socket) do
+    current_user = socket.assigns.current_scope.user
+    org = socket.assigns.org
+
+    # Realtime org changes (Task #223 pubsub). If the current user is still a
+    # member, refresh the dashboard data + coverage. If they were removed (their
+    # membership row is gone), send them off the org surface with a friendly
+    # heads-up (loss-of-coverage state A) rather than crashing on a missing
+    # membership.
+    if Orgs.member_of_org?(org, current_user.id) do
+      {:noreply,
+       socket
+       |> assign(:membership, Orgs.get_membership!(current_user, org.slug))
+       |> assign(:coverage_status, Orgs.org_coverage_status(current_user))
+       |> assign_business_data()}
+    else
+      {:noreply,
+       socket
+       |> put_flash(
+         :info,
+         "You're no longer a member of this organization. You can start your own plan or join another organization anytime."
+       )
+       |> push_navigate(to: ~p"/app/business")}
+    end
+  end
+
+  # Ignore unrelated process messages (e.g. Swoosh test email delivery, telemetry).
+  def handle_info(_message, socket), do: {:noreply, socket}
 
   ## Data loading
 
