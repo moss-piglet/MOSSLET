@@ -11,7 +11,9 @@ defmodule MossletWeb.BusinessLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign_businesses(socket)}
+    socket = assign_businesses(socket)
+    if connected?(socket), do: subscribe_to_businesses(socket)
+    {:ok, socket}
   end
 
   @impl true
@@ -148,16 +150,37 @@ defmodule MossletWeb.BusinessLive.Index do
               want one, so this is intentionally low-key (no alarm box). When the
               first business is on a trial, the requirement is just that the plan
               becomes paid — by waiting for the trial to convert, or starting the
-              paid plan early. (Task #214, Q1-B / #218.) --%>
+              paid plan early. (Task #214, Q1-B / #218.)
+
+              A member-seat (invited into someone else's business, owns none) sees
+              a different note: they can't spin up a free business off a seat the
+              org pays for — starting their own is a separate, paid plan. (#224) --%>
         <p
-          :if={@live_action != :new && @businesses != [] && !@can_create_business?}
+          :if={
+            @live_action != :new && @businesses != [] && !@can_create_business? && !@owns_business?
+          }
+          id="business-member-seat-note"
+          class="mt-4 text-xs text-slate-400 dark:text-slate-500"
+        >
+          Want a business of your own? Starting one (separate from the organization
+          you were invited to) is its own paid plan.
+          <.link
+            navigate={~p"/app/subscribe?#{%{plan: "business"}}"}
+            class="font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline"
+          >
+            Start a business plan
+          </.link>
+        </p>
+
+        <p
+          :if={@live_action != :new && @businesses != [] && !@can_create_business? && @owns_business?}
           id="business-upsell-note"
           class="mt-4 text-xs text-slate-400 dark:text-slate-500"
         >
           {add_business_note(@personal_billing)}
           <.link
-            :if={List.first(@businesses)}
-            navigate={~p"/app/org/#{List.first(@businesses).org.slug}/subscribe"}
+            :if={@owned_business_slug}
+            navigate={~p"/app/org/#{@owned_business_slug}/subscribe"}
             class="font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline"
           >
             {add_business_link_text(@personal_billing)}
@@ -177,7 +200,7 @@ defmodule MossletWeb.BusinessLive.Index do
        put_flash(
          socket,
          :info,
-         "Subscribe your current business to a paid plan before creating another."
+         business_entitlement_message(socket.assigns.current_scope.user)
        )}
     end
   end
@@ -201,10 +224,7 @@ defmodule MossletWeb.BusinessLive.Index do
       {:error, :business_entitlement_required} ->
         {:noreply,
          socket
-         |> put_flash(
-           :error,
-           "Subscribe your current business to a paid plan before creating another."
-         )
+         |> put_flash(:error, business_entitlement_message(current_user))
          |> push_patch(to: ~p"/app/business")}
 
       {:error, :subscription_required} ->
@@ -220,6 +240,20 @@ defmodule MossletWeb.BusinessLive.Index do
         {:noreply, put_flash(socket, :error, "Could not create business. Please try again.")}
     end
   end
+
+  # Realtime org changes (Orgs pubsub): a teammate joining/leaving, role changes,
+  # or coverage shifts should refresh the list (member counts) and the create
+  # gating (button/upsell) without a reload. Re-subscribe in case the set of
+  # orgs the user belongs to changed.
+  @impl true
+  def handle_info({:org_updated, _org_id}, socket) do
+    socket = assign_businesses(socket)
+    subscribe_to_businesses(socket)
+    {:noreply, socket}
+  end
+
+  # Ignore unrelated process messages (e.g. Swoosh test email delivery).
+  def handle_info(_message, socket), do: {:noreply, socket}
 
   # After creating a business from the guided onboarding step, take the user
   # straight to org-scoped checkout so billing ties to the real org. Otherwise
@@ -250,11 +284,25 @@ defmodule MossletWeb.BusinessLive.Index do
         }
       end)
 
+    owned_business_slug =
+      Enum.find_value(businesses, fn %{org: org} ->
+        org.created_by_id == current_user.id && org.slug
+      end)
+
     socket
     |> assign(:businesses, businesses)
     |> assign(:can_create_business?, Orgs.can_create_org?(current_user, :business))
+    |> assign(:owns_business?, owned_business_slug != nil)
+    |> assign(:owned_business_slug, owned_business_slug)
     |> assign(:personal_billing, personal_billing_context(current_user))
     |> assign(:form, to_form(%{"name" => ""}, as: :business))
+  end
+
+  # Subscribe to each business org's pubsub topic so member joins/leaves, role
+  # changes, and coverage shifts update this list in realtime. Re-subscribing to
+  # an already-subscribed topic is a no-op for the LiveView process.
+  defp subscribe_to_businesses(socket) do
+    Enum.each(socket.assigns.businesses, fn %{org: org} -> Orgs.subscribe_org(org) end)
   end
 
   # Summarizes the user's PERSONAL (`:user`-source) subscription so the upsell
@@ -286,6 +334,17 @@ defmodule MossletWeb.BusinessLive.Index do
 
   defp page_title(:new), do: "New business"
   defp page_title(_), do: "Business"
+
+  # Tailors the "can't create" message: a member-seat (owns no business) is told
+  # starting their own is a separate paid plan; an owner is told to put their
+  # existing business on a paid plan first.
+  defp business_entitlement_message(user) do
+    if Mosslet.Orgs.count_owned_orgs(user, :business) > 0 do
+      "Subscribe your current business to a paid plan before creating another."
+    else
+      "Starting your own business is a separate paid plan. Choose a business plan to begin."
+    end
+  end
 
   # Quiet note about adding ADDITIONAL businesses (most users only want one).
   # When the existing business is on a trial, it already has a plan — the only

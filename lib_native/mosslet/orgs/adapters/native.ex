@@ -300,6 +300,15 @@ defmodule Mosslet.Orgs.Adapters.Native do
   end
 
   @impl true
+  def count_owned_orgs(_user, _type), do: 0
+
+  @impl true
+  def count_member_orgs(_user, _type), do: 0
+
+  @impl true
+  def list_owned_orgs(_user, _type), do: []
+
+  @impl true
   def accept_invitation!(_user, id) do
     if Sync.online?() do
       with {:ok, token} <- NativeSession.get_token(),

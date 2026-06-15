@@ -148,27 +148,48 @@ defmodule Mosslet.Orgs do
   @doc """
   Server-authoritative org-creation gate.
 
-  * `:family` — a user may own at most #{@family_owned_limit} family org.
+  * `:family` — a user may own at most #{@family_owned_limit} family org. A user
+    who is only an invited member-seat of a family (owns none) does NOT get a
+    free family — they must pay to start their own.
   * `:business` — the first owned business is free; creating an additional owned
     business is gated behind a paid entitlement: every business the user already
-    owns must carry an active (non-canceled) paid subscription.
+    owns must carry an active (non-canceled) paid subscription. A user who is
+    only an invited member-seat of a business (owns none) does NOT get a free
+    business — they must pay to start a separate one.
 
   Returns `:ok` when allowed, or `{:error, reason}` where `reason` is one of
-  `:family_limit_reached`, `:business_entitlement_required`.
+  `:family_limit_reached`, `:family_entitlement_required`,
+  `:business_entitlement_required`.
   """
   def check_create_org_limit(user, :family) do
-    if count_owned_orgs(user, :family) >= @family_owned_limit do
-      {:error, :family_limit_reached}
-    else
-      :ok
+    cond do
+      count_owned_orgs(user, :family) >= @family_owned_limit ->
+        {:error, :family_limit_reached}
+
+      # An invited family member-seat (owns no family) must pay to start a
+      # separate one — they don't get the free first family.
+      count_member_orgs(user, :family) > 0 ->
+        {:error, :family_entitlement_required}
+
+      true ->
+        :ok
     end
   end
 
   def check_create_org_limit(user, :business) do
     cond do
-      count_owned_orgs(user, :business) == 0 -> :ok
-      all_owned_businesses_paid?(user) -> :ok
-      true -> {:error, :business_entitlement_required}
+      # Genuinely new owner with no seat anywhere: first business is free.
+      count_owned_orgs(user, :business) == 0 and count_member_orgs(user, :business) == 0 ->
+        :ok
+
+      # Owns at least one business: extra businesses require existing ones paid.
+      count_owned_orgs(user, :business) > 0 and all_owned_businesses_paid?(user) ->
+        :ok
+
+      # Either an invited member-seat with no owned business, or an owner whose
+      # existing businesses aren't all paid — must pay to create another.
+      true ->
+        {:error, :business_entitlement_required}
     end
   end
 
@@ -199,6 +220,19 @@ defmodule Mosslet.Orgs do
   """
   def count_owned_orgs(user, type \\ nil) do
     adapter().count_owned_orgs(user, type)
+  end
+
+  @doc """
+  Counts orgs the user belongs to as an invited member-seat — i.e. orgs where a
+  membership exists but the user is NOT the owner (`created_by_id != user.id`),
+  optionally filtered by `type`.
+
+  Used to gate org creation: an invited member-seat (who occupies a seat the org
+  already pays for) must not get a free org of that type — they may start a
+  separate one only by paying for it.
+  """
+  def count_member_orgs(user, type \\ nil) do
+    adapter().count_member_orgs(user, type)
   end
 
   @doc """

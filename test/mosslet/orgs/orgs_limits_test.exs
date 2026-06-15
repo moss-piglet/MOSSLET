@@ -138,7 +138,7 @@ defmodule Mosslet.OrgsLimitsTest do
       assert Orgs.count_owned_orgs(user, :family) == 1
     end
 
-    test "being a member of another family does not count against the owned limit" do
+    test "an invited family member-seat (owns none) cannot create a free family" do
       owner = confirmed_user("famowner")
       other = confirmed_user("fammember")
       {:ok, org} = Orgs.create_org(owner, %{"name" => "Smiths", "type" => "family"})
@@ -150,7 +150,29 @@ defmodule Mosslet.OrgsLimitsTest do
         end)
 
       assert Orgs.count_owned_orgs(other, :family) == 0
-      assert Orgs.can_create_org?(other, :family)
+      assert Orgs.count_member_orgs(other, :family) == 1
+
+      # A member-seat occupies a seat the org already covers — they must pay to
+      # start their OWN family rather than getting a free one. (#224)
+      refute Orgs.can_create_org?(other, :family)
+
+      assert {:error, :family_entitlement_required} =
+               Orgs.create_org(other, %{"name" => "Joneses", "type" => "family"})
+    end
+
+    test "a family member-seat in one type can still create a free org of the other type" do
+      owner = confirmed_user("famowner2")
+      other = confirmed_user("fammember2")
+      {:ok, org} = Orgs.create_org(owner, %{"name" => "Smiths", "type" => "family"})
+
+      {:ok, {:ok, _ms}} =
+        Repo.transaction_on_primary(fn ->
+          Orgs.Membership.insert_changeset(org, other) |> Repo.insert()
+        end)
+
+      # Being a FAMILY member-seat does not block creating a first BUSINESS.
+      assert Orgs.count_member_orgs(other, :business) == 0
+      assert Orgs.can_create_org?(other, :business)
     end
   end
 
@@ -189,6 +211,28 @@ defmodule Mosslet.OrgsLimitsTest do
 
       refute Orgs.all_owned_businesses_paid?(user)
       refute Orgs.can_create_org?(user, :business)
+    end
+
+    test "an invited business member-seat (owns none) cannot create a free business" do
+      owner = confirmed_user("bizowner")
+      other = confirmed_user("bizmember")
+      {:ok, org} = Orgs.create_org(owner, %{"name" => "Acme", "type" => "business"})
+
+      # `other` is invited in as a member but does not own a business.
+      {:ok, {:ok, _ms}} =
+        Repo.transaction_on_primary(fn ->
+          Orgs.Membership.insert_changeset(org, other) |> Repo.insert()
+        end)
+
+      assert Orgs.count_owned_orgs(other, :business) == 0
+      assert Orgs.count_member_orgs(other, :business) == 1
+
+      # They may start their OWN business only by paying for it — no free one
+      # off a seat the org already covers. (#224)
+      refute Orgs.can_create_org?(other, :business)
+
+      assert {:error, :business_entitlement_required} =
+               Orgs.create_org(other, %{"name" => "Beta", "type" => "business"})
     end
   end
 

@@ -11,7 +11,9 @@ defmodule MossletWeb.FamilyLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign_families(socket)}
+    socket = assign_families(socket)
+    if connected?(socket), do: subscribe_to_families(socket)
+    {:ok, socket}
   end
 
   @impl true
@@ -140,6 +142,24 @@ defmodule MossletWeb.FamilyLive.Index do
             </.link>
           </li>
         </ul>
+
+        <%!-- A family member-seat (invited into someone else's family, owns
+              none) can't create a free family off a seat the org pays for —
+              starting their own is a separate, paid plan. (#224) --%>
+        <p
+          :if={@live_action != :new && @families != [] && !@can_create_family? && !@owns_family?}
+          id="family-member-seat-note"
+          class="mt-4 text-xs text-slate-400 dark:text-slate-500"
+        >
+          Want a family space of your own? Starting one (separate from the family
+          you were invited to) is its own paid plan.
+          <.link
+            navigate={~p"/app/subscribe?#{%{plan: "family"}}"}
+            class="font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline"
+          >
+            Start a family plan
+          </.link>
+        </p>
       </div>
     </.layout>
     """
@@ -151,11 +171,7 @@ defmodule MossletWeb.FamilyLive.Index do
       {:noreply, push_patch(socket, to: ~p"/app/family/new")}
     else
       {:noreply,
-       put_flash(
-         socket,
-         :info,
-         "You already own a family. Each account can own one family."
-       )}
+       put_flash(socket, :info, family_blocked_message(socket.assigns.current_scope.user))}
     end
   end
 
@@ -184,6 +200,15 @@ defmodule MossletWeb.FamilyLive.Index do
          )
          |> push_patch(to: ~p"/app/family")}
 
+      {:error, :family_entitlement_required} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :warning,
+           "Starting your own family is a separate paid plan. Choose a family plan to begin."
+         )
+         |> push_navigate(to: ~p"/app/subscribe?#{%{plan: "family"}}")}
+
       {:error, :subscription_required} ->
         {:noreply,
          socket
@@ -197,6 +222,19 @@ defmodule MossletWeb.FamilyLive.Index do
         {:noreply, put_flash(socket, :error, "Could not create family. Please try again.")}
     end
   end
+
+  # Realtime org changes (Orgs pubsub): a member joining/leaving, role changes,
+  # or coverage shifts refresh the list (member counts) and create gating
+  # without a reload. Re-subscribe in case the user's set of orgs changed.
+  @impl true
+  def handle_info({:org_updated, _org_id}, socket) do
+    socket = assign_families(socket)
+    subscribe_to_families(socket)
+    {:noreply, socket}
+  end
+
+  # Ignore unrelated process messages (e.g. Swoosh test email delivery).
+  def handle_info(_message, socket), do: {:noreply, socket}
 
   # After creating a family from the guided onboarding step, take the user
   # straight to org-scoped checkout so billing ties to the real org. Otherwise
@@ -226,7 +264,24 @@ defmodule MossletWeb.FamilyLive.Index do
     socket
     |> assign(:families, families)
     |> assign(:can_create_family?, Orgs.can_create_org?(current_user, :family))
+    |> assign(:owns_family?, Orgs.count_owned_orgs(current_user, :family) > 0)
     |> assign(:form, to_form(%{"name" => ""}, as: :family))
+  end
+
+  # Subscribe to each family org's pubsub topic so member joins/leaves and role
+  # changes update this list in realtime. Re-subscribing is a no-op.
+  defp subscribe_to_families(socket) do
+    Enum.each(socket.assigns.families, fn %{org: org} -> Orgs.subscribe_org(org) end)
+  end
+
+  # A member-seat (invited into a family, owns none) can't spin up a free family
+  # off a seat the org pays for; an owner is already capped at one family.
+  defp family_blocked_message(user) do
+    if Orgs.count_owned_orgs(user, :family) > 0 do
+      "You already own a family. Each account can own one family."
+    else
+      "Starting your own family is a separate paid plan. Choose a family plan to begin."
+    end
   end
 
   defp page_title(:new), do: "New family"

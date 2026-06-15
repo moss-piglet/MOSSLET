@@ -9,7 +9,7 @@ defmodule Mosslet.Orgs.Adapters.Web do
 
   @behaviour Mosslet.Orgs.Adapter
 
-  import Ecto.Query, only: [from: 2, where: 3, order_by: 3]
+  import Ecto.Query, only: [from: 2, where: 3, order_by: 3, join: 5]
 
   alias Mosslet.Repo
   alias Mosslet.Orgs.{Org, Membership, Invitation, Guardianship}
@@ -54,6 +54,15 @@ defmodule Mosslet.Orgs.Adapters.Web do
   def count_owned_orgs(user, type) do
     Org
     |> where([o], o.created_by_id == ^user.id)
+    |> maybe_filter_type(type)
+    |> Repo.aggregate(:count, :id)
+  end
+
+  @impl true
+  def count_member_orgs(user, type) do
+    Org
+    |> join(:inner, [o], m in Membership, on: m.org_id == o.id and m.user_id == ^user.id)
+    |> where([o], o.created_by_id != ^user.id)
     |> maybe_filter_type(type)
     |> Repo.aggregate(:count, :id)
   end
