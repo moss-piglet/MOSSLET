@@ -537,6 +537,10 @@ defmodule Mosslet.Groups.Adapters.Native do
         items
         |> Enum.map(fn item -> deserialize_group(item.encrypted_data) end)
         |> Enum.reject(&is_nil/1)
+        # Personal realm only: org (business/family) circles live in the org
+        # dashboard and must not surface in the personal Circles index, even
+        # from the offline cache. Mirrors the web adapter's `is_nil(g.org_id)`.
+        |> Enum.reject(fn group -> not is_nil(Map.get(group, :org_id)) end)
 
       _ ->
         []

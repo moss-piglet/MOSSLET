@@ -368,7 +368,7 @@ defmodule MossletWeb.BusinessLive.Show do
               >
               </div>
               <.link
-                navigate={~p"/app/circles/#{circle.group.id}"}
+                navigate={~p"/app/business/#{@org.slug}/circles/#{circle.group.id}"}
                 class="flex items-center gap-3 p-3"
               >
                 <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300 group-hover:text-teal-600 dark:group-hover:text-teal-300">

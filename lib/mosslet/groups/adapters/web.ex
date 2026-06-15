@@ -32,6 +32,11 @@ defmodule Mosslet.Groups.Adapters.Web do
     |> join(:inner, [g], ug in UserGroup, on: ug.group_id == g.id)
     |> where([g, ug], ug.user_id == ^user.id)
     |> where([g, ug], not is_nil(ug.confirmed_at))
+    # Personal realm only: org (business/family) circles live in the org
+    # dashboard and must never surface in the personal Circles index (see
+    # docs/ZK_FILE_SHARING_DESIGN.md — "org dashboard is the complete operating
+    # surface"). Org circles are stamped with `org_id`; personal circles are not.
+    |> where([g, ug], is_nil(g.org_id))
     |> sort(options)
     |> paginate(options)
     |> preload([:user_groups])
@@ -51,6 +56,7 @@ defmodule Mosslet.Groups.Adapters.Web do
       on: ug.group_id == g.id,
       where: ug.user_id == ^user.id,
       where: is_nil(ug.confirmed_at),
+      where: is_nil(g.org_id),
       where: g.id not in subquery(blocked_group_ids),
       order_by: [desc: g.inserted_at],
       preload: [:user_groups]
@@ -140,6 +146,7 @@ defmodule Mosslet.Groups.Adapters.Web do
     |> join(:inner, [g, ug], ug2 in UserGroup, on: ug2.group_id == g.id)
     |> where([g, ug, ug2], ug.user_id == ^user_id and ug2.user_id == ^current_user_id)
     |> where([g, ug, ug2], not is_nil(ug.confirmed_at) and not is_nil(ug2.confirmed_at))
+    |> where([g, ug, ug2], is_nil(g.org_id))
     |> sort(options[:sort])
     |> limit(5)
     |> preload([:user_groups])
@@ -152,7 +159,8 @@ defmodule Mosslet.Groups.Adapters.Web do
       from g in Group,
         inner_join: ug in UserGroup,
         on: ug.group_id == g.id,
-        where: ug.user_id == ^user.id
+        where: ug.user_id == ^user.id,
+        where: is_nil(g.org_id)
 
     Repo.aggregate(query, :count, :id) || 0
   end
@@ -164,6 +172,7 @@ defmodule Mosslet.Groups.Adapters.Web do
       |> join(:inner, [g], ug in UserGroup, on: ug.group_id == g.id)
       |> where([g, ug], ug.user_id == ^user.id)
       |> where([g, ug], not is_nil(ug.confirmed_at))
+      |> where([g, ug], is_nil(g.org_id))
 
     Repo.aggregate(query, :count, :id) || 0
   end

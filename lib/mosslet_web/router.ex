@@ -501,6 +501,10 @@ defmodule MossletWeb.Router do
       live "/business", BusinessLive.Index, :index
       live "/business/new", BusinessLive.Index, :new
       live "/business/:slug", BusinessLive.Show, :show
+      # Org-scoped circle: files, members, and chat are fully self-contained in
+      # the org dashboard (Task #221). Org circles never surface in the personal
+      # Circles realm.
+      live "/business/:slug/circles/:id", BusinessLive.CircleShow, :show
     end
   end
 

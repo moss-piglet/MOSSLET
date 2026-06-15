@@ -53,22 +53,47 @@ defmodule MossletWeb.GroupLive.Show do
        |> put_flash(:info, "This circle cannot be viewed or no longer exists.")
        |> push_navigate(to: ~p"/app/circles")}
     else
-      user_group = get_user_group(group, current_scope.user)
-
-      {:noreply,
-       socket
-       |> assign(:group, group)
-       |> assign(:current_user_group, user_group)
-       |> assign(
-         :group_metadata,
-         pre_decrypt_group_metadata(group, user_group, current_scope.user, current_scope.key)
-       )
-       |> assign(:page_title, page_title(socket.assigns.live_action))
-       |> stream(:user_groups, Groups.list_user_groups(group))
-       |> assign_active_group_messages()
-       |> assign_last_user_message()
-       |> apply_action(socket.assigns.live_action, params)}
+      maybe_redirect_org_circle(group, socket) || show_personal_circle(group, params, socket)
     end
+  end
+
+  # Org (business/family) circles live in the org dashboard, NOT the personal
+  # Circles realm (Task #221 — "the org dashboard is the complete operating
+  # surface"). If someone lands here for an org circle (e.g. an old link), send
+  # them to the org-scoped route. Returns nil for personal circles.
+  defp maybe_redirect_org_circle(%{org_id: org_id} = group, socket) when not is_nil(org_id) do
+    case Mosslet.Orgs.get_org_by_id(org_id) do
+      %{type: :business, slug: slug} ->
+        {:noreply, push_navigate(socket, to: ~p"/app/business/#{slug}/circles/#{group.id}")}
+
+      %{slug: slug} ->
+        # Family (and any future org type) — keep them in the org realm.
+        {:noreply, push_navigate(socket, to: ~p"/app/family/#{slug}")}
+
+      _ ->
+        nil
+    end
+  end
+
+  defp maybe_redirect_org_circle(_group, _socket), do: nil
+
+  defp show_personal_circle(group, params, socket) do
+    current_scope = socket.assigns.current_scope
+    user_group = get_user_group(group, current_scope.user)
+
+    {:noreply,
+     socket
+     |> assign(:group, group)
+     |> assign(:current_user_group, user_group)
+     |> assign(
+       :group_metadata,
+       pre_decrypt_group_metadata(group, user_group, current_scope.user, current_scope.key)
+     )
+     |> assign(:page_title, page_title(socket.assigns.live_action))
+     |> stream(:user_groups, Groups.list_user_groups(group))
+     |> assign_active_group_messages()
+     |> assign_last_user_message()
+     |> apply_action(socket.assigns.live_action, params)}
   end
 
   defp apply_action(socket, :show, _params) do
