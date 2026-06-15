@@ -266,6 +266,174 @@ defmodule MossletWeb.BusinessLiveTest do
     end
   end
 
+  describe "Org-dash per-circle member management (Task #231)" do
+    setup %{conn: conn} do
+      {admin, admin_key} = onboarded_user("mgadmin")
+      {:ok, org} = Orgs.create_org(admin, %{"name" => "MgCo", "type" => "business"})
+
+      {member, member_key} = onboarded_user("mgmember")
+      add_member(org, member, :member)
+
+      {orgmate, _ok} = onboarded_user("mgorgmate")
+      add_member(org, orgmate, :member)
+
+      {outsider, _ok2} = onboarded_user("mgoutsider")
+
+      {:ok, group} =
+        Groups.create_business_circle_zk(org, admin, zk_attrs(), [member], [sealed_for(member)])
+
+      confirm_circle_membership(group, member)
+
+      %{
+        conn: conn,
+        org: org,
+        group: group,
+        admin: admin,
+        admin_key: admin_key,
+        member: member,
+        member_key: member_key,
+        orgmate: orgmate,
+        outsider: outsider
+      }
+    end
+
+    defp confirm_circle_membership(group, user) do
+      ug = Enum.find(Groups.get_group!(group.id).user_groups, &(&1.user_id == user.id))
+
+      {:ok, {:ok, _}} =
+        Mosslet.Repo.transaction_on_primary(fn ->
+          ug |> Groups.UserGroup.confirm_changeset() |> Mosslet.Repo.update()
+        end)
+
+      :ok
+    end
+
+    test "an org admin can open the manage panel for a circle", ctx do
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.admin, ctx.admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#manage-circle-#{ctx.group.id}")
+
+      lv |> element("#manage-circle-#{ctx.group.id}") |> render_click()
+
+      assert has_element?(lv, "#manage-circle-panel-#{ctx.group.id}")
+      # The circle's confirmed member appears with a Remove affordance.
+      assert has_element?(lv, "#manage-remove-#{ctx.group.id}-#{ctx.member.id}")
+      # The owner can't be removed.
+      refute has_element?(lv, "#manage-remove-#{ctx.group.id}-#{ctx.admin.id}")
+      # An org member not yet in the circle is addable.
+      assert has_element?(lv, "#manage-add-#{ctx.group.id}-#{ctx.orgmate.id}")
+    end
+
+    test "an org admin can add an org member via the ZK finalize path", ctx do
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.admin, ctx.admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}")
+
+      lv |> element("#manage-circle-#{ctx.group.id}") |> render_click()
+
+      render_hook(lv, "finalize_group_members_zk", %{
+        "sealed_members" => [sealed_for(ctx.orgmate)]
+      })
+
+      group = Groups.get_group!(ctx.group.id)
+      assert Enum.any?(group.user_groups, &(&1.user_id == ctx.orgmate.id))
+    end
+
+    test "an outsider can never be added even via a tampered finalize", ctx do
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.admin, ctx.admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}")
+
+      lv |> element("#manage-circle-#{ctx.group.id}") |> render_click()
+
+      render_hook(lv, "request_add_members", %{"user_ids" => [ctx.outsider.id]})
+
+      render_hook(lv, "finalize_group_members_zk", %{
+        "sealed_members" => [sealed_for(ctx.outsider)]
+      })
+
+      group = Groups.get_group!(ctx.group.id)
+      refute Enum.any?(group.user_groups, &(&1.user_id == ctx.outsider.id))
+    end
+
+    test "an org admin can remove a member from the circle", ctx do
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.admin, ctx.admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}")
+
+      lv |> element("#manage-circle-#{ctx.group.id}") |> render_click()
+      lv |> element("#manage-remove-#{ctx.group.id}-#{ctx.member.id}") |> render_click()
+
+      group = Groups.get_group!(ctx.group.id)
+      refute Enum.any?(group.user_groups, &(&1.user_id == ctx.member.id))
+    end
+
+    test "the circle owner can never be removed even via a tampered event", ctx do
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.admin, ctx.admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}")
+
+      lv |> element("#manage-circle-#{ctx.group.id}") |> render_click()
+      render_hook(lv, "remove_circle_member", %{"user_id" => ctx.admin.id})
+
+      group = Groups.get_group!(ctx.group.id)
+      assert Enum.any?(group.user_groups, &(&1.user_id == ctx.admin.id))
+    end
+
+    test "a plain member cannot manage a circle (no affordance + tampered writes refused)", ctx do
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.member, ctx.member_key)
+        |> live(~p"/app/business/#{ctx.org.slug}")
+
+      # A plain org member who is just a circle member has no manage affordance.
+      refute has_element?(lv, "#manage-circle-#{ctx.group.id}")
+
+      # Even if they force the panel open + push a write, the server refuses
+      # (manage_circle_id is nil -> no-op; and can_manage_circle? is false).
+      render_hook(lv, "manage_circle", %{"circle_id" => ctx.group.id})
+
+      render_hook(lv, "finalize_group_members_zk", %{
+        "sealed_members" => [sealed_for(ctx.orgmate)]
+      })
+
+      group = Groups.get_group!(ctx.group.id)
+      refute Enum.any?(group.user_groups, &(&1.user_id == ctx.orgmate.id))
+    end
+
+    test "realtime: adding a member from the dash updates an open circle page", ctx do
+      # The member has the circle page open; the admin adds the orgmate from the
+      # org dashboard. The org-update broadcast must refresh the circle roster.
+      {:ok, circle_lv, _html} =
+        ctx.conn
+        |> log_in(ctx.member, ctx.member_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      refute has_element?(circle_lv, "#circle-member-#{ctx.orgmate.id}")
+
+      {:ok, dash_lv, _html} =
+        ctx.conn
+        |> log_in(ctx.admin, ctx.admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}")
+
+      dash_lv |> element("#manage-circle-#{ctx.group.id}") |> render_click()
+
+      render_hook(dash_lv, "finalize_group_members_zk", %{
+        "sealed_members" => [sealed_for(ctx.orgmate)]
+      })
+
+      # The open circle page picks up the new member live (no reload).
+      assert has_element?(circle_lv, "#circle-member-#{ctx.orgmate.id}")
+    end
+  end
+
   describe "Connect with teammate (Task #226)" do
     setup %{conn: conn} do
       {admin, admin_key} = onboarded_user("connadmin")

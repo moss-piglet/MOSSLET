@@ -293,12 +293,38 @@ defmodule MossletWeb.BusinessLive.CircleShow do
                   {MossletWeb.OrgIdentity.placeholder_label(member)}
                 </span>
               </p>
-              <span
-                :if={member.self?}
-                class="ml-auto shrink-0 rounded-full bg-slate-100 dark:bg-slate-700/60 px-2 py-0.5 text-[11px] font-medium text-slate-500 dark:text-slate-400"
-              >
-                You
-              </span>
+
+              <div class="ml-auto flex shrink-0 items-center gap-2">
+                <span
+                  :if={member.self?}
+                  class="rounded-full bg-slate-100 dark:bg-slate-700/60 px-2 py-0.5 text-[11px] font-medium text-slate-500 dark:text-slate-400"
+                >
+                  You
+                </span>
+                <%!-- Leave circle (self). The owner can't leave their own circle. --%>
+                <button
+                  :if={member.self? && @can_leave_circle?}
+                  type="button"
+                  phx-click="leave_circle"
+                  id="leave-circle-button"
+                  data-confirm="Leave this circle? You'll lose access to its chat and files. You can't recall copies already downloaded."
+                  class="text-xs font-medium text-rose-500 hover:text-rose-600"
+                >
+                  Leave
+                </button>
+                <%!-- Remove member (circle owner/admin or org admin). --%>
+                <button
+                  :if={!member.self? && can_remove_member?(@membership, @current_user_group, member)}
+                  type="button"
+                  phx-click="remove_member"
+                  phx-value-user_id={member.user.id}
+                  id={"remove-member-#{member.user.id}"}
+                  data-confirm="Remove this person from the circle? They'll lose access to its chat and files. You can't recall copies already downloaded."
+                  class="text-xs font-medium text-rose-500 hover:text-rose-600"
+                >
+                  Remove
+                </button>
+              </div>
             </li>
           </ul>
 
@@ -694,6 +720,10 @@ defmodule MossletWeb.BusinessLive.CircleShow do
     if can_edit_group?(socket.assigns.current_user_group, current_user) do
       {:ok, added} = Groups.add_group_members_zk(socket.assigns.group, sealed_members)
 
+      # Realtime: refresh every open org dashboard + circle page (member counts
+      # and rosters) without a reload.
+      Orgs.broadcast_org_update(socket.assigns.org)
+
       {:noreply,
        socket
        |> put_flash(
@@ -708,6 +738,83 @@ defmodule MossletWeb.BusinessLive.CircleShow do
     end
   end
 
+  ## Leave / remove (self-organization — Task #231)
+
+  # A member leaves the circle (self). The circle owner can't leave their own
+  # circle (they'd orphan it); they must delete it from the org dashboard
+  # instead. Removing the viewer's own `user_group` is always permitted for a
+  # non-owner. Broadcasts an org update so every open dashboard refreshes live,
+  # then bounces the leaver back to the org surface.
+  @impl true
+  def handle_event("leave_circle", _params, socket) do
+    current_user = socket.assigns.current_scope.user
+    group = socket.assigns.group
+    user_group = socket.assigns.current_user_group
+
+    cond do
+      is_nil(user_group) ->
+        {:noreply, push_navigate(socket, to: ~p"/app/business/#{socket.assigns.org.slug}")}
+
+      group.user_id == current_user.id ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "You own this circle, so you can't leave it. Delete it from the organization dashboard instead."
+         )}
+
+      true ->
+        {:ok, _} = Groups.delete_user_group(user_group)
+        Orgs.broadcast_org_update(socket.assigns.org)
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "You've left the circle.")
+         |> push_navigate(to: ~p"/app/business/#{socket.assigns.org.slug}")}
+    end
+  end
+
+  # An authorized actor removes another member. Permission is server-
+  # authoritative: the circle owner, a circle admin, or an org admin may remove a
+  # non-owner member. The circle owner can never be removed. `kick_member/2`
+  # broadcasts `:group_member_kicked` (which bounces the removed user if they
+  # have the circle open). We also broadcast an org update so member counts on
+  # the org dashboard refresh live.
+  @impl true
+  def handle_event("remove_member", %{"user_id" => user_id}, socket) do
+    group = Groups.get_group!(socket.assigns.group.id)
+    actor_ug = socket.assigns.current_user_group
+    target_ug = Enum.find(group.user_groups, &(&1.user_id == user_id))
+
+    cond do
+      is_nil(target_ug) ->
+        {:noreply, assign_circle_data(socket)}
+
+      not can_remove_member?(socket.assigns.membership, actor_ug, %{
+        self?: false,
+        user: %{id: user_id}
+      }) ->
+        {:noreply, put_flash(socket, :error, "You don't have permission to remove members.")}
+
+      user_id == group.user_id ->
+        {:noreply, put_flash(socket, :error, "The circle owner can't be removed.")}
+
+      true ->
+        case remove_circle_member(socket.assigns.membership, actor_ug, target_ug) do
+          {:ok, _} ->
+            Orgs.broadcast_org_update(socket.assigns.org)
+
+            {:noreply,
+             socket
+             |> put_flash(:info, "Member removed from the circle.")
+             |> assign_circle_data()}
+
+          _ ->
+            {:noreply, put_flash(socket, :error, "Couldn't remove that member.")}
+        end
+    end
+  end
+
   @impl true
   def handle_event(event, params, socket) do
     case ChatSupport.handle_chat_event(event, params, socket) do
@@ -718,7 +825,20 @@ defmodule MossletWeb.BusinessLive.CircleShow do
 
   @impl true
   def handle_info({:org_updated, _org_id}, socket) do
-    {:noreply, assign_circle_data(socket)}
+    current_user = socket.assigns.current_scope.user
+
+    # Realtime membership change (Task #231): if the viewer is no longer a
+    # confirmed member of this circle (e.g. removed via the org dashboard or
+    # offboarded), bounce them back to the org surface. Otherwise refresh the
+    # roster/files/counts live.
+    if member_of_circle?(socket.assigns.group, current_user.id) do
+      {:noreply, assign_circle_data(socket)}
+    else
+      {:noreply,
+       socket
+       |> put_flash(:info, "You're no longer a member of this circle.")
+       |> push_navigate(to: ~p"/app/business/#{socket.assigns.org.slug}")}
+    end
   end
 
   # A member was removed from (or left) this circle: bounce them back to the org
@@ -763,6 +883,14 @@ defmodule MossletWeb.BusinessLive.CircleShow do
      socket
      |> put_flash(:info, "This circle no longer exists.")
      |> push_navigate(to: ~p"/app/business/#{socket.assigns.org.slug}")}
+  end
+
+  # Realtime shared-file change (Task #231): a file was uploaded, deleted, or a
+  # catch-up granted access to earlier files. Refresh the Files panel + the
+  # catch-up affordance live (no reload).
+  @impl true
+  def handle_info({:shared_files_updated, _id}, socket) do
+    {:noreply, assign_circle_data(socket)}
   end
 
   # Embedded ZK chat: delegate the shared message-stream broadcasts to
@@ -818,10 +946,31 @@ defmodule MossletWeb.BusinessLive.CircleShow do
     |> assign(:members, members)
     |> assign(:addable_members, addable_members(org_members, circle_member_ids))
     |> assign(:can_manage_circle?, can_edit_group?(user_group, current_user))
+    |> assign(:can_leave_circle?, not is_nil(user_group) and group.user_id != current_user.id)
     |> assign(:show_add_members?, socket.assigns[:show_add_members?] || false)
     |> assign(:viewer_sealed_org_key, MossletWeb.OrgIdentity.viewer_sealed_org_key(members))
     |> assign(:shared_files, build_shared_files(group, current_user))
+    |> assign_catch_up(group, current_user, user_group)
     |> maybe_request_org_key_seal(members)
+  end
+
+  # Catch-up affordance state (Task #231). Members who joined after a file was
+  # shared hold no key for it; an authorized current reader can explicitly
+  # re-seal earlier files for them (never silent — ZK, see design §6.2). We show
+  # the affordance only when (a) some current member is missing access to one or
+  # more files, and (b) the viewer is authorized (uploader of any file, a circle
+  # admin/owner, or an org admin) — the server re-checks on the write.
+  defp assign_catch_up(socket, group, current_user, user_group) do
+    missing_count = Files.members_missing_file_access_count(group)
+
+    authorized? =
+      (is_struct(user_group) and user_group.role in [:owner, :admin]) or
+        socket.assigns.membership.role == :admin or
+        Enum.any?(socket.assigns.shared_files, &(&1.uploader_id == current_user.id))
+
+    socket
+    |> assign(:catch_up_missing_count, missing_count)
+    |> assign(:can_catch_up?, missing_count > 0 and authorized?)
   end
 
   # The set of `user_id`s that are CONFIRMED members of this circle (its
@@ -989,6 +1138,45 @@ defmodule MossletWeb.BusinessLive.CircleShow do
 
   defp can_delete_file?(file, user, membership) do
     file.uploader_id == user.id or membership.role == :admin
+  end
+
+  # Whether `member` (a roster view-model) may be removed by the viewer. Server-
+  # authoritative: a non-owner member can be removed by the circle owner/admin
+  # (per-circle role) OR an org admin (org-level role). The circle owner is never
+  # removable. Self never shows a Remove affordance (use Leave instead).
+  defp can_remove_member?(membership, actor_ug, member) do
+    cond do
+      member.self? ->
+        false
+
+      true ->
+        org_admin? = is_struct(membership) and membership.role == :admin
+        circle_manager? = is_struct(actor_ug) and actor_ug.role in [:owner, :admin]
+        org_admin? or circle_manager?
+    end
+  end
+
+  # Performs the removal. Prefer the role-checked `kick_member/2` when the actor
+  # holds a managing per-circle role (it broadcasts `:group_member_kicked`, which
+  # bounces the removed user). When the actor is an org admin without a managing
+  # circle role, fall back to `remove_group_members/2` (org-level authority).
+  defp remove_circle_member(membership, actor_ug, target_ug) do
+    cond do
+      is_struct(actor_ug) and actor_ug.role in [:owner, :admin] and
+          Groups.can_moderate?(actor_ug.role, target_ug.role) ->
+        Groups.kick_member(actor_ug, target_ug)
+
+      membership && membership.role == :admin ->
+        group = Groups.get_group!(target_ug.group_id)
+
+        case Groups.remove_group_members(group, [target_ug.user_id]) do
+          {:ok, n} when n > 0 -> {:ok, n}
+          _ -> {:error, :not_removed}
+        end
+
+      true ->
+        {:error, :unauthorized}
+    end
   end
 
   defp random_avatar do

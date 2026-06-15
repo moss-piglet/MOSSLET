@@ -394,4 +394,117 @@ defmodule MossletWeb.BusinessLive.CircleShowTest do
       assert Enum.any?(group.user_groups, &(&1.user_id == orgmate.id))
     end
   end
+
+  describe "leave circle (self)" do
+    test "a non-owner member can leave and is bounced to the org dashboard", ctx do
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.member, ctx.member_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      assert has_element?(lv, "#leave-circle-button")
+
+      assert {:error, {:live_redirect, %{to: to}}} =
+               lv |> element("#leave-circle-button") |> render_click()
+
+      assert to == "/app/business/#{ctx.org.slug}"
+
+      group = Groups.get_group!(ctx.group.id)
+      refute Enum.any?(group.user_groups, &(&1.user_id == ctx.member.id))
+    end
+
+    test "the circle owner has no leave affordance and a tampered leave is refused", ctx do
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.admin, ctx.admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      refute has_element?(lv, "#leave-circle-button")
+
+      # A tampered client pushing the event must be refused — the owner stays.
+      render_hook(lv, "leave_circle", %{})
+
+      group = Groups.get_group!(ctx.group.id)
+      assert Enum.any?(group.user_groups, &(&1.user_id == ctx.admin.id))
+    end
+  end
+
+  describe "remove member (owner/admin)" do
+    test "the circle owner sees a Remove affordance and can remove a member", ctx do
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.admin, ctx.admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      assert has_element?(lv, "#remove-member-#{ctx.member.id}")
+
+      lv |> element("#remove-member-#{ctx.member.id}") |> render_click()
+
+      refute has_element?(lv, "#circle-member-#{ctx.member.id}")
+
+      group = Groups.get_group!(ctx.group.id)
+      refute Enum.any?(group.user_groups, &(&1.user_id == ctx.member.id))
+    end
+
+    test "a plain member has no Remove affordance and a tampered remove is refused", ctx do
+      # A second org member added to the circle so the viewer has someone to try
+      # to remove.
+      {orgmate, _key} = onboarded_user("csremtarget")
+      add_member(ctx.org, orgmate, :member)
+
+      {:ok, lv0, _html} =
+        ctx.conn
+        |> log_in(ctx.admin, ctx.admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      render_hook(lv0, "finalize_group_members_zk", %{"sealed_members" => [sealed_for(orgmate)]})
+      confirm_membership(ctx.group, orgmate)
+
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.member, ctx.member_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      # A plain member sees no remove buttons for others.
+      refute has_element?(lv, "#remove-member-#{orgmate.id}")
+      refute has_element?(lv, "#remove-member-#{ctx.admin.id}")
+
+      # A tampered client pushing the event must be refused server-side.
+      render_hook(lv, "remove_member", %{"user_id" => orgmate.id})
+
+      group = Groups.get_group!(ctx.group.id)
+      assert Enum.any?(group.user_groups, &(&1.user_id == orgmate.id))
+    end
+
+    test "the circle owner can never be removed even via a tampered event", ctx do
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.member, ctx.member_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      render_hook(lv, "remove_member", %{"user_id" => ctx.admin.id})
+
+      group = Groups.get_group!(ctx.group.id)
+      assert Enum.any?(group.user_groups, &(&1.user_id == ctx.admin.id))
+    end
+
+    test "realtime: a removed member with the circle open is bounced to the org dashboard",
+         ctx do
+      # The member has the circle open; the admin removes them from another
+      # session. The org-update broadcast must bounce the member live.
+      {:ok, member_lv, _html} =
+        ctx.conn
+        |> log_in(ctx.member, ctx.member_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      {:ok, admin_lv, _html} =
+        ctx.conn
+        |> log_in(ctx.admin, ctx.admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      admin_lv |> element("#remove-member-#{ctx.member.id}") |> render_click()
+
+      assert_redirect(member_lv, "/app/business/#{ctx.org.slug}")
+    end
+  end
 end

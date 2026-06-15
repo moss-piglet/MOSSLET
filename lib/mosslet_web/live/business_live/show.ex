@@ -42,6 +42,9 @@ defmodule MossletWeb.BusinessLive.Show do
        |> assign(:circle_form, to_form(%{"name" => "", "description" => ""}, as: :circle))
        |> assign(:pending_zk_circle_attrs, nil)
        |> assign(:pending_zk_circle_users, nil)
+       |> assign(:manage_circle_id, nil)
+       |> assign(:manage_circle, nil)
+       |> assign(:pending_add_member_ids, [])
        |> assign_business_data()}
     else
       {:ok,
@@ -388,6 +391,33 @@ defmodule MossletWeb.BusinessLive.Show do
                   class="size-4 shrink-0 text-slate-300 dark:text-slate-600 group-hover:text-teal-500 dark:group-hover:text-teal-400"
                 />
               </.link>
+
+              <%!-- Per-circle member management (Task #231): an org admin or the
+                   circle owner/admin can add/remove members without leaving the
+                   org dashboard. Consistent with the CircleShow members section. --%>
+              <div
+                :if={circle.viewer_can_manage?}
+                class="border-t border-slate-200/60 dark:border-slate-700/60 px-3 py-2"
+              >
+                <button
+                  :if={!(@manage_circle && @manage_circle.group.id == circle.group.id)}
+                  type="button"
+                  phx-click="manage_circle"
+                  phx-value-circle_id={circle.group.id}
+                  id={"manage-circle-#{circle.group.id}"}
+                  class="inline-flex items-center gap-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 hover:underline"
+                >
+                  <.phx_icon name="hero-users" class="size-3.5" /> Manage members
+                </button>
+
+                <.circle_manage_panel
+                  :if={@manage_circle && @manage_circle.group.id == circle.group.id}
+                  manage={@manage_circle}
+                  org={@org}
+                  viewer_sealed_org_key={@viewer_sealed_org_key}
+                  current_user_id={@current_scope.user.id}
+                />
+              </div>
             </li>
             <li
               :if={@circles == [] && !@show_circle_form?}
@@ -482,6 +512,149 @@ defmodule MossletWeb.BusinessLive.Show do
         </section>
       </div>
     </.layout>
+    """
+  end
+
+  # Inline per-circle member-management panel rendered on the org dashboard
+  # (Task #231). Mirrors the CircleShow members section: a roster (scoped to the
+  # circle) with a Remove affordance, plus the ZK add-members composer. Reuses
+  # the route-agnostic `CircleAddMembersHook` + `OrgMembers` hooks. Because the
+  # dashboard shows multiple circles, the server scopes every add/remove write to
+  # `@manage_circle_id` (set when this panel opens) — the hook payload itself is
+  # unchanged.
+  attr :manage, :map, required: true
+  attr :org, :map, required: true
+  attr :viewer_sealed_org_key, :string, default: nil
+  attr :current_user_id, :string, required: true
+
+  defp circle_manage_panel(assigns) do
+    ~H"""
+    <div
+      id={"manage-circle-panel-#{@manage.group.id}"}
+      phx-hook="OrgMembers"
+      data-sealed-org-key={@viewer_sealed_org_key}
+      data-current-user-id={@current_user_id}
+      class="mt-2 rounded-xl border border-teal-200/60 dark:border-teal-800/50 bg-gradient-to-br from-teal-50/60 to-emerald-50/40 dark:from-teal-900/15 dark:to-emerald-900/10 p-4 space-y-3"
+    >
+      <div class="flex items-center justify-between gap-2">
+        <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
+          Members ({@manage.member_count})
+        </p>
+        <button
+          type="button"
+          phx-click="close_manage_circle"
+          id={"close-manage-circle-#{@manage.group.id}"}
+          class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-slate-800/60 transition-colors duration-200"
+        >
+          Done
+        </button>
+      </div>
+
+      <ul
+        role="list"
+        class="rounded-lg border border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/30 divide-y divide-slate-100 dark:divide-slate-700/50"
+      >
+        <li
+          :for={member <- @manage.members}
+          id={"manage-member-#{@manage.group.id}-#{member.user.id}"}
+          data-org-member-row
+          data-encrypted-display-name={member.encrypted_display_name}
+          class="flex items-center gap-3 px-3 py-2.5"
+        >
+          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/40 dark:to-emerald-900/40 text-teal-600 dark:text-teal-300">
+            <.phx_icon name="hero-user" class="size-3.5" />
+          </div>
+          <span class="min-w-0 flex-1 text-sm text-slate-900 dark:text-slate-100 truncate">
+            <span {MossletWeb.OrgIdentity.org_name_target(member)}>
+              {MossletWeb.OrgIdentity.placeholder_label(member)}
+            </span>
+          </span>
+          <span
+            :if={member.self?}
+            class="shrink-0 rounded-full bg-slate-100 dark:bg-slate-700/60 px-2 py-0.5 text-[11px] font-medium text-slate-500 dark:text-slate-400"
+          >
+            You
+          </span>
+          <button
+            :if={!member.self? && member.user.id != @manage.group.user_id}
+            type="button"
+            phx-click="remove_circle_member"
+            phx-value-user_id={member.user.id}
+            id={"manage-remove-#{@manage.group.id}-#{member.user.id}"}
+            data-confirm="Remove this person from the circle? They'll lose access to its chat and files. You can't recall copies already downloaded."
+            class="shrink-0 text-xs font-medium text-rose-500 hover:text-rose-600"
+          >
+            Remove
+          </button>
+        </li>
+      </ul>
+
+      <%!-- Add members (ZK write path). Any org member not already in the circle
+           is addable — org membership is the only prerequisite. --%>
+      <form
+        :if={@manage.addable_members != []}
+        id={"manage-add-members-form-#{@manage.group.id}"}
+        phx-hook="CircleAddMembersHook"
+        data-sealed-group-key={@manage.sealed_group_key}
+        data-sealed-org-key={@viewer_sealed_org_key}
+        class="space-y-3"
+      >
+        <p class="text-xs font-medium text-slate-700 dark:text-slate-300">
+          Add people from your organization
+        </p>
+        <ul
+          role="list"
+          class="max-h-48 overflow-y-auto rounded-lg border border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/30 divide-y divide-slate-100 dark:divide-slate-700/50"
+        >
+          <li
+            :for={member <- @manage.addable_members}
+            id={"manage-add-row-#{@manage.group.id}-#{member.user.id}"}
+            data-org-member-row
+            data-encrypted-display-name={member.encrypted_display_name}
+          >
+            <label
+              for={"manage-add-#{@manage.group.id}-#{member.user.id}"}
+              class="flex items-center gap-3 cursor-pointer px-3 py-2.5 hover:bg-teal-50/60 dark:hover:bg-teal-900/15 transition-colors duration-150"
+            >
+              <input
+                type="checkbox"
+                id={"manage-add-#{@manage.group.id}-#{member.user.id}"}
+                name="add_members[]"
+                value={member.user.id}
+                class="size-4 rounded border-slate-300 dark:border-slate-600 text-teal-600 focus:ring-teal-500 focus:ring-offset-0"
+              />
+              <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
+                <.phx_icon name="hero-user" class="size-3.5" />
+              </div>
+              <span
+                class="min-w-0 flex-1 text-sm text-slate-900 dark:text-slate-100 truncate"
+                data-decrypt-org-name
+              >
+                {member.personal_name || "Org member"}
+              </span>
+            </label>
+          </li>
+        </ul>
+
+        <div class="flex items-center justify-end">
+          <button
+            type="submit"
+            id={"manage-add-submit-#{@manage.group.id}"}
+            phx-disable-with="Adding…"
+            class="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-teal-500 to-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-emerald-500/25 transition-all duration-200 hover:shadow-md hover:shadow-emerald-500/30"
+          >
+            <.phx_icon name="hero-user-plus" class="size-4" /> Add to circle
+          </button>
+        </div>
+      </form>
+
+      <p
+        :if={@manage.addable_members == []}
+        class="text-xs text-slate-500 dark:text-slate-400"
+      >
+        Everyone in this organization is already in this circle.
+      </p>
+    </div>
     """
   end
 
@@ -603,6 +776,122 @@ defmodule MossletWeb.BusinessLive.Show do
       end
     else
       {:noreply, socket}
+    end
+  end
+
+  ## Per-circle member management from the org dashboard (Task #231)
+
+  # Open the inline add/remove members panel for a specific circle. Only org
+  # admins (or the circle owner/admin) manage membership; the affordance is
+  # gated in the template and re-checked on every write.
+  @impl true
+  def handle_event("manage_circle", %{"circle_id" => circle_id}, socket) do
+    {:noreply,
+     socket
+     |> assign(:manage_circle_id, circle_id)
+     |> assign(:show_circle_form?, false)
+     |> assign_business_data()}
+  end
+
+  @impl true
+  def handle_event("close_manage_circle", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:manage_circle_id, nil)
+     |> assign(:manage_circle, nil)}
+  end
+
+  # Phase 1 (ZK add): the browser sent the selected org-member ids for the circle
+  # currently being managed. Server-authoritative (I1): only an authorized
+  # manager may add, and the candidate set is intersected with the circle's
+  # addable org members. Returns each member's public keys + org display-name
+  # ciphertext + server-generated moniker/avatar for the browser to seal.
+  @impl true
+  def handle_event("request_add_members", %{"user_ids" => user_ids}, socket)
+      when is_list(user_ids) do
+    manage = socket.assigns.manage_circle
+
+    cond do
+      is_nil(manage) ->
+        {:noreply, socket}
+
+      not can_manage_circle?(socket, manage) ->
+        {:noreply, put_flash(socket, :error, "You don't have permission to add members.")}
+
+      true ->
+        eligible_ids = MapSet.new(manage.addable_members, & &1.user.id)
+        selected_ids = Enum.filter(user_ids, &MapSet.member?(eligible_ids, &1))
+
+        members =
+          socket.assigns.org
+          |> MossletWeb.OrgIdentity.members_to_add(selected_ids)
+          |> Enum.map(fn member ->
+            member
+            |> Map.put(:moniker, FriendlyID.generate(3))
+            |> Map.put(:avatar_img, random_avatar())
+          end)
+
+        if members == [] do
+          {:noreply, put_flash(socket, :info, "No eligible org members selected.")}
+        else
+          {:noreply,
+           socket
+           |> assign(:pending_add_member_ids, Enum.map(members, & &1.user_id))
+           |> push_event("seal_group_key_for_new_members", %{members: members})}
+        end
+    end
+  end
+
+  # Phase 2 (ZK add): the browser sealed the circle group_key for each new member
+  # and encrypted their display name/moniker/avatar with it. Persist via the
+  # shared ZK write path, which RE-ENFORCES org-membership eligibility (I1)
+  # server-side. The raw group_key NEVER reaches the server. Broadcasts an org
+  # update so every open dashboard/circle refreshes live.
+  @impl true
+  def handle_event("finalize_group_members_zk", %{"sealed_members" => sealed_members}, socket)
+      when is_list(sealed_members) do
+    manage = socket.assigns.manage_circle
+
+    if manage && can_manage_circle?(socket, manage) do
+      {:ok, added} = Groups.add_group_members_zk(manage.group, sealed_members)
+      Orgs.broadcast_org_update(socket.assigns.org)
+
+      {:noreply,
+       socket
+       |> put_flash(:success, "#{added} member#{if added != 1, do: "s"} added to the circle.")
+       |> assign(:pending_add_member_ids, [])
+       |> assign_business_data()}
+    else
+      {:noreply, put_flash(socket, :error, "You don't have permission to add members.")}
+    end
+  end
+
+  # Remove a member from the circle currently being managed. Server-
+  # authoritative: an org admin (or the circle owner/admin) may remove a
+  # non-owner member. Broadcasts an org update so dashboards/circles refresh
+  # live (and a removed member with the circle open gets bounced).
+  @impl true
+  def handle_event("remove_circle_member", %{"user_id" => user_id}, socket) do
+    manage = socket.assigns.manage_circle
+
+    cond do
+      is_nil(manage) ->
+        {:noreply, socket}
+
+      not can_manage_circle?(socket, manage) ->
+        {:noreply, put_flash(socket, :error, "You don't have permission to remove members.")}
+
+      user_id == manage.group.user_id ->
+        {:noreply, put_flash(socket, :error, "The circle owner can't be removed.")}
+
+      true ->
+        {:ok, _} = Groups.remove_group_members(manage.group, [user_id])
+        Orgs.broadcast_org_update(socket.assigns.org)
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Member removed from the circle.")
+         |> assign_business_data()}
     end
   end
 
@@ -882,7 +1171,10 @@ defmodule MossletWeb.BusinessLive.Show do
           group: group,
           encrypted_name: group.name,
           sealed_group_key: user_group && user_group.key,
-          member_count: length(group.user_groups)
+          member_count: length(group.user_groups),
+          viewer_can_manage?:
+            socket.assigns.membership.role == :admin or
+              (is_struct(user_group) and user_group.role in [:owner, :admin])
         }
       end)
 
@@ -922,7 +1214,61 @@ defmodule MossletWeb.BusinessLive.Show do
     |> assign(:pending_invitations, Orgs.list_invitations_by_org(org))
     |> assign(:seats, Orgs.seat_summary(org))
     |> assign(:can_manage?, socket.assigns.membership.role == :admin)
+    |> assign_manage_circle(members)
     |> maybe_request_org_key_seal()
+  end
+
+  # Builds the per-circle member-management view-model for the circle currently
+  # being managed (`@manage_circle_id`), or nil when no circle is open. Lets an
+  # admin add/remove members for an existing circle from the org dashboard (Task
+  # #231) — consistent with the CircleShow members section.
+  #
+  # `members` is the full org roster (carrying each member's org-display-name
+  # ciphertext, built once by `assign_business_data/1`). We scope it to THIS
+  # circle's confirmed members for the roster, and derive the addable set (any
+  # org member not yet in the circle, excluding self) for the composer. All
+  # server-authoritative — the add write re-enforces org-eligibility (I1).
+  defp assign_manage_circle(socket, members) do
+    current_user = socket.assigns.current_scope.user
+
+    manage =
+      case socket.assigns.manage_circle_id do
+        nil ->
+          nil
+
+        circle_id ->
+          group = Groups.get_group!(circle_id)
+
+          if is_nil(group) or group.org_id != socket.assigns.org.id do
+            nil
+          else
+            user_group = Enum.find(group.user_groups, &(&1.user_id == current_user.id))
+
+            circle_member_ids =
+              group.user_groups
+              |> Enum.filter(&(not is_nil(&1.confirmed_at)))
+              |> MapSet.new(& &1.user_id)
+
+            circle_members =
+              Enum.filter(members, &MapSet.member?(circle_member_ids, &1.user.id))
+
+            addable =
+              Enum.filter(members, fn m ->
+                not m.self? and not MapSet.member?(circle_member_ids, m.user.id)
+              end)
+
+            %{
+              group: group,
+              user_group: user_group,
+              sealed_group_key: user_group && user_group.key,
+              members: circle_members,
+              addable_members: addable,
+              member_count: MapSet.size(circle_member_ids)
+            }
+          end
+      end
+
+    assign(socket, :manage_circle, manage)
   end
 
   # After loading roster data, if the viewer holds the org_key and some members
@@ -1021,6 +1367,18 @@ defmodule MossletWeb.BusinessLive.Show do
       {msg, _} -> msg
       _ -> "Could not update"
     end
+  end
+
+  # Whether the viewer may manage membership for the given circle: an org admin
+  # (org-level role) OR the circle owner/admin (per-circle role). Server-
+  # authoritative — checked on every add/remove write.
+  defp can_manage_circle?(socket, manage) do
+    org_admin? = socket.assigns.membership.role == :admin
+
+    circle_manager? =
+      is_struct(manage.user_group) and manage.user_group.role in [:owner, :admin]
+
+    org_admin? or circle_manager?
   end
 
   defp random_avatar do

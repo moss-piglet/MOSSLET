@@ -34,6 +34,44 @@ defmodule Mosslet.Files do
 
   def max_size_bytes, do: @max_size_bytes
 
+  ## Realtime (Task #231): shared-file changes propagate to every open circle
+  ## Files panel + the org-dash "Files across your circles" overview, with no
+  ## reload. We reuse the existing per-group topic (`group:#{group_id}`, which
+  ## CircleShow already subscribes to via `Groups.group_subscribe/1`) AND an
+  ## org-scoped topic so the org dashboard can refresh its overview. The events
+  ## carry only ids — no ciphertext, no keys (ZK-safe).
+
+  @doc """
+  Subscribe the caller to shared-file events for an org (the org-dash overview).
+  Handle `{:shared_files_updated, org_id}` in `handle_info/2`.
+  """
+  def subscribe_org_files(org_id) when is_binary(org_id) do
+    Phoenix.PubSub.subscribe(Mosslet.PubSub, org_files_topic(org_id))
+  end
+
+  defp org_files_topic(org_id), do: "org_files:#{org_id}"
+
+  # Broadcasts a shared-file change to (a) the circle's group topic — picked up
+  # by every open Files panel for that circle — and (b) the org-files topic —
+  # picked up by the org dashboard overview. Ids only (ZK-safe).
+  defp broadcast_file_change(%SharedFile{} = shared_file) do
+    Phoenix.PubSub.broadcast(
+      Mosslet.PubSub,
+      "group:#{shared_file.group_id}",
+      {:shared_files_updated, shared_file.group_id}
+    )
+
+    if shared_file.org_id do
+      Phoenix.PubSub.broadcast(
+        Mosslet.PubSub,
+        org_files_topic(shared_file.org_id),
+        {:shared_files_updated, shared_file.org_id}
+      )
+    end
+
+    :ok
+  end
+
   @doc """
   Server-authoritative recipient set for a circle (I1): the circle's confirmed
   members, as a list of `%{user_id, public_key, pq_public_key}` for the browser
@@ -113,6 +151,193 @@ defmodule Mosslet.Files do
           _ -> acc
         end
       end)
+
+    if inserted > 0, do: broadcast_file_change(shared_file)
+
+    {:ok, inserted}
+  end
+
+  ## Catch-up: grant new members access to EARLIER files (explicit, never silent
+  ## — Task #231, see docs/ZK_FILE_SHARING_DESIGN.md §6.2). When someone joins a
+  ## circle after a file was shared, they hold no sealed `file_key` for it. A
+  ## current reader (the uploader, a circle admin/owner, or an org admin) can
+  ## explicitly "catch everyone up": their browser unseals each file_key it can
+  ## read and RE-SEALS it for the members who lack access. The server never sees
+  ## a raw file_key (I2/I3); the recipient set stays server-authoritative (I1);
+  ## the action is explicit + surfaced, never automatic.
+
+  @doc """
+  How many current confirmed circle members are missing access to at least one
+  shared file in `group`. Drives the "catch up" affordance + tooltip. `0` means
+  everyone can already read every file (affordance hidden).
+  """
+  def members_missing_file_access_count(%Group{} = group) do
+    group
+    |> members_missing_file_access()
+    |> length()
+  end
+
+  @doc """
+  The set of current confirmed circle members (`user_id`s) who lack a sealed
+  `file_key` for one or more of the circle's shared files.
+  """
+  def members_missing_file_access(%Group{} = group) do
+    member_ids = confirmed_member_user_ids(group)
+
+    file_ids =
+      SharedFile
+      |> where([sf], sf.group_id == ^group.id)
+      |> select([sf], sf.id)
+      |> Repo.all()
+
+    if file_ids == [] or member_ids == [] do
+      []
+    else
+      total_files = length(file_ids)
+
+      # For each member, how many of the circle's files they can already read.
+      reader_counts =
+        UserSharedFile
+        |> where([usf], usf.shared_file_id in ^file_ids and usf.user_id in ^member_ids)
+        |> group_by([usf], usf.user_id)
+        |> select([usf], {usf.user_id, count(usf.id)})
+        |> Repo.all()
+        |> Map.new()
+
+      Enum.filter(member_ids, fn uid ->
+        Map.get(reader_counts, uid, 0) < total_files
+      end)
+    end
+  end
+
+  @doc """
+  Builds the client-side re-seal payload for `actor` to catch everyone up on
+  earlier files in `group`. For every file `actor` can read, returns the actor's
+  OWN sealed `file_key` (so the browser can unseal it) plus the public keys of
+  the current confirmed members who still lack access:
+
+      [%{shared_file_id, sealed_key, missing: [%{user_id, public_key, pq_public_key}]}]
+
+  Files where nobody is missing are dropped. The raw `file_key` never appears
+  here — only the actor's already-sealed copy, which only the actor can unseal.
+  Recipient set is server-authoritative (I1): only current circle members.
+  """
+  def catch_up_payload(%Group{} = group, %User{} = actor) do
+    member_ids = confirmed_member_user_ids(group)
+
+    # The files the actor can read (holds a sealed key for), with all current
+    # reader rows preloaded so we can compute who's missing per file.
+    actor_files =
+      SharedFile
+      |> join(:inner, [sf], usf in UserSharedFile,
+        on: usf.shared_file_id == sf.id and usf.user_id == ^actor.id
+      )
+      |> where([sf, usf], sf.group_id == ^group.id)
+      |> select([sf, usf], {sf, usf.key})
+      |> Repo.all()
+
+    file_ids = Enum.map(actor_files, fn {sf, _} -> sf.id end)
+
+    readers_by_file =
+      if file_ids == [] do
+        %{}
+      else
+        UserSharedFile
+        |> where([usf], usf.shared_file_id in ^file_ids)
+        |> select([usf], {usf.shared_file_id, usf.user_id})
+        |> Repo.all()
+        |> Enum.group_by(fn {fid, _} -> fid end, fn {_, uid} -> uid end)
+      end
+
+    member_users =
+      member_ids
+      |> users_by_ids()
+      |> Map.new(fn u -> {u.id, u} end)
+
+    actor_files
+    |> Enum.map(fn {sf, actor_sealed_key} ->
+      existing_readers = MapSet.new(Map.get(readers_by_file, sf.id, []))
+
+      missing =
+        member_ids
+        |> Enum.reject(&MapSet.member?(existing_readers, &1))
+        |> Enum.map(&Map.get(member_users, &1))
+        |> Enum.reject(&is_nil/1)
+        |> Enum.map(fn user ->
+          %{
+            user_id: user.id,
+            public_key: user.key_pair["public"],
+            pq_public_key: user.pq_public_key
+          }
+        end)
+        |> Enum.reject(&is_nil(&1.public_key))
+
+      %{shared_file_id: sf.id, sealed_key: actor_sealed_key, missing: missing}
+    end)
+    |> Enum.reject(fn entry -> entry.missing == [] end)
+  end
+
+  @doc """
+  Persists catch-up re-sealed `file_key`s. `sealed_entries` is a list of maps
+  (string keys) with `shared_file_id`, `user_id`, `sealed_key`, each produced in
+  the browser by re-sealing a file_key the actor could read. Server-authoritative
+  (I1): an entry is inserted only when its `user_id` is a current confirmed
+  member of THAT file's circle and doesn't already hold a row. Returns
+  `{:ok, count_inserted}`.
+  """
+  def finalize_catch_up_zk(%Group{} = group, sealed_entries) when is_list(sealed_entries) do
+    eligible_ids = MapSet.new(confirmed_member_user_ids(group))
+
+    group_file_ids =
+      SharedFile
+      |> where([sf], sf.group_id == ^group.id)
+      |> select([sf], sf.id)
+      |> Repo.all()
+      |> MapSet.new()
+
+    existing_pairs =
+      UserSharedFile
+      |> where([usf], usf.shared_file_id in ^MapSet.to_list(group_file_ids))
+      |> select([usf], {usf.shared_file_id, usf.user_id})
+      |> Repo.all()
+      |> MapSet.new()
+
+    inserted =
+      sealed_entries
+      |> Enum.map(&normalize_keys/1)
+      |> Enum.filter(fn e ->
+        is_binary(e["sealed_key"]) and
+          MapSet.member?(eligible_ids, e["user_id"]) and
+          MapSet.member?(group_file_ids, e["shared_file_id"]) and
+          not MapSet.member?(existing_pairs, {e["shared_file_id"], e["user_id"]})
+      end)
+      |> Enum.reduce(0, fn e, acc ->
+        shared_file = %SharedFile{id: e["shared_file_id"]}
+
+        changeset =
+          UserSharedFile.insert_changeset(shared_file, e["user_id"], e["sealed_key"])
+
+        case Repo.transaction_on_primary(fn -> Repo.insert(changeset) end) do
+          {:ok, {:ok, _}} -> acc + 1
+          _ -> acc
+        end
+      end)
+
+    if inserted > 0 do
+      Phoenix.PubSub.broadcast(
+        Mosslet.PubSub,
+        "group:#{group.id}",
+        {:shared_files_updated, group.id}
+      )
+
+      if group.org_id do
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          org_files_topic(group.org_id),
+          {:shared_files_updated, group.org_id}
+        )
+      end
+    end
 
     {:ok, inserted}
   end
@@ -211,6 +436,7 @@ defmodule Mosslet.Files do
           # Best-effort async blob delete (the DB record is already gone, so
           # access is revoked regardless of object-store latency).
           SharedFileStorage.delete_blob(storage_path)
+          broadcast_file_change(shared_file)
           {:ok, :revoked}
 
         {:ok, {:error, reason}} ->
