@@ -20,17 +20,26 @@ defmodule MossletWeb.BusinessLive.CircleShow do
   alias Mosslet.Accounts
   alias Mosslet.Files
   alias Mosslet.Groups
+  alias Mosslet.GroupMessages
   alias Mosslet.Orgs
+  alias MossletWeb.GroupLive.{Group, GroupMessage.EditForm}
+  alias MossletWeb.GroupLive.ChatSupport
 
   require Logger
 
   @impl true
   def mount(%{"slug" => slug, "id" => group_id}, _session, socket) do
     current_user = socket.assigns.current_scope.user
-    org = Orgs.get_org!(current_user, slug)
+    org = safe_get_org(current_user, slug)
     group = Groups.get_group(group_id)
 
     cond do
+      is_nil(org) ->
+        {:ok,
+         socket
+         |> put_flash(:info, "That organization isn't available.")
+         |> push_navigate(to: ~p"/app/business")}
+
       org.type != :business ->
         {:ok,
          socket
@@ -65,8 +74,20 @@ defmodule MossletWeb.BusinessLive.CircleShow do
          |> assign(:page_title, "Business circle")
          |> assign(:pending_shared_file, nil)
          |> assign(:blob_buffers, %{})
-         |> assign_circle_data()}
+         |> assign(:show_markdown_guide, false)
+         |> ChatSupport.assign_scrolled_to_top()
+         |> assign_circle_data()
+         |> assign_chat()}
     end
+  end
+
+  # Membership-scoped org lookup that returns nil (instead of raising) when the
+  # viewer isn't a member of `slug`. A non-member who hits a circle URL gets a
+  # friendly redirect rather than a crash.
+  defp safe_get_org(user, slug) do
+    Orgs.get_org!(user, slug)
+  rescue
+    Ecto.NoResultsError -> nil
   end
 
   @impl true
@@ -156,11 +177,32 @@ defmodule MossletWeb.BusinessLive.CircleShow do
                   <.phx_icon name="hero-document" class="size-4" />
                 </div>
                 <div class="min-w-0">
-                  <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                  <%!-- Filename is encrypted with the file_key (ZK). Decrypt it
+                       in-place: unseal the viewer's file_key, then decrypt the
+                       filename — same path as download. --%>
+                  <div
+                    :if={file.viewer_sealed_key && file.encrypted_filename}
+                    id={"decrypt-filename-#{file.id}"}
+                    phx-hook="DecryptSharedFileName"
+                    phx-update="ignore"
+                    data-sealed-file-key={file.viewer_sealed_key}
+                    data-encrypted-filename={file.encrypted_filename}
+                  >
+                    <p
+                      data-shared-filename
+                      class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate"
+                    >
+                      Decrypting…
+                    </p>
+                  </div>
+                  <p
+                    :if={!(file.viewer_sealed_key && file.encrypted_filename)}
+                    class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate"
+                  >
                     Encrypted file
                   </p>
                   <p class="text-xs text-slate-500 dark:text-slate-400">
-                    {format_size(file.size_bytes)} · {length(file.user_shared_files)} can read
+                    {format_size(file.size_bytes)} · {file.reader_count} can read
                   </p>
                 </div>
               </div>
@@ -243,7 +285,69 @@ defmodule MossletWeb.BusinessLive.CircleShow do
             </.link>.
           </p>
         </section>
+
+        <%!-- Encrypted chat (reused ZK group chat — self-contained per circle) --%>
+        <section
+          id="circle-chat-panel"
+          class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm overflow-hidden"
+        >
+          <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-200/60 dark:border-slate-700/60">
+            <div>
+              <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                Chat
+              </h2>
+              <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                End-to-end encrypted. {@total_messages_count} message{if @total_messages_count != 1,
+                  do: "s"}.
+              </p>
+            </div>
+            <span class="relative flex h-2.5 w-2.5" title="Live">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75">
+              </span>
+              <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+          </div>
+
+          <%!-- Decrypt the chat's group metadata browser-side (ZK). --%>
+          <div
+            id="circle-chat-metadata"
+            phx-hook="DecryptGroupMetadata"
+            data-sealed-group-key={@group_metadata[:sealed_group_key]}
+            data-encrypted-name={@group_metadata[:encrypted_name]}
+            data-encrypted-moniker={@group_metadata[:encrypted_moniker]}
+            data-browser-decrypt={@group_metadata[:browser_decrypt?]}
+          >
+          </div>
+
+          <div class="h-[32rem] flex flex-col">
+            <Group.show
+              :if={@current_user_group}
+              messages={@streams.messages}
+              messages_list={@messages_list}
+              current_scope={@current_scope}
+              group={@group}
+              user_group={@current_user_group}
+              scrolled_to_top={@scrolled_to_top}
+              current_page={:business}
+            />
+          </div>
+        </section>
       </div>
+
+      <.live_component
+        module={EditForm}
+        message={@message}
+        id="message-edit-form"
+        current_scope={@current_scope}
+        user_group_key={if(@current_user_group, do: @current_user_group.key)}
+        public?={@group.public?}
+      />
+
+      <MossletWeb.PrivacyComponents.liquid_markdown_guide_modal
+        id="markdown-guide-modal"
+        show={@show_markdown_guide}
+        on_cancel={JS.push("close_markdown_guide")}
+      />
     </.layout>
     """
   end
@@ -402,13 +506,84 @@ defmodule MossletWeb.BusinessLive.CircleShow do
     end
   end
 
+  ## Embedded ZK chat (reused from the personal Circles realm — see ChatSupport)
+
+  @impl true
+  def handle_event("open_markdown_guide", _params, socket) do
+    {:noreply, assign(socket, :show_markdown_guide, true)}
+  end
+
+  @impl true
+  def handle_event("close_markdown_guide", _params, socket) do
+    {:noreply, assign(socket, :show_markdown_guide, false)}
+  end
+
+  @impl true
+  def handle_event(event, params, socket) do
+    case ChatSupport.handle_chat_event(event, params, socket) do
+      {:halt, socket} -> {:noreply, socket}
+      :cont -> {:noreply, socket}
+    end
+  end
+
   @impl true
   def handle_info({:org_updated, _org_id}, socket) do
     {:noreply, assign_circle_data(socket)}
   end
 
+  # A member was removed from (or left) this circle: bounce them back to the org
+  # dashboard if it's them, otherwise just refresh the roster/files.
   @impl true
-  def handle_info(_message, socket), do: {:noreply, socket}
+  def handle_info({:group_member_kicked, {group, kicked_user_id}}, socket) do
+    cond do
+      group.id != socket.assigns.group.id ->
+        {:noreply, socket}
+
+      kicked_user_id == socket.assigns.current_scope.user.id ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "You're no longer a member of this circle.")
+         |> push_navigate(to: ~p"/app/business/#{socket.assigns.org.slug}")}
+
+      true ->
+        {:noreply, assign_circle_data(socket)}
+    end
+  end
+
+  @impl true
+  def handle_info({:group_member_blocked, {group, blocked_user_id}}, socket) do
+    cond do
+      group.id != socket.assigns.group.id ->
+        {:noreply, socket}
+
+      blocked_user_id == socket.assigns.current_scope.user.id ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "You're no longer a member of this circle.")
+         |> push_navigate(to: ~p"/app/business/#{socket.assigns.org.slug}")}
+
+      true ->
+        {:noreply, assign_circle_data(socket)}
+    end
+  end
+
+  @impl true
+  def handle_info({:group_deleted, _group}, socket) do
+    {:noreply,
+     socket
+     |> put_flash(:info, "This circle no longer exists.")
+     |> push_navigate(to: ~p"/app/business/#{socket.assigns.org.slug}")}
+  end
+
+  # Embedded ZK chat: delegate the shared message-stream broadcasts to
+  # `ChatSupport`, which keeps everything realm-agnostic (no personal routes).
+  @impl true
+  def handle_info(message, socket) do
+    case ChatSupport.handle_chat_info(message, socket) do
+      {:halt, socket} -> {:noreply, socket}
+      :cont -> {:noreply, socket}
+    end
+  end
 
   ## Data loading
 
@@ -435,12 +610,59 @@ defmodule MossletWeb.BusinessLive.CircleShow do
 
     socket
     |> assign(:group, group)
+    |> assign(:current_user_group, user_group)
     |> assign(:sealed_group_key, user_group && user_group.key)
     |> assign(:member_count, length(group.user_groups))
     |> assign(:members, members)
     |> assign(:viewer_sealed_org_key, MossletWeb.OrgIdentity.viewer_sealed_org_key(members))
-    |> assign(:shared_files, Files.list_shared_files_for_group(group, current_user))
+    |> assign(:shared_files, build_shared_files(group, current_user))
     |> maybe_request_org_key_seal(members)
+  end
+
+  # Builds the Files panel view-models. Each carries the VIEWER's own sealed
+  # `file_key` (from the preloaded recipient rows) so the browser can unseal it
+  # and decrypt the filename in-place (ZK) — exactly like the download path.
+  defp build_shared_files(group, current_user) do
+    group
+    |> Files.list_shared_files_for_group(current_user)
+    |> Enum.map(fn file ->
+      viewer_row = Enum.find(file.user_shared_files, &(&1.user_id == current_user.id))
+
+      %{
+        id: file.id,
+        size_bytes: file.size_bytes,
+        encrypted_filename: file.encrypted_filename,
+        reader_count: length(file.user_shared_files),
+        uploader_id: file.uploader_id,
+        viewer_sealed_key: viewer_row && viewer_row.key
+      }
+    end)
+  end
+
+  # The embedded ZK chat is loaded once at mount (re-streaming on every
+  # files/members refresh would reset scroll position). Live updates arrive via
+  # PubSub broadcasts handled by `ChatSupport.handle_chat_info/2`.
+  defp assign_chat(socket) do
+    current_scope = socket.assigns.current_scope
+    group = socket.assigns.group
+    user_group = socket.assigns.current_user_group
+
+    if user_group && user_group.confirmed_at do
+      GroupMessages.mark_mentions_as_read(user_group.id, group.id)
+    end
+
+    socket
+    |> assign(
+      :group_metadata,
+      MossletWeb.Helpers.pre_decrypt_group_metadata(
+        group,
+        user_group,
+        current_scope.user,
+        current_scope.key
+      )
+    )
+    |> ChatSupport.assign_active_group_messages()
+    |> ChatSupport.assign_last_user_message()
   end
 
   defp maybe_request_org_key_seal(socket, members) do

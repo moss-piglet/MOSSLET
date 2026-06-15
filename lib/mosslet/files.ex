@@ -62,6 +62,8 @@ defmodule Mosslet.Files do
   Eligibility: `uploader` must be a confirmed member of the (business) circle.
   """
   def create_shared_file_zk(%Group{} = group, %User{} = uploader, attrs) do
+    attrs = normalize_keys(attrs)
+
     cond do
       is_nil(group.org_id) ->
         {:error, :not_an_org_circle}
@@ -136,12 +138,14 @@ defmodule Mosslet.Files do
   circle a file lives in (Task #221 + #229). Org- and reader-scoped.
   """
   def list_org_shared_files_for_user(org_id, %User{} = user) when is_binary(org_id) do
+    viewer_rows = from(usf in UserSharedFile, where: usf.user_id == ^user.id)
+
     SharedFile
     |> join(:inner, [sf], usf in UserSharedFile, on: usf.shared_file_id == sf.id)
     |> where([sf, usf], sf.org_id == ^org_id)
     |> where([sf, usf], usf.user_id == ^user.id)
     |> order_by([sf], desc: sf.inserted_at)
-    |> preload([:group, :uploader])
+    |> preload([:group, :uploader, user_shared_files: ^viewer_rows])
     |> Repo.all()
   end
 
@@ -250,6 +254,66 @@ defmodule Mosslet.Files do
     end
   end
 
+  @doc """
+  Tears down ALL shared files for a circle (I5) — used when the whole circle is
+  deleted. Deletes every opaque blob from object storage AND removes the
+  `SharedFile` + `UserSharedFile` rows.
+
+  Call this BEFORE deleting the `Group` itself: the `shared_files.group_id` FK
+  cascades the DB rows on group delete, but the cloud blobs would otherwise be
+  orphaned forever. Returns `{:ok, count_deleted}`.
+  """
+  def delete_all_for_group(%Group{} = group), do: delete_all_for_group(group.id)
+
+  def delete_all_for_group(group_id) when is_binary(group_id) do
+    delete_files_where(dynamic([sf], sf.group_id == ^group_id))
+  end
+
+  @doc """
+  Tears down ALL shared files across an entire org's circles (I5) — used when
+  the org itself is deleted (board #227). Deletes every opaque blob from object
+  storage AND removes the DB rows. Returns `{:ok, count_deleted}`.
+  """
+  def delete_all_for_org(org_id) when is_binary(org_id) do
+    delete_files_where(dynamic([sf], sf.org_id == ^org_id))
+  end
+
+  # Shared teardown: collect storage paths, best-effort delete each blob, then
+  # remove the DB rows in a single transaction. Blob deletion is async + best
+  # effort — the DB removal is authoritative for access, and orphaned-blob
+  # cleanup never blocks the delete.
+  defp delete_files_where(condition) do
+    files =
+      SharedFile
+      |> where(^condition)
+      |> select([sf], %{id: sf.id, storage_path: sf.storage_path})
+      |> Repo.all()
+
+    file_ids = Enum.map(files, & &1.id)
+
+    if file_ids == [] do
+      {:ok, 0}
+    else
+      result =
+        Repo.transaction_on_primary(fn ->
+          Repo.delete_all(from(usf in UserSharedFile, where: usf.shared_file_id in ^file_ids))
+          Repo.delete_all(from(sf in SharedFile, where: sf.id in ^file_ids))
+        end)
+
+      case result do
+        {:ok, _} ->
+          Enum.each(files, fn %{storage_path: path} ->
+            SharedFileStorage.delete_blob(path)
+          end)
+
+          {:ok, length(file_ids)}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
   ## Internals
 
   defp confirmed_member_user_ids(%Group{} = group) do
@@ -291,7 +355,7 @@ defmodule Mosslet.Files do
   end
 
   defp oversized?(attrs) do
-    size = attrs["size_bytes"] || attrs[:size_bytes]
+    size = attrs["size_bytes"]
     is_integer(size) and size > @max_size_bytes
   end
 

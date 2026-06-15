@@ -53,7 +53,7 @@ import ReplyComposer from "./reply-composer";
 import ReplyEmojiPicker from "./reply-emoji-picker";
 import ReplyFormHook from "./reply-form-hook";
 import RepostFormHook from "./repost-form-hook";
-import SharedFileHook from "./shared-file-hook";
+import SharedFileHook, { DecryptSharedFileName } from "./shared-file-hook";
 import TippyHook from "./tippy-hook";
 import UnlockHook from "./unlock-hook";
 import TrixContentPostHook from "./trix-content-post-hook";
@@ -166,6 +166,7 @@ export default {
   SessionKeyDeriver,
   ShareNoteFormHook,
   SharedFileHook,
+  DecryptSharedFileName,
   TippyHook,
   TrixContentPostHook,
   TrixContentReplyHook,

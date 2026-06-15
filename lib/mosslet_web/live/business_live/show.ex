@@ -11,6 +11,7 @@ defmodule MossletWeb.BusinessLive.Show do
   use MossletWeb, :live_view
 
   alias Mosslet.Accounts
+  alias Mosslet.Files
   alias Mosslet.Groups
   alias Mosslet.Orgs
 
@@ -158,7 +159,7 @@ defmodule MossletWeb.BusinessLive.Show do
                 <.phx_button
                   :if={MossletWeb.OrgIdentity.show_connect_button?(member)}
                   variant="secondary"
-                  class="py-1.5 px-3 text-xs"
+                  class="py-1.5 px-3 text-xs leading-tight"
                   phx-click="connect_teammate"
                   phx-value-user_id={member.user.id}
                   id={"connect-#{member.user.id}"}
@@ -395,6 +396,89 @@ defmodule MossletWeb.BusinessLive.Show do
               No business circles yet. Create one to start a private, encrypted team space.
             </li>
           </ul>
+        </section>
+
+        <%!-- Org-wide files overview (Task #221): every file the viewer can read
+             across this org's circles, grouped by circle. Names stay encrypted
+             and decrypt browser-side (ZK). Tap a circle to open it. --%>
+        <section
+          :if={@org_file_circles != []}
+          id="org-files-overview"
+          class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
+        >
+          <div>
+            <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+              Files across your circles
+            </h2>
+            <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Everything shared with circles you're in. Encrypted on each member's device —
+              Mosslet can't read them.
+            </p>
+          </div>
+
+          <div
+            :for={entry <- @org_file_circles}
+            id={"org-files-circle-#{entry.group.id}"}
+            data-hook-scope={"files-circle-#{entry.group.id}"}
+            class="space-y-2"
+          >
+            <div
+              id={"decrypt-files-circle-#{entry.group.id}"}
+              phx-hook="DecryptGroupMetadata"
+              data-sealed-group-key={entry.sealed_group_key}
+              data-encrypted-name={entry.encrypted_name}
+              data-scope-id={"files-circle-#{entry.group.id}"}
+            >
+            </div>
+            <.link
+              navigate={~p"/app/business/#{@org.slug}/circles/#{entry.group.id}"}
+              class="flex items-center gap-2 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
+            >
+              <.phx_icon name="hero-chat-bubble-left-right" class="size-3.5" />
+              <span data-decrypt-group-name>Business circle</span>
+              <span class="text-slate-400 dark:text-slate-500 font-normal">
+                · {length(entry.files)} file{if length(entry.files) != 1, do: "s"}
+              </span>
+            </.link>
+            <ul role="list" class="divide-y divide-slate-100 dark:divide-slate-700/60 pl-1">
+              <li
+                :for={file <- entry.files}
+                id={"org-file-#{file.id}"}
+                class="py-2.5 flex items-center gap-3"
+              >
+                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
+                  <.phx_icon name="hero-document" class="size-4" />
+                </div>
+                <div class="min-w-0">
+                  <% viewer_row = List.first(file.user_shared_files) %>
+                  <div
+                    :if={viewer_row && file.encrypted_filename}
+                    id={"decrypt-org-filename-#{file.id}"}
+                    phx-hook="DecryptSharedFileName"
+                    phx-update="ignore"
+                    data-sealed-file-key={viewer_row.key}
+                    data-encrypted-filename={file.encrypted_filename}
+                  >
+                    <p
+                      data-shared-filename
+                      class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate"
+                    >
+                      Decrypting…
+                    </p>
+                  </div>
+                  <p
+                    :if={!(viewer_row && file.encrypted_filename)}
+                    class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate"
+                  >
+                    Encrypted file
+                  </p>
+                  <p class="text-xs text-slate-500 dark:text-slate-400">
+                    {format_size(file.size_bytes)}
+                  </p>
+                </div>
+              </li>
+            </ul>
+          </div>
         </section>
       </div>
     </.layout>
@@ -802,6 +886,29 @@ defmodule MossletWeb.BusinessLive.Show do
         }
       end)
 
+    # Org-wide ZK file overview (Task #221 / #229): every file the viewer can
+    # read across this org's circles, grouped by circle, newest first. The
+    # circle name stays encrypted — decrypted browser-side via the viewer's
+    # sealed group key (looked up from the circles we already loaded).
+    sealed_keys_by_group =
+      Map.new(circles, fn circle -> {circle.group.id, circle.sealed_group_key} end)
+
+    org_file_circles =
+      org.id
+      |> Files.list_org_shared_files_for_user(current_user)
+      |> Enum.group_by(& &1.group_id)
+      |> Enum.map(fn {group_id, files} ->
+        group = hd(files).group
+
+        %{
+          group: group,
+          encrypted_name: group.name,
+          sealed_group_key: Map.get(sealed_keys_by_group, group_id),
+          files: files
+        }
+      end)
+      |> Enum.sort_by(fn %{files: files} -> hd(files).inserted_at end, {:desc, NaiveDateTime})
+
     socket
     |> assign(:members, members)
     |> assign(:viewer_sealed_org_key, MossletWeb.OrgIdentity.viewer_sealed_org_key(members))
@@ -811,6 +918,7 @@ defmodule MossletWeb.BusinessLive.Show do
     )
     |> assign(:eligible_members, eligible_members)
     |> assign(:circles, circles)
+    |> assign(:org_file_circles, org_file_circles)
     |> assign(:pending_invitations, Orgs.list_invitations_by_org(org))
     |> assign(:seats, Orgs.seat_summary(org))
     |> assign(:can_manage?, socket.assigns.membership.role == :admin)
@@ -919,5 +1027,15 @@ defmodule MossletWeb.BusinessLive.Show do
     Enum.random(
       ~w(astronaut.png bear.png cat.png chicken.png dinosaur.png dog.png panda.png penguin.png rabbit.png sea-lion.png)
     )
+  end
+
+  defp format_size(nil), do: "—"
+
+  defp format_size(bytes) when is_integer(bytes) do
+    cond do
+      bytes >= 1_048_576 -> "#{Float.round(bytes / 1_048_576, 1)} MB"
+      bytes >= 1024 -> "#{Float.round(bytes / 1024, 1)} KB"
+      true -> "#{bytes} B"
+    end
   end
 end

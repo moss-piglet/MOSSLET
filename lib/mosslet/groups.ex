@@ -767,6 +767,12 @@ defmodule Mosslet.Groups do
 
   """
   def delete_group(%Group{} = group) do
+    # Tear down the circle's ZK shared files first so their opaque cloud blobs
+    # are removed (the DB rows would otherwise cascade-delete on group delete,
+    # orphaning the blobs in object storage). Best-effort: never block the
+    # circle delete on object-store cleanup.
+    _ = Mosslet.Files.delete_all_for_group(group)
+
     case adapter().delete_group(group) do
       {:ok, deleted_group} ->
         {:ok, deleted_group}

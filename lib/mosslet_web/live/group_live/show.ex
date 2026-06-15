@@ -5,6 +5,7 @@ defmodule MossletWeb.GroupLive.Show do
   alias Mosslet.Groups
   alias Mosslet.GroupMessages
   alias MossletWeb.GroupLive.{Group, GroupMessage.EditForm}
+  alias MossletWeb.GroupLive.ChatSupport
   alias Mosslet.Timeline
   alias Mosslet.Timeline.Reply
 
@@ -37,8 +38,8 @@ defmodule MossletWeb.GroupLive.Show do
      |> assign(:current_page, :circles)
      |> assign(:show_markdown_guide, false)
      |> assign_active_group()
-     |> assign_scrolled_to_top()
-     |> assign_last_user_message(), layout: {MossletWeb.Layouts, :app}}
+     |> ChatSupport.assign_scrolled_to_top()
+     |> ChatSupport.assign_last_user_message(), layout: {MossletWeb.Layouts, :app}}
   end
 
   @impl true
@@ -91,8 +92,8 @@ defmodule MossletWeb.GroupLive.Show do
      )
      |> assign(:page_title, page_title(socket.assigns.live_action))
      |> stream(:user_groups, Groups.list_user_groups(group))
-     |> assign_active_group_messages()
-     |> assign_last_user_message()
+     |> ChatSupport.assign_active_group_messages()
+     |> ChatSupport.assign_last_user_message()
      |> apply_action(socket.assigns.live_action, params)}
   end
 
@@ -128,36 +129,21 @@ defmodule MossletWeb.GroupLive.Show do
   end
 
   @impl true
-  def handle_info(%{event: "new_message", payload: %{message: message}}, socket) do
-    if message.sender_id == socket.assigns.current_user_group.id do
-      message_with_context = add_grouping_context(message, socket)
-
-      {:noreply,
-       socket
-       |> stream_insert(:messages, pre_decrypt_message(message_with_context, socket))
-       |> assign(:last_message_info, extract_message_info(message))
-       |> assign_last_user_message(message)}
-    else
-      {:noreply,
-       socket
-       |> insert_new_message(message, is_new: true)
-       |> assign(:last_message_info, extract_message_info(message))
-       |> assign_last_user_message(message)}
-    end
+  def handle_info(%{event: "new_message"} = msg, socket) do
+    {:halt, socket} = ChatSupport.handle_chat_info(msg, socket)
+    {:noreply, socket}
   end
 
   @impl true
-  def handle_info(%{event: "updated_message", payload: %{message: message}}, socket) do
-    # For message updates, don't increment count - just update the stream
-    {:noreply,
-     socket
-     |> insert_updated_message(message)
-     |> assign_last_user_message(message)}
+  def handle_info(%{event: "updated_message"} = msg, socket) do
+    {:halt, socket} = ChatSupport.handle_chat_info(msg, socket)
+    {:noreply, socket}
   end
 
   @impl true
-  def handle_info(%{event: "deleted_message", payload: %{message: message}}, socket) do
-    {:noreply, handle_message_deletion(socket, message)}
+  def handle_info(%{event: "deleted_message"} = msg, socket) do
+    {:halt, socket} = ChatSupport.handle_chat_info(msg, socket)
+    {:noreply, socket}
   end
 
   @impl true
@@ -204,11 +190,9 @@ defmodule MossletWeb.GroupLive.Show do
   end
 
   @impl true
-  def handle_info({:message_sent, _message}, socket) do
-    # Local increment for own messages
-    {:noreply,
-     socket
-     |> update(:total_messages_count, &(&1 + 1))}
+  def handle_info({:message_sent, _message} = msg, socket) do
+    {:halt, socket} = ChatSupport.handle_chat_info(msg, socket)
+    {:noreply, socket}
   end
 
   @impl true
@@ -282,50 +266,15 @@ defmodule MossletWeb.GroupLive.Show do
   end
 
   @impl true
-  def handle_event("load_more", _params, socket) do
-    oldest_message_id = socket.assigns.oldest_message_id
-
-    if not is_nil(oldest_message_id) do
-      case Mosslet.GroupMessages.get_message!(oldest_message_id) do
-        nil ->
-          messages = GroupMessages.get_previous_n_messages(nil, socket.assigns.group.id, 5)
-
-          {:noreply,
-           socket
-           |> stream_batch_insert(:messages, pre_decrypt_messages(messages, socket), at: 0)
-           |> assign_oldest_message_id(List.first(messages))
-           |> assign_scrolled_to_top("true")}
-
-        oldest_message ->
-          messages =
-            GroupMessages.get_previous_n_messages(
-              oldest_message.inserted_at,
-              socket.assigns.group.id,
-              5
-            )
-
-          {:noreply,
-           socket
-           |> stream_batch_insert(:messages, pre_decrypt_messages(messages, socket), at: 0)
-           |> assign_oldest_message_id(List.first(messages))
-           |> assign_scrolled_to_top("true")}
-      end
-    else
-      messages = GroupMessages.get_previous_n_messages(nil, socket.assigns.group.id, 5)
-
-      {:noreply,
-       socket
-       |> stream_batch_insert(:messages, pre_decrypt_messages(messages, socket), at: 0)
-       |> assign_oldest_message_id(List.first(messages))
-       |> assign_scrolled_to_top("true")}
-    end
+  def handle_event("load_more", params, socket) do
+    {:halt, socket} = ChatSupport.handle_chat_event("load_more", params, socket)
+    {:noreply, socket}
   end
 
   @impl true
-  def handle_event("unpin_scrollbar_from_top", _params, socket) do
-    {:noreply,
-     socket
-     |> assign_scrolled_to_top("false")}
+  def handle_event("unpin_scrollbar_from_top", params, socket) do
+    {:halt, socket} = ChatSupport.handle_chat_event("unpin_scrollbar_from_top", params, socket)
+    {:noreply, socket}
   end
 
   @impl true
@@ -339,18 +288,15 @@ defmodule MossletWeb.GroupLive.Show do
   end
 
   @impl true
-  def handle_event("mark_mention_read", %{"message_id" => message_id}, socket) do
-    GroupMessages.mark_single_mention_as_read(
-      message_id,
-      socket.assigns.current_user_group.id
-    )
-
+  def handle_event("mark_mention_read", params, socket) do
+    {:halt, socket} = ChatSupport.handle_chat_event("mark_mention_read", params, socket)
     {:noreply, socket}
   end
 
   @impl true
-  def handle_event("delete_message", %{"id" => message_id}, socket) do
-    {:noreply, delete_message(socket, message_id)}
+  def handle_event("delete_message", params, socket) do
+    {:halt, socket} = ChatSupport.handle_chat_event("delete_message", params, socket)
+    {:noreply, socket}
   end
 
   @impl true
@@ -548,211 +494,8 @@ defmodule MossletWeb.GroupLive.Show do
     end
   end
 
-  def insert_new_message(socket, message, opts \\ []) do
-    is_new = Keyword.get(opts, :is_new, false)
-    message_with_context = add_grouping_context(message, socket, is_new: is_new)
-
-    socket
-    |> stream_insert(:messages, pre_decrypt_message(message_with_context, socket))
-    |> update(:total_messages_count, &(&1 + 1))
-  end
-
-  def insert_updated_message(socket, message) do
-    preloaded = GroupMessages.preload_message_sender(message)
-
-    socket
-    |> stream_insert(:messages, pre_decrypt_message(preloaded, socket), at: -1)
-  end
-
-  def insert_deleted_message(socket, message) do
-    socket
-    |> stream_delete(:messages, message)
-    |> update(:total_messages_count, &max(&1 - 1, 0))
-  end
-
-  defp handle_message_deletion(socket, deleted_message) do
-    next_message = GroupMessages.get_next_message_after(deleted_message)
-    prev_message = GroupMessages.get_previous_message_before(deleted_message)
-
-    socket
-    |> stream_delete(:messages, deleted_message)
-    |> update(:total_messages_count, &max(&1 - 1, 0))
-    |> maybe_update_next_message_grouping(next_message, prev_message, deleted_message)
-    |> assign_last_user_message(deleted_message)
-    |> update_last_message_info_after_deletion(deleted_message)
-  end
-
-  defp update_last_message_info_after_deletion(socket, deleted_message) do
-    last_info = socket.assigns[:last_message_info]
-
-    if last_info && last_info.sender_id == deleted_message.sender_id &&
-         last_info.inserted_at == deleted_message.inserted_at do
-      last_message = GroupMessages.get_last_message_for_group(socket.assigns.group.id)
-
-      if last_message do
-        assign(socket, :last_message_info, extract_message_info(last_message))
-      else
-        assign(socket, :last_message_info, nil)
-      end
-    else
-      socket
-    end
-  end
-
-  defp maybe_update_next_message_grouping(socket, nil, _prev_message, _deleted_message),
-    do: socket
-
-  defp maybe_update_next_message_grouping(socket, next_message, prev_message, deleted_message) do
-    next_date = get_message_date(next_message.inserted_at)
-
-    {new_is_grouped, new_show_date_separator} =
-      if prev_message do
-        prev_date = get_message_date(prev_message.inserted_at)
-        same_sender = prev_message.sender_id == next_message.sender_id
-        same_date = prev_date == next_date
-
-        within_window =
-          within_grouping_window?(prev_message.inserted_at, next_message.inserted_at)
-
-        is_grouped = same_sender && same_date && within_window
-        show_date_separator = !same_date
-
-        {is_grouped, show_date_separator}
-      else
-        {false, true}
-      end
-
-    was_grouped_with_deleted =
-      deleted_message.sender_id == next_message.sender_id &&
-        get_message_date(deleted_message.inserted_at) == next_date &&
-        within_grouping_window?(deleted_message.inserted_at, next_message.inserted_at)
-
-    if was_grouped_with_deleted do
-      updated_next =
-        next_message
-        |> Map.put(:is_grouped, new_is_grouped)
-        |> Map.put(:show_date_separator, new_show_date_separator)
-        |> Map.put(:message_date, next_date)
-
-      stream_insert(socket, :messages, updated_next, at: -1)
-    else
-      socket
-    end
-  end
-
-  def assign_active_group_messages(socket) do
-    user_group = socket.assigns.current_user_group
-    group = socket.assigns.group
-    current_scope = socket.assigns.current_scope
-
-    unread_message_ids =
-      if user_group && user_group.confirmed_at do
-        GroupMessages.get_unread_mention_message_ids(user_group.id, group.id)
-      else
-        MapSet.new()
-      end
-
-    messages = GroupMessages.last_ten_messages_for(group.id)
-    messages_with_context = add_initial_grouping_context(messages, unread_message_ids)
-
-    # Pre-decrypt all messages so templates read from .decrypted map
-    pre_decrypted =
-      if user_group do
-        pre_decrypt_group_messages(
-          messages_with_context,
-          group,
-          user_group,
-          current_scope.user,
-          current_scope.key
-        )
-      else
-        messages_with_context
-      end
-
-    if Enum.empty?(messages) do
-      socket
-      |> assign(:messages_list, messages)
-      |> assign(:total_messages_count, 0)
-      |> assign(:last_message_info, nil)
-      |> stream(:messages, pre_decrypted)
-      |> assign(:oldest_message_id, nil)
-    else
-      last_message = List.last(messages)
-
-      socket
-      |> assign(:messages_list, messages)
-      |> assign(
-        :total_messages_count,
-        GroupMessages.get_message_count_for_group(group.id)
-      )
-      |> assign(:last_message_info, extract_message_info(last_message))
-      |> stream(:messages, pre_decrypted)
-      |> assign(:oldest_message_id, List.first(messages).id)
-    end
-  end
-
-  defp pre_decrypt_message(message, socket) do
-    group = socket.assigns.group
-    user_group = socket.assigns.current_user_group
-    current_scope = socket.assigns.current_scope
-
-    if user_group do
-      pre_decrypt_group_message(message, group, user_group, current_scope.user, current_scope.key)
-    else
-      message
-    end
-  end
-
-  defp pre_decrypt_messages(messages, socket) do
-    Enum.map(messages, &pre_decrypt_message(&1, socket))
-  end
-
   def assign_active_group(socket) do
     assign(socket, :group, nil)
-  end
-
-  def assign_scrolled_to_top(socket, scrolled_to_top \\ "false") do
-    assign(socket, :scrolled_to_top, scrolled_to_top)
-  end
-
-  def assign_oldest_message_id(socket, message) do
-    if is_nil(message) do
-      assign(socket, :oldest_message_id, message)
-    else
-      assign(socket, :oldest_message_id, message.id)
-    end
-  end
-
-  def assign_is_editing_message(socket, is_editing \\ nil) do
-    assign(socket, :is_editing_message, is_editing)
-  end
-
-  def assign_last_user_message(%{assigns: %{current_scope: current_scope}} = socket, message)
-      when current_scope.user.id == message.sender_id do
-    assign(socket, :message, message)
-  end
-
-  def assign_last_user_message(socket, _message) do
-    socket
-  end
-
-  def assign_last_user_message(%{assigns: %{group: nil}} = socket) do
-    assign(socket, :message, %Groups.GroupMessage{})
-  end
-
-  def assign_last_user_message(%{assigns: %{group: group, current_scope: current_scope}} = socket) do
-    assign(socket, :message, get_last_user_message_for_group(group.id, current_scope.user.id))
-  end
-
-  def delete_message(socket, message_id) do
-    message = GroupMessages.get_message!(message_id)
-    GroupMessages.delete_message(message)
-    # Don't delete from stream or update count here - wait for broadcast
-    socket
-  end
-
-  def get_last_user_message_for_group(group_id, current_user_id) do
-    GroupMessages.last_user_message_for_group(group_id, current_user_id) || %Groups.GroupMessage{}
   end
 
   defp page_title(:show), do: "Show Group"
@@ -762,87 +505,4 @@ defmodule MossletWeb.GroupLive.Show do
   defp page_title(:reply), do: "Show Group Post"
 
   defp notify_self(msg), do: send(self(), {__MODULE__, msg})
-
-  defp add_grouping_context(message, socket, opts \\ []) do
-    message = GroupMessages.preload_message_sender(message)
-    last_info = Map.get(socket.assigns, :last_message_info)
-    is_new = Keyword.get(opts, :is_new, false)
-
-    message_date = get_message_date(message.inserted_at)
-
-    {is_grouped, show_date_separator} =
-      if last_info do
-        same_sender = last_info.sender_id == message.sender_id
-        same_date = last_info.date == message_date
-        within_window = within_grouping_window?(last_info.inserted_at, message.inserted_at)
-
-        is_grouped = same_sender && same_date && within_window
-        show_date_separator = !same_date
-
-        {is_grouped, show_date_separator}
-      else
-        {false, true}
-      end
-
-    message
-    |> Map.put(:is_grouped, is_grouped)
-    |> Map.put(:show_date_separator, show_date_separator)
-    |> Map.put(:message_date, message_date)
-    |> Map.put(:is_new_message, is_new)
-  end
-
-  defp extract_message_info(message) do
-    %{
-      sender_id: message.sender_id,
-      inserted_at: message.inserted_at,
-      date: get_message_date(message.inserted_at)
-    }
-  end
-
-  defp get_message_date(datetime) when is_struct(datetime, NaiveDateTime) do
-    NaiveDateTime.to_date(datetime)
-  end
-
-  defp get_message_date(datetime) when is_struct(datetime, DateTime) do
-    DateTime.to_date(datetime)
-  end
-
-  defp get_message_date(_), do: nil
-
-  defp within_grouping_window?(prev_time, curr_time) do
-    diff = NaiveDateTime.diff(curr_time, prev_time, :minute)
-    diff <= 5
-  end
-
-  defp add_initial_grouping_context(messages, unread_message_ids) do
-    messages
-    |> Enum.with_index()
-    |> Enum.map(fn {message, index} ->
-      prev_message = if index > 0, do: Enum.at(messages, index - 1)
-      message_date = get_message_date(message.inserted_at)
-
-      {is_grouped, show_date_separator} =
-        if prev_message do
-          prev_date = get_message_date(prev_message.inserted_at)
-          same_sender = prev_message.sender_id == message.sender_id
-          same_date = prev_date == message_date
-          within_window = within_grouping_window?(prev_message.inserted_at, message.inserted_at)
-
-          is_grouped = same_sender && same_date && within_window
-          show_date_separator = !same_date
-
-          {is_grouped, show_date_separator}
-        else
-          {false, true}
-        end
-
-      is_new_message = MapSet.member?(unread_message_ids, message.id)
-
-      message
-      |> Map.put(:is_grouped, is_grouped)
-      |> Map.put(:show_date_separator, show_date_separator)
-      |> Map.put(:message_date, message_date)
-      |> Map.put(:is_new_message, is_new_message)
-    end)
-  end
 end

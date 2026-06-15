@@ -296,4 +296,87 @@ function cryptoRandomRef() {
     .join("");
 }
 
+/**
+ * DecryptSharedFileName — renders a shared file's ORIGINAL filename in the Files
+ * panel without the server ever seeing it (ZK).
+ *
+ * The filename was encrypted in the browser with the per-file `file_key`. This
+ * hook unseals the viewer's own sealed `file_key` (same path as download), then
+ * decrypts the filename and writes it into the row.
+ *
+ * Hook element carries:
+ *   data-sealed-file-key      — the viewer's `file_key`, sealed for their pubkey
+ *   data-encrypted-filename   — the filename ciphertext (secretbox w/ file_key)
+ * and contains a `[data-shared-filename]` target element.
+ */
+const DecryptSharedFileName = {
+  mounted() {
+    this._render();
+  },
+
+  updated() {
+    this._render();
+  },
+
+  async _render() {
+    const target = this.el.querySelector("[data-shared-filename]");
+    if (!target) return;
+
+    const sealedKey = this.el.dataset.sealedFileKey;
+    const encryptedFilename = this.el.dataset.encryptedFilename;
+    if (!sealedKey || !encryptedFilename) return;
+
+    try {
+      if (!getPublicKey()) await this._waitForKeys();
+
+      const rawKey = await unsealContextKey(sealedKey);
+      if (!rawKey) throw new Error("unseal failed");
+      const fileKey = unwrapKey(rawKey);
+
+      const name = await decryptWithKey(encryptedFilename, fileKey);
+      if (name) {
+        target.textContent = name;
+        target.setAttribute("title", name);
+      } else {
+        target.textContent = "Encrypted file";
+      }
+    } catch (err) {
+      console.error("DecryptSharedFileName: failed:", err);
+      target.textContent = "Encrypted file";
+    }
+  },
+
+  _waitForKeys() {
+    return new Promise((resolve, reject) => {
+      if (getPublicKey()) {
+        resolve();
+        return;
+      }
+      const timer = setTimeout(() => {
+        if (this._onKeysReady) {
+          window.removeEventListener("mosslet:keys-ready", this._onKeysReady);
+          this._onKeysReady = null;
+        }
+        reject(new Error("Timed out waiting for crypto keys"));
+      }, KEY_WAIT_TIMEOUT_MS);
+
+      this._onKeysReady = () => {
+        clearTimeout(timer);
+        this._onKeysReady = null;
+        resolve();
+      };
+      window.addEventListener("mosslet:keys-ready", this._onKeysReady, {
+        once: true,
+      });
+    });
+  },
+
+  destroyed() {
+    if (this._onKeysReady) {
+      window.removeEventListener("mosslet:keys-ready", this._onKeysReady);
+    }
+  },
+};
+
 export default SharedFileHook;
+export { DecryptSharedFileName };
