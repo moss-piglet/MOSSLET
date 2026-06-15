@@ -33,6 +33,7 @@ import GroupMessageEmojiPicker from "./group-message-emoji-picker";
 import GroupMessageEditFormHook from "./group-message-edit-form-hook";
 import GroupMessageFormHook from "./group-message-form-hook";
 import GroupMetadataFormHook from "./group-metadata-form-hook";
+import CircleAddMembersHook from "./circle-add-members-hook";
 import ClearFlashHook from "./clear-flash-hook";
 import LiquidFlash from "./liquid-flash";
 import LoginHook from "./login-hook";
@@ -135,6 +136,7 @@ export default {
   GroupMessageEditFormHook,
   GroupMessageFormHook,
   GroupMetadataFormHook,
+  CircleAddMembersHook,
   ClearFlashHook,
   LiquidFlash,
   FlashGroup,

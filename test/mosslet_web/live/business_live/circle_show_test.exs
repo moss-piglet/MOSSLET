@@ -55,7 +55,8 @@ defmodule MossletWeb.BusinessLive.CircleShowTest do
 
   defp onboarded_user(name_seed) do
     email = "#{name_seed}#{System.unique_integer([:positive])}@example.com"
-    user = user_fixture(%{email: email, password: @password})
+    username = "#{name_seed}#{System.unique_integer([:positive])}"
+    user = user_fixture(%{email: email, username: username, password: @password})
     user = Accounts.confirm_user!(user)
     {:ok, user} = Accounts.update_user_onboarding(user, %{is_onboarded?: true})
     subscribe_user(user)
@@ -288,6 +289,109 @@ defmodule MossletWeb.BusinessLive.CircleShowTest do
 
       assert render(lv) =~ "Who can read these files"
       assert render(lv) =~ "recall copies already downloaded"
+    end
+  end
+
+  describe "members roster scoping" do
+    test "shows only circle members, not all org members", ctx do
+      # A third org member who has NOT been added to this circle.
+      {nonmember, _key} = onboarded_user("csnonmember")
+      add_member(ctx.org, nonmember, :member)
+
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.admin, ctx.admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      # The circle's actual members (admin owner + confirmed member) appear.
+      assert has_element?(lv, "#circle-member-#{ctx.admin.id}")
+      assert has_element?(lv, "#circle-member-#{ctx.member.id}")
+
+      # The org member who isn't in the circle must NOT appear in the roster.
+      refute has_element?(lv, "#circle-member-#{nonmember.id}")
+    end
+  end
+
+  describe "add members (ZK write path)" do
+    test "owner sees the add-members affordance for any org member not yet in the circle",
+         ctx do
+      # An org member NOT in the circle — and with NO personal connection to the
+      # admin. Org membership alone must make them addable.
+      {orgmate, _key} = onboarded_user("csorgmate")
+      add_member(ctx.org, orgmate, :member)
+
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.admin, ctx.admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      assert has_element?(lv, "#show-add-members-button")
+      refute has_element?(lv, "#circle-member-#{orgmate.id}")
+
+      lv |> element("#show-add-members-button") |> render_click()
+      assert has_element?(lv, "#add-member-#{orgmate.id}")
+    end
+
+    test "an outsider (not in the org) is never addable", ctx do
+      # An org member to ensure the add-members affordance shows at all.
+      {orgmate, _key} = onboarded_user("csorgmate0")
+      add_member(ctx.org, orgmate, :member)
+
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.admin, ctx.admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      lv |> element("#show-add-members-button") |> render_click()
+      assert has_element?(lv, "#add-member-#{orgmate.id}")
+      refute has_element?(lv, "#add-member-#{ctx.outsider.id}")
+
+      # A tampered client requesting an outsider must be refused server-side (I1).
+      render_hook(lv, "request_add_members", %{"user_ids" => [ctx.outsider.id]})
+
+      render_hook(lv, "finalize_group_members_zk", %{
+        "sealed_members" => [sealed_for(ctx.outsider)]
+      })
+
+      group = Groups.get_group!(ctx.group.id)
+      refute Enum.any?(group.user_groups, &(&1.user_id == ctx.outsider.id))
+    end
+
+    test "request_add_members refuses a non-manager (member) even if tampered", ctx do
+      {orgmate, _key} = onboarded_user("csorgmate2")
+      add_member(ctx.org, orgmate, :member)
+
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.member, ctx.member_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      # A plain member has no add-members affordance.
+      refute has_element?(lv, "#show-add-members-button")
+
+      # A tampered client pushing the event must be refused server-side.
+      render_hook(lv, "request_add_members", %{"user_ids" => [orgmate.id]})
+
+      group = Groups.get_group!(ctx.group.id)
+      refute Enum.any?(group.user_groups, &(&1.user_id == orgmate.id))
+    end
+
+    test "finalize_group_members_zk adds an eligible org member to the circle (no connection needed)",
+         ctx do
+      {orgmate, _key} = onboarded_user("csorgmate3")
+      add_member(ctx.org, orgmate, :member)
+
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.admin, ctx.admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      render_hook(lv, "finalize_group_members_zk", %{
+        "sealed_members" => [sealed_for(orgmate)]
+      })
+
+      group = Groups.get_group!(ctx.group.id)
+      assert Enum.any?(group.user_groups, &(&1.user_id == orgmate.id))
     end
   end
 end

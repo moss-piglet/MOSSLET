@@ -75,6 +75,8 @@ defmodule MossletWeb.BusinessLive.CircleShow do
          |> assign(:pending_shared_file, nil)
          |> assign(:blob_buffers, %{})
          |> assign(:show_markdown_guide, false)
+         |> assign(:show_add_members?, false)
+         |> assign(:pending_add_member_ids, [])
          |> ChatSupport.assign_scrolled_to_top()
          |> assign_circle_data()
          |> assign_chat()}
@@ -255,34 +257,143 @@ defmodule MossletWeb.BusinessLive.CircleShow do
           data-current-user-id={@current_scope.user.id}
           class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
         >
-          <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Members</h2>
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                Members
+              </h2>
+              <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                {@member_count} {if @member_count == 1, do: "person", else: "people"} in this circle.
+              </p>
+            </div>
+            <button
+              :if={@can_manage_circle? && !@show_add_members? && @addable_members != []}
+              type="button"
+              phx-click="show_add_members"
+              id="show-add-members-button"
+              class="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-gradient-to-r from-teal-500 to-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-emerald-500/25 transition-all duration-200 hover:shadow-md hover:shadow-emerald-500/30"
+            >
+              <.phx_icon name="hero-user-plus" class="size-4" /> Add
+            </button>
+          </div>
+
           <ul role="list" class="divide-y divide-slate-100 dark:divide-slate-700/60">
             <li
               :for={member <- @members}
               id={"circle-member-#{member.user.id}"}
-              class="py-3 flex items-center justify-between gap-3"
+              class="py-2.5 flex items-center gap-3"
               data-org-member-row
               data-encrypted-display-name={member.encrypted_display_name}
             >
-              <div class="flex items-center gap-3 min-w-0">
-                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
-                  <.phx_icon name="hero-user" class="size-4" />
-                </div>
-                <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                  <span {MossletWeb.OrgIdentity.org_name_target(member)}>
-                    {MossletWeb.OrgIdentity.placeholder_label(member)}
-                  </span>
-                </p>
+              <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/40 dark:to-emerald-900/40 text-teal-600 dark:text-teal-300">
+                <.phx_icon name="hero-user" class="size-4" />
               </div>
+              <p class="min-w-0 text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                <span {MossletWeb.OrgIdentity.org_name_target(member)}>
+                  {MossletWeb.OrgIdentity.placeholder_label(member)}
+                </span>
+              </p>
+              <span
+                :if={member.self?}
+                class="ml-auto shrink-0 rounded-full bg-slate-100 dark:bg-slate-700/60 px-2 py-0.5 text-[11px] font-medium text-slate-500 dark:text-slate-400"
+              >
+                You
+              </span>
             </li>
           </ul>
-          <p class="text-xs text-slate-500 dark:text-slate-400">
-            Manage who's in this circle from the <.link
+
+          <%!-- Add members (ZK write path — only the circle owner/admin).
+               Any org member can be added; org membership (not a personal
+               connection) is the only prerequisite, since the shared org_key
+               lets the adder seal the circle key + read each member's org
+               display name client-side. --%>
+          <form
+            :if={@can_manage_circle? && @show_add_members?}
+            id="add-members-form"
+            phx-hook="CircleAddMembersHook"
+            data-sealed-group-key={@sealed_group_key}
+            data-sealed-org-key={@viewer_sealed_org_key}
+            class="rounded-xl border border-teal-200/60 dark:border-teal-800/50 bg-gradient-to-br from-teal-50/60 to-emerald-50/40 dark:from-teal-900/15 dark:to-emerald-900/10 p-4 space-y-3"
+          >
+            <div class="flex items-start gap-2.5">
+              <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/70 dark:bg-slate-800/60 text-teal-600 dark:text-teal-300 shadow-sm">
+                <.phx_icon name="hero-user-plus" class="size-4" />
+              </div>
+              <div>
+                <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
+                  Add people from your organization
+                </p>
+                <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  They'll join the chat and can read files shared <strong>after</strong> they join.
+                </p>
+              </div>
+            </div>
+
+            <ul
+              role="list"
+              class="max-h-56 overflow-y-auto rounded-lg border border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/30 divide-y divide-slate-100 dark:divide-slate-700/50"
+            >
+              <li
+                :for={member <- @addable_members}
+                id={"add-member-row-#{member.user.id}"}
+                data-org-member-row
+                data-encrypted-display-name={member.encrypted_display_name}
+              >
+                <label
+                  for={"add-member-#{member.user.id}"}
+                  class="flex items-center gap-3 cursor-pointer px-3 py-2.5 hover:bg-teal-50/60 dark:hover:bg-teal-900/15 transition-colors duration-150"
+                >
+                  <input
+                    type="checkbox"
+                    id={"add-member-#{member.user.id}"}
+                    name="add_members[]"
+                    value={member.user.id}
+                    class="size-4 rounded border-slate-300 dark:border-slate-600 text-teal-600 focus:ring-teal-500 focus:ring-offset-0"
+                  />
+                  <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
+                    <.phx_icon name="hero-user" class="size-3.5" />
+                  </div>
+                  <span
+                    class="min-w-0 flex-1 text-sm text-slate-900 dark:text-slate-100 truncate"
+                    data-decrypt-org-name
+                  >
+                    {member.personal_name || "Org member"}
+                  </span>
+                </label>
+              </li>
+            </ul>
+
+            <div class="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                phx-click="hide_add_members"
+                class="inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-slate-800/60 transition-colors duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                id="add-members-submit"
+                phx-disable-with="Adding…"
+                class="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-teal-500 to-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-emerald-500/25 transition-all duration-200 hover:shadow-md hover:shadow-emerald-500/30"
+              >
+                <.phx_icon name="hero-check" class="size-4" /> Add to circle
+              </button>
+            </div>
+          </form>
+
+          <p
+            :if={@can_manage_circle? && !@show_add_members? && @addable_members == []}
+            class="text-xs text-slate-500 dark:text-slate-400"
+          >
+            Everyone in this organization is already in this circle.
+            <.link
               navigate={~p"/app/business/#{@org.slug}"}
               class="font-medium text-teal-600 dark:text-teal-400 hover:underline"
             >
-              organization dashboard
-            </.link>.
+              Invite more people
+            </.link>
+            to add them.
           </p>
         </section>
 
@@ -518,6 +629,85 @@ defmodule MossletWeb.BusinessLive.CircleShow do
     {:noreply, assign(socket, :show_markdown_guide, false)}
   end
 
+  ## Add members to this circle (ZK write path — two-phase)
+
+  @impl true
+  def handle_event("show_add_members", _params, socket) do
+    {:noreply, assign(socket, :show_add_members?, true)}
+  end
+
+  @impl true
+  def handle_event("hide_add_members", _params, socket) do
+    {:noreply, assign(socket, :show_add_members?, false)}
+  end
+
+  # Phase 1: the browser sent the selected org-member ids. Only the circle
+  # owner/admin may add members. Resolve each member's public keys + their org
+  # `display_name` ciphertext (decryptable client-side with the `org_key` the
+  # adder already holds) + a server-generated moniker/avatar for the browser to
+  # encrypt with the circle `group_key`. The candidate set is server-
+  # authoritative (I1): `members_to_add/2` intersects with current org
+  # membership, so a tampered client can never seal a circle key for an outsider.
+  # No personal `UserConnection` is required — org membership is the only gate.
+  @impl true
+  def handle_event("request_add_members", %{"user_ids" => user_ids}, socket)
+      when is_list(user_ids) do
+    current_user = socket.assigns.current_scope.user
+
+    cond do
+      not can_edit_group?(socket.assigns.current_user_group, current_user) ->
+        {:noreply, put_flash(socket, :error, "You don't have permission to add members.")}
+
+      true ->
+        eligible_ids = MapSet.new(socket.assigns.addable_members, & &1.user.id)
+        selected_ids = Enum.filter(user_ids, &MapSet.member?(eligible_ids, &1))
+
+        members =
+          socket.assigns.org
+          |> MossletWeb.OrgIdentity.members_to_add(selected_ids)
+          |> Enum.map(fn member ->
+            member
+            |> Map.put(:moniker, FriendlyID.generate(3))
+            |> Map.put(:avatar_img, random_avatar())
+          end)
+
+        if members == [] do
+          {:noreply, put_flash(socket, :info, "No eligible org members selected.")}
+        else
+          {:noreply,
+           socket
+           |> assign(:pending_add_member_ids, Enum.map(members, & &1.user_id))
+           |> push_event("seal_group_key_for_new_members", %{members: members})}
+        end
+    end
+  end
+
+  # Phase 2: the browser sealed the circle group_key for each new member and
+  # encrypted their display name/moniker/avatar with it. Persist via the shared
+  # ZK write path, which RE-ENFORCES org-membership eligibility (I1) server-side.
+  # The raw group_key NEVER reaches the server.
+  @impl true
+  def handle_event("finalize_group_members_zk", %{"sealed_members" => sealed_members}, socket)
+      when is_list(sealed_members) do
+    current_user = socket.assigns.current_scope.user
+
+    if can_edit_group?(socket.assigns.current_user_group, current_user) do
+      {:ok, added} = Groups.add_group_members_zk(socket.assigns.group, sealed_members)
+
+      {:noreply,
+       socket
+       |> put_flash(
+         :success,
+         "#{added} member#{if added != 1, do: "s"} added to the circle."
+       )
+       |> assign(:show_add_members?, false)
+       |> assign(:pending_add_member_ids, [])
+       |> assign_circle_data()}
+    else
+      {:noreply, put_flash(socket, :error, "You don't have permission to add members.")}
+    end
+  end
+
   @impl true
   def handle_event(event, params, socket) do
     case ChatSupport.handle_chat_event(event, params, socket) do
@@ -589,6 +779,7 @@ defmodule MossletWeb.BusinessLive.CircleShow do
 
   defp assign_circle_data(socket) do
     current_user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
     org = socket.assigns.org
     group = Groups.get_group!(socket.assigns.group.id)
 
@@ -600,23 +791,77 @@ defmodule MossletWeb.BusinessLive.CircleShow do
       |> Enum.map(& &1.id)
       |> then(&Accounts.connection_statuses_for(current_user.id, &1))
 
-    members =
+    # The ZK org-identity roster is built across ALL org members (it carries the
+    # org-display-name ciphertext + connection status). We then scope it to THIS
+    # circle's members only — an org member who hasn't been added to the circle
+    # must NOT appear here. We keep the full `org_members` list separately to
+    # power the "Add members" composer (eligible = connected org members not yet
+    # in the circle).
+    org_members =
       MossletWeb.OrgIdentity.build_members(
         org,
         current_user,
-        fn _user -> nil end,
+        fn user -> personal_connection_name(user, current_user, key) end,
         connection_statuses
       )
+
+    circle_member_ids = circle_member_user_ids(group)
+
+    members =
+      Enum.filter(org_members, fn m -> MapSet.member?(circle_member_ids, m.user.id) end)
 
     socket
     |> assign(:group, group)
     |> assign(:current_user_group, user_group)
     |> assign(:sealed_group_key, user_group && user_group.key)
-    |> assign(:member_count, length(group.user_groups))
+    |> assign(:member_count, MapSet.size(circle_member_ids))
     |> assign(:members, members)
+    |> assign(:addable_members, addable_members(org_members, circle_member_ids))
+    |> assign(:can_manage_circle?, can_edit_group?(user_group, current_user))
+    |> assign(:show_add_members?, socket.assigns[:show_add_members?] || false)
     |> assign(:viewer_sealed_org_key, MossletWeb.OrgIdentity.viewer_sealed_org_key(members))
     |> assign(:shared_files, build_shared_files(group, current_user))
     |> maybe_request_org_key_seal(members)
+  end
+
+  # The set of `user_id`s that are CONFIRMED members of this circle (its
+  # `user_groups`). The roster + member count are scoped to exactly this set so
+  # an org member who hasn't been added to the circle never shows up here.
+  defp circle_member_user_ids(group) do
+    group.user_groups
+    |> Enum.filter(&(not is_nil(&1.confirmed_at)))
+    |> MapSet.new(& &1.user_id)
+  end
+
+  # Org members the circle owner/admin can add to this circle: ANY current org
+  # member not already in the circle. Membership in the org is the ONLY
+  # prerequisite — no personal `UserConnection` is required, because every org
+  # member shares the org-scoped ZK identity (`org_key`), so the adder's browser
+  # can resolve each member's public key (server-provided) and org display name
+  # (decrypted client-side with the `org_key`) to seal the circle `group_key`.
+  # Self is excluded (the viewer is already a member). The server re-enforces
+  # org-eligibility (I1) on the write regardless.
+  defp addable_members(org_members, circle_member_ids) do
+    Enum.filter(org_members, fn m ->
+      not m.self? and not MapSet.member?(circle_member_ids, m.user.id)
+    end)
+  end
+
+  # Reuse the personal-connection name resolution (same as business_live/show.ex)
+  # so the composer can label addable teammates with a name the viewer can read.
+  defp personal_connection_name(user, current_user, key) do
+    case Accounts.get_user_connection_between_users(user.id, current_user.id) do
+      nil ->
+        nil
+
+      uconn ->
+        Mosslet.Encrypted.Users.Utils.decrypt_user_item(
+          uconn.connection.name,
+          current_user,
+          uconn.key,
+          key
+        )
+    end
   end
 
   # Builds the Files panel view-models. Each carries the VIEWER's own sealed
@@ -744,6 +989,12 @@ defmodule MossletWeb.BusinessLive.CircleShow do
 
   defp can_delete_file?(file, user, membership) do
     file.uploader_id == user.id or membership.role == :admin
+  end
+
+  defp random_avatar do
+    Enum.random(
+      ~w(astronaut.png bear.png cat.png chicken.png dinosaur.png dog.png panda.png penguin.png rabbit.png sea-lion.png)
+    )
   end
 
   defp format_size(nil), do: "—"

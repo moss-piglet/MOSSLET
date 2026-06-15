@@ -154,6 +154,41 @@ defmodule MossletWeb.OrgIdentity do
   end
 
   @doc """
+  Builds the seal payload for adding the given org members to a business circle
+  (no personal `UserConnection` required — membership in the org is the only
+  prerequisite). Server-authoritative (D1/I1): `user_ids` is intersected with the
+  org's CURRENT membership rows, so a tampered client can never seal a circle key
+  for a non-member.
+
+  Each returned map carries the member's `public_key` + `pq_public_key` (the
+  sealing target — public keys are not secret) and their org `display_name`
+  ciphertext (`encrypted_display_name`, secretbox under the shared `org_key`).
+  The adder's browser already holds the `org_key`, so it can decrypt the name and
+  re-encrypt it with the circle `group_key` — all client-side, ZK. The raw
+  `org_key` / `group_key` and plaintext names never reach the server.
+
+  Members whose public key is missing are dropped (we can't seal for them).
+  """
+  def members_to_add(%Org{} = org, user_ids) when is_list(user_ids) do
+    wanted = MapSet.new(user_ids)
+
+    org
+    |> Orgs.list_memberships_with_users()
+    |> Enum.filter(fn membership -> MapSet.member?(wanted, membership.user_id) end)
+    |> Enum.map(fn membership ->
+      user = membership.user
+
+      %{
+        user_id: user.id,
+        public_key: user.key_pair["public"],
+        pq_public_key: user.pq_public_key,
+        encrypted_display_name: membership.display_name
+      }
+    end)
+    |> Enum.reject(&is_nil(&1.public_key))
+  end
+
+  @doc """
   Persists browser-sealed `org_key` copies and returns `{:ok, count}`.
   Server-authoritative + idempotent (drops non-members / already-sealed).
   """
