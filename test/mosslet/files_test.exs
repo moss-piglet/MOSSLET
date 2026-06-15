@@ -315,6 +315,23 @@ defmodule Mosslet.FilesTest do
       refute is_nil(Files.get_user_shared_file(file1, ctx.admin))
       refute is_nil(Files.get_user_shared_file(file2, ctx.admin))
     end
+
+    test "after revocation a re-added member must be caught up again (Task #234)", ctx do
+      {:ok, file} = Files.create_shared_file_zk(ctx.group, ctx.admin, file_attrs())
+
+      {:ok, _} =
+        Files.finalize_shared_file_zk(file, [sealed_key(ctx.admin), sealed_key(ctx.member)])
+
+      # Member leaves/removed -> revoke their sealed file access.
+      assert {:ok, 1} = Files.revoke_member_file_access(ctx.group, ctx.member.id)
+      assert is_nil(Files.get_user_shared_file(file, ctx.member))
+      assert {:error, :unauthorized} = Files.presigned_download_url(file, ctx.member)
+
+      # Re-adding them does NOT silently restore old files: they're now missing
+      # access and show up in the catch-up set again.
+      assert ctx.member.id in Files.members_missing_file_access(ctx.group)
+      assert Files.user_missing_file_access?(ctx.group, ctx.member.id)
+    end
   end
 
   describe "delete_all_for_group/1 + circle deletion teardown (I5)" do
@@ -357,6 +374,225 @@ defmodule Mosslet.FilesTest do
 
       assert {:ok, 1} = Files.delete_all_for_org(ctx.org.id)
       assert is_nil(Files.get_shared_file(file.id))
+    end
+  end
+
+  describe "catch-up (Task #232: later-joining members access earlier files)" do
+    # Adds + confirms a brand-new org member into the circle AFTER files exist,
+    # so they hold no sealed file_key for the earlier files.
+    defp late_member(ctx) do
+      {late, _lk} = onboarded_user("fileslate")
+      add_member(ctx.org, late, :member)
+
+      {:ok, _added} =
+        Groups.add_group_members_zk(ctx.group, [
+          %{
+            "user_id" => late.id,
+            "sealed_key" => "sealed-#{late.id}",
+            "encrypted_name" => "name-#{late.id}",
+            "encrypted_moniker" => "moniker-#{late.id}",
+            "encrypted_avatar_img" => "avatar-#{late.id}"
+          }
+        ])
+
+      confirm_membership(ctx.group, late)
+      late
+    end
+
+    test "members_missing_file_access returns members lacking a key for any file", ctx do
+      {:ok, file} = Files.create_shared_file_zk(ctx.group, ctx.admin, file_attrs())
+
+      {:ok, _} =
+        Files.finalize_shared_file_zk(file, [sealed_key(ctx.admin), sealed_key(ctx.member)])
+
+      # Everyone present at upload time can read it.
+      assert Files.members_missing_file_access(ctx.group) == []
+
+      late = late_member(ctx)
+
+      missing = Files.members_missing_file_access(ctx.group)
+      assert late.id in missing
+      refute ctx.admin.id in missing
+      refute ctx.member.id in missing
+      assert Files.members_missing_file_access_count(ctx.group) == 1
+    end
+
+    test "catch_up_payload builds the actor's sealed key + missing members, dropping covered files",
+         ctx do
+      {:ok, file1} = Files.create_shared_file_zk(ctx.group, ctx.admin, file_attrs())
+
+      {:ok, _} =
+        Files.finalize_shared_file_zk(file1, [sealed_key(ctx.admin), sealed_key(ctx.member)])
+
+      late = late_member(ctx)
+
+      # A second file shared AFTER the late member joined: everyone can read it,
+      # so it must be dropped from the catch-up payload.
+      {:ok, file2} = Files.create_shared_file_zk(ctx.group, ctx.admin, file_attrs())
+
+      {:ok, _} =
+        Files.finalize_shared_file_zk(file2, [
+          sealed_key(ctx.admin),
+          sealed_key(ctx.member),
+          sealed_key(late)
+        ])
+
+      payload = Files.catch_up_payload(ctx.group, ctx.admin)
+
+      assert [entry] = payload
+      assert entry.shared_file_id == file1.id
+      # The actor's OWN sealed key (only the actor can unseal it).
+      assert entry.sealed_key == "sealed-#{ctx.admin.id}"
+      assert [missing] = entry.missing
+      assert missing.user_id == late.id
+      assert missing.public_key
+    end
+
+    test "catch_up_payload is empty for an actor who can't read any file", ctx do
+      {:ok, file} = Files.create_shared_file_zk(ctx.group, ctx.admin, file_attrs())
+      {:ok, _} = Files.finalize_shared_file_zk(file, [sealed_key(ctx.admin)])
+
+      # The member never received a key for `file`, so they have nothing to share.
+      assert Files.catch_up_payload(ctx.group, ctx.member) == []
+    end
+
+    test "finalize_catch_up_zk inserts re-sealed rows only for current members (I1)", ctx do
+      {:ok, file} = Files.create_shared_file_zk(ctx.group, ctx.admin, file_attrs())
+
+      {:ok, _} =
+        Files.finalize_shared_file_zk(file, [sealed_key(ctx.admin), sealed_key(ctx.member)])
+
+      late = late_member(ctx)
+
+      entries = [
+        %{
+          "shared_file_id" => file.id,
+          "user_id" => late.id,
+          "sealed_key" => "resealed-#{late.id}"
+        },
+        # Outsider is not a circle member -> dropped (I1).
+        %{
+          "shared_file_id" => file.id,
+          "user_id" => ctx.outsider.id,
+          "sealed_key" => "resealed-outsider"
+        }
+      ]
+
+      assert {:ok, 1} = Files.finalize_catch_up_zk(ctx.group, entries)
+
+      assert Files.get_user_shared_file(file, late).key == "resealed-#{late.id}"
+      assert is_nil(Files.get_user_shared_file(file, ctx.outsider))
+    end
+
+    test "finalize_catch_up_zk does not duplicate an existing reader row", ctx do
+      {:ok, file} = Files.create_shared_file_zk(ctx.group, ctx.admin, file_attrs())
+
+      {:ok, _} =
+        Files.finalize_shared_file_zk(file, [sealed_key(ctx.admin), sealed_key(ctx.member)])
+
+      # The member already holds a key; re-sealing for them is a no-op.
+      entries = [
+        %{
+          "shared_file_id" => file.id,
+          "user_id" => ctx.member.id,
+          "sealed_key" => "resealed-member"
+        }
+      ]
+
+      assert {:ok, 0} = Files.finalize_catch_up_zk(ctx.group, entries)
+      # The original key is untouched.
+      assert Files.get_user_shared_file(file, ctx.member).key == "sealed-#{ctx.member.id}"
+    end
+
+    test "finalize_catch_up_zk drops entries for files in another circle", ctx do
+      {:ok, other_group} =
+        Groups.create_business_circle_zk(ctx.org, ctx.admin, zk_attrs(), [], [])
+
+      {:ok, other_file} = Files.create_shared_file_zk(other_group, ctx.admin, file_attrs())
+      {:ok, _} = Files.finalize_shared_file_zk(other_file, [sealed_key(ctx.admin)])
+
+      late = late_member(ctx)
+
+      # The file belongs to `other_group`, not `ctx.group` -> dropped.
+      entries = [
+        %{
+          "shared_file_id" => other_file.id,
+          "user_id" => late.id,
+          "sealed_key" => "resealed-#{late.id}"
+        }
+      ]
+
+      assert {:ok, 0} = Files.finalize_catch_up_zk(ctx.group, entries)
+      assert is_nil(Files.get_user_shared_file(other_file, late))
+    end
+
+    test "finalize_catch_up_zk broadcasts a shared-files update on success", ctx do
+      {:ok, file} = Files.create_shared_file_zk(ctx.group, ctx.admin, file_attrs())
+
+      {:ok, _} =
+        Files.finalize_shared_file_zk(file, [sealed_key(ctx.admin), sealed_key(ctx.member)])
+
+      late = late_member(ctx)
+
+      Phoenix.PubSub.subscribe(Mosslet.PubSub, "group:#{ctx.group.id}")
+      Files.subscribe_org_files(ctx.org.id)
+
+      entries = [
+        %{
+          "shared_file_id" => file.id,
+          "user_id" => late.id,
+          "sealed_key" => "resealed-#{late.id}"
+        }
+      ]
+
+      assert {:ok, 1} = Files.finalize_catch_up_zk(ctx.group, entries)
+
+      assert_receive {:shared_files_updated, group_id} when group_id == ctx.group.id
+      assert_receive {:shared_files_updated, org_id} when org_id == ctx.org.id
+    end
+
+    test "user_missing_file_access?/2 reflects whether the viewer can read every file (Task #233)",
+         ctx do
+      # No files yet -> nobody is missing anything.
+      refute Files.user_missing_file_access?(ctx.group, ctx.admin.id)
+
+      {:ok, file} = Files.create_shared_file_zk(ctx.group, ctx.admin, file_attrs())
+
+      {:ok, _} =
+        Files.finalize_shared_file_zk(file, [sealed_key(ctx.admin), sealed_key(ctx.member)])
+
+      # Present-at-upload members can read every file.
+      refute Files.user_missing_file_access?(ctx.group, ctx.admin.id)
+      refute Files.user_missing_file_access?(ctx.group, ctx.member.id)
+
+      # A late-joining member is missing the earlier file -> cannot catch up.
+      late = late_member(ctx)
+      assert Files.user_missing_file_access?(ctx.group, late.id)
+    end
+  end
+
+  describe "realtime file events (Task #232)" do
+    test "finalize_shared_file_zk broadcasts on the group + org topics", ctx do
+      {:ok, file} = Files.create_shared_file_zk(ctx.group, ctx.admin, file_attrs())
+
+      Phoenix.PubSub.subscribe(Mosslet.PubSub, "group:#{ctx.group.id}")
+      Files.subscribe_org_files(ctx.org.id)
+
+      {:ok, 1} = Files.finalize_shared_file_zk(file, [sealed_key(ctx.admin)])
+
+      assert_receive {:shared_files_updated, group_id} when group_id == ctx.group.id
+      assert_receive {:shared_files_updated, org_id} when org_id == ctx.org.id
+    end
+
+    test "delete_shared_file broadcasts a shared-files update", ctx do
+      {:ok, file} = Files.create_shared_file_zk(ctx.group, ctx.admin, file_attrs())
+      {:ok, _} = Files.finalize_shared_file_zk(file, [sealed_key(ctx.admin)])
+
+      Phoenix.PubSub.subscribe(Mosslet.PubSub, "group:#{ctx.group.id}")
+
+      {:ok, :revoked} = Files.delete_shared_file(file, ctx.admin)
+
+      assert_receive {:shared_files_updated, group_id} when group_id == ctx.group.id
     end
   end
 

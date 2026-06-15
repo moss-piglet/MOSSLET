@@ -24,6 +24,10 @@ defmodule MossletWeb.BusinessLive.Show do
     if org.type == :business do
       if connected?(socket) do
         Orgs.subscribe_org(org)
+        # Realtime shared-file changes across the org's circles (Task #232): a
+        # file uploaded, removed, or caught-up in any circle refreshes the
+        # "Files across your circles" overview live (no reload). Ids only.
+        Files.subscribe_org_files(org.id)
         # Personal-connection events (Task #226): reflect a teammate accepting
         # our "Connect" request live — the requester is notified on their own
         # accounts topic when the reverse UserConnection is created on accept.
@@ -753,10 +757,14 @@ defmodule MossletWeb.BusinessLive.Show do
     if socket.assigns.can_manage? && member && user_id != socket.assigns.current_scope.user.id do
       # Remove the member from every business circle in this org (Q5 — explicit,
       # honest offboarding). We can't recall content already downloaded; we only
-      # stop FUTURE access by removing their UserGroup rows.
+      # stop FUTURE access by removing their UserGroup rows AND revoking their
+      # sealed file_keys (Task #234), so a later re-add requires a fresh catch-up.
       org
       |> Groups.list_org_business_circles()
-      |> Enum.each(fn group -> Groups.remove_group_members(group, [user_id]) end)
+      |> Enum.each(fn group ->
+        Groups.remove_group_members(group, [user_id])
+        Files.revoke_member_file_access(group, user_id)
+      end)
 
       case Orgs.delete_membership(member.membership) do
         {:ok, _} ->
@@ -886,6 +894,9 @@ defmodule MossletWeb.BusinessLive.Show do
 
       true ->
         {:ok, _} = Groups.remove_group_members(manage.group, [user_id])
+        # Revoke the removed member's sealed file_keys for this circle (Task
+        # #234) — explicit removal, never silent: a later re-add requires catch-up.
+        Files.revoke_member_file_access(manage.group, user_id)
         Orgs.broadcast_org_update(socket.assigns.org)
 
         {:noreply,
@@ -1113,6 +1124,13 @@ defmodule MossletWeb.BusinessLive.Show do
   # update live — no full reload.
   def handle_info({event, %Mosslet.Accounts.UserConnection{}}, socket)
       when event in [:uconn_confirmed, :uconn_created, :uconn_deleted, :uconn_updated] do
+    {:noreply, assign_business_data(socket)}
+  end
+
+  # Realtime shared-file change in one of the org's circles (Task #232): a file
+  # was uploaded, removed, or a catch-up granted access. Refresh the dashboard
+  # so the "Files across your circles" overview updates live (no reload).
+  def handle_info({:shared_files_updated, _id}, socket) do
     {:noreply, assign_business_data(socket)}
   end
 

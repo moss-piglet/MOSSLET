@@ -211,6 +211,34 @@ defmodule Mosslet.Files do
   end
 
   @doc """
+  Whether `user_id` is themselves missing a sealed `file_key` for one or more of
+  the circle's shared files. A viewer who can't read every file can NOT catch
+  others up (they'd have nothing to re-seal for the files they lack) — the
+  catch-up affordance must be hidden for them (Task #233). Returns `false` when
+  the circle has no files (nothing to be missing).
+  """
+  def user_missing_file_access?(%Group{} = group, user_id) when is_binary(user_id) do
+    total_files =
+      SharedFile
+      |> where([sf], sf.group_id == ^group.id)
+      |> select([sf], count(sf.id))
+      |> Repo.one()
+
+    if total_files == 0 do
+      false
+    else
+      readable =
+        UserSharedFile
+        |> join(:inner, [usf], sf in SharedFile, on: sf.id == usf.shared_file_id)
+        |> where([usf, sf], sf.group_id == ^group.id and usf.user_id == ^user_id)
+        |> select([usf], count(usf.id))
+        |> Repo.one()
+
+      readable < total_files
+    end
+  end
+
+  @doc """
   Builds the client-side re-seal payload for `actor` to catch everyone up on
   earlier files in `group`. For every file `actor` can read, returns the actor's
   OWN sealed `file_key` (so the browser can unseal it) plus the public keys of

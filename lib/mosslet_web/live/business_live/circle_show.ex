@@ -145,38 +145,77 @@ defmodule MossletWeb.BusinessLive.CircleShow do
           data-max-bytes={Files.max_size_bytes()}
           class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
         >
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
-                Files
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div class="min-w-0">
+              <h2 class="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-slate-100">
+                <.phx_icon
+                  name="hero-lock-closed"
+                  class="size-4 text-teal-500 dark:text-teal-400"
+                /> Files
               </h2>
               <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                 Encrypted on your device and shared only with this circle. Mosslet can't read them.
               </p>
             </div>
-            <label
-              for="shared-file-input"
-              class="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-gradient-to-r from-teal-500 to-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-emerald-500/25 transition-all duration-200 hover:shadow-md hover:shadow-emerald-500/30"
-            >
-              <.phx_icon name="hero-arrow-up-tray" class="size-4" /> Upload
-              <input
-                id="shared-file-input"
-                type="file"
-                data-shared-file-input
-                class="sr-only"
-              />
-            </label>
+            <div class="flex shrink-0 items-center gap-2">
+              <%!-- Catch up (explicit, never silent — Task #232). Re-seals
+                   earlier files for members who joined later, on the actor's
+                   device. Only shown to an authorized current reader when at
+                   least one member is missing access. The tooltip uses TippyHook
+                   for consistent, well-positioned hints; the catch-up crypto is
+                   driven from a sibling element so each keeps its own hook. --%>
+              <button
+                :if={@can_catch_up?}
+                type="button"
+                id="catch-up-button"
+                phx-click="request_catch_up"
+                phx-disable-with="Sharing…"
+                phx-hook="TippyHook"
+                data-tippy-content="Give members who joined later access to earlier files. Re-encrypted on your device — Mosslet still can't read them."
+                class="inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-teal-200/80 dark:border-teal-700/60 bg-teal-50/80 dark:bg-teal-900/20 px-4 py-2 text-sm font-semibold text-teal-700 dark:text-teal-300 shadow-sm transition-all duration-200 hover:bg-teal-100/80 dark:hover:bg-teal-900/40 hover:shadow-md sm:flex-none"
+              >
+                <.phx_icon name="hero-sparkles" class="size-4" /> Catch up
+              </button>
+              <%!-- Sibling element owning the re-seal crypto hook (an element can
+                   have only one Phoenix hook, so it can't share the button's). --%>
+              <div :if={@can_catch_up?} id="catch-up-crypto" phx-hook="CircleCatchUpHook"></div>
+              <%!-- Honest hint for a partial reader (Task #233): the viewer is
+                   themselves missing one or more files, so they can't catch
+                   anyone up — only someone who can read every file can. We never
+                   show them the misleading "Catch up" button. --%>
+              <span
+                :if={@viewer_missing_files?}
+                id="catch-up-viewer-missing-hint"
+                phx-hook="TippyHook"
+                data-tippy-content="Some files were shared before you joined. Ask an admin or the uploader to share them with you."
+                class="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 dark:border-slate-700/60 bg-slate-50/80 dark:bg-slate-800/40 px-3 py-2 text-xs font-medium text-slate-500 dark:text-slate-400"
+              >
+                <.phx_icon name="hero-information-circle" class="size-4" /> Missing earlier files
+              </span>
+              <label
+                for="shared-file-input"
+                class="inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-teal-500 to-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-emerald-500/25 transition-all duration-200 hover:shadow-md hover:shadow-emerald-500/30 sm:flex-none"
+              >
+                <.phx_icon name="hero-arrow-up-tray" class="size-4" /> Upload
+                <input
+                  id="shared-file-input"
+                  type="file"
+                  data-shared-file-input
+                  class="sr-only"
+                />
+              </label>
+            </div>
           </div>
 
           <ul role="list" class="divide-y divide-slate-100 dark:divide-slate-700/60">
             <li
               :for={file <- @shared_files}
               id={"shared-file-#{file.id}"}
-              class="py-3 flex items-center justify-between gap-3"
+              class="flex items-center justify-between gap-3 py-3"
             >
-              <div class="flex items-center gap-3 min-w-0">
-                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
-                  <.phx_icon name="hero-document" class="size-4" />
+              <div class="flex min-w-0 items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/40 dark:to-emerald-900/30 text-teal-600 dark:text-teal-300 ring-1 ring-teal-500/10">
+                  <.phx_icon name="hero-document-text" class="size-5" />
                 </div>
                 <div class="min-w-0">
                   <%!-- Filename is encrypted with the file_key (ZK). Decrypt it
@@ -192,30 +231,38 @@ defmodule MossletWeb.BusinessLive.CircleShow do
                   >
                     <p
                       data-shared-filename
-                      class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate"
+                      class="truncate text-sm font-medium text-slate-900 dark:text-slate-100"
                     >
                       Decrypting…
                     </p>
                   </div>
                   <p
                     :if={!(file.viewer_sealed_key && file.encrypted_filename)}
-                    class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate"
+                    class="truncate text-sm font-medium text-slate-900 dark:text-slate-100"
                   >
                     Encrypted file
                   </p>
-                  <p class="text-xs text-slate-500 dark:text-slate-400">
-                    {format_size(file.size_bytes)} · {file.reader_count} can read
+                  <p class="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    <span>{format_size(file.size_bytes)}</span>
+                    <span aria-hidden="true">·</span>
+                    <span class="inline-flex items-center gap-1">
+                      <.phx_icon name="hero-eye" class="size-3" />
+                      {file.reader_count} can open
+                    </span>
                   </p>
                 </div>
               </div>
-              <div class="flex items-center gap-2 flex-shrink-0">
+              <div class="flex shrink-0 items-center gap-1">
                 <button
                   type="button"
                   data-download-shared-file={file.id}
                   id={"download-#{file.id}"}
-                  class="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors duration-200"
+                  phx-hook="TippyHook"
+                  data-tippy-content="Download & decrypt on your device"
+                  class="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 transition-colors duration-200 hover:bg-teal-50 dark:hover:bg-teal-900/20"
                 >
-                  <.phx_icon name="hero-arrow-down-tray" class="size-3.5" /> Download
+                  <.phx_icon name="hero-arrow-down-tray" class="size-4" />
+                  <span class="hidden sm:inline">Download</span>
                 </button>
                 <button
                   :if={can_delete_file?(file, @current_scope.user, @membership)}
@@ -223,29 +270,68 @@ defmodule MossletWeb.BusinessLive.CircleShow do
                   phx-click="delete_shared_file"
                   phx-value-id={file.id}
                   id={"delete-#{file.id}"}
-                  data-confirm="Delete this file for everyone in the circle? We can't recall copies already downloaded."
-                  class="text-xs font-medium text-rose-500 hover:text-rose-600"
+                  phx-hook="TippyHook"
+                  data-tippy-content="Remove for everyone"
+                  data-confirm="Remove this file for everyone in the circle? Copies already downloaded can't be recalled."
+                  class="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium text-rose-500 transition-colors duration-200 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-600"
                 >
-                  Remove
+                  <.phx_icon name="hero-trash" class="size-4" />
+                  <span class="hidden sm:inline">Remove</span>
                 </button>
               </div>
             </li>
-            <li :if={@shared_files == []} class="py-3 text-xs text-slate-500 dark:text-slate-400">
-              No files shared yet. Upload one to share it securely with this circle.
+            <li
+              :if={@shared_files == []}
+              class="flex flex-col items-center gap-2 py-8 text-center"
+            >
+              <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-700/50 text-slate-400 dark:text-slate-500">
+                <.phx_icon name="hero-document-plus" class="size-6" />
+              </div>
+              <p class="text-sm font-medium text-slate-700 dark:text-slate-200">
+                No files yet
+              </p>
+              <p class="max-w-xs text-xs text-slate-500 dark:text-slate-400">
+                Upload a file to share it securely with this circle — it's encrypted on your device first.
+              </p>
             </li>
           </ul>
 
-          <%!-- Transparency surface (mandatory — I4) --%>
-          <div class="rounded-xl border border-teal-200/60 dark:border-teal-800/50 bg-teal-50/60 dark:bg-teal-900/20 p-4">
-            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
-              Who can read these files
-            </p>
-            <p class="mt-0.5 text-xs text-slate-600 dark:text-slate-300">
-              Everyone in this circle can open these files with their own key. Mosslet's servers
-              can't read them. Adding someone to the circle later does <strong>not</strong>
-              give them existing files — only files shared after they join. Deleting a file removes
-              it for everyone, but can't recall copies already downloaded.
-            </p>
+          <%!-- Transparency surface (mandatory — I4). Plain-language, scannable
+               facts instead of a paragraph: who can read, what staying private
+               means, and the honest limits of removal. --%>
+          <div class="rounded-xl border border-teal-200/60 dark:border-teal-800/50 bg-gradient-to-br from-teal-50/80 to-emerald-50/50 dark:from-teal-900/20 dark:to-emerald-900/10 p-4">
+            <div class="flex items-center gap-2">
+              <.phx_icon
+                name="hero-shield-check"
+                class="size-4 text-teal-600 dark:text-teal-400"
+              />
+              <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Who can open these files
+              </p>
+            </div>
+            <ul class="mt-2.5 space-y-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+              <li class="flex items-start gap-2">
+                <.phx_icon
+                  name="hero-users"
+                  class="mt-0.5 size-3.5 shrink-0 text-teal-500 dark:text-teal-400"
+                /> Everyone in this circle. Each person unlocks them with their own key.
+              </li>
+              <li class="flex items-start gap-2">
+                <.phx_icon
+                  name="hero-clock"
+                  class="mt-0.5 size-3.5 shrink-0 text-teal-500 dark:text-teal-400"
+                /> New members see files shared after they join. Use
+                <span class="font-medium text-slate-700 dark:text-slate-200">Catch up</span>
+                to share earlier ones too.
+              </li>
+              <li class="flex items-start gap-2">
+                <.phx_icon
+                  name="hero-trash"
+                  class="mt-0.5 size-3.5 shrink-0 text-teal-500 dark:text-teal-400"
+                />
+                Removing a file revokes it for everyone — you can't recall copies already downloaded.
+              </li>
+            </ul>
           </div>
         </section>
 
@@ -632,6 +718,67 @@ defmodule MossletWeb.BusinessLive.CircleShow do
     end
   end
 
+  ## Catch up: grant later-joining members access to EARLIER files (explicit,
+  ## never silent — Task #231/#232, see docs/ZK_FILE_SHARING_DESIGN.md §6.2). Two
+  ## phases, mirroring the file-upload write path: phase 1 hands the browser the
+  ## actor's OWN sealed file_keys + the public keys of members who are missing
+  ## access; phase 2 persists the browser's re-sealed copies. The raw file_key
+  ## never reaches the server (I2/I3); the recipient set is server-authoritative
+  ## (I1); the action is gated on `@can_catch_up?` here AND re-checked on the
+  ## write in `Files.finalize_catch_up_zk/2`.
+
+  # Phase 1: an authorized current reader asked to catch everyone up. Build the
+  # per-file re-seal payload (actor's sealed key + the missing members' public
+  # keys) and hand it to the browser to re-seal locally.
+  @impl true
+  def handle_event("request_catch_up", _params, socket) do
+    if socket.assigns.can_catch_up? do
+      current_user = socket.assigns.current_scope.user
+      files = Files.catch_up_payload(socket.assigns.group, current_user)
+
+      if files == [] do
+        {:noreply,
+         socket
+         |> put_flash(:info, "Everyone can already read the files you have access to.")
+         |> assign_circle_data()}
+      else
+        {:noreply, push_event(socket, "reseal_files_for_members", %{files: files})}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "You don't have permission to share earlier files.")}
+    end
+  end
+
+  # Phase 2: the browser re-sealed each file_key for the members who were
+  # missing access. Persist via the shared ZK write path, which re-enforces
+  # circle membership + de-dups (I1). The raw file_key NEVER reaches the server.
+  @impl true
+  def handle_event("finalize_catch_up_zk", %{"sealed_entries" => sealed_entries}, socket)
+      when is_list(sealed_entries) do
+    if socket.assigns.can_catch_up? do
+      {:ok, added} = Files.finalize_catch_up_zk(socket.assigns.group, sealed_entries)
+
+      message =
+        if added > 0 do
+          "Shared earlier files with #{added} member#{if added != 1, do: "s"}."
+        else
+          "Everyone can already read the files you have access to."
+        end
+
+      {:noreply,
+       socket
+       |> put_flash(:success, message)
+       |> assign_circle_data()}
+    else
+      {:noreply, put_flash(socket, :error, "You don't have permission to share earlier files.")}
+    end
+  end
+
+  @impl true
+  def handle_event("catch_up_failed", _params, socket) do
+    {:noreply, put_flash(socket, :error, "Couldn't share earlier files. Please try again.")}
+  end
+
   ## Org-scoped ZK identity seal/bootstrap (shared with the OrgMembers hook)
 
   @impl true
@@ -765,6 +912,11 @@ defmodule MossletWeb.BusinessLive.CircleShow do
 
       true ->
         {:ok, _} = Groups.delete_user_group(user_group)
+        # Revoke the leaver's sealed file_keys for this circle (Task #234). The
+        # explicit act of leaving IS the trigger (never silent — design §6.3):
+        # if they're re-added later they must be caught up again to regain
+        # access. We can't recall copies already downloaded, only future fetches.
+        Files.revoke_member_file_access(group, current_user.id)
         Orgs.broadcast_org_update(socket.assigns.org)
 
         {:noreply,
@@ -802,6 +954,10 @@ defmodule MossletWeb.BusinessLive.CircleShow do
       true ->
         case remove_circle_member(socket.assigns.membership, actor_ug, target_ug) do
           {:ok, _} ->
+            # Revoke the removed member's sealed file_keys for this circle (Task
+            # #234). Removal IS the explicit trigger (never silent — design §6.3):
+            # re-adding them later requires an explicit catch-up to regain access.
+            Files.revoke_member_file_access(group, user_id)
             Orgs.broadcast_org_update(socket.assigns.org)
 
             {:noreply,
@@ -954,14 +1110,19 @@ defmodule MossletWeb.BusinessLive.CircleShow do
     |> maybe_request_org_key_seal(members)
   end
 
-  # Catch-up affordance state (Task #231). Members who joined after a file was
-  # shared hold no key for it; an authorized current reader can explicitly
+  # Catch-up affordance state (Task #231/#233). Members who joined after a file
+  # was shared hold no key for it; an authorized current reader can explicitly
   # re-seal earlier files for them (never silent — ZK, see design §6.2). We show
   # the affordance only when (a) some current member is missing access to one or
-  # more files, and (b) the viewer is authorized (uploader of any file, a circle
-  # admin/owner, or an org admin) — the server re-checks on the write.
+  # more files, (b) the viewer is authorized (uploader of any file, a circle
+  # admin/owner, or an org admin), AND (c) the viewer is NOT themselves missing
+  # access to any file — you can only re-seal files you can read, so a partial
+  # reader (e.g. a late-joining org admin) can't catch anyone up. The server
+  # re-checks on the write. When the viewer IS the one missing files, we surface
+  # an honest, different hint instead (they must be caught up by someone else).
   defp assign_catch_up(socket, group, current_user, user_group) do
     missing_count = Files.members_missing_file_access_count(group)
+    viewer_missing? = Files.user_missing_file_access?(group, current_user.id)
 
     authorized? =
       (is_struct(user_group) and user_group.role in [:owner, :admin]) or
@@ -970,7 +1131,8 @@ defmodule MossletWeb.BusinessLive.CircleShow do
 
     socket
     |> assign(:catch_up_missing_count, missing_count)
-    |> assign(:can_catch_up?, missing_count > 0 and authorized?)
+    |> assign(:viewer_missing_files?, viewer_missing?)
+    |> assign(:can_catch_up?, missing_count > 0 and authorized? and not viewer_missing?)
   end
 
   # The set of `user_id`s that are CONFIRMED members of this circle (its

@@ -287,7 +287,7 @@ defmodule MossletWeb.BusinessLive.CircleShowTest do
         |> log_in(ctx.admin, ctx.admin_key)
         |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
 
-      assert render(lv) =~ "Who can read these files"
+      assert render(lv) =~ "Who can open these files"
       assert render(lv) =~ "recall copies already downloaded"
     end
   end
@@ -413,6 +413,32 @@ defmodule MossletWeb.BusinessLive.CircleShowTest do
       refute Enum.any?(group.user_groups, &(&1.user_id == ctx.member.id))
     end
 
+    test "leaving revokes the member's sealed file access (re-add needs catch-up — Task #234)",
+         ctx do
+      {:ok, file} = Files.create_shared_file_zk(ctx.group, ctx.admin, file_attrs())
+
+      {:ok, _} =
+        Files.finalize_shared_file_zk(file, [
+          %{"user_id" => ctx.admin.id, "sealed_key" => "sealed-#{ctx.admin.id}"},
+          %{"user_id" => ctx.member.id, "sealed_key" => "sealed-#{ctx.member.id}"}
+        ])
+
+      # The member can read the file before leaving.
+      refute is_nil(Files.get_user_shared_file(file, ctx.member))
+
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.member, ctx.member_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      assert {:error, {:live_redirect, _}} =
+               lv |> element("#leave-circle-button") |> render_click()
+
+      # Sealed file access is gone: a re-add must explicitly catch them up again.
+      assert is_nil(Files.get_user_shared_file(file, ctx.member))
+      assert {:error, :unauthorized} = Files.presigned_download_url(file, ctx.member)
+    end
+
     test "the circle owner has no leave affordance and a tampered leave is refused", ctx do
       {:ok, lv, _html} =
         ctx.conn
@@ -444,6 +470,29 @@ defmodule MossletWeb.BusinessLive.CircleShowTest do
 
       group = Groups.get_group!(ctx.group.id)
       refute Enum.any?(group.user_groups, &(&1.user_id == ctx.member.id))
+    end
+
+    test "removing a member revokes their sealed file access (re-add needs catch-up — Task #234)",
+         ctx do
+      {:ok, file} = Files.create_shared_file_zk(ctx.group, ctx.admin, file_attrs())
+
+      {:ok, _} =
+        Files.finalize_shared_file_zk(file, [
+          %{"user_id" => ctx.admin.id, "sealed_key" => "sealed-#{ctx.admin.id}"},
+          %{"user_id" => ctx.member.id, "sealed_key" => "sealed-#{ctx.member.id}"}
+        ])
+
+      refute is_nil(Files.get_user_shared_file(file, ctx.member))
+
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.admin, ctx.admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      lv |> element("#remove-member-#{ctx.member.id}") |> render_click()
+
+      assert is_nil(Files.get_user_shared_file(file, ctx.member))
+      assert {:error, :unauthorized} = Files.presigned_download_url(file, ctx.member)
     end
 
     test "a plain member has no Remove affordance and a tampered remove is refused", ctx do
@@ -505,6 +554,186 @@ defmodule MossletWeb.BusinessLive.CircleShowTest do
       admin_lv |> element("#remove-member-#{ctx.member.id}") |> render_click()
 
       assert_redirect(member_lv, "/app/business/#{ctx.org.slug}")
+    end
+  end
+
+  describe "catch up (later-joining members access earlier files — Task #232)" do
+    # Adds + confirms a brand-new org member into the circle AFTER a file exists.
+    defp join_late(ctx, seed) do
+      {late, _lk} = onboarded_user(seed)
+      add_member(ctx.org, late, :member)
+
+      {:ok, _} =
+        Groups.add_group_members_zk(ctx.group, [
+          %{
+            "user_id" => late.id,
+            "sealed_key" => "sealed-#{late.id}",
+            "encrypted_name" => "name-#{late.id}",
+            "encrypted_moniker" => "moniker-#{late.id}",
+            "encrypted_avatar_img" => "avatar-#{late.id}"
+          }
+        ])
+
+      confirm_membership(ctx.group, late)
+      late
+    end
+
+    defp share_file_to(ctx, recipients) do
+      {:ok, file} = Files.create_shared_file_zk(ctx.group, ctx.admin, file_attrs())
+
+      sealed =
+        Enum.map(recipients, fn u ->
+          %{"user_id" => u.id, "sealed_key" => "sealed-#{u.id}"}
+        end)
+
+      {:ok, _} = Files.finalize_shared_file_zk(file, sealed)
+      file
+    end
+
+    test "the catch-up button is shown to an authorized reader when a member is missing access",
+         ctx do
+      share_file_to(ctx, [ctx.admin, ctx.member])
+      _late = join_late(ctx, "cscatchlate1")
+
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.admin, ctx.admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      assert has_element?(lv, "#catch-up-button")
+    end
+
+    test "the catch-up button is hidden when everyone can already read every file", ctx do
+      # No late joiner: the file's readers cover all current members.
+      share_file_to(ctx, [ctx.admin, ctx.member])
+
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.admin, ctx.admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      refute has_element?(lv, "#catch-up-button")
+    end
+
+    test "an unauthorized member (non-uploader, non-admin) sees no catch-up button", ctx do
+      # The admin uploads a file the member can read; a late member is missing
+      # access. The plain member is NOT authorized to catch others up.
+      share_file_to(ctx, [ctx.admin, ctx.member])
+      _late = join_late(ctx, "cscatchlate2")
+
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.member, ctx.member_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      refute has_element?(lv, "#catch-up-button")
+    end
+
+    test "a late-joining ORG ADMIN who is themselves missing files sees no catch-up button (Task #233)",
+         ctx do
+      # A file is shared while only admin+member are present.
+      share_file_to(ctx, [ctx.admin, ctx.member])
+
+      # A separate org ADMIN joins the circle AFTER the file was shared, so they
+      # hold no key for it. Even though their org role would normally authorize a
+      # catch-up, they can't re-seal a file they can't read — so the affordance
+      # must be hidden, and an honest "missing earlier files" hint shown instead.
+      {late_admin, late_admin_key} = onboarded_user("cscatchlateadmin")
+      add_member(ctx.org, late_admin, :admin)
+
+      {:ok, _} =
+        Groups.add_group_members_zk(ctx.group, [sealed_for(late_admin)])
+
+      confirm_membership(ctx.group, late_admin)
+
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(late_admin, late_admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      refute has_element?(lv, "#catch-up-button")
+      assert has_element?(lv, "#catch-up-viewer-missing-hint")
+    end
+
+    test "a full-reader admin DOES see the catch-up button while a late member is missing (Task #233)",
+         ctx do
+      share_file_to(ctx, [ctx.admin, ctx.member])
+      _late = join_late(ctx, "cscatchfullreader")
+
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.admin, ctx.admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      # The owner/org-admin can read every file, so they CAN catch others up.
+      assert has_element?(lv, "#catch-up-button")
+      refute has_element?(lv, "#catch-up-viewer-missing-hint")
+    end
+
+    test "finalize_catch_up_zk by an authorized actor grants the late member access", ctx do
+      file = share_file_to(ctx, [ctx.admin, ctx.member])
+      late = join_late(ctx, "cscatchlate3")
+
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.admin, ctx.admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      # Phase 1 authorizes + builds the payload (browser would re-seal).
+      render_hook(lv, "request_catch_up", %{})
+
+      # Phase 2: the browser returns the re-sealed entry.
+      render_hook(lv, "finalize_catch_up_zk", %{
+        "sealed_entries" => [
+          %{
+            "shared_file_id" => file.id,
+            "user_id" => late.id,
+            "sealed_key" => "resealed-#{late.id}"
+          }
+        ]
+      })
+
+      assert Files.get_user_shared_file(file, late).key == "resealed-#{late.id}"
+    end
+
+    test "a tampered, unauthorized finalize_catch_up_zk is refused server-side", ctx do
+      file = share_file_to(ctx, [ctx.admin, ctx.member])
+      late = join_late(ctx, "cscatchlate4")
+
+      # The plain member is not authorized to catch anyone up.
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.member, ctx.member_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      render_hook(lv, "request_catch_up", %{})
+
+      render_hook(lv, "finalize_catch_up_zk", %{
+        "sealed_entries" => [
+          %{
+            "shared_file_id" => file.id,
+            "user_id" => late.id,
+            "sealed_key" => "resealed-#{late.id}"
+          }
+        ]
+      })
+
+      # The late member still has no access — the unauthorized write was refused.
+      assert is_nil(Files.get_user_shared_file(file, late))
+    end
+
+    test "realtime: an uploaded file refreshes the Files panel without a reload", ctx do
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.member, ctx.member_key)
+        |> live(~p"/app/business/#{ctx.org.slug}/circles/#{ctx.group.id}")
+
+      file = share_file_to(ctx, [ctx.admin, ctx.member])
+
+      # The finalize above broadcast {:shared_files_updated, group_id} to the
+      # circle's group topic, which CircleShow handles by refreshing live.
+      assert render(lv) =~ "shared-file-#{file.id}"
+      assert has_element?(lv, "#shared-file-#{file.id}")
     end
   end
 end

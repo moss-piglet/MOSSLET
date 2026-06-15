@@ -76,8 +76,11 @@ access only / past downloads can't be recalled" copy.
   resolved server-side. A tampered client cannot seal a file for an outsider and
   cannot expand the recipient set.
 - ❌ **No silent access changes.** Adding a member to a circle does not silently
-  retro-seal existing files for them (honest "future files only" — see §6.2);
-  the transparency surface always reflects current reality.
+  retro-seal existing files for them. By default a new member only gets files
+  shared *after* they join ("future files only"). Granting access to earlier
+  files is possible but **only via an explicit, surfaced "Catch up" action** by
+  an authorized current reader — never automatic, never silent (see §6.2). The
+  transparency surface always reflects current reality.
 - ❌ **No cross-org / cross-circle leakage.** A file is pinned to one circle;
   eligibility queries are always circle-scoped.
 - ❌ **No server-side virus/content scanning of plaintext** (server can't see
@@ -300,25 +303,56 @@ names browser-side). Honest copy:
 > Everyone in **[circle name]** can open this file with their own key. Mosslet's
 > servers can't read it.
 > *Adding someone to the circle later does **not** give them this file — only
-> files shared after they join. Deleting a file removes it for everyone, but
-> can't recall copies already downloaded.*
+> files shared after they join, unless an authorized member uses **Catch up**
+> (see §6.2.1). Deleting a file removes it for everyone, but can't recall copies
+> already downloaded.*
 
 This makes the "future files only" semantics and revocation honesty explicit
 (I4/I5), mirroring the guardianship transparency-panel discipline.
+
+### 6.2.1 Catch up (explicit, never silent)
+
+By default a member who joins after a file was shared holds no sealed `file_key`
+for it and cannot read it. This is correct behavior, not a bug — the server can
+never re-seal a `file_key` because it never holds one (I2/I3). To let earlier
+files reach later-joining members **without** violating the "no silent retro-seal"
+non-goal, we offer a single, explicit, surfaced **"Catch up"** action:
+
+- **Who can trigger it:** an authorized *current reader* — the file uploader, a
+  circle owner/admin, or an org admin. NOT every member (which would silently
+  widen access). The affordance is shown only when at least one current member
+  is missing access to one or more files.
+- **How it works (client-side re-seal, ZK):** the server hands the actor's
+  browser *its own* sealed `file_key` for each readable file plus the public keys
+  of the members who lack access (server-authoritative, I1). The browser unseals
+  each `file_key`, re-seals it with `sealForUser` for each missing member, and
+  returns only the new sealed copies. The raw `file_key` never reaches the server
+  (I2/I3).
+- **Server enforcement:** `finalize_catch_up_zk/2` inserts a `UserSharedFile`
+  only when the target is a *current confirmed circle member* of that file's
+  circle and doesn't already hold a row (I1, idempotent). A tampered client can
+  neither widen the recipient set nor seal for an outsider.
+- **Never silent:** the action is an explicit button with honest tooltip copy
+  ("Give members who joined later access to earlier files. Re-encrypted on your
+  device — Mosslet still can't read them."), mirroring the §6.3 revocation
+  discipline. The transparency surface (§6.2) updates to reflect the new readers.
 
 ### 6.3 Revocation (honest — I5)
 
 - **Delete a file:** removes the Tigris blob + all sealed keys + the record. No
   one can fetch/decrypt it afterward. UI states plainly that already-downloaded
   copies cannot be recalled.
-- **Member leaves the circle:** their `UserGroup` row is removed; going forward
-  they are not a recipient of new files. Their **existing** `UserSharedFile`
-  rows for files shared *while they were a member* are **not** silently deleted
-  by default (you can't un-ring the bell — same principle as guardianship).
-  **(Q6 = YES, explicit action.)** The dashboard offers an explicit "revoke this
-  departed member's access to all circle files" action that deletes their
-  `UserSharedFile` rows (prevents *future* fetches by them), with honest copy
-  that already-downloaded copies cannot be recalled. Never silent.
+- **Member leaves or is removed from the circle:** their `UserGroup` row is
+  removed (so they are not a recipient of new files) **and** their existing
+  `UserSharedFile` rows for the circle are revoked. The act of leaving (member's
+  own choice) or removal/offboarding (admin's choice) IS the explicit trigger —
+  consistent with "explicit, never silent." This deletes the departed member's
+  sealed `file_key` rows, preventing *future* fetches by them; if they are
+  re-added later they must be explicitly **caught up** again to regain access.
+  Honest copy: already-downloaded copies cannot be recalled. **(Q6 = YES.)** The
+  underlying `Files.revoke_member_file_access/2` remains available as a
+  standalone admin action as well.
+
 
 ## 7. Security review checklist (applied at implementation)
 
