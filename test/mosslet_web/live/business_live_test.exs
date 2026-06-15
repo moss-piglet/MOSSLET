@@ -266,6 +266,74 @@ defmodule MossletWeb.BusinessLiveTest do
     end
   end
 
+  describe "Connect with teammate (Task #226)" do
+    setup %{conn: conn} do
+      {admin, admin_key} = onboarded_user("connadmin")
+      {:ok, org} = Orgs.create_org(admin, %{"name" => "Connectel", "type" => "business"})
+
+      {member, _mk} = onboarded_user("connmember")
+      add_member(org, member, :member)
+
+      %{conn: conn, admin: admin, admin_key: admin_key, org: org, member: member}
+    end
+
+    test "shows a Connect button for an unconnected teammate", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      # Button appears for the other member, but never for self.
+      assert has_element?(lv, "#connect-#{ctx.member.id}")
+      refute has_element?(lv, "#connect-#{ctx.admin.id}")
+    end
+
+    test "clicking Connect sends a UserConnection invite and flips to Pending", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      refute has_element?(lv, "#connect-pending-#{ctx.member.id}")
+
+      lv |> element("#connect-#{ctx.member.id}") |> render_click()
+
+      # A pending (unconfirmed) personal connection row now exists between the
+      # admin (requester) and member (recipient). On create, the row is
+      # user_id=recipient, reverse_user_id=requester (an "arrival" for the
+      # recipient), so we look it up from the recipient's side.
+      assert %{} = uconn = Accounts.get_user_connection_between_users(ctx.admin.id, ctx.member.id)
+      assert is_nil(uconn.confirmed_at)
+
+      # The button is replaced by a non-actionable Pending pill.
+      refute has_element?(lv, "#connect-#{ctx.member.id}")
+      assert has_element?(lv, "#connect-pending-#{ctx.member.id}")
+    end
+
+    test "connect_teammate refuses a non-member and self (server-authoritative)", ctx do
+      {outsider, _ok} = onboarded_user("connoutsider")
+      scope = %{user: Accounts.preload_connection(ctx.admin), key: ctx.admin_key}
+
+      assert {:error, :not_a_member} =
+               MossletWeb.OrgIdentity.connect_teammate(ctx.org, scope, outsider.id)
+
+      assert {:error, :not_a_member} =
+               MossletWeb.OrgIdentity.connect_teammate(ctx.org, scope, ctx.admin.id)
+    end
+
+    test "connection_statuses_for batches status across directions", ctx do
+      {other, _ok} = onboarded_user("connother")
+      add_member(ctx.org, other, :member)
+
+      statuses = Accounts.connection_statuses_for(ctx.admin.id, [ctx.member.id, other.id])
+      assert statuses[ctx.member.id] == :none
+      assert statuses[other.id] == :none
+
+      scope = %{user: Accounts.preload_connection(ctx.admin), key: ctx.admin_key}
+      {:ok, _uconn} = MossletWeb.OrgIdentity.connect_teammate(ctx.org, scope, ctx.member.id)
+
+      statuses = Accounts.connection_statuses_for(ctx.admin.id, [ctx.member.id, other.id])
+      assert statuses[ctx.member.id] == :pending
+      assert statuses[other.id] == :none
+    end
+  end
+
   describe "Groups business-circle context (ZK eligibility)" do
     setup do
       {admin, _ak} = onboarded_user("ctxadmin")

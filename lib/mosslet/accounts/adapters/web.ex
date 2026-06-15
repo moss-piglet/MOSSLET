@@ -561,6 +561,32 @@ defmodule Mosslet.Accounts.Adapters.Web do
   end
 
   @impl true
+  def connection_statuses_for(_current_user_id, []), do: %{}
+
+  def connection_statuses_for(current_user_id, member_user_ids)
+      when is_list(member_user_ids) do
+    rows =
+      Repo.all(
+        from uc in UserConnection,
+          where:
+            (uc.user_id == ^current_user_id and uc.reverse_user_id in ^member_user_ids) or
+              (uc.reverse_user_id == ^current_user_id and uc.user_id in ^member_user_ids),
+          select: {uc.user_id, uc.reverse_user_id, not is_nil(uc.confirmed_at)}
+      )
+
+    Enum.reduce(rows, %{}, fn {user_id, reverse_user_id, confirmed?}, acc ->
+      member_id = if user_id == current_user_id, do: reverse_user_id, else: user_id
+      status = if confirmed?, do: :connected, else: :pending
+
+      # :connected wins over :pending if any row in either direction is confirmed.
+      Map.update(acc, member_id, status, fn
+        :connected -> :connected
+        _existing -> status
+      end)
+    end)
+  end
+
+  @impl true
   def update_user_connection_label(uconn, attrs, opts) do
     case Repo.transaction_on_primary(fn ->
            uconn

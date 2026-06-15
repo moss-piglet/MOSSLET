@@ -254,6 +254,20 @@ defmodule Mosslet.Accounts.Adapter do
             ) :: UserConnection.t()
 
   @doc """
+  Batched connection-status lookup between `current_user_id` and each of
+  `member_user_ids`, in a single query (avoids N+1). Returns a map of
+  `member_user_id => :connected | :pending | :none`:
+
+    * `:connected` — a confirmed `UserConnection` exists in either direction.
+    * `:pending` — an unconfirmed request exists in either direction.
+    * `:none` — no connection exists yet.
+  """
+  @callback connection_statuses_for(
+              current_user_id :: String.t(),
+              member_user_ids :: [String.t()]
+            ) :: %{optional(String.t()) => :connected | :pending | :none}
+
+  @doc """
   Updates the label on a user connection.
   """
   @callback update_user_connection_label(

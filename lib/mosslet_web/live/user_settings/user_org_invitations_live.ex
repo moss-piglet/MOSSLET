@@ -24,47 +24,66 @@ defmodule MossletWeb.UserOrgInvitationsLive do
     >
       <%= if @current_user.confirmed_at do %>
         <%= if Util.blank?(@invitations) do %>
-          <p class="text-gray-600 dark:text-gray-300 mb-4">
-            {gettext("You have no pending invitations.")}
-          </p>
+          <div class="mt-6 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/80 dark:bg-slate-800/80 p-8 text-center">
+            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-300">
+              <.phx_icon name="hero-envelope-open" class="h-6 w-6" />
+            </div>
+            <p class="mt-3 text-sm text-slate-600 dark:text-slate-300">
+              {gettext("You have no pending invitations.")}
+            </p>
+            <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">
+              {gettext("When someone invites you to a family or team, it'll show up here.")}
+            </p>
+          </div>
         <% else %>
-          <div class="grid grid-cols-1 mt-6 md:grid-cols-2 xl:grid-cols-3">
+          <div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             <%= for invitation <- @invitations do %>
-              <.box padded id={"invitation-#{invitation.id}"}>
-                <div>
-                  <div class="flex items-center justify-center w-12 h-12 mx-auto bg-blue-100 rounded-full">
-                    <.phx_icon name="hero-envelope" class="w-6 h-6 text-emerald-600" />
-                  </div>
-                  <div class="mt-3 text-center sm:mt-5">
-                    <div class="text-lg font-medium leading-6 text-gray-900 dark:text-white">
-                      {gettext("Invitation")}
-                    </div>
-                    <div class="mt-2">
-                      <div class="text-sm text-gray-500 dark:text-gray-400">
-                        {gettext("You have been invited to join %{org_name}",
-                          org_name: invitation.org.name
-                        )}.
-                      </div>
-                    </div>
-                  </div>
+              <div
+                id={"invitation-#{invitation.id}"}
+                class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm shadow-sm p-6 flex flex-col"
+              >
+                <div class="flex items-center gap-2 self-center mb-4 px-3 py-1.5 rounded-full bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200/50 dark:border-emerald-700/30">
+                  <.phx_icon
+                    name={
+                      if invitation.org.type == :family,
+                        do: "hero-home",
+                        else: "hero-building-office-2"
+                    }
+                    class="w-4 h-4 text-emerald-600 dark:text-emerald-400"
+                  />
+                  <span class="text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                    {if invitation.org.type == :family,
+                      do: gettext("Family invitation"),
+                      else: gettext("Team invitation")}
+                  </span>
                 </div>
-                <div class="mt-5 sm:mt-6">
-                  <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
-                    <.phx_button
-                      phx-click="reject_invitation"
-                      phx-value-id={invitation.id}
-                      data-confirm={gettext("Are you sure you want to reject this invitation?")}
-                      class="bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
-                    >
-                      {gettext("Reject")}
-                    </.phx_button>
 
-                    <.phx_button phx-click="accept_invitation" phx-value-id={invitation.id}>
-                      {gettext("Accept")}
-                    </.phx_button>
-                  </div>
+                <div class="text-center flex-1">
+                  <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                    {invitation.org.name}
+                  </h3>
+                  <p class="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
+                    {if invitation.org.type == :family,
+                      do: gettext("You've been invited to join this family on MOSSLET."),
+                      else: gettext("You've been invited to join this team on MOSSLET.")}
+                  </p>
                 </div>
-              </.box>
+
+                <div class="mt-6 grid grid-cols-2 gap-3">
+                  <.phx_button
+                    variant="secondary"
+                    phx-click="reject_invitation"
+                    phx-value-id={invitation.id}
+                    data-confirm={gettext("Are you sure you want to decline this invitation?")}
+                  >
+                    {gettext("Decline")}
+                  </.phx_button>
+
+                  <.phx_button phx-click="accept_invitation" phx-value-id={invitation.id}>
+                    {gettext("Accept")}
+                  </.phx_button>
+                </div>
+              </div>
             <% end %>
           </div>
         <% end %>
@@ -100,10 +119,13 @@ defmodule MossletWeb.UserOrgInvitationsLive do
       }
     })
 
+    # Take the new member straight to the organization they just joined (not back
+    # to the invitations list, which was confusing). Family vs Business dashboard
+    # by org type. The membership has `:org` preloaded by `accept_invitation!`.
     {:noreply,
      socket
-     |> put_flash(:success, gettext("Invitation was accepted"))
-     |> assign_invitations()}
+     |> put_flash(:success, gettext("Invitation accepted — welcome aboard!"))
+     |> push_navigate(to: org_path(membership.org))}
   end
 
   @impl true
@@ -145,4 +167,8 @@ defmodule MossletWeb.UserOrgInvitationsLive do
 
     assign(socket, :invitations, invitations)
   end
+
+  # Dashboard path for the org the member just joined, by type.
+  defp org_path(%{type: :family, slug: slug}), do: ~p"/app/family/#{slug}"
+  defp org_path(%{slug: slug}), do: ~p"/app/business/#{slug}"
 end

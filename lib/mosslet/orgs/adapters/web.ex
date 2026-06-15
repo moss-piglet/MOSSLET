@@ -167,6 +167,88 @@ defmodule Mosslet.Orgs.Adapters.Web do
     end
   end
 
+  ## Org-scoped ZK identity (Task #225)
+
+  @impl true
+  def list_memberships_with_users(%Org{} = org) do
+    from(m in Membership,
+      where: m.org_id == ^org.id,
+      order_by: [asc: m.inserted_at],
+      preload: [:user]
+    )
+    |> Repo.all()
+  end
+
+  @impl true
+  def seal_org_key_for_members(%Org{} = org, sealed_list) when is_list(sealed_list) do
+    # Server-authoritative recipient set (D1): we only persist a sealed key for a
+    # user who is a CURRENT member of this org. A tampered client cannot seal the
+    # org_key into a row for an outsider — there is no such membership row to
+    # update. We also never overwrite a key that is already set (sealing is
+    # idempotent / one-time per member).
+    #
+    # Each write goes through `Membership.seal_key_changeset/2` + `Repo.update`
+    # so the `Encrypted.Binary` Cloak wrapping is applied on dump. (`update_all`
+    # would bypass Cloak encryption and break the at-rest invariant — never use
+    # it for encrypted fields.)
+    memberships_by_user_id =
+      from(m in Membership, where: m.org_id == ^org.id)
+      |> Repo.all()
+      |> Map.new(&{&1.user_id, &1})
+
+    result =
+      Repo.transaction_on_primary(fn ->
+        Enum.reduce(sealed_list, 0, fn entry, acc ->
+          # Normalize to string keys once: entries arrive either from the browser
+          # (JSON -> string keys) or from server-side callers/tests (atom keys).
+          entry = Map.new(entry, fn {k, v} -> {to_string(k), v} end)
+          user_id = entry["user_id"]
+          sealed_key = entry["sealed_key"]
+          membership = is_binary(user_id) && Map.get(memberships_by_user_id, user_id)
+
+          cond do
+            not is_binary(sealed_key) ->
+              acc
+
+            # Not a current member of this org -> drop (D1).
+            !membership ->
+              acc
+
+            # Key already sealed -> idempotent no-op.
+            not is_nil(membership.key) ->
+              acc
+
+            true ->
+              case membership
+                   |> Membership.seal_key_changeset(sealed_key)
+                   |> Repo.update() do
+                {:ok, _} -> acc + 1
+                {:error, _} -> acc
+              end
+          end
+        end)
+      end)
+
+    case result do
+      {:ok, count} when is_integer(count) -> {:ok, count}
+      error -> error
+    end
+  end
+
+  @impl true
+  def set_org_display_name(%Membership{} = membership, encrypted_name)
+      when is_binary(encrypted_name) do
+    case Repo.transaction_on_primary(fn ->
+           membership
+           |> Membership.display_name_changeset(encrypted_name)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, membership}} -> {:ok, membership}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
+  end
+
   @impl true
   def get_invitation_by_org!(org, id) do
     org

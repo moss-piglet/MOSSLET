@@ -212,6 +212,19 @@ defmodule Mosslet.Accounts do
     adapter().get_user_connection_between_users(user_id, current_user_id)
   end
 
+  @doc """
+  Batched connection-status lookup between the `current_user_id` and each of
+  `member_user_ids`. Returns a map of `member_user_id => :connected | :pending |
+  :none`. Use this to avoid N+1 queries when rendering a roster of members
+  (e.g. the org dashboard "Connect with teammate" buttons).
+  """
+  def connection_statuses_for(current_user_id, member_user_ids)
+      when is_list(member_user_ids) do
+    found = adapter().connection_statuses_for(current_user_id, member_user_ids)
+
+    Map.new(member_user_ids, fn id -> {id, Map.get(found, id, :none)} end)
+  end
+
   def validate_users_in_connection(user_connection_id, current_user_id) do
     adapter().validate_users_in_connection(user_connection_id, current_user_id)
   end

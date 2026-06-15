@@ -21,7 +21,13 @@ defmodule MossletWeb.BusinessLive.Show do
     membership = Orgs.get_membership!(current_user, slug)
 
     if org.type == :business do
-      if connected?(socket), do: Orgs.subscribe_org(org)
+      if connected?(socket) do
+        Orgs.subscribe_org(org)
+        # Personal-connection events (Task #226): reflect a teammate accepting
+        # our "Connect" request live — the requester is notified on their own
+        # accounts topic when the reverse UserConnection is created on accept.
+        Accounts.private_subscribe(current_user)
+      end
 
       {:ok,
        socket
@@ -30,6 +36,7 @@ defmodule MossletWeb.BusinessLive.Show do
        |> assign(:page_title, org.name)
        |> assign(:coverage_status, Orgs.org_coverage_status(current_user))
        |> assign(:invite_form, to_form(%{"email" => ""}, as: :invite))
+       |> assign(:org_display_name_form, to_form(%{"name" => ""}, as: :org_display_name))
        |> assign(:show_circle_form?, false)
        |> assign(:circle_form, to_form(%{"name" => "", "description" => ""}, as: :circle))
        |> assign(:pending_zk_circle_attrs, nil)
@@ -112,11 +119,20 @@ defmodule MossletWeb.BusinessLive.Show do
             to invite another teammate.
           </p>
 
-          <ul role="list" class="divide-y divide-slate-100 dark:divide-slate-700/60">
+          <ul
+            role="list"
+            class="divide-y divide-slate-100 dark:divide-slate-700/60"
+            id="org-members-roster"
+            phx-hook="OrgMembers"
+            data-sealed-org-key={@viewer_sealed_org_key}
+            data-current-user-id={@current_scope.user.id}
+          >
             <li
               :for={member <- @members}
               id={"member-#{member.user.id}"}
               class="py-3 flex items-center justify-between gap-3"
+              data-org-member-row
+              data-encrypted-display-name={member.encrypted_display_name}
             >
               <div class="flex items-center gap-3 min-w-0">
                 <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
@@ -125,43 +141,104 @@ defmodule MossletWeb.BusinessLive.Show do
                 <div class="min-w-0">
                   <div class="flex items-center gap-2">
                     <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                      {member.display_name}
+                      <span {MossletWeb.OrgIdentity.org_name_target(member)}>
+                        {MossletWeb.OrgIdentity.placeholder_label(member)}
+                      </span>
                     </p>
                     <.business_role_badge role={member.membership.role} />
                   </div>
                 </div>
               </div>
 
-              <div
-                :if={@can_manage? && member.user.id != @current_scope.user.id}
-                class="flex items-center gap-2 flex-shrink-0"
-              >
-                <form phx-change="change_role" id={"role-form-#{member.user.id}"}>
-                  <input type="hidden" name="user_id" value={member.user.id} />
-                  <select
-                    name="role"
-                    class="rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-700 text-xs py-1.5 focus:border-emerald-500 focus:ring-emerald-500/30"
-                  >
-                    <option value="member" selected={member.membership.role == :member}>
-                      Member
-                    </option>
-                    <option value="admin" selected={member.membership.role == :admin}>
-                      Admin
-                    </option>
-                  </select>
-                </form>
-                <button
-                  phx-click="offboard_member"
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <%!-- One-tap "Connect with teammate" (Task #226): send a personal
+                     UserConnection invite to a member you're not yet connected
+                     to. Once accepted, their real personal name lights up via the
+                     existing resolution path. --%>
+                <.phx_button
+                  :if={MossletWeb.OrgIdentity.show_connect_button?(member)}
+                  variant="secondary"
+                  class="py-1.5 px-3 text-xs"
+                  phx-click="connect_teammate"
                   phx-value-user_id={member.user.id}
-                  id={"offboard-#{member.user.id}"}
-                  data-confirm="Remove this person from the organization and from all of this org's business circles? We can't recall content they've already downloaded."
-                  class="text-xs font-medium text-rose-500 hover:text-rose-600"
+                  id={"connect-#{member.user.id}"}
                 >
-                  Remove
-                </button>
+                  <.phx_icon name="hero-user-plus" class="size-3.5 mr-1" /> Connect
+                </.phx_button>
+                <span
+                  :if={MossletWeb.OrgIdentity.connection_pending?(member)}
+                  id={"connect-pending-#{member.user.id}"}
+                  class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-300"
+                >
+                  <.phx_icon name="hero-clock" class="size-3.5" /> Pending
+                </span>
+
+                <div
+                  :if={@can_manage? && member.user.id != @current_scope.user.id}
+                  class="flex items-center gap-2"
+                >
+                  <form phx-change="change_role" id={"role-form-#{member.user.id}"}>
+                    <input type="hidden" name="user_id" value={member.user.id} />
+                    <select
+                      name="role"
+                      class="rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-700 text-xs py-1.5 focus:border-emerald-500 focus:ring-emerald-500/30"
+                    >
+                      <option value="member" selected={member.membership.role == :member}>
+                        Member
+                      </option>
+                      <option value="admin" selected={member.membership.role == :admin}>
+                        Admin
+                      </option>
+                    </select>
+                  </form>
+                  <button
+                    phx-click="offboard_member"
+                    phx-value-user_id={member.user.id}
+                    id={"offboard-#{member.user.id}"}
+                    data-confirm="Remove this person from the organization and from all of this org's business circles? We can't recall content they've already downloaded."
+                    class="text-xs font-medium text-rose-500 hover:text-rose-600"
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
             </li>
           </ul>
+
+          <%!-- Org display-name prompt (Task #225): the member sets how their
+               team sees them. Shown when they hold the org_key but haven't set a
+               name yet. Encrypted browser-side with the org_key. --%>
+          <div
+            :if={@viewer_sealed_org_key && is_nil(@membership.display_name)}
+            id="org-display-name-prompt"
+            class="rounded-xl border border-teal-200/60 dark:border-teal-800/50 bg-teal-50/60 dark:bg-teal-900/20 p-4"
+          >
+            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
+              Set how your team sees you
+            </p>
+            <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Your teammates can't read your personal name unless you're connected. Choose an
+              org display name (e.g. "Mark — Engineering"). It's encrypted on your device.
+            </p>
+            <.form
+              for={@org_display_name_form}
+              id="org-display-name-form"
+              phx-hook="OrgDisplayNameFormHook"
+              data-sealed-org-key={@viewer_sealed_org_key}
+              phx-submit="save_org_display_name"
+              class="mt-3 flex items-end gap-2"
+            >
+              <div class="flex-1">
+                <.phx_input
+                  field={@org_display_name_form[:name]}
+                  type="text"
+                  placeholder="Your team display name"
+                  maxlength="160"
+                />
+              </div>
+              <.phx_button type="submit" id="org-display-name-submit">Save</.phx_button>
+            </.form>
+          </div>
 
           <.pending_invitations_panel
             invitations={@pending_invitations}
@@ -322,6 +399,11 @@ defmodule MossletWeb.BusinessLive.Show do
       </div>
     </.layout>
     """
+  end
+
+  @impl true
+  def handle_event("connect_teammate", %{"user_id" => user_id}, socket) do
+    {:noreply, connect_teammate(socket, user_id, &assign_business_data/1)}
   end
 
   @impl true
@@ -567,6 +649,64 @@ defmodule MossletWeb.BusinessLive.Show do
     end
   end
 
+  # Org-scoped ZK identity (Task #225). The browser sealed the org_key for one or
+  # more members (or bootstrapped it as the owner); persist the sealed copies.
+  # Server-authoritative + idempotent (drops non-members / already-sealed). The
+  # org_updated broadcast re-renders everyone's roster.
+  @impl true
+  def handle_event("finalize_org_key", %{"sealed_members" => sealed_members}, socket)
+      when is_list(sealed_members) do
+    case MossletWeb.OrgIdentity.finalize_org_key(socket.assigns.org, sealed_members) do
+      {:ok, _count} -> {:noreply, assign_business_data(socket)}
+      _ -> {:noreply, socket}
+    end
+  end
+
+  # The member set their org display name (encrypted browser-side with the
+  # org_key). Persist the ciphertext only.
+  @impl true
+  def handle_event(
+        "save_org_display_name",
+        %{"encrypted_display_name" => encrypted_name},
+        socket
+      )
+      when is_binary(encrypted_name) do
+    case Orgs.set_org_display_name(socket.assigns.membership, encrypted_name) do
+      {:ok, _membership} ->
+        {:noreply,
+         socket
+         |> put_flash(:success, "Your team display name is set")
+         |> assign_business_data()}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Could not save your display name")}
+    end
+  end
+
+  # Fallback (e.g. WASM/keys unavailable): the OrgDisplayNameFormHook normally
+  # intercepts the submit, encrypts the name browser-side with the org_key, and
+  # pushes "save_org_display_name" with `encrypted_display_name`. Without it the
+  # raw form params arrive here. We must NEVER persist the plaintext name (ZK),
+  # so we refuse gracefully and ask the member to reload.
+  def handle_event("save_org_display_name", _params, socket) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       "Your browser couldn't prepare encryption keys. Please reload and try again."
+     )}
+  end
+
+  @impl true
+  def handle_event("org_display_name_invalid", _params, socket) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       "Please use letters, spaces, and basic punctuation (up to 160 characters)."
+     )}
+  end
+
   @impl true
   def handle_info({:org_updated, _org_id}, socket) do
     current_user = socket.assigns.current_scope.user
@@ -594,6 +734,15 @@ defmodule MossletWeb.BusinessLive.Show do
     end
   end
 
+  # Personal-connection changes (Task #226): a teammate accepted our "Connect"
+  # request (`:uconn_confirmed`), a new request landed, or one was removed.
+  # Refresh the roster so the button/pill + the now-readable personal name
+  # update live — no full reload.
+  def handle_info({event, %Mosslet.Accounts.UserConnection{}}, socket)
+      when event in [:uconn_confirmed, :uconn_created, :uconn_deleted, :uconn_updated] do
+    {:noreply, assign_business_data(socket)}
+  end
+
   # Ignore unrelated process messages (e.g. Swoosh test email delivery, telemetry).
   def handle_info(_message, socket), do: {:noreply, socket}
 
@@ -607,16 +756,24 @@ defmodule MossletWeb.BusinessLive.Show do
     users = Orgs.list_members_by_org(org)
     member_user_ids = MapSet.new(users, & &1.id)
 
-    members =
-      Enum.map(users, fn user ->
-        membership = Orgs.get_membership!(user, org.slug)
+    # Batched personal-connection status for the roster (Task #226): one query
+    # instead of N. Drives the one-tap "Connect with teammate" button.
+    connection_statuses =
+      Accounts.connection_statuses_for(
+        current_user.id,
+        Enum.map(users, & &1.id)
+      )
 
-        %{
-          user: user,
-          membership: membership,
-          display_name: resolve_display_name(user, current_user, key)
-        }
-      end)
+    # Org-scoped ZK identity (Task #225): build roster rows carrying the org
+    # display-name ciphertext + a preferred personal-connection name (Q4). The
+    # plaintext org persona is filled in client-side by the OrgMembers hook.
+    members =
+      MossletWeb.OrgIdentity.build_members(
+        org,
+        current_user,
+        fn user -> personal_connection_name(user, current_user, key) end,
+        connection_statuses
+      )
 
     # Candidate members for the circle composer: the creator's confirmed
     # connections who are also current org members (server still enforces I1).
@@ -647,11 +804,41 @@ defmodule MossletWeb.BusinessLive.Show do
 
     socket
     |> assign(:members, members)
+    |> assign(:viewer_sealed_org_key, MossletWeb.OrgIdentity.viewer_sealed_org_key(members))
+    |> assign(
+      :should_bootstrap_org_key?,
+      MossletWeb.OrgIdentity.should_bootstrap?(org, current_user, members)
+    )
     |> assign(:eligible_members, eligible_members)
     |> assign(:circles, circles)
     |> assign(:pending_invitations, Orgs.list_invitations_by_org(org))
     |> assign(:seats, Orgs.seat_summary(org))
     |> assign(:can_manage?, socket.assigns.membership.role == :admin)
+    |> maybe_request_org_key_seal()
+  end
+
+  # After loading roster data, if the viewer holds the org_key and some members
+  # lack it, ask the viewer's browser to seal it for them (design 4.2b). If
+  # nobody holds it yet and the viewer is the owner, ask the browser to bootstrap
+  # (Q1=A). Only meaningful on a connected socket (the hook is alive).
+  defp maybe_request_org_key_seal(socket) do
+    org = socket.assigns.org
+
+    cond do
+      not connected?(socket) ->
+        socket
+
+      socket.assigns.should_bootstrap_org_key? ->
+        push_event(socket, "bootstrap_org_key", %{})
+
+      MossletWeb.OrgIdentity.viewer_can_seal_for_others?(socket.assigns.members) ->
+        push_event(socket, "seal_org_key_for_members", %{
+          members: MossletWeb.OrgIdentity.members_to_seal(org)
+        })
+
+      true ->
+        socket
+    end
   end
 
   defp seat_limit_message(org) do
@@ -681,16 +868,43 @@ defmodule MossletWeb.BusinessLive.Show do
     put_flash(socket, kind, message)
   end
 
-  defp resolve_display_name(%{id: same_id}, %{id: same_id}, _key), do: "You"
-
-  defp resolve_display_name(user, current_user, key) do
+  # Personal-connection name the viewer can already read for `user` (Q4: preferred
+  # over the org persona when present). Returns nil when there is no connection —
+  # the org display name (or neutral placeholder) is used instead. Never returns
+  # "Team member" here; that placeholder is the shared OrgIdentity fallback.
+  defp personal_connection_name(user, current_user, key) do
     case Mosslet.Accounts.get_user_connection_between_users(user.id, current_user.id) do
       %{} = uconn ->
         uconn = Mosslet.Repo.preload(uconn, :connection)
         get_decrypted_connection_name(uconn, current_user, key)
 
       _ ->
-        "Team member"
+        nil
+    end
+  end
+
+  # One-tap "Connect with teammate" (Task #226): reuse the shared OrgIdentity
+  # invite path (server-authoritative org-membership check + the existing
+  # UserConnection sealing flow). Refreshes the roster so the button flips to a
+  # "Pending" pill immediately.
+  defp connect_teammate(socket, target_user_id, refresh_fun) do
+    case MossletWeb.OrgIdentity.connect_teammate(
+           socket.assigns.org,
+           socket.assigns.current_scope,
+           target_user_id
+         ) do
+      {:ok, _uconn} ->
+        socket
+        |> put_flash(:success, "Connection request sent. They'll see it in their invitations.")
+        |> refresh_fun.()
+
+      {:error, :not_a_member} ->
+        put_flash(socket, :error, "That person isn't a member of this organization.")
+
+      {:error, _changeset} ->
+        socket
+        |> put_flash(:info, "You've already sent a request or are connected.")
+        |> refresh_fun.()
     end
   end
 

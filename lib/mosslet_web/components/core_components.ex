@@ -820,6 +820,15 @@ defmodule MossletWeb.CoreComponents do
   """
   attr :type, :string, default: nil
   attr :class, :string, default: nil
+
+  attr :variant, :string,
+    default: "primary",
+    values: ~w(primary secondary),
+    doc:
+      "visual style. `primary` is the emerald CTA; `secondary` is a neutral " <>
+        "outline button whose colors do NOT fight a custom `class` (use for " <>
+        "Decline/Cancel/Reject)."
+
   attr :rest, :global, include: ~w(disabled form name value)
 
   slot :inner_block, required: true
@@ -829,8 +838,9 @@ defmodule MossletWeb.CoreComponents do
     <button
       type={@type}
       class={[
-        "phx-submit-loading:opacity-75 rounded-full bg-emerald-600 hover:bg-emerald-500 py-2 px-3",
-        "text-sm font-semibold leading-6 text-white active:text-white/80",
+        "phx-submit-loading:opacity-75 rounded-full py-2 px-3",
+        "text-sm font-semibold leading-6",
+        button_variant_classes(@variant),
         @class
       ]}
       {@rest}
@@ -838,6 +848,21 @@ defmodule MossletWeb.CoreComponents do
       {render_slot(@inner_block)}
     </button>
     """
+  end
+
+  # Base color classes per variant. `secondary` intentionally ships NEUTRAL,
+  # theme-aware defaults (and no `text-white`/`bg-emerald-*`) so a caller's
+  # custom `class` won't collide with a hard-coded primary color and render
+  # unreadable (e.g. the white-on-white Decline button bug). A caller may still
+  # fully override via `class`.
+  defp button_variant_classes("secondary") do
+    "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 " <>
+      "border border-slate-300 dark:border-slate-600 " <>
+      "hover:bg-slate-50 dark:hover:bg-slate-600"
+  end
+
+  defp button_variant_classes(_primary) do
+    "bg-emerald-600 hover:bg-emerald-500 text-white active:text-white/80"
   end
 
   @doc """

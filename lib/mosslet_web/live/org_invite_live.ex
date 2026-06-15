@@ -118,10 +118,10 @@ defmodule MossletWeb.OrgInviteLive do
 
       <div class="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-3">
         <.phx_button
+          variant="secondary"
           phx-click="decline"
           phx-value-id={@invitation.id}
           data-confirm={gettext("Decline this invitation?")}
-          class="bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600"
         >
           {gettext("Decline")}
         </.phx_button>

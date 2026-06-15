@@ -18,7 +18,12 @@ defmodule MossletWeb.FamilyLive.Show do
     membership = Orgs.get_membership!(current_user, slug)
 
     if org.type == :family do
-      if connected?(socket), do: Orgs.subscribe_org(org)
+      if connected?(socket) do
+        Orgs.subscribe_org(org)
+        # Personal-connection events (Task #226): reflect a family member
+        # accepting our "Connect" request live.
+        Mosslet.Accounts.private_subscribe(current_user)
+      end
 
       {:ok,
        socket
@@ -27,6 +32,7 @@ defmodule MossletWeb.FamilyLive.Show do
        |> assign(:page_title, org.name)
        |> assign(:coverage_status, Orgs.org_coverage_status(current_user))
        |> assign(:invite_form, to_form(%{"email" => ""}, as: :invite))
+       |> assign(:org_display_name_form, to_form(%{"name" => ""}, as: :org_display_name))
        |> assign_family_data()}
     else
       {:ok,
@@ -156,11 +162,20 @@ defmodule MossletWeb.FamilyLive.Show do
             to invite another family member.
           </p>
 
-          <ul role="list" class="divide-y divide-slate-100 dark:divide-slate-700/60">
+          <ul
+            role="list"
+            class="divide-y divide-slate-100 dark:divide-slate-700/60"
+            id="org-members-roster"
+            phx-hook="OrgMembers"
+            data-sealed-org-key={@viewer_sealed_org_key}
+            data-current-user-id={@current_scope.user.id}
+          >
             <li
               :for={member <- @members}
               id={"member-#{member.user.id}"}
               class="py-3 flex items-center justify-between gap-3"
+              data-org-member-row
+              data-encrypted-display-name={member.encrypted_display_name}
             >
               <div class="flex items-center gap-3 min-w-0">
                 <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
@@ -169,7 +184,9 @@ defmodule MossletWeb.FamilyLive.Show do
                 <div class="min-w-0">
                   <div class="flex items-center gap-2">
                     <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                      {member.display_name}
+                      <span {MossletWeb.OrgIdentity.org_name_target(member)}>
+                        {MossletWeb.OrgIdentity.placeholder_label(member, "Family member")}
+                      </span>
                     </p>
                     <.family_role_badge role={member.membership.role} />
                   </div>
@@ -182,8 +199,34 @@ defmodule MossletWeb.FamilyLive.Show do
                 </div>
               </div>
 
-              <div :if={@membership.role == :admin} class="flex items-center gap-2 flex-shrink-0">
-                <form phx-change="change_role" id={"role-form-#{member.user.id}"}>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <%!-- One-tap "Connect with teammate" (Task #226): send a personal
+                     UserConnection invite to a family member you're not yet
+                     connected to. Once accepted, their real personal name lights
+                     up via the existing resolution path. --%>
+                <.phx_button
+                  :if={MossletWeb.OrgIdentity.show_connect_button?(member)}
+                  variant="secondary"
+                  class="py-1.5 px-3 text-xs"
+                  phx-click="connect_teammate"
+                  phx-value-user_id={member.user.id}
+                  id={"connect-#{member.user.id}"}
+                >
+                  <.phx_icon name="hero-user-plus" class="size-3.5 mr-1" /> Connect
+                </.phx_button>
+                <span
+                  :if={MossletWeb.OrgIdentity.connection_pending?(member)}
+                  id={"connect-pending-#{member.user.id}"}
+                  class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-300"
+                >
+                  <.phx_icon name="hero-clock" class="size-3.5" /> Pending
+                </span>
+
+                <form
+                  :if={@membership.role == :admin}
+                  phx-change="change_role"
+                  id={"role-form-#{member.user.id}"}
+                >
                   <input type="hidden" name="user_id" value={member.user.id} />
                   <select
                     name="role"
@@ -209,6 +252,40 @@ defmodule MossletWeb.FamilyLive.Show do
               </div>
             </li>
           </ul>
+
+          <%!-- Org display-name prompt (Task #225): set how your family sees
+               you, encrypted browser-side with the org_key. --%>
+          <div
+            :if={@viewer_sealed_org_key && is_nil(@membership.display_name)}
+            id="org-display-name-prompt"
+            class="rounded-xl border border-teal-200/60 dark:border-teal-800/50 bg-teal-50/60 dark:bg-teal-900/20 p-4"
+          >
+            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
+              Set how your family sees you
+            </p>
+            <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Family members can't read your personal name unless you're connected. Choose a
+              family display name. It's encrypted on your device.
+            </p>
+            <.form
+              for={@org_display_name_form}
+              id="org-display-name-form"
+              phx-hook="OrgDisplayNameFormHook"
+              data-sealed-org-key={@viewer_sealed_org_key}
+              phx-submit="save_org_display_name"
+              class="mt-3 flex items-end gap-2"
+            >
+              <div class="flex-1">
+                <.phx_input
+                  field={@org_display_name_form[:name]}
+                  type="text"
+                  placeholder="Your family display name"
+                  maxlength="160"
+                />
+              </div>
+              <.phx_button type="submit" id="org-display-name-submit">Save</.phx_button>
+            </.form>
+          </div>
 
           <.pending_invitations_panel
             invitations={@pending_invitations}
@@ -335,6 +412,11 @@ defmodule MossletWeb.FamilyLive.Show do
       </div>
     </.layout>
     """
+  end
+
+  @impl true
+  def handle_event("connect_teammate", %{"user_id" => user_id}, socket) do
+    {:noreply, connect_teammate(socket, user_id, &assign_family_data/1)}
   end
 
   @impl true
@@ -495,6 +577,47 @@ defmodule MossletWeb.FamilyLive.Show do
      |> assign_family_data()}
   end
 
+  # Org-scoped ZK identity (Task #225). Persist browser-sealed org_key copies
+  # (server-authoritative + idempotent), and the member's own encrypted org
+  # display name. Identical to the business dashboard (shared OrgIdentity).
+  @impl true
+  def handle_event("finalize_org_key", %{"sealed_members" => sealed_members}, socket)
+      when is_list(sealed_members) do
+    case MossletWeb.OrgIdentity.finalize_org_key(socket.assigns.org, sealed_members) do
+      {:ok, _count} -> {:noreply, assign_family_data(socket)}
+      _ -> {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event(
+        "save_org_display_name",
+        %{"encrypted_display_name" => encrypted_name},
+        socket
+      )
+      when is_binary(encrypted_name) do
+    case Orgs.set_org_display_name(socket.assigns.membership, encrypted_name) do
+      {:ok, _membership} ->
+        {:noreply,
+         socket
+         |> put_flash(:success, "Your family display name is set")
+         |> assign_family_data()}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Could not save your display name")}
+    end
+  end
+
+  @impl true
+  def handle_event("org_display_name_invalid", _params, socket) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       "Please use letters, spaces, and basic punctuation (up to 160 characters)."
+     )}
+  end
+
   @impl true
   def handle_info({:org_updated, _org_id}, socket) do
     current_user = socket.assigns.current_scope.user
@@ -519,6 +642,15 @@ defmodule MossletWeb.FamilyLive.Show do
     end
   end
 
+  # Personal-connection changes (Task #226): a family member accepted our
+  # "Connect" request (`:uconn_confirmed`), a new request landed, or one was
+  # removed. Refresh the roster so the button/pill + the now-readable personal
+  # name update live — no full reload.
+  def handle_info({event, %Mosslet.Accounts.UserConnection{}}, socket)
+      when event in [:uconn_confirmed, :uconn_created, :uconn_deleted, :uconn_updated] do
+    {:noreply, assign_family_data(socket)}
+  end
+
   # Ignore unrelated process messages (e.g. Swoosh test email delivery, telemetry).
   def handle_info(_message, socket), do: {:noreply, socket}
 
@@ -532,10 +664,22 @@ defmodule MossletWeb.FamilyLive.Show do
     users = Orgs.list_members_by_org(org)
     guardianships = Orgs.list_guardianships_by_org(org)
 
+    # Batched personal-connection status for the roster (Task #226): one query
+    # instead of N. Drives the one-tap "Connect with teammate" button.
+    connection_statuses =
+      Mosslet.Accounts.connection_statuses_for(
+        current_user.id,
+        Enum.map(users, & &1.id)
+      )
+
     members =
       Enum.map(users, fn user ->
         membership = Orgs.get_membership!(user, org.slug)
-        display_name = resolve_display_name(user, current_user, key)
+        personal_name = personal_connection_name(user, current_user, key)
+        self? = user.id == current_user.id
+
+        connection_status =
+          if self?, do: :self, else: Map.get(connection_statuses, user.id, :none)
 
         guardian_summaries =
           guardianships
@@ -547,7 +691,14 @@ defmodule MossletWeb.FamilyLive.Show do
         %{
           user: user,
           membership: membership,
-          display_name: display_name,
+          # Org-scoped ZK identity (Task #225): server-side placeholder (You /
+          # personal name / "Team member"); the org persona is decrypted
+          # client-side by the OrgMembers hook.
+          encrypted_display_name: membership.display_name,
+          personal_name: personal_name,
+          self?: self?,
+          connection_status: connection_status,
+          display_name: resolve_display_name(user, current_user, key),
           guardian_summaries: guardian_summaries
         }
       end)
@@ -588,6 +739,11 @@ defmodule MossletWeb.FamilyLive.Show do
 
     socket
     |> assign(:members, members)
+    |> assign(:viewer_sealed_org_key, MossletWeb.OrgIdentity.viewer_sealed_org_key(members))
+    |> assign(
+      :should_bootstrap_org_key?,
+      MossletWeb.OrgIdentity.should_bootstrap?(org, current_user, members)
+    )
     |> assign(:guardianships, guardianships_view)
     |> assign(:my_guardianships, my_guardianships)
     |> assign(:my_pending_consent, my_pending_consent)
@@ -596,6 +752,29 @@ defmodule MossletWeb.FamilyLive.Show do
     |> assign(:pending_invitations, Orgs.list_invitations_by_org(org))
     |> assign(:seats, Orgs.seat_summary(org))
     |> assign(:can_establish?, guardian_options != [] and managed_options != [])
+    |> maybe_request_org_key_seal()
+  end
+
+  # See OrgIdentity (Task #225): seal/bootstrap the org_key on the viewer's
+  # browser when needed. Type-agnostic — identical to the business dashboard.
+  defp maybe_request_org_key_seal(socket) do
+    org = socket.assigns.org
+
+    cond do
+      not connected?(socket) ->
+        socket
+
+      socket.assigns.should_bootstrap_org_key? ->
+        push_event(socket, "bootstrap_org_key", %{})
+
+      MossletWeb.OrgIdentity.viewer_can_seal_for_others?(socket.assigns.members) ->
+        push_event(socket, "seal_org_key_for_members", %{
+          members: MossletWeb.OrgIdentity.members_to_seal(org)
+        })
+
+      true ->
+        socket
+    end
   end
 
   defp seat_limit_message(org) do
@@ -641,10 +820,49 @@ defmodule MossletWeb.FamilyLive.Show do
     end
   end
 
+  # Personal-connection name the viewer can already read for `user` (Task #225,
+  # Q4: preferred over the org persona when present). Returns nil when there is
+  # no connection — the org display name (or neutral placeholder) is used.
+  defp personal_connection_name(user, current_user, key) do
+    case Mosslet.Accounts.get_user_connection_between_users(user.id, current_user.id) do
+      %{} = uconn ->
+        uconn = Mosslet.Repo.preload(uconn, :connection)
+        get_decrypted_connection_name(uconn, current_user, key)
+
+      _ ->
+        nil
+    end
+  end
+
   defp role_error_message(changeset) do
     case changeset.errors[:role] do
       {msg, _} -> msg
       _ -> "Could not update role"
+    end
+  end
+
+  # One-tap "Connect with teammate" (Task #226): reuse the shared OrgIdentity
+  # invite path (server-authoritative org-membership check + the existing
+  # UserConnection sealing flow). Refreshes the roster so the button flips to a
+  # "Pending" pill immediately.
+  defp connect_teammate(socket, target_user_id, refresh_fun) do
+    case MossletWeb.OrgIdentity.connect_teammate(
+           socket.assigns.org,
+           socket.assigns.current_scope,
+           target_user_id
+         ) do
+      {:ok, _uconn} ->
+        socket
+        |> put_flash(:success, "Connection request sent. They'll see it in their invitations.")
+        |> refresh_fun.()
+
+      {:error, :not_a_member} ->
+        put_flash(socket, :error, "That person isn't a member of this family.")
+
+      {:error, _changeset} ->
+        socket
+        |> put_flash(:info, "You've already sent a request or are connected.")
+        |> refresh_fun.()
     end
   end
 

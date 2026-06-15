@@ -57,6 +57,13 @@ defmodule Mosslet.Orgs.Adapter do
   @callback update_membership(membership :: Membership.t(), attrs :: map()) ::
               {:ok, Membership.t()} | {:error, Ecto.Changeset.t()}
 
+  # Org-scoped ZK identity (Task #225).
+  @callback list_memberships_with_users(org :: Org.t()) :: [Membership.t()]
+  @callback seal_org_key_for_members(org :: Org.t(), sealed_list :: [map()]) ::
+              {:ok, non_neg_integer()} | {:error, term()}
+  @callback set_org_display_name(membership :: Membership.t(), encrypted_name :: String.t()) ::
+              {:ok, Membership.t()} | {:error, Ecto.Changeset.t()}
+
   @callback get_invitation_by_org!(org :: Org.t(), id :: String.t()) :: Invitation.t()
   @callback get_invitation_with_org(id :: String.t()) :: Invitation.t() | nil
   @callback delete_invitation!(invitation :: Invitation.t()) :: Invitation.t()

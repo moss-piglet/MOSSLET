@@ -180,6 +180,10 @@ defmodule Mosslet.Accounts.UserConnection do
         changeset
         |> validate_username(opts)
 
+      "user_id" ->
+        changeset
+        |> validate_user_id(opts)
+
       _rest ->
         if opts[:confirm] do
           changeset
@@ -210,6 +214,29 @@ defmodule Mosslet.Accounts.UserConnection do
     |> validate_required([:username])
     |> validate_length(:username, min: 2, max: 160)
     |> maybe_add_recipient_id_by_username(opts)
+  end
+
+  # Server-authoritative invite path (Task #226): the recipient is resolved
+  # directly from the `user_id` already cast onto the changeset — used by the
+  # org dashboard "Connect with teammate" button, where the viewer cannot read
+  # the member's encrypted username/email (ZK), but the server knows the member
+  # is a current org member (the caller enforces that). Sealing is identical to
+  # the username/email paths.
+  defp validate_user_id(changeset, opts) do
+    recipient_id = get_field(changeset, :user_id)
+
+    cond do
+      is_nil(recipient_id) ->
+        add_error(changeset, :user_id, "can't be blank")
+
+      recipient = Accounts.get_user(recipient_id) ->
+        changeset
+        |> put_change(:reverse_user_id, opts[:user].id)
+        |> encrypt_connection_key_and_data(recipient, opts)
+
+      true ->
+        add_error(changeset, :user_id, "invalid or does not exist")
+    end
   end
 
   # We don't need to add the user_id by the recipient when

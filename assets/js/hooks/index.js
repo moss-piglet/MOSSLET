@@ -45,6 +45,8 @@ import Menu from "./dropdown-menu";
 import MentionHighlight from "./mention-highlight";
 import MentionPicker from "./mention-picker";
 import MessageReactions from "./message-reactions";
+import OrgMembers from "./org-members";
+import OrgDisplayNameFormHook from "./org-display-name-form-hook";
 import RegistrationHook from "./registration-hook";
 import RecoveryKeySetupHook from "./recovery-key-setup-hook";
 import ReplyComposer from "./reply-composer";
@@ -146,6 +148,8 @@ export default {
   MessageReactions,
   MossletFrameworkHooks,
   NsfwCheck,
+  OrgMembers,
+  OrgDisplayNameFormHook,
   PostFormHook,
   ProfileAboutFormHook,
   ProfileFieldsFormHook,

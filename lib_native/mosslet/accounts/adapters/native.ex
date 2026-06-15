@@ -377,13 +377,21 @@ defmodule Mosslet.Accounts.Adapters.Native do
       |> atomize_keys()
       |> decode_base64_fields(@base64_fields)
       |> decode_key_pair_field()
-      |> parse_datetime_fields([:confirmed_at, :last_signed_in_datetime, :status_updated_at,
-                                 :last_activity_at, :last_post_at])
-      |> parse_utc_datetime_fields([:trial_ends_at, :last_email_notification_received_at,
-                                     :last_reply_notification_received_at,
-                                     :last_mention_email_received_at,
-                                     :last_replies_seen_at,
-                                     :journal_privacy_activated_at])
+      |> parse_datetime_fields([
+        :confirmed_at,
+        :last_signed_in_datetime,
+        :status_updated_at,
+        :last_activity_at,
+        :last_post_at
+      ])
+      |> parse_utc_datetime_fields([
+        :trial_ends_at,
+        :last_email_notification_received_at,
+        :last_reply_notification_received_at,
+        :last_mention_email_received_at,
+        :last_replies_seen_at,
+        :journal_privacy_activated_at
+      ])
       |> parse_enum_field(:visibility, [:public, :private, :connections])
       |> parse_enum_field(:status, [:offline, :calm, :active, :busy, :away])
 
@@ -402,7 +410,9 @@ defmodule Mosslet.Accounts.Adapters.Native do
             {:ok, decoded} -> Map.put(acc, field, decoded)
             :error -> acc
           end
-        _ -> acc
+
+        _ ->
+          acc
       end
     end)
   end
@@ -410,12 +420,24 @@ defmodule Mosslet.Accounts.Adapters.Native do
   defp decode_key_pair_field(map) do
     case Map.get(map, :key_pair) do
       kp when is_map(kp) ->
-        decoded = Map.new(kp, fn {k, v} ->
-          val = if is_binary(v), do: (case Base.decode64(v) do {:ok, d} -> d; :error -> v end), else: v
-          {k, val}
-        end)
+        decoded =
+          Map.new(kp, fn {k, v} ->
+            val =
+              if is_binary(v),
+                do:
+                  (case Base.decode64(v) do
+                     {:ok, d} -> d
+                     :error -> v
+                   end),
+                else: v
+
+            {k, val}
+          end)
+
         Map.put(map, :key_pair, decoded)
-      _ -> map
+
+      _ ->
+        map
     end
   end
 
@@ -427,7 +449,9 @@ defmodule Mosslet.Accounts.Adapters.Native do
             {:ok, dt} -> Map.put(acc, field, dt)
             _ -> acc
           end
-        _ -> acc
+
+        _ ->
+          acc
       end
     end)
   end
@@ -440,7 +464,9 @@ defmodule Mosslet.Accounts.Adapters.Native do
             {:ok, dt, _} -> Map.put(acc, field, dt)
             _ -> acc
           end
-        _ -> acc
+
+        _ ->
+          acc
       end
     end)
   end
@@ -450,9 +476,12 @@ defmodule Mosslet.Accounts.Adapters.Native do
       val when is_binary(val) ->
         atom_val = String.to_existing_atom(val)
         if atom_val in valid_values, do: Map.put(map, field, atom_val), else: map
+
       val when is_atom(val) and not is_nil(val) ->
         if val in valid_values, do: map, else: map
-      _ -> map
+
+      _ ->
+        map
     end
   rescue
     _ -> map
@@ -516,6 +545,7 @@ defmodule Mosslet.Accounts.Adapters.Native do
   defp encode_binary(data) when is_binary(data), do: Base.encode64(data)
 
   defp decode_base64(nil), do: nil
+
   defp decode_base64(data) when is_binary(data) do
     case Base.decode64(data) do
       {:ok, decoded} -> decoded
@@ -732,6 +762,40 @@ defmodule Mosslet.Accounts.Adapters.Native do
       nil -> raise Ecto.NoResultsError, queryable: Mosslet.Accounts.UserConnection
       uconn -> uconn
     end
+  end
+
+  @impl true
+  def connection_statuses_for(_current_user_id, []), do: %{}
+
+  def connection_statuses_for(current_user_id, member_user_ids)
+      when is_list(member_user_ids) do
+    member_set = MapSet.new(member_user_ids)
+
+    get_all_cached_user_connections()
+    |> Enum.reduce(%{}, fn uc, acc ->
+      member_id =
+        cond do
+          uc.user_id == current_user_id and MapSet.member?(member_set, uc.reverse_user_id) ->
+            uc.reverse_user_id
+
+          uc.reverse_user_id == current_user_id and MapSet.member?(member_set, uc.user_id) ->
+            uc.user_id
+
+          true ->
+            nil
+        end
+
+      if member_id do
+        status = if uc.confirmed_at, do: :connected, else: :pending
+
+        Map.update(acc, member_id, status, fn
+          :connected -> :connected
+          _existing -> status
+        end)
+      else
+        acc
+      end
+    end)
   end
 
   @impl true
@@ -2327,11 +2391,16 @@ defmodule Mosslet.Accounts.Adapters.Native do
         cache_user(user_data)
         {:ok, deserialize_user(user_data)}
       else
-        {:error, {_status, error}} -> {:error, Ecto.Changeset.change(user) |> Ecto.Changeset.add_error(:base, "#{error}")}
-        {:error, reason} -> {:error, Ecto.Changeset.change(user) |> Ecto.Changeset.add_error(:base, "#{reason}")}
+        {:error, {_status, error}} ->
+          {:error, Ecto.Changeset.change(user) |> Ecto.Changeset.add_error(:base, "#{error}")}
+
+        {:error, reason} ->
+          {:error, Ecto.Changeset.change(user) |> Ecto.Changeset.add_error(:base, "#{reason}")}
       end
     else
-      {:error, Ecto.Changeset.change(user) |> Ecto.Changeset.add_error(:base, "Offline - update requires network")}
+      {:error,
+       Ecto.Changeset.change(user)
+       |> Ecto.Changeset.add_error(:base, "Offline - update requires network")}
     end
   end
 
@@ -2344,11 +2413,16 @@ defmodule Mosslet.Accounts.Adapters.Native do
         cache_user(user_data)
         {:ok, deserialize_user(user_data)}
       else
-        {:error, {_status, error}} -> {:error, Ecto.Changeset.change(user) |> Ecto.Changeset.add_error(:base, "#{error}")}
-        {:error, reason} -> {:error, Ecto.Changeset.change(user) |> Ecto.Changeset.add_error(:base, "#{reason}")}
+        {:error, {_status, error}} ->
+          {:error, Ecto.Changeset.change(user) |> Ecto.Changeset.add_error(:base, "#{error}")}
+
+        {:error, reason} ->
+          {:error, Ecto.Changeset.change(user) |> Ecto.Changeset.add_error(:base, "#{reason}")}
       end
     else
-      {:error, Ecto.Changeset.change(user) |> Ecto.Changeset.add_error(:base, "Offline - update requires network")}
+      {:error,
+       Ecto.Changeset.change(user)
+       |> Ecto.Changeset.add_error(:base, "Offline - update requires network")}
     end
   end
 

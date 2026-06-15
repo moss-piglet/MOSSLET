@@ -6,6 +6,7 @@ defmodule Mosslet.Orgs.Membership do
   use Gettext, backend: MossletWeb.Gettext
 
   alias Mosslet.Accounts.User
+  alias Mosslet.Encrypted
   alias Mosslet.Orgs.Org
 
   @role_options ~w(admin member guardian managed_member)a
@@ -18,6 +19,20 @@ defmodule Mosslet.Orgs.Membership do
   @foreign_key_type :binary_id
   schema "orgs_memberships" do
     field :role, Ecto.Enum, values: @role_options
+
+    # Org-scoped ZK identity (Task #225). See docs/ORG_DISPLAY_NAME_DESIGN.md.
+    #
+    # `key` — the per-org symmetric `org_key`, sealed FOR this member via
+    # `sealForUser` (Cat-5 hybrid). Every member's `key` unseals to the SAME
+    # `org_key`, so any member can decrypt any member's `display_name`. Null
+    # until an existing key-holder seals it (lazy, browser-driven). Set ONLY via
+    # the programmatic ZK seal path (never `cast` from user params).
+    #
+    # `display_name` — the member's org-facing persona (e.g. "Mark —
+    # Engineering"), encrypted WITH the `org_key` (secretbox) in the browser.
+    # Null until the member sets one. Server never sees plaintext.
+    field :key, Encrypted.Binary, redact: true
+    field :display_name, Encrypted.Binary, redact: true
 
     belongs_to :user, User
     belongs_to :org, Org
@@ -74,6 +89,30 @@ defmodule Mosslet.Orgs.Membership do
     membership
     |> change()
     |> prepare_changes(&validate_at_least_one_admin/1)
+  end
+
+  @doc """
+  ZK changeset that stores the per-org `org_key` sealed FOR this member
+  (Task #225). The browser sealed the raw `org_key` to the member's public key
+  via `sealForUser`; the raw key never reaches the server. `sealed_key` is the
+  opaque base64 sealed blob. Set programmatically (never via `cast` of user
+  params) per the encryption/security guidelines.
+  """
+  def seal_key_changeset(%__MODULE__{} = membership, sealed_key) when is_binary(sealed_key) do
+    change(membership, %{key: sealed_key})
+  end
+
+  @doc """
+  ZK changeset that stores the member's org-facing `display_name`, encrypted
+  WITH the `org_key` (secretbox) in the browser (Task #225). `encrypted_name` is
+  the opaque base64 ciphertext — the server never sees plaintext, so
+  length/character/expletive validation happens client-side (consistent with all
+  other ZK-encrypted name fields, e.g. `UserGroup.name`). Set programmatically
+  (never via `cast`).
+  """
+  def display_name_changeset(%__MODULE__{} = membership, encrypted_name)
+      when is_binary(encrypted_name) do
+    change(membership, %{display_name: encrypted_name})
   end
 
   defp validate_at_least_one_admin(changeset) do

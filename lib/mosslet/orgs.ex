@@ -421,6 +421,97 @@ defmodule Mosslet.Orgs do
     result
   end
 
+  ## Org-scoped ZK identity (Task #225)
+  #
+  # A single symmetric `org_key` per org, sealed per-member to each member's
+  # public key (`Membership.key`, via `sealForUser`), lets every member recognize
+  # every other member without a personal `UserConnection`. Each member encrypts
+  # an org-facing `display_name` with the `org_key`. The raw `org_key` and
+  # plaintext display names NEVER reach the server — generation, sealing, and
+  # decryption all happen browser-side. Type-agnostic: shared verbatim by family
+  # and business orgs (org-type-specific UX lives in the LiveViews, never here).
+  # See docs/ORG_DISPLAY_NAME_DESIGN.md.
+
+  @doc """
+  Returns all memberships for `org` (with `:user` preloaded), ordered by join
+  time. Used to assemble the roster and to resolve the server-authoritative
+  recipient set for `org_key` sealing.
+  """
+  def list_memberships_with_users(%Org{} = org) do
+    adapter().list_memberships_with_users(org)
+  end
+
+  @doc """
+  Returns the list of members (as `%{membership, user}` maps) whose `org_key` has
+  NOT yet been sealed (`Membership.key == nil`), along with the public keys
+  needed to seal for them. Consumed by the browser `EnsureOrgKey` flow: a member
+  who already holds the `org_key` seals it for each of these recipients.
+
+  Server-authoritative (D1): the candidate set is derived purely from this org's
+  membership rows.
+  """
+  def members_needing_org_key(%Org{} = org) do
+    org
+    |> list_memberships_with_users()
+    |> Enum.filter(&is_nil(&1.key))
+    |> Enum.map(fn membership ->
+      %{
+        user_id: membership.user_id,
+        public_key: membership.user.key_pair["public"],
+        pq_public_key: membership.user.pq_public_key
+      }
+    end)
+  end
+
+  @doc """
+  Returns `true` when the org has at least one member who already holds the
+  sealed `org_key` (i.e. `Membership.key` is set). When `false`, the org_key has
+  not been bootstrapped yet and the owner's browser must generate + self-seal it
+  first (lazy bootstrap, design Q1=A).
+  """
+  def org_key_bootstrapped?(%Org{} = org) do
+    org
+    |> list_memberships_with_users()
+    |> Enum.any?(&(not is_nil(&1.key)))
+  end
+
+  @doc """
+  Persists per-member sealed copies of the `org_key` (Task #225).
+
+  `sealed_list` is a list of maps (string or atom keys) with `user_id` and
+  `sealed_key` (the `org_key` sealed for that member via `sealForUser`). Only
+  current members of `org` with no key yet are updated (server-authoritative,
+  idempotent). Returns `{:ok, count_sealed}` and broadcasts an org update so the
+  roster re-renders for everyone.
+  """
+  def seal_org_key_for_members(%Org{} = org, sealed_list) when is_list(sealed_list) do
+    case adapter().seal_org_key_for_members(org, sealed_list) do
+      {:ok, count} = ok ->
+        if count > 0, do: broadcast_org_update(org.id)
+        ok
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Stores the member's org-facing `display_name` ciphertext (encrypted with the
+  `org_key` browser-side — Task #225). Broadcasts an org update so other members'
+  rosters refresh. Returns `{:ok, membership}` or `{:error, changeset}`.
+  """
+  def set_org_display_name(%Membership{} = membership, encrypted_name)
+      when is_binary(encrypted_name) do
+    case adapter().set_org_display_name(membership, encrypted_name) do
+      {:ok, updated} = ok ->
+        broadcast_org_update(updated.org_id)
+        ok
+
+      error ->
+        error
+    end
+  end
+
   ## Invitations - org based
 
   def get_invitation_by_org!(org, id) do

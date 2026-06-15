@@ -285,4 +285,41 @@ defmodule MossletWeb.FamilyLiveTest do
       refute has_element?(lv, "#pending-invitations")
     end
   end
+
+  describe "Connect with teammate (Task #226)" do
+    setup do
+      {admin, admin_key} = onboarded_user("famconnadmin")
+      {:ok, org} = Orgs.create_org(admin, %{"name" => "Connellys", "type" => "family"})
+
+      {member, _mk} = onboarded_user("famconnmember")
+
+      {:ok, {:ok, _ms}} =
+        Mosslet.Repo.transaction_on_primary(fn ->
+          Orgs.Membership.insert_changeset(org, member, :member) |> Mosslet.Repo.insert()
+        end)
+
+      %{admin: admin, admin_key: admin_key, org: org, member: member}
+    end
+
+    test "shows a Connect button for an unconnected family member but not self", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/family/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#connect-#{ctx.member.id}")
+      refute has_element?(lv, "#connect-#{ctx.admin.id}")
+    end
+
+    test "clicking Connect sends a UserConnection invite and flips to Pending", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/family/#{ctx.org.slug}")
+
+      lv |> element("#connect-#{ctx.member.id}") |> render_click()
+
+      assert %{} = uconn = Accounts.get_user_connection_between_users(ctx.admin.id, ctx.member.id)
+      assert is_nil(uconn.confirmed_at)
+
+      refute has_element?(lv, "#connect-#{ctx.member.id}")
+      assert has_element?(lv, "#connect-pending-#{ctx.member.id}")
+    end
+  end
 end
