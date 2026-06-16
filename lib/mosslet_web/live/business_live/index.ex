@@ -117,9 +117,18 @@ defmodule MossletWeb.BusinessLive.Index do
           <li
             :for={business <- @businesses}
             id={"business-#{business.org.id}"}
-            class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm transition-all duration-200 ease-out hover:shadow-lg hover:shadow-emerald-500/10 hover:border-emerald-300/60 dark:hover:border-emerald-700/50"
+            class={[
+              "group relative overflow-hidden rounded-2xl border backdrop-blur-sm shadow-sm transition-all duration-200 ease-out",
+              if(business.active?,
+                do:
+                  "border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 hover:shadow-lg hover:shadow-emerald-500/10 hover:border-emerald-300/60 dark:hover:border-emerald-700/50",
+                else:
+                  "border-amber-300/60 dark:border-amber-700/50 bg-amber-50/60 dark:bg-amber-900/10"
+              )
+            ]}
           >
             <.link
+              :if={business.active?}
               navigate={~p"/app/business/#{business.org.slug}"}
               class="flex items-center gap-4 p-4"
             >
@@ -143,6 +152,48 @@ defmodule MossletWeb.BusinessLive.Index do
                 class="size-5 shrink-0 text-slate-300 dark:text-slate-600 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-teal-500 dark:group-hover:text-teal-400"
               />
             </.link>
+
+            <%!-- Inert (unpaid) business: created but its `:org` plan isn't active
+                  yet, so its content routes are gated (Option B, #235). Surface a
+                  clear "Activate" card + name-reservation reminder instead of a
+                  dead link that would just bounce to subscribe. --%>
+            <div :if={!business.active?} id={"business-inert-#{business.org.id}"} class="p-4">
+              <div class="flex items-start gap-4">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/40 dark:to-orange-900/40 text-amber-700 dark:text-amber-300">
+                  <.phx_icon name="hero-clock" class="h-5 w-5" />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <p class="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                      {business.org.name}
+                    </p>
+                    <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                      <.phx_icon name="hero-pause-circle" class="size-3" /> Not active yet
+                    </span>
+                  </div>
+                  <p class="mt-1 text-xs text-amber-700/90 dark:text-amber-300/90">
+                    <%= if business.owner? do %>
+                      We're holding the name <span class="font-semibold">{business.org.name}</span>
+                      for you. Start your free trial to activate it, invite teammates, and create circles.
+                    <% else %>
+                      This business isn't active yet. Its owner needs to start the plan
+                      before you can join.
+                    <% end %>
+                  </p>
+                  <.liquid_button
+                    :if={business.owner?}
+                    navigate={~p"/app/org/#{business.org.slug}/subscribe"}
+                    id={"business-activate-#{business.org.id}"}
+                    color="amber"
+                    size="sm"
+                    class="mt-3 w-full sm:w-auto"
+                    icon="hero-rocket-launch"
+                  >
+                    Activate &amp; start trial
+                  </.liquid_button>
+                </div>
+              </div>
+            </div>
           </li>
         </ul>
 
@@ -227,15 +278,6 @@ defmodule MossletWeb.BusinessLive.Index do
          |> put_flash(:error, business_entitlement_message(current_user))
          |> push_patch(to: ~p"/app/business")}
 
-      {:error, :subscription_required} ->
-        {:noreply,
-         socket
-         |> put_flash(
-           :warning,
-           "Please start your subscription before creating a business."
-         )
-         |> push_navigate(to: ~p"/app/subscribe?#{%{plan: "business"}}")}
-
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not create business. Please try again.")}
     end
@@ -255,15 +297,12 @@ defmodule MossletWeb.BusinessLive.Index do
   # Ignore unrelated process messages (e.g. Swoosh test email delivery).
   def handle_info(_message, socket), do: {:noreply, socket}
 
-  # After creating a business from the guided onboarding step, take the user
-  # straight to org-scoped checkout so billing ties to the real org. Otherwise
-  # land on the new business's dashboard.
-  defp next_path_after_create(socket, org) do
-    if socket.assigns[:onboarding?] do
-      ~p"/app/org/#{org.slug}/subscribe"
-    else
-      ~p"/app/business/#{org.slug}"
-    end
+  # A newly created business org is INERT until its `:org` plan is purchased
+  # (Option B, Task #235), so always route the owner to org-scoped checkout to
+  # activate it — whether they arrived via guided onboarding or created it
+  # directly. The org's content stays gated until the subscription is active.
+  defp next_path_after_create(_socket, org) do
+    ~p"/app/org/#{org.slug}/subscribe"
   end
 
   defp assign_businesses(socket) do
@@ -280,7 +319,9 @@ defmodule MossletWeb.BusinessLive.Index do
         %{
           org: org,
           membership: membership,
-          member_count: length(members)
+          member_count: length(members),
+          active?: Orgs.org_active?(org),
+          owner?: Orgs.owner?(org, current_user.id)
         }
       end)
 

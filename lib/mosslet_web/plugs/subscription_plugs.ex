@@ -152,6 +152,48 @@ defmodule MossletWeb.SubscriptionPlugs do
     {:cont, socket}
   end
 
+  # Option B org-content gate (Task #235). Org CONTENT/ACTION routes
+  # (/app/family/:slug, /app/business/:slug, feeds, circles) require the org's
+  # own `:org`-source subscription to be ACTIVE (active/trialing/`past_due`
+  # grace). An org row created but not yet paid for is INERT and is redirected to
+  # its subscribe page with a friendly activation prompt — never a broken/empty
+  # dashboard. Server-authoritative; re-checked on every live mount so a lapse
+  # takes effect on next navigation.
+  #
+  # This does NOT require a personal (`:user`) plan — org creation/usage is fully
+  # independent of personal billing. Non-members / missing orgs fall through to
+  # the LiveView's own mount, which redirects to the section index.
+  def on_mount(:require_active_org, %{"slug" => slug}, _session, socket) do
+    user = socket.assigns.current_scope.user
+
+    case resolve_org(user, slug) do
+      {:ok, org} ->
+        if Orgs.org_active?(org) do
+          {:cont, Phoenix.Component.assign(socket, :current_org, org)}
+        else
+          socket =
+            socket
+            |> Phoenix.LiveView.put_flash(
+              :info,
+              gettext(
+                "Activate a plan to open %{name}. Your organization name is reserved for you until you activate.",
+                name: org_display_label(org)
+              )
+            )
+            |> Phoenix.LiveView.redirect(to: ~p"/app/org/#{org.slug}/subscribe")
+
+          {:halt, socket}
+        end
+
+      :error ->
+        # Not a member / no such org for this user — let the LiveView mount
+        # handle the redirect to the section index (keeps copy consistent).
+        {:cont, socket}
+    end
+  end
+
+  def on_mount(:require_active_org, _params, _session, socket), do: {:cont, socket}
+
   # Halting variant: redirects to /app/subscribe unless the user has finalized
   # their own subscription signup (active/trialing subscription or active lifetime
   # payment intent). Used to gate org-creation surfaces on live navigation, where
@@ -181,6 +223,20 @@ defmodule MossletWeb.SubscriptionPlugs do
         {:halt, socket}
     end
   end
+
+  # Resolves an org the user is a member of by slug, without raising. Returns
+  # `{:ok, org}` or `:error`. `Orgs.get_org!/2` scopes to the user's memberships
+  # and raises on miss, so we rescue into a soft `:error` for graceful redirects.
+  defp resolve_org(user, slug) do
+    {:ok, Orgs.get_org!(user, slug)}
+  rescue
+    Ecto.NoResultsError -> :error
+  end
+
+  # The org's display name (transparently decrypted `Encrypted.Binary`), falling
+  # back to a generic label so the flash never renders a blank/garbled value.
+  defp org_display_label(%{name: name}) when is_binary(name) and name != "", do: name
+  defp org_display_label(_), do: gettext("your organization")
 
   defp assign_customer(socket, :org) do
     Phoenix.Component.assign_new(socket, :customer, fn ->

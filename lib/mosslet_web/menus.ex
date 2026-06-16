@@ -13,47 +13,22 @@ defmodule MossletWeb.Menus do
     current_user.is_admin? && current_user.confirmed_at
   end
 
-  # Returns true when the user is a member of at least one org of the given type.
-  defp belongs_to_org_type?(current_user, type) do
-    current_user
-    |> Mosslet.Orgs.list_orgs()
-    |> Enum.any?(&(&1.type == type))
-  end
-
-  # Resolves the user's active subscription plan type (:family | :business | nil)
-  # from their (`:user`-source) billing customer. A fresh Family/Business
-  # subscriber has an active plan before they've created an org, so we surface
-  # the matching sidebar item to lead them to org creation.
-  defp active_plan_type(current_user) do
-    alias Mosslet.Billing.{Customers, Subscriptions}
-
-    with %Customers.Customer{} = customer <-
-           Customers.get_customer_by_source(:user, current_user.id),
-         %Subscriptions.Subscription{plan_id: plan_id} <-
-           Subscriptions.get_active_subscription_by_customer_id(customer.id) do
-      cond do
-        String.starts_with?(plan_id, "family-") -> :family
-        String.starts_with?(plan_id, "business-") -> :business
-        true -> nil
-      end
-    else
-      _ -> nil
-    end
-  end
-
-  # Show an org-scoped nav item when the user belongs to an org of that type OR
-  # holds an active plan of that type (so new subscribers can reach org creation).
+  # Show an org-scoped nav item when the user owns or belongs to an ACTIVE org of
+  # that type (Option B / Task #235). "Active" means the org's own `:org`-source
+  # subscription is live — an org created but not yet paid for is inert and does
+  # NOT surface nav. Personal-plan users (no org) see no Family/Business items.
   defp show_org_nav?(current_user, type) do
-    belongs_to_org_type?(current_user, type) or active_plan_type(current_user) == type
+    Mosslet.Orgs.has_active_org_of_type?(current_user, type)
   end
 
   @doc """
   Resolves a user's plan type for UI tailoring: `:family`, `:business`, or
   `:personal`.
 
-  A user is considered Family/Business if they belong to an org of that type OR
-  hold an active subscription of that type (fresh subscribers who haven't created
-  their org yet). Everyone else is `:personal`.
+  A user is Family/Business when they own or belong to an ACTIVE org of that
+  type (its `:org`-source subscription is live). This is fully independent of
+  the user's personal (`:user`-source) plan — a personal subscriber with no org
+  is `:personal`. Everyone else is `:personal`.
   """
   def plan_type(nil), do: :personal
 

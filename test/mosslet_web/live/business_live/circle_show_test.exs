@@ -53,6 +53,59 @@ defmodule MossletWeb.BusinessLive.CircleShowTest do
     :ok
   end
 
+  # Activates an org by giving it its OWN :org-source customer + an active
+  # subscription, so the `:require_active_org` mount lets content routes load.
+  # Idempotent: reuses the existing :org customer (Customers.get_customer_by_source/2
+  # forbids duplicates) and any existing active subscription.
+  defp subscribe_org(org, opts \\ []) do
+    quantity = Keyword.get(opts, :quantity, 1)
+    status = Keyword.get(opts, :status, "active")
+
+    plan_id =
+      Keyword.get(
+        opts,
+        :plan_id,
+        if(org.type == "family", do: "family-monthly", else: "business-monthly")
+      )
+
+    customer =
+      case Customers.get_customer_by_source(:org, org.id) do
+        nil ->
+          {:ok, customer} =
+            Customers.create_customer_for_source(:org, org.id, %{
+              email: "billing-#{System.unique_integer([:positive])}@example.com",
+              provider: "stripe",
+              provider_customer_id: "cus_#{System.unique_integer([:positive])}"
+            })
+
+          customer
+
+        customer ->
+          customer
+      end
+
+    attrs = %{
+      billing_customer_id: customer.id,
+      plan_id: plan_id,
+      status: status,
+      quantity: quantity,
+      provider_subscription_id: "sub_#{System.unique_integer([:positive])}",
+      provider_subscription_items: [%{price: "price_test"}],
+      current_period_start: NaiveDateTime.utc_now()
+    }
+
+    case Subscriptions.get_active_subscription_by_customer_id(customer.id) do
+      nil ->
+        {:ok, _sub} = Subscriptions.create_subscription(attrs)
+
+      existing ->
+        {:ok, _sub} =
+          Subscriptions.update_subscription(existing, %{status: status, quantity: quantity})
+    end
+
+    :ok
+  end
+
   defp onboarded_user(name_seed) do
     email = "#{name_seed}#{System.unique_integer([:positive])}@example.com"
     username = "#{name_seed}#{System.unique_integer([:positive])}"
@@ -134,6 +187,9 @@ defmodule MossletWeb.BusinessLive.CircleShowTest do
   setup %{conn: conn} do
     {admin, admin_key} = onboarded_user("csadmin")
     {:ok, org} = Orgs.create_org(admin, %{"name" => "CircleShowCo", "type" => "business"})
+    # Org content routes now require the org's OWN active `:org` subscription
+    # (Option B "pay to activate"); activate it so circle routes can mount.
+    :ok = subscribe_org(org)
 
     {member, member_key} = onboarded_user("csmember")
     add_member(org, member, :member)
@@ -196,6 +252,7 @@ defmodule MossletWeb.BusinessLive.CircleShowTest do
 
     test "redirects a family org away (business only)", ctx do
       {:ok, family} = Orgs.create_org(ctx.admin, %{"name" => "Fam", "type" => "family"})
+      :ok = subscribe_org(family)
 
       assert {:error, {:live_redirect, %{to: "/app/business"}}} =
                ctx.conn

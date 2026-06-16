@@ -80,15 +80,11 @@ defmodule MossletWeb.SubscribeSuccessLive do
     {:noreply, socket}
   end
 
-  # After the user's own subscription is active, family/business signups are
-  # guided to create their org (now allowed — org creation requires an active
-  # user subscription, Task #215 follow-up). Personal subscribers land on the app.
-  defp post_success_path(%{assigns: %{source: :user, plan_intent: "family"}}),
-    do: ~p"/app/family/new?#{%{onboarding: "1"}}"
-
-  defp post_success_path(%{assigns: %{source: :user, plan_intent: "business"}}),
-    do: ~p"/app/business/new?#{%{onboarding: "1"}}"
-
+  # After a `:user` PERSONAL subscription is active we always land on the app
+  # (Option B, Task #235). Family/Business are now fully independent org plans
+  # billed to the org — they are reached via the subscribe-page org on-ramp,
+  # NOT gated behind (or triggered by) a personal subscription. The org's own
+  # trial completes on the org-scoped success surface.
   defp post_success_path(_socket), do: ~p"/app"
 
   defp assign_billing_status(%{assigns: %{pings: 10}} = socket) do

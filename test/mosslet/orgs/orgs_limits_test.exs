@@ -8,16 +8,15 @@ defmodule Mosslet.OrgsLimitsTest do
   alias Mosslet.Billing.Subscriptions
   alias Mosslet.Orgs
 
-  # A confirmed user with an active personal (:user) subscription, so they are
-  # allowed to create orgs (org creation requires the owner to have finalized
-  # their own subscription signup — Task #215 follow-up).
+  # A confirmed user. Org creation no longer requires a personal (:user)
+  # subscription — personal and org billing are fully independent (Task #235).
+  # Creating an org requires only a confirmed user; the org is activated by
+  # purchasing its own `:org`-source plan.
   defp confirmed_user(seed) do
-    user = confirmed_user_no_billing(seed)
-    subscribe_user(user)
-    user
+    confirmed_user_no_billing(seed)
   end
 
-  # A confirmed user with NO billing — used to assert the org-creation gate.
+  # A confirmed user with NO billing of any kind.
   defp confirmed_user_no_billing(seed) do
     email = "#{seed}#{System.unique_integer([:positive])}@example.com"
 
@@ -25,7 +24,9 @@ defmodule Mosslet.OrgsLimitsTest do
     |> Accounts.confirm_user!()
   end
 
-  # Attaches an active personal (:user) subscription so the user can create orgs.
+  # Attaches an active personal (:user) subscription. Personal billing is
+  # independent of org coverage — used only to assert that it does NOT grant
+  # org coverage or gate org creation.
   defp subscribe_user(user) do
     {:ok, customer} =
       Customers.create_customer_for_source(:user, user.id, %{
@@ -97,21 +98,29 @@ defmodule Mosslet.OrgsLimitsTest do
     end
   end
 
-  describe "create_org/2 subscription gate" do
-    test "blocks org creation when the user has no active billing" do
+  describe "create_org/2 personal-billing independence (Task #235)" do
+    test "a confirmed user with NO billing can still create an org" do
       user = confirmed_user_no_billing("nobilling")
 
       refute Orgs.user_has_active_billing?(user)
 
-      assert {:error, :subscription_required} =
+      assert {:ok, _fam} =
                Orgs.create_org(user, %{"name" => "NoPay Fam", "type" => "family"})
 
-      assert {:error, :subscription_required} =
+      assert {:ok, _biz} =
                Orgs.create_org(user, %{"name" => "NoPay Biz", "type" => "business"})
     end
 
-    test "allows org creation once the user has an active subscription" do
-      user = confirmed_user_no_billing("willpay")
+    test "owning an org does not grant the owner personal billing" do
+      user = confirmed_user_no_billing("ownsorg")
+      {:ok, _org} = Orgs.create_org(user, %{"name" => "Acme", "type" => "business"})
+
+      # Org creation/ownership is fully independent of the owner's personal plan.
+      refute Orgs.user_has_active_billing?(user)
+    end
+
+    test "a personal subscription does not block or change org creation" do
+      user = confirmed_user_no_billing("haspersonal")
       subscribe_user(user)
 
       assert Orgs.user_has_active_billing?(user)
@@ -244,8 +253,8 @@ defmodule Mosslet.OrgsLimitsTest do
     end
 
     test "seat_cap falls back to plan included_seats with no subscription", %{org: org} do
-      # Business included_seats floor is 20 (config).
-      assert Orgs.seat_cap(org) == 20
+      # Business included_seats floor is 10 (config).
+      assert Orgs.seat_cap(org) == 10
     end
 
     test "seat_cap uses the purchased subscription quantity when present", %{org: org} do

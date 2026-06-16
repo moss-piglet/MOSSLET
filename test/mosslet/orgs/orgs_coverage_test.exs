@@ -42,14 +42,19 @@ defmodule Mosslet.OrgsCoverageTest do
     :ok
   end
 
-  # An org whose seats are paid for via the OWNER's seat-based (:user-source)
-  # subscription — the real billing model. Returns the org. The owner's sub plan
-  # matches the org type (family-monthly / business-monthly) in the given status.
+  # An org whose seats are paid for via the org's own (`:org`-source)
+  # subscription — the billing model as of Task #235. Returns the org. The org's
+  # sub plan matches the org type (family-monthly / business-monthly) in the
+  # given status. Personal and org billing are fully independent: the owner does
+  # NOT need a personal plan to create or cover an org.
   defp org_with_subscription(type, status) do
     {creator, _email} = confirmed_user("creator")
 
+    name = if type == :family, do: "The Coverage Family", else: "Coverage Inc"
+    {:ok, org} = Orgs.create_org(creator, %{"name" => name, "type" => Atom.to_string(type)})
+
     {:ok, customer} =
-      Customers.create_customer_for_source(:user, creator.id, %{
+      Customers.create_customer_for_source(:org, org.id, %{
         email: "billing-#{System.unique_integer([:positive])}@example.com",
         provider: "stripe",
         provider_customer_id: "cus_#{System.unique_integer([:positive])}"
@@ -57,25 +62,16 @@ defmodule Mosslet.OrgsCoverageTest do
 
     plan = if type == :family, do: "family-monthly", else: "business-monthly"
 
-    {:ok, subscription} =
+    {:ok, _subscription} =
       Subscriptions.create_subscription(%{
         billing_customer_id: customer.id,
         plan_id: plan,
-        # Org creation requires active billing; start active so create_org passes.
-        status: "active",
+        status: status,
         quantity: 5,
         provider_subscription_id: "sub_org_#{System.unique_integer([:positive])}",
         provider_subscription_items: [%{price: "price_org_test"}],
         current_period_start: NaiveDateTime.utc_now()
       })
-
-    name = if type == :family, do: "The Coverage Family", else: "Coverage Inc"
-    {:ok, org} = Orgs.create_org(creator, %{"name" => name, "type" => Atom.to_string(type)})
-
-    # Move the owner's org-plan subscription to the target status for the scenario.
-    if status != "active" do
-      {:ok, _} = Subscriptions.update_subscription(subscription, %{status: status})
-    end
 
     org
   end

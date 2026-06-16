@@ -3,6 +3,7 @@ defmodule MossletWeb.SubscribeLiveTest do
 
   import Phoenix.LiveViewTest
   import Mosslet.AccountsFixtures
+  import Mosslet.OrgsFixtures
 
   alias Mosslet.Accounts
 
@@ -55,24 +56,31 @@ defmodule MossletWeb.SubscribeLiveTest do
       assert has_element?(lv, "#family-tab-Business")
     end
 
-    test "?plan=family shows the Family plan (subscribe as user first)", %{conn: conn} do
+    test "?plan=family shows the Family org on-ramp (not a :user purchase)", %{conn: conn} do
       {user, key} = subscribe_user(false)
       conn = log_in(conn, user, key)
 
       {:ok, lv, _html} = live(conn, ~p"/app/subscribe?#{%{plan: "family"}}")
 
       assert has_element?(lv, "#family-tab-Family[aria-selected='true']")
-      assert render(lv) =~ "MOSSLET (Family)"
+      # On-ramp, NOT the :user family pricing card.
+      assert has_element?(lv, "#org-onramp-form-family")
+      assert has_element?(lv, "#org-onramp-start-family")
+      refute render(lv) =~ "MOSSLET (Family)"
+      # Interval toggle is hidden on org-onramp tabs.
+      refute has_element?(lv, "#interval-toggle-year")
     end
 
-    test "?plan=business shows the Business plan (subscribe as user first)", %{conn: conn} do
+    test "?plan=business shows the Business org on-ramp (not a :user purchase)", %{conn: conn} do
       {user, key} = subscribe_user(false)
       conn = log_in(conn, user, key)
 
       {:ok, lv, _html} = live(conn, ~p"/app/subscribe?#{%{plan: "business"}}")
 
       assert has_element?(lv, "#family-tab-Business[aria-selected='true']")
-      assert render(lv) =~ "MOSSLET (Business)"
+      assert has_element?(lv, "#org-onramp-form-business")
+      assert has_element?(lv, "#org-onramp-start-business")
+      refute render(lv) =~ "MOSSLET (Business)"
     end
 
     test "?billing=month selects the monthly interval", %{conn: conn} do
@@ -84,7 +92,7 @@ defmodule MossletWeb.SubscribeLiveTest do
       assert has_element?(lv, "#interval-toggle-month[aria-pressed='true']")
     end
 
-    test "selecting the Family tab shows the Family plan (no redirect)", %{conn: conn} do
+    test "selecting the Family tab shows the org on-ramp (no redirect)", %{conn: conn} do
       {user, key} = subscribe_user(false)
       conn = log_in(conn, user, key)
 
@@ -94,7 +102,7 @@ defmodule MossletWeb.SubscribeLiveTest do
 
       assert_patch(lv, ~p"/app/subscribe?#{%{plan: "family", billing: "year"}}")
       assert has_element?(lv, "#family-tab-Family[aria-selected='true']")
-      assert render(lv) =~ "MOSSLET (Family)"
+      assert has_element?(lv, "#org-onramp-form-family")
     end
 
     test "switching billing interval patches the URL", %{conn: conn} do
@@ -108,17 +116,80 @@ defmodule MossletWeb.SubscribeLiveTest do
       assert_patch(lv, ~p"/app/subscribe?#{%{plan: "personal", billing: "month"}}")
     end
 
-    test "pre-selects plan + interval from persisted session intent (gate bounce)", %{conn: conn} do
+    test "pre-selects plan from persisted session intent (gate bounce)", %{conn: conn} do
       {user, key} = subscribe_user(false)
-      # Simulates the org-creation gate redirect to bare /app/subscribe: the
-      # plan family + billing interval persist in the session from sign-in.
+      # Simulates arriving from registration with a family plan intent: the
+      # Family tab is pre-selected and shows the org on-ramp (Option B, #235).
       conn = log_in(conn, user, key, %{"plan_intent" => "family", "plan_interval" => "month"})
 
       {:ok, lv, _html} = live(conn, ~p"/app/subscribe")
 
       assert has_element?(lv, "#family-tab-Family[aria-selected='true']")
-      assert has_element?(lv, "#interval-toggle-month[aria-pressed='true']")
-      assert render(lv) =~ "MOSSLET (Family)"
+      assert has_element?(lv, "#org-onramp-form-family")
+    end
+  end
+
+  describe "org on-ramp (:user source Family/Business tabs)" do
+    test "submitting the Family on-ramp creates an inert org and routes to its subscribe page",
+         %{conn: conn} do
+      {user, key} = subscribe_user(true)
+      conn = log_in(conn, user, key)
+
+      {:ok, lv, _html} = live(conn, ~p"/app/subscribe?#{%{plan: "family"}}")
+
+      lv
+      |> form("#org-onramp-form-family", %{"org" => %{"name" => "The Smiths"}})
+      |> render_submit()
+
+      org = Mosslet.Orgs.list_owned_orgs(user, :family) |> List.first()
+      assert org
+      assert org.type == :family
+      refute Mosslet.Orgs.org_active?(org)
+      assert_redirect(lv, ~p"/app/org/#{org.slug}/subscribe")
+    end
+
+    test "submitting the Business on-ramp creates an inert business org", %{conn: conn} do
+      {user, key} = subscribe_user(true)
+      conn = log_in(conn, user, key)
+
+      {:ok, lv, _html} = live(conn, ~p"/app/subscribe?#{%{plan: "business"}}")
+
+      lv
+      |> form("#org-onramp-form-business", %{"org" => %{"name" => "Acme Inc"}})
+      |> render_submit()
+
+      org = Mosslet.Orgs.list_owned_orgs(user, :business) |> List.first()
+      assert org
+      assert org.type == :business
+      assert_redirect(lv, ~p"/app/org/#{org.slug}/subscribe")
+    end
+
+    test "blank name flashes an error and does not create an org", %{conn: conn} do
+      {user, key} = subscribe_user(true)
+      conn = log_in(conn, user, key)
+
+      {:ok, lv, _html} = live(conn, ~p"/app/subscribe?#{%{plan: "family"}}")
+
+      html =
+        lv
+        |> form("#org-onramp-form-family", %{"org" => %{"name" => "   "}})
+        |> render_submit()
+
+      assert html =~ "Please enter a name"
+      assert Mosslet.Orgs.count_owned_orgs(user, :family) == 0
+    end
+
+    test "deep-links to an existing active org instead of offering to create one",
+         %{conn: conn} do
+      {user, key} = subscribe_user(true)
+      org = org_fixture(user, %{"name" => "Existing Fam", "type" => :family})
+      ensure_org_subscription(org, status: "active")
+      conn = log_in(conn, user, key)
+
+      {:ok, lv, _html} = live(conn, ~p"/app/subscribe?#{%{plan: "family"}}")
+
+      assert has_element?(lv, "#org-onramp-manage-family")
+      refute has_element?(lv, "#org-onramp-form-family")
     end
   end
 end

@@ -94,34 +94,29 @@ defmodule Mosslet.Orgs do
 
     type = org_type(attrs)
 
-    cond do
-      not user_has_active_billing?(user) ->
-        {:error, :subscription_required}
+    case check_create_org_limit(user, type) do
+      :ok ->
+        changeset =
+          attrs
+          |> Org.insert_changeset()
+          |> Org.put_creator(user)
 
-      true ->
-        case check_create_org_limit(user, type) do
-          :ok ->
-            changeset =
-              attrs
-              |> Org.insert_changeset()
-              |> Org.put_creator(user)
+        adapter().create_org(user, changeset)
 
-            adapter().create_org(user, changeset)
-
-          {:error, _reason} = error ->
-            error
-        end
+      {:error, _reason} = error ->
+        error
     end
   end
 
   @doc """
-  Returns `true` when the user has finalized their own subscription signup —
-  i.e. their personal billing account has an active/trialing subscription or an
-  active lifetime payment intent.
+  Returns `true` when the user has finalized their own PERSONAL subscription
+  signup — i.e. their personal (`:user`-source) billing account has an
+  active/trialing subscription or an active lifetime payment intent.
 
-  Creating a family/business org requires this (Task #215 follow-up): a user must
-  commit to a paid (or trialing) relationship before spinning up org
-  infrastructure, even though the org itself is billed per-seat afterward.
+  This reflects ONLY the person's personal Mosslet plan. It is fully independent
+  of org billing: it does NOT gate org creation, and owning an org does not make
+  this true. (Org coverage is resolved separately from the org's own
+  `:org`-source subscription — see `org_subscription/1`.)
   """
   def user_has_active_billing?(user) do
     case Customers.get_customer_by_source(:user, user.id) do
@@ -770,8 +765,8 @@ defmodule Mosslet.Orgs do
   # user as "covered by an org seat" so they are NOT charged for a personal
   # account. Coverage is derived purely from confirmed membership rows (deleted
   # immediately on seat revocation — `delete_membership/1`) and the org's
-  # subscription status (resolved from the owner's seat-based plan; see
-  # `org_subscription/1`). Never client-trusted.
+  # `:org`-source subscription status (see `org_subscription/1`). Never
+  # client-trusted.
 
   @doc """
   Returns `true` when the user is covered by an org seat with access — i.e.
@@ -788,6 +783,56 @@ defmodule Mosslet.Orgs do
       {:grace, _org} -> true
       _ -> false
     end
+  end
+
+  @doc """
+  Returns `true` when the org is ACTIVE — i.e. its own `:org`-source
+  subscription is `active`/`trialing` (or in the `past_due` grace window).
+
+  This is the single source of truth for whether an org is "real"/usable under
+  the Option B model: an org row created but not yet paid for is INERT and
+  returns `false` here. Drives org-content route gating and sidebar nav
+  visibility. Distinct from `org_has_active_subscription?/1`, which is the
+  stricter "active paid sub" check used by the multi-business entitlement.
+  """
+  def org_active?(%Org{} = org) do
+    case org_coverage_for_org(org) do
+      :covered -> true
+      {:grace, _org} -> true
+      _ -> false
+    end
+  end
+
+  @doc """
+  Returns `true` when the user owns or belongs to at least one ACTIVE org of the
+  given type (`:family`/`:business`). "Active" means the org's `:org`-source
+  subscription is live (see `org_active?/1`).
+
+  This is the server-authoritative basis for surfacing org-scoped UI (sidebar
+  nav, settings entries): a personal-plan user with no org sees nothing; an org
+  created but not yet activated (Option B inert state) does NOT light up the nav
+  until its plan is purchased.
+  """
+  def has_active_org_of_type?(nil, _type), do: false
+
+  def has_active_org_of_type?(user, type) when type in [:family, :business] do
+    active_org_of_type(user, type) != nil
+  end
+
+  @doc """
+  Returns the first ACTIVE org of the given type (`:family`/`:business`) the
+  user owns or belongs to, or `nil` if none.
+
+  Used by the subscribe-page funnel (Task #235) to deep-link a user who already
+  has an active org of that type straight to that org instead of offering to
+  create a duplicate.
+  """
+  def active_org_of_type(nil, _type), do: nil
+
+  def active_org_of_type(user, type) when type in [:family, :business] do
+    user
+    |> list_orgs()
+    |> Enum.find(fn org -> org.type == type and org_active?(org) end)
   end
 
   @doc """
@@ -833,17 +878,15 @@ defmodule Mosslet.Orgs do
 
   # Resolves the subscription that pays for an org's seats.
   #
-  # Billing model (verified): Family/Business plans are purchased on the org
-  # OWNER's personal (`:user`-source) customer — there is currently no
-  # `:org`-source subscription. So we resolve coverage from the owner's seat-based
-  # subscription whose plan TYPE matches the org (family/business). We still check
-  # an `:org`-source subscription first for forward-compatibility, should billing
-  # move onto the org customer later.
+  # Billing model: Family/Business plans are purchased on the org's own
+  # (`:org`-source) billing customer — independent of the owner's personal
+  # (`:user`-source) plan. Coverage comes ONLY from the org's `:org`-source
+  # subscription; an owner's personal plan never covers an org (and vice versa).
   #
   # Returns the active/trialing sub when present, else a payment-required
   # (`past_due`/`incomplete`) sub so the caller can surface the grace state.
   defp org_subscription(%Org{} = org) do
-    org_source_subscription(org) || owner_org_subscription(org)
+    org_source_subscription(org)
   end
 
   defp org_source_subscription(%Org{} = org) do
@@ -856,32 +899,6 @@ defmodule Mosslet.Orgs do
           Subscriptions.get_payment_required_subscription_by_customer_id(customer.id)
     end
   end
-
-  defp owner_org_subscription(%Org{created_by_id: nil}), do: nil
-
-  defp owner_org_subscription(%Org{created_by_id: owner_id} = org) do
-    case Customers.get_customer_by_source(:user, owner_id) do
-      nil ->
-        nil
-
-      customer ->
-        sub =
-          Subscriptions.get_active_subscription_by_customer_id(customer.id) ||
-            Subscriptions.get_payment_required_subscription_by_customer_id(customer.id)
-
-        if sub && org_plan_matches_type?(sub.plan_id, org.type), do: sub
-    end
-  end
-
-  # True when the subscription's plan is the seat-based org plan for the org type
-  # (e.g. "business-monthly"/"business-yearly" for a :business org). Guards against
-  # treating an owner's unrelated personal plan as org coverage.
-  defp org_plan_matches_type?(plan_id, type) when is_binary(plan_id) do
-    plan = Plans.get_plan_by_id(plan_id)
-    plan && Plans.seat_based_plan?(plan) && String.starts_with?(plan_id, "#{type}-")
-  end
-
-  defp org_plan_matches_type?(_plan_id, _type), do: false
 
   # Best-status-wins reduction across a user's orgs:
   # :covered > {:grace, _} > {:lapsed, _}. (`:none` handled by the caller.)

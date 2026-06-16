@@ -9,12 +9,44 @@ defmodule MossletWeb.MenusTest do
 
   alias Mosslet.Billing.Customers
   alias Mosslet.Billing.Subscriptions
+  alias Mosslet.Orgs
   alias MossletWeb.Menus
 
-  # Gives the user an active (:user-source) subscription whose plan_id carries
-  # the given prefix, exercising the `active_plan_type` resolution path without
-  # needing to spin up a full (crypto-heavy) org.
-  defp active_subscription(user, plan_id) do
+  # Makes the user own an ACTIVE org of the given type — the basis for
+  # Family/Business UI under the Option B model (Task #235). Org membership +
+  # an active `:org`-source subscription is what surfaces org nav; the owner's
+  # personal plan is irrelevant. Returns the (unchanged) user.
+  defp active_org(user, type) do
+    {:ok, org} =
+      Orgs.create_org(user, %{
+        "name" => "Org #{System.unique_integer([:positive])}",
+        "type" => Atom.to_string(type)
+      })
+
+    {:ok, customer} =
+      Customers.create_customer_for_source(:org, org.id, %{
+        email: "billing-#{System.unique_integer([:positive])}@example.com",
+        provider: "stripe",
+        provider_customer_id: "cus_#{System.unique_integer([:positive])}"
+      })
+
+    {:ok, _subscription} =
+      Subscriptions.create_subscription(%{
+        billing_customer_id: customer.id,
+        plan_id: "#{type}-monthly",
+        status: "active",
+        quantity: 1,
+        provider_subscription_id: "sub_#{System.unique_integer([:positive])}",
+        provider_subscription_items: [%{price: "price_test"}],
+        current_period_start: NaiveDateTime.utc_now()
+      })
+
+    user
+  end
+
+  # An active personal (:user) subscription. Independent of org status — used to
+  # prove a personal plan does NOT make a user appear Family/Business.
+  defp personal_subscription(user) do
     {:ok, customer} =
       Customers.create_customer_for_source(:user, user.id, %{
         email: "billing-#{System.unique_integer([:positive])}@example.com",
@@ -25,7 +57,7 @@ defmodule MossletWeb.MenusTest do
     {:ok, _subscription} =
       Subscriptions.create_subscription(%{
         billing_customer_id: customer.id,
-        plan_id: plan_id,
+        plan_id: "personal-monthly",
         status: "active",
         quantity: 1,
         provider_subscription_id: "sub_#{System.unique_integer([:positive])}",
@@ -46,13 +78,18 @@ defmodule MossletWeb.MenusTest do
       assert Menus.plan_type(user) == :personal
     end
 
-    test "an active family subscriber is family" do
-      user = user_fixture() |> active_subscription("family-monthly")
+    test "a personal subscriber (no org) is still personal" do
+      user = user_fixture() |> personal_subscription()
+      assert Menus.plan_type(user) == :personal
+    end
+
+    test "an active family org owner is family" do
+      user = user_fixture() |> active_org(:family)
       assert Menus.plan_type(user) == :family
     end
 
-    test "an active business subscriber is business" do
-      user = user_fixture() |> active_subscription("business-monthly")
+    test "an active business org owner is business" do
+      user = user_fixture() |> active_org(:business)
       assert Menus.plan_type(user) == :business
     end
   end
@@ -61,10 +98,8 @@ defmodule MossletWeb.MenusTest do
     test "labels match the plan type" do
       assert Menus.plan_label(nil) == "Personal"
       assert Menus.plan_label(user_fixture()) == "Personal"
-      assert Menus.plan_label(user_fixture() |> active_subscription("family-monthly")) == "Family"
-
-      assert Menus.plan_label(user_fixture() |> active_subscription("business-monthly")) ==
-               "Business"
+      assert Menus.plan_label(user_fixture() |> active_org(:family)) == "Family"
+      assert Menus.plan_label(user_fixture() |> active_org(:business)) == "Business"
     end
   end
 
@@ -85,19 +120,19 @@ defmodule MossletWeb.MenusTest do
       assert Menus.get_link(:org_invitations, user_fixture()) == nil
     end
 
-    test "manage_family link only appears for family users" do
+    test "manage_family link only appears for active family org users" do
       assert Menus.get_link(:manage_family, user_fixture()) == nil
 
-      family_user = user_fixture() |> active_subscription("family-monthly")
+      family_user = user_fixture() |> active_org(:family)
 
       assert %{name: :manage_family, path: "/app/family"} =
                Menus.get_link(:manage_family, family_user)
     end
 
-    test "manage_business link only appears for business users" do
+    test "manage_business link only appears for active business org users" do
       assert Menus.get_link(:manage_business, user_fixture()) == nil
 
-      business_user = user_fixture() |> active_subscription("business-monthly")
+      business_user = user_fixture() |> active_org(:business)
 
       assert %{name: :manage_business, path: "/app/business"} =
                Menus.get_link(:manage_business, business_user)

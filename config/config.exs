@@ -427,7 +427,7 @@ config :mosslet, :billing_products, [
       "Run your team on a calm, private platform. MOSSLET (Business) includes 20 members with private business circles and zero-knowledge file sharing — your team's work stays cryptographically private, never read by us.",
     most_popular: false,
     features: [
-      "Everything in Personal, for up to 20 members",
+      "Everything in Personal, for up to 10 members",
       "Add more members any time ($5/mo each)",
       "Private business circles (org-scoped)",
       "Zero-knowledge file sharing across your team",
@@ -442,7 +442,7 @@ config :mosslet, :billing_products, [
         price: System.get_env("STRIPE_PRICE_BUSINESS_MONTHLY") || "price_business_monthly",
         quantity: 1,
         amount: 10000,
-        included_seats: 20,
+        included_seats: 10,
         seat_addon_price:
           System.get_env("STRIPE_PRICE_BUSINESS_SEAT_MONTHLY") || "price_business_seat_monthly",
         max_seats: 200,
@@ -462,7 +462,7 @@ config :mosslet, :billing_products, [
       "Get a full year of MOSSLET (Business) at our best rate. Includes 20 members with private business circles and zero-knowledge file sharing — privacy-first collaboration for your whole team.",
     most_popular: false,
     features: [
-      "Everything in Personal, for up to 20 members",
+      "Everything in Personal, for up to 10 members",
       "Add more members any time ($48/yr each)",
       "Private business circles (org-scoped)",
       "Zero-knowledge file sharing across your team",
@@ -478,7 +478,7 @@ config :mosslet, :billing_products, [
         quantity: 1,
         amount: 80000,
         monthly_equivalent: 6667,
-        included_seats: 20,
+        included_seats: 10,
         seat_addon_price:
           System.get_env("STRIPE_PRICE_BUSINESS_SEAT_YEARLY") || "price_business_seat_yearly",
         max_seats: 200,

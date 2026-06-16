@@ -52,6 +52,50 @@ defmodule MossletWeb.FamilyLiveTest do
     :ok
   end
 
+  # Activates a family org's own `:org`-source subscription so its content
+  # surfaces are reachable (Option B, Task #235): inert/unpaid orgs redirect to
+  # subscribe. Idempotent on the customer + subscription.
+  defp subscribe_family(org, opts \\ []) do
+    quantity = Keyword.get(opts, :quantity, 5)
+    status = Keyword.get(opts, :status, "active")
+
+    customer =
+      case Customers.get_customer_by_source(:org, org.id) do
+        nil ->
+          {:ok, customer} =
+            Customers.create_customer_for_source(:org, org.id, %{
+              email: "billing-#{System.unique_integer([:positive])}@example.com",
+              provider: "stripe",
+              provider_customer_id: "cus_#{System.unique_integer([:positive])}"
+            })
+
+          customer
+
+        customer ->
+          customer
+      end
+
+    case Subscriptions.get_active_subscription_by_customer_id(customer.id) do
+      nil ->
+        {:ok, _sub} =
+          Subscriptions.create_subscription(%{
+            billing_customer_id: customer.id,
+            plan_id: "family-monthly",
+            status: status,
+            quantity: quantity,
+            provider_subscription_id: "sub_#{System.unique_integer([:positive])}",
+            provider_subscription_items: [%{price: "price_test"}],
+            current_period_start: NaiveDateTime.utc_now()
+          })
+
+      existing ->
+        {:ok, _sub} =
+          Subscriptions.update_subscription(existing, %{status: status, quantity: quantity})
+    end
+
+    :ok
+  end
+
   defp onboarded_user(name_seed) do
     email = "#{name_seed}#{System.unique_integer([:positive])}@example.com"
     user = user_fixture(%{email: email, password: @password})
@@ -86,14 +130,15 @@ defmodule MossletWeb.FamilyLiveTest do
 
       {:ok, new_lv, _html} = live(conn, ~p"/app/family/new")
 
-      {:ok, show_lv, html} =
+      # Under Option B (Task #235) a newly created org is INERT and the owner is
+      # funneled straight to org-scoped checkout to activate it.
+      {:error, {:live_redirect, %{to: to}}} =
         new_lv
         |> form("#new-family-form", family: %{name: "The Testers"})
         |> render_submit()
-        |> follow_redirect(conn)
 
-      assert html =~ "The Testers"
-      assert has_element?(show_lv, "#establish-form, #invite-form")
+      [%{slug: slug, type: :family}] = Orgs.list_owned_orgs(user, :family)
+      assert to == ~p"/app/org/#{slug}/subscribe"
     end
 
     test "hides the New family CTA once a family is owned (max 1)", %{conn: conn} do
@@ -132,12 +177,39 @@ defmodule MossletWeb.FamilyLiveTest do
 
       assert to =~ ~r{^/app/org/[^/]+/subscribe$}
     end
+
+    test "an inert (unpaid) owned family shows an Activate card, not a content link",
+         %{conn: conn} do
+      {user, key} = onboarded_user("familyinert")
+      {:ok, org} = Orgs.create_org(user, %{"name" => "Inert Fam", "type" => "family"})
+
+      conn = log_in(conn, user, key)
+      {:ok, lv, _html} = live(conn, ~p"/app/family")
+
+      assert has_element?(lv, "#family-inert-#{org.id}")
+      assert has_element?(lv, "#family-activate-#{org.id}")
+      # No dead content link for an inert org.
+      refute has_element?(lv, "a[href='/app/family/#{org.slug}']")
+    end
+
+    test "an active owned family links to its content surface", %{conn: conn} do
+      {user, key} = onboarded_user("familyactive")
+      {:ok, org} = Orgs.create_org(user, %{"name" => "Active Fam", "type" => "family"})
+      subscribe_family(org)
+
+      conn = log_in(conn, user, key)
+      {:ok, lv, _html} = live(conn, ~p"/app/family")
+
+      assert has_element?(lv, "a[href='/app/family/#{org.slug}']")
+      refute has_element?(lv, "#family-inert-#{org.id}")
+    end
   end
 
   describe "FamilyLive.Show guardianship management" do
     setup do
       {admin, admin_key} = onboarded_user("orgadmin")
       {:ok, org} = Orgs.create_org(admin, %{"name" => "Smiths", "type" => "family"})
+      subscribe_family(org)
 
       {guardian, _gk} = onboarded_user("guard")
       {managed, managed_key} = onboarded_user("ward")
@@ -221,28 +293,15 @@ defmodule MossletWeb.FamilyLiveTest do
     setup do
       {admin, admin_key} = onboarded_user("seatadmin")
       {:ok, org} = Orgs.create_org(admin, %{"name" => "Smiths", "type" => "family"})
+      # Activate the org (Option B, Task #235) with enough seats for the invite
+      # tests; the seat-cap test re-subscribes with an explicit quantity.
+      subscribe_family(org, quantity: 5)
       %{admin: admin, admin_key: admin_key, org: org}
     end
 
     test "shows seat usage and blocks invite at cap counting pending invites", ctx do
       # Cap the family at 2 seats via a purchased subscription quantity.
-      {:ok, customer} =
-        Mosslet.Billing.Customers.create_customer_for_source(:org, ctx.org.id, %{
-          email: "billing-#{System.unique_integer([:positive])}@example.com",
-          provider: "stripe",
-          provider_customer_id: "cus_#{System.unique_integer([:positive])}"
-        })
-
-      {:ok, _sub} =
-        Mosslet.Billing.Subscriptions.create_subscription(%{
-          billing_customer_id: customer.id,
-          plan_id: "family-monthly",
-          status: "active",
-          quantity: 2,
-          provider_subscription_id: "sub_#{System.unique_integer([:positive])}",
-          provider_subscription_items: [%{price: "price_test"}],
-          current_period_start: NaiveDateTime.utc_now()
-        })
+      subscribe_family(ctx.org, quantity: 2)
 
       {:ok, lv, html} =
         ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/family/#{ctx.org.slug}")
@@ -290,6 +349,7 @@ defmodule MossletWeb.FamilyLiveTest do
     setup do
       {admin, admin_key} = onboarded_user("famconnadmin")
       {:ok, org} = Orgs.create_org(admin, %{"name" => "Connellys", "type" => "family"})
+      subscribe_family(org)
 
       {member, _mk} = onboarded_user("famconnmember")
 

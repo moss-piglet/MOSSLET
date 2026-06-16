@@ -85,30 +85,58 @@ defmodule MossletWeb.BusinessLiveTest do
     membership
   end
 
+  # Attaches (or updates) the org's own `:org`-source subscription so its content
+  # surfaces are reachable (Option B, Task #235). Idempotent on the customer and
+  # on the subscription, so a setup can activate the org and a test can later
+  # re-call with a specific seat `quantity`/`status` without creating duplicate
+  # customers (which `get_customer_by_source/2` forbids via `Repo.one/1`).
   defp subscribe_org(org, opts \\ []) do
     quantity = Keyword.get(opts, :quantity, 1)
     status = Keyword.get(opts, :status, "active")
+    plan_id = Keyword.get(opts, :plan_id, "business-monthly")
 
-    {:ok, customer} =
-      Mosslet.Billing.Customers.create_customer_for_source(:org, org.id, %{
-        email: "billing-#{System.unique_integer([:positive])}@example.com",
-        provider: "stripe",
-        provider_customer_id: "cus_#{System.unique_integer([:positive])}"
-      })
+    customer =
+      case Mosslet.Billing.Customers.get_customer_by_source(:org, org.id) do
+        nil ->
+          {:ok, customer} =
+            Mosslet.Billing.Customers.create_customer_for_source(:org, org.id, %{
+              email: "billing-#{System.unique_integer([:positive])}@example.com",
+              provider: "stripe",
+              provider_customer_id: "cus_#{System.unique_integer([:positive])}"
+            })
 
-    {:ok, _sub} =
-      Mosslet.Billing.Subscriptions.create_subscription(%{
-        billing_customer_id: customer.id,
-        plan_id: "business-monthly",
-        status: status,
-        quantity: quantity,
-        provider_subscription_id: "sub_#{System.unique_integer([:positive])}",
-        provider_subscription_items: [%{price: "price_test"}],
-        current_period_start: NaiveDateTime.utc_now()
-      })
+          customer
+
+        customer ->
+          customer
+      end
+
+    attrs = %{
+      billing_customer_id: customer.id,
+      plan_id: plan_id,
+      status: status,
+      quantity: quantity,
+      provider_subscription_id: "sub_#{System.unique_integer([:positive])}",
+      provider_subscription_items: [%{price: "price_test"}],
+      current_period_start: NaiveDateTime.utc_now()
+    }
+
+    case Mosslet.Billing.Subscriptions.get_active_subscription_by_customer_id(customer.id) do
+      nil ->
+        {:ok, _sub} = Mosslet.Billing.Subscriptions.create_subscription(attrs)
+
+      existing ->
+        {:ok, _sub} =
+          Mosslet.Billing.Subscriptions.update_subscription(existing, %{
+            status: status,
+            quantity: quantity
+          })
+    end
 
     :ok
   end
+
+  defp subscribe_family(org), do: subscribe_org(org, plan_id: "family-monthly")
 
   describe "BusinessLive.Index" do
     test "lists only business orgs and creates a new one", %{conn: conn} do
@@ -125,15 +153,16 @@ defmodule MossletWeb.BusinessLiveTest do
 
       {:ok, new_lv, _html} = live(conn, ~p"/app/business/new")
 
-      {:ok, show_lv, html} =
+      # Under Option B (Task #235) a newly created org is INERT and the owner is
+      # funneled straight to org-scoped checkout to activate it — the org content
+      # stays gated until its `:org` plan is purchased.
+      {:error, {:live_redirect, %{to: redirect_to}}} =
         new_lv
         |> form("#new-business-form", business: %{name: "Acme Inc"})
         |> render_submit()
-        |> follow_redirect(conn)
 
-      assert html =~ "Acme Inc"
-      assert has_element?(show_lv, "#invite-form")
-      assert has_element?(show_lv, "#new-circle-button")
+      [%{slug: slug, type: :business}] = Orgs.list_owned_orgs(user, :business)
+      assert redirect_to == ~p"/app/org/#{slug}/subscribe"
     end
 
     test "hides New business CTA + shows add-business note when an unpaid business is owned", %{
@@ -227,12 +256,42 @@ defmodule MossletWeb.BusinessLiveTest do
 
       assert to =~ ~r{^/app/org/[^/]+/subscribe$}
     end
+
+    test "an inert (unpaid) owned business shows an Activate card, not a content link",
+         %{conn: conn} do
+      {user, key} = onboarded_user("bizinert")
+      {:ok, org} = Orgs.create_org(user, %{"name" => "Inert Co", "type" => "business"})
+
+      conn = log_in(conn, user, key)
+      {:ok, lv, _html} = live(conn, ~p"/app/business")
+
+      assert has_element?(lv, "#business-inert-#{org.id}")
+      assert has_element?(lv, "#business-activate-#{org.id}")
+      refute has_element?(lv, "a[href='/app/business/#{org.slug}']")
+    end
+
+    test "an active owned business links to its content surface", %{conn: conn} do
+      {user, key} = onboarded_user("bizactive")
+      {:ok, org} = Orgs.create_org(user, %{"name" => "Active Co", "type" => "business"})
+      subscribe_org(org)
+
+      conn = log_in(conn, user, key)
+      {:ok, lv, _html} = live(conn, ~p"/app/business")
+
+      assert has_element?(lv, "a[href='/app/business/#{org.slug}']")
+      refute has_element?(lv, "#business-inert-#{org.id}")
+    end
   end
 
   describe "BusinessLive.Show" do
     setup %{conn: conn} do
       {admin, admin_key} = onboarded_user("orgadmin")
       {:ok, org} = Orgs.create_org(admin, %{"name" => "Acme", "type" => "business"})
+      # Activate the org's own `:org` plan so its content surfaces are reachable
+      # (Option B, Task #235): inert/unpaid orgs redirect to subscribe. Use the
+      # business seat floor so invite tests aren't seat-capped (the seat-cap test
+      # re-subscribes with an explicit quantity).
+      subscribe_org(org, quantity: 20)
 
       %{conn: conn, admin: admin, admin_key: admin_key, org: org}
     end
@@ -240,6 +299,9 @@ defmodule MossletWeb.BusinessLiveTest do
     test "redirects when org is not a business", %{conn: conn} do
       {user, key} = onboarded_user("famuser")
       {:ok, family} = Orgs.create_org(user, %{"name" => "Joneses", "type" => "family"})
+      # Activate the family org so it passes the :require_active_org gate — we're
+      # asserting the LiveView's type mismatch redirect, not the activation gate.
+      subscribe_family(family)
 
       assert {:error, {:live_redirect, %{to: "/app/business"}}} =
                conn |> log_in(user, key) |> live(~p"/app/business/#{family.slug}")
@@ -313,6 +375,7 @@ defmodule MossletWeb.BusinessLiveTest do
     setup %{conn: conn} do
       {admin, admin_key} = onboarded_user("mgadmin")
       {:ok, org} = Orgs.create_org(admin, %{"name" => "MgCo", "type" => "business"})
+      subscribe_org(org, quantity: 20)
 
       {member, member_key} = onboarded_user("mgmember")
       add_member(org, member, :member)
@@ -481,6 +544,7 @@ defmodule MossletWeb.BusinessLiveTest do
     setup %{conn: conn} do
       {admin, admin_key} = onboarded_user("connadmin")
       {:ok, org} = Orgs.create_org(admin, %{"name" => "Connectel", "type" => "business"})
+      subscribe_org(org, quantity: 20)
 
       {member, _mk} = onboarded_user("connmember")
       add_member(org, member, :member)

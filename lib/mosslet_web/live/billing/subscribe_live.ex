@@ -48,6 +48,8 @@ defmodule MossletWeb.SubscribeLive do
       |> assign(:plan_intent, session_plan_intent(session))
       |> assign(:selected_family, nil)
       |> assign(:selected_interval, session_plan_interval(session))
+      |> assign(:org_onramp, nil)
+      |> assign(:org_name_form, to_form(%{"name" => ""}, as: :org))
 
     socket = assign_billing_status(socket)
 
@@ -122,6 +124,47 @@ defmodule MossletWeb.SubscribeLive do
     socket
     |> assign(:selected_family, family)
     |> assign(:selected_interval, interval)
+    |> assign_org_onramp(family)
+  end
+
+  # On the `:user`-source subscribe page the Family/Business tabs are NOT
+  # `:user` purchases — they are ORG on-ramps (Option B, Task #235). For those
+  # tabs we resolve whether the user ALREADY owns an active org of that type (so
+  # we can deep-link straight there) or needs to name + create an inert org
+  # first. Personal stays a `:user` purchase, so it carries no on-ramp.
+  defp assign_org_onramp(%{assigns: %{source: :user}} = socket, family)
+       when family in ["Family", "Business"] do
+    type = family_to_type(family)
+    existing = Mosslet.Orgs.active_org_of_type(socket.assigns.current_user, type)
+    product = family_product(socket.assigns.subscription_products, family)
+
+    socket
+    |> assign(:org_onramp, %{
+      type: type,
+      family: family,
+      existing_org: existing,
+      product: product
+    })
+    |> assign_new(:org_name_form, fn -> to_form(%{"name" => ""}, as: :org) end)
+  end
+
+  defp assign_org_onramp(socket, _family), do: assign(socket, :org_onramp, nil)
+
+  defp family_to_type("Business"), do: :business
+  defp family_to_type(_), do: :family
+
+  # Pick a representative product for the family (prefer the yearly line item for
+  # a friendlier "starting at" figure) to surface pricing on the org on-ramp card.
+  defp family_product(subscription_products, family) do
+    products =
+      Enum.filter(subscription_products, fn product ->
+        short_name(product.name) == family
+      end)
+
+    Enum.find(products, fn product ->
+      item = List.first(product.line_items)
+      item && item.interval == :year
+    end) || List.first(products)
   end
 
   defp billing_param(%{"billing" => b}) when b in ~w(month monthly), do: "month"
@@ -200,37 +243,62 @@ defmodule MossletWeb.SubscribeLive do
 
           <.referral_banner :if={@referral_discount} discount={@referral_discount} />
 
-          <.active_billing_notice
-            :if={@has_active_billing}
-            current_payment_intent={@current_payment_intent}
-            current_subscription={@current_subscription}
-            source={@source}
-          />
+          <%= if @source == :user do %>
+            <.plan_switcher
+              families={@families}
+              selected_family={@selected_family}
+              selected_interval={@selected_interval}
+              show_interval={@org_onramp == nil}
+            />
 
-          <.plan_switcher
-            :if={!@has_active_billing && @source == :user}
-            families={@families}
-            selected_family={@selected_family}
-            selected_interval={@selected_interval}
-          />
+            <%= if @org_onramp do %>
+              <.org_onramp_card onramp={@org_onramp} org_name_form={@org_name_form} />
+            <% else %>
+              <.active_billing_notice
+                :if={@has_active_billing}
+                current_payment_intent={@current_payment_intent}
+                current_subscription={@current_subscription}
+                source={@source}
+              />
 
-          <.interval_switcher
-            :if={!@has_active_billing && @source == :org}
-            selected_interval={@selected_interval}
-            source={@source}
-          />
+              <.pricing_cards
+                one_time_products={@one_time_products}
+                subscription_products={@subscription_products}
+                current_payment_intent={@current_payment_intent}
+                current_subscription={@current_subscription}
+                has_active_billing={@has_active_billing}
+                source={@source}
+                referral_discount={@referral_discount}
+                selected_family={@selected_family}
+                selected_interval={@selected_interval}
+              />
+            <% end %>
+          <% else %>
+            <.active_billing_notice
+              :if={@has_active_billing}
+              current_payment_intent={@current_payment_intent}
+              current_subscription={@current_subscription}
+              source={@source}
+            />
 
-          <.pricing_cards
-            one_time_products={@one_time_products}
-            subscription_products={@subscription_products}
-            current_payment_intent={@current_payment_intent}
-            current_subscription={@current_subscription}
-            has_active_billing={@has_active_billing}
-            source={@source}
-            referral_discount={@referral_discount}
-            selected_family={@selected_family}
-            selected_interval={@selected_interval}
-          />
+            <.interval_switcher
+              :if={!@has_active_billing}
+              selected_interval={@selected_interval}
+              source={@source}
+            />
+
+            <.pricing_cards
+              one_time_products={@one_time_products}
+              subscription_products={@subscription_products}
+              current_payment_intent={@current_payment_intent}
+              current_subscription={@current_subscription}
+              has_active_billing={@has_active_billing}
+              source={@source}
+              referral_discount={@referral_discount}
+              selected_family={@selected_family}
+              selected_interval={@selected_interval}
+            />
+          <% end %>
         </div>
 
         <.pricing_footer />
@@ -391,10 +459,14 @@ defmodule MossletWeb.SubscribeLive do
   attr :families, :list, required: true
   attr :selected_family, :string, default: nil
   attr :selected_interval, :string, default: "year"
+  attr :show_interval, :boolean, default: true
 
   # Plan-family tab switcher (Personal / Family / Business) + billing interval
   # toggle, mirroring the marketing /pricing page so the in-app picker feels
-  # like a continuation rather than a second round (Task #215).
+  # like a continuation rather than a second round (Task #215). On the Family /
+  # Business tabs the interval toggle is hidden because those tabs are org
+  # on-ramps — the billing interval is chosen on the org's own subscribe page
+  # once the org exists (Option B, Task #235).
   defp plan_switcher(assigns) do
     ~H"""
     <div :if={length(@families) > 1} class="mx-auto max-w-3xl mb-10">
@@ -428,7 +500,7 @@ defmodule MossletWeb.SubscribeLive do
         </div>
       </div>
 
-      <.interval_toggle selected_interval={@selected_interval} class="mt-6" />
+      <.interval_toggle :if={@show_interval} selected_interval={@selected_interval} class="mt-6" />
     </div>
     """
   end
@@ -443,6 +515,176 @@ defmodule MossletWeb.SubscribeLive do
     <div class="mx-auto max-w-3xl mb-10">
       <.interval_toggle selected_interval={@selected_interval} class="" />
     </div>
+    """
+  end
+
+  attr :onramp, :map, required: true
+  attr :org_name_form, :any, required: true
+
+  # Org on-ramp card shown on the `:user`-source subscribe page when the
+  # Family / Business tab is selected (Option B, Task #235). These tabs do NOT
+  # sell a `:user` plan. Instead:
+  #
+  #   * If the user already has an ACTIVE org of that type, we deep-link them to
+  #     that org's subscribe/manage surface instead of offering a duplicate.
+  #   * Otherwise we capture an org name inline, create an INERT org, and route
+  #     to /app/org/:slug/subscribe where the `:org` trial actually begins.
+  defp org_onramp_card(assigns) do
+    onramp = assigns.onramp
+    item = onramp.product && List.first(onramp.product.line_items)
+
+    assigns =
+      assigns
+      |> assign(:item, item)
+      |> assign(:included_seats, (item && Plans.included_seats(item)) || nil)
+      |> assign(:features, (onramp.product && onramp.product.features) || [])
+      |> assign(:label, family_meta(onramp.family).label)
+      |> assign(:icon, family_meta(onramp.family).icon)
+      |> assign(:type_label, String.downcase(family_meta(onramp.family).label))
+
+    ~H"""
+    <div class="mx-auto max-w-md">
+      <DesignSystem.liquid_card
+        padding="lg"
+        class="relative overflow-hidden ring-2 ring-emerald-500 dark:ring-emerald-400 shadow-2xl shadow-emerald-500/20"
+      >
+        <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-emerald-200/30 via-teal-200/20 to-transparent dark:from-emerald-500/10 dark:via-teal-500/5 rounded-bl-full pointer-events-none">
+        </div>
+
+        <div class="relative">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 shadow-lg shadow-emerald-500/30">
+              <.phx_icon name={@icon} class="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">
+                {gettext("%{label} plan", label: @label)}
+              </h2>
+              <p class="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
+                {gettext("Billed to your %{type}, not your personal account",
+                  type: @type_label
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div :if={@item} class="mb-6">
+            <div class="flex items-baseline gap-2">
+              <span class="text-4xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent">
+                {Util.format_money(@item.amount)}
+              </span>
+              <span class="text-base font-medium text-slate-600 dark:text-slate-400">
+                <%= if @item.interval == :year do %>
+                  {gettext("/year")}
+                <% else %>
+                  {gettext("/month")}
+                <% end %>
+              </span>
+            </div>
+            <p :if={@included_seats} class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              {gettext("Includes %{count} members—add more anytime.", count: @included_seats)}
+            </p>
+          </div>
+
+          <ul :if={@features != []} class="space-y-3 mb-8">
+            <%= for feature <- @features do %>
+              <li class="flex items-start gap-3">
+                <div class="flex-shrink-0 mt-0.5">
+                  <div class="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/40 dark:to-teal-900/40">
+                    <.phx_icon
+                      name="hero-check"
+                      class="w-3 h-3 text-emerald-600 dark:text-emerald-400"
+                    />
+                  </div>
+                </div>
+                <span class="text-sm text-slate-600 dark:text-slate-400">{feature}</span>
+              </li>
+            <% end %>
+          </ul>
+
+          <%= if @onramp.existing_org do %>
+            <.org_onramp_existing onramp={@onramp} label={@label} type_label={@type_label} />
+          <% else %>
+            <.org_onramp_create
+              onramp={@onramp}
+              org_name_form={@org_name_form}
+              label={@label}
+              type_label={@type_label}
+            />
+          <% end %>
+        </div>
+      </DesignSystem.liquid_card>
+    </div>
+    """
+  end
+
+  attr :onramp, :map, required: true
+  attr :label, :string, required: true
+  attr :type_label, :string, required: true
+
+  # Deep-link variant: the user already runs an active org of this type, so we
+  # send them to that org instead of creating a duplicate.
+  defp org_onramp_existing(assigns) do
+    ~H"""
+    <div class="rounded-xl bg-emerald-50/70 dark:bg-emerald-900/20 border border-emerald-200/60 dark:border-emerald-700/40 p-4 mb-4">
+      <p class="text-sm text-emerald-800 dark:text-emerald-200">
+        <.phx_icon name="hero-check-badge" class="inline w-4 h-4 mr-1 -mt-0.5" />
+        {gettext("You already have an active %{type}.", type: @type_label)}
+      </p>
+    </div>
+    <DesignSystem.liquid_button
+      navigate={~p"/app/org/#{@onramp.existing_org.slug}/subscribe"}
+      variant="primary"
+      color="emerald"
+      size="lg"
+      class="w-full"
+      icon="hero-cog-6-tooth"
+      id={"org-onramp-manage-#{@onramp.type}"}
+    >
+      {gettext("Manage your %{label}", label: @label)}
+    </DesignSystem.liquid_button>
+    """
+  end
+
+  attr :onramp, :map, required: true
+  attr :org_name_form, :any, required: true
+  attr :label, :string, required: true
+  attr :type_label, :string, required: true
+
+  # Create variant: capture an org name inline and create an INERT org, then
+  # route to the org's own subscribe page where the trial begins.
+  defp org_onramp_create(assigns) do
+    ~H"""
+    <.form
+      for={@org_name_form}
+      id={"org-onramp-form-#{@onramp.type}"}
+      phx-submit="create_org"
+      class="space-y-4"
+    >
+      <input type="hidden" name="type" value={to_string(@onramp.type)} />
+      <.phx_input
+        field={@org_name_form[:name]}
+        type="text"
+        label={gettext("Name your %{type}", type: @type_label)}
+        placeholder={gettext("e.g. The Smith %{label}", label: @label)}
+        required
+        autocomplete="off"
+      />
+      <DesignSystem.liquid_button
+        type="submit"
+        variant="primary"
+        color="emerald"
+        size="lg"
+        class="w-full"
+        icon="hero-rocket-launch"
+        id={"org-onramp-start-#{@onramp.type}"}
+      >
+        {gettext("Name your %{type} & start trial", type: @type_label)}
+      </DesignSystem.liquid_button>
+      <p class="text-center text-xs text-slate-500 dark:text-slate-400">
+        {gettext("Your 14-day free trial starts on the next step. Cancel anytime.")}
+      </p>
+    </.form>
     """
   end
 
@@ -1352,6 +1594,68 @@ defmodule MossletWeb.SubscribeLive do
   end
 
   def handle_event("select_interval", _params, socket), do: {:noreply, socket}
+
+  # Org on-ramp (Option B, Task #235): the Family/Business tab on the
+  # `:user`-source subscribe page is NOT a `:user` purchase. Capture the org
+  # name inline, create an INERT org, then route to the org's own subscribe page
+  # where the `:org` trial begins. If the user already has an active org of that
+  # type we deep-link there instead of creating a duplicate.
+  def handle_event("create_org", %{"type" => type} = params, socket)
+      when type in ~w(family business) do
+    current_user = socket.assigns.current_user
+    type_atom = family_to_type(String.capitalize(type))
+    name = params |> Map.get("org", %{}) |> Map.get("name", "") |> String.trim()
+
+    cond do
+      existing = Mosslet.Orgs.active_org_of_type(current_user, type_atom) ->
+        {:noreply, push_navigate(socket, to: ~p"/app/org/#{existing.slug}/subscribe")}
+
+      name == "" ->
+        {:noreply,
+         put_flash(socket, :error, gettext("Please enter a name for your %{type}.", type: type))}
+
+      true ->
+        create_and_route_org(socket, current_user, name, type)
+    end
+  end
+
+  def handle_event("create_org", _params, socket), do: {:noreply, socket}
+
+  defp create_and_route_org(socket, current_user, name, type) do
+    case Mosslet.Orgs.create_org(current_user, %{"name" => name, "type" => type}) do
+      {:ok, org} ->
+        Logs.log("orgs.create_#{type}", %{
+          user: current_user,
+          org_id: org.id
+        })
+
+        {:noreply, push_navigate(socket, to: ~p"/app/org/#{org.slug}/subscribe")}
+
+      {:error, reason} when is_atom(reason) ->
+        {:noreply, put_flash(socket, :error, org_create_error_message(reason, type))}
+
+      {:error, _changeset} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext("Could not create your %{type}. Please try again.", type: type)
+         )}
+    end
+  end
+
+  defp org_create_error_message(:family_limit_reached, _type),
+    do: gettext("You can only own one family. Manage your existing family instead.")
+
+  defp org_create_error_message(reason, type)
+       when reason in [:family_entitlement_required, :business_entitlement_required],
+       do:
+         gettext("Starting a separate %{type} is a paid plan. Continue to start your trial.",
+           type: type
+         )
+
+  defp org_create_error_message(_reason, type),
+    do: gettext("Could not create your %{type}. Please try again.", type: type)
 
   defp checkout_url(_socket, :user, plan_id, seats),
     do: ~p"/app/checkout/#{plan_id}?#{%{seats: seats}}"

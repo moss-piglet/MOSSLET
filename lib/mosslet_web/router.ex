@@ -466,11 +466,11 @@ defmodule MossletWeb.Router do
     end
   end
 
-  # Family/Business org surfaces. Confirmation-gated AND subscription-gated: a
-  # user must have finalized their own subscription signup (active/trialing sub
-  # or lifetime payment intent) before creating or managing org infrastructure
-  # (Task #215 follow-up). Unsubscribed users are redirected to /app/subscribe by
-  # the :subscribed_user plug; org creation is also gated server-side in
+  # Family/Business org CREATE + LIST surfaces. Confirmation-gated only — under
+  # the Option B model (Task #235), creating an org requires only a confirmed
+  # user, NOT a personal plan. The org is created inert and ACTIVATED by
+  # purchasing its own `:org`-source plan; org CONTENT routes (below) enforce the
+  # active subscription. Org creation limits are still enforced server-side in
   # Mosslet.Orgs.create_org/2.
   scope "/app", MossletWeb do
     pipe_through [
@@ -478,28 +478,52 @@ defmodule MossletWeb.Router do
       :authenticated,
       :require_confirmed_user,
       :require_session_key,
-      :maybe_require_connection,
-      :subscribed_user
+      :maybe_require_connection
     ]
 
-    live_session :org_subscribed_user,
+    live_session :org_create_surfaces,
       on_mount: [
         {MossletWeb.UserAuth, :ensure_authenticated},
         {MossletWeb.UserAuth, :ensure_confirmed},
         {MossletWeb.UserAuth, :ensure_session_key},
         {MossletWeb.UserAuth, :maybe_ensure_connection},
-        {MossletWeb.SubscriptionPlugs, :require_subscribed_user},
+        MossletWeb.SyncStatusHook
+      ] do
+      live "/family", FamilyLive.Index, :index
+      live "/family/new", FamilyLive.Index, :new
+      live "/business", BusinessLive.Index, :index
+      live "/business/new", BusinessLive.Index, :new
+    end
+  end
+
+  # Family/Business org CONTENT surfaces. Confirmation-gated AND gated on the
+  # ORG's own active `:org`-source subscription (Option B, Task #235). An inert
+  # (unpaid) org is redirected to /app/org/:slug/subscribe with a friendly
+  # activation prompt by the :require_active_org on_mount. This does NOT require
+  # a personal plan.
+  scope "/app", MossletWeb do
+    pipe_through [
+      :browser,
+      :authenticated,
+      :require_confirmed_user,
+      :require_session_key,
+      :maybe_require_connection
+    ]
+
+    live_session :org_active_content,
+      on_mount: [
+        {MossletWeb.UserAuth, :ensure_authenticated},
+        {MossletWeb.UserAuth, :ensure_confirmed},
+        {MossletWeb.UserAuth, :ensure_session_key},
+        {MossletWeb.UserAuth, :maybe_ensure_connection},
+        {MossletWeb.SubscriptionPlugs, :require_active_org},
         MossletWeb.SyncStatusHook
       ] do
       # Family plan (guardianship)
-      live "/family", FamilyLive.Index, :index
-      live "/family/new", FamilyLive.Index, :new
       live "/family/:slug", FamilyLive.Show, :show
       live "/family/:slug/feed", FamilyLive.Feed, :feed
 
       # Business plan (private business circles)
-      live "/business", BusinessLive.Index, :index
-      live "/business/new", BusinessLive.Index, :new
       live "/business/:slug", BusinessLive.Show, :show
       # Org-scoped circle: files, members, and chat are fully self-contained in
       # the org dashboard (Task #221). Org circles never surface in the personal
