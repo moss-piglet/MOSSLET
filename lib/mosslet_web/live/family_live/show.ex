@@ -110,20 +110,25 @@ defmodule MossletWeb.FamilyLive.Show do
               key — Mosslet still can't read them. You can pause or stop this any time.
             </p>
             <div class="flex items-center gap-2 flex-shrink-0">
-              <.phx_button
+              <.liquid_button
+                color="emerald"
+                size="sm"
+                icon="hero-check"
                 phx-click="accept_guardianship"
                 phx-value-id={item.guardianship.id}
                 id={"accept-#{item.guardianship.id}"}
               >
                 Accept
-              </.phx_button>
-              <button
+              </.liquid_button>
+              <.liquid_button
+                variant="ghost"
+                color="slate"
+                size="sm"
                 phx-click="decline_guardianship"
                 phx-value-id={item.guardianship.id}
-                class="text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700"
               >
                 Decline
-              </button>
+              </.liquid_button>
             </div>
           </div>
         </div>
@@ -204,16 +209,17 @@ defmodule MossletWeb.FamilyLive.Show do
                      UserConnection invite to a family member you're not yet
                      connected to. Once accepted, their real personal name lights
                      up via the existing resolution path. --%>
-                <.phx_button
+                <.liquid_button
                   :if={MossletWeb.OrgIdentity.show_connect_button?(member)}
                   variant="secondary"
-                  class="py-1.5 px-3 text-xs"
+                  size="sm"
+                  icon="hero-user-plus"
                   phx-click="connect_teammate"
                   phx-value-user_id={member.user.id}
                   id={"connect-#{member.user.id}"}
                 >
-                  <.phx_icon name="hero-user-plus" class="size-3.5 mr-1" /> Connect
-                </.phx_button>
+                  Connect
+                </.liquid_button>
                 <span
                   :if={MossletWeb.OrgIdentity.connection_pending?(member)}
                   id={"connect-pending-#{member.user.id}"}
@@ -283,7 +289,9 @@ defmodule MossletWeb.FamilyLive.Show do
                   maxlength="160"
                 />
               </div>
-              <.phx_button type="submit" id="org-display-name-submit">Save</.phx_button>
+              <.liquid_button type="submit" id="org-display-name-submit" icon="hero-check">
+                Save
+              </.liquid_button>
             </.form>
           </div>
 
@@ -311,7 +319,14 @@ defmodule MossletWeb.FamilyLive.Show do
                   placeholder="member@example.com"
                 />
               </div>
-              <.phx_button type="submit" id="invite-submit">Invite</.phx_button>
+              <.liquid_button
+                type="submit"
+                id="invite-submit"
+                color="emerald"
+                icon="hero-paper-airplane"
+              >
+                Invite
+              </.liquid_button>
             </.form>
           </div>
         </section>
@@ -340,30 +355,39 @@ defmodule MossletWeb.FamilyLive.Show do
                 <.guardianship_status_pill status={g.guardianship.status} />
               </div>
               <div class="flex items-center gap-2 flex-shrink-0">
-                <button
+                <.liquid_button
                   :if={g.guardianship.status == :active}
+                  variant="ghost"
+                  color="slate"
+                  size="sm"
+                  icon="hero-pause"
                   phx-click="pause_guardianship"
                   phx-value-id={g.guardianship.id}
-                  class="text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400"
                 >
                   Pause
-                </button>
-                <button
+                </.liquid_button>
+                <.liquid_button
                   :if={g.guardianship.status == :paused}
+                  variant="ghost"
+                  color="teal"
+                  size="sm"
+                  icon="hero-play"
                   phx-click="resume_guardianship"
                   phx-value-id={g.guardianship.id}
-                  class="text-xs font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400"
                 >
                   Resume
-                </button>
-                <button
+                </.liquid_button>
+                <.liquid_button
+                  variant="ghost"
+                  color="rose"
+                  size="sm"
+                  icon="hero-x-mark"
                   phx-click="revoke_guardianship"
                   phx-value-id={g.guardianship.id}
                   data-confirm="Revoke this guardianship? This stops FUTURE co-sealing. Content already shared with the guardian stays shared — that can't be undone."
-                  class="text-xs font-medium text-rose-500 hover:text-rose-600"
                 >
                   Revoke
-                </button>
+                </.liquid_button>
               </div>
             </li>
             <li :if={@guardianships == []} class="text-xs text-slate-500 dark:text-slate-400">
@@ -400,7 +424,9 @@ defmodule MossletWeb.FamilyLive.Show do
                 </option>
               </select>
             </label>
-            <.phx_button type="submit" id="establish-submit">Link</.phx_button>
+            <.liquid_button type="submit" id="establish-submit" icon="hero-link">
+              Link
+            </.liquid_button>
           </form>
           <p
             :if={@membership.role == :admin && !@can_establish?}

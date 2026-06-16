@@ -163,16 +163,17 @@ defmodule MossletWeb.BusinessLive.Show do
                      UserConnection invite to a member you're not yet connected
                      to. Once accepted, their real personal name lights up via the
                      existing resolution path. --%>
-                <.phx_button
+                <.liquid_button
                   :if={MossletWeb.OrgIdentity.show_connect_button?(member)}
                   variant="secondary"
-                  class="py-1.5 px-3 text-xs leading-tight"
+                  size="sm"
+                  icon="hero-user-plus"
                   phx-click="connect_teammate"
                   phx-value-user_id={member.user.id}
                   id={"connect-#{member.user.id}"}
                 >
-                  <.phx_icon name="hero-user-plus" class="size-3.5 mr-1" /> Connect
-                </.phx_button>
+                  Connect
+                </.liquid_button>
                 <span
                   :if={MossletWeb.OrgIdentity.connection_pending?(member)}
                   id={"connect-pending-#{member.user.id}"}
@@ -199,15 +200,18 @@ defmodule MossletWeb.BusinessLive.Show do
                       </option>
                     </select>
                   </form>
-                  <button
+                  <.liquid_button
+                    variant="ghost"
+                    color="rose"
+                    size="sm"
+                    icon="hero-user-minus"
                     phx-click="offboard_member"
                     phx-value-user_id={member.user.id}
                     id={"offboard-#{member.user.id}"}
                     data-confirm="Remove this person from the organization and from all of this org's business circles? We can't recall content they've already downloaded."
-                    class="text-xs font-medium text-rose-500 hover:text-rose-600"
                   >
                     Remove
-                  </button>
+                  </.liquid_button>
                 </div>
               </div>
             </li>
@@ -244,7 +248,9 @@ defmodule MossletWeb.BusinessLive.Show do
                   maxlength="160"
                 />
               </div>
-              <.phx_button type="submit" id="org-display-name-submit">Save</.phx_button>
+              <.liquid_button type="submit" id="org-display-name-submit" icon="hero-check">
+                Save
+              </.liquid_button>
             </.form>
           </div>
 
@@ -272,30 +278,41 @@ defmodule MossletWeb.BusinessLive.Show do
                   placeholder="teammate@example.com"
                 />
               </div>
-              <.phx_button type="submit" id="invite-submit">Invite</.phx_button>
+              <.liquid_button
+                type="submit"
+                id="invite-submit"
+                color="emerald"
+                icon="hero-paper-airplane"
+              >
+                Invite
+              </.liquid_button>
             </.form>
           </div>
         </section>
 
         <%!-- Business circles panel --%>
         <section class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4">
-          <div class="flex items-center justify-between">
-            <div>
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div class="min-w-0">
               <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
                 Business circles
               </h2>
-              <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              <p class="mt-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
                 Private circles restricted to this org's members. Each circle has its own
                 end-to-end encrypted chat.
               </p>
             </div>
-            <.phx_button
+            <.liquid_button
               :if={!@show_circle_form?}
               phx-click="show_circle_form"
               id="new-circle-button"
+              color="emerald"
+              size="md"
+              icon="hero-plus"
+              class="w-full shrink-0 sm:w-auto"
             >
-              <.phx_icon name="hero-plus" class="size-4 mr-1.5" /> New circle
-            </.phx_button>
+              New circle
+            </.liquid_button>
           </div>
 
           <div
@@ -346,16 +363,23 @@ defmodule MossletWeb.BusinessLive.Show do
               </p>
 
               <div class="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
-                <button
+                <.liquid_button
                   type="button"
+                  variant="ghost"
+                  color="slate"
                   phx-click="hide_circle_form"
-                  class="inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors duration-200"
                 >
                   Cancel
-                </button>
-                <.phx_button type="submit" id="create-circle-submit" phx-disable-with="Creating...">
-                  <.phx_icon name="hero-sparkles" class="size-4 mr-1.5" /> Create circle
-                </.phx_button>
+                </.liquid_button>
+                <.liquid_button
+                  type="submit"
+                  id="create-circle-submit"
+                  color="emerald"
+                  icon="hero-sparkles"
+                  phx-disable-with="Creating..."
+                >
+                  Create circle
+                </.liquid_button>
               </div>
             </.form>
           </div>
@@ -544,14 +568,16 @@ defmodule MossletWeb.BusinessLive.Show do
         <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
           Members ({@manage.member_count})
         </p>
-        <button
+        <.liquid_button
           type="button"
+          variant="ghost"
+          color="slate"
+          size="sm"
           phx-click="close_manage_circle"
           id={"close-manage-circle-#{@manage.group.id}"}
-          class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-slate-800/60 transition-colors duration-200"
         >
           Done
-        </button>
+        </.liquid_button>
       </div>
 
       <ul
@@ -579,17 +605,20 @@ defmodule MossletWeb.BusinessLive.Show do
           >
             You
           </span>
-          <button
+          <.liquid_button
             :if={!member.self? && member.user.id != @manage.group.user_id}
             type="button"
+            variant="ghost"
+            color="rose"
+            size="sm"
+            icon="hero-user-minus"
             phx-click="remove_circle_member"
             phx-value-user_id={member.user.id}
             id={"manage-remove-#{@manage.group.id}-#{member.user.id}"}
             data-confirm="Remove this person from the circle? They'll lose access to its chat and files. You can't recall copies already downloaded."
-            class="shrink-0 text-xs font-medium text-rose-500 hover:text-rose-600"
           >
             Remove
-          </button>
+          </.liquid_button>
         </li>
       </ul>
 
@@ -641,14 +670,15 @@ defmodule MossletWeb.BusinessLive.Show do
         </ul>
 
         <div class="flex items-center justify-end">
-          <button
+          <.liquid_button
             type="submit"
             id={"manage-add-submit-#{@manage.group.id}"}
+            color="emerald"
+            icon="hero-user-plus"
             phx-disable-with="Adding…"
-            class="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-teal-500 to-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-emerald-500/25 transition-all duration-200 hover:shadow-md hover:shadow-emerald-500/30"
           >
-            <.phx_icon name="hero-user-plus" class="size-4" /> Add to circle
-          </button>
+            Add to circle
+          </.liquid_button>
         </div>
       </form>
 
