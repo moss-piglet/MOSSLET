@@ -222,6 +222,24 @@ defmodule Mosslet.OrgsLimitsTest do
       refute Orgs.can_create_org?(user, :business)
     end
 
+    test "a trialing business is NOT yet paid, so it does not unlock a second one" do
+      # A free trial is active for coverage/access, but it has not converted to a
+      # PAID plan — the multi-business gate must hold until the trial converts.
+      user = confirmed_user("biz")
+      {:ok, first} = Orgs.create_org(user, %{"name" => "Acme", "type" => "business"})
+      subscribe_org(first, status: "trialing")
+
+      # The trialing org is active (usable)...
+      assert Orgs.org_active?(first)
+      # ...but not yet PAID, so it cannot entitle a second business.
+      refute Orgs.org_has_paid_subscription?(first)
+      refute Orgs.all_owned_businesses_paid?(user)
+      refute Orgs.can_create_org?(user, :business)
+
+      assert {:error, :business_entitlement_required} =
+               Orgs.create_org(user, %{"name" => "Beta", "type" => "business"})
+    end
+
     test "an invited business member-seat (owns none) cannot create a free business" do
       owner = confirmed_user("bizowner")
       other = confirmed_user("bizmember")

@@ -57,6 +57,14 @@ defmodule Mosslet.Orgs.Adapters.Native do
   end
 
   @impl true
+  def list_orgs_with_billing do
+    # Native clients never run the server-side name-reclaim sweep (Task #236);
+    # reclaim is a web/Repo concern. Return an empty list to satisfy the
+    # behaviour without making remote calls.
+    []
+  end
+
+  @impl true
   def get_org!(_user, slug) when is_binary(slug) do
     case get_org_by_slug(slug) do
       nil -> raise Ecto.NoResultsError, queryable: Org

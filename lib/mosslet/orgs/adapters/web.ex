@@ -25,6 +25,18 @@ defmodule Mosslet.Orgs.Adapters.Web do
   end
 
   @impl true
+  def list_orgs_with_billing do
+    # Single query + preload of the org's billing customer and its subscriptions,
+    # so the reclaim sweep can classify every org without per-org lookups (no
+    # N+1). The `customer` has_one and its `subscriptions` has_many are loaded in
+    # bulk.
+    Org
+    |> order_by([o], asc: o.inserted_at)
+    |> Repo.all()
+    |> Repo.preload(customer: :subscriptions)
+  end
+
+  @impl true
   def get_org!(user, slug) when is_binary(slug) do
     user
     |> Ecto.assoc(:orgs)

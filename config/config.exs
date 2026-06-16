@@ -144,7 +144,13 @@ config :mosslet, Oban,
         args: %{"action" => "sync_all"}},
        # Bluesky link verification: self-heal broken external links daily at 4 AM UTC (off-peak)
        {"0 4 * * *", Mosslet.Bluesky.Workers.LinkVerificationWorker,
-        args: %{"action" => "verify_all"}}
+        args: %{"action" => "verify_all"}},
+       # Org name reclaim BACKSTOP (Task #236): daily slow sweep at 5 AM UTC.
+       # Frees never-activated org names/slugs that the fast session-end path
+       # missed, and performs the 14-day trial-end release. The fast path handles
+       # the common case; this only catches leaks, so the floor is deliberately
+       # long (inert orgs older than 24h).
+       {"0 5 * * *", Mosslet.Orgs.Jobs.OrgNameReclaimJob, args: %{"action" => "sweep"}}
      ]}
   ],
   queues: [

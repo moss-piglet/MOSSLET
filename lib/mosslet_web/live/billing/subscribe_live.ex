@@ -10,7 +10,6 @@ defmodule MossletWeb.SubscribeLive do
   alias Mosslet.Billing.Referrals
   alias Mosslet.Billing.Subscriptions
   alias Mosslet.Logs
-  alias MossletWeb.BillingLive
   alias MossletWeb.DesignSystem
 
   defp billing_provider, do: Application.get_env(:mosslet, :billing_provider)
@@ -101,13 +100,42 @@ defmodule MossletWeb.SubscribeLive do
     {:noreply, socket}
   end
 
+  # Same-session abandonment reclaim (Task #236, Trigger 1).
+  #
+  # The owner of a freshly-created INERT org sits in THIS LiveView (source: :org,
+  # current_org = the inert org) for the entire pre-activation window. When this
+  # process terminates — tab close, navigate away, socket drop — we enqueue a
+  # short-delayed, targeted reclaim job for that org. The job re-validates state
+  # at run time, so:
+  #
+  #   * leaving WITHOUT activating  -> the org is still inert -> name freed
+  #   * navigating TO checkout      -> brief teardown, but the org activates
+  #                                    within the grace window -> job no-ops
+  #
+  # We only enqueue for an org that is STILL inert (`:pending`) right now, so an
+  # already-active/trialing org never schedules a needless job. ZK-safe: only the
+  # org id (UUID) leaves this process.
+  @impl true
+  def terminate(_reason, %{assigns: %{source: :org, current_org: %Mosslet.Orgs.Org{} = org}}) do
+    if Mosslet.Orgs.org_reclaim_state(org) == :pending do
+      Mosslet.Orgs.Jobs.OrgNameReclaimJob.schedule_session_end_reclaim(org.id)
+    end
+
+    :ok
+  end
+
+  def terminate(_reason, _socket), do: :ok
+
   # Resolve which plan family + billing interval to show. Priority for family:
   # explicit `?plan=` > persisted signup intent > existing selection > default.
   # The interval comes from `?billing=monthly|yearly`, defaulting to yearly
   # (our best value). For the org-scoped source the family is fixed by the org's
   # type, so the switcher is hidden and we just resolve the interval.
   defp resolve_selection(socket, params) do
-    interval = billing_param(params) || socket.assigns.selected_interval
+    interval =
+      billing_param(params) ||
+        current_billing_interval(socket) ||
+        socket.assigns.selected_interval
 
     family =
       case socket.assigns.source do
@@ -125,6 +153,32 @@ defmodule MossletWeb.SubscribeLive do
     |> assign(:selected_family, family)
     |> assign(:selected_interval, interval)
     |> assign_org_onramp(family)
+  end
+
+  # When the org already has an active/trialing subscription, default the
+  # interval tab to MATCH that subscription's billing interval (so a yearly
+  # trial opens on the yearly tab, a monthly on monthly). Only used when the URL
+  # carries no explicit `?billing=`. Returns "month"/"year" or nil.
+  defp current_billing_interval(%{assigns: %{current_subscription: %{plan_id: plan_id}}})
+       when is_binary(plan_id) do
+    case Plans.get_plan_by_id(plan_id) do
+      %{interval: :month} -> "month"
+      %{interval: :year} -> "year"
+      _ -> nil
+    end
+  end
+
+  defp current_billing_interval(_socket), do: nil
+
+  # Filters subscription products to a single family (e.g. "Business") + billing
+  # interval ("month"/"year"). Used to scope the pricing grid to one plan.
+  defp filter_products_by_family_interval(products, family, interval) do
+    Enum.filter(products, fn product ->
+      item = List.first(product.line_items)
+
+      short_name(product.name) == family &&
+        item && to_string(item.interval) == interval
+    end)
   end
 
   # On the `:user`-source subscribe page the Family/Business tabs are NOT
@@ -262,6 +316,7 @@ defmodule MossletWeb.SubscribeLive do
                 current_payment_intent={@current_payment_intent}
                 current_subscription={@current_subscription}
                 source={@source}
+                org_slug={assigns[:current_org] && @current_org.slug}
               />
 
               <.pricing_cards
@@ -282,10 +337,10 @@ defmodule MossletWeb.SubscribeLive do
               current_payment_intent={@current_payment_intent}
               current_subscription={@current_subscription}
               source={@source}
+              org_slug={assigns[:current_org] && @current_org.slug}
             />
 
             <.interval_switcher
-              :if={!@has_active_billing}
               selected_interval={@selected_interval}
               source={@source}
             />
@@ -406,6 +461,10 @@ defmodule MossletWeb.SubscribeLive do
   attr :current_subscription, :any, default: nil
   attr :source, :atom, required: true
 
+  attr :org_slug, :string,
+    default: nil,
+    doc: "the org slug, required when source is :org so the Manage Billing link resolves"
+
   defp active_billing_notice(assigns) do
     ~H"""
     <div class="mb-10 max-w-2xl mx-auto">
@@ -443,7 +502,7 @@ defmodule MossletWeb.SubscribeLive do
             </p>
             <div class="mt-4">
               <DesignSystem.liquid_button
-                href={BillingLive.billing_path(@source, %{})}
+                href={manage_billing_href(@source, @org_slug)}
                 size="sm"
                 variant="secondary"
                 color="emerald"
@@ -458,6 +517,13 @@ defmodule MossletWeb.SubscribeLive do
     </div>
     """
   end
+
+  # Manage-billing destination for the active-billing notice. Built directly from
+  # the source + slug (rather than BillingLive.billing_path/2, which expects full
+  # assigns) so the org case resolves to the org-scoped billing page. Falls back
+  # to personal billing when the org slug is unavailable.
+  defp manage_billing_href(:org, slug) when is_binary(slug), do: ~p"/app/org/#{slug}/billing"
+  defp manage_billing_href(_source, _slug), do: ~p"/app/billing"
 
   attr :families, :list, required: true
   attr :selected_family, :string, default: nil
@@ -759,31 +825,51 @@ defmodule MossletWeb.SubscribeLive do
   attr :selected_interval, :string, default: "year"
 
   defp pricing_cards(assigns) do
-    # When the user already has billing, show everything (manage view). Otherwise
-    # show only the selected family + billing interval so the page reflects the
-    # plan they picked on /pricing instead of a flat list to scroll (Task #215).
+    # Product selection:
+    #
+    #   * :org source — ALWAYS scope to the org's own family + the selected
+    #     billing interval (driven by the interval tab switcher), even when the
+    #     org already has billing. An org buys exactly ONE plan family (its type),
+    #     so a flat grid of every family/interval + the personal lifetime offer
+    #     would be noise. This makes the active/trialing org view mirror the tab
+    #     switcher and default to the tab matching the current subscription.
+    #
+    #   * :user with active billing — show everything (manage view).
+    #
+    #   * :user picking a plan — show only the selected family + interval so the
+    #     page reflects the plan they picked on /pricing (Task #215).
     products =
       cond do
+        assigns.source == :org ->
+          filter_products_by_family_interval(
+            assigns.subscription_products,
+            assigns.selected_family,
+            assigns.selected_interval
+          )
+
         assigns.has_active_billing ->
           assigns.subscription_products
 
         assigns.selected_family ->
-          Enum.filter(assigns.subscription_products, fn product ->
-            item = List.first(product.line_items)
-
-            short_name(product.name) == assigns.selected_family &&
-              item && to_string(item.interval) == assigns.selected_interval
-          end)
+          filter_products_by_family_interval(
+            assigns.subscription_products,
+            assigns.selected_family,
+            assigns.selected_interval
+          )
 
         true ->
           assigns.subscription_products
       end
 
-    # The one-time/lifetime offer belongs to the Personal family.
+    # The one-time/lifetime offer is a PERSONAL (`:user`) product only — never
+    # shown on the org-scoped page or on non-Personal family tabs.
     one_time =
-      if assigns.has_active_billing || assigns.selected_family in [nil, "Personal"],
-        do: assigns.one_time_products,
-        else: []
+      cond do
+        assigns.source == :org -> []
+        assigns.has_active_billing -> assigns.one_time_products
+        assigns.selected_family in [nil, "Personal"] -> assigns.one_time_products
+        true -> []
+      end
 
     assigns =
       assigns

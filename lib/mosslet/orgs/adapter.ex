@@ -27,6 +27,7 @@ defmodule Mosslet.Orgs.Adapter do
 
   @callback list_orgs(user :: User.t()) :: [Org.t()]
   @callback list_orgs() :: [Org.t()]
+  @callback list_orgs_with_billing() :: [Org.t()]
   @callback get_org!(user :: User.t(), slug :: String.t()) :: Org.t()
   @callback get_org!(slug :: String.t()) :: Org.t()
   @callback get_org_by_id(id :: String.t()) :: Org.t() | nil

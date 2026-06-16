@@ -22,12 +22,52 @@ defmodule MossletWeb.BillingLive do
   end
 
   @impl true
-  def handle_params(_params, _url, socket) do
-    {:noreply, maybe_load_provider_data(socket)}
+  def handle_params(params, _url, socket) do
+    socket =
+      socket
+      |> maybe_assign_org(params)
+
+    socket =
+      socket
+      |> assign(:billing_customer, billing_customer(socket))
+      |> maybe_load_provider_data()
+
+    {:noreply, socket}
+  end
+
+  # For the org-scoped billing route (/app/org/:org_slug/billing) load the org
+  # from the slug (membership-enforced by Orgs.get_org!/2) so billing resolves
+  # against the org's OWN `:org`-source customer — not the owner's personal
+  # `:user` customer (Option B billing, Task #235).
+  defp maybe_assign_org(%{assigns: %{source: :org}} = socket, %{"org_slug" => org_slug}) do
+    current_user = socket.assigns.current_scope.user
+
+    case Mosslet.Orgs.get_org!(current_user, org_slug) do
+      %Mosslet.Orgs.Org{} = org -> assign(socket, :current_org, org)
+      _ -> socket
+    end
+  rescue
+    Ecto.NoResultsError ->
+      socket
+      |> put_flash(:error, gettext("Organization not found."))
+      |> push_navigate(to: ~p"/app/business")
+  end
+
+  defp maybe_assign_org(socket, _params), do: socket
+
+  # Resolves the billing customer for the current source: the org's OWN
+  # `:org`-source customer for the org-scoped page, else the user's personal
+  # `:user`-source customer.
+  defp billing_customer(%{assigns: %{source: :org, current_org: %Mosslet.Orgs.Org{} = org}}) do
+    Mosslet.Billing.Customers.get_customer_by_source(:org, org.id)
+  end
+
+  defp billing_customer(%{assigns: %{current_scope: %{user: user}}}) do
+    Repo.preload(user, :customer).customer
   end
 
   defp maybe_load_provider_data(socket) do
-    user = socket.assigns.current_scope.user |> Repo.preload(:customer)
+    customer = socket.assigns[:billing_customer] || billing_customer(socket)
     payment_intent = socket.assigns[:payment_intent]
 
     assign_async(
@@ -43,12 +83,12 @@ defmodule MossletWeb.BillingLive do
       fn ->
         case payment_intent do
           nil ->
-            if user.customer do
+            if customer do
               payment_intent =
-                PaymentIntents.get_active_payment_intent_by_customer_id(user.customer.id)
+                PaymentIntents.get_active_payment_intent_by_customer_id(customer.id)
 
               subscription =
-                Subscriptions.get_active_subscription_by_customer_id(user.customer.id)
+                Subscriptions.get_active_subscription_by_customer_id(customer.id)
 
               upcoming_invoice = fetch_upcoming_invoice(subscription)
               %{invoices: invoices, has_more: invoices_has_more} = fetch_invoices(subscription)
@@ -105,8 +145,8 @@ defmodule MossletWeb.BillingLive do
               )
 
             subscription =
-              if user.customer do
-                Subscriptions.get_active_subscription_by_customer_id(user.customer.id)
+              if customer do
+                Subscriptions.get_active_subscription_by_customer_id(customer.id)
               end
 
             upcoming_invoice = fetch_upcoming_invoice(subscription)
@@ -377,6 +417,61 @@ defmodule MossletWeb.BillingLive do
                 invoices_async={@invoices_async}
                 invoices_has_more_async={@invoices_has_more_async}
                 current_scope={@current_scope}
+                customer={@billing_customer}
+                invoice_year_filter={@invoice_year_filter}
+              />
+            </div>
+          </DesignSystem.liquid_container>
+        </.layout>
+      <% :org -> %>
+        <.layout
+          current_scope={@current_scope}
+          current_page={org_sidebar_page(@current_org)}
+          sidebar_current_page={org_sidebar_page(@current_org)}
+          type="sidebar"
+        >
+          <DesignSystem.liquid_container max_width="lg" class="py-16">
+            <div class="mb-12">
+              <header class="flex items-center gap-3 mb-6">
+                <.link
+                  navigate={org_home_path(@current_org)}
+                  class="p-2 -ml-2 rounded-xl text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-all duration-200"
+                  aria-label={gettext("Back to organization")}
+                >
+                  <.phx_icon name="hero-arrow-left" class="size-5" />
+                </.link>
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 shadow-lg shadow-emerald-500/25">
+                    <.phx_icon name="hero-credit-card" class="h-6 w-6 text-white" />
+                  </div>
+                  <div class="min-w-0">
+                    <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate">
+                      {gettext("Billing & Payments")}
+                    </h1>
+                    <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400 truncate">
+                      {gettext("Manage the plan and payment history for %{name}.",
+                        name: @current_org.name
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </header>
+              <div class="h-1 w-24 rounded-full bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400 shadow-sm shadow-emerald-500/30">
+              </div>
+            </div>
+
+            <div class="space-y-8 max-w-3xl">
+              <.billing_info
+                subscribe_path={subscribe_path(@source, assigns)}
+                billing_provider={@billing_provider}
+                provider_charge_async={@provider_charge_async}
+                provider_payment_intent_async={@provider_payment_intent_async}
+                subscription_async={@subscription_async}
+                upcoming_invoice_async={@upcoming_invoice_async}
+                invoices_async={@invoices_async}
+                invoices_has_more_async={@invoices_has_more_async}
+                current_scope={@current_scope}
+                customer={@billing_customer}
                 invoice_year_filter={@invoice_year_filter}
               />
             </div>
@@ -385,6 +480,17 @@ defmodule MossletWeb.BillingLive do
     <% end %>
     """
   end
+
+  # Org-scoped sidebar nav + back-link helpers (family vs business).
+  defp org_sidebar_page(%Mosslet.Orgs.Org{type: :business}), do: :business
+  defp org_sidebar_page(%Mosslet.Orgs.Org{type: :family}), do: :family
+  defp org_sidebar_page(_), do: :business
+
+  defp org_home_path(%Mosslet.Orgs.Org{type: :business, slug: slug}),
+    do: ~p"/app/business/#{slug}"
+
+  defp org_home_path(%Mosslet.Orgs.Org{type: :family, slug: slug}), do: ~p"/app/family/#{slug}"
+  defp org_home_path(_), do: ~p"/app/business"
 
   attr :billing_provider, :atom
   attr :provider_payment_intent_async, :map
@@ -396,6 +502,10 @@ defmodule MossletWeb.BillingLive do
   attr :subscribe_path, :string
   attr :current_scope, Mosslet.Accounts.Scope, required: true
   attr :invoice_year_filter, :integer, default: nil
+
+  attr :customer, :any,
+    default: nil,
+    doc: "the billing customer (org's `:org` customer, or the user's `:user` customer)"
 
   def billing_info(assigns) do
     ~H"""
@@ -489,6 +599,7 @@ defmodule MossletWeb.BillingLive do
         invoices_has_more={@invoices_has_more_async.result}
         subscribe_path={@subscribe_path}
         current_scope={@current_scope}
+        customer={@customer}
         invoice_year_filter={@invoice_year_filter}
       />
     </div>
@@ -505,6 +616,7 @@ defmodule MossletWeb.BillingLive do
         provider_charge={@provider_charge_async.result}
         subscribe_path={@subscribe_path}
         current_scope={@current_scope}
+        customer={@customer}
       />
     </div>
     """
@@ -517,6 +629,10 @@ defmodule MossletWeb.BillingLive do
   attr :subscribe_path, :string, required: true
   attr :current_scope, Mosslet.Accounts.Scope, required: true
   attr :invoice_year_filter, :integer, default: nil
+
+  attr :customer, :any,
+    default: nil,
+    doc: "the billing customer that owns this subscription (org or user)"
 
   defp subscription_info(assigns) do
     cancellation_pending = assigns.subscription.cancel_at != nil
@@ -853,7 +969,7 @@ defmodule MossletWeb.BillingLive do
                   Customer ID:
                 </span>
                 <code class="text-sm bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded font-mono text-slate-800 dark:text-slate-200 break-all max-w-full">
-                  {@current_scope.user.customer.provider_customer_id}
+                  {@customer && @customer.provider_customer_id}
                 </code>
               </div>
 
@@ -864,7 +980,7 @@ defmodule MossletWeb.BillingLive do
                   Payment Email:
                 </span>
                 <code class="text-sm bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded font-mono text-slate-800 dark:text-slate-200 break-all max-w-full">
-                  {@current_scope.user.customer.email}
+                  {@customer && @customer.email}
                 </code>
               </div>
 
@@ -1080,6 +1196,10 @@ defmodule MossletWeb.BillingLive do
   attr :subscribe_path, :string, required: true
   attr :current_scope, Mosslet.Accounts.Scope, required: true
 
+  attr :customer, :any,
+    default: nil,
+    doc: "the billing customer that owns this payment intent (org or user)"
+
   defp payment_intent_info(assigns) do
     ~H"""
     <DesignSystem.liquid_card class="bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-900/20 dark:to-teal-900/10">
@@ -1189,7 +1309,7 @@ defmodule MossletWeb.BillingLive do
                   Customer ID:
                 </span>
                 <code class="text-sm bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded font-mono text-slate-800 dark:text-slate-200 break-all max-w-full">
-                  {@current_scope.user.customer.provider_customer_id}
+                  {@customer && @customer.provider_customer_id}
                 </code>
               </div>
 
@@ -1200,7 +1320,7 @@ defmodule MossletWeb.BillingLive do
                   Payment Email:
                 </span>
                 <code class="text-sm bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded font-mono text-slate-800 dark:text-slate-200 break-all max-w-full">
-                  {@current_scope.user.customer.email}
+                  {@customer && @customer.email}
                 </code>
               </div>
             </div>

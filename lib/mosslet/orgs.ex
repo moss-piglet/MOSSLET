@@ -11,6 +11,7 @@ defmodule Mosslet.Orgs do
 
   alias Mosslet.Platform
   alias Mosslet.Billing.Customers
+  alias Mosslet.Billing.Customers.Customer
   alias Mosslet.Billing.PaymentIntents
   alias Mosslet.Billing.Plans
   alias Mosslet.Billing.Subscriptions
@@ -73,6 +74,14 @@ defmodule Mosslet.Orgs do
 
   def list_orgs do
     adapter().list_orgs()
+  end
+
+  @doc """
+  Lists all orgs with their billing customer + subscriptions preloaded. Used by
+  the name-reclaim sweep (Task #236) to classify orgs without N+1 queries.
+  """
+  def list_orgs_with_billing do
+    adapter().list_orgs_with_billing()
   end
 
   def get_org!(user, slug) when is_binary(slug) do
@@ -239,25 +248,31 @@ defmodule Mosslet.Orgs do
   end
 
   @doc """
-  Returns `true` when EVERY business org the user owns has an active
-  (`active`/`trialing`) subscription. Used to gate creation of additional owned
-  businesses (the first business is free; subsequent ones require the prior
-  business(es) to be on a paid plan).
+  Returns `true` when EVERY business org the user owns is on a genuinely PAID
+  plan (an `active`, non-trialing `:org` subscription).
+
+  Used to gate creation of ADDITIONAL owned businesses: the first business is
+  free, but spinning up another requires the prior business(es) to be actually
+  paying — a business still on its free trial does NOT yet unlock a second one
+  (the trial must convert, or the owner can start the paid plan early). See
+  Task #214/#218.
   """
   def all_owned_businesses_paid?(user) do
     case list_owned_orgs(user, :business) do
       [] -> true
-      businesses -> Enum.all?(businesses, &org_has_active_subscription?/1)
+      businesses -> Enum.all?(businesses, &org_has_paid_subscription?/1)
     end
   end
 
   @doc """
-  Returns `true` when the org's billing customer has an active subscription.
+  Returns `true` when the org's billing customer has a PAID (`active`,
+  non-trialing) subscription. A business on a free trial returns `false` here —
+  use `org_active?/1` when a trial should count (coverage/access).
   """
-  def org_has_active_subscription?(%Org{} = org) do
+  def org_has_paid_subscription?(%Org{} = org) do
     case Customers.get_customer_by_source(:org, org.id) do
       nil -> false
-      customer -> Subscriptions.get_active_subscription_by_customer_id(customer.id) != nil
+      customer -> Subscriptions.get_paid_subscription_by_customer_id(customer.id) != nil
     end
   end
 
@@ -800,8 +815,9 @@ defmodule Mosslet.Orgs do
   This is the single source of truth for whether an org is "real"/usable under
   the Option B model: an org row created but not yet paid for is INERT and
   returns `false` here. Drives org-content route gating and sidebar nav
-  visibility. Distinct from `org_has_active_subscription?/1`, which is the
-  stricter "active paid sub" check used by the multi-business entitlement.
+  visibility. Distinct from `org_has_paid_subscription?/1`, which is the
+  stricter "active paid sub" check (trial excluded) used by the multi-business
+  entitlement.
   """
   def org_active?(%Org{} = org) do
     case org_coverage_for_org(org) do
@@ -938,6 +954,163 @@ defmodule Mosslet.Orgs do
   defp base_plan_for_type(:family), do: Plans.get_plan_by_id("family-monthly")
   defp base_plan_for_type(:business), do: Plans.get_plan_by_id("business-monthly")
   defp base_plan_for_type(_), do: nil
+
+  ## Name reclaim (Task #236)
+  #
+  # An org's name/slug is only RESERVED while the org is active OR inside a
+  # protection window. The reclaim engine frees the `name_hash` + slug/subdomain
+  # by hard-deleting never-activated rows. The lifecycle state is DERIVED from
+  # the org's own `:org`-source subscription + `inserted_at` — there is no extra
+  # column. `org_reclaim_state/1` is the single classifier the reclaim worker
+  # consults; it deliberately mirrors `org_coverage_for_org/1`'s notion of an
+  # active/trialing/lapsed sub.
+
+  @doc """
+  Classifies an org for the name-reclaim engine (Task #236). Returns:
+
+    * `:pending` — INERT: the org has no `:org`-source subscription at all (no
+      `:org` customer, or a customer with no sub). A name a user created but
+      never took to checkout. Reclaimable via the session-end / abandonment path
+      once older than the abandonment window.
+    * `:protected` — a live `active`/`trialing` sub (trial not yet elapsed).
+      The name is reserved; NEVER reclaim.
+    * `:trial_expired` — a `trialing` sub whose trial period
+      (`current_period_end_at`) has elapsed with no active PAID sub. Releasable
+      via the trial-end path (Trigger 2).
+    * `:lapsed` — a previously-live sub that has fully lapsed
+      (`past_due`/`unpaid`/`canceled`/`expired`/`incomplete`/`incomplete_expired`).
+      NOT reclaimed here: routed to safe org teardown (#227).
+
+  ZK-safe: operates only on internal ids, statuses, and timestamps.
+  """
+  def org_reclaim_state(%Org{} = org) do
+    case Customers.get_customer_by_source(:org, org.id) do
+      nil ->
+        :pending
+
+      %Customer{id: customer_id} ->
+        customer_id
+        |> Subscriptions.list_subscriptions_by_customer_id()
+        |> classify_reclaim_state()
+    end
+  end
+
+  # Single classifier shared by the per-org path and the (preloaded) bulk sweep.
+  # Takes the FULL list of the org-customer's subscriptions so we can tell an
+  # org that NEVER had a sub (inert) apart from one whose sub has lapsed:
+  #
+  #   * no subs at all            -> never activated (inert)        -> :pending
+  #   * any active sub            -> paid + live                    -> :protected
+  #   * any fresh trialing sub    -> inside the protected trial     -> :protected
+  #   * only an elapsed trialing  -> trial ended, no active paid    -> :trial_expired
+  #   * has sub(s), none live     -> previously live, now lapsed    -> :lapsed
+  #
+  # An `active` sub always wins (a converted trial), so a stale trialing row
+  # alongside it never downgrades the org to `:trial_expired`.
+  defp classify_reclaim_state([]), do: :pending
+
+  defp classify_reclaim_state(subs) when is_list(subs) do
+    cond do
+      Enum.any?(subs, &(&1.status == "active")) ->
+        :protected
+
+      trialing = Enum.find(subs, &(&1.status == "trialing")) ->
+        if trial_elapsed?(trialing), do: :trial_expired, else: :protected
+
+      true ->
+        :lapsed
+    end
+  end
+
+  # The trialing sub's `current_period_end_at` is the Stripe trial-end timestamp
+  # (see SubscriptionAdapter.current_period_end_at/1). Trial has elapsed once
+  # that moment is in the past.
+  defp trial_elapsed?(%{current_period_end_at: %NaiveDateTime{} = trial_end}) do
+    NaiveDateTime.compare(trial_end, NaiveDateTime.utc_now()) == :lt
+  end
+
+  defp trial_elapsed?(_), do: false
+
+  @doc """
+  Returns the orgs eligible for name reclaim right now (Task #236), preloaded for
+  hard deletion. Used by the backstop sweep and the trial-end pass.
+
+  `opts`:
+
+    * `:older_than_seconds` — only include `:pending` (inert) orgs whose
+      `inserted_at` is older than this many seconds. Defaults to one day
+      (`86_400`), the deliberately-long BACKSTOP floor. The fast session-end
+      path schedules targeted single-org jobs instead and does not rely on this.
+
+  Selection is done in two cheap, N+1-free passes:
+
+    1. Bulk-load candidate orgs and their billing customers + subscriptions with
+       a single preload, then classify in memory via `org_reclaim_state/1`.
+    2. Keep `:pending` orgs older than the age floor, plus any `:trial_expired`
+       orgs (trial-end release is time-driven, not age-floored).
+
+  `:protected`, `:active`, and `:lapsed` orgs are never returned.
+  """
+  def list_reclaimable_orgs(opts \\ []) do
+    older_than_seconds = Keyword.get(opts, :older_than_seconds, 86_400)
+    cutoff = NaiveDateTime.add(NaiveDateTime.utc_now(), -older_than_seconds, :second)
+
+    adapter().list_orgs_with_billing()
+    |> Enum.filter(&reclaimable?(&1, cutoff))
+  end
+
+  defp reclaimable?(%Org{} = org, cutoff) do
+    case org |> reclaim_subscriptions_from_preload() |> classify_reclaim_state() do
+      :pending -> NaiveDateTime.compare(org.inserted_at, cutoff) == :lt
+      :trial_expired -> true
+      _ -> false
+    end
+  end
+
+  # The FULL subscription list from the PRELOADED `customer` + `subscriptions`
+  # association (loaded once by `list_orgs_with_billing/0`), so the bulk sweep
+  # classifies with the same `classify_reclaim_state/1` as the per-org path —
+  # without per-org queries (no N+1). No customer (or none preloaded) => no subs.
+  defp reclaim_subscriptions_from_preload(%Org{customer: %Customer{subscriptions: subs}})
+       when is_list(subs),
+       do: subs
+
+  defp reclaim_subscriptions_from_preload(_), do: []
+
+  @doc """
+  Re-validates and reclaims a single org by id (Task #236).
+
+  Called by the reclaim worker (both the targeted session-end job and the
+  backstop sweep) so the delete decision is ALWAYS made against fresh state at
+  run time — a job enqueued at session-end is a no-op if the org has since
+  activated. Hard-deletes via the safe `delete_org/1` path (FK-cascades
+  membership/invitation/customer), freeing `name_hash` + slug.
+
+  Returns:
+
+    * `{:ok, :reclaimed}` — the org was inert/trial-expired and was deleted.
+    * `{:ok, :retained}` — the org is protected/active/lapsed/already-gone; left
+      untouched (lapsed orgs are routed to #227, never deleted here).
+    * `{:error, term}` — the delete failed.
+  """
+  def reclaim_org_by_id(org_id) when is_binary(org_id) do
+    case get_org_by_id(org_id) do
+      nil ->
+        {:ok, :retained}
+
+      %Org{} = org ->
+        case org_reclaim_state(org) do
+          state when state in [:pending, :trial_expired] ->
+            case delete_org(org) do
+              {:ok, _org} -> {:ok, :reclaimed}
+              {:error, _} = error -> error
+            end
+
+          _ ->
+            {:ok, :retained}
+        end
+    end
+  end
 
   defp count_members(%Org{} = org) do
     org |> list_members_by_org() |> length()

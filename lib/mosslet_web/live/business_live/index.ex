@@ -49,14 +49,16 @@ defmodule MossletWeb.BusinessLive.Index do
             </div>
           </div>
 
-          <.phx_button
+          <.liquid_button
             :if={@live_action != :new && @businesses != [] && @can_create_business?}
             phx-click="show_new"
             id="new-business-button"
+            color="emerald"
+            icon="hero-plus"
             class="w-full sm:w-auto"
           >
-            <.phx_icon name="hero-plus" class="size-4 mr-1.5" /> New business
-          </.phx_button>
+            New business
+          </.liquid_button>
         </header>
 
         <div
@@ -87,9 +89,15 @@ defmodule MossletWeb.BusinessLive.Index do
               >
                 Cancel
               </.link>
-              <.phx_button type="submit" id="create-business-submit" class="w-full sm:w-auto">
-                <.phx_icon name="hero-sparkles" class="size-4 mr-1.5" /> Create business
-              </.phx_button>
+              <.liquid_button
+                type="submit"
+                id="create-business-submit"
+                color="emerald"
+                icon="hero-sparkles"
+                class="w-full sm:w-auto"
+              >
+                Create business
+              </.liquid_button>
             </div>
           </.form>
         </div>
@@ -108,9 +116,15 @@ defmodule MossletWeb.BusinessLive.Index do
             Create a business to invite teammates and set up private, org-scoped circles. Content
             stays end-to-end encrypted; Mosslet can't read it.
           </p>
-          <.phx_button phx-click="show_new" id="new-business-empty-button" class="mt-6">
-            <.phx_icon name="hero-plus" class="size-4 mr-1.5" /> Create a business
-          </.phx_button>
+          <.liquid_button
+            phx-click="show_new"
+            id="new-business-empty-button"
+            color="emerald"
+            icon="hero-plus"
+            class="mt-6"
+          >
+            Create a business
+          </.liquid_button>
         </div>
 
         <ul role="list" class="space-y-3">

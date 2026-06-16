@@ -26,6 +26,38 @@ defmodule Mosslet.Billing.Subscriptions do
     |> Repo.first()
   end
 
+  @doc """
+  Returns the customer's PAID subscription (status `active` only — a `trialing`
+  sub is NOT yet paid), or `nil`.
+
+  Distinct from `get_active_subscription_by_customer_id/1`, which also counts a
+  trial as "active" for coverage/access. Used by entitlement gates that must
+  require an actually-converted, paying plan (e.g. unlocking a SECOND business —
+  Task #214/#218: a business on a free trial does not yet entitle creating
+  another).
+  """
+  def get_paid_subscription_by_customer_id(customer_id) do
+    Subscription
+    |> by_customer_id(customer_id)
+    |> by_status(["active"])
+    |> order_by_period_desc()
+    |> Repo.first()
+  end
+
+  @doc """
+  Lists ALL subscriptions for a billing customer (most recent period first).
+
+  Unlike `get_active_subscription_by_customer_id/1`, this returns lapsed/canceled
+  rows too — used by the org name-reclaim engine (Task #236) to distinguish an
+  org that NEVER had a subscription (inert) from one whose sub has lapsed.
+  """
+  def list_subscriptions_by_customer_id(customer_id) do
+    Subscription
+    |> by_customer_id(customer_id)
+    |> order_by_period_desc()
+    |> Repo.all()
+  end
+
   def get_payment_required_subscription_by_customer_id(customer_id) do
     Subscription
     |> by_customer_id(customer_id)
