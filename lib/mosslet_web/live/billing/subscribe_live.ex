@@ -153,8 +153,11 @@ defmodule MossletWeb.SubscribeLive do
   defp family_to_type("Business"), do: :business
   defp family_to_type(_), do: :family
 
-  # Pick a representative product for the family (prefer the yearly line item for
-  # a friendlier "starting at" figure) to surface pricing on the org on-ramp card.
+  # Pick a representative product for the family to surface an indicative
+  # "from" price on the org on-ramp card. We prefer the MONTHLY line item (the
+  # lowest entry point) and label it as "starting at" — the binding monthly vs
+  # yearly choice happens later on the org's own subscribe page, so we must not
+  # imply a yearly commitment here (Option B, Task #235).
   defp family_product(subscription_products, family) do
     products =
       Enum.filter(subscription_products, fn product ->
@@ -163,7 +166,7 @@ defmodule MossletWeb.SubscribeLive do
 
     Enum.find(products, fn product ->
       item = List.first(product.line_items)
-      item && item.interval == :year
+      item && item.interval == :month
     end) || List.first(products)
   end
 
@@ -569,6 +572,9 @@ defmodule MossletWeb.SubscribeLive do
           </div>
 
           <div :if={@item} class="mb-6">
+            <p class="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-1">
+              {gettext("Starting at")}
+            </p>
             <div class="flex items-baseline gap-2">
               <span class="text-4xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent">
                 {Util.format_money(@item.amount)}
@@ -583,6 +589,10 @@ defmodule MossletWeb.SubscribeLive do
             </div>
             <p :if={@included_seats} class="mt-1 text-sm text-slate-500 dark:text-slate-400">
               {gettext("Includes %{count} members—add more anytime.", count: @included_seats)}
+            </p>
+            <p class="mt-2 inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+              <.phx_icon name="hero-information-circle" class="size-3.5 text-emerald-500" />
+              {gettext("Choose monthly or yearly billing on the next step.")}
             </p>
           </div>
 
