@@ -149,6 +149,49 @@ defmodule MossletWeb.BusinessLiveTest do
       assert has_element?(lv, "#business-upsell-note")
     end
 
+    test "add-business note is trial-aware and does NOT tell trialing owners to subscribe", %{
+      conn: conn
+    } do
+      # A user on a Business *trial* (their :user customer holds a trialing
+      # business-* sub). They own a business; the note must acknowledge the
+      # trial and offer to start the paid plan early — never "subscribe".
+      email = "biztrial#{System.unique_integer([:positive])}@example.com"
+      user = user_fixture(%{email: email, password: @password})
+      user = Accounts.confirm_user!(user)
+      {:ok, user} = Accounts.update_user_onboarding(user, %{is_onboarded?: true})
+
+      {:ok, customer} =
+        Customers.create_customer_for_source(:user, user.id, %{
+          email: "billing-#{System.unique_integer([:positive])}@example.com",
+          provider: "stripe",
+          provider_customer_id: "cus_#{System.unique_integer([:positive])}"
+        })
+
+      {:ok, _sub} =
+        Subscriptions.create_subscription(%{
+          billing_customer_id: customer.id,
+          plan_id: "business-monthly",
+          status: "trialing",
+          quantity: 1,
+          provider_subscription_id: "sub_#{System.unique_integer([:positive])}",
+          provider_subscription_items: [%{price: "price_test"}],
+          current_period_start: NaiveDateTime.utc_now()
+        })
+
+      {:ok, _org} = Orgs.create_org(user, %{"name" => "Acme", "type" => "business"})
+
+      key = get_key(user)
+      conn = log_in(conn, user, key)
+      {:ok, lv, _html} = live(conn, ~p"/app/business")
+
+      assert has_element?(lv, "#business-upsell-note")
+      note_html = lv |> element("#business-upsell-note") |> render()
+
+      assert note_html =~ "trial ends"
+      assert note_html =~ "start your paid plan early"
+      refute note_html =~ "Subscribe"
+    end
+
     test "blocks creating a second unpaid owned business server-side", %{conn: _conn} do
       {user, _key} = onboarded_user("bizupsell")
       {:ok, _org} = Orgs.create_org(user, %{"name" => "Acme", "type" => "business"})
