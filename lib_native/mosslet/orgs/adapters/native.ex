@@ -72,7 +72,8 @@ defmodule Mosslet.Orgs.Adapters.Native do
     end
   end
 
-  defp get_org_by_slug(slug) do
+  @impl true
+  def get_org_by_slug(slug) when is_binary(slug) do
     if Sync.online?() do
       with {:ok, token} <- NativeSession.get_token(),
            {:ok, %{"org" => org_data}} <- Client.get_org(token, slug) do

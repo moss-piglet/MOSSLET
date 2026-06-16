@@ -192,4 +192,36 @@ defmodule MossletWeb.SubscribeLiveTest do
       refute has_element?(lv, "#org-onramp-form-family")
     end
   end
+
+  describe "org-scoped subscribe (:org source) — trial-start surface (Task #235)" do
+    test "an inert family org owner reaches /app/org/:slug/subscribe and sees the family plan",
+         %{conn: conn} do
+      {user, key} = subscribe_user(true)
+      org = org_fixture(user, %{"name" => "The Smiths", "type" => :family})
+      conn = log_in(conn, user, key)
+
+      {:ok, lv, _html} = live(conn, ~p"/app/org/#{org.slug}/subscribe")
+
+      # The org's own (:org-source) plan is offered — the per-seat checkout form
+      # for the family plan, not the :user on-ramp.
+      assert has_element?(lv, "#seat-checkout-family-monthly, #seat-checkout-family-yearly")
+      refute has_element?(lv, "#org-onramp-form-family")
+    end
+
+    test "submitting the org family checkout routes to the org-scoped checkout URL",
+         %{conn: conn} do
+      {user, key} = subscribe_user(true)
+      org = org_fixture(user, %{"name" => "The Smiths", "type" => :family})
+      conn = log_in(conn, user, key)
+
+      {:ok, lv, _html} = live(conn, ~p"/app/org/#{org.slug}/subscribe?#{%{billing: "month"}}")
+
+      {:error, {:redirect, %{to: to}}} =
+        lv
+        |> form("#seat-checkout-family-monthly", %{"checkout" => %{}})
+        |> render_submit()
+
+      assert to =~ "/app/org/#{org.slug}/checkout/family-monthly"
+    end
+  end
 end

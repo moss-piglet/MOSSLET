@@ -6,10 +6,11 @@ defmodule MossletWeb.SubscribeSuccessLive do
   alias Mosslet.Billing.PaymentIntents
   alias Mosslet.Billing.Referrals
   alias Mosslet.Billing.Subscriptions
+  alias Mosslet.Orgs
   alias Mosslet.Repo
 
   @impl true
-  def mount(%{"customer_id" => customer_id}, session, socket) do
+  def mount(%{"customer_id" => customer_id} = params, session, socket) do
     socket =
       socket
       |> assign(:page_title, gettext("Payment Success"))
@@ -18,6 +19,7 @@ defmodule MossletWeb.SubscribeSuccessLive do
       |> assign(:subscription, nil)
       |> assign(:customer_id, customer_id)
       |> assign(:source, socket.assigns.live_action)
+      |> assign(:org_slug, params["org_slug"])
       |> assign(:plan_intent, session_plan_intent(session))
       |> assign(:pings, 0)
       |> assign_billing_status()
@@ -26,7 +28,7 @@ defmodule MossletWeb.SubscribeSuccessLive do
   end
 
   @impl true
-  def mount(_params, session, socket) do
+  def mount(params, session, socket) do
     user = socket.assigns[:current_user] |> Repo.preload(:customer)
 
     if user && user.customer do
@@ -38,6 +40,7 @@ defmodule MossletWeb.SubscribeSuccessLive do
         |> assign(:subscription, nil)
         |> assign(:customer_id, user.customer.id)
         |> assign(:source, socket.assigns.live_action)
+        |> assign(:org_slug, params["org_slug"])
         |> assign(:plan_intent, session_plan_intent(session))
         |> assign(:pings, 0)
         |> assign_billing_status()
@@ -84,7 +87,16 @@ defmodule MossletWeb.SubscribeSuccessLive do
   # (Option B, Task #235). Family/Business are now fully independent org plans
   # billed to the org — they are reached via the subscribe-page org on-ramp,
   # NOT gated behind (or triggered by) a personal subscription. The org's own
-  # trial completes on the org-scoped success surface.
+  # trial completes on the org-scoped success surface, after which the now-active
+  # org becomes usable and we land the owner on its dashboard.
+  defp post_success_path(%{assigns: %{source: :org, org_slug: slug}}) when is_binary(slug) do
+    case Orgs.get_org_by_slug(slug) do
+      %{type: :business, slug: slug} -> ~p"/app/business/#{slug}"
+      %{type: :family, slug: slug} -> ~p"/app/family/#{slug}"
+      _ -> ~p"/app"
+    end
+  end
+
   defp post_success_path(_socket), do: ~p"/app"
 
   defp assign_billing_status(%{assigns: %{pings: 10}} = socket) do
@@ -165,6 +177,19 @@ defmodule MossletWeb.SubscribeSuccessLive do
             subscription={@subscription}
           />
         </.layout>
+      <% :org -> %>
+        <main
+          role="main"
+          class="fixed inset-0 z-10 overflow-y-auto bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900"
+        >
+          <div class="relative z-10 flex min-h-full items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
+            <.billing_status
+              billing_status={@billing_status}
+              payment_intent={@payment_intent}
+              subscription={@subscription}
+            />
+          </div>
+        </main>
     <% end %>
     """
   end

@@ -87,6 +87,14 @@ defmodule Mosslet.Orgs do
     adapter().get_org_by_id(id)
   end
 
+  @doc """
+  Non-raising slug lookup. Returns the org or `nil`. Use this (over `get_org!/1`)
+  when the slug may not resolve and you want to pattern match rather than rescue.
+  """
+  def get_org_by_slug(slug) when is_binary(slug) do
+    adapter().get_org_by_slug(slug)
+  end
+
   def create_org(user, attrs) do
     unless user.confirmed_at do
       raise ArgumentError, "user must be confirmed to create an org"

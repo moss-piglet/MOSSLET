@@ -64,6 +64,16 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.CreateCheckoutSession do
     |> Provider.create_checkout_session()
   end
 
+  @doc """
+  Builds the Stripe checkout session option map (everything except the referral
+  discount, which requires a live Stripe coupon call, and any caller overrides).
+
+  Exposed so the source-keyed wiring — `client_reference_id`, `metadata.source`,
+  `metadata.source_id`, the explicit `org_id` for :org sessions, and the trial
+  `subscription_data` — can be verified without hitting Stripe.
+  """
+  def build_options(%__MODULE__{} = session), do: checkout_session_options(session)
+
   defp checkout_session_options(%{
          customer_id: customer_id,
          source: source,
@@ -90,6 +100,7 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.CreateCheckoutSession do
           source: source,
           source_id: source_id
         }
+        |> maybe_add_org_id(source, source_id)
         |> maybe_add_referral_metadata(referral)
     }
 
@@ -124,6 +135,13 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.CreateCheckoutSession do
   end
 
   defp maybe_add_referral_discount(options, _), do: options
+
+  # Stamp an explicit `org_id` on the checkout metadata for :org-source sessions.
+  # `source_id` already equals the org id, but a dedicated `org_id` key is cheap
+  # insurance for Stripe dashboard filtering and webhook debugging. ZK guardrail:
+  # org_id is an internal id — never names/keys/emails.
+  defp maybe_add_org_id(metadata, :org, org_id), do: Map.put(metadata, :org_id, org_id)
+  defp maybe_add_org_id(metadata, _source, _source_id), do: metadata
 
   defp maybe_add_referral_metadata(metadata, nil), do: metadata
 

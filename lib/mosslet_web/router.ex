@@ -60,10 +60,6 @@ defmodule MossletWeb.Router do
     plug :subscribed_entity_only
   end
 
-  pipeline :subscribed_org do
-    plug :subscribed_org_only
-  end
-
   pipeline :subscribed_user do
     plug :subscribed_user_only
   end

@@ -30,6 +30,7 @@ defmodule Mosslet.Orgs.Adapter do
   @callback get_org!(user :: User.t(), slug :: String.t()) :: Org.t()
   @callback get_org!(slug :: String.t()) :: Org.t()
   @callback get_org_by_id(id :: String.t()) :: Org.t() | nil
+  @callback get_org_by_slug(slug :: String.t()) :: Org.t() | nil
 
   @callback create_org(user :: User.t(), changeset :: Ecto.Changeset.t()) ::
               {:ok, Org.t()} | {:error, Ecto.Changeset.t()}

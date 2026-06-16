@@ -2,7 +2,6 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.CreatePortalSession do
   @moduledoc false
   use MossletWeb, :verified_routes
 
-  alias Mosslet.Billing.Customers
   alias Mosslet.Billing.Customers.Customer
   alias Mosslet.Billing.Providers.Behaviour.UrlHelpers
   alias Mosslet.Billing.Providers.Stripe.Provider
@@ -38,11 +37,16 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.CreatePortalSession do
     })
   end
 
-  defp return_url(%Customer{} = customer) do
-    case Customers.entity() do
-      :user -> UrlHelpers.success_url(:user, customer.user_id, customer.id)
-      :org -> UrlHelpers.success_url(:org, customer.org_id, customer.id)
-    end <> "&switch_plan=true"
+  # Derive the source from the customer itself (its own user_id/org_id), NOT the
+  # global `:billing_entity` config flag. An org customer (user_id: nil) managing
+  # an active org subscription must return to the org's subscribe success page,
+  # regardless of how the personal-only UI flag is set.
+  defp return_url(%Customer{org_id: org_id} = customer) when is_binary(org_id) do
+    UrlHelpers.success_url(:org, org_id, customer.id) <> "&switch_plan=true"
+  end
+
+  defp return_url(%Customer{user_id: user_id} = customer) when is_binary(user_id) do
+    UrlHelpers.success_url(:user, user_id, customer.id) <> "&switch_plan=true"
   end
 
   defp get_subscription_item(stripe_subscription) do

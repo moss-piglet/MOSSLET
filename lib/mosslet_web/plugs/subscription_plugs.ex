@@ -14,26 +14,14 @@ defmodule MossletWeb.SubscriptionPlugs do
   alias Mosslet.Billing.Subscriptions.Subscription
   alias Mosslet.Orgs
 
+  # Personal (`:user`) subscription gate for the personal app surfaces (settings,
+  # OAuth, account deletion). Org CONTENT routes are gated intrinsically by the
+  # `:require_active_org` on_mount instead (Task #235, Option B) — they do NOT
+  # route through here. The `:billing_entity` config flag's remaining role is
+  # purely to toggle personal-only billing UI (menus, mobile/API), not to switch
+  # this gate's source; this gate is always personal.
   def subscribed_entity_only(conn, opts) do
-    case Customers.entity() do
-      :org -> subscribed_org_only(conn, opts)
-      :user -> subscribed_user_only(conn, opts)
-    end
-  end
-
-  def subscribed_org_only(conn, _opts) do
-    org_subscribe_route = ~p"/app/org/#{conn.assigns.current_org.slug}/subscribe"
-
-    case Customers.get_customer_by_source(:org, conn.assigns.current_membership.org_id) do
-      %Customer{} = customer ->
-        check_customer_subscription(conn, customer, org_subscribe_route)
-
-      _ ->
-        conn
-        |> put_flash(:error, gettext("You must have a subscription to access this page."))
-        |> redirect(to: org_subscribe_route)
-        |> halt()
-    end
+    subscribed_user_only(conn, opts)
   end
 
   def subscribed_user_only(conn, _opts) do
@@ -125,21 +113,12 @@ defmodule MossletWeb.SubscriptionPlugs do
     end
   end
 
+  # Personal-subscription on_mount for the personal LiveView surfaces. Org
+  # content LiveViews use `:require_active_org` instead (Task #235). Always
+  # resolves the user's personal customer; the `:billing_entity` flag no longer
+  # switches the source here.
   def on_mount(:subscribed_entity, params, session, socket) do
-    case Customers.entity() do
-      :org -> on_mount(:subscribed_org, params, session, socket)
-      :user -> on_mount(:subscribed_user, params, session, socket)
-    end
-  end
-
-  def on_mount(:subscribed_org, _params, _session, socket) do
-    socket =
-      socket
-      |> assign_customer(:org)
-      |> assign_customer_payment_intent()
-      |> assign_customer_subscription()
-
-    {:cont, socket}
+    on_mount(:subscribed_user, params, session, socket)
   end
 
   def on_mount(:subscribed_user, _params, _session, socket) do
@@ -237,16 +216,6 @@ defmodule MossletWeb.SubscriptionPlugs do
   # back to a generic label so the flash never renders a blank/garbled value.
   defp org_display_label(%{name: name}) when is_binary(name) and name != "", do: name
   defp org_display_label(_), do: gettext("your organization")
-
-  defp assign_customer(socket, :org) do
-    Phoenix.Component.assign_new(socket, :customer, fn ->
-      current_org = socket.assigns.current_org
-
-      if current_org do
-        Customers.get_customer_by_source(:org, current_org.id)
-      end
-    end)
-  end
 
   defp assign_customer(socket, :user) do
     Phoenix.Component.assign_new(socket, :customer, fn ->
