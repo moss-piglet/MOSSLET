@@ -9,6 +9,7 @@ defmodule Mosslet.Billing.Providers.Stripe do
   alias Mosslet.Billing.Customers.Customer
   alias Mosslet.Billing.Plans
   alias Mosslet.Billing.Providers.Stripe.Provider
+  alias Mosslet.Billing.Providers.Stripe.Services.AddSubscriptionItem
   alias Mosslet.Billing.Providers.Stripe.Services.CreateCheckoutSession
   alias Mosslet.Billing.Providers.Stripe.Services.CreatePortalSession
   alias Mosslet.Billing.Providers.Stripe.Services.FindOrCreateCustomer
@@ -186,6 +187,13 @@ defmodule Mosslet.Billing.Providers.Stripe do
       subscription,
       Plans.plan_items(plan)
     )
+  end
+
+  # Appends a new add-on line item to an active subscription WITHOUT swapping the
+  # existing items (Task #240, Phase B one-click subdomain add-on). Distinct from
+  # `change_plan/3`, which routes a plan SWITCH through the Billing Portal.
+  def add_subscription_item(%Subscription{} = subscription, price_id) do
+    AddSubscriptionItem.call(subscription, price_id)
   end
 
   def payment_intent_adapter do

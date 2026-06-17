@@ -18,6 +18,8 @@ defmodule Mosslet.Billing.Providers.Behaviour do
               {:ok, customer, session} | {:error, term()}
   @callback change_plan(customer, subscription, plan) ::
               {:ok, session} | {:error, term()}
+  @callback add_subscription_item(subscription, id) ::
+              {:ok, subscription} | {:error, term()}
   @callback checkout_url(session) :: String.t()
   @callback retrieve_charge(id) :: {:ok, term()} | {:error, term()}
   @callback retrieve_payment_intent(id) :: {:ok, term()} | {:error, term()}

@@ -47,6 +47,11 @@ defmodule Mosslet.Billing.Providers.AppleIAP do
   end
 
   @impl true
+  def add_subscription_item(_subscription, _price_id) do
+    {:error, :not_supported_use_native_ui}
+  end
+
+  @impl true
   def checkout_url(_session), do: ""
 
   @doc """

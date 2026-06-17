@@ -98,4 +98,41 @@ defmodule MossletWeb.BrandedSignInTest do
     refute html =~ "org-branded-signin"
     refute html =~ "Apex Hidden Co"
   end
+
+  test "the registration page mirrors the branded accent on a live subdomain (Task #243)", %{
+    conn: conn
+  } do
+    org = business_org_named("Branded Register Co")
+    set_subdomain!(org, "brandedregister")
+    ensure_org_subscription(org, items: [%{"price_id" => addon_price()}])
+
+    {:ok, _lv, html} = conn |> on_subdomain("brandedregister") |> live(~p"/auth/register")
+
+    assert html =~ "org-branded-register"
+    assert html =~ "Branded Register Co"
+    assert html =~ "Secured by MOSSLET"
+  end
+
+  test "registration on an unentitled subdomain shows NO branding", %{conn: conn} do
+    org = business_org_named("Lapsed Register Co")
+    set_subdomain!(org, "lapsedregister")
+    ensure_org_subscription(org, items: [%{"price_id" => "price_base_only"}])
+
+    {:ok, _lv, html} = conn |> on_subdomain("lapsedregister") |> live(~p"/auth/register")
+
+    refute html =~ "org-branded-register"
+    refute html =~ "Lapsed Register Co"
+  end
+
+  test "the forgot-password page shows the branded accent on a live subdomain", %{conn: conn} do
+    org = business_org_named("Branded Reset Co")
+    set_subdomain!(org, "brandedreset")
+    ensure_org_subscription(org, items: [%{"price_id" => addon_price()}])
+
+    {:ok, _lv, html} = conn |> on_subdomain("brandedreset") |> live(~p"/auth/reset-password")
+
+    assert html =~ "org-branded-reset"
+    assert html =~ "Branded Reset Co"
+    assert html =~ "Secured by MOSSLET"
+  end
 end

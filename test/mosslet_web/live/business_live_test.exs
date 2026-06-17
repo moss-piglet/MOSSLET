@@ -522,6 +522,17 @@ defmodule MossletWeb.BusinessLiveTest do
       assert has_element?(lv, "#org-subdomain-upsell-addon")
     end
 
+    test "the upsell offers a one-click add-on purchase button (no checkout detour)", ctx do
+      subscribe_org(ctx.org, items: [%{"price_id" => "price_test"}])
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      # The active-org gap (Task #243 follow-up): add it in one click, with a
+      # "Manage billing" escape hatch still available for review.
+      assert has_element?(lv, "#org-subdomain-add-addon")
+    end
+
     test "an active/trialing org is NOT told to 'subscribe' (trial-aware upsell)", ctx do
       subscribe_org(ctx.org, status: "trialing", items: [%{"price_id" => "price_test"}])
 
@@ -579,6 +590,22 @@ defmodule MossletWeb.BusinessLiveTest do
         ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/business/#{ctx.org.slug}")
 
       refute has_element?(lv, "#org-branding")
+      refute has_element?(lv, "#org-subdomain")
+    end
+
+    test "a NON-OWNER admin manages the free logo but NOT the (billing) subdomain", ctx do
+      {other_admin, other_admin_key} = onboarded_user("subotheradmin")
+      add_member(ctx.org, other_admin, :admin)
+      subscribe_org(ctx.org, items: [%{"price_id" => subdomain_addon_price()}])
+
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(other_admin, other_admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}")
+
+      # Free logo stays admin-manageable...
+      assert has_element?(lv, "#org-logo-uploader")
+      # ...but the subdomain (mutates the paid subscription) is owner-only.
       refute has_element?(lv, "#org-subdomain")
     end
   end

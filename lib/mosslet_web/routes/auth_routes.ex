@@ -10,7 +10,8 @@ defmodule MossletWeb.AuthRoutes do
 
         live_session :current_user,
           on_mount: [
-            {MossletWeb.UserOnMountHooks, :maybe_assign_user}
+            {MossletWeb.UserOnMountHooks, :maybe_assign_user},
+            {MossletWeb.UserOnMountHooks, :assign_subdomain_branding}
           ] do
           live "/confirm/:token", UserConfirmationLive, :edit
           live "/confirm", UserConfirmationInstructionsLive, :new

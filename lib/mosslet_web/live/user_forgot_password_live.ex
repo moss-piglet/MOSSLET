@@ -15,6 +15,30 @@ defmodule MossletWeb.UserForgotPasswordLive do
 
       <%!-- Header with improved visual hierarchy --%>
       <div class="text-center mb-8 sm:mb-10">
+        <%!-- Org-branded ACCENT (Task #240 / #243). Shown only on a live org
+              subdomain host — mirrors #org-branded-signin. ACCENT only; the
+              Mosslet wordmark + persistent "Secured by MOSSLET" keep this
+              unmistakably a Mosslet page. Org NAME is Cloak-at-rest; no logo
+              pre-auth (ZK org_key has no key holder yet). --%>
+        <div
+          :if={@subdomain_org_live? && @subdomain_org}
+          id="org-branded-reset"
+          class="mb-6 flex flex-col items-center gap-2"
+        >
+          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200/50 dark:border-emerald-700/30">
+            <.phx_icon
+              name="hero-building-office-2"
+              class="size-4 text-emerald-600 dark:text-emerald-400"
+            />
+            <span class="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+              {@subdomain_org.name}
+            </span>
+          </div>
+          <p class="inline-flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
+            <.phx_icon name="hero-lock-closed" class="size-3" /> Secured by MOSSLET
+          </p>
+        </div>
+
         <%!-- Reset password section --%>
         <div class="mb-6">
           <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/20 dark:to-emerald-900/20 border border-teal-200/50 dark:border-teal-700/3 mb-4">

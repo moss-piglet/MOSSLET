@@ -311,6 +311,17 @@ defmodule Mosslet.Orgs do
   def can_manage_branding?(_, _), do: false
 
   @doc """
+  Returns `true` when `user_id` may manage the org's BILLING-affecting settings —
+  the paid custom-subdomain add-on (Task #240) and seat count. These mutate the
+  org's paid subscription, so they are gated to the OWNER (the org's billing
+  anchor, `created_by_id`) ONLY — stricter than `can_manage_branding?/2` (any
+  admin, free logo). A non-owner admin can manage the free logo but never the
+  subscription.
+  """
+  def can_manage_billing?(%Org{} = org, user_id) when is_binary(user_id), do: owner?(org, user_id)
+  def can_manage_billing?(_, _), do: false
+
+  @doc """
   Returns `true` when the org carries the paid custom-subdomain branding add-on
   (Task #240, Phase B). Server-authoritative: read from the org's own
   (`:org`-source) subscription line items (`provider_subscription_items`), never
@@ -368,6 +379,49 @@ defmodule Mosslet.Orgs do
   end
 
   def subdomain_live?(_), do: false
+
+  @doc """
+  One-click purchase of the paid custom-subdomain add-on for an ALREADY-ACTIVE
+  org (Task #240 / #243, Phase B). Appends the interval-matched add-on line item
+  to the org's existing `:org`-source subscription via the billing provider —
+  NOT a new Checkout Session (that path refuses to start while an active sub
+  exists) and NOT a plan swap (the Billing Portal flow replaces items).
+
+  The caller MUST enforce the role gate (`can_manage_branding?/2`, admins-only)
+  first; this function additionally verifies, server-side, that:
+
+    * the org has an active/trialing/grace `:org` subscription to add onto;
+    * that subscription's plan offers the add-on (Business, interval-matched);
+    * the add-on isn't ALREADY present (idempotent — never double-charge).
+
+  On success the updated subscription is synced locally (so `has_branding_addon?/1`
+  flips `true` immediately) and an org update is broadcast. Returns
+  `{:ok, :added}`, `{:ok, :already_active}`, or `{:error, reason}`.
+  """
+  def add_subdomain_addon(%Org{} = org) do
+    cond do
+      has_branding_addon?(org) ->
+        {:ok, :already_active}
+
+      true ->
+        with %{} = subscription <- org_source_subscription(org),
+             plan when not is_nil(plan) <- Plans.get_plan_by_id(subscription.plan_id),
+             price_id when is_binary(price_id) <- Plans.subdomain_addon_price(plan) do
+          case billing_provider().add_subscription_item(subscription, price_id) do
+            {:ok, _stripe_subscription} ->
+              broadcast_org_update(org.id)
+              {:ok, :added}
+
+            {:error, reason} ->
+              {:error, reason}
+          end
+        else
+          _ -> {:error, :addon_unavailable}
+        end
+    end
+  end
+
+  defp billing_provider, do: Application.get_env(:mosslet, :billing_provider)
 
   ## Ownership transfer handshake (Task #237, Option C)
   #

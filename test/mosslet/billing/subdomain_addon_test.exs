@@ -10,6 +10,7 @@ defmodule Mosslet.Billing.SubdomainAddonTest do
 
   alias Mosslet.Billing.Plans
   alias Mosslet.Billing.Providers.Stripe
+  alias Mosslet.Billing.Providers.Stripe.Services.AddSubscriptionItem
 
   defp prices(line_items), do: Enum.map(line_items, & &1.price)
 
@@ -61,6 +62,24 @@ defmodule Mosslet.Billing.SubdomainAddonTest do
 
       seat_item = Enum.find(items, &(&1.price == plan.seat_addon_price))
       assert seat_item.quantity == 3
+    end
+  end
+
+  describe "AddSubscriptionItem.build_params/1 — one-click add-on for active orgs" do
+    test "APPENDS a new item (price, no id) so existing items stay intact" do
+      price_id = Plans.subdomain_addon_price(Plans.get_plan_by_id!("business-monthly"))
+      params = AddSubscriptionItem.build_params(price_id)
+
+      assert [item] = params.items
+      assert item.price == price_id
+      assert item.quantity == 1
+
+      # The distinguishing trait vs. CreatePortalSession's plan SWAP: NO `id`,
+      # which is what makes Stripe add the item rather than replace one.
+      refute Map.has_key?(item, :id)
+
+      # Prorate onto the existing payment method's next invoice (no new checkout).
+      assert params.proration_behavior == "create_prorations"
     end
   end
 end

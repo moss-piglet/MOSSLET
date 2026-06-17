@@ -549,6 +549,7 @@ defmodule MossletWeb.Router do
         {MossletWeb.UserAuth, :ensure_authenticated},
         {MossletWeb.UserAuth, :ensure_session_key},
         {MossletWeb.UserAuth, :maybe_ensure_connection},
+        {MossletWeb.UserOnMountHooks, :assign_subdomain_branding},
         MossletWeb.SyncStatusHook
       ] do
       # Onboarding

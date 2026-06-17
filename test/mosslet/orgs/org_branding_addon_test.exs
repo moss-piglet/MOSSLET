@@ -137,4 +137,43 @@ defmodule Mosslet.Orgs.OrgBrandingAddonTest do
       refute Orgs.subdomain_live?(reloaded)
     end
   end
+
+  describe "can_manage_billing?/2 (owner-only gate for subscription-affecting settings)" do
+    test "true only for the org owner, false for a non-owner admin" do
+      owner = confirmed_user("billingowner")
+      {:ok, org} = Orgs.create_org(owner, %{"name" => "Billing Co", "type" => "business"})
+
+      admin = confirmed_user("billingadmin")
+
+      {:ok, {:ok, _ms}} =
+        Mosslet.Repo.transaction_on_primary(fn ->
+          Mosslet.Orgs.Membership.insert_changeset(org, admin, :admin) |> Mosslet.Repo.insert()
+        end)
+
+      assert Orgs.can_manage_billing?(org, owner.id)
+      refute Orgs.can_manage_billing?(org, admin.id)
+      refute Orgs.can_manage_billing?(org, nil)
+    end
+  end
+
+  describe "add_subdomain_addon/1 (one-click purchase for an active org)" do
+    test "is idempotent — returns :already_active without touching the provider" do
+      org = business_org()
+
+      ensure_org_subscription(org,
+        plan_id: "business-monthly",
+        status: "active",
+        items: [%{"price_id" => monthly_addon_price()}]
+      )
+
+      # Already entitled: short-circuits before any Stripe call.
+      assert {:ok, :already_active} = Orgs.add_subdomain_addon(org)
+    end
+
+    test "returns :addon_unavailable when the org has no subscription to add onto" do
+      # Inert org (no :org subscription) — nothing to append the line item to, so
+      # we bail BEFORE reaching the provider (no Stripe call).
+      assert {:error, :addon_unavailable} = Orgs.add_subdomain_addon(business_org())
+    end
+  end
 end

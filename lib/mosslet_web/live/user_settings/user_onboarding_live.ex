@@ -3,6 +3,7 @@ defmodule MossletWeb.UserOnboardingLive do
   use MossletWeb, :live_view
 
   alias Mosslet.Accounts
+  alias Mosslet.Orgs
 
   def mount(params, session, socket) do
     socket =
@@ -13,10 +14,57 @@ defmodule MossletWeb.UserOnboardingLive do
       |> assign(:name, nil)
       |> assign(:show_details, false)
       |> assign(:show_payment_info, false)
+      |> assign_subdomain_logo()
       |> assign_form(Accounts.change_user_onboarding(socket.assigns.current_user))
 
     {:ok, socket}
   end
+
+  # Org-branded onboarding (Task #240 / #243, flagship). The `:assign_subdomain_branding`
+  # hook already set `:subdomain_org` + `:subdomain_org_live?` from the request
+  # host. Here the member IS logged in and holds their `Membership.key` (the org
+  # key sealed for them), so — UNLIKE the pre-auth sign-in page — we can show the
+  # actual ZK brand LOGO: hand the browser a presigned GET URL for the org_key-
+  # encrypted blob plus the viewer's sealed key, and the `OrgLogoDisplay` hook
+  # fetches + decrypts it client-side. A viewer who is NOT (yet) a key-holding
+  # member simply gets the name accent (graceful ZK degradation).
+  defp assign_subdomain_logo(socket) do
+    org = socket.assigns[:subdomain_org]
+    viewer = socket.assigns.current_scope.user
+
+    if socket.assigns[:subdomain_org_live?] && org && viewer do
+      socket
+      |> assign(:subdomain_logo_url, org_logo_presigned_url(org))
+      |> assign(:subdomain_sealed_org_key, viewer_sealed_org_key(org, viewer))
+    else
+      socket
+      |> assign(:subdomain_logo_url, nil)
+      |> assign(:subdomain_sealed_org_key, nil)
+    end
+  end
+
+  # The viewer's sealed `org_key` (their `Membership.key`) for THIS org, or nil
+  # when they hold no membership / it isn't sealed for them yet. Strictly
+  # org_id-scoped — never crosses org boundaries.
+  defp viewer_sealed_org_key(org, viewer) do
+    org
+    |> Orgs.list_memberships_with_users()
+    |> Enum.find_value(fn membership ->
+      if membership.user_id == viewer.id, do: membership.key
+    end)
+  end
+
+  # Short-lived presigned GET URL for the org's logo (org_key-encrypted) blob, or
+  # nil when no logo is set. The browser decrypts it with the org_key
+  # (OrgLogoDisplay hook) — the server never sees the plaintext image.
+  defp org_logo_presigned_url(%{logo_url: path}) when is_binary(path) do
+    case Mosslet.FileUploads.SharedFileStorage.presigned_url(path) do
+      {:ok, url} -> url
+      _ -> nil
+    end
+  end
+
+  defp org_logo_presigned_url(_), do: nil
 
   # Plan-aware signup intent persisted at sign-in (UserAuth.maybe_put_plan_intent).
   # Drives where the user lands after onboarding (Task #214/#215). All plans land
@@ -102,6 +150,49 @@ defmodule MossletWeb.UserOnboardingLive do
             <div class="flex-1 lg:max-w-lg">
               <.liquid_card padding="lg" class="overflow-hidden">
                 <div class="text-center mb-8">
+                  <%!-- Org-branded onboarding (Task #240 / #243, flagship). Shown
+                        only on a live org subdomain host. The member holds their
+                        Membership.key here, so we CAN show the ZK brand LOGO (it
+                        decrypts client-side); a non-key-holder gracefully gets the
+                        name accent only. ACCENT only + persistent "Secured by
+                        MOSSLET" — never a whitelabel (anti-impersonation). --%>
+                  <div
+                    :if={@subdomain_org_live? && @subdomain_org}
+                    id="org-branded-onboarding"
+                    class="mb-6 flex flex-col items-center gap-3"
+                  >
+                    <.org_logo
+                      :if={@subdomain_logo_url && @subdomain_sealed_org_key}
+                      id="org-branded-onboarding-logo"
+                      logo_url={@subdomain_logo_url}
+                      sealed_org_key={@subdomain_sealed_org_key}
+                      frame_class="h-16 w-16 rounded-2xl"
+                      alt={"#{@subdomain_org.name} logo"}
+                    >
+                      <:fallback>
+                        <span class="flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200/70 dark:border-slate-700/70 bg-white dark:bg-slate-900/40">
+                          <.phx_icon
+                            name="hero-building-office-2"
+                            class="size-7 text-emerald-600 dark:text-emerald-400"
+                          />
+                        </span>
+                      </:fallback>
+                    </.org_logo>
+                    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200/50 dark:border-emerald-700/30">
+                      <.phx_icon
+                        name="hero-building-office-2"
+                        class="size-4 text-emerald-600 dark:text-emerald-400"
+                      />
+                      <span class="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                        {gettext("Welcome to %{org}", org: @subdomain_org.name)}
+                      </span>
+                    </div>
+                    <p class="inline-flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
+                      <.phx_icon name="hero-lock-closed" class="size-3" />
+                      {gettext("Secured by MOSSLET")}
+                    </p>
+                  </div>
+
                   <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/30 dark:to-emerald-900/30 border border-teal-200/50 dark:border-teal-700/30 mb-6">
                     <span class="text-xl">✨</span>
                     <span class="text-sm font-medium text-teal-700 dark:text-teal-300">

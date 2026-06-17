@@ -149,7 +149,7 @@ defmodule MossletWeb.BusinessLive.Show do
           </div>
 
           <p
-            :if={@can_manage? && @seats.available == 0}
+            :if={@is_owner? && @seats.available == 0}
             id="business-seat-full-notice"
             class="rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-800 dark:text-amber-300"
           >
@@ -453,9 +453,11 @@ defmodule MossletWeb.BusinessLive.Show do
           </.form>
 
           <%!-- Custom subdomain (Task #240 / #243, Phase B — the PAID add-on).
-                Gated by has_branding_addon?/1 (server-authoritative). The logo
-                above stays free; only this subdomain is behind the add-on. --%>
+                Gated by has_branding_addon?/1 (server-authoritative) AND, because
+                it mutates the paid subscription, OWNER-ONLY (@is_owner?) — the
+                free logo above stays admin-manageable. --%>
           <div
+            :if={@is_owner?}
             id="org-subdomain"
             class="pt-4 border-t border-slate-100 dark:border-slate-700/60 space-y-3"
           >
@@ -539,21 +541,33 @@ defmodule MossletWeb.BusinessLive.Show do
                       #218). --%>
                 <div
                   id="org-subdomain-upsell-addon"
-                  class="rounded-xl border border-teal-200/70 dark:border-teal-800/50 bg-teal-50/60 dark:bg-teal-900/20 p-4 space-y-2"
+                  class="rounded-xl border border-teal-200/70 dark:border-teal-800/50 bg-teal-50/60 dark:bg-teal-900/20 p-4 space-y-3"
                 >
                   <p class="text-sm font-medium text-teal-900 dark:text-teal-200">
                     Add a custom subdomain to your plan
                   </p>
                   <p class="text-xs text-teal-800/80 dark:text-teal-300/80">
-                    The custom-subdomain add-on is $15/mo (or $150/yr). You can add it from your
-                    organization's billing settings.
+                    The custom-subdomain add-on is $15/mo (or $150/yr), matched to your billing
+                    cycle and prorated to your next invoice. Add it in one click — no checkout
+                    needed.
                   </p>
-                  <.link
-                    navigate={~p"/app/org/#{@org.slug}/billing"}
-                    class="inline-flex items-center gap-1.5 text-sm font-medium text-teal-700 dark:text-teal-300 hover:text-teal-800 dark:hover:text-teal-200"
+                  <.liquid_button
+                    type="button"
+                    id="org-subdomain-add-addon"
+                    size="sm"
+                    icon="hero-sparkles"
+                    phx-click="add_subdomain_addon"
+                    phx-disable-with="Adding…"
+                    data-confirm="Add the custom-subdomain add-on ($15/mo or $150/yr, matched to your billing cycle) to this organization's plan? The prorated amount will be added to your next invoice."
                   >
-                    <.phx_icon name="hero-credit-card" class="size-4" /> Manage billing
-                  </.link>
+                    Add custom subdomain
+                  </.liquid_button>
+                  <p class="text-xs text-teal-700/70 dark:text-teal-400/70">
+                    Prefer to review first? <.link
+                      navigate={~p"/app/org/#{@org.slug}/billing"}
+                      class="font-medium underline underline-offset-2 hover:text-teal-800 dark:hover:text-teal-200"
+                    >Manage billing</.link>.
+                  </p>
                 </div>
             <% end %>
           </div>
@@ -1564,9 +1578,12 @@ defmodule MossletWeb.BusinessLive.Show do
     org = socket.assigns.org
 
     cond do
-      # Role gate (admins-only) — unchanged from logo management.
-      not Orgs.can_manage_branding?(org, socket.assigns.membership) ->
-        {:noreply, put_flash(socket, :error, "You don't have permission to manage branding.")}
+      # Owner-only gate: claiming a subdomain mutates the org's paid subscription
+      # (the add-on), so it's restricted to the billing owner — stricter than the
+      # free logo (admins).
+      not Orgs.can_manage_billing?(org, socket.assigns.current_scope.user.id) ->
+        {:noreply,
+         put_flash(socket, :error, "Only the organization owner can manage the subdomain.")}
 
       # Entitlement gate (server-authoritative): only orgs carrying the paid
       # add-on may claim a subdomain. The logo is never gated this way.
@@ -1604,7 +1621,7 @@ defmodule MossletWeb.BusinessLive.Show do
   def handle_event("release_subdomain", _params, socket) do
     org = socket.assigns.org
 
-    if Orgs.can_manage_branding?(org, socket.assigns.membership) do
+    if Orgs.can_manage_billing?(org, socket.assigns.current_scope.user.id) do
       case Orgs.clear_org_subdomain(org) do
         {:ok, org} ->
           {:noreply,
@@ -1621,7 +1638,42 @@ defmodule MossletWeb.BusinessLive.Show do
            put_flash(socket, :error, "Could not release the subdomain. Please try again.")}
       end
     else
-      {:noreply, put_flash(socket, :error, "You don't have permission to manage branding.")}
+      {:noreply,
+       put_flash(socket, :error, "Only the organization owner can manage the subdomain.")}
+    end
+  end
+
+  # One-click add-on purchase for an already-active org (Task #240 / #243). The
+  # dashboard is only reachable for a covered org, so there's always an active
+  # subscription to append the line item to — no Checkout Session, no plan swap.
+  # Re-checks the role gate server-side; the entitlement is set BY this action so
+  # it must NOT be required up-front (that's the upsell branch's whole purpose).
+  def handle_event("add_subdomain_addon", _params, socket) do
+    org = socket.assigns.org
+
+    if Orgs.can_manage_billing?(org, socket.assigns.current_scope.user.id) do
+      case Orgs.add_subdomain_addon(org) do
+        {:ok, _} ->
+          {:noreply,
+           socket
+           |> assign(:has_branding_addon?, Orgs.has_branding_addon?(org))
+           |> assign(:subdomain_form, to_form(Org.subdomain_changeset(org, %{}), as: :branding))
+           |> put_flash(
+             :success,
+             "The custom-subdomain add-on is now active. Claim your subdomain below."
+           )}
+
+        {:error, _reason} ->
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "We couldn't add the subdomain add-on right now. Please try from billing, or contact support."
+           )}
+      end
+    else
+      {:noreply,
+       put_flash(socket, :error, "Only the organization owner can manage the subdomain.")}
     end
   end
 

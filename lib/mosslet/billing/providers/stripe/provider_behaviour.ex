@@ -22,6 +22,7 @@ defmodule Mosslet.Billing.Providers.Stripe.ProviderBehaviour do
   @callback list_subscriptions(params) :: {:ok, product} | {:error, error}
   @callback list_payment_intents(params) :: {:ok, [payment_intent]} | {:error, error}
   @callback retrieve_subscription(id) :: {:ok, subscription} | {:error, error}
+  @callback update_subscription(id, params) :: {:ok, subscription} | {:error, error}
   @callback cancel_subscription(id) :: {:ok, subscription} | {:error, error}
   @callback cancel_subscription_immediately(id) :: {:ok, subscription} | {:error, error}
   @callback resume_subscription(id) :: {:ok, subscription} | {:error, error}

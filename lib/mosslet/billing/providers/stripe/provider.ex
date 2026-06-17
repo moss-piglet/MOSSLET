@@ -76,6 +76,11 @@ defmodule Mosslet.Billing.Providers.Stripe.Provider do
   end
 
   @impl true
+  def update_subscription(id, params) do
+    Stripe.Subscription.update(id, params)
+  end
+
+  @impl true
   def cancel_subscription(id) do
     Stripe.Subscription.update(id, %{cancel_at_period_end: true})
   end
