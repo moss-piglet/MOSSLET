@@ -17,6 +17,7 @@ defmodule MossletWeb.BillingLive do
       |> assign(:source, socket.assigns.live_action)
       |> assign(:billing_provider, billing_provider())
       |> assign(:invoice_year_filter, nil)
+      |> assign(:orphan_guard_open, false)
 
     {:ok, socket}
   end
@@ -216,6 +217,33 @@ defmodule MossletWeb.BillingLive do
   defp subscribe_path(:user, _assigns), do: ~p"/app/subscribe"
   defp subscribe_path(:org, assigns), do: ~p"/app/org/#{assigns.current_org.slug}/subscribe"
 
+  defp do_cancel_subscription(subscription_id, socket) do
+    subscription = Subscriptions.get_subscription!(subscription_id)
+
+    if subscription.status == "trialing" do
+      cancel_subscription_immediately(subscription, socket)
+    else
+      cancel_subscription_at_period_end(subscription, socket)
+    end
+  end
+
+  # True only when this is the org-scoped billing page, the current user OWNS the
+  # org, and the org has at least 2 members (the owner + at least one other who
+  # would be stranded). Everything else (personal billing, non-owner admin,
+  # single-member org) returns false and cancellation proceeds normally.
+  defp org_owner_cancel_would_orphan?(%{
+         assigns: %{
+           source: :org,
+           current_org: %Mosslet.Orgs.Org{} = org,
+           current_scope: %{user: user}
+         }
+       }) do
+    Mosslet.Orgs.owner?(org, user.id) and
+      length(Mosslet.Orgs.list_members_by_org(org)) >= 2
+  end
+
+  defp org_owner_cancel_would_orphan?(_socket), do: false
+
   defp cancel_subscription_immediately(subscription, socket) do
     case billing_provider().cancel_subscription_immediately(subscription.provider_subscription_id) do
       {:ok, _cancelled} ->
@@ -271,13 +299,24 @@ defmodule MossletWeb.BillingLive do
 
   @impl true
   def handle_event("cancel_subscription", %{"subscription-id" => subscription_id}, socket) do
-    subscription = Subscriptions.get_subscription!(subscription_id)
-
-    if subscription.status == "trialing" do
-      cancel_subscription_immediately(subscription, socket)
+    # Orphan guard (Task #237): canceling an ORG's `:org`-source subscription is
+    # the ONLY path that can strand fellow members (it removes the org's
+    # coverage). When the canceller is the OWNER of an org with at least one OTHER
+    # member, we intercept BEFORE any Stripe call and surface a friendly blocking
+    # notice: transfer ownership first, or delete the org (deletion is #227, shown
+    # as "coming soon"). A single-member org (owner only) can cancel freely —
+    # nobody is stranded. Personal `:user` cancellation is never gated here: a
+    # personal plan can't orphan an org.
+    if org_owner_cancel_would_orphan?(socket) do
+      {:noreply, assign(socket, :orphan_guard_open, true)}
     else
-      cancel_subscription_at_period_end(subscription, socket)
+      do_cancel_subscription(subscription_id, socket)
     end
+  end
+
+  @impl true
+  def handle_event("dismiss_orphan_guard", _params, socket) do
+    {:noreply, assign(socket, :orphan_guard_open, false)}
   end
 
   @impl true
@@ -476,6 +515,59 @@ defmodule MossletWeb.BillingLive do
               />
             </div>
           </DesignSystem.liquid_container>
+
+          <%!-- Orphan guard (Task #237): block an owner from canceling the org's
+                plan while other members still depend on its coverage. --%>
+          <DesignSystem.liquid_modal
+            :if={@orphan_guard_open}
+            id="orphan-guard-modal"
+            show={@orphan_guard_open}
+            modal_portal={false}
+            on_cancel={JS.push("dismiss_orphan_guard")}
+          >
+            <:title>{gettext("This organization has other members")}</:title>
+
+            <div id="orphan-guard-body" class="space-y-5">
+              <p class="text-sm text-slate-600 dark:text-slate-300">
+                {gettext(
+                  "Canceling this plan would remove coverage for everyone in %{name}. Before you can cancel, transfer ownership to another member, or delete the organization.",
+                  name: @current_org.name
+                )}
+              </p>
+
+              <div class="flex flex-col sm:flex-row gap-3">
+                <DesignSystem.liquid_button
+                  id="orphan-guard-transfer"
+                  navigate={"#{org_home_path(@current_org)}#ownership"}
+                  color="emerald"
+                  icon="hero-arrow-right-circle"
+                >
+                  {gettext("Transfer ownership")}
+                </DesignSystem.liquid_button>
+
+                <DesignSystem.liquid_button
+                  id="orphan-guard-delete"
+                  color="rose"
+                  icon="hero-trash"
+                  variant="ghost"
+                  disabled
+                >
+                  {gettext("Delete organization (coming soon)")}
+                </DesignSystem.liquid_button>
+              </div>
+
+              <div class="flex justify-end">
+                <button
+                  id="orphan-guard-dismiss"
+                  type="button"
+                  phx-click="dismiss_orphan_guard"
+                  class="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                >
+                  {gettext("Never mind")}
+                </button>
+              </div>
+            </div>
+          </DesignSystem.liquid_modal>
         </.layout>
     <% end %>
     """

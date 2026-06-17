@@ -12,6 +12,7 @@ defmodule Mosslet.Billing.Providers.Stripe.ProviderBehaviour do
 
   @callback create_customer(params) :: {:ok, customer} | {:error, error}
   @callback retrieve_customer(id) :: {:ok, customer} | {:error, error}
+  @callback update_customer(id, params) :: {:ok, customer} | {:error, error}
   @callback create_portal_session(params) :: {:ok, session} | {:error, error}
   @callback create_checkout_session(params) :: {:ok, session} | {:error, error}
   @callback retrieve_product(id) :: {:ok, product} | {:error, error}

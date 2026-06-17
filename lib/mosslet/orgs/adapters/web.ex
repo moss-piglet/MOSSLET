@@ -12,7 +12,7 @@ defmodule Mosslet.Orgs.Adapters.Web do
   import Ecto.Query, only: [from: 2, where: 3, order_by: 3, join: 5]
 
   alias Mosslet.Repo
-  alias Mosslet.Orgs.{Org, Membership, Invitation, Guardianship}
+  alias Mosslet.Orgs.{Org, Membership, Invitation, Guardianship, OwnershipTransfer}
 
   @impl true
   def list_orgs(user) do
@@ -575,6 +575,113 @@ defmodule Mosslet.Orgs.Adapters.Web do
          end) do
       {:ok, {:ok, guardianship}} -> {:ok, guardianship}
       {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
+  end
+
+  ## Ownership transfer handshake (Task #237)
+
+  @impl true
+  def insert_ownership_transfer(attrs) do
+    case Repo.transaction_on_primary(fn ->
+           attrs
+           |> OwnershipTransfer.insert_changeset()
+           |> Repo.insert()
+         end) do
+      {:ok, {:ok, transfer}} -> {:ok, transfer}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
+  end
+
+  @impl true
+  def get_ownership_transfer(id) do
+    case Ecto.UUID.cast(id) do
+      {:ok, uuid} ->
+        Repo.get(OwnershipTransfer, uuid) |> Repo.preload([:org, :from_user, :to_user])
+
+      :error ->
+        nil
+    end
+  end
+
+  @impl true
+  def get_pending_transfer_for_org(%Org{} = org) do
+    org
+    |> OwnershipTransfer.pending_for_org()
+    |> Repo.one()
+    |> Repo.preload([:org, :from_user, :to_user])
+  end
+
+  @impl true
+  def list_pending_transfers_for_user(user) do
+    user
+    |> OwnershipTransfer.pending_for_user()
+    |> Repo.all()
+    |> Repo.preload([:org, :from_user, :to_user])
+  end
+
+  @impl true
+  def update_ownership_transfer_status(transfer, attrs) do
+    case Repo.transaction_on_primary(fn ->
+           transfer
+           |> OwnershipTransfer.status_changeset(attrs)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, transfer}} -> {:ok, transfer}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
+  end
+
+  # Atomically flips org ownership to the new owner, promotes them to :admin
+  # (idempotent — leaves an already-:admin role intact), and marks the transfer
+  # :accepted. The previous owner KEEPS their membership + :admin role (Task #237
+  # decision #2). All in one primary-DB transaction so a partial flip can't strand
+  # an org. The Stripe email reconciliation runs separately in the caller (the new
+  # owner's session) — never here — since the server cannot decrypt the email.
+  @impl true
+  def accept_ownership_transfer_record(%OwnershipTransfer{} = transfer, to_user) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    result =
+      Repo.transaction_on_primary(fn ->
+        Ecto.Multi.new()
+        |> Ecto.Multi.run(:org, fn repo, _ ->
+          case repo.get(Org, transfer.org_id) do
+            nil -> {:error, :org_not_found}
+            %Org{} = org -> {:ok, org}
+          end
+        end)
+        |> Ecto.Multi.run(:owner, fn repo, %{org: org} ->
+          org
+          |> Ecto.Changeset.change(created_by_id: to_user.id)
+          |> repo.update()
+        end)
+        |> Ecto.Multi.run(:membership, fn repo, %{org: org} ->
+          case repo.get_by(Membership, org_id: org.id, user_id: to_user.id) do
+            nil ->
+              {:error, :not_a_member}
+
+            %Membership{role: :admin} = membership ->
+              {:ok, membership}
+
+            %Membership{} = membership ->
+              membership
+              |> Membership.update_changeset(%{role: :admin})
+              |> repo.update()
+          end
+        end)
+        |> Ecto.Multi.update(
+          :transfer,
+          OwnershipTransfer.status_changeset(transfer, %{status: :accepted, accepted_at: now})
+        )
+        |> Repo.transaction()
+      end)
+
+    case result do
+      {:ok, {:ok, %{transfer: transfer, owner: org}}} -> {:ok, %{transfer | org: org}}
+      {:ok, {:error, _step, reason, _changes}} -> {:error, reason}
       error -> error
     end
   end

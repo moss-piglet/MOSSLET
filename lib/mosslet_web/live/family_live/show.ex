@@ -9,6 +9,8 @@ defmodule MossletWeb.FamilyLive.Show do
   """
   use MossletWeb, :live_view
 
+  import MossletWeb.OrgTransferActions
+
   alias Mosslet.Orgs
 
   @impl true
@@ -33,6 +35,8 @@ defmodule MossletWeb.FamilyLive.Show do
        |> assign(:coverage_status, Orgs.org_coverage_status(current_user))
        |> assign(:invite_form, to_form(%{"email" => ""}, as: :invite))
        |> assign(:org_display_name_form, to_form(%{"name" => ""}, as: :org_display_name))
+       |> assign(:transfer_modal_open, false)
+       |> assign(:transfer_form, to_form(%{"password" => "", "to_user_id" => ""}, as: :transfer))
        |> assign_family_data()}
     else
       {:ok,
@@ -194,6 +198,13 @@ defmodule MossletWeb.FamilyLive.Show do
                       </span>
                     </p>
                     <.family_role_badge role={member.membership.role} />
+                    <span
+                      :if={Orgs.owner?(@org, member.user.id)}
+                      id={"owner-badge-#{member.user.id}"}
+                      class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300"
+                    >
+                      <.phx_icon name="hero-key" class="size-3" /> Owner
+                    </span>
                   </div>
                   <p
                     :if={member.guardian_summaries != []}
@@ -228,8 +239,11 @@ defmodule MossletWeb.FamilyLive.Show do
                   <.phx_icon name="hero-clock" class="size-3.5" /> Pending
                 </span>
 
+                <%!-- The owner is the org's billing/coverage anchor: an admin
+                     can't change their role (ownership transfer is the only path
+                     — Task #237). --%>
                 <form
-                  :if={@membership.role == :admin}
+                  :if={@membership.role == :admin && not Orgs.owner?(@org, member.user.id)}
                   phx-change="change_role"
                   id={"role-form-#{member.user.id}"}
                 >
@@ -330,6 +344,18 @@ defmodule MossletWeb.FamilyLive.Show do
             </.form>
           </div>
         </section>
+
+        <%!-- Ownership / transfer handshake (Task #237) --%>
+        <.ownership_section
+          org={@org}
+          current_user={@current_scope.user}
+          is_owner={@is_owner?}
+          members={@members}
+          viewer_sealed_org_key={@viewer_sealed_org_key}
+          pending_transfer={@pending_transfer}
+          transfer_modal_open={@transfer_modal_open}
+          transfer_form={@transfer_form}
+        />
 
         <%!-- Guardianship management (admin) --%>
         <section
@@ -445,6 +471,48 @@ defmodule MossletWeb.FamilyLive.Show do
     {:noreply, connect_teammate(socket, user_id, &assign_family_data/1)}
   end
 
+  ## Ownership transfer handshake (Task #237)
+
+  @impl true
+  def handle_event("open_transfer_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:transfer_modal_open, true)
+     |> assign(
+       :transfer_form,
+       to_form(%{"password" => "", "to_user_id" => ""}, as: :transfer)
+     )}
+  end
+
+  @impl true
+  def handle_event("close_transfer_modal", _params, socket) do
+    {:noreply, assign(socket, :transfer_modal_open, false)}
+  end
+
+  @impl true
+  def handle_event("initiate_transfer", params, socket) do
+    to_user_id = Map.get(params, "to_user_id", "")
+    password = get_in(params, ["transfer", "password"]) || ""
+    {:noreply, do_initiate_transfer(socket, to_user_id, password, &assign_family_data/1)}
+  end
+
+  @impl true
+  def handle_event("accept_transfer", params, socket) do
+    transfer_id = Map.get(params, "transfer_id", "")
+    password = get_in(params, ["transfer", "password"]) || ""
+    {:noreply, do_accept_transfer(socket, transfer_id, password, &assign_family_data/1)}
+  end
+
+  @impl true
+  def handle_event("decline_transfer", %{"transfer_id" => transfer_id}, socket) do
+    {:noreply, do_decline_transfer(socket, transfer_id, &assign_family_data/1)}
+  end
+
+  @impl true
+  def handle_event("cancel_transfer", %{"transfer_id" => transfer_id}, socket) do
+    {:noreply, do_cancel_transfer(socket, transfer_id, &assign_family_data/1)}
+  end
+
   @impl true
   def handle_event("invite_member", %{"invite" => %{"email" => email}}, socket) do
     case Orgs.create_invitation(socket.assigns.org, %{"sent_to" => email}) do
@@ -508,7 +576,10 @@ defmodule MossletWeb.FamilyLive.Show do
   def handle_event("change_role", %{"user_id" => user_id, "role" => role}, socket) do
     member = Enum.find(socket.assigns.members, &(&1.user.id == user_id))
 
-    if member do
+    # The owner is the org's billing/coverage anchor: their role can't be changed
+    # by an admin (ownership transfer is the only path — Task #237).
+    if member && socket.assigns.membership.role == :admin &&
+         not Orgs.owner?(socket.assigns.org, user_id) do
       case Orgs.update_membership(member.membership, %{"role" => role}) do
         {:ok, _membership} ->
           {:noreply,
@@ -647,13 +718,17 @@ defmodule MossletWeb.FamilyLive.Show do
   @impl true
   def handle_info({:org_updated, _org_id}, socket) do
     current_user = socket.assigns.current_scope.user
-    org = socket.assigns.org
+    # Re-fetch the org so ownership-derived state (e.g. `is_owner?` after an
+    # ownership transfer, Task #237) reflects the latest `created_by_id` rather
+    # than the stale struct captured at mount.
+    org = Orgs.get_org_by_id(socket.assigns.org.id) || socket.assigns.org
 
     # Realtime org changes (Task #223 pubsub). Refresh when still a member;
     # otherwise leave the org surface gracefully (loss-of-coverage state A).
     if Orgs.member_of_org?(org, current_user.id) do
       {:noreply,
        socket
+       |> assign(:org, org)
        |> assign(:membership, Orgs.get_membership!(current_user, org.slug))
        |> assign(:coverage_status, Orgs.org_coverage_status(current_user))
        |> assign_family_data()}
@@ -778,6 +853,8 @@ defmodule MossletWeb.FamilyLive.Show do
     |> assign(:pending_invitations, Orgs.list_invitations_by_org(org))
     |> assign(:seats, Orgs.seat_summary(org))
     |> assign(:can_establish?, guardian_options != [] and managed_options != [])
+    |> assign(:is_owner?, Orgs.owner?(org, current_user.id))
+    |> assign(:pending_transfer, Orgs.get_pending_transfer_for_org(org))
     |> maybe_request_org_key_seal()
   end
 

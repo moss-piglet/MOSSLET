@@ -26,6 +26,11 @@ defmodule Mosslet.Billing.Providers.Stripe.Provider do
   end
 
   @impl true
+  def update_customer(customer_id, params) do
+    Stripe.Customer.update(customer_id, params)
+  end
+
+  @impl true
   def create_portal_session(params) do
     Stripe.BillingPortal.Session.create(params)
   end

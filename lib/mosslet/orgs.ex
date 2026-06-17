@@ -15,7 +15,7 @@ defmodule Mosslet.Orgs do
   alias Mosslet.Billing.PaymentIntents
   alias Mosslet.Billing.Plans
   alias Mosslet.Billing.Subscriptions
-  alias Mosslet.Orgs.{Org, Membership, Invitation, Guardianship}
+  alias Mosslet.Orgs.{Org, Membership, Invitation, Guardianship, OwnershipTransfer}
 
   @membership_roles ~w(member admin)
 
@@ -284,6 +284,256 @@ defmodule Mosslet.Orgs do
   end
 
   def owner?(_, _), do: false
+
+  ## Ownership transfer handshake (Task #237, Option C)
+  #
+  # Ownership of an org is `Org.created_by_id`. Transferring it is a two-step
+  # request -> accept handshake so the ZK-safe Stripe email sync can run in the
+  # NEW owner's authenticated session (where their `session_key` exists), and so
+  # nobody has org billing/ownership forced onto them without consent.
+  #
+  # Both parties re-authenticate with their password at their step (initiate /
+  # accept) — high-friction, mirroring #227. The previous owner KEEPS their
+  # membership + :admin role (decision #2); the new owner is auto-promoted to
+  # :admin on accept (decision #1). No crypto re-seal is needed: the target is
+  # already a confirmed member and already holds the sealed `org_key` (#225).
+  #
+  # ZK-safe: transfer rows carry only ids + status + timestamps; the only
+  # plaintext touched (the new owner's email, for Stripe) lives in-session and is
+  # never logged, persisted here, or placed in Stripe metadata.
+
+  @doc """
+  Returns the pending ownership transfer for `org`, or `nil`. Preloaded with
+  `:org`, `:from_user`, `:to_user`.
+  """
+  def get_pending_transfer_for_org(%Org{} = org) do
+    adapter().get_pending_transfer_for_org(org)
+  end
+
+  @doc """
+  Returns the pending ownership transfers proposed TO `user` (i.e. transfers the
+  user can accept/decline), most recent first. Preloaded.
+  """
+  def list_pending_transfers_for_user(%Mosslet.Accounts.User{} = user) do
+    adapter().list_pending_transfers_for_user(user)
+  end
+
+  @doc """
+  Non-raising fetch of a transfer by id (preloaded), or `nil`.
+  """
+  def get_ownership_transfer(id) when is_binary(id) do
+    adapter().get_ownership_transfer(id)
+  end
+
+  @doc """
+  Initiates an ownership-transfer handshake (Task #237).
+
+  Owner-only. The `to_user` must be a confirmed CURRENT member of the org and not
+  the owner themselves, the org must have at least two members, and there must be
+  no existing `:pending` transfer. `password` re-authenticates the OLD owner.
+
+  Returns `{:ok, transfer}` or `{:error, reason}` where `reason` is one of
+  `:not_owner`, `:not_a_member`, `:single_member_org`, `:transfer_already_pending`,
+  `:invalid_password`.
+  """
+  def initiate_ownership_transfer(%Org{} = org, from_user, to_user, password)
+      when is_binary(password) do
+    cond do
+      not owner?(org, from_user.id) ->
+        {:error, :not_owner}
+
+      to_user.id == from_user.id ->
+        {:error, :cannot_transfer_to_self}
+
+      not Mosslet.Accounts.User.valid_password?(from_user, password) ->
+        {:error, :invalid_password}
+
+      count_members(org) < 2 ->
+        {:error, :single_member_org}
+
+      not member_of_org?(org, to_user.id) ->
+        {:error, :not_a_member}
+
+      get_pending_transfer_for_org(org) != nil ->
+        {:error, :transfer_already_pending}
+
+      true ->
+        case adapter().insert_ownership_transfer(%{
+               org_id: org.id,
+               from_user_id: from_user.id,
+               to_user_id: to_user.id,
+               status: :pending
+             }) do
+          {:ok, transfer} ->
+            Mosslet.Logs.log_async("orgs.initiate_ownership_transfer", %{
+              user: from_user,
+              target_user_id: to_user.id,
+              org_id: org.id
+            })
+
+            broadcast_org_update(org.id)
+            {:ok, transfer}
+
+          {:error, _reason} = error ->
+            error
+        end
+    end
+  end
+
+  @doc """
+  Accepts a pending ownership transfer (Task #237) — runs in the NEW owner's
+  authenticated session.
+
+  `accepting_user` must be the proposed new owner (`to_user_id`). `password`
+  re-authenticates them; `session_key` is needed to decrypt the new owner's email
+  for the ZK-safe Stripe reconciliation. In one transaction the org's
+  `created_by_id` is flipped to the new owner and their membership role is
+  promoted to `:admin` (the old owner keeps their :admin membership). AFTER the
+  ownership flip commits, the org's `:org` Stripe customer + local
+  `Customer.email` are reconciled to the new owner's email.
+
+  Returns `{:ok, transfer}` or `{:error, reason}` (`:not_recipient`,
+  `:invalid_password`, `:not_pending`, `:not_a_member`, ...). A failed Stripe
+  reconciliation does NOT roll back the (already-committed) ownership flip — it is
+  logged and surfaced as a soft warning so the new owner can retry from billing.
+  """
+  def accept_ownership_transfer(
+        %OwnershipTransfer{} = transfer,
+        accepting_user,
+        password,
+        session_key
+      )
+      when is_binary(password) do
+    cond do
+      transfer.to_user_id != accepting_user.id ->
+        {:error, :not_recipient}
+
+      transfer.status != :pending ->
+        {:error, :not_pending}
+
+      not Mosslet.Accounts.User.valid_password?(accepting_user, password) ->
+        {:error, :invalid_password}
+
+      true ->
+        case adapter().accept_ownership_transfer_record(transfer, accepting_user) do
+          {:ok, accepted} ->
+            org = accepted.org || get_org_by_id(transfer.org_id)
+
+            Mosslet.Logs.log_async("orgs.accept_ownership_transfer", %{
+              user: accepting_user,
+              target_user_id: transfer.from_user_id,
+              org_id: transfer.org_id
+            })
+
+            # ZK-safe email reconciliation runs in THIS (new owner's) session.
+            # Best-effort: never roll back the committed ownership flip.
+            reconcile_org_customer_email(org, accepting_user, session_key)
+
+            broadcast_org_update(transfer.org_id)
+            {:ok, accepted}
+
+          {:error, _reason} = error ->
+            error
+        end
+    end
+  end
+
+  @doc """
+  Declines a pending transfer (the proposed new owner refuses). `declining_user`
+  must be the recipient. Returns `{:ok, transfer}` or `{:error, reason}`.
+  """
+  def decline_ownership_transfer(%OwnershipTransfer{} = transfer, declining_user) do
+    cond do
+      transfer.to_user_id != declining_user.id -> {:error, :not_recipient}
+      transfer.status != :pending -> {:error, :not_pending}
+      true -> finalize_transfer(transfer, :declined, :declined_at, declining_user)
+    end
+  end
+
+  @doc """
+  Cancels a pending transfer (the original owner withdraws). `cancelling_user`
+  must be the proposer (and still the owner). Returns `{:ok, transfer}` or
+  `{:error, reason}`.
+  """
+  def cancel_ownership_transfer(%OwnershipTransfer{} = transfer, cancelling_user) do
+    cond do
+      transfer.from_user_id != cancelling_user.id -> {:error, :not_initiator}
+      transfer.status != :pending -> {:error, :not_pending}
+      true -> finalize_transfer(transfer, :cancelled, :cancelled_at, cancelling_user)
+    end
+  end
+
+  defp finalize_transfer(transfer, status, timestamp_field, acting_user) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    attrs = %{:status => status, timestamp_field => now}
+
+    case adapter().update_ownership_transfer_status(transfer, attrs) do
+      {:ok, updated} ->
+        Mosslet.Logs.log_async("orgs.#{status}_ownership_transfer", %{
+          user: acting_user,
+          org_id: transfer.org_id
+        })
+
+        broadcast_org_update(transfer.org_id)
+        {:ok, updated}
+
+      {:error, _reason} = error ->
+        error
+    end
+  end
+
+  # Reconciles the org's `:org` Stripe customer + local Customer.email to the new
+  # owner's email. Runs in the new owner's session so `session_key` can decrypt
+  # the (double-encrypted) email ZK-safely. Best-effort: a missing customer or a
+  # Stripe error is logged (ids only) and returns `:ok` — the ownership flip has
+  # already committed and the new owner can retry from billing.
+  defp reconcile_org_customer_email(nil, _user, _session_key), do: :ok
+
+  defp reconcile_org_customer_email(%Org{} = org, user, session_key)
+       when is_binary(session_key) do
+    case Customers.get_customer_by_source(:org, org.id) do
+      nil ->
+        # Inert org (never took a plan to checkout) — nothing to reconcile.
+        :ok
+
+      %Customer{} = customer ->
+        email = Mosslet.Encrypted.Users.Utils.decrypt_user_data(user.email, user, session_key)
+        sync_stripe_and_local_customer_email(customer, org, email)
+    end
+  rescue
+    error ->
+      require Logger
+      Logger.error("Org #{org.id} owner-transfer email reconcile failed: #{inspect(error)}")
+      :ok
+  end
+
+  defp reconcile_org_customer_email(_org, _user, _session_key), do: :ok
+
+  defp sync_stripe_and_local_customer_email(%Customer{} = customer, %Org{} = org, email)
+       when is_binary(email) do
+    require Logger
+    provider_customer_id = customer.provider_customer_id
+
+    with true <- is_binary(provider_customer_id),
+         {:ok, _stripe_customer} <-
+           Mosslet.Billing.Providers.Stripe.Provider.update_customer(provider_customer_id, %{
+             email: email
+           }) do
+      Customers.update_customer_for_source(:org, org.id, %{email: email})
+      :ok
+    else
+      false ->
+        # No Stripe customer id yet — just keep the local row in sync.
+        Customers.update_customer_for_source(:org, org.id, %{email: email})
+        :ok
+
+      {:error, error} ->
+        Logger.error("Stripe customer update failed for org #{org.id}: #{inspect(error)}")
+        :ok
+    end
+  end
+
+  defp sync_stripe_and_local_customer_email(_customer, _org, _email), do: :ok
 
   def update_org(%Org{} = org, attrs) do
     adapter().update_org(org, attrs)

@@ -7,9 +7,11 @@ defmodule MossletWeb.OrgComponents do
   """
   use Phoenix.Component
 
-  import MossletWeb.CoreComponents, only: [phx_icon: 1]
+  import MossletWeb.CoreComponents, only: [phx_icon: 1, phx_input: 1]
 
+  alias MossletWeb.DesignSystem
   alias Mosslet.Orgs
+  alias Phoenix.LiveView.JS
 
   @doc """
   Renders the pending org invitations with Revoke / Resend actions.
@@ -146,6 +148,260 @@ defmodule MossletWeb.OrgComponents do
   end
 
   def org_coverage_notice(assigns), do: ~H""
+
+  @doc """
+  Owner-only Ownership / Danger-zone section + the two-step transfer handshake UI
+  (Task #237). Shared VERBATIM by the Family and Business dashboards so the two
+  plans stay in parity.
+
+  Surfaces, in priority order:
+
+    * To the proposed NEW owner (when a `:pending` transfer targets them): an
+      Accept / Decline panel gated behind their own password (their `session_key`
+      is then used to sync the org's Stripe customer email — ZK-safe).
+    * To the current OWNER: either the pending state with a Cancel action, or the
+      "Transfer ownership" affordance (opens a modal to pick an eligible member +
+      confirm with their password). Single-member orgs are told they must invite
+      someone first (transfer needs a recipient).
+
+  Expects these assigns (provided by each LiveView):
+
+    * `:org`, `:current_user`
+    * `:is_owner` — `Orgs.owner?(org, current_user.id)`
+    * `:members` — the roster maps from `OrgIdentity.build_members/4`
+    * `:viewer_sealed_org_key` — drives the modal picker's ZK name decryption
+    * `:pending_transfer` — `Orgs.get_pending_transfer_for_org/1` result or nil
+    * `:transfer_modal_open` — boolean
+    * `:transfer_form` — `to_form` for the transfer (password + to_user_id)
+  """
+  attr :org, :map, required: true
+  attr :current_user, :map, required: true
+  attr :is_owner, :boolean, required: true
+  attr :members, :list, default: []
+  attr :viewer_sealed_org_key, :string, default: nil
+  attr :pending_transfer, :any, default: nil
+  attr :transfer_modal_open, :boolean, default: false
+  attr :transfer_form, :any, default: nil
+
+  def ownership_section(assigns) do
+    assigns =
+      assigns
+      |> assign(:incoming_transfer, incoming_transfer(assigns))
+      |> assign(:eligible_members, eligible_transfer_members(assigns))
+
+    ~H"""
+    <section
+      :if={@is_owner || @incoming_transfer}
+      id="org-ownership-section"
+      class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
+    >
+      <div class="flex items-center gap-2">
+        <.phx_icon name="hero-key" class="size-5 text-slate-400 dark:text-slate-500" />
+        <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Ownership</h2>
+      </div>
+
+      <%!-- Proposed new owner: Accept / Decline (their own password). --%>
+      <div
+        :if={@incoming_transfer}
+        id="incoming-transfer-panel"
+        class="rounded-xl border border-emerald-200/70 dark:border-emerald-800/50 bg-emerald-50/60 dark:bg-emerald-900/20 p-4 space-y-3"
+      >
+        <p class="text-sm font-medium text-emerald-900 dark:text-emerald-200">
+          You've been asked to take ownership of {@org.name}.
+        </p>
+        <p class="text-xs text-emerald-800/80 dark:text-emerald-300/80">
+          Accepting makes you the owner and an admin, and moves the organization's billing to your
+          account. Confirm with your password to accept.
+        </p>
+
+        <.form
+          for={@transfer_form}
+          id="accept-transfer-form"
+          phx-submit="accept_transfer"
+          class="space-y-3"
+        >
+          <input type="hidden" name="transfer_id" value={@incoming_transfer.id} />
+          <.phx_input
+            field={@transfer_form[:password]}
+            type="password"
+            label="Your password"
+            placeholder="Confirm your password"
+            phx-debounce="300"
+          />
+          <div class="flex flex-col sm:flex-row gap-2">
+            <DesignSystem.liquid_button
+              type="submit"
+              id="accept-transfer-submit"
+              color="emerald"
+              icon="hero-check"
+            >
+              Accept ownership
+            </DesignSystem.liquid_button>
+            <DesignSystem.liquid_button
+              type="button"
+              id="decline-transfer-submit"
+              color="slate"
+              variant="ghost"
+              phx-click="decline_transfer"
+              phx-value-transfer_id={@incoming_transfer.id}
+              data-confirm="Decline this ownership transfer?"
+            >
+              Decline
+            </DesignSystem.liquid_button>
+          </div>
+        </.form>
+      </div>
+
+      <%!-- Owner view --%>
+      <div :if={@is_owner && !@incoming_transfer} class="space-y-3">
+        <div
+          :if={@pending_transfer}
+          id="pending-transfer-owner-notice"
+          class="rounded-xl border border-amber-200/70 dark:border-amber-800/50 bg-amber-50/60 dark:bg-amber-900/20 p-4 space-y-3"
+        >
+          <p class="text-sm text-amber-900 dark:text-amber-200">
+            An ownership transfer is pending. It will complete once the other member accepts.
+          </p>
+          <DesignSystem.liquid_button
+            type="button"
+            id="cancel-transfer-submit"
+            color="amber"
+            variant="ghost"
+            icon="hero-x-mark"
+            phx-click="cancel_transfer"
+            phx-value-transfer_id={@pending_transfer.id}
+            data-confirm="Cancel the pending ownership transfer?"
+          >
+            Cancel transfer
+          </DesignSystem.liquid_button>
+        </div>
+
+        <div :if={!@pending_transfer} class="space-y-3">
+          <p class="text-sm text-slate-600 dark:text-slate-300">
+            Transfer ownership of this organization to another member. They'll be promoted to admin
+            and take over its billing; you'll keep your admin membership.
+          </p>
+
+          <p
+            :if={@eligible_members == []}
+            id="ownership-no-members-notice"
+            class="rounded-lg bg-slate-100 dark:bg-slate-700/60 px-3 py-2 text-xs text-slate-600 dark:text-slate-300"
+          >
+            Invite another member before you can transfer ownership — a transfer needs someone to
+            hand it to.
+          </p>
+
+          <DesignSystem.liquid_button
+            :if={@eligible_members != []}
+            type="button"
+            id="open-transfer-modal"
+            color="indigo"
+            icon="hero-arrow-right-circle"
+            phx-click="open_transfer_modal"
+          >
+            Transfer ownership
+          </DesignSystem.liquid_button>
+        </div>
+      </div>
+
+      <%!-- Transfer modal: pick an eligible member + confirm with password. --%>
+      <DesignSystem.liquid_modal
+        :if={@transfer_modal_open}
+        id="transfer-ownership-modal"
+        show={@transfer_modal_open}
+        on_cancel={JS.push("close_transfer_modal")}
+      >
+        <:title>Transfer ownership</:title>
+
+        <.form
+          for={@transfer_form}
+          id="transfer-ownership-form"
+          phx-submit="initiate_transfer"
+          class="space-y-4"
+        >
+          <fieldset
+            id="transfer-member-picker"
+            phx-hook="OrgMembers"
+            data-sealed-org-key={@viewer_sealed_org_key}
+            data-current-user-id={@current_user.id}
+            class="space-y-1 max-h-64 overflow-y-auto"
+          >
+            <legend class="text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">
+              Choose the new owner
+            </legend>
+            <label
+              :for={member <- @eligible_members}
+              data-org-member-row
+              data-encrypted-display-name={member.encrypted_display_name}
+              id={"transfer-option-#{member.user.id}"}
+              class="flex items-center gap-3 rounded-lg px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/40"
+            >
+              <input
+                type="radio"
+                name="to_user_id"
+                value={member.user.id}
+                class="text-emerald-600 focus:ring-emerald-500/30"
+              />
+              <span
+                class="text-sm text-slate-700 dark:text-slate-200"
+                {MossletWeb.OrgIdentity.org_name_target(member)}
+              >
+                {MossletWeb.OrgIdentity.placeholder_label(member)}
+              </span>
+            </label>
+          </fieldset>
+
+          <.phx_input
+            field={@transfer_form[:password]}
+            type="password"
+            label="Your password"
+            placeholder="Confirm your password"
+            phx-debounce="300"
+          />
+
+          <div class="flex flex-col sm:flex-row gap-2 justify-end">
+            <DesignSystem.liquid_button
+              type="button"
+              id="transfer-modal-cancel"
+              color="slate"
+              variant="ghost"
+              phx-click="close_transfer_modal"
+            >
+              Cancel
+            </DesignSystem.liquid_button>
+            <DesignSystem.liquid_button
+              type="submit"
+              id="initiate-transfer-submit"
+              color="emerald"
+              icon="hero-paper-airplane"
+            >
+              Send transfer request
+            </DesignSystem.liquid_button>
+          </div>
+        </.form>
+      </DesignSystem.liquid_modal>
+    </section>
+    """
+  end
+
+  # The pending transfer if it targets the current viewer (they can accept it).
+  defp incoming_transfer(%{
+         pending_transfer: %{to_user_id: to_id} = transfer,
+         current_user: %{id: id}
+       })
+       when to_id == id,
+       do: transfer
+
+  defp incoming_transfer(_assigns), do: nil
+
+  # Roster members eligible to receive ownership: confirmed members who are not
+  # the current owner (the viewer). The owner can't transfer to themselves.
+  defp eligible_transfer_members(%{members: members, current_user: %{id: id}})
+       when is_list(members) do
+    Enum.reject(members, &(&1.user.id == id))
+  end
+
+  defp eligible_transfer_members(_assigns), do: []
 
   defp coverage_grace_title({:grace, %{name: name}}) when is_binary(name) and name != "",
     do: "#{name}'s plan needs attention"

@@ -382,4 +382,51 @@ defmodule MossletWeb.FamilyLiveTest do
       assert has_element?(lv, "#connect-pending-#{ctx.member.id}")
     end
   end
+
+  describe "FamilyLive.Show ownership transfer (Task #237)" do
+    setup %{conn: conn} do
+      {owner, owner_key} = onboarded_user("famowner")
+      {member, member_key} = onboarded_user("fammember")
+      {:ok, org} = Orgs.create_org(owner, %{"name" => "Smiths", "type" => "family"})
+      subscribe_family(org)
+
+      {:ok, {:ok, _ms}} =
+        Mosslet.Repo.transaction_on_primary(fn ->
+          Orgs.Membership.insert_changeset(org, member, :member) |> Mosslet.Repo.insert()
+        end)
+
+      %{
+        conn: conn,
+        owner: owner,
+        owner_key: owner_key,
+        member: member,
+        member_key: member_key,
+        org: org
+      }
+    end
+
+    test "owner sees the Ownership section + transfer button (parity with business)", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.owner, ctx.owner_key) |> live(~p"/app/family/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#org-ownership-section")
+      assert has_element?(lv, "#open-transfer-modal")
+    end
+
+    test "the proposed new owner can accept and becomes owner", ctx do
+      {:ok, _transfer} =
+        Orgs.initiate_ownership_transfer(ctx.org, ctx.owner, ctx.member, @password)
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/family/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#incoming-transfer-panel")
+
+      lv
+      |> form("#accept-transfer-form", %{"transfer" => %{"password" => @password}})
+      |> render_submit()
+
+      assert Orgs.owner?(Orgs.get_org_by_id(ctx.org.id), ctx.member.id)
+    end
+  end
 end

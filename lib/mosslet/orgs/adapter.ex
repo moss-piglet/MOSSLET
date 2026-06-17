@@ -23,8 +23,7 @@ defmodule Mosslet.Orgs.Adapter do
   """
 
   alias Mosslet.Accounts.User
-  alias Mosslet.Orgs.{Org, Membership, Invitation, Guardianship}
-
+  alias Mosslet.Orgs.{Org, Membership, Invitation, Guardianship, OwnershipTransfer}
   @callback list_orgs(user :: User.t()) :: [Org.t()]
   @callback list_orgs() :: [Org.t()]
   @callback list_orgs_with_billing() :: [Org.t()]
@@ -108,4 +107,17 @@ defmodule Mosslet.Orgs.Adapter do
   @callback list_guardianships_for_guardian_membership(membership :: Membership.t()) ::
               [Guardianship.t()]
   @callback get_guardianship!(id :: String.t()) :: Guardianship.t()
+
+  # Ownership transfer handshake (Task #237).
+  @callback insert_ownership_transfer(attrs :: map()) ::
+              {:ok, OwnershipTransfer.t()} | {:error, Ecto.Changeset.t()}
+  @callback get_ownership_transfer(id :: String.t()) :: OwnershipTransfer.t() | nil
+  @callback get_pending_transfer_for_org(org :: Org.t()) :: OwnershipTransfer.t() | nil
+  @callback list_pending_transfers_for_user(user :: User.t()) :: [OwnershipTransfer.t()]
+  @callback accept_ownership_transfer_record(
+              transfer :: OwnershipTransfer.t(),
+              to_user :: User.t()
+            ) :: {:ok, OwnershipTransfer.t()} | {:error, term()}
+  @callback update_ownership_transfer_status(transfer :: OwnershipTransfer.t(), attrs :: map()) ::
+              {:ok, OwnershipTransfer.t()} | {:error, Ecto.Changeset.t()}
 end

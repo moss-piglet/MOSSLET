@@ -371,6 +371,134 @@ defmodule MossletWeb.BusinessLiveTest do
     end
   end
 
+  describe "BusinessLive.Show ownership transfer (Task #237)" do
+    setup %{conn: conn} do
+      {admin, admin_key} = onboarded_user("owner")
+      {member, member_key} = onboarded_user("member")
+      {:ok, org} = Orgs.create_org(admin, %{"name" => "Acme", "type" => "business"})
+      subscribe_org(org, quantity: 20)
+      add_member(org, member, :member)
+
+      %{
+        conn: conn,
+        admin: admin,
+        admin_key: admin_key,
+        member: member,
+        member_key: member_key,
+        org: org
+      }
+    end
+
+    test "owner sees the Ownership section and can open the transfer modal", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#org-ownership-section")
+      assert has_element?(lv, "#open-transfer-modal")
+
+      lv |> element("#open-transfer-modal") |> render_click()
+      # The modal is teleported to <body> via a portal, so query its rendered HTML.
+      modal_html = lv |> element("#transfer-ownership-modal-portal") |> render()
+      assert modal_html =~ "transfer-ownership-modal"
+      assert modal_html =~ "transfer-option-#{ctx.member.id}"
+    end
+
+    test "the owner shows an Owner badge and can't be removed or role-changed by an admin", ctx do
+      # Promote the member to admin so they CAN manage, then verify they still
+      # can't act on the owner.
+      owner_role = Orgs.get_membership!(ctx.admin, ctx.org.slug).role
+      member_ms = Orgs.get_membership!(ctx.member, ctx.org.slug)
+      {:ok, _} = Orgs.update_membership(member_ms, %{"role" => "admin"})
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#owner-badge-#{ctx.admin.id}")
+      refute has_element?(lv, "#offboard-#{ctx.admin.id}")
+      refute has_element?(lv, "#role-form-#{ctx.admin.id}")
+
+      # Server-side guard: a forged change_role on the owner is a no-op.
+      render_hook(lv, "change_role", %{"user_id" => ctx.admin.id, "role" => "member"})
+      assert Orgs.get_membership!(ctx.admin, ctx.org.slug).role == owner_role
+    end
+
+    test "owner of a single-member org sees the invite-first notice, no transfer button", ctx do
+      {solo, solo_key} = onboarded_user("solo")
+      {:ok, solo_org} = Orgs.create_org(solo, %{"name" => "Solo Co", "type" => "business"})
+      subscribe_org(solo_org, quantity: 20)
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(solo, solo_key) |> live(~p"/app/business/#{solo_org.slug}")
+
+      assert has_element?(lv, "#ownership-no-members-notice")
+      refute has_element?(lv, "#open-transfer-modal")
+    end
+
+    test "initiating a transfer with the correct password creates a pending transfer", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      lv |> element("#open-transfer-modal") |> render_click()
+
+      # The transfer form lives inside the body-portaled modal, so submit its
+      # event directly (this is exactly what the form's phx-submit emits).
+      render_hook(lv, "initiate_transfer", %{
+        "to_user_id" => ctx.member.id,
+        "transfer" => %{"password" => @password}
+      })
+
+      assert %{to_user_id: to_id} = Orgs.get_pending_transfer_for_org(ctx.org)
+      assert to_id == ctx.member.id
+      assert render(lv) =~ "Ownership transfer sent"
+    end
+
+    test "a wrong password is refused with a friendly error", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      lv |> element("#open-transfer-modal") |> render_click()
+
+      html =
+        render_hook(lv, "initiate_transfer", %{
+          "to_user_id" => ctx.member.id,
+          "transfer" => %{"password" => "the wrong password"}
+        })
+
+      assert html =~ "password is incorrect"
+      assert Orgs.get_pending_transfer_for_org(ctx.org) == nil
+    end
+
+    test "the proposed new owner sees Accept/Decline and can accept", ctx do
+      {:ok, _transfer} =
+        Orgs.initiate_ownership_transfer(ctx.org, ctx.admin, ctx.member, @password)
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#incoming-transfer-panel")
+      assert has_element?(lv, "#accept-transfer-form")
+
+      lv
+      |> form("#accept-transfer-form", %{"transfer" => %{"password" => @password}})
+      |> render_submit()
+
+      assert Orgs.owner?(Orgs.get_org_by_id(ctx.org.id), ctx.member.id)
+    end
+
+    test "the proposed new owner can decline", ctx do
+      {:ok, _transfer} =
+        Orgs.initiate_ownership_transfer(ctx.org, ctx.admin, ctx.member, @password)
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      lv |> element("#decline-transfer-submit") |> render_click()
+
+      assert Orgs.get_pending_transfer_for_org(ctx.org) == nil
+      assert Orgs.owner?(Orgs.get_org_by_id(ctx.org.id), ctx.admin.id)
+    end
+  end
+
   describe "Org-dash per-circle member management (Task #231)" do
     setup %{conn: conn} do
       {admin, admin_key} = onboarded_user("mgadmin")
