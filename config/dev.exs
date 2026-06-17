@@ -283,6 +283,9 @@ config :mosslet, :billing_products, [
         seat_addon_price:
           System.get_env("STRIPE_PRICE_BUSINESS_SEAT_MONTHLY") ||
             "price_business_seat_monthly_test",
+        subdomain_addon_price:
+          System.get_env("STRIPE_PRICE_BUSINESS_SUBDOMAIN_MONTHLY") ||
+            "price_business_subdomain_monthly_test",
         max_seats: 200,
         save_percent: 0,
         trial_days: 14,
@@ -319,6 +322,9 @@ config :mosslet, :billing_products, [
         included_seats: 10,
         seat_addon_price:
           System.get_env("STRIPE_PRICE_BUSINESS_SEAT_YEARLY") || "price_business_seat_yearly_test",
+        subdomain_addon_price:
+          System.get_env("STRIPE_PRICE_BUSINESS_SUBDOMAIN_YEARLY") ||
+            "price_business_subdomain_yearly_test",
         max_seats: 200,
         save_percent: 33,
         trial_days: 14,
@@ -366,4 +372,4 @@ config :email_checker,
 
 config :mosslet, MossletWeb.Plugs.ContentSecurityPolicy,
   csp:
-    "default-src 'none'; form-action 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' https://unpkg.com/@popperjs/core@2.11.8/dist/umd/popper.min.js https://unpkg.com/tippy.js@6.3.7/dist/tippy-bundle.umd.min.js https://unpkg.com/trix@2.1.13/dist/trix.umd.min.js https://cdn.usefathom.com/script.js https://cdn.jsdelivr.net/; style-src 'self' 'unsafe-inline' https://unpkg.com/trix@2.1.13/dist/trix.css; img-src 'self' data: blob: https://images.unsplash.com/ https://cdn.usefathom.com/ https://mosslet-dev.fly.storage.tigris.dev/ https://res.cloudinary.com/ https://huggingface.co/; font-src 'self' https://fonts.gstatic.com; connect-src 'self' wss://127.0.0.1:4000 http://127.0.0.1:4000 wss://localhost:4000 http://localhost:4000 https://mosslet-dev.fly.storage.tigris.dev/ https://huggingface.co/ https://cdn-lfs.huggingface.co/ https://cdn-lfs-us-1.huggingface.co/; frame-ancestors 'self'; object-src 'self'; base-uri 'self'; frame-src 'self'; manifest-src 'self'; worker-src 'self' blob:;"
+    "default-src 'none'; form-action 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' https://unpkg.com/@popperjs/core@2.11.8/dist/umd/popper.min.js https://unpkg.com/tippy.js@6.3.7/dist/tippy-bundle.umd.min.js https://unpkg.com/trix@2.1.13/dist/trix.umd.min.js https://cdn.usefathom.com/script.js https://cdn.jsdelivr.net/; style-src 'self' 'unsafe-inline' https://unpkg.com/trix@2.1.13/dist/trix.css; img-src 'self' data: blob: https://images.unsplash.com/ https://cdn.usefathom.com/ https://mosslet-dev.fly.storage.tigris.dev/ https://res.cloudinary.com/ https://huggingface.co/; font-src 'self' https://fonts.gstatic.com; connect-src 'self' wss://127.0.0.1:4000 http://127.0.0.1:4000 wss://localhost:4000 http://localhost:4000 ws://*.localhost:4000 http://*.localhost:4000 https://cdn.usefathom.com https://mosslet-dev.fly.storage.tigris.dev/ https://huggingface.co/ https://cdn-lfs.huggingface.co/ https://cdn-lfs-us-1.huggingface.co/; frame-ancestors 'self'; object-src 'self'; base-uri 'self'; frame-src 'self'; manifest-src 'self'; worker-src 'self' blob:;"

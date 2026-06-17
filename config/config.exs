@@ -455,6 +455,12 @@ config :mosslet, :billing_products, [
         included_seats: 10,
         seat_addon_price:
           System.get_env("STRIPE_PRICE_BUSINESS_SEAT_MONTHLY") || "price_business_seat_monthly",
+        # Branding add-on Phase B (Task #240, #243): the paid custom-subdomain
+        # add-on ($15/mo). Interval-matched to the base plan. Only the SUBDOMAIN
+        # is gated behind this — the brand logo stays free for all Business orgs.
+        subdomain_addon_price:
+          System.get_env("STRIPE_PRICE_BUSINESS_SUBDOMAIN_MONTHLY") ||
+            "price_business_subdomain_monthly",
         max_seats: 200,
         save_percent: 0,
         trial_days: 14,
@@ -491,6 +497,12 @@ config :mosslet, :billing_products, [
         included_seats: 10,
         seat_addon_price:
           System.get_env("STRIPE_PRICE_BUSINESS_SEAT_YEARLY") || "price_business_seat_yearly",
+        # Branding add-on Phase B (Task #240, #243): the paid custom-subdomain
+        # add-on ($150/yr — 2 months free vs monthly). Interval-matched to the
+        # base plan. Only the SUBDOMAIN is gated behind this; the logo is free.
+        subdomain_addon_price:
+          System.get_env("STRIPE_PRICE_BUSINESS_SUBDOMAIN_YEARLY") ||
+            "price_business_subdomain_yearly",
         max_seats: 200,
         save_percent: 33,
         trial_days: 14,

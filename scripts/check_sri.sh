@@ -2,34 +2,50 @@
 
 # Automated SRI check script
 # Usage: ./scripts/check_sri.sh
+#
+# Verifies the SRI hashes pinned in head.html.heex still match the remote,
+# VERSION-PINNED resources. Fathom is intentionally excluded (rolling endpoint,
+# not pinned with SRI).
 
-set -e
+set -euo pipefail
 
 echo "🔍 Checking if SRI hashes need updating..."
 
 # Extract current hashes from the template file
 TEMPLATE_FILE="lib/mosslet_web/components/layouts/head.html.heex"
 
+# Fetch a URL and emit its base64 sha512. Fails loudly (non-empty body required)
+# so a network/DNS failure can never silently produce the empty-string hash and
+# report a false "changed".
+remote_hash() {
+  local url="$1"
+  local body
+  body="$(curl -fsSL "$url")" || { echo "❌ Failed to fetch $url" >&2; exit 1; }
+  if [ -z "$body" ]; then
+    echo "❌ Empty body from $url" >&2
+    exit 1
+  fi
+  printf '%s' "$body" | openssl dgst -sha512 -binary | openssl base64 -A
+}
+
 # Extract hashes using grep and sed
 CURRENT_POPPER=$(grep -A 5 "@popperjs/core@2.11.8" "$TEMPLATE_FILE" | grep "integrity=" | sed 's/.*sha512-\([^"]*\).*/\1/')
 CURRENT_TIPPY=$(grep -A 5 "tippy.js@6.3.7" "$TEMPLATE_FILE" | grep "integrity=" | sed 's/.*sha512-\([^"]*\).*/\1/')
 CURRENT_TRIX_JS=$(grep -A 5 "trix@2.1.13/dist/trix.umd.min.js" "$TEMPLATE_FILE" | grep "integrity=" | sed 's/.*sha512-\([^"]*\).*/\1/')
 CURRENT_TRIX_CSS=$(grep -A 5 "trix@2.1.13/dist/trix.css" "$TEMPLATE_FILE" | grep "integrity=" | sed 's/.*sha512-\([^"]*\).*/\1/')
-CURRENT_FATHOM=$(grep -A 5 "cdn.usefathom.com" "$TEMPLATE_FILE" | grep "integrity=" | sed 's/.*sha512-\([^"]*\).*/\1/')
 
 # Validate that we extracted hashes (basic check)
-if [[ -z "$CURRENT_POPPER" || -z "$CURRENT_TIPPY" || -z "$CURRENT_TRIX_JS" || -z "$CURRENT_TRIX_CSS" || -z "$CURRENT_FATHOM" ]]; then
+if [[ -z "$CURRENT_POPPER" || -z "$CURRENT_TIPPY" || -z "$CURRENT_TRIX_JS" || -z "$CURRENT_TRIX_CSS" ]]; then
     echo "❌ Failed to extract current hashes from template file"
     echo "   Make sure $TEMPLATE_FILE exists and contains the expected script tags"
     exit 1
 fi
 
 # Generate new hashes from remote sources
-NEW_POPPER=$(curl -s "https://unpkg.com/@popperjs/core@2.11.8/dist/umd/popper.min.js" | openssl dgst -sha512 -binary | openssl base64 -A)
-NEW_TIPPY=$(curl -s "https://unpkg.com/tippy.js@6.3.7/dist/tippy-bundle.umd.min.js" | openssl dgst -sha512 -binary | openssl base64 -A)
-NEW_TRIX_JS=$(curl -s "https://unpkg.com/trix@2.1.13/dist/trix.umd.min.js" | openssl dgst -sha512 -binary | openssl base64 -A)
-NEW_TRIX_CSS=$(curl -s "https://unpkg.com/trix@2.1.13/dist/trix.css" | openssl dgst -sha512 -binary | openssl base64 -A)
-NEW_FATHOM=$(curl -s "https://cdn.usefathom.com/script.js" | openssl dgst -sha512 -binary | openssl base64 -A)
+NEW_POPPER=$(remote_hash "https://unpkg.com/@popperjs/core@2.11.8/dist/umd/popper.min.js")
+NEW_TIPPY=$(remote_hash "https://unpkg.com/tippy.js@6.3.7/dist/tippy-bundle.umd.min.js")
+NEW_TRIX_JS=$(remote_hash "https://unpkg.com/trix@2.1.13/dist/trix.umd.min.js")
+NEW_TRIX_CSS=$(remote_hash "https://unpkg.com/trix@2.1.13/dist/trix.css")
 
 changes_needed=false
 
@@ -59,13 +75,6 @@ if [ "$CURRENT_TRIX_CSS" != "$NEW_TRIX_CSS" ]; then
     echo "❗ Trix CSS hash changed!"
     echo "   Old: $CURRENT_TRIX_CSS"
     echo "   New: $NEW_TRIX_CSS"
-    changes_needed=true
-fi
-
-if [ "$CURRENT_FATHOM" != "$NEW_FATHOM" ]; then
-    echo "❗ Fathom Analytics hash changed!"
-    echo "   Old: $CURRENT_FATHOM"
-    echo "   New: $NEW_FATHOM"
     changes_needed=true
 fi
 

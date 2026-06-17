@@ -80,13 +80,16 @@
   >
   </script>
 
-  <%!-- Fathom - beautiful, simple website analytics --%>
+  <%!-- Fathom - beautiful, simple website analytics.
+       NOTE: cdn.usefathom.com/script.js is a rolling, unversioned endpoint that
+       Fathom updates without notice, so it is intentionally NOT pinned with SRI
+       (a pinned hash would break unpredictably). We also omit crossorigin so the
+       browser loads it as a normal (no-CORS) script. CSP script-src already
+       allow-lists the exact script URL and connect-src allows the beacon. --%>
   <script
     src="https://cdn.usefathom.com/script.js"
     data-site="OKXLBFRS"
     data-honor-dnt="true"
-    integrity="sha512-z4PhNX7vuL3xVChQ1m2AB9Yg5AULVxXcg/SpIdNs6c5H0NE8XYXysP+DGNKHfuwvY7kxvUdBeoGlODJ6+SfaPg=="
-    crossorigin="anonymous"
     defer
   >
   </script>

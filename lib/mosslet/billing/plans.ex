@@ -114,6 +114,36 @@ defmodule Mosslet.Billing.Plans do
   def seat_based_plan?(_), do: false
 
   @doc """
+  The Stripe price ID for a plan's custom-subdomain branding add-on (Task #240,
+  Phase B — Business only), or `nil` when the plan doesn't offer it.
+
+  Per-interval: a monthly base plan declares the monthly add-on price, a yearly
+  base plan the yearly one, so the add-on always matches the base subscription's
+  billing interval.
+  """
+  def subdomain_addon_price(plan) when is_map(plan), do: Map.get(plan, :subdomain_addon_price)
+  def subdomain_addon_price(_), do: nil
+
+  @doc """
+  Returns `true` when a plan offers the paid custom-subdomain add-on.
+  """
+  def subdomain_addon_plan?(plan), do: is_binary(subdomain_addon_price(plan))
+
+  @doc """
+  All configured custom-subdomain add-on price IDs across every plan/interval.
+
+  Used by the server-authoritative entitlement read
+  (`Mosslet.Orgs.has_branding_addon?/1`) to detect the add-on line item on an
+  org's subscription regardless of billing interval.
+  """
+  def subdomain_addon_price_ids do
+    plans()
+    |> Enum.map(&subdomain_addon_price/1)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+  end
+
+  @doc """
   The number of seats included in a plan's base price.
 
   Defaults to 1 for plans that don't declare `:included_seats`.

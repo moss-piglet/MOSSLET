@@ -107,6 +107,7 @@ defmodule MossletWeb.BusinessLiveTest do
     quantity = Keyword.get(opts, :quantity, 1)
     status = Keyword.get(opts, :status, "active")
     plan_id = Keyword.get(opts, :plan_id, "business-monthly")
+    items = Keyword.get(opts, :items, [%{"price_id" => "price_test"}])
 
     customer =
       case Mosslet.Billing.Customers.get_customer_by_source(:org, org.id) do
@@ -130,7 +131,7 @@ defmodule MossletWeb.BusinessLiveTest do
       status: status,
       quantity: quantity,
       provider_subscription_id: "sub_#{System.unique_integer([:positive])}",
-      provider_subscription_items: [%{price: "price_test"}],
+      provider_subscription_items: items,
       current_period_start: NaiveDateTime.utc_now()
     }
 
@@ -142,12 +143,19 @@ defmodule MossletWeb.BusinessLiveTest do
         {:ok, _sub} =
           Mosslet.Billing.Subscriptions.update_subscription(existing, %{
             status: status,
-            quantity: quantity
+            quantity: quantity,
+            provider_subscription_items: items
           })
     end
 
     :ok
   end
+
+  defp subdomain_addon_price,
+    do:
+      Mosslet.Billing.Plans.subdomain_addon_price(
+        Mosslet.Billing.Plans.get_plan_by_id!("business-monthly")
+      )
 
   defp subscribe_family(org), do: subscribe_org(org, plan_id: "family-monthly")
 
@@ -477,6 +485,101 @@ defmodule MossletWeb.BusinessLiveTest do
 
       refute has_element?(lv, "#org-header-logo")
       assert Orgs.get_org_by_id(ctx.org.id).logo_url == nil
+    end
+  end
+
+  describe "BusinessLive.Show custom subdomain (Task #240 / #243, branding add-on)" do
+    setup %{conn: conn} do
+      {admin, admin_key} = onboarded_user("subadmin")
+      {member, member_key} = onboarded_user("submember")
+      {:ok, org} = Orgs.create_org(admin, %{"name" => "Acme", "type" => "business"})
+      add_member(org, member, :member)
+
+      %{
+        conn: conn,
+        admin: admin,
+        admin_key: admin_key,
+        member: member,
+        member_key: member_key,
+        org: org
+      }
+    end
+
+    test "without the add-on, the logo is FREE but the subdomain shows an upsell (not a claim form)",
+         ctx do
+      # Active Business plan, but NO subdomain add-on line item.
+      subscribe_org(ctx.org, items: [%{"price_id" => "price_test"}])
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      # Logo is free for all Business orgs.
+      assert has_element?(lv, "#org-logo-uploader")
+
+      # Subdomain is gated: section present, but no claim form — the add-on upsell.
+      assert has_element?(lv, "#org-subdomain")
+      refute has_element?(lv, "#org-subdomain-form")
+      assert has_element?(lv, "#org-subdomain-upsell-addon")
+    end
+
+    test "an active/trialing org is NOT told to 'subscribe' (trial-aware upsell)", ctx do
+      subscribe_org(ctx.org, status: "trialing", items: [%{"price_id" => "price_test"}])
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      # Covered org -> add-on upsell, NOT the "activate a plan / choose a plan" path.
+      assert has_element?(lv, "#org-subdomain-upsell-addon")
+      refute has_element?(lv, "#org-subdomain-upsell-plan")
+    end
+
+    test "with the add-on active, admins see the claim form", ctx do
+      subscribe_org(ctx.org, items: [%{"price_id" => subdomain_addon_price()}])
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#org-subdomain-form")
+      refute has_element?(lv, "#org-subdomain-upsell-addon")
+    end
+
+    test "claiming a subdomain when entitled persists it and shows the live URL", ctx do
+      subscribe_org(ctx.org, items: [%{"price_id" => subdomain_addon_price()}])
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      lv
+      |> form("#org-subdomain-form", branding: %{subdomain: "acmeteam"})
+      |> render_submit()
+
+      assert Orgs.get_org_by_id(ctx.org.id).subdomain == "acmeteam"
+      assert has_element?(lv, "#org-subdomain-current")
+    end
+
+    test "a reserved/watchlist subdomain is rejected (no DB write)", ctx do
+      subscribe_org(ctx.org, items: [%{"price_id" => subdomain_addon_price()}])
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      # Reserved infra label.
+      lv |> form("#org-subdomain-form", branding: %{subdomain: "www"}) |> render_submit()
+      assert Orgs.get_org_by_id(ctx.org.id).subdomain == nil
+
+      # Finance/impersonation watchlist label.
+      lv |> form("#org-subdomain-form", branding: %{subdomain: "paypal"}) |> render_submit()
+      assert Orgs.get_org_by_id(ctx.org.id).subdomain == nil
+    end
+
+    test "non-admin members do NOT see the branding section at all (admins-only)", ctx do
+      subscribe_org(ctx.org, items: [%{"price_id" => subdomain_addon_price()}])
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      refute has_element?(lv, "#org-branding")
+      refute has_element?(lv, "#org-subdomain")
     end
   end
 

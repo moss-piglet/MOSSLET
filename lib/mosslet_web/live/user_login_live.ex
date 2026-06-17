@@ -13,6 +13,30 @@ defmodule MossletWeb.UserLoginLive do
 
       <%!-- Header with improved visual hierarchy --%>
       <div class="text-center mb-8 sm:mb-10">
+        <%!-- Org-branded sign-in ACCENT (Task #240 / #243). Shown only on a live
+              org subdomain host. ACCENT only — the Mosslet wordmark above and the
+              persistent "Secured by MOSSLET" line keep this unmistakably a Mosslet
+              sign-in page (anti-impersonation). The org NAME is Cloak-at-rest
+              (server-decryptable); no org logo pre-auth (ZK org_key). --%>
+        <div
+          :if={@subdomain_org_live? && @subdomain_org}
+          id="org-branded-signin"
+          class="mb-6 flex flex-col items-center gap-2"
+        >
+          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200/50 dark:border-emerald-700/30">
+            <.phx_icon
+              name="hero-building-office-2"
+              class="size-4 text-emerald-600 dark:text-emerald-400"
+            />
+            <span class="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+              Signing in to {@subdomain_org.name}
+            </span>
+          </div>
+          <p class="inline-flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
+            <.phx_icon name="hero-lock-closed" class="size-3" /> Secured by MOSSLET
+          </p>
+        </div>
+
         <%!-- Welcome back section --%>
         <div class="mb-6">
           <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/20 dark:to-emerald-900/20 border border-teal-200/50 dark:border-teal-700/30 mb-4">

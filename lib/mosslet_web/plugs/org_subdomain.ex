@@ -4,7 +4,8 @@ defmodule MossletWeb.Plugs.OrgSubdomain do
 
   Resolves the request host's leading label (`acmebiz` in `acmebiz.mosslet.com`)
   to an `Org` via the non-raising `Mosslet.Orgs.get_org_by_subdomain/1` and, when
-  matched, tags the connection with `conn.assigns[:subdomain_org]`.
+  matched, tags the connection with `conn.assigns[:subdomain_org]` plus
+  `conn.assigns[:subdomain_org_live?]`.
 
   This plug ONLY resolves and tags — it NEVER authorizes. The subdomain hostname
   label is NON-SENSITIVE plaintext (it is published in the org's branded URL), so
@@ -13,6 +14,17 @@ defmodule MossletWeb.Plugs.OrgSubdomain do
   `Mosslet.Orgs.get_org!/2`, which is `Ecto.assoc(:orgs)`-scoped): resolving an
   org from the host does NOT grant access. A non-member hitting
   `acmebiz.mosslet.com` is still bounced.
+
+  ## Resolve vs. serve (Task #240 / #243, slice D)
+
+  The custom subdomain is a PAID add-on. The plug resolves the org regardless,
+  but `:subdomain_org_live?` (= `Mosslet.Orgs.subdomain_live?/1`) tells downstream
+  surfaces (e.g. org-branded sign-in) whether the org currently carries the
+  add-on entitlement. An org whose add-on has lapsed keeps its reserved
+  `subdomain` row but is "resolve-but-don't-serve": `:subdomain_org` is still set,
+  `:subdomain_org_live?` is `false`, and branding is NOT shown. Server-
+  authoritative and re-evaluated on every request (each HTTP render re-runs this
+  plug), so loss of the add-on takes effect immediately.
 
   Placed in the `:browser` pipeline after `:fetch_current_scope` so downstream
   surfaces can prefer the resolved org while still running the membership check.
@@ -36,8 +48,13 @@ defmodule MossletWeb.Plugs.OrgSubdomain do
     case subdomain_label(conn.host, base_host()) do
       {:ok, label} ->
         case Orgs.get_org_by_subdomain(label) do
-          %Org{} = org -> assign(conn, :subdomain_org, org)
-          nil -> conn
+          %Org{} = org ->
+            conn
+            |> assign(:subdomain_org, org)
+            |> assign(:subdomain_org_live?, Orgs.subdomain_live?(org))
+
+          nil ->
+            conn
         end
 
       :none ->

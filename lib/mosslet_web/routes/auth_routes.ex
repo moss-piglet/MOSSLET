@@ -24,7 +24,8 @@ defmodule MossletWeb.AuthRoutes do
 
         live_session :redirect_if_user_is_authenticated,
           on_mount: [
-            {MossletWeb.UserOnMountHooks, :redirect_if_user_is_authenticated}
+            {MossletWeb.UserOnMountHooks, :redirect_if_user_is_authenticated},
+            {MossletWeb.UserOnMountHooks, :assign_subdomain_branding}
           ] do
           live "/register", UserRegistrationLive, :new
           live "/sign_in", UserLoginLive, :new

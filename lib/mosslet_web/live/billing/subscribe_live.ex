@@ -1488,6 +1488,36 @@ defmodule MossletWeb.SubscribeLive do
           </button>
         </div>
       </div>
+      <label
+        :if={subdomain_addon_plan?(@item)}
+        for={"subdomain-addon-#{@item.id}"}
+        class={[
+          "flex items-start gap-3 rounded-xl border p-3 cursor-pointer transition-colors",
+          "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800",
+          "hover:border-emerald-400 dark:hover:border-emerald-500"
+        ]}
+      >
+        <input
+          type="checkbox"
+          id={"subdomain-addon-#{@item.id}"}
+          name="subdomain"
+          value="1"
+          class="mt-0.5 size-4 rounded border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500/40"
+        />
+        <span class="min-w-0 flex-1 text-sm">
+          <span class="block font-medium text-slate-800 dark:text-slate-100">
+            {gettext("Add a custom subdomain")}
+            <span class="font-normal text-slate-500 dark:text-slate-400">
+              ({subdomain_addon_price_label(@item)})
+            </span>
+          </span>
+          <span class="block text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            {gettext(
+              "Your branded address (yourteam.mosslet.com) with an org-branded sign-in. Your logo is always free."
+            )}
+          </span>
+        </span>
+      </label>
       <DesignSystem.liquid_button
         type="submit"
         variant={if @is_most_popular, do: "primary", else: "secondary"}
@@ -1500,6 +1530,11 @@ defmodule MossletWeb.SubscribeLive do
     </.form>
     """
   end
+
+  defp subdomain_addon_plan?(item), do: Plans.subdomain_addon_plan?(item)
+
+  defp subdomain_addon_price_label(%{interval: :year}), do: gettext("+$150/yr")
+  defp subdomain_addon_price_label(_), do: gettext("+$15/mo")
 
   defp button_icon(%{interval: :one_time}), do: "hero-credit-card"
   defp button_icon(%{trial_days: days}) when is_integer(days) and days > 0, do: "hero-play"
@@ -1570,13 +1605,15 @@ defmodule MossletWeb.SubscribeLive do
     source = socket.assigns.source
     plan = Plans.get_plan_by_id!(plan_id)
     seats = Plans.clamp_seats(plan, Map.get(params, "seats", Plans.included_seats(plan)))
-    checkout_url = checkout_url(socket, source, plan_id, seats)
+    addons = checkout_addons(plan, params)
+    checkout_url = checkout_url(socket, source, plan_id, seats, addons)
 
     Logs.log("billing.click_subscribe_button", %{
       user: socket.assigns.current_user,
       metadata: %{
         plan_id: plan_id,
         seats: seats,
+        subdomain_addon: :subdomain in addons,
         org_id: current_org_id(socket)
       }
     })
@@ -1753,12 +1790,28 @@ defmodule MossletWeb.SubscribeLive do
   defp org_create_error_message(_reason, type),
     do: gettext("Could not create your %{type}. Please try again.", type: type)
 
-  defp checkout_url(_socket, :user, plan_id, seats),
-    do: ~p"/app/checkout/#{plan_id}?#{%{seats: seats}}"
+  defp checkout_url(_socket, :user, plan_id, seats, addons),
+    do: ~p"/app/checkout/#{plan_id}?#{checkout_query(seats, addons)}"
 
-  defp checkout_url(socket, :org, plan_id, seats) do
+  defp checkout_url(socket, :org, plan_id, seats, addons) do
     org_slug = current_org_slug(socket)
-    ~p"/app/org/#{org_slug}/checkout/#{plan_id}?#{%{seats: seats}}"
+    ~p"/app/org/#{org_slug}/checkout/#{plan_id}?#{checkout_query(seats, addons)}"
+  end
+
+  # The paid custom-subdomain branding add-on (Task #240, Phase B) is honored
+  # only when checked AND the plan offers it (Business). The query param is
+  # re-validated server-side in the checkout controller.
+  defp checkout_addons(plan, params) do
+    if params["subdomain"] in ["1", "true", "on"] and Plans.subdomain_addon_plan?(plan) do
+      [:subdomain]
+    else
+      []
+    end
+  end
+
+  defp checkout_query(seats, addons) do
+    base = %{seats: seats}
+    if :subdomain in addons, do: Map.put(base, :subdomain, "1"), else: base
   end
 
   defp current_org_id(socket) do

@@ -26,6 +26,25 @@ defmodule Mosslet.Orgs.Org do
     mosslet mossletapp mossletapps podcast
   )
 
+  # Watchlist subdomain labels (Task #240 / #243, anti-squatting). Unlike the
+  # reserved list (platform/infra collisions), these lean toward finance /
+  # well-known-brand impersonation. Per the finalized policy (#240 "SUBDOMAIN
+  # SQUATTING + BRANDED SIGN-IN POLICY"), we do NOT do email-domain verification;
+  # the anti-squatting stack is reserved/watchlist denial + payment-tied
+  # accountability + reactive trademark/abuse takedown. We auto-block these at
+  # claim time (a high-friction, low-false-positive set); genuine brand owners
+  # can request a manual grant via support. Matched case-insensitively.
+  @watchlist_subdomains ~w(
+    paypal venmo cashapp zelle stripe square wise revolut
+    bank banking chase wellsfargo citibank hsbc barclays
+    visa mastercard amex discover
+    coinbase binance kraken crypto wallet metamask
+    apple icloud google gmail microsoft outlook meta facebook instagram
+    whatsapp amazon aws netflix paypalsupport
+    irs ssa gov fbi police treasury
+    verify verification confirm validate
+  )
+
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "orgs" do
@@ -200,6 +219,18 @@ defmodule Mosslet.Orgs.Org do
 
   def reserved_subdomain?(_label), do: false
 
+  @doc """
+  Returns `true` if `label` is on the anti-squatting WATCHLIST (Task #240 /
+  #243) — finance / well-known-brand impersonation terms that are auto-blocked
+  at subdomain claim time. Distinct from `reserved_subdomain?/1` (platform/infra
+  collisions). Matched case-insensitively.
+  """
+  def watchlisted_subdomain?(label) when is_binary(label) do
+    String.downcase(label) in @watchlist_subdomains
+  end
+
+  def watchlisted_subdomain?(_label), do: false
+
   # Canonicalize to lowercase before validation so the stored value and all
   # hostname routing/comparisons are consistent (DNS is case-insensitive).
   defp downcase_subdomain(changeset) do
@@ -225,6 +256,10 @@ defmodule Mosslet.Orgs.Org do
       message: "cannot contain consecutive hyphens"
     )
     |> validate_exclusion(:subdomain, @reserved_subdomains, message: "is reserved")
+    |> validate_exclusion(:subdomain, @watchlist_subdomains,
+      message:
+        "isn't available for self-service. If you own this brand, contact support to request it."
+    )
   end
 
   # Blind index for the encrypted name (HMAC). Lets us look up an org by name

@@ -314,6 +314,34 @@ defmodule Mosslet.Orgs.Adapters.Web do
     end
   end
 
+  ## Custom subdomain (Task #240, Phase B)
+
+  @impl true
+  def set_org_subdomain(%Org{} = org, attrs) do
+    case Repo.transaction_on_primary(fn ->
+           org
+           |> Org.subdomain_changeset(attrs)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, org}} -> {:ok, org}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
+  end
+
+  @impl true
+  def clear_org_subdomain(%Org{} = org) do
+    case Repo.transaction_on_primary(fn ->
+           org
+           |> Org.clear_subdomain_changeset()
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, org}} -> {:ok, org}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
+  end
+
   @impl true
   def get_invitation_by_org!(org, id) do
     org

@@ -59,11 +59,16 @@ defmodule Mosslet.OrgsFixtures do
       (`"family-monthly"`/`"business-monthly"`).
     * `:status` — defaults to `"active"`.
     * `:quantity` — seat count, defaults to `1`.
+    * `:items` — the decrypted `provider_subscription_items` list (string-keyed
+      maps, as Stripe's adapter writes them). Defaults to a single placeholder
+      line item. Pass the subdomain add-on price to exercise the branding
+      entitlement (Task #240, Phase B).
   """
   def ensure_org_subscription(org, opts \\ []) do
     plan_id = Keyword.get(opts, :plan_id, "#{org.type}-monthly")
     status = Keyword.get(opts, :status, "active")
     quantity = Keyword.get(opts, :quantity, 1)
+    items = Keyword.get(opts, :items, [%{"price_id" => "price_test"}])
 
     customer =
       case Customers.get_customer_by_source(:org, org.id) do
@@ -88,7 +93,7 @@ defmodule Mosslet.OrgsFixtures do
         status: status,
         quantity: quantity,
         provider_subscription_id: "sub_#{System.unique_integer([:positive])}",
-        provider_subscription_items: [%{price: "price_test"}],
+        provider_subscription_items: items,
         current_period_start: NaiveDateTime.utc_now()
       })
 

@@ -15,9 +15,18 @@ defmodule Mosslet.Billing.Providers.Stripe do
   alias Mosslet.Billing.Providers.Stripe.Services.SyncCustomer
   alias Mosslet.Billing.Subscriptions.Subscription
 
-  def checkout(%User{} = user, plan, source, source_id, session_key, referral \\ nil, seats \\ 1) do
+  def checkout(
+        %User{} = user,
+        plan,
+        source,
+        source_id,
+        session_key,
+        referral \\ nil,
+        seats \\ 1,
+        addons \\ []
+      ) do
     mode = determine_checkout_mode(plan)
-    line_items = format_line_items(plan, mode, seats)
+    line_items = build_line_items(plan, seats, addons)
 
     case validate_line_item_prices(line_items) do
       :ok ->
@@ -116,8 +125,13 @@ defmodule Mosslet.Billing.Providers.Stripe do
   # Single-seat plans (e.g. Personal) emit a single base line item — unchanged
   # behaviour. Per-seat plans (Family/Business, declared via `:seat_addon_price`
   # in config) emit the base plan line item plus an add-on seat line item for any
-  # seats requested beyond the plan's included allotment.
-  defp format_line_items(plan, _mode, seats) do
+  # seats requested beyond the plan's included allotment. Optional `addons`
+  # (e.g. `[:subdomain]`) append further add-on line items, each interval-matched
+  # to the base plan via its own configured price ID (Task #240, Phase B).
+  #
+  # Pure (no Stripe call) so it can be unit-tested directly.
+  @doc false
+  def build_line_items(plan, seats, addons) do
     base_item =
       Map.drop(plan, [
         :id,
@@ -128,21 +142,39 @@ defmodule Mosslet.Billing.Providers.Stripe do
         :save_percent,
         :included_seats,
         :seat_addon_price,
+        :subdomain_addon_price,
         :max_seats,
         :monthly_equivalent
       ])
 
+    [base_item] ++ seat_line_items(plan, seats) ++ subdomain_line_items(plan, addons)
+  end
+
+  defp seat_line_items(plan, seats) do
     if Plans.seat_based_plan?(plan) do
       seats = Plans.clamp_seats(plan, seats)
       extra_seats = seats - Plans.included_seats(plan)
 
       if extra_seats > 0 do
-        [base_item, %{price: plan.seat_addon_price, quantity: extra_seats}]
+        [%{price: plan.seat_addon_price, quantity: extra_seats}]
       else
-        [base_item]
+        []
       end
     else
-      [base_item]
+      []
+    end
+  end
+
+  # The paid custom-subdomain branding add-on (Task #240, Phase B). Emitted only
+  # when explicitly requested AND the plan offers it (Business). Quantity 1 — a
+  # single subdomain per org. The price is interval-matched (monthly/yearly) by
+  # config, so it always rides the base plan's billing cycle. The brand LOGO is
+  # never gated this way; it stays free for all Business orgs.
+  defp subdomain_line_items(plan, addons) do
+    if :subdomain in addons and Plans.subdomain_addon_plan?(plan) do
+      [%{price: Plans.subdomain_addon_price(plan), quantity: 1}]
+    else
+      []
     end
   end
 

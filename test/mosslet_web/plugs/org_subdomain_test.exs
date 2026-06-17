@@ -161,6 +161,47 @@ defmodule MossletWeb.Plugs.OrgSubdomainTest do
     end
   end
 
+  describe "call/2 — resolve vs. serve (add-on entitlement, slice D)" do
+    @addon_price Mosslet.Billing.Plans.subdomain_addon_price(
+                   Mosslet.Billing.Plans.get_plan_by_id!("business-monthly")
+                 )
+
+    defp call_for(subdomain) do
+      conn(:get, "/")
+      |> Map.put(:host, "#{subdomain}.mosslet.com")
+      |> OrgSubdomain.call(OrgSubdomain.init([]))
+    end
+
+    test "tags subdomain_org_live? = true when the org carries the add-on" do
+      org = set_subdomain!(business_org(), "liveco")
+      Mosslet.OrgsFixtures.ensure_org_subscription(org, items: [%{"price_id" => @addon_price}])
+
+      conn = call_for("liveco")
+
+      assert conn.assigns.subdomain_org.id == org.id
+      assert conn.assigns.subdomain_org_live? == true
+    end
+
+    test "resolves but does NOT serve (live? false) when the org lacks the add-on" do
+      org = set_subdomain!(business_org(), "logoonly")
+      Mosslet.OrgsFixtures.ensure_org_subscription(org, items: [%{"price_id" => "price_base"}])
+
+      conn = call_for("logoonly")
+
+      # Resolve-but-don't-serve: org is still tagged, but not live.
+      assert conn.assigns.subdomain_org.id == org.id
+      assert conn.assigns.subdomain_org_live? == false
+    end
+
+    test "live? false for an inert org (no subscription) that has a subdomain row" do
+      _org = set_subdomain!(business_org(), "inertco")
+
+      conn = call_for("inertco")
+
+      assert conn.assigns.subdomain_org_live? == false
+    end
+  end
+
   describe "auth is NOT weakened by host resolution" do
     test "resolving the org from the host does not grant a non-member access" do
       owner = user_fixture()

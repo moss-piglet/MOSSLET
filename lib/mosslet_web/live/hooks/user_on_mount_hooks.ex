@@ -78,6 +78,32 @@ defmodule MossletWeb.UserOnMountHooks do
     {:cont, maybe_assign_scope(socket, session)}
   end
 
+  @doc """
+  Org-branded sign-in / onboarding accent (Task #240 / #243, Phase B).
+
+  When the request arrives on an org's custom subdomain host
+  (`acmebiz.mosslet.com`) AND that org currently has the live subdomain add-on
+  (`Orgs.subdomain_live?/1`), assigns `:subdomain_org` + `:subdomain_org_live?`
+  so pre-auth pages can render the org NAME as ACCENT chrome. ZK: the org name is
+  Cloak-at-rest (server-decryptable), so it is safe to show server-side; the org
+  LOGO is the ZK `org_key` blob and is NOT shown pre-auth (no key holder yet).
+
+  Resolve-but-don't-serve: a resolved-but-unentitled org sets
+  `subdomain_org_live? = false`, so no branding is shown. Never weakens auth — it
+  only adds an accent; authentication still runs against Mosslet's backend.
+  """
+  def on_mount(:assign_subdomain_branding, _params, _session, socket) do
+    org = resolve_subdomain_org(socket)
+    live? = org != nil and Mosslet.Orgs.subdomain_live?(org)
+
+    socket =
+      socket
+      |> assign(:subdomain_org, if(live?, do: org))
+      |> assign(:subdomain_org_live?, live?)
+
+    {:cont, socket}
+  end
+
   def on_mount(:redirect_if_user_is_authenticated, _params, session, socket) do
     socket = maybe_assign_scope(socket, session)
     scope = socket.assigns.current_scope
@@ -126,4 +152,18 @@ defmodule MossletWeb.UserOnMountHooks do
 
   defp get_user(nil), do: nil
   defp get_user(token), do: Accounts.get_user_by_session_token(token)
+
+  # Resolves the org for the current request host, mirroring the browser plug's
+  # pure parser (single non-reserved label off the canonical host). Returns the
+  # org or nil. No-op (nil) when no canonical host is configured (e.g. tests that
+  # don't set it) or the host is the apex/foreign/reserved.
+  defp resolve_subdomain_org(socket) do
+    with %URI{host: host} when is_binary(host) <- socket.host_uri,
+         base when is_binary(base) <- Application.get_env(:mosslet, :canonical_host),
+         {:ok, label} <- MossletWeb.Plugs.OrgSubdomain.subdomain_label(host, base) do
+      Mosslet.Orgs.get_org_by_subdomain(label)
+    else
+      _ -> nil
+    end
+  end
 end

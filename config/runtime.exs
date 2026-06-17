@@ -98,7 +98,13 @@ if config_env() == :prod do
   config :mosslet, MossletWeb.Endpoint,
     adapter: Bandit.PhoenixAdapter,
     url: [host: host, port: 443, scheme: "https"],
-    check_origin: true,
+    # Wildcard origin check for org branding subdomains (Phase B / #240).
+    # The endpoint :url host alone (check_origin: true) only admits the apex,
+    # so a LiveView/WebSocket connecting from https://acmebiz.mosslet.com would
+    # be rejected and the org dashboard's sockets would never connect.
+    # Phoenix supports the "//*.host" wildcard, which matches the apex AND any
+    # subdomain (incl. www); foreign origins are still rejected.
+    check_origin: ["//#{host}", "//*.#{host}"],
     force_ssl: [rewrite_on: [:x_forwarded_proto]],
     live_view: [
       signing_salt: System.get_env("LIVE_VIEW_SIGNING_SALT"),
@@ -212,7 +218,7 @@ if config_env() == :prod do
 
   csp =
     System.get_env("CSP_HEADER") ||
-      "default-src 'none'; form-action 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' https://unpkg.com/@popperjs/core@2.11.8/dist/umd/popper.min.js https://unpkg.com/tippy.js@6.3.7/dist/tippy-bundle.umd.min.js https://unpkg.com/trix@2.1.13/dist/trix.umd.min.js https://cdn.usefathom.com/script.js https://cdn.jsdelivr.net/; style-src 'self' 'unsafe-inline' https://unpkg.com/trix@2.1.13/dist/trix.css; img-src 'self' data: blob: https://cdn.usefathom.com/ https://mosslet-prod.fly.storage.tigris.dev/ https://res.cloudinary.com/ https://huggingface.co/; font-src 'self' https://fonts.gstatic.com; connect-src 'self' wss://mosslet.com https://mosslet.com https://mosslet-prod.fly.storage.tigris.dev/ https://huggingface.co/ https://cdn-lfs.huggingface.co/ https://cdn-lfs-us-1.huggingface.co/; frame-ancestors 'self'; object-src 'self'; base-uri 'self'; frame-src 'self'; manifest-src 'self'; worker-src 'self' blob:;"
+      "default-src 'none'; form-action 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' https://unpkg.com/@popperjs/core@2.11.8/dist/umd/popper.min.js https://unpkg.com/tippy.js@6.3.7/dist/tippy-bundle.umd.min.js https://unpkg.com/trix@2.1.13/dist/trix.umd.min.js https://cdn.usefathom.com/script.js https://cdn.jsdelivr.net/; style-src 'self' 'unsafe-inline' https://unpkg.com/trix@2.1.13/dist/trix.css; img-src 'self' data: blob: https://cdn.usefathom.com/ https://mosslet-prod.fly.storage.tigris.dev/ https://res.cloudinary.com/ https://huggingface.co/; font-src 'self' https://fonts.gstatic.com; connect-src 'self' wss://mosslet.com https://mosslet.com wss://*.mosslet.com https://*.mosslet.com https://cdn.usefathom.com https://mosslet-prod.fly.storage.tigris.dev/ https://huggingface.co/ https://cdn-lfs.huggingface.co/ https://cdn-lfs-us-1.huggingface.co/; frame-ancestors 'self'; object-src 'self'; base-uri 'self'; frame-src 'self'; manifest-src 'self'; worker-src 'self' blob:;"
 
   config :mosslet, MossletWeb.Plugs.ContentSecurityPolicy, csp: csp
 

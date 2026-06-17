@@ -18,6 +18,7 @@ defmodule MossletWeb.BusinessLive.Show do
   alias Mosslet.FileUploads.SharedFileStorage
   alias Mosslet.Groups
   alias Mosslet.Orgs
+  alias Mosslet.Orgs.Org
 
   @impl true
   def mount(%{"slug" => slug}, _session, socket) do
@@ -450,6 +451,112 @@ defmodule MossletWeb.BusinessLive.Show do
               Remove
             </.liquid_button>
           </.form>
+
+          <%!-- Custom subdomain (Task #240 / #243, Phase B — the PAID add-on).
+                Gated by has_branding_addon?/1 (server-authoritative). The logo
+                above stays free; only this subdomain is behind the add-on. --%>
+          <div
+            id="org-subdomain"
+            class="pt-4 border-t border-slate-100 dark:border-slate-700/60 space-y-3"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  Custom subdomain
+                </h3>
+                <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  A branded address like
+                  <span class="font-medium text-slate-600 dark:text-slate-300">yourteam.mosslet.com</span>
+                  — with an org-branded sign-in for your team.
+                </p>
+              </div>
+              <span
+                :if={@has_branding_addon?}
+                class="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300"
+              >
+                <.phx_icon name="hero-check-badge" class="size-3.5" /> Add-on active
+              </span>
+            </div>
+
+            <%= cond do %>
+              <% @has_branding_addon? && @org.subdomain -> %>
+                <div
+                  id="org-subdomain-current"
+                  class="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 space-y-2"
+                >
+                  <p class="text-xs text-slate-500 dark:text-slate-400">Your subdomain</p>
+                  <p class="text-sm font-medium text-slate-900 dark:text-slate-100 break-all">
+                    {subdomain_display_url(@org.subdomain)}
+                  </p>
+                  <.liquid_button
+                    type="button"
+                    id="org-subdomain-release"
+                    variant="secondary"
+                    size="sm"
+                    icon="hero-trash"
+                    phx-click="release_subdomain"
+                    data-confirm="Release this subdomain? Your branded address will stop working."
+                  >
+                    Release subdomain
+                  </.liquid_button>
+                </div>
+              <% @has_branding_addon? -> %>
+                <.form
+                  for={@subdomain_form}
+                  id="org-subdomain-form"
+                  phx-change="validate_subdomain"
+                  phx-submit="claim_subdomain"
+                  class="space-y-2"
+                >
+                  <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
+                    <div class="flex-1">
+                      <.phx_input
+                        field={@subdomain_form[:subdomain]}
+                        type="text"
+                        label="Choose your subdomain"
+                        placeholder="yourteam"
+                        autocomplete="off"
+                        phx-debounce="300"
+                      />
+                    </div>
+                    <.liquid_button
+                      type="submit"
+                      id="org-subdomain-claim"
+                      icon="hero-globe-alt"
+                      phx-disable-with="Claiming…"
+                    >
+                      Claim
+                    </.liquid_button>
+                  </div>
+                  <p class="text-xs text-slate-400 dark:text-slate-500">
+                    Lowercase letters, numbers, and hyphens. 3–63 characters.
+                  </p>
+                </.form>
+              <% true -> %>
+                <%!-- The dashboard is only reachable for an active/trialing/grace
+                      org (Option B), so the org is always covered here — frame the
+                      upsell as ADDING the add-on, never "subscribe" (trial-aware,
+                      #218). --%>
+                <div
+                  id="org-subdomain-upsell-addon"
+                  class="rounded-xl border border-teal-200/70 dark:border-teal-800/50 bg-teal-50/60 dark:bg-teal-900/20 p-4 space-y-2"
+                >
+                  <p class="text-sm font-medium text-teal-900 dark:text-teal-200">
+                    Add a custom subdomain to your plan
+                  </p>
+                  <p class="text-xs text-teal-800/80 dark:text-teal-300/80">
+                    The custom-subdomain add-on is $15/mo (or $150/yr). You can add it from your
+                    organization's billing settings.
+                  </p>
+                  <.link
+                    navigate={~p"/app/org/#{@org.slug}/billing"}
+                    class="inline-flex items-center gap-1.5 text-sm font-medium text-teal-700 dark:text-teal-300 hover:text-teal-800 dark:hover:text-teal-200"
+                  >
+                    <.phx_icon name="hero-credit-card" class="size-4" /> Manage billing
+                  </.link>
+                </div>
+            <% end %>
+          </div>
         </section>
 
         <%!-- Ownership / transfer handshake (Task #237) --%>
@@ -1439,6 +1546,85 @@ defmodule MossletWeb.BusinessLive.Show do
     end
   end
 
+  ## Custom subdomain (Task #240 / #243, branding add-on Phase B — paid add-on)
+
+  @impl true
+  def handle_event("validate_subdomain", %{"branding" => params}, socket) do
+    changeset =
+      socket.assigns.org
+      |> Org.subdomain_changeset(params)
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, :subdomain_form, to_form(changeset, as: :branding))}
+  end
+
+  def handle_event("validate_subdomain", _params, socket), do: {:noreply, socket}
+
+  def handle_event("claim_subdomain", %{"branding" => params}, socket) do
+    org = socket.assigns.org
+
+    cond do
+      # Role gate (admins-only) — unchanged from logo management.
+      not Orgs.can_manage_branding?(org, socket.assigns.membership) ->
+        {:noreply, put_flash(socket, :error, "You don't have permission to manage branding.")}
+
+      # Entitlement gate (server-authoritative): only orgs carrying the paid
+      # add-on may claim a subdomain. The logo is never gated this way.
+      not Orgs.has_branding_addon?(org) ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "The custom-subdomain add-on isn't active for this organization."
+         )}
+
+      true ->
+        case Orgs.set_org_subdomain(org, params) do
+          {:ok, org} ->
+            {:noreply,
+             socket
+             |> assign(:org, org)
+             |> assign(
+               :subdomain_form,
+               to_form(Org.subdomain_changeset(org, %{}), as: :branding)
+             )
+             |> put_flash(:success, "Your custom subdomain is live.")}
+
+          {:error, changeset} ->
+            {:noreply,
+             assign(
+               socket,
+               :subdomain_form,
+               to_form(Map.put(changeset, :action, :insert), as: :branding)
+             )}
+        end
+    end
+  end
+
+  def handle_event("release_subdomain", _params, socket) do
+    org = socket.assigns.org
+
+    if Orgs.can_manage_branding?(org, socket.assigns.membership) do
+      case Orgs.clear_org_subdomain(org) do
+        {:ok, org} ->
+          {:noreply,
+           socket
+           |> assign(:org, org)
+           |> assign(
+             :subdomain_form,
+             to_form(Org.subdomain_changeset(org, %{}), as: :branding)
+           )
+           |> put_flash(:success, "Your custom subdomain has been released.")}
+
+        {:error, _} ->
+          {:noreply,
+           put_flash(socket, :error, "Could not release the subdomain. Please try again.")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "You don't have permission to manage branding.")}
+    end
+  end
+
   # Auto-upload entry progress is driven by the OrgLogoUploadWriter, which sends
   # us {:org_logo_upload_*} messages; nothing to do in the LiveView's progress cb.
   defp handle_logo_progress(:org_logo, _entry, socket), do: {:noreply, socket}
@@ -1536,6 +1722,13 @@ defmodule MossletWeb.BusinessLive.Show do
   end
 
   defp org_logo_presigned_url(_), do: nil
+
+  # The org's branded address for display (Task #240). The subdomain label is
+  # non-sensitive plaintext; the base host comes from the canonical-host config
+  # (apex the subdomain hangs off), falling back to the production apex.
+  defp subdomain_display_url(subdomain) when is_binary(subdomain) do
+    "#{subdomain}.#{Application.get_env(:mosslet, :canonical_host) || "mosslet.com"}"
+  end
 
   defp logo_processing?({stage, _}) when stage in [:receiving, :processing, :encrypting], do: true
   defp logo_processing?(_), do: false
@@ -1648,6 +1841,8 @@ defmodule MossletWeb.BusinessLive.Show do
       :can_manage_branding?,
       Orgs.can_manage_branding?(org, socket.assigns.membership)
     )
+    |> assign(:has_branding_addon?, Orgs.has_branding_addon?(org))
+    |> assign(:subdomain_form, to_form(Org.subdomain_changeset(org, %{}), as: :branding))
     |> assign(:org_logo_url, org_logo_presigned_url(org))
     |> assign(:pending_transfer, Orgs.get_pending_transfer_for_org(org))
     |> assign_manage_circle(members)

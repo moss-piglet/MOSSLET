@@ -18,9 +18,10 @@ defmodule MossletWeb.SubscribeController do
     plan = Plans.get_plan_by_id!(plan_id)
     org = Orgs.get_org!(org_slug)
     seats = parse_seats(plan, params)
+    addons = parse_addons(plan, params)
 
     case get_subscription(:org, org.id) do
-      nil -> handle_checkout(conn, plan, :org, org.id, seats)
+      nil -> handle_checkout(conn, plan, :org, org.id, seats, addons)
       _sub -> handle_subscription(conn, :org, org.id)
     end
   end
@@ -29,6 +30,7 @@ defmodule MossletWeb.SubscribeController do
     plan = Plans.get_plan_by_id!(plan_id)
     user = conn.assigns.current_user
     seats = parse_seats(plan, params)
+    addons = parse_addons(plan, params)
 
     # Mirror the :org clause: never start a NEW Checkout Session when an
     # active/trialing :user subscription already exists. Doing so would create a
@@ -40,7 +42,7 @@ defmodule MossletWeb.SubscribeController do
     # billing, so reaching here with an active sub means a stale URL or a
     # double-submit — we refuse and send the user to billing (Task #239).
     case get_subscription(:user, user.id) do
-      nil -> handle_checkout(conn, plan, :user, user.id, seats)
+      nil -> handle_checkout(conn, plan, :user, user.id, seats, addons)
       _sub -> handle_subscription(conn, :user, user.id)
     end
   end
@@ -51,6 +53,20 @@ defmodule MossletWeb.SubscribeController do
     Plans.clamp_seats(plan, Map.get(params, "seats", Plans.included_seats(plan)))
   end
 
+  # Optional checkout add-ons (Task #240, Phase B). Currently only the paid
+  # custom-subdomain branding add-on (`subdomain=1`), honored only for plans that
+  # offer it (Business). Anything else is ignored, so a tampered query param can
+  # never inject an add-on the plan doesn't support.
+  defp parse_addons(plan, params) do
+    if truthy?(Map.get(params, "subdomain")) and Plans.subdomain_addon_plan?(plan) do
+      [:subdomain]
+    else
+      []
+    end
+  end
+
+  defp truthy?(value), do: value in ["1", "true", true]
+
   defp handle_subscription(conn, source, source_id) do
     billing_url = billing_url(source, source_id)
 
@@ -59,7 +75,7 @@ defmodule MossletWeb.SubscribeController do
     |> redirect(to: billing_url)
   end
 
-  defp handle_checkout(conn, plan, source, source_id, seats) do
+  defp handle_checkout(conn, plan, source, source_id, seats, addons) do
     user = conn.assigns.current_user
     referral = Referrals.get_pending_referral_for_user(user.id)
     session_key = conn.private.plug_session["key"]
@@ -71,7 +87,8 @@ defmodule MossletWeb.SubscribeController do
            source_id,
            session_key,
            referral,
-           seats
+           seats,
+           addons
          ) do
       {:ok, _customer, session} ->
         redirect(conn, external: billing_provider().checkout_url(session))

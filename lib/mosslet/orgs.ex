@@ -310,6 +310,65 @@ defmodule Mosslet.Orgs do
   def can_manage_branding?(%Org{} = _org, %Membership{role: :admin}), do: true
   def can_manage_branding?(_, _), do: false
 
+  @doc """
+  Returns `true` when the org carries the paid custom-subdomain branding add-on
+  (Task #240, Phase B). Server-authoritative: read from the org's own
+  (`:org`-source) subscription line items (`provider_subscription_items`), never
+  client-trusted.
+
+  This gates ONLY the custom subdomain — claiming/managing one in the UI AND
+  serving the org on its branded host (`acmebiz.mosslet.com`). The brand LOGO is
+  NOT gated here; it stays free for every Business org (role-gated only via
+  `can_manage_branding?/2`).
+
+  Lapse behavior: the entitlement is true only while the org's subscription is in
+  a covered state (active / trialing / `past_due` grace) AND still carries the
+  add-on line item. When the add-on (or the whole org plan) lapses, this flips to
+  `false` and the org stops being served on its subdomain — but the `subdomain`
+  row is intentionally kept (reserved for the org), so re-adding the add-on
+  restores serving without re-claiming. Re-checked per mount.
+  """
+  def has_branding_addon?(%Org{} = org) do
+    case org_source_subscription(org) do
+      %{status: status, provider_subscription_items: items}
+      when status in ["active", "trialing", "past_due"] and is_list(items) ->
+        addon_price_ids = MapSet.new(Plans.subdomain_addon_price_ids())
+        Enum.any?(items, &subdomain_addon_item?(&1, addon_price_ids))
+
+      _ ->
+        false
+    end
+  end
+
+  def has_branding_addon?(_), do: false
+
+  # An org's subscription line item whose price matches a configured subdomain
+  # add-on price. `provider_subscription_items` is an `Encrypted.MapList`, which
+  # round-trips through `Jason` on read (`after_decrypt/1`), so the maps are
+  # always STRING-keyed here — no atom-key fallback needed.
+  defp subdomain_addon_item?(%{"price_id" => price_id}, addon_price_ids)
+       when is_binary(price_id) do
+    MapSet.member?(addon_price_ids, price_id)
+  end
+
+  defp subdomain_addon_item?(_item, _addon_price_ids), do: false
+
+  @doc """
+  Returns `true` when the org should be SERVED on its custom subdomain (Task
+  #240, Phase B) — i.e. it has claimed a `subdomain` AND currently carries the
+  paid add-on entitlement (`has_branding_addon?/1`).
+
+  The subdomain host plug (`MossletWeb.Plugs.OrgSubdomain`) resolves the org from
+  the host regardless, but downstream surfaces must consult this before treating
+  the org as "live" on that host: an org whose add-on has lapsed keeps its
+  reserved `subdomain` row but is no longer served there.
+  """
+  def subdomain_live?(%Org{subdomain: subdomain} = org) when is_binary(subdomain) do
+    has_branding_addon?(org)
+  end
+
+  def subdomain_live?(_), do: false
+
   ## Ownership transfer handshake (Task #237, Option C)
   #
   # Ownership of an org is `Org.created_by_id`. Transferring it is a two-step
@@ -984,6 +1043,48 @@ defmodule Mosslet.Orgs do
         if is_binary(previous_path),
           do: Mosslet.FileUploads.SharedFileStorage.delete_blob(previous_path)
 
+        broadcast_org_update(updated.id)
+        ok
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Claims/sets the org's custom subdomain (Task #240, Phase B). `attrs` is the
+  owner/admin form params (`%{"subdomain" => "acmeco"}`); validation
+  (lowercase/format/length, reserved + watchlist denylists, uniqueness) lives in
+  `Org.subdomain_changeset/2`.
+
+  The subdomain hostname label is NON-SENSITIVE plaintext, so it is cast from
+  params directly. The two gates the caller MUST enforce first are unchanged
+  here: role (`can_manage_branding?/2`, admins-only) and the paid add-on
+  entitlement (`has_branding_addon?/1`) — this function performs the write only.
+  Broadcasts an org update so headers/branding re-render live. Returns
+  `{:ok, org}` or `{:error, changeset}`.
+  """
+  def set_org_subdomain(%Org{} = org, attrs) do
+    case adapter().set_org_subdomain(org, attrs) do
+      {:ok, updated} = ok ->
+        broadcast_org_update(updated.id)
+        ok
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Clears the org's custom subdomain (Task #240), e.g. an owner/admin releasing
+  it. Programmatic — no user params. Note: add-on LAPSE does NOT clear the row;
+  the subdomain stays reserved for the org and serving simply stops (gated by
+  `has_branding_addon?/1`), so re-adding the add-on restores it without
+  re-claiming. Returns `{:ok, org}` or `{:error, changeset}`.
+  """
+  def clear_org_subdomain(%Org{} = org) do
+    case adapter().clear_org_subdomain(org) do
+      {:ok, updated} = ok ->
         broadcast_org_update(updated.id)
         ok
 

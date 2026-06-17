@@ -74,6 +74,14 @@ defmodule Mosslet.Orgs.Adapter do
   @callback clear_org_logo(org :: Org.t()) ::
               {:ok, Org.t()} | {:error, Ecto.Changeset.t()}
 
+  # Custom subdomain (Task #240, Phase B). The subdomain label is non-sensitive
+  # plaintext; validation lives in `Org.subdomain_changeset/2`. The add-on
+  # entitlement gate is enforced in the context/UI, not here.
+  @callback set_org_subdomain(org :: Org.t(), attrs :: map()) ::
+              {:ok, Org.t()} | {:error, Ecto.Changeset.t()}
+  @callback clear_org_subdomain(org :: Org.t()) ::
+              {:ok, Org.t()} | {:error, Ecto.Changeset.t()}
+
   @callback get_invitation_by_org!(org :: Org.t(), id :: String.t()) :: Invitation.t()
   @callback get_invitation_with_org(id :: String.t()) :: Invitation.t() | nil
   @callback delete_invitation!(invitation :: Invitation.t()) :: Invitation.t()
