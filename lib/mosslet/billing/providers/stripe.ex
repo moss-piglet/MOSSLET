@@ -13,6 +13,7 @@ defmodule Mosslet.Billing.Providers.Stripe do
   alias Mosslet.Billing.Providers.Stripe.Services.CreateCheckoutSession
   alias Mosslet.Billing.Providers.Stripe.Services.CreatePortalSession
   alias Mosslet.Billing.Providers.Stripe.Services.FindOrCreateCustomer
+  alias Mosslet.Billing.Providers.Stripe.Services.SetSeatQuantity
   alias Mosslet.Billing.Providers.Stripe.Services.SyncCustomer
   alias Mosslet.Billing.Subscriptions.Subscription
 
@@ -194,6 +195,15 @@ defmodule Mosslet.Billing.Providers.Stripe do
   # `change_plan/3`, which routes a plan SWITCH through the Billing Portal.
   def add_subscription_item(%Subscription{} = subscription, price_id) do
     AddSubscriptionItem.call(subscription, price_id)
+  end
+
+  # Sets the seat add-on line item's quantity on an active subscription (Task
+  # #247, Phase B owner-only add-seats). `extra_seats` is the seat count beyond
+  # the plan's included allotment (0 removes the add-on item). Like
+  # `add_subscription_item/2` this updates the existing subscription in place
+  # rather than routing through Checkout or the Billing Portal.
+  def set_seat_quantity(%Subscription{} = subscription, seat_addon_price, extra_seats) do
+    SetSeatQuantity.call(subscription, seat_addon_price, extra_seats)
   end
 
   def payment_intent_adapter do

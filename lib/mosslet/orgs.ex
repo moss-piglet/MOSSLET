@@ -421,6 +421,90 @@ defmodule Mosslet.Orgs do
     end
   end
 
+  @doc """
+  One-click owner-only seat update for an ALREADY-ACTIVE org (Task #247, Phase
+  B). Adjusts the seat ADD-ON line item's quantity on the org's existing
+  `:org`-source subscription via the billing provider — NOT a new Checkout
+  Session and NOT a plan swap (mirrors `add_subdomain_addon/1`).
+
+  `requested_seats` is the desired TOTAL seat count (members + room to grow); it
+  is clamped to the plan's `[included_seats, max_seats]` range. The caller MUST
+  enforce the owner gate (`can_manage_billing?/2`) first; this function
+  additionally verifies server-side that:
+
+    * the org has an active/trialing/grace `:org` subscription on a per-seat plan
+      (else `{:error, :seats_unavailable}`);
+    * the clamped target is not below current usage — confirmed members + pending
+      invitations (else `{:error, :below_current_usage}`, so seats can never be
+      dropped out from under filled/pending seats).
+
+  When the target equals the current cap nothing is charged (`{:ok, target}` with
+  no provider call). Otherwise the seat add-on quantity is set to
+  `target - included_seats`; on success the updated subscription is synced
+  locally (so `seat_cap/1` reflects the new quantity immediately) and an org
+  update is broadcast. Returns `{:ok, target}` or `{:error, reason}`.
+  """
+  def set_org_seats(%Org{} = org, requested_seats) do
+    with %{} = subscription <- org_source_subscription(org),
+         plan when not is_nil(plan) <- Plans.get_plan_by_id(subscription.plan_id),
+         true <- Plans.seat_based_plan?(plan) do
+      target = Plans.clamp_seats(plan, requested_seats)
+
+      cond do
+        target < seat_usage(org) ->
+          {:error, :below_current_usage}
+
+        target == seat_cap(org) ->
+          {:ok, target}
+
+        true ->
+          extra_seats = target - Plans.included_seats(plan)
+
+          case billing_provider().set_seat_quantity(
+                 subscription,
+                 plan.seat_addon_price,
+                 extra_seats
+               ) do
+            {:ok, _stripe_subscription} ->
+              broadcast_org_update(org.id)
+              {:ok, target}
+
+            {:error, reason} ->
+              {:error, reason}
+          end
+      end
+    else
+      _ -> {:error, :seats_unavailable}
+    end
+  end
+
+  @doc """
+  Owner-facing seat-management bounds for the org's active per-seat plan, or
+  `nil` when the org has no seat-based `:org` subscription (Task #247).
+
+  Returns `%{cap, used, min, max}` where `min` is floored at current usage
+  (members + pending) so the in-app stepper can never request fewer seats than
+  are filled/pending, and `max` is the plan's configured ceiling (`:infinity`
+  when uncapped). Drives the owner-only add-seats stepper UI; the actual write
+  re-clamps + re-guards server-side via `set_org_seats/2`.
+  """
+  def seat_management_data(%Org{} = org) do
+    with %{plan_id: plan_id} <- org_source_subscription(org),
+         plan when not is_nil(plan) <- Plans.get_plan_by_id(plan_id),
+         true <- Plans.seat_based_plan?(plan) do
+      summary = seat_summary(org)
+
+      %{
+        cap: summary.cap,
+        used: summary.used,
+        min: max(summary.used, Plans.included_seats(plan)),
+        max: Plans.max_seats(plan)
+      }
+    else
+      _ -> nil
+    end
+  end
+
   defp billing_provider, do: Application.get_env(:mosslet, :billing_provider)
 
   ## Ownership transfer handshake (Task #237, Option C)

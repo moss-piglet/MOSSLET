@@ -20,6 +20,8 @@ defmodule Mosslet.Billing.Providers.Behaviour do
               {:ok, session} | {:error, term()}
   @callback add_subscription_item(subscription, id) ::
               {:ok, subscription} | {:error, term()}
+  @callback set_seat_quantity(subscription, id, non_neg_integer()) ::
+              {:ok, subscription} | {:error, term()}
   @callback checkout_url(session) :: String.t()
   @callback retrieve_charge(id) :: {:ok, term()} | {:error, term()}
   @callback retrieve_payment_intent(id) :: {:ok, term()} | {:error, term()}

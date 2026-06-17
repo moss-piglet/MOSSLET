@@ -610,6 +610,66 @@ defmodule MossletWeb.BusinessLiveTest do
     end
   end
 
+  describe "BusinessLive.Show seats (Task #247, owner-only add-seats)" do
+    setup %{conn: conn} do
+      {owner, owner_key} = onboarded_user("seatowner")
+      {other_admin, other_admin_key} = onboarded_user("seatadmin")
+      {member, member_key} = onboarded_user("seatmember")
+      {:ok, org} = Orgs.create_org(owner, %{"name" => "Acme", "type" => "business"})
+      subscribe_org(org, quantity: 20)
+      add_member(org, other_admin, :admin)
+      add_member(org, member, :member)
+
+      %{
+        conn: conn,
+        owner: owner,
+        owner_key: owner_key,
+        other_admin: other_admin,
+        other_admin_key: other_admin_key,
+        member: member,
+        member_key: member_key,
+        org: org
+      }
+    end
+
+    test "the owner sees the in-app seat control", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.owner, ctx.owner_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#org-seat-management")
+      assert has_element?(lv, "#org-seat-form")
+      assert has_element?(lv, "#org-seat-input")
+      assert has_element?(lv, "#org-seat-update")
+    end
+
+    test "a NON-OWNER admin does NOT see the seat control (mutates the paid subscription)", ctx do
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.other_admin, ctx.other_admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}")
+
+      refute has_element?(lv, "#org-seat-management")
+    end
+
+    test "a member does NOT see the seat control", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      refute has_element?(lv, "#org-seat-management")
+    end
+
+    test "the seat-full notice's 'Add more seats' points at the on-page control (no dead-end)",
+         ctx do
+      subscribe_org(ctx.org, quantity: 1)
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.owner, ctx.owner_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#business-seat-full-notice")
+      assert has_element?(lv, "#business-seat-full-notice a[href='#org-seat-management']")
+    end
+  end
+
   describe "BusinessLive.Show ownership transfer (Task #237)" do
     setup %{conn: conn} do
       {admin, admin_key} = onboarded_user("owner")

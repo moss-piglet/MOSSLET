@@ -154,14 +154,121 @@ defmodule MossletWeb.BusinessLive.Show do
             class="rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-800 dark:text-amber-300"
           >
             All seats are in use (including pending invites).
-            <.link
-              navigate={~p"/app/org/#{@org.slug}/subscribe"}
+            <a
+              href="#org-seat-management"
               class="font-semibold underline hover:no-underline"
             >
               Add more seats
-            </.link>
+            </a>
             to invite another teammate.
           </p>
+
+          <%!-- Owner-only in-app seat control (Task #247): adjust the org's paid
+                seat count without a Checkout detour. Mirrors the subscribe page's
+                seat stepper; the write re-clamps + re-guards server-side via
+                Orgs.set_org_seats/2. Gated by can_manage_billing?/2 (owner) since
+                it mutates the paid subscription. --%>
+          <div
+            :if={@is_owner? && @seat_management}
+            id="org-seat-management"
+            class="rounded-xl border border-slate-200/70 dark:border-slate-700/60 bg-slate-50/60 dark:bg-slate-800/40 p-4 space-y-3"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  Team seats
+                </h3>
+                <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  {@seat_management.used} in use of {@seat_management.cap} seats. Adjust your
+                  plan's seat count any time — prorated to your next invoice.
+                </p>
+              </div>
+            </div>
+
+            <.form
+              for={to_form(%{})}
+              id="org-seat-form"
+              phx-submit="update_org_seats"
+              class="flex flex-col gap-2 sm:flex-row sm:items-end"
+            >
+              <div class="flex-1">
+                <label
+                  for="org-seat-input"
+                  class="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5"
+                >
+                  Seats
+                </label>
+                <div
+                  id="org-seat-stepper"
+                  phx-hook="SeatStepper"
+                  class={[
+                    "inline-flex items-stretch w-full overflow-hidden rounded-xl",
+                    "border border-slate-300 dark:border-slate-600",
+                    "bg-white dark:bg-slate-800 shadow-sm",
+                    "focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500",
+                    "transition-colors duration-200"
+                  ]}
+                >
+                  <button
+                    type="button"
+                    data-seat-step="-1"
+                    aria-label="Decrease seats"
+                    class={[
+                      "flex items-center justify-center w-11 shrink-0 text-slate-500 dark:text-slate-400",
+                      "hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600",
+                      "hover:text-emerald-600 dark:hover:text-emerald-400",
+                      "disabled:opacity-40 disabled:pointer-events-none",
+                      "transition-colors duration-150 focus:outline-none"
+                    ]}
+                  >
+                    <.phx_icon name="hero-minus" class="size-4" />
+                  </button>
+                  <input
+                    type="number"
+                    id="org-seat-input"
+                    name="seats"
+                    value={@seat_management.cap}
+                    min={@seat_management.min}
+                    max={@seat_management.max != :infinity && @seat_management.max}
+                    step="1"
+                    inputmode="numeric"
+                    class={[
+                      "min-w-0 flex-1 border-0 bg-transparent text-center font-semibold tabular-nums",
+                      "text-slate-900 dark:text-slate-100 focus:ring-0 sm:text-sm",
+                      "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    ]}
+                  />
+                  <button
+                    type="button"
+                    data-seat-step="1"
+                    aria-label="Increase seats"
+                    class={[
+                      "flex items-center justify-center w-11 shrink-0 text-slate-500 dark:text-slate-400",
+                      "hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600",
+                      "hover:text-emerald-600 dark:hover:text-emerald-400",
+                      "disabled:opacity-40 disabled:pointer-events-none",
+                      "transition-colors duration-150 focus:outline-none"
+                    ]}
+                  >
+                    <.phx_icon name="hero-plus" class="size-4" />
+                  </button>
+                </div>
+              </div>
+              <.liquid_button
+                type="submit"
+                id="org-seat-update"
+                icon="hero-user-group"
+                phx-disable-with="Updating…"
+                data-confirm="Update your organization's seat count? Any change is prorated to your next invoice."
+              >
+                Update seats
+              </.liquid_button>
+            </.form>
+            <p class="text-xs text-slate-400 dark:text-slate-500">
+              You can't set fewer seats than your team is currently using (including pending
+              invites).
+            </p>
+          </div>
 
           <ul
             role="list"
@@ -1677,7 +1784,55 @@ defmodule MossletWeb.BusinessLive.Show do
     end
   end
 
-  # Auto-upload entry progress is driven by the OrgLogoUploadWriter, which sends
+  # One-click owner-only seat update for an active org (Task #247). Re-checks the
+  # owner gate server-side, then sets the seat count via Orgs.set_org_seats/2
+  # (which clamps to the plan range and refuses to drop below current usage). On
+  # success the seat assigns refresh immediately; the broadcast_org_update also
+  # re-runs assign_business_data for any other open sessions.
+  def handle_event("update_org_seats", %{"seats" => seats}, socket) do
+    org = socket.assigns.org
+
+    if Orgs.can_manage_billing?(org, socket.assigns.current_scope.user.id) do
+      case Orgs.set_org_seats(org, seats) do
+        {:ok, target} ->
+          {:noreply,
+           socket
+           |> assign(:seats, Orgs.seat_summary(org))
+           |> assign(:seat_management, Orgs.seat_management_data(org))
+           |> put_flash(
+             :success,
+             "Your organization now has #{target} seats. Any change is prorated to your next invoice."
+           )}
+
+        {:error, :below_current_usage} ->
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "You can't set fewer seats than your team is currently using (including pending invites)."
+           )}
+
+        {:error, :seats_unavailable} ->
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "Seats can't be adjusted for this plan right now. Please try from billing, or contact support."
+           )}
+
+        {:error, _reason} ->
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "We couldn't update your seats right now. Please try from billing, or contact support."
+           )}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Only the organization owner can manage seats.")}
+    end
+  end
+
   # us {:org_logo_upload_*} messages; nothing to do in the LiveView's progress cb.
   defp handle_logo_progress(:org_logo, _entry, socket), do: {:noreply, socket}
 
@@ -1887,6 +2042,7 @@ defmodule MossletWeb.BusinessLive.Show do
     |> assign(:org_file_circles, org_file_circles)
     |> assign(:pending_invitations, Orgs.list_invitations_by_org(org))
     |> assign(:seats, Orgs.seat_summary(org))
+    |> assign(:seat_management, Orgs.seat_management_data(org))
     |> assign(:can_manage?, socket.assigns.membership.role == :admin)
     |> assign(:is_owner?, Orgs.owner?(org, current_user.id))
     |> assign(
