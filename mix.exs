@@ -175,6 +175,7 @@ defmodule Mosslet.MixProject do
       {:langchain, "~> 0.5.0"},
       {:lazy_html, ">= 0.1.0", only: :test},
       {:live_select, "~> 1.4"},
+      {:lumis, "~> 0.1"},
       {:mdex, "~> 0.11"},
       {:metamorphic_crypto, "~> 0.2.2"},
       {:mimic, "~> 1.7", only: :test},

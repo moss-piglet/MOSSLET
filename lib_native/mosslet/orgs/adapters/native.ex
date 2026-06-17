@@ -96,6 +96,14 @@ defmodule Mosslet.Orgs.Adapters.Native do
   end
 
   @impl true
+  def get_org_by_subdomain(subdomain) when is_binary(subdomain) do
+    # Subdomain routing is a web/Fly concern; native clients resolve from the
+    # local cache only (no remote endpoint). The subdomain label is
+    # non-sensitive plaintext, so this is a plain case-insensitive match.
+    get_cached_org_by_subdomain(subdomain)
+  end
+
+  @impl true
   def get_org_by_id(id) do
     if Sync.online?() do
       with {:ok, token} <- NativeSession.get_token(),
@@ -387,6 +395,22 @@ defmodule Mosslet.Orgs.Adapters.Native do
     end
   end
 
+  defp get_cached_org_by_subdomain(subdomain) do
+    normalized = subdomain |> to_string() |> String.downcase()
+
+    case Cache.list_cached_items("org") do
+      items when is_list(items) ->
+        items
+        |> Enum.map(fn item -> deserialize_org(item.encrypted_data) end)
+        |> Enum.find(fn org ->
+          org && is_binary(org.subdomain) && String.downcase(org.subdomain) == normalized
+        end)
+
+      _ ->
+        nil
+    end
+  end
+
   defp cache_org(org_data) when is_map(org_data) do
     id = org_data["id"] || org_data[:id]
     Cache.cache_item("org", id, org_data)
@@ -407,6 +431,7 @@ defmodule Mosslet.Orgs.Adapters.Native do
       name: data["name"] || data[:name],
       name_hash: data["name_hash"] || data[:name_hash],
       slug: data["slug"] || data[:slug],
+      subdomain: data["subdomain"] || data[:subdomain],
       inserted_at: parse_naive_datetime(data["inserted_at"] || data[:inserted_at]),
       updated_at: parse_naive_datetime(data["updated_at"] || data[:updated_at])
     }

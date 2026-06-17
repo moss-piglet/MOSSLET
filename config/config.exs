@@ -11,6 +11,10 @@ config :mosslet,
   ecto_repos: [Mosslet.Repo],
   generators: [binary_id: true]
 
+# MDEx 0.13+ requires the :lumis dependency for syntax highlighting.
+# This must be configured before dependencies are compiled.
+config :mdex_native, syntax_highlighter: :lumis
+
 config :mosslet,
   app_name: "MOSSLET",
   business_name: "Moss Piglet Corporation",

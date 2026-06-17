@@ -23,7 +23,11 @@ defmodule Mosslet.Bluesky.Workers.ImportSyncWorker do
   use Oban.Worker,
     queue: :bluesky_sync,
     max_attempts: 3,
-    unique: [keys: [:account_id], period: 120, states: [:available, :scheduled, :executing]]
+    unique: [
+      keys: [:account_id],
+      period: 120,
+      states: [:available, :scheduled, :executing, :suspended, :retryable]
+    ]
 
   alias Mosslet.Bluesky
   alias Mosslet.Bluesky.Client

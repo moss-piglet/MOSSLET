@@ -74,6 +74,11 @@ defmodule Mosslet.Orgs.Adapters.Web do
   end
 
   @impl true
+  def get_org_by_subdomain(subdomain) when is_binary(subdomain) do
+    Repo.get_by(Org, subdomain: subdomain)
+  end
+
+  @impl true
   def list_owned_orgs(user, type) do
     Org
     |> where([o], o.created_by_id == ^user.id)

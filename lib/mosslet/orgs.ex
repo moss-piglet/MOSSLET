@@ -104,6 +104,19 @@ defmodule Mosslet.Orgs do
     adapter().get_org_by_slug(slug)
   end
 
+  @doc """
+  Non-raising subdomain lookup (Task #240, Phase B). Returns the org or `nil`.
+
+  Mirrors `get_org_by_slug/1` — used by the subdomain-aware host plug to resolve
+  `acmebiz.mosslet.com` -> that org. The subdomain hostname label is
+  non-sensitive plaintext, so this is a plain (case-insensitive `:citext`)
+  lookup. Authorization (membership) and the add-on entitlement are enforced by
+  the caller; resolving an org here does NOT grant access.
+  """
+  def get_org_by_subdomain(subdomain) when is_binary(subdomain) do
+    adapter().get_org_by_subdomain(subdomain)
+  end
+
   def create_org(user, attrs) do
     unless user.confirmed_at do
       raise ArgumentError, "user must be confirmed to create an org"
