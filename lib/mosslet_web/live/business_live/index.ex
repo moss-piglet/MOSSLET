@@ -146,9 +146,19 @@ defmodule MossletWeb.BusinessLive.Index do
               navigate={~p"/app/business/#{business.org.slug}"}
               class="flex items-center gap-4 p-4"
             >
-              <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-600 dark:text-slate-300 transition-colors duration-200 group-hover:from-teal-100 group-hover:to-emerald-100 dark:group-hover:from-teal-900/40 dark:group-hover:to-emerald-900/40 group-hover:text-teal-700 dark:group-hover:text-teal-300">
-                <.phx_icon name="hero-building-office" class="h-5 w-5" />
-              </div>
+              <.org_logo
+                id={"business-logo-#{business.org.id}"}
+                logo_url={business.logo_url}
+                sealed_org_key={business.sealed_org_key}
+                frame_class="h-11 w-11 rounded-xl"
+                alt={business.org.name <> " logo"}
+              >
+                <:fallback>
+                  <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-600 dark:text-slate-300 transition-colors duration-200 group-hover:from-teal-100 group-hover:to-emerald-100 dark:group-hover:from-teal-900/40 dark:group-hover:to-emerald-900/40 group-hover:text-teal-700 dark:group-hover:text-teal-300">
+                    <.phx_icon name="hero-building-office" class="h-5 w-5" />
+                  </div>
+                </:fallback>
+              </.org_logo>
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2">
                   <p class="font-semibold text-slate-900 dark:text-slate-100 truncate">
@@ -335,7 +345,12 @@ defmodule MossletWeb.BusinessLive.Index do
           membership: membership,
           member_count: length(members),
           active?: Orgs.org_active?(org),
-          owner?: Orgs.owner?(org, current_user.id)
+          owner?: Orgs.owner?(org, current_user.id),
+          # Brand logo (Task #228): the viewer decrypts it browser-side with the
+          # org_key sealed for them in their membership row. A short-lived
+          # presigned URL + that sealed key drive the OrgLogoDisplay hook.
+          logo_url: org_logo_presigned_url(org),
+          sealed_org_key: membership.key
         }
       end)
 
@@ -389,6 +404,18 @@ defmodule MossletWeb.BusinessLive.Index do
 
   defp page_title(:new), do: "New business"
   defp page_title(_), do: "Business"
+
+  # Brand logo (Task #228): a short-lived presigned GET URL for the opaque
+  # (org_key-encrypted) blob, or nil when no logo is set. The browser fetches
+  # the ciphertext and decrypts it with the org_key (OrgLogoDisplay hook).
+  defp org_logo_presigned_url(%{logo_url: path}) when is_binary(path) do
+    case Mosslet.FileUploads.SharedFileStorage.presigned_url(path) do
+      {:ok, url} -> url
+      _ -> nil
+    end
+  end
+
+  defp org_logo_presigned_url(_), do: nil
 
   # Tailors the "can't create" message: a member-seat (owns no business) is told
   # starting their own is a separate paid plan; an owner is told to put their

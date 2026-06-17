@@ -312,10 +312,10 @@ defmodule MossletWeb.OrgComponents do
               actions live in the "Manage organization" menu above. --%>
         <div :if={!@pending_transfer} id="org-danger-zone" class="space-y-2">
           <p class="text-sm text-slate-600 dark:text-slate-300">
-            You own this organization. Transferring ownership or deleting it lives in the
+            You own this organization. Use the
             <span class="font-medium text-slate-700 dark:text-slate-200">manage menu</span>
             <.phx_icon name="hero-cog-6-tooth" class="inline size-3.5 -mt-0.5 text-slate-400" />
-            at the top of this card.
+            gear icon to transfer ownership or delete completely.
           </p>
 
           <p
@@ -544,4 +544,85 @@ defmodule MossletWeb.OrgComponents do
 
   defp coverage_org_name({:grace, %{name: name}}) when is_binary(name) and name != "", do: name
   defp coverage_org_name(_), do: "your organization"
+
+  @doc """
+  Renders an org's brand logo (Task #228) wherever the generic org/building icon
+  would otherwise appear (dashboard header, business list cards, branding
+  preview). Zero-knowledge: the logo blob is encrypted with the per-org
+  `org_key`, so we hand the browser a short-lived presigned GET URL + the
+  viewer's sealed org_key and the `OrgLogoDisplay` hook fetches + decrypts it.
+
+  Loading/error states (so there's never an ugly broken-image flash):
+
+    * No logo / no presigned URL / viewer lacks the org_key — renders the
+      `:fallback` slot (the building icon) immediately.
+    * Logo present but still decrypting — renders a spinner; the `<img>` is
+      hidden (`data-state="loading"`) until the hook sets its `src`.
+    * Decrypt succeeded — the hook flips `data-state="ready"`, revealing the
+      `<img>` and hiding the spinner.
+    * Decrypt/fetch failed — the hook flips `data-state="error"`, hiding the
+      spinner and revealing the building icon fallback.
+
+  * `id` — unique DOM id for the hook element (tests + LiveView diffing).
+  * `logo_url` — short-lived presigned GET URL for the opaque blob, or nil.
+  * `sealed_org_key` — the viewer's `Membership.key` (org_key sealed for them).
+  * `frame_class` — sizing/shape classes for the logo frame.
+  * `img_class` — classes for the inner `<img>`.
+  * `icon_class` — classes for the building fallback icon (loading + error).
+  * `alt` — accessible image alt text.
+  """
+  attr :id, :string, required: true
+  attr :logo_url, :string, default: nil
+  attr :sealed_org_key, :string, default: nil
+  attr :frame_class, :string, default: "h-12 w-12 rounded-2xl"
+  attr :img_class, :string, default: "h-full w-full object-contain"
+  attr :icon_class, :string, default: "h-6 w-6 text-slate-300 dark:text-slate-600"
+  attr :alt, :string, default: "Organization logo"
+  slot :fallback, required: true
+
+  def org_logo(assigns) do
+    ~H"""
+    <%= if @logo_url && @sealed_org_key do %>
+      <span
+        id={@id}
+        phx-hook="OrgLogoDisplay"
+        phx-update="ignore"
+        data-logo-url={@logo_url}
+        data-sealed-org-key={@sealed_org_key}
+        data-state="loading"
+        class={[
+          "group/logo relative flex shrink-0 items-center justify-center overflow-hidden border border-slate-200/70 dark:border-slate-700/70 bg-white dark:bg-slate-900/40",
+          @frame_class
+        ]}
+      >
+        <%!-- Spinner: visible while decrypting (data-state="loading"). --%>
+        <span
+          data-logo-spinner
+          class="absolute inset-0 flex items-center justify-center group-data-[state=ready]/logo:hidden group-data-[state=error]/logo:hidden"
+          aria-hidden="true"
+        >
+          <.phx_icon name="hero-arrow-path" class={["animate-spin", @icon_class]} />
+        </span>
+
+        <%!-- Building fallback: visible only on decrypt/fetch error. --%>
+        <span
+          data-logo-error
+          class="absolute inset-0 hidden items-center justify-center group-data-[state=error]/logo:flex"
+          aria-hidden="true"
+        >
+          <.phx_icon name="hero-building-office" class={@icon_class} />
+        </span>
+
+        <%!-- The decrypted logo: hidden until the hook sets src + flips to ready. --%>
+        <img
+          data-logo-img
+          alt={@alt}
+          class={[@img_class, "hidden group-data-[state=ready]/logo:block"]}
+        />
+      </span>
+    <% else %>
+      {render_slot(@fallback)}
+    <% end %>
+    """
+  end
 end

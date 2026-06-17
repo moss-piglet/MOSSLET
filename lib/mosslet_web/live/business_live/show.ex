@@ -15,6 +15,7 @@ defmodule MossletWeb.BusinessLive.Show do
 
   alias Mosslet.Accounts
   alias Mosslet.Files
+  alias Mosslet.FileUploads.SharedFileStorage
   alias Mosslet.Groups
   alias Mosslet.Orgs
 
@@ -56,6 +57,23 @@ defmodule MossletWeb.BusinessLive.Show do
        |> assign(:transfer_form, to_form(%{"password" => "", "to_user_id" => ""}, as: :transfer))
        |> assign(:delete_modal_open, false)
        |> assign(:delete_form, to_form(%{"password" => ""}, as: :delete_org))
+       |> assign(:logo_upload_stage, nil)
+       |> assign(:pending_logo_preview, nil)
+       |> allow_upload(:org_logo,
+         accept: ~w(.jpg .jpeg .png .webp .heic .heif),
+         auto_upload: true,
+         max_entries: 1,
+         max_file_size: 5_000_000,
+         progress: &handle_logo_progress/3,
+         writer: fn _name, entry, _socket ->
+           {Mosslet.FileUploads.OrgLogoUploadWriter,
+            %{
+              lv_pid: self(),
+              entry_ref: entry.ref,
+              expected_size: entry.client_size
+            }}
+         end
+       )
        |> assign_business_data()}
     else
       {:ok,
@@ -84,9 +102,19 @@ defmodule MossletWeb.BusinessLive.Show do
             <.phx_icon name="hero-arrow-left" class="size-5" />
           </.link>
           <div class="flex items-center gap-3 min-w-0">
-            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 shadow-lg shadow-emerald-500/25">
-              <.phx_icon name="hero-building-office" class="h-6 w-6 text-white" />
-            </div>
+            <.org_logo
+              id="org-header-logo"
+              logo_url={@org_logo_url}
+              sealed_org_key={@viewer_sealed_org_key}
+              frame_class="h-12 w-12 rounded-2xl"
+              alt={@org.name <> " logo"}
+            >
+              <:fallback>
+                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 shadow-lg shadow-emerald-500/25">
+                  <.phx_icon name="hero-building-office" class="h-6 w-6 text-white" />
+                </div>
+              </:fallback>
+            </.org_logo>
             <div class="min-w-0">
               <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate">
                 {@org.name}
@@ -308,6 +336,120 @@ defmodule MossletWeb.BusinessLive.Show do
               </.liquid_button>
             </.form>
           </div>
+        </section>
+
+        <%!-- Branding (Task #228, branding add-on): owner/admin can upload a
+             brand logo. The logo is encrypted browser-side with the per-org
+             org_key (ZK) and surfaced across the org dashboard + circle/file
+             UIs. Shown only to those who can manage branding. --%>
+        <section
+          :if={@can_manage_branding?}
+          id="org-branding"
+          class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                Branding
+              </h2>
+              <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                Upload your organization's logo. It's encrypted on your device with your team's
+                key — we never see the original image.
+              </p>
+            </div>
+          </div>
+
+          <div
+            id="org-logo-uploader"
+            phx-hook="OrgLogoUpload"
+            data-sealed-org-key={@viewer_sealed_org_key}
+          >
+          </div>
+
+          <.form
+            for={%{}}
+            id="org-logo-form"
+            phx-change="validate_org_logo"
+            phx-submit="validate_org_logo"
+            class="flex flex-col gap-4 sm:flex-row sm:items-center"
+          >
+            <div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-900/40 overflow-hidden">
+              <%= cond do %>
+                <% @pending_logo_preview -> %>
+                  <img
+                    id="org-logo-preview-pending"
+                    src={@pending_logo_preview}
+                    alt="Logo preview"
+                    class="h-full w-full object-contain"
+                  />
+                <% @org.logo_url && @org_logo_url && @viewer_sealed_org_key -> %>
+                  <.org_logo
+                    id="org-logo-preview-current"
+                    logo_url={@org_logo_url}
+                    sealed_org_key={@viewer_sealed_org_key}
+                    frame_class="h-full w-full border-0 bg-transparent"
+                    icon_class="h-8 w-8 text-slate-300 dark:text-slate-600"
+                    alt={@org.name <> " logo"}
+                  >
+                    <:fallback>
+                      <.phx_icon
+                        name="hero-building-office"
+                        class="h-8 w-8 text-slate-300 dark:text-slate-600"
+                      />
+                    </:fallback>
+                  </.org_logo>
+                <% true -> %>
+                  <.phx_icon
+                    name="hero-building-office"
+                    class="h-8 w-8 text-slate-300 dark:text-slate-600"
+                  />
+              <% end %>
+            </div>
+
+            <div class="flex-1 space-y-2">
+              <label
+                for={@uploads.org_logo.ref}
+                class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors"
+              >
+                <.phx_icon name="hero-arrow-up-tray" class="size-4" />
+                {if @org.logo_url, do: "Replace logo", else: "Upload logo"}
+              </label>
+              <.live_file_input upload={@uploads.org_logo} class="sr-only" />
+
+              <p class="text-xs text-slate-400 dark:text-slate-500">
+                PNG, JPG, WebP, or HEIC. Up to 5&nbsp;MB.
+              </p>
+
+              <p
+                :if={logo_processing?(@logo_upload_stage)}
+                id="org-logo-progress"
+                class="inline-flex items-center gap-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 animate-pulse"
+              >
+                <.phx_icon name="hero-cog-6-tooth" class="size-3.5 animate-spin" />
+                {logo_stage_label(@logo_upload_stage)}
+              </p>
+
+              <%= for entry <- @uploads.org_logo.entries do %>
+                <%= for err <- upload_errors(@uploads.org_logo, entry) do %>
+                  <p class="text-xs font-medium text-rose-600 dark:text-rose-400">
+                    {logo_upload_error(err)}
+                  </p>
+                <% end %>
+              <% end %>
+            </div>
+
+            <.liquid_button
+              :if={@org.logo_url}
+              type="button"
+              id="org-logo-remove"
+              variant="secondary"
+              icon="hero-trash"
+              phx-click="remove_org_logo"
+              data-confirm="Remove your organization's logo?"
+            >
+              Remove
+            </.liquid_button>
+          </.form>
         </section>
 
         <%!-- Ownership / transfer handshake (Task #237) --%>
@@ -1220,6 +1362,117 @@ defmodule MossletWeb.BusinessLive.Show do
      )}
   end
 
+  ## Org brand logo (Task #228, branding add-on)
+
+  # The <.live_file_input> change/submit; the writer + hook drive everything else.
+  @impl true
+  def handle_event("validate_org_logo", _params, socket), do: {:noreply, socket}
+
+  # Browser finished the ZK encryption with the org_key and sent back the opaque
+  # ciphertext. Store it as an opaque blob (server never sees plaintext — I3),
+  # then stamp the storage path on the org. Owner/admin only.
+  @impl true
+  def handle_event(
+        "encrypted_org_logo_ready",
+        %{"encrypted_blob_b64" => encrypted_blob_b64, "upload_id" => "org_logo"},
+        socket
+      )
+      when is_binary(encrypted_blob_b64) do
+    if Orgs.can_manage_branding?(socket.assigns.org, socket.assigns.membership) do
+      e_blob = Base.decode64!(encrypted_blob_b64)
+
+      with {:ok, storage_path} <- SharedFileStorage.put_encrypted_blob(e_blob),
+           {:ok, org} <- Orgs.set_org_logo(socket.assigns.org, storage_path) do
+        {:noreply,
+         socket
+         |> assign(:org, org)
+         |> assign(:logo_upload_stage, nil)
+         |> assign(:pending_logo_preview, nil)
+         |> put_flash(:success, "Your organization logo has been updated.")
+         |> assign_business_data()}
+      else
+        _ ->
+          {:noreply,
+           socket
+           |> assign(:logo_upload_stage, {:error, "Upload failed"})
+           |> put_flash(:error, "Could not save the logo. Please try again.")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "You don't have permission to change the logo.")}
+    end
+  end
+
+  # Fallback: the OrgLogoUpload hook normally intercepts and encrypts the bytes
+  # browser-side with the org_key. If browser crypto is unavailable we must NEVER
+  # persist a plaintext logo (ZK) — refuse gracefully and ask for a reload.
+  @impl true
+  def handle_event(
+        "encrypted_org_logo_failed",
+        %{"upload_id" => "org_logo"} = _params,
+        socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:logo_upload_stage, {:error, "Encryption unavailable"})
+     |> put_flash(
+       :error,
+       "Your browser couldn't prepare encryption keys. Please reload and try again."
+     )}
+  end
+
+  @impl true
+  def handle_event("remove_org_logo", _params, socket) do
+    if Orgs.can_manage_branding?(socket.assigns.org, socket.assigns.membership) do
+      case Orgs.clear_org_logo(socket.assigns.org) do
+        {:ok, org} ->
+          {:noreply,
+           socket
+           |> assign(:org, org)
+           |> put_flash(:success, "Your organization logo has been removed.")
+           |> assign_business_data()}
+
+        _ ->
+          {:noreply, put_flash(socket, :error, "Could not remove the logo. Please try again.")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "You don't have permission to change the logo.")}
+    end
+  end
+
+  # Auto-upload entry progress is driven by the OrgLogoUploadWriter, which sends
+  # us {:org_logo_upload_*} messages; nothing to do in the LiveView's progress cb.
+  defp handle_logo_progress(:org_logo, _entry, socket), do: {:noreply, socket}
+
+  @impl true
+  def handle_info({:org_logo_upload_progress, _ref, stage, percent}, socket) do
+    {:noreply, assign(socket, :logo_upload_stage, {stage, percent})}
+  end
+
+  # Server finished processing the image (resize/WebP). Hand the final bytes to
+  # the browser for ZK encryption with the org_key (OrgLogoUpload hook).
+  @impl true
+  def handle_info(
+        {:org_logo_upload_ready, _ref, %{webp_binary: webp_binary, preview_data_url: preview}},
+        socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:logo_upload_stage, {:encrypting, 90})
+     |> assign(:pending_logo_preview, preview)
+     |> push_event("encrypt_org_logo", %{
+       blob_b64: Base.encode64(webp_binary),
+       upload_id: "org_logo"
+     })}
+  end
+
+  @impl true
+  def handle_info({:org_logo_upload_error, _ref, reason}, socket) do
+    {:noreply,
+     socket
+     |> assign(:logo_upload_stage, {:error, reason})
+     |> put_flash(:warning, to_string(reason))}
+  end
+
   @impl true
   def handle_info({:org_updated, _org_id}, socket) do
     current_user = socket.assigns.current_scope.user
@@ -1271,6 +1524,31 @@ defmodule MossletWeb.BusinessLive.Show do
   def handle_info(_message, socket), do: {:noreply, socket}
 
   ## Data loading
+
+  # Org brand logo (Task #228): a short-lived presigned GET URL for the opaque
+  # (org_key-encrypted) blob, or nil when no logo is set. The browser fetches the
+  # ciphertext and decrypts it with the org_key (OrgLogoDisplay hook).
+  defp org_logo_presigned_url(%{logo_url: path}) when is_binary(path) do
+    case Mosslet.FileUploads.SharedFileStorage.presigned_url(path) do
+      {:ok, url} -> url
+      _ -> nil
+    end
+  end
+
+  defp org_logo_presigned_url(_), do: nil
+
+  defp logo_processing?({stage, _}) when stage in [:receiving, :processing, :encrypting], do: true
+  defp logo_processing?(_), do: false
+
+  defp logo_stage_label({:receiving, _}), do: "Uploading…"
+  defp logo_stage_label({:processing, _}), do: "Processing…"
+  defp logo_stage_label({:encrypting, _}), do: "Encrypting…"
+  defp logo_stage_label(_), do: "Working…"
+
+  defp logo_upload_error(:too_large), do: "That image is too large (5 MB max)."
+  defp logo_upload_error(:too_many_files), do: "Please choose a single image."
+  defp logo_upload_error(:not_accepted), do: "Please use a PNG, JPG, WebP, or HEIC image."
+  defp logo_upload_error(_), do: "Something went wrong with that file."
 
   defp assign_business_data(socket) do
     current_user = socket.assigns.current_scope.user
@@ -1366,6 +1644,11 @@ defmodule MossletWeb.BusinessLive.Show do
     |> assign(:seats, Orgs.seat_summary(org))
     |> assign(:can_manage?, socket.assigns.membership.role == :admin)
     |> assign(:is_owner?, Orgs.owner?(org, current_user.id))
+    |> assign(
+      :can_manage_branding?,
+      Orgs.can_manage_branding?(org, socket.assigns.membership)
+    )
+    |> assign(:org_logo_url, org_logo_presigned_url(org))
     |> assign(:pending_transfer, Orgs.get_pending_transfer_for_org(org))
     |> assign_manage_circle(members)
     |> maybe_request_org_key_seal()

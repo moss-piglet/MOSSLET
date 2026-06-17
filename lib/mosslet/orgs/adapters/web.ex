@@ -281,6 +281,34 @@ defmodule Mosslet.Orgs.Adapters.Web do
     end
   end
 
+  ## Org brand logo (Task #228)
+
+  @impl true
+  def set_org_logo(%Org{} = org, storage_path) when is_binary(storage_path) do
+    case Repo.transaction_on_primary(fn ->
+           org
+           |> Org.put_logo_changeset(storage_path)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, org}} -> {:ok, org}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
+  end
+
+  @impl true
+  def clear_org_logo(%Org{} = org) do
+    case Repo.transaction_on_primary(fn ->
+           org
+           |> Org.clear_logo_changeset()
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, org}} -> {:ok, org}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
+  end
+
   @impl true
   def get_invitation_by_org!(org, id) do
     org

@@ -285,6 +285,18 @@ defmodule Mosslet.Orgs do
 
   def owner?(_, _), do: false
 
+  @doc """
+  Returns `true` when the given membership may manage the org's branding
+  (Task #228) — i.e. an org admin. Owners who are not admins, members,
+  guardians, and managed members cannot upload or remove the brand logo.
+
+  Gating is purely by membership role; it does NOT check the billing add-on
+  entitlement (that gate is layered separately in the UI, trial-aware via
+  `org_coverage_status/1`).
+  """
+  def can_manage_branding?(%Org{} = _org, %Membership{role: :admin}), do: true
+  def can_manage_branding?(_, _), do: false
+
   ## Ownership transfer handshake (Task #237, Option C)
   #
   # Ownership of an org is `Org.created_by_id`. Transferring it is a two-step
@@ -627,6 +639,11 @@ defmodule Mosslet.Orgs do
     #    guardianships, transfers).
     case delete_org(org) do
       {:ok, _deleted} ->
+        # Best-effort: delete the org brand-logo blob (Task #228) so we don't
+        # orphan ciphertext in object storage. Fire-and-forget, never blocks.
+        if is_binary(org.logo_url),
+          do: Mosslet.FileUploads.SharedFileStorage.delete_blob(org.logo_url)
+
         # Best-effort external side-effects — never blocks/rolls back the
         # committed teardown. ZK-safe: org id + provider refs only.
         Mosslet.Orgs.Jobs.OrgTeardownJob.enqueue(
@@ -903,6 +920,58 @@ defmodule Mosslet.Orgs do
     case adapter().set_org_display_name(membership, encrypted_name) do
       {:ok, updated} = ok ->
         broadcast_org_update(updated.org_id)
+        ok
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Stamps the org brand-logo storage path (Task #228, branding add-on).
+
+  `storage_path` is the opaque Tigris object key returned by
+  `Mosslet.FileUploads.SharedFileStorage.put_encrypted_blob/1` — the logo image
+  bytes there were already encrypted browser-side with the per-org `org_key`, so
+  the server never sees the plaintext logo. Authorization (owner/admin of a
+  Business org carrying the branding add-on) is enforced by the caller BEFORE
+  this runs. Broadcasts an org update so every member's dashboard re-renders the
+  new logo. Returns `{:ok, org}` or `{:error, changeset}`.
+  """
+  def set_org_logo(%Org{} = org, storage_path) when is_binary(storage_path) do
+    previous_path = org.logo_url
+
+    case adapter().set_org_logo(org, storage_path) do
+      {:ok, updated} = ok ->
+        # On replace, best-effort delete the OLD opaque blob so we don't orphan
+        # ciphertext in object storage (fire-and-forget — never blocks). Skip
+        # when the path is unchanged (idempotent re-stamp).
+        if is_binary(previous_path) and previous_path != storage_path,
+          do: Mosslet.FileUploads.SharedFileStorage.delete_blob(previous_path)
+
+        broadcast_org_update(updated.id)
+        ok
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Clears the org brand logo (Task #228) and best-effort deletes the opaque blob
+  from object storage (fire-and-forget — a slow object-store call never blocks).
+  Broadcasts an org update so rosters/headers drop the logo live. Returns
+  `{:ok, org}` or `{:error, changeset}`.
+  """
+  def clear_org_logo(%Org{} = org) do
+    previous_path = org.logo_url
+
+    case adapter().clear_org_logo(org) do
+      {:ok, updated} = ok ->
+        if is_binary(previous_path),
+          do: Mosslet.FileUploads.SharedFileStorage.delete_blob(previous_path)
+
+        broadcast_org_update(updated.id)
         ok
 
       error ->
@@ -1536,8 +1605,16 @@ defmodule Mosslet.Orgs do
         case org_reclaim_state(org) do
           state when state in [:pending, :trial_expired] ->
             case delete_org(org) do
-              {:ok, _org} -> {:ok, :reclaimed}
-              {:error, _} = error -> error
+              {:ok, _org} ->
+                # Best-effort: drop the brand-logo blob (Task #228) if one exists
+                # so the reclaim path never orphans ciphertext. Fire-and-forget.
+                if is_binary(org.logo_url),
+                  do: Mosslet.FileUploads.SharedFileStorage.delete_blob(org.logo_url)
+
+                {:ok, :reclaimed}
+
+              {:error, _} = error ->
+                error
             end
 
           _ ->

@@ -66,6 +66,13 @@ defmodule Mosslet.Orgs.Adapter do
   @callback set_org_display_name(membership :: Membership.t(), encrypted_name :: String.t()) ::
               {:ok, Membership.t()} | {:error, Ecto.Changeset.t()}
 
+  # Org brand logo (Task #228, branding add-on). `storage_path` is the opaque
+  # Tigris object key for the (already org_key-encrypted) logo blob.
+  @callback set_org_logo(org :: Org.t(), storage_path :: String.t()) ::
+              {:ok, Org.t()} | {:error, Ecto.Changeset.t()}
+  @callback clear_org_logo(org :: Org.t()) ::
+              {:ok, Org.t()} | {:error, Ecto.Changeset.t()}
+
   @callback get_invitation_by_org!(org :: Org.t(), id :: String.t()) :: Invitation.t()
   @callback get_invitation_with_org(id :: String.t()) :: Invitation.t() | nil
   @callback delete_invitation!(invitation :: Invitation.t()) :: Invitation.t()

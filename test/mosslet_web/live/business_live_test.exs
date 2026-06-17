@@ -85,6 +85,19 @@ defmodule MossletWeb.BusinessLiveTest do
     membership
   end
 
+  # Seals an (opaque) org_key for a member so view-models that gate on the
+  # viewer holding the org_key (e.g. the brand-logo decrypt hook, Task #228)
+  # render. Server-side the sealed key is just an opaque blob — the real value
+  # is browser-generated/sealed; tests only need a non-nil membership.key.
+  defp seal_org_key(org, user) do
+    {:ok, _count} =
+      Orgs.seal_org_key_for_members(org, [
+        %{user_id: user.id, sealed_key: "sealed-org-key-#{System.unique_integer([:positive])}"}
+      ])
+
+    :ok
+  end
+
   # Attaches (or updates) the org's own `:org`-source subscription so its content
   # surfaces are reachable (Option B, Task #235). Idempotent on the customer and
   # on the subscription, so a setup can activate the org and a test can later
@@ -281,6 +294,30 @@ defmodule MossletWeb.BusinessLiveTest do
       assert has_element?(lv, "a[href='/app/business/#{org.slug}']")
       refute has_element?(lv, "#business-inert-#{org.id}")
     end
+
+    test "a business with a logo renders the decrypt hook on its card (Task #228)", %{conn: conn} do
+      {user, key} = onboarded_user("bizlogo")
+      {:ok, org} = Orgs.create_org(user, %{"name" => "Logo Co", "type" => "business"})
+      subscribe_org(org)
+      {:ok, _org} = Orgs.set_org_logo(org, "uploads/files/#{Ecto.UUID.generate()}.bin")
+      seal_org_key(org, user)
+
+      conn = log_in(conn, user, key)
+      {:ok, lv, _html} = live(conn, ~p"/app/business")
+
+      assert has_element?(lv, "#business-logo-#{org.id}[phx-hook='OrgLogoDisplay']")
+    end
+
+    test "a logo-less business renders the building fallback (no hook)", %{conn: conn} do
+      {user, key} = onboarded_user("biznologo")
+      {:ok, org} = Orgs.create_org(user, %{"name" => "Plain Co", "type" => "business"})
+      subscribe_org(org)
+
+      conn = log_in(conn, user, key)
+      {:ok, lv, _html} = live(conn, ~p"/app/business")
+
+      refute has_element?(lv, "#business-logo-#{org.id}")
+    end
   end
 
   describe "BusinessLive.Show" do
@@ -368,6 +405,78 @@ defmodule MossletWeb.BusinessLiveTest do
       lv |> element("#revoke-invitation-#{invitation.id}") |> render_click()
       assert Orgs.list_invitations_by_org(ctx.org) == []
       refute has_element?(lv, "#pending-invitations")
+    end
+  end
+
+  describe "BusinessLive.Show branding (Task #228)" do
+    setup %{conn: conn} do
+      {admin, admin_key} = onboarded_user("brandadmin")
+      {member, member_key} = onboarded_user("brandmember")
+      {:ok, org} = Orgs.create_org(admin, %{"name" => "Acme", "type" => "business"})
+      subscribe_org(org, quantity: 20)
+      add_member(org, member, :member)
+
+      %{
+        conn: conn,
+        admin: admin,
+        admin_key: admin_key,
+        member: member,
+        member_key: member_key,
+        org: org
+      }
+    end
+
+    test "admins see the Branding upload section", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#org-branding")
+      assert has_element?(lv, "#org-logo-uploader")
+      assert has_element?(lv, "label", "Upload logo")
+    end
+
+    test "non-admin members do NOT see the Branding section (admins-only)", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      refute has_element?(lv, "#org-branding")
+    end
+
+    test "header shows the building fallback (no decrypt hook) when no logo is set", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      refute has_element?(lv, "#org-header-logo")
+    end
+
+    test "with a logo set, the header + branding preview render the decrypt hook + remove", ctx do
+      {:ok, _org} = Orgs.set_org_logo(ctx.org, "uploads/files/#{Ecto.UUID.generate()}.bin")
+      # The decrypt hook only renders when the viewer holds the org_key (sealed
+      # in their membership). Seal an opaque key for the admin (server-side it's
+      # just an opaque blob — the real value is browser-generated).
+      seal_org_key(ctx.org, ctx.admin)
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#org-header-logo[phx-hook='OrgLogoDisplay']")
+      assert has_element?(lv, "#org-logo-remove")
+      assert has_element?(lv, "label", "Replace logo")
+    end
+
+    test "removing the logo clears it and reverts to the fallback", ctx do
+      {:ok, _org} = Orgs.set_org_logo(ctx.org, "uploads/files/#{Ecto.UUID.generate()}.bin")
+      seal_org_key(ctx.org, ctx.admin)
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#org-header-logo")
+
+      lv |> element("#org-logo-remove") |> render_click()
+
+      refute has_element?(lv, "#org-header-logo")
+      assert Orgs.get_org_by_id(ctx.org.id).logo_url == nil
     end
   end
 

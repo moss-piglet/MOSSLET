@@ -49,6 +49,8 @@ import MentionPicker from "./mention-picker";
 import MessageReactions from "./message-reactions";
 import OrgMembers from "./org-members";
 import OrgDisplayNameFormHook from "./org-display-name-form-hook";
+import OrgLogoUpload from "./org-logo-upload";
+import OrgLogoDisplay from "./org-logo-display";
 import RegistrationHook from "./registration-hook";
 import RecoveryKeySetupHook from "./recovery-key-setup-hook";
 import ReplyComposer from "./reply-composer";
@@ -155,6 +157,8 @@ export default {
   NsfwCheck,
   OrgMembers,
   OrgDisplayNameFormHook,
+  OrgLogoUpload,
+  OrgLogoDisplay,
   PostFormHook,
   ProfileAboutFormHook,
   ProfileFieldsFormHook,
