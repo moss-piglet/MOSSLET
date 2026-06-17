@@ -670,6 +670,105 @@ defmodule MossletWeb.BusinessLiveTest do
     end
   end
 
+  describe "BusinessLive.Show Manage disclosure + responsive layout (Task #248)" do
+    setup %{conn: conn} do
+      {owner, owner_key} = onboarded_user("mgrowner")
+      {other_admin, other_admin_key} = onboarded_user("mgradmin")
+      {member, member_key} = onboarded_user("mgrmember")
+      {:ok, org} = Orgs.create_org(owner, %{"name" => "Acme", "type" => "business"})
+      # Seat-based subscription (quantity) AND the subdomain add-on, so every
+      # setup surface (branding, subdomain, seats, ownership) is available.
+      subscribe_org(org, quantity: 20, items: [%{"price_id" => subdomain_addon_price()}])
+      add_member(org, other_admin, :admin)
+      add_member(org, member, :member)
+
+      %{
+        conn: conn,
+        owner: owner,
+        owner_key: owner_key,
+        other_admin: other_admin,
+        other_admin_key: other_admin_key,
+        member: member,
+        member_key: member_key,
+        org: org
+      }
+    end
+
+    test "everyday surfaces stay primary, outside the Manage disclosure", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.owner, ctx.owner_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      # Members + invite render, and are NOT nested inside the Manage panel.
+      assert has_element?(lv, "#org-members-roster")
+      assert has_element?(lv, "#invite-form")
+      refute has_element?(lv, "#org-manage-panel #org-members-roster")
+      refute has_element?(lv, "#org-manage-panel #invite-form")
+    end
+
+    test "the Manage disclosure is collapsed by default and toggles open (owner)", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.owner, ctx.owner_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#org-manage")
+      assert has_element?(lv, "#org-manage-panel")
+      assert has_element?(lv, "#org-manage-toggle[aria-expanded='false']")
+
+      lv |> element("#org-manage-toggle") |> render_click()
+      assert has_element?(lv, "#org-manage-toggle[aria-expanded='true']")
+
+      # Toggling again collapses it.
+      lv |> element("#org-manage-toggle") |> render_click()
+      assert has_element?(lv, "#org-manage-toggle[aria-expanded='false']")
+    end
+
+    test "all setup surfaces live INSIDE the Manage panel (relocated, ids preserved)", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.owner, ctx.owner_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#org-manage-panel #org-branding")
+      assert has_element?(lv, "#org-manage-panel #org-subdomain")
+      assert has_element?(lv, "#org-manage-panel #org-seat-management")
+      assert has_element?(lv, "#org-manage-panel #org-ownership-section")
+    end
+
+    test "a non-owner admin sees Manage with branding, but NOT the owner-only seats/subdomain",
+         ctx do
+      {:ok, lv, _html} =
+        ctx.conn
+        |> log_in(ctx.other_admin, ctx.other_admin_key)
+        |> live(~p"/app/business/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#org-manage")
+      assert has_element?(lv, "#org-manage-panel #org-branding")
+      refute has_element?(lv, "#org-subdomain")
+      refute has_element?(lv, "#org-seat-management")
+    end
+
+    test "a plain member sees NO Manage disclosure (nothing to set up)", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      refute has_element?(lv, "#org-manage")
+      refute has_element?(lv, "#org-branding")
+      refute has_element?(lv, "#org-seat-management")
+    end
+
+    test "the seat-full notice's 'Add more seats' opens the Manage disclosure (deep-link)", ctx do
+      subscribe_org(ctx.org, quantity: 1, items: [%{"price_id" => subdomain_addon_price()}])
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.owner, ctx.owner_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#org-manage-toggle[aria-expanded='false']")
+
+      lv
+      |> element("#business-seat-full-notice a[href='#org-seat-management']")
+      |> render_click()
+
+      assert has_element?(lv, "#org-manage-toggle[aria-expanded='true']")
+    end
+  end
+
   describe "BusinessLive.Show ownership transfer (Task #237)" do
     setup %{conn: conn} do
       {admin, admin_key} = onboarded_user("owner")

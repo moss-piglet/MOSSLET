@@ -60,6 +60,7 @@ defmodule MossletWeb.BusinessLive.Show do
        |> assign(:delete_form, to_form(%{"password" => ""}, as: :delete_org))
        |> assign(:logo_upload_stage, nil)
        |> assign(:pending_logo_preview, nil)
+       |> assign(:manage_open?, false)
        |> allow_upload(:org_logo,
          accept: ~w(.jpg .jpeg .png .webp .heic .heif),
          auto_upload: true,
@@ -93,7 +94,7 @@ defmodule MossletWeb.BusinessLive.Show do
       current_scope={@current_scope}
       type="sidebar"
     >
-      <div class="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10 space-y-6">
+      <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10 space-y-6 lg:space-y-8">
         <header class="flex items-center gap-3">
           <.link
             navigate={~p"/app/business"}
@@ -129,817 +130,894 @@ defmodule MossletWeb.BusinessLive.Show do
 
         <.org_coverage_notice status={@coverage_status} />
 
-        <%!-- Member management --%>
-        <section class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4">
-          <div class="flex items-center justify-between">
-            <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Members</h2>
-            <span
-              id="business-seat-usage"
-              class={[
-                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-                if(@seats.available == 0,
-                  do: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300",
-                  else: "bg-slate-100 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300"
-                )
-              ]}
-            >
-              <.phx_icon name="hero-user-group" class="size-3.5" />
-              {@seats.used} of {@seats.cap} seats used
-            </span>
-          </div>
-
-          <p
-            :if={@is_owner? && @seats.available == 0}
-            id="business-seat-full-notice"
-            class="rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-800 dark:text-amber-300"
-          >
-            All seats are in use (including pending invites).
-            <a
-              href="#org-seat-management"
-              class="font-semibold underline hover:no-underline"
-            >
-              Add more seats
-            </a>
-            to invite another teammate.
-          </p>
-
-          <%!-- Owner-only in-app seat control (Task #247): adjust the org's paid
-                seat count without a Checkout detour. Mirrors the subscribe page's
-                seat stepper; the write re-clamps + re-guards server-side via
-                Orgs.set_org_seats/2. Gated by can_manage_billing?/2 (owner) since
-                it mutates the paid subscription. --%>
-          <div
-            :if={@is_owner? && @seat_management}
-            id="org-seat-management"
-            class="rounded-xl border border-slate-200/70 dark:border-slate-700/60 bg-slate-50/60 dark:bg-slate-800/40 p-4 space-y-3"
-          >
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  Team seats
-                </h3>
-                <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                  {@seat_management.used} in use of {@seat_management.cap} seats. Adjust your
-                  plan's seat count any time — prorated to your next invoice.
-                </p>
-              </div>
+        <%!-- Everyday surfaces — members, circles, and files — get the prominent
+             real-estate. On lg+ they fan out into a responsive multi-column grid;
+             on mobile they stack into one column (Task #248). --%>
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8 lg:items-start">
+          <%!-- Member management --%>
+          <section class="lg:col-span-7 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4">
+            <div class="flex items-center justify-between">
+              <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Members</h2>
+              <span
+                id="business-seat-usage"
+                class={[
+                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+                  if(@seats.available == 0,
+                    do: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300",
+                    else: "bg-slate-100 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300"
+                  )
+                ]}
+              >
+                <.phx_icon name="hero-user-group" class="size-3.5" />
+                {@seats.used} of {@seats.cap} seats used
+              </span>
             </div>
 
-            <.form
-              for={to_form(%{})}
-              id="org-seat-form"
-              phx-submit="update_org_seats"
-              class="flex flex-col gap-2 sm:flex-row sm:items-end"
+            <p
+              :if={@is_owner? && @seats.available == 0}
+              id="business-seat-full-notice"
+              class="rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-800 dark:text-amber-300"
             >
-              <div class="flex-1">
-                <label
-                  for="org-seat-input"
-                  class="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5"
-                >
-                  Seats
-                </label>
-                <div
-                  id="org-seat-stepper"
-                  phx-hook="SeatStepper"
-                  class={[
-                    "inline-flex items-stretch w-full overflow-hidden rounded-xl",
-                    "border border-slate-300 dark:border-slate-600",
-                    "bg-white dark:bg-slate-800 shadow-sm",
-                    "focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500",
-                    "transition-colors duration-200"
-                  ]}
-                >
-                  <button
-                    type="button"
-                    data-seat-step="-1"
-                    aria-label="Decrease seats"
-                    class={[
-                      "flex items-center justify-center w-11 shrink-0 text-slate-500 dark:text-slate-400",
-                      "hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600",
-                      "hover:text-emerald-600 dark:hover:text-emerald-400",
-                      "disabled:opacity-40 disabled:pointer-events-none",
-                      "transition-colors duration-150 focus:outline-none"
-                    ]}
-                  >
-                    <.phx_icon name="hero-minus" class="size-4" />
-                  </button>
-                  <input
-                    type="number"
-                    id="org-seat-input"
-                    name="seats"
-                    value={@seat_management.cap}
-                    min={@seat_management.min}
-                    max={@seat_management.max != :infinity && @seat_management.max}
-                    step="1"
-                    inputmode="numeric"
-                    class={[
-                      "min-w-0 flex-1 border-0 bg-transparent text-center font-semibold tabular-nums",
-                      "text-slate-900 dark:text-slate-100 focus:ring-0 sm:text-sm",
-                      "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    ]}
-                  />
-                  <button
-                    type="button"
-                    data-seat-step="1"
-                    aria-label="Increase seats"
-                    class={[
-                      "flex items-center justify-center w-11 shrink-0 text-slate-500 dark:text-slate-400",
-                      "hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600",
-                      "hover:text-emerald-600 dark:hover:text-emerald-400",
-                      "disabled:opacity-40 disabled:pointer-events-none",
-                      "transition-colors duration-150 focus:outline-none"
-                    ]}
-                  >
-                    <.phx_icon name="hero-plus" class="size-4" />
-                  </button>
-                </div>
-              </div>
-              <.liquid_button
-                type="submit"
-                id="org-seat-update"
-                icon="hero-user-group"
-                phx-disable-with="Updating…"
-                data-confirm="Update your organization's seat count? Any change is prorated to your next invoice."
+              All seats are in use (including pending invites).
+              <a
+                href="#org-seat-management"
+                phx-click="open_manage"
+                class="font-semibold underline hover:no-underline"
               >
-                Update seats
-              </.liquid_button>
-            </.form>
-            <p class="text-xs text-slate-400 dark:text-slate-500">
-              You can't set fewer seats than your team is currently using (including pending
-              invites).
+                Add more seats
+              </a>
+              to invite another teammate.
             </p>
-          </div>
-
-          <ul
-            role="list"
-            class="divide-y divide-slate-100 dark:divide-slate-700/60"
-            id="org-members-roster"
-            phx-hook="OrgMembers"
-            data-sealed-org-key={@viewer_sealed_org_key}
-            data-current-user-id={@current_scope.user.id}
-          >
-            <li
-              :for={member <- @members}
-              id={"member-#{member.user.id}"}
-              class="py-3 flex items-center justify-between gap-3"
-              data-org-member-row
-              data-encrypted-display-name={member.encrypted_display_name}
+            <ul
+              role="list"
+              class="divide-y divide-slate-100 dark:divide-slate-700/60"
+              id="org-members-roster"
+              phx-hook="OrgMembers"
+              data-sealed-org-key={@viewer_sealed_org_key}
+              data-current-user-id={@current_scope.user.id}
             >
-              <div class="flex items-center gap-3 min-w-0">
-                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
-                  <.phx_icon name="hero-user" class="size-4" />
-                </div>
-                <div class="min-w-0">
-                  <div class="flex items-center gap-2">
-                    <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                      <span {MossletWeb.OrgIdentity.org_name_target(member)}>
-                        {MossletWeb.OrgIdentity.placeholder_label(member)}
+              <li
+                :for={member <- @members}
+                id={"member-#{member.user.id}"}
+                class="py-3 flex items-center justify-between gap-3"
+                data-org-member-row
+                data-encrypted-display-name={member.encrypted_display_name}
+              >
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
+                    <.phx_icon name="hero-user" class="size-4" />
+                  </div>
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                      <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                        <span {MossletWeb.OrgIdentity.org_name_target(member)}>
+                          {MossletWeb.OrgIdentity.placeholder_label(member)}
+                        </span>
+                      </p>
+                      <.business_role_badge role={member.membership.role} />
+                      <span
+                        :if={Orgs.owner?(@org, member.user.id)}
+                        id={"owner-badge-#{member.user.id}"}
+                        class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300"
+                      >
+                        <.phx_icon name="hero-key" class="size-3" /> Owner
                       </span>
-                    </p>
-                    <.business_role_badge role={member.membership.role} />
-                    <span
-                      :if={Orgs.owner?(@org, member.user.id)}
-                      id={"owner-badge-#{member.user.id}"}
-                      class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300"
-                    >
-                      <.phx_icon name="hero-key" class="size-3" /> Owner
-                    </span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div class="flex items-center gap-2 flex-shrink-0">
-                <%!-- One-tap "Connect with teammate" (Task #226): send a personal
+                <div class="flex items-center gap-2 flex-shrink-0">
+                  <%!-- One-tap "Connect with teammate" (Task #226): send a personal
                      UserConnection invite to a member you're not yet connected
                      to. Once accepted, their real personal name lights up via the
                      existing resolution path. --%>
-                <.liquid_button
-                  :if={MossletWeb.OrgIdentity.show_connect_button?(member)}
-                  variant="secondary"
-                  size="sm"
-                  icon="hero-user-plus"
-                  phx-click="connect_teammate"
-                  phx-value-user_id={member.user.id}
-                  id={"connect-#{member.user.id}"}
-                >
-                  Connect
-                </.liquid_button>
-                <span
-                  :if={MossletWeb.OrgIdentity.connection_pending?(member)}
-                  id={"connect-pending-#{member.user.id}"}
-                  class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-300"
-                >
-                  <.phx_icon name="hero-clock" class="size-3.5" /> Pending
-                </span>
+                  <.liquid_button
+                    :if={MossletWeb.OrgIdentity.show_connect_button?(member)}
+                    variant="secondary"
+                    size="sm"
+                    icon="hero-user-plus"
+                    phx-click="connect_teammate"
+                    phx-value-user_id={member.user.id}
+                    id={"connect-#{member.user.id}"}
+                  >
+                    Connect
+                  </.liquid_button>
+                  <span
+                    :if={MossletWeb.OrgIdentity.connection_pending?(member)}
+                    id={"connect-pending-#{member.user.id}"}
+                    class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-300"
+                  >
+                    <.phx_icon name="hero-clock" class="size-3.5" /> Pending
+                  </span>
 
-                <%!-- Owner is the org's billing/coverage anchor and can't be
+                  <%!-- Owner is the org's billing/coverage anchor and can't be
                      role-changed or removed by an admin (ownership transfer is the
                      only path — Task #237). --%>
-                <div
-                  :if={
-                    @can_manage? && member.user.id != @current_scope.user.id &&
-                      !Orgs.owner?(@org, member.user.id)
-                  }
-                  class="flex items-center gap-2"
-                >
-                  <form phx-change="change_role" id={"role-form-#{member.user.id}"}>
-                    <input type="hidden" name="user_id" value={member.user.id} />
-                    <select
-                      name="role"
-                      class="rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-700 text-xs py-1.5 focus:border-emerald-500 focus:ring-emerald-500/30"
-                    >
-                      <option value="member" selected={member.membership.role == :member}>
-                        Member
-                      </option>
-                      <option value="admin" selected={member.membership.role == :admin}>
-                        Admin
-                      </option>
-                    </select>
-                  </form>
-                  <.liquid_button
-                    variant="ghost"
-                    color="rose"
-                    size="sm"
-                    icon="hero-user-minus"
-                    phx-click="offboard_member"
-                    phx-value-user_id={member.user.id}
-                    id={"offboard-#{member.user.id}"}
-                    data-confirm="Remove this person from the organization and from all of this org's business circles? We can't recall content they've already downloaded."
+                  <div
+                    :if={
+                      @can_manage? && member.user.id != @current_scope.user.id &&
+                        !Orgs.owner?(@org, member.user.id)
+                    }
+                    class="flex items-center gap-2"
                   >
-                    Remove
-                  </.liquid_button>
+                    <form phx-change="change_role" id={"role-form-#{member.user.id}"}>
+                      <input type="hidden" name="user_id" value={member.user.id} />
+                      <select
+                        name="role"
+                        class="rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-700 text-xs py-1.5 focus:border-emerald-500 focus:ring-emerald-500/30"
+                      >
+                        <option value="member" selected={member.membership.role == :member}>
+                          Member
+                        </option>
+                        <option value="admin" selected={member.membership.role == :admin}>
+                          Admin
+                        </option>
+                      </select>
+                    </form>
+                    <.liquid_button
+                      variant="ghost"
+                      color="rose"
+                      size="sm"
+                      icon="hero-user-minus"
+                      phx-click="offboard_member"
+                      phx-value-user_id={member.user.id}
+                      id={"offboard-#{member.user.id}"}
+                      data-confirm="Remove this person from the organization and from all of this org's business circles? We can't recall content they've already downloaded."
+                    >
+                      Remove
+                    </.liquid_button>
+                  </div>
                 </div>
-              </div>
-            </li>
-          </ul>
+              </li>
+            </ul>
 
-          <%!-- Org display-name prompt (Task #225): the member sets how their
+            <%!-- Org display-name prompt (Task #225): the member sets how their
                team sees them. Shown when they hold the org_key but haven't set a
                name yet. Encrypted browser-side with the org_key. --%>
-          <div
-            :if={@viewer_sealed_org_key && is_nil(@membership.display_name)}
-            id="org-display-name-prompt"
-            class="rounded-xl border border-teal-200/60 dark:border-teal-800/50 bg-teal-50/60 dark:bg-teal-900/20 p-4"
-          >
-            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
-              Set how your team sees you
-            </p>
-            <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              Your teammates can't read your personal name unless you're connected. Choose an
-              org display name (e.g. "Mark — Engineering"). It's encrypted on your device.
-            </p>
-            <.form
-              for={@org_display_name_form}
-              id="org-display-name-form"
-              phx-hook="OrgDisplayNameFormHook"
-              data-sealed-org-key={@viewer_sealed_org_key}
-              phx-submit="save_org_display_name"
-              class="mt-3 flex items-end gap-2"
+            <div
+              :if={@viewer_sealed_org_key && is_nil(@membership.display_name)}
+              id="org-display-name-prompt"
+              class="rounded-xl border border-teal-200/60 dark:border-teal-800/50 bg-teal-50/60 dark:bg-teal-900/20 p-4"
             >
-              <div class="flex-1">
-                <.phx_input
-                  field={@org_display_name_form[:name]}
-                  type="text"
-                  placeholder="Your team display name"
-                  maxlength="160"
-                />
-              </div>
-              <.liquid_button type="submit" id="org-display-name-submit" icon="hero-check">
-                Save
-              </.liquid_button>
-            </.form>
-          </div>
-
-          <.pending_invitations_panel
-            invitations={@pending_invitations}
-            can_manage={@can_manage?}
-          />
-
-          <%!-- Invite member (admin) --%>
-          <div
-            :if={@can_manage?}
-            class="pt-2 border-t border-slate-100 dark:border-slate-700/60"
-          >
-            <.form
-              for={@invite_form}
-              id="invite-form"
-              phx-submit="invite_member"
-              class="flex items-end gap-2"
-            >
-              <div class="flex-1">
-                <.phx_input
-                  field={@invite_form[:email]}
-                  type="email"
-                  label="Invite by email"
-                  placeholder="teammate@example.com"
-                />
-              </div>
-              <.liquid_button
-                type="submit"
-                id="invite-submit"
-                color="emerald"
-                icon="hero-paper-airplane"
+              <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
+                Set how your team sees you
+              </p>
+              <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                Your teammates can't read your personal name unless you're connected. Choose an
+                org display name (e.g. "Mark — Engineering"). It's encrypted on your device.
+              </p>
+              <.form
+                for={@org_display_name_form}
+                id="org-display-name-form"
+                phx-hook="OrgDisplayNameFormHook"
+                data-sealed-org-key={@viewer_sealed_org_key}
+                phx-submit="save_org_display_name"
+                class="mt-3 flex items-end gap-2"
               >
-                Invite
-              </.liquid_button>
-            </.form>
-          </div>
-        </section>
+                <div class="flex-1">
+                  <.phx_input
+                    field={@org_display_name_form[:name]}
+                    type="text"
+                    placeholder="Your team display name"
+                    maxlength="160"
+                  />
+                </div>
+                <.liquid_button type="submit" id="org-display-name-submit" icon="hero-check">
+                  Save
+                </.liquid_button>
+              </.form>
+            </div>
 
-        <%!-- Branding (Task #228, branding add-on): owner/admin can upload a
+            <.pending_invitations_panel
+              invitations={@pending_invitations}
+              can_manage={@can_manage?}
+            />
+
+            <%!-- Invite member (admin) --%>
+            <div
+              :if={@can_manage?}
+              class="pt-2 border-t border-slate-100 dark:border-slate-700/60"
+            >
+              <.form
+                for={@invite_form}
+                id="invite-form"
+                phx-submit="invite_member"
+                class="flex items-end gap-2"
+              >
+                <div class="flex-1">
+                  <.phx_input
+                    field={@invite_form[:email]}
+                    type="email"
+                    label="Invite by email"
+                    placeholder="teammate@example.com"
+                  />
+                </div>
+                <.liquid_button
+                  type="submit"
+                  id="invite-submit"
+                  color="emerald"
+                  icon="hero-paper-airplane"
+                >
+                  Invite
+                </.liquid_button>
+              </.form>
+            </div>
+          </section>
+
+          <div class="space-y-6 lg:col-span-5">
+            <%!-- Business circles panel --%>
+            <section class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4">
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div class="min-w-0">
+                  <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                    Business circles
+                  </h2>
+                  <p class="mt-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                    Private circles restricted to this org's members. Each circle has its own
+                    end-to-end encrypted chat.
+                  </p>
+                </div>
+                <.liquid_button
+                  :if={!@show_circle_form?}
+                  phx-click="show_circle_form"
+                  id="new-circle-button"
+                  color="emerald"
+                  size="md"
+                  icon="hero-plus"
+                  class="w-full shrink-0 sm:w-auto"
+                >
+                  New circle
+                </.liquid_button>
+              </div>
+
+              <div
+                :if={@show_circle_form?}
+                id="new-circle-form-wrapper"
+                class="rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-gradient-to-br from-slate-50/80 to-slate-100/50 dark:from-slate-800/50 dark:to-slate-900/30 p-4"
+              >
+                <.form
+                  for={@circle_form}
+                  id="new-circle-form"
+                  phx-submit="create_circle"
+                  phx-hook="GroupMetadataFormHook"
+                  data-action="new"
+                  data-public="false"
+                  class="space-y-4"
+                >
+                  <input type="hidden" name="group[user_id]" value={@current_scope.user.id} />
+                  <input
+                    type="hidden"
+                    name="group[user_name]"
+                    value={@current_scope.user.decrypted[:name]}
+                  />
+                  <input
+                    :for={member <- @eligible_members}
+                    type="hidden"
+                    name="group[user_connections][]"
+                    value={member.user.id}
+                  />
+
+                  <.phx_input
+                    field={@circle_form[:name]}
+                    name="group[name]"
+                    type="text"
+                    label="Circle name"
+                    placeholder="e.g. Engineering"
+                  />
+                  <.phx_input
+                    field={@circle_form[:description]}
+                    name="group[description]"
+                    type="text"
+                    label="Description"
+                    placeholder="What is this circle about?"
+                  />
+
+                  <p class="text-xs text-slate-500 dark:text-slate-400">
+                    All current org members you're connected to will be added. Only org members can
+                    be added to a business circle.
+                  </p>
+
+                  <div class="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+                    <.liquid_button
+                      type="button"
+                      variant="ghost"
+                      color="slate"
+                      phx-click="hide_circle_form"
+                    >
+                      Cancel
+                    </.liquid_button>
+                    <.liquid_button
+                      type="submit"
+                      id="create-circle-submit"
+                      color="emerald"
+                      icon="hero-sparkles"
+                      phx-disable-with="Creating..."
+                    >
+                      Create circle
+                    </.liquid_button>
+                  </div>
+                </.form>
+              </div>
+
+              <ul role="list" class="space-y-2">
+                <li
+                  :for={circle <- @circles}
+                  id={"circle-#{circle.group.id}"}
+                  data-hook-scope={"business-circle-#{circle.group.id}"}
+                  class="group overflow-hidden rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-white/70 dark:bg-slate-800/50 transition-all duration-200 hover:border-emerald-300/60 dark:hover:border-emerald-700/50"
+                >
+                  <div
+                    id={"decrypt-business-circle-#{circle.group.id}"}
+                    phx-hook="DecryptGroupMetadata"
+                    data-sealed-group-key={circle.sealed_group_key}
+                    data-encrypted-name={circle.encrypted_name}
+                    data-scope-id={"business-circle-#{circle.group.id}"}
+                  >
+                  </div>
+                  <.link
+                    navigate={~p"/app/business/#{@org.slug}/circles/#{circle.group.id}"}
+                    class="flex items-center gap-3 p-3"
+                  >
+                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300 group-hover:text-teal-600 dark:group-hover:text-teal-300">
+                      <.phx_icon name="hero-chat-bubble-left-right" class="size-4" />
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                        <span data-decrypt-group-name>Business circle</span>
+                      </p>
+                      <p class="text-xs text-slate-500 dark:text-slate-400">
+                        {circle.member_count} member{if circle.member_count != 1, do: "s"}
+                      </p>
+                    </div>
+                    <.phx_icon
+                      name="hero-chevron-right"
+                      class="size-4 shrink-0 text-slate-300 dark:text-slate-600 group-hover:text-teal-500 dark:group-hover:text-teal-400"
+                    />
+                  </.link>
+
+                  <%!-- Per-circle member management (Task #231): an org admin or the
+                   circle owner/admin can add/remove members without leaving the
+                   org dashboard. Consistent with the CircleShow members section. --%>
+                  <div
+                    :if={circle.viewer_can_manage?}
+                    class="border-t border-slate-200/60 dark:border-slate-700/60 px-3 py-2"
+                  >
+                    <button
+                      :if={!(@manage_circle && @manage_circle.group.id == circle.group.id)}
+                      type="button"
+                      phx-click="manage_circle"
+                      phx-value-circle_id={circle.group.id}
+                      id={"manage-circle-#{circle.group.id}"}
+                      class="inline-flex items-center gap-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 hover:underline"
+                    >
+                      <.phx_icon name="hero-users" class="size-3.5" /> Manage members
+                    </button>
+
+                    <.circle_manage_panel
+                      :if={@manage_circle && @manage_circle.group.id == circle.group.id}
+                      manage={@manage_circle}
+                      org={@org}
+                      viewer_sealed_org_key={@viewer_sealed_org_key}
+                      current_user_id={@current_scope.user.id}
+                    />
+                  </div>
+                </li>
+                <li
+                  :if={@circles == [] && !@show_circle_form?}
+                  class="text-xs text-slate-500 dark:text-slate-400"
+                >
+                  No business circles yet. Create one to start a private, encrypted team space.
+                </li>
+              </ul>
+            </section>
+            <%!-- Org-wide files overview (Task #221): every file the viewer can read
+             across this org's circles, grouped by circle. Names stay encrypted
+             and decrypt browser-side (ZK). Tap a circle to open it. --%>
+            <section
+              :if={@org_file_circles != []}
+              id="org-files-overview"
+              class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
+            >
+              <div>
+                <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                  Files across your circles
+                </h2>
+                <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  Everything shared with circles you're in. Encrypted on each member's device —
+                  Mosslet can't read them.
+                </p>
+              </div>
+
+              <div
+                :for={entry <- @org_file_circles}
+                id={"org-files-circle-#{entry.group.id}"}
+                data-hook-scope={"files-circle-#{entry.group.id}"}
+                class="space-y-2"
+              >
+                <div
+                  id={"decrypt-files-circle-#{entry.group.id}"}
+                  phx-hook="DecryptGroupMetadata"
+                  data-sealed-group-key={entry.sealed_group_key}
+                  data-encrypted-name={entry.encrypted_name}
+                  data-scope-id={"files-circle-#{entry.group.id}"}
+                >
+                </div>
+                <.link
+                  navigate={~p"/app/business/#{@org.slug}/circles/#{entry.group.id}"}
+                  class="flex items-center gap-2 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
+                >
+                  <.phx_icon name="hero-chat-bubble-left-right" class="size-3.5" />
+                  <span data-decrypt-group-name>Business circle</span>
+                  <span class="text-slate-400 dark:text-slate-500 font-normal">
+                    · {length(entry.files)} file{if length(entry.files) != 1, do: "s"}
+                  </span>
+                </.link>
+                <ul role="list" class="divide-y divide-slate-100 dark:divide-slate-700/60 pl-1">
+                  <li
+                    :for={file <- entry.files}
+                    id={"org-file-#{file.id}"}
+                    class="py-2.5 flex items-center gap-3"
+                  >
+                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
+                      <.phx_icon name="hero-document" class="size-4" />
+                    </div>
+                    <div class="min-w-0">
+                      <% viewer_row = List.first(file.user_shared_files) %>
+                      <div
+                        :if={viewer_row && file.encrypted_filename}
+                        id={"decrypt-org-filename-#{file.id}"}
+                        phx-hook="DecryptSharedFileName"
+                        phx-update="ignore"
+                        data-sealed-file-key={viewer_row.key}
+                        data-encrypted-filename={file.encrypted_filename}
+                      >
+                        <p
+                          data-shared-filename
+                          class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate"
+                        >
+                          Decrypting…
+                        </p>
+                      </div>
+                      <p
+                        :if={!(viewer_row && file.encrypted_filename)}
+                        class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate"
+                      >
+                        Encrypted file
+                      </p>
+                      <p class="text-xs text-slate-500 dark:text-slate-400">
+                        {format_size(file.size_bytes)}
+                      </p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <%!-- One-time SETUP — branding, seats, and ownership — tucked into a
+             collapsible, accessible disclosure (default collapsed) so the
+             dashboard stays focused on everyday work (Task #248). Native button
+             disclosure (no PetalComponents); children stay in the DOM and toggle
+             via a CSS class so deep links + tests still resolve. --%>
+        <section
+          :if={@can_manage_branding? || @is_owner? || @incoming_transfer?}
+          id="org-manage"
+          class="mx-auto max-w-3xl space-y-4"
+        >
+          <button
+            type="button"
+            id="org-manage-toggle"
+            phx-click="toggle_manage"
+            aria-expanded={to_string(@manage_open?)}
+            aria-controls="org-manage-panel"
+            class="group flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm px-5 py-4 text-left transition-all duration-200 hover:border-slate-300 dark:hover:border-slate-600"
+          >
+            <span class="flex items-center gap-3 min-w-0">
+              <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400 transition-colors group-hover:text-teal-600 dark:group-hover:text-teal-400">
+                <.phx_icon name="hero-cog-6-tooth" class="size-5" />
+              </span>
+              <span class="min-w-0">
+                <span class="block text-base font-semibold text-slate-900 dark:text-slate-100">
+                  Manage organization
+                </span>
+                <span class="block text-xs text-slate-500 dark:text-slate-400">
+                  Branding, seats, and ownership — one-time setup
+                </span>
+              </span>
+            </span>
+            <.phx_icon
+              name="hero-chevron-down"
+              class={[
+                "size-5 shrink-0 text-slate-400 transition-transform duration-200",
+                @manage_open? && "rotate-180"
+              ]}
+            />
+          </button>
+
+          <div
+            id="org-manage-panel"
+            role="region"
+            aria-labelledby="org-manage-toggle"
+            class={["space-y-6", !@manage_open? && "hidden"]}
+          >
+            <%!-- Branding (Task #228, branding add-on): owner/admin can upload a
              brand logo. The logo is encrypted browser-side with the per-org
              org_key (ZK) and surfaced across the org dashboard + circle/file
              UIs. Shown only to those who can manage branding. --%>
-        <section
-          :if={@can_manage_branding?}
-          id="org-branding"
-          class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
-        >
-          <div class="flex items-start justify-between gap-3">
-            <div class="min-w-0">
-              <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
-                Branding
-              </h2>
-              <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                Upload your organization's logo. It's encrypted on your device with your team's
-                key — we never see the original image.
-              </p>
-            </div>
-          </div>
+            <section
+              :if={@can_manage_branding?}
+              id="org-branding"
+              class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                    Branding
+                  </h2>
+                  <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                    Upload your organization's logo. It's encrypted on your device with your team's
+                    key — we never see the original image.
+                  </p>
+                </div>
+              </div>
 
-          <div
-            id="org-logo-uploader"
-            phx-hook="OrgLogoUpload"
-            data-sealed-org-key={@viewer_sealed_org_key}
-          >
-          </div>
+              <div
+                id="org-logo-uploader"
+                phx-hook="OrgLogoUpload"
+                data-sealed-org-key={@viewer_sealed_org_key}
+              >
+              </div>
 
-          <.form
-            for={%{}}
-            id="org-logo-form"
-            phx-change="validate_org_logo"
-            phx-submit="validate_org_logo"
-            class="flex flex-col gap-4 sm:flex-row sm:items-center"
-          >
-            <div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-900/40 overflow-hidden">
-              <%= cond do %>
-                <% @pending_logo_preview -> %>
-                  <img
-                    id="org-logo-preview-pending"
-                    src={@pending_logo_preview}
-                    alt="Logo preview"
-                    class="h-full w-full object-contain"
-                  />
-                <% @org.logo_url && @org_logo_url && @viewer_sealed_org_key -> %>
-                  <.org_logo
-                    id="org-logo-preview-current"
-                    logo_url={@org_logo_url}
-                    sealed_org_key={@viewer_sealed_org_key}
-                    frame_class="h-full w-full border-0 bg-transparent"
-                    icon_class="h-8 w-8 text-slate-300 dark:text-slate-600"
-                    alt={@org.name <> " logo"}
-                  >
-                    <:fallback>
+              <.form
+                for={%{}}
+                id="org-logo-form"
+                phx-change="validate_org_logo"
+                phx-submit="validate_org_logo"
+                class="flex flex-col gap-4 sm:flex-row sm:items-center"
+              >
+                <div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-900/40 overflow-hidden">
+                  <%= cond do %>
+                    <% @pending_logo_preview -> %>
+                      <img
+                        id="org-logo-preview-pending"
+                        src={@pending_logo_preview}
+                        alt="Logo preview"
+                        class="h-full w-full object-contain"
+                      />
+                    <% @org.logo_url && @org_logo_url && @viewer_sealed_org_key -> %>
+                      <.org_logo
+                        id="org-logo-preview-current"
+                        logo_url={@org_logo_url}
+                        sealed_org_key={@viewer_sealed_org_key}
+                        frame_class="h-full w-full border-0 bg-transparent"
+                        icon_class="h-8 w-8 text-slate-300 dark:text-slate-600"
+                        alt={@org.name <> " logo"}
+                      >
+                        <:fallback>
+                          <.phx_icon
+                            name="hero-building-office"
+                            class="h-8 w-8 text-slate-300 dark:text-slate-600"
+                          />
+                        </:fallback>
+                      </.org_logo>
+                    <% true -> %>
                       <.phx_icon
                         name="hero-building-office"
                         class="h-8 w-8 text-slate-300 dark:text-slate-600"
                       />
-                    </:fallback>
-                  </.org_logo>
-                <% true -> %>
-                  <.phx_icon
-                    name="hero-building-office"
-                    class="h-8 w-8 text-slate-300 dark:text-slate-600"
-                  />
-              <% end %>
-            </div>
+                  <% end %>
+                </div>
 
-            <div class="flex-1 space-y-2">
-              <label
-                for={@uploads.org_logo.ref}
-                class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors"
-              >
-                <.phx_icon name="hero-arrow-up-tray" class="size-4" />
-                {if @org.logo_url, do: "Replace logo", else: "Upload logo"}
-              </label>
-              <.live_file_input upload={@uploads.org_logo} class="sr-only" />
+                <div class="flex-1 space-y-2">
+                  <label
+                    for={@uploads.org_logo.ref}
+                    class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors"
+                  >
+                    <.phx_icon name="hero-arrow-up-tray" class="size-4" />
+                    {if @org.logo_url, do: "Replace logo", else: "Upload logo"}
+                  </label>
+                  <.live_file_input upload={@uploads.org_logo} class="sr-only" />
 
-              <p class="text-xs text-slate-400 dark:text-slate-500">
-                PNG, JPG, WebP, or HEIC. Up to 5&nbsp;MB.
-              </p>
-
-              <p
-                :if={logo_processing?(@logo_upload_stage)}
-                id="org-logo-progress"
-                class="inline-flex items-center gap-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 animate-pulse"
-              >
-                <.phx_icon name="hero-cog-6-tooth" class="size-3.5 animate-spin" />
-                {logo_stage_label(@logo_upload_stage)}
-              </p>
-
-              <%= for entry <- @uploads.org_logo.entries do %>
-                <%= for err <- upload_errors(@uploads.org_logo, entry) do %>
-                  <p class="text-xs font-medium text-rose-600 dark:text-rose-400">
-                    {logo_upload_error(err)}
+                  <p class="text-xs text-slate-400 dark:text-slate-500">
+                    PNG, JPG, WebP, or HEIC. Up to 5&nbsp;MB.
                   </p>
-                <% end %>
-              <% end %>
-            </div>
 
-            <.liquid_button
-              :if={@org.logo_url}
-              type="button"
-              id="org-logo-remove"
-              variant="secondary"
-              icon="hero-trash"
-              phx-click="remove_org_logo"
-              data-confirm="Remove your organization's logo?"
-            >
-              Remove
-            </.liquid_button>
-          </.form>
+                  <p
+                    :if={logo_processing?(@logo_upload_stage)}
+                    id="org-logo-progress"
+                    class="inline-flex items-center gap-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 animate-pulse"
+                  >
+                    <.phx_icon name="hero-cog-6-tooth" class="size-3.5 animate-spin" />
+                    {logo_stage_label(@logo_upload_stage)}
+                  </p>
 
-          <%!-- Custom subdomain (Task #240 / #243, Phase B — the PAID add-on).
+                  <%= for entry <- @uploads.org_logo.entries do %>
+                    <%= for err <- upload_errors(@uploads.org_logo, entry) do %>
+                      <p class="text-xs font-medium text-rose-600 dark:text-rose-400">
+                        {logo_upload_error(err)}
+                      </p>
+                    <% end %>
+                  <% end %>
+                </div>
+
+                <.liquid_button
+                  :if={@org.logo_url}
+                  type="button"
+                  id="org-logo-remove"
+                  variant="secondary"
+                  icon="hero-trash"
+                  phx-click="remove_org_logo"
+                  data-confirm="Remove your organization's logo?"
+                >
+                  Remove
+                </.liquid_button>
+              </.form>
+
+              <%!-- Custom subdomain (Task #240 / #243, Phase B — the PAID add-on).
                 Gated by has_branding_addon?/1 (server-authoritative) AND, because
                 it mutates the paid subscription, OWNER-ONLY (@is_owner?) — the
                 free logo above stays admin-manageable. --%>
-          <div
-            :if={@is_owner?}
-            id="org-subdomain"
-            class="pt-4 border-t border-slate-100 dark:border-slate-700/60 space-y-3"
-          >
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  Custom subdomain
-                </h3>
-                <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                  A branded address like
-                  <span class="font-medium text-slate-600 dark:text-slate-300">yourteam.mosslet.com</span>
-                  — with an org-branded sign-in for your team.
-                </p>
-              </div>
-              <span
-                :if={@has_branding_addon?}
-                class="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300"
+              <div
+                :if={@is_owner?}
+                id="org-subdomain"
+                class="pt-4 border-t border-slate-100 dark:border-slate-700/60 space-y-3"
               >
-                <.phx_icon name="hero-check-badge" class="size-3.5" /> Add-on active
-              </span>
-            </div>
-
-            <%= cond do %>
-              <% @has_branding_addon? && @org.subdomain -> %>
-                <div
-                  id="org-subdomain-current"
-                  class="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 space-y-2"
-                >
-                  <p class="text-xs text-slate-500 dark:text-slate-400">Your subdomain</p>
-                  <p class="text-sm font-medium text-slate-900 dark:text-slate-100 break-all">
-                    {subdomain_display_url(@org.subdomain)}
-                  </p>
-                  <.liquid_button
-                    type="button"
-                    id="org-subdomain-release"
-                    variant="secondary"
-                    size="sm"
-                    icon="hero-trash"
-                    phx-click="release_subdomain"
-                    data-confirm="Release this subdomain? Your branded address will stop working."
-                  >
-                    Release subdomain
-                  </.liquid_button>
-                </div>
-              <% @has_branding_addon? -> %>
-                <.form
-                  for={@subdomain_form}
-                  id="org-subdomain-form"
-                  phx-change="validate_subdomain"
-                  phx-submit="claim_subdomain"
-                  class="space-y-2"
-                >
-                  <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
-                    <div class="flex-1">
-                      <.phx_input
-                        field={@subdomain_form[:subdomain]}
-                        type="text"
-                        label="Choose your subdomain"
-                        placeholder="yourteam"
-                        autocomplete="off"
-                        phx-debounce="300"
-                      />
-                    </div>
-                    <.liquid_button
-                      type="submit"
-                      id="org-subdomain-claim"
-                      icon="hero-globe-alt"
-                      phx-disable-with="Claiming…"
-                    >
-                      Claim
-                    </.liquid_button>
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      Custom subdomain
+                    </h3>
+                    <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                      A branded address like
+                      <span class="font-medium text-slate-600 dark:text-slate-300">yourteam.mosslet.com</span>
+                      — with an org-branded sign-in for your team.
+                    </p>
                   </div>
-                  <p class="text-xs text-slate-400 dark:text-slate-500">
-                    Lowercase letters, numbers, and hyphens. 3–63 characters.
-                  </p>
-                </.form>
-              <% true -> %>
-                <%!-- The dashboard is only reachable for an active/trialing/grace
+                  <span
+                    :if={@has_branding_addon?}
+                    class="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300"
+                  >
+                    <.phx_icon name="hero-check-badge" class="size-3.5" /> Add-on active
+                  </span>
+                </div>
+
+                <%= cond do %>
+                  <% @has_branding_addon? && @org.subdomain -> %>
+                    <div
+                      id="org-subdomain-current"
+                      class="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 space-y-2"
+                    >
+                      <p class="text-xs text-slate-500 dark:text-slate-400">Your subdomain</p>
+                      <p class="text-sm font-medium text-slate-900 dark:text-slate-100 break-all">
+                        {subdomain_display_url(@org.subdomain)}
+                      </p>
+                      <.liquid_button
+                        type="button"
+                        id="org-subdomain-release"
+                        variant="secondary"
+                        size="sm"
+                        icon="hero-trash"
+                        phx-click="release_subdomain"
+                        data-confirm="Release this subdomain? Your branded address will stop working."
+                      >
+                        Release subdomain
+                      </.liquid_button>
+                    </div>
+                  <% @has_branding_addon? -> %>
+                    <.form
+                      for={@subdomain_form}
+                      id="org-subdomain-form"
+                      phx-change="validate_subdomain"
+                      phx-submit="claim_subdomain"
+                      class="space-y-2"
+                    >
+                      <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
+                        <div class="flex-1">
+                          <.phx_input
+                            field={@subdomain_form[:subdomain]}
+                            type="text"
+                            label="Choose your subdomain"
+                            placeholder="yourteam"
+                            autocomplete="off"
+                            phx-debounce="300"
+                          />
+                        </div>
+                        <.liquid_button
+                          type="submit"
+                          id="org-subdomain-claim"
+                          color="emerald"
+                          icon="hero-globe-alt"
+                          phx-disable-with="Claiming…"
+                        >
+                          Claim
+                        </.liquid_button>
+                      </div>
+                      <p class="text-xs text-slate-400 dark:text-slate-500">
+                        Lowercase letters, numbers, and hyphens. 3–63 characters.
+                      </p>
+                    </.form>
+                  <% true -> %>
+                    <%!-- The dashboard is only reachable for an active/trialing/grace
                       org (Option B), so the org is always covered here — frame the
                       upsell as ADDING the add-on, never "subscribe" (trial-aware,
                       #218). --%>
-                <div
-                  id="org-subdomain-upsell-addon"
-                  class="rounded-xl border border-teal-200/70 dark:border-teal-800/50 bg-teal-50/60 dark:bg-teal-900/20 p-4 space-y-3"
-                >
-                  <p class="text-sm font-medium text-teal-900 dark:text-teal-200">
-                    Add a custom subdomain to your plan
-                  </p>
-                  <p class="text-xs text-teal-800/80 dark:text-teal-300/80">
-                    The custom-subdomain add-on is $15/mo (or $150/yr), matched to your billing
-                    cycle and prorated to your next invoice. Add it in one click — no checkout
-                    needed.
-                  </p>
-                  <.liquid_button
-                    type="button"
-                    id="org-subdomain-add-addon"
-                    size="sm"
-                    icon="hero-sparkles"
-                    phx-click="add_subdomain_addon"
-                    phx-disable-with="Adding…"
-                    data-confirm="Add the custom-subdomain add-on ($15/mo or $150/yr, matched to your billing cycle) to this organization's plan? The prorated amount will be added to your next invoice."
-                  >
-                    Add custom subdomain
-                  </.liquid_button>
-                  <p class="text-xs text-teal-700/70 dark:text-teal-400/70">
-                    Prefer to review first? <.link
-                      navigate={~p"/app/org/#{@org.slug}/billing"}
-                      class="font-medium underline underline-offset-2 hover:text-teal-800 dark:hover:text-teal-200"
-                    >Manage billing</.link>.
+                    <div
+                      id="org-subdomain-upsell-addon"
+                      class="rounded-xl border border-teal-200/70 dark:border-teal-800/50 bg-teal-50/60 dark:bg-teal-900/20 p-4 space-y-3"
+                    >
+                      <p class="text-sm font-medium text-teal-900 dark:text-teal-200">
+                        Add a custom subdomain to your plan
+                      </p>
+                      <p class="text-xs text-teal-800/80 dark:text-teal-300/80">
+                        The custom-subdomain add-on is $15/mo (or $150/yr), matched to your billing
+                        cycle and prorated to your next invoice. Add it in one click — no checkout
+                        needed.
+                      </p>
+                      <.liquid_button
+                        type="button"
+                        id="org-subdomain-add-addon"
+                        color="emerald"
+                        size="sm"
+                        icon="hero-sparkles"
+                        phx-click="add_subdomain_addon"
+                        phx-disable-with="Adding…"
+                        data-confirm="Add the custom-subdomain add-on ($15/mo or $150/yr, matched to your billing cycle) to this organization's plan? The prorated amount will be added to your next invoice."
+                      >
+                        Add custom subdomain
+                      </.liquid_button>
+                      <p class="text-xs text-teal-700/70 dark:text-teal-400/70">
+                        Prefer to review first? <.link
+                          navigate={~p"/app/org/#{@org.slug}/billing"}
+                          class="font-medium underline underline-offset-2 hover:text-teal-800 dark:hover:text-teal-200"
+                        >Manage billing</.link>.
+                      </p>
+                    </div>
+                <% end %>
+              </div>
+            </section>
+            <%!-- Owner-only in-app seat control (Task #247): adjust the org's paid
+                seat count without a Checkout detour. Mirrors the subscribe page's
+                seat stepper; the write re-clamps + re-guards server-side via
+                Orgs.set_org_seats/2. Gated by can_manage_billing?/2 (owner) since
+                it mutates the paid subscription. --%>
+            <div
+              :if={@is_owner? && @seat_management}
+              id="org-seat-management"
+              class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
+            >
+              <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                  <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    Team seats
+                  </h3>
+                  <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                    Adjust your plan's seat count any time — prorated to your next invoice.
                   </p>
                 </div>
-            <% end %>
-          </div>
-        </section>
+                <div class="shrink-0 text-right">
+                  <p class="text-2xl font-bold tabular-nums leading-none">
+                    <span class="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">{@seat_management.used}</span><span class="text-slate-400 dark:text-slate-500 font-medium">/{@seat_management.cap}</span>
+                  </p>
+                  <p class="mt-1 text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                    seats in use
+                  </p>
+                </div>
+              </div>
 
-        <%!-- Ownership / transfer handshake (Task #237) --%>
-        <.ownership_section
-          org={@org}
-          current_user={@current_scope.user}
-          is_owner={@is_owner?}
-          members={@members}
-          viewer_sealed_org_key={@viewer_sealed_org_key}
-          pending_transfer={@pending_transfer}
-          transfer_modal_open={@transfer_modal_open}
-          transfer_form={@transfer_form}
-          delete_modal_open={@delete_modal_open}
-          delete_form={@delete_form}
-        />
-
-        <%!-- Business circles panel --%>
-        <section class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4">
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div class="min-w-0">
-              <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
-                Business circles
-              </h2>
-              <p class="mt-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-                Private circles restricted to this org's members. Each circle has its own
-                end-to-end encrypted chat.
-              </p>
-            </div>
-            <.liquid_button
-              :if={!@show_circle_form?}
-              phx-click="show_circle_form"
-              id="new-circle-button"
-              color="emerald"
-              size="md"
-              icon="hero-plus"
-              class="w-full shrink-0 sm:w-auto"
-            >
-              New circle
-            </.liquid_button>
-          </div>
-
-          <div
-            :if={@show_circle_form?}
-            id="new-circle-form-wrapper"
-            class="rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-gradient-to-br from-slate-50/80 to-slate-100/50 dark:from-slate-800/50 dark:to-slate-900/30 p-4"
-          >
-            <.form
-              for={@circle_form}
-              id="new-circle-form"
-              phx-submit="create_circle"
-              phx-hook="GroupMetadataFormHook"
-              data-action="new"
-              data-public="false"
-              class="space-y-4"
-            >
-              <input type="hidden" name="group[user_id]" value={@current_scope.user.id} />
-              <input
-                type="hidden"
-                name="group[user_name]"
-                value={@current_scope.user.decrypted[:name]}
-              />
-              <input
-                :for={member <- @eligible_members}
-                type="hidden"
-                name="group[user_connections][]"
-                value={member.user.id}
-              />
-
-              <.phx_input
-                field={@circle_form[:name]}
-                name="group[name]"
-                type="text"
-                label="Circle name"
-                placeholder="e.g. Engineering"
-              />
-              <.phx_input
-                field={@circle_form[:description]}
-                name="group[description]"
-                type="text"
-                label="Description"
-                placeholder="What is this circle about?"
-              />
-
-              <p class="text-xs text-slate-500 dark:text-slate-400">
-                All current org members you're connected to will be added. Only org members can
-                be added to a business circle.
-              </p>
-
-              <div class="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
-                <.liquid_button
-                  type="button"
-                  variant="ghost"
-                  color="slate"
-                  phx-click="hide_circle_form"
+              <%!-- Usage bar: a calm, at-a-glance read of how full the team is. --%>
+              <div class="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700/60">
+                <div
+                  class={[
+                    "h-full rounded-full transition-all duration-500",
+                    if(@seat_management.used >= @seat_management.cap,
+                      do: "bg-gradient-to-r from-amber-400 to-rose-500",
+                      else: "bg-gradient-to-r from-teal-400 to-emerald-500"
+                    )
+                  ]}
+                  style={"width: #{min(100, round(@seat_management.used / max(@seat_management.cap, 1) * 100))}%"}
                 >
-                  Cancel
-                </.liquid_button>
+                </div>
+              </div>
+
+              <.form
+                for={to_form(%{})}
+                id="org-seat-form"
+                phx-submit="update_org_seats"
+                class="flex flex-wrap items-end gap-3 pt-1"
+              >
+                <div class="shrink-0">
+                  <label
+                    for="org-seat-input"
+                    class="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5"
+                  >
+                    Seats
+                  </label>
+                  <div
+                    id="org-seat-stepper"
+                    phx-hook="SeatStepper"
+                    class={[
+                      "inline-flex h-11 w-36 items-stretch overflow-hidden rounded-xl",
+                      "border border-slate-300 dark:border-slate-600",
+                      "bg-white dark:bg-slate-800 shadow-sm",
+                      "focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500",
+                      "transition-colors duration-200"
+                    ]}
+                  >
+                    <button
+                      type="button"
+                      data-seat-step="-1"
+                      aria-label="Decrease seats"
+                      class={[
+                        "flex items-center justify-center w-11 shrink-0 text-slate-500 dark:text-slate-400",
+                        "hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600",
+                        "hover:text-emerald-600 dark:hover:text-emerald-400",
+                        "disabled:opacity-40 disabled:pointer-events-none",
+                        "transition-colors duration-150 focus:outline-none"
+                      ]}
+                    >
+                      <.phx_icon name="hero-minus" class="size-4" />
+                    </button>
+                    <input
+                      type="number"
+                      id="org-seat-input"
+                      name="seats"
+                      value={@seat_management.cap}
+                      min={@seat_management.min}
+                      max={@seat_management.max != :infinity && @seat_management.max}
+                      step="1"
+                      inputmode="numeric"
+                      class={[
+                        "min-w-0 flex-1 border-0 bg-transparent text-center font-semibold tabular-nums",
+                        "text-slate-900 dark:text-slate-100 focus:ring-0 sm:text-sm",
+                        "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      ]}
+                    />
+                    <button
+                      type="button"
+                      data-seat-step="1"
+                      aria-label="Increase seats"
+                      class={[
+                        "flex items-center justify-center w-11 shrink-0 text-slate-500 dark:text-slate-400",
+                        "hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600",
+                        "hover:text-emerald-600 dark:hover:text-emerald-400",
+                        "disabled:opacity-40 disabled:pointer-events-none",
+                        "transition-colors duration-150 focus:outline-none"
+                      ]}
+                    >
+                      <.phx_icon name="hero-plus" class="size-4" />
+                    </button>
+                  </div>
+                </div>
                 <.liquid_button
                   type="submit"
-                  id="create-circle-submit"
+                  id="org-seat-update"
                   color="emerald"
-                  icon="hero-sparkles"
-                  phx-disable-with="Creating..."
+                  icon="hero-user-group"
+                  phx-disable-with="Updating…"
+                  data-confirm="Update your organization's seat count? Any change is prorated to your next invoice."
                 >
-                  Create circle
+                  Update seats
                 </.liquid_button>
-              </div>
-            </.form>
-          </div>
-
-          <ul role="list" class="space-y-2">
-            <li
-              :for={circle <- @circles}
-              id={"circle-#{circle.group.id}"}
-              data-hook-scope={"business-circle-#{circle.group.id}"}
-              class="group overflow-hidden rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-white/70 dark:bg-slate-800/50 transition-all duration-200 hover:border-emerald-300/60 dark:hover:border-emerald-700/50"
-            >
-              <div
-                id={"decrypt-business-circle-#{circle.group.id}"}
-                phx-hook="DecryptGroupMetadata"
-                data-sealed-group-key={circle.sealed_group_key}
-                data-encrypted-name={circle.encrypted_name}
-                data-scope-id={"business-circle-#{circle.group.id}"}
-              >
-              </div>
-              <.link
-                navigate={~p"/app/business/#{@org.slug}/circles/#{circle.group.id}"}
-                class="flex items-center gap-3 p-3"
-              >
-                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300 group-hover:text-teal-600 dark:group-hover:text-teal-300">
-                  <.phx_icon name="hero-chat-bubble-left-right" class="size-4" />
-                </div>
-                <div class="min-w-0 flex-1">
-                  <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                    <span data-decrypt-group-name>Business circle</span>
-                  </p>
-                  <p class="text-xs text-slate-500 dark:text-slate-400">
-                    {circle.member_count} member{if circle.member_count != 1, do: "s"}
-                  </p>
-                </div>
-                <.phx_icon
-                  name="hero-chevron-right"
-                  class="size-4 shrink-0 text-slate-300 dark:text-slate-600 group-hover:text-teal-500 dark:group-hover:text-teal-400"
-                />
-              </.link>
-
-              <%!-- Per-circle member management (Task #231): an org admin or the
-                   circle owner/admin can add/remove members without leaving the
-                   org dashboard. Consistent with the CircleShow members section. --%>
-              <div
-                :if={circle.viewer_can_manage?}
-                class="border-t border-slate-200/60 dark:border-slate-700/60 px-3 py-2"
-              >
-                <button
-                  :if={!(@manage_circle && @manage_circle.group.id == circle.group.id)}
-                  type="button"
-                  phx-click="manage_circle"
-                  phx-value-circle_id={circle.group.id}
-                  id={"manage-circle-#{circle.group.id}"}
-                  class="inline-flex items-center gap-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 hover:underline"
-                >
-                  <.phx_icon name="hero-users" class="size-3.5" /> Manage members
-                </button>
-
-                <.circle_manage_panel
-                  :if={@manage_circle && @manage_circle.group.id == circle.group.id}
-                  manage={@manage_circle}
-                  org={@org}
-                  viewer_sealed_org_key={@viewer_sealed_org_key}
-                  current_user_id={@current_scope.user.id}
-                />
-              </div>
-            </li>
-            <li
-              :if={@circles == [] && !@show_circle_form?}
-              class="text-xs text-slate-500 dark:text-slate-400"
-            >
-              No business circles yet. Create one to start a private, encrypted team space.
-            </li>
-          </ul>
-        </section>
-
-        <%!-- Org-wide files overview (Task #221): every file the viewer can read
-             across this org's circles, grouped by circle. Names stay encrypted
-             and decrypt browser-side (ZK). Tap a circle to open it. --%>
-        <section
-          :if={@org_file_circles != []}
-          id="org-files-overview"
-          class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
-        >
-          <div>
-            <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
-              Files across your circles
-            </h2>
-            <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              Everything shared with circles you're in. Encrypted on each member's device —
-              Mosslet can't read them.
-            </p>
-          </div>
-
-          <div
-            :for={entry <- @org_file_circles}
-            id={"org-files-circle-#{entry.group.id}"}
-            data-hook-scope={"files-circle-#{entry.group.id}"}
-            class="space-y-2"
-          >
-            <div
-              id={"decrypt-files-circle-#{entry.group.id}"}
-              phx-hook="DecryptGroupMetadata"
-              data-sealed-group-key={entry.sealed_group_key}
-              data-encrypted-name={entry.encrypted_name}
-              data-scope-id={"files-circle-#{entry.group.id}"}
-            >
+              </.form>
+              <p class="text-xs text-slate-400 dark:text-slate-500">
+                You can't set fewer seats than your team is currently using (including pending
+                invites).
+              </p>
             </div>
-            <.link
-              navigate={~p"/app/business/#{@org.slug}/circles/#{entry.group.id}"}
-              class="flex items-center gap-2 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
-            >
-              <.phx_icon name="hero-chat-bubble-left-right" class="size-3.5" />
-              <span data-decrypt-group-name>Business circle</span>
-              <span class="text-slate-400 dark:text-slate-500 font-normal">
-                · {length(entry.files)} file{if length(entry.files) != 1, do: "s"}
-              </span>
-            </.link>
-            <ul role="list" class="divide-y divide-slate-100 dark:divide-slate-700/60 pl-1">
-              <li
-                :for={file <- entry.files}
-                id={"org-file-#{file.id}"}
-                class="py-2.5 flex items-center gap-3"
-              >
-                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
-                  <.phx_icon name="hero-document" class="size-4" />
-                </div>
-                <div class="min-w-0">
-                  <% viewer_row = List.first(file.user_shared_files) %>
-                  <div
-                    :if={viewer_row && file.encrypted_filename}
-                    id={"decrypt-org-filename-#{file.id}"}
-                    phx-hook="DecryptSharedFileName"
-                    phx-update="ignore"
-                    data-sealed-file-key={viewer_row.key}
-                    data-encrypted-filename={file.encrypted_filename}
-                  >
-                    <p
-                      data-shared-filename
-                      class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate"
-                    >
-                      Decrypting…
-                    </p>
-                  </div>
-                  <p
-                    :if={!(viewer_row && file.encrypted_filename)}
-                    class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate"
-                  >
-                    Encrypted file
-                  </p>
-                  <p class="text-xs text-slate-500 dark:text-slate-400">
-                    {format_size(file.size_bytes)}
-                  </p>
-                </div>
-              </li>
-            </ul>
+            <%!-- Ownership / transfer handshake (Task #237) --%>
+            <.ownership_section
+              org={@org}
+              current_user={@current_scope.user}
+              is_owner={@is_owner?}
+              members={@members}
+              viewer_sealed_org_key={@viewer_sealed_org_key}
+              pending_transfer={@pending_transfer}
+              transfer_modal_open={@transfer_modal_open}
+              transfer_form={@transfer_form}
+              delete_modal_open={@delete_modal_open}
+              delete_form={@delete_form}
+            />
           </div>
         </section>
       </div>
@@ -1833,6 +1911,19 @@ defmodule MossletWeb.BusinessLive.Show do
     end
   end
 
+  # Toggle the collapsible "Manage organization" disclosure (Task #248). Children
+  # stay in the DOM; we flip a socket assign that drives the panel's `hidden`
+  # class + the toggle's aria-expanded state.
+  def handle_event("toggle_manage", _params, socket) do
+    {:noreply, assign(socket, :manage_open?, !socket.assigns.manage_open?)}
+  end
+
+  # Open the Manage disclosure (used by the seat-full notice's "Add more seats"
+  # link, which deep-links to the relocated #org-seat-management control).
+  def handle_event("open_manage", _params, socket) do
+    {:noreply, assign(socket, :manage_open?, true)}
+  end
+
   # us {:org_logo_upload_*} messages; nothing to do in the LiveView's progress cb.
   defp handle_logo_progress(:org_logo, _entry, socket), do: {:noreply, socket}
 
@@ -1936,6 +2027,24 @@ defmodule MossletWeb.BusinessLive.Show do
   defp subdomain_display_url(subdomain) when is_binary(subdomain) do
     "#{subdomain}.#{Application.get_env(:mosslet, :canonical_host) || "mosslet.com"}"
   end
+
+  # Resolve the org's pending ownership transfer once and derive whether the
+  # viewer is its proposed new owner (drives both the ownership section and the
+  # "Manage" disclosure gate) — single query, no N+1.
+  defp assign_pending_transfer(socket, org, current_user) do
+    pending_transfer = Orgs.get_pending_transfer_for_org(org)
+
+    socket
+    |> assign(:pending_transfer, pending_transfer)
+    |> assign(:incoming_transfer?, incoming_transfer?(pending_transfer, current_user))
+  end
+
+  # True when the viewer is the proposed new owner of a pending ownership
+  # transfer. Mirrors `OrgComponents.ownership_section`'s internal check so the
+  # collapsible "Manage" disclosure still surfaces for a plain member who needs
+  # to Accept/Decline an incoming transfer (otherwise gated to admins/owner).
+  defp incoming_transfer?(%{to_user_id: user_id}, %{id: user_id}), do: true
+  defp incoming_transfer?(_pending_transfer, _user), do: false
 
   defp logo_processing?({stage, _}) when stage in [:receiving, :processing, :encrypting], do: true
   defp logo_processing?(_), do: false
@@ -2052,7 +2161,7 @@ defmodule MossletWeb.BusinessLive.Show do
     |> assign(:has_branding_addon?, Orgs.has_branding_addon?(org))
     |> assign(:subdomain_form, to_form(Org.subdomain_changeset(org, %{}), as: :branding))
     |> assign(:org_logo_url, org_logo_presigned_url(org))
-    |> assign(:pending_transfer, Orgs.get_pending_transfer_for_org(org))
+    |> assign_pending_transfer(org, current_user)
     |> assign_manage_circle(members)
     |> maybe_request_org_key_seal()
   end
