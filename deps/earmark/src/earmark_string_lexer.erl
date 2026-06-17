@@ -1,4 +1,4 @@
--file("/Users/mark/.asdf/installs/erlang/28.3/lib/parsetools-2.7/include/leexinc.hrl", 0).
+-file("/Users/mark/.asdf/installs/erlang/29.0.1/lib/parsetools-2.8/include/leexinc.hrl", 0).
 %%
 %% %CopyrightBegin%
 %%
@@ -47,7 +47,7 @@
 %% User code. This is placed here to allow extra attributes.
 -file("src/earmark_string_lexer.xrl", 13).
 
--file("/Users/mark/.asdf/installs/erlang/28.3/lib/parsetools-2.7/include/leexinc.hrl", 47).
+-file("/Users/mark/.asdf/installs/erlang/29.0.1/lib/parsetools-2.8/include/leexinc.hrl", 47).
 
 format_error({illegal,S}) -> ["illegal characters ",io_lib:write_string(S)];
 format_error({user,S}) -> S.
@@ -473,4 +473,4 @@ yyaction_1(TokenChars, TokenLine) ->
 -file("src/earmark_string_lexer.xrl", 9).
 yyaction_2(TokenChars, TokenLine) ->
      { token, { backtix, TokenLine, TokenChars } } .
--file("/Users/mark/.asdf/installs/erlang/28.3/lib/parsetools-2.7/include/leexinc.hrl", 377).
+-file("/Users/mark/.asdf/installs/erlang/29.0.1/lib/parsetools-2.8/include/leexinc.hrl", 377).

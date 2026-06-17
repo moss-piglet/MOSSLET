@@ -184,7 +184,7 @@ plain_transform1(Fun, [F|Fs]) when is_atom(element(1,F)) ->
         {done, NewF} ->
             [NewF | Fs];
         {error, Reason} ->
-            error(Reason, F, [{form, F}]);
+            erlang:error(Reason, F, [{form, F}]);
         NewF when is_tuple(NewF) ->
             [NewF | plain_transform1(Fun, Fs)]
     end;
@@ -509,7 +509,7 @@ option_value(Key, Options, Result) ->
 %%% @spec (Fun, Forms, Acc, Options) -> NewAcc
 %%% Fun = function()
 %%% @doc
-%%% Equvalent to do_inspect(Fun,Acc,Forms,initial_context(Forms,Options)).
+%%% Equivalent to do_inspect(Fun,Acc,Forms,initial_context(Forms,Options)).
 %%% @end
 %%%
 -spec inspect(insp_f(), A, forms(), options()) ->
@@ -578,7 +578,7 @@ get_orig_syntax_tree(File) ->
         {ok, Forms} ->
             Forms;
         Err ->
-            error(error_reading_file, ?HERE, [{File,Err}])
+            erlang:error(error_reading_file, ?HERE, [{File,Err}])
     end.
 
 %%% @spec (Tree) -> Forms

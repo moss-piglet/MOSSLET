@@ -14,6 +14,8 @@ An HTTP client for Erlang. Simple, reliable, fast.
 - **Streaming** - Stream request bodies, response bodies, or both. Handle large files without loading them in memory.
 - **Async responses** - Get response chunks as messages. Process other work while waiting.
 - **WebSocket support** - Full WebSocket client with the same process-per-connection model.
+- **WebTransport support** - WebTransport client over HTTP/3 (or HTTP/2) with a WebSocket-shaped API; switch by swapping the `ws_` prefix for `wt_`.
+- **HTTP/2 bidirectional streams** - Full-duplex gRPC-style streaming with the `h2_*` API; send and receive interleaved on one stream, with trailers and flow control.
 - **IPv6 first** - Happy Eyeballs algorithm tries IPv6 before IPv4 for faster connections on modern networks.
 - **SSL by default** - Secure connections with certificate verification using Mozilla's CA bundle.
 - **Automatic decompression** - Transparently decompress gzip/deflate responses with `{auto_decompress, true}`.
@@ -56,6 +58,7 @@ Payload = <<"{\"key\": \"value\"}">>,
 | [HTTP/2 Guide](guides/http2_guide.md) | HTTP/2 protocol, ALPN, multiplexing, flow control |
 | [HTTP/3 Guide](guides/http3_guide.md) | HTTP/3 over QUIC, opt-in configuration, Alt-Svc |
 | [WebSocket Guide](guides/websocket_guide.md) | Connect, send, receive, active mode |
+| [WebTransport Guide](guides/webtransport_guide.md) | Streams, datagrams, multiplexing, server handlers |
 | [Design Guide](guides/design.md) | Architecture, pooling, load regulation internals |
 | [Migration Guide](guides/MIGRATION.md) | Upgrading from hackney 1.x |
 | [API Reference](https://hexdocs.pm/hackney) | Full module documentation |
@@ -92,6 +95,25 @@ hackney:get(URL, [], <<>>, [{pool, api_pool}]).
 %% No pooling for one-off requests
 hackney:get(URL, [], <<>>, [{pool, false}]).
 ```
+
+By default only plain TCP connections stay in the pool: an HTTPS request
+upgrades a pooled TCP connection and the SSL connection is closed after use.
+Set `{ssl_pooling, true}` per request (or the `ssl_pooling` application env)
+to also pool HTTPS/1.1 connections. Pooled SSL connections are keyed by their
+TLS options, so only requests with identical `ssl_options` reuse them:
+
+```erlang
+%% Reuse HTTPS/1.1 connections, skipping the TLS handshake
+hackney:get(URL, [], <<>>, [{ssl_pooling, true}]).
+```
+
+Requests using hackney's default TLS config (no `ssl_options` passed) also
+enable TLS 1.3 session resumption (`{session_tickets, auto}`), so fresh
+connections to a recently contacted server skip the full handshake. Set the
+`tls_session_resumption` application env to `false` to turn this off.
+Requests with custom `ssl_options` never use resumption: the OTP ticket
+store is shared node-wide and a resumed session skips certificate
+validation, so it is reserved for the identical default trust config.
 
 ### Streaming
 
@@ -140,6 +162,17 @@ ok = hackney:ws_send(Conn, {text, <<"hello">>}),
 hackney:ws_close(Conn).
 ```
 
+### WebTransport
+
+Same shape as WebSocket, over HTTP/3 (QUIC). Swap `ws_` for `wt_`:
+
+```erlang
+{ok, Conn} = hackney:wt_connect(<<"https://example.com/wt">>),
+ok = hackney:wt_send(Conn, {binary, <<"hello">>}),
+{ok, {binary, <<"hello">>}} = hackney:wt_recv(Conn),
+hackney:wt_close(Conn).
+```
+
 ### HTTP/2
 
 HTTP/2 is used automatically when the server supports it:
@@ -166,6 +199,11 @@ hackney:get(URL, [], <<>>, [{protocols, [http3, http2, http1]}]).
 %% Enable HTTP/3 globally (application-wide)
 application:set_env(hackney, default_protocols, [http3, http2, http1]).
 ```
+
+IPv6 works out of the box (Happy Eyeballs); force a family with
+`{connect_options, [{family, inet6}]}`. Session resumption and 0-RTT are on by
+default and cached per host; disable with `{zero_rtt, false}`. See the
+[HTTP/3 Guide](guides/http3_guide.md) for details.
 
 **Note:** HTTP/3 uses QUIC (UDP transport). Some networks may block UDP traffic.
 
@@ -227,8 +265,31 @@ hackney:get(URL, [], <<>>, [
 ]).
 
 %% Skip verification (development only)
-hackney:get(URL, [], <<>>, [insecure]).
+hackney:get(URL, [], <<>>, [
+    {ssl_options, [{verify, verify_none}]}
+]).
 ```
+
+#### SNI
+
+By default the TLS `server_name_indication` is the request host, and it is
+omitted when the host is an IP literal (RFC 6066 forbids SNI for IP
+addresses). Set it explicitly to present a different name; the value is used
+both on the wire and as the certificate hostname-verification target, which
+is useful when connecting to an IP or a proxy while validating a hostname:
+
+```erlang
+hackney:get("https://93.184.216.34", [], <<>>, [
+    {ssl_options, [{server_name_indication, "example.com"}]}
+]).
+
+%% Suppress SNI without weakening verification
+hackney:get(URL, [], <<>>, [
+    {ssl_options, [{server_name_indication, disable}]}
+]).
+```
+
+This applies to HTTP/1.1, HTTP/2 and HTTP/3.
 
 ## Modules
 

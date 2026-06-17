@@ -307,8 +307,7 @@ defmodule MossletWeb.JournalLive.Book do
                   <span
                     data-decrypt-journal-mood-badge={entry.id}
                     class="hidden text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1"
-                  >
-                  </span>
+                  ></span>
                   <time class="text-xs text-slate-500 dark:text-slate-400">
                     {format_date(entry.entry_date)}
                   </time>
@@ -686,8 +685,7 @@ defmodule MossletWeb.JournalLive.Book do
                 id="book-page-indicator"
                 phx-update="ignore"
                 class="text-xs text-slate-500 dark:text-slate-400 opacity-0"
-              >
-              </span>
+              ></span>
               <.link
                 navigate={~p"/app/journal/new?book_id=#{@book.id}&view=reading&page=#{@scroll_page}"}
                 aria-label="Add Entry"
@@ -777,8 +775,7 @@ defmodule MossletWeb.JournalLive.Book do
               <span
                 data-decrypt-journal-mood-badge={@entry.id}
                 class="hidden text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1 lowercase"
-              >
-              </span>
+              ></span>
             </div>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
@@ -2245,8 +2242,7 @@ defmodule MossletWeb.JournalLive.Book do
                 <span
                   data-decrypt-journal-mood-badge={entry.id}
                   class="hidden text-xs text-slate-500 dark:text-slate-400"
-                >
-                </span>
+                ></span>
               </div>
             </div>
             <div

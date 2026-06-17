@@ -700,11 +700,9 @@ defmodule MossletWeb.UserRegistrationLive do
       <div class="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 border border-slate-200/50 dark:border-slate-600/50">
         <%!-- Animated progress dot --%>
         <div class="relative">
-          <span class="flex h-3 w-3 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 shadow-sm shadow-emerald-500/50">
-          </span>
+          <span class="flex h-3 w-3 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 shadow-sm shadow-emerald-500/50"></span>
           <%!-- Pulse animation --%>
-          <span class="absolute inset-0 h-3 w-3 rounded-full bg-gradient-to-r from-emerald-400 to-teal-400 animate-ping opacity-20">
-          </span>
+          <span class="absolute inset-0 h-3 w-3 rounded-full bg-gradient-to-r from-emerald-400 to-teal-400 animate-ping opacity-20"></span>
         </div>
 
         <%!-- Step progress with better typography --%>

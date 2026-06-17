@@ -2819,7 +2819,9 @@ defmodule MossletWeb.UserHomeLive do
                           }
                           size="sm"
                         >
-                          @<span data-decrypt-field="username">{@current_scope.user.decrypted[:username]}</span>
+                          @<span data-decrypt-field="username">{@current_scope.user.decrypted[
+                            :username
+                          ]}</span>
                         </MossletWeb.DesignSystem.liquid_badge>
 
                         <%!-- Email badge if show_email? is true --%>

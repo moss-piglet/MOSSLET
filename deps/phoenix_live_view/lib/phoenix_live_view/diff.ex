@@ -82,8 +82,8 @@ defmodule Phoenix.LiveView.Diff do
   end
 
   defp to_iodata_parts(parts, static, components, template, mapper) do
-    static = template_static(static, template)
-    one_to_iodata(static, parts, 0, [], components, template, mapper)
+    [head | tail] = template_static(static, template)
+    one_to_iodata(tail, parts, 0, [head], components, template, mapper)
   end
 
   defp keyed_to_iodata(index, keyed, static, components, template, mapper, acc)
@@ -97,13 +97,18 @@ defmodule Phoenix.LiveView.Diff do
     {acc, components}
   end
 
-  defp one_to_iodata([last], _parts, _counter, acc, components, _template, _mapper) do
-    {Enum.reverse([last | acc]), components}
+  defp one_to_iodata([], _parts, _counter, acc, components, _template, _mapper) do
+    {acc, components}
   end
 
   defp one_to_iodata([head | tail], parts, counter, acc, components, template, mapper) do
-    {iodata, components} = to_iodata(Map.fetch!(parts, counter), components, template, mapper)
-    one_to_iodata(tail, parts, counter + 1, [iodata, head | acc], components, template, mapper)
+    {iodata, components} =
+      case Map.fetch!(parts, counter) do
+        binary when is_binary(binary) -> {binary, components}
+        other -> to_iodata(other, components, template, mapper)
+      end
+
+    one_to_iodata(tail, parts, counter + 1, [acc, iodata | head], components, template, mapper)
   end
 
   defp template_static(static, template) when is_integer(static), do: Map.fetch!(template, static)
@@ -232,16 +237,37 @@ defmodule Phoenix.LiveView.Diff do
           |> configure_socket_for_component(assigns, private)
           |> fun.(component)
 
-        diff = render_private(csocket, %{})
+        changed? = Utils.changed?(csocket)
 
-        {pending, cdiffs, components} =
-          render_component(csocket, component, id, prints, cid, false, cids, %{}, components)
+        render = fn ->
+          diff = render_private(csocket, %{})
 
-        {cdiffs, components} =
-          render_pending_components(socket, pending, cids, cdiffs, components)
+          {pending, cdiffs, components} =
+            render_component(csocket, component, id, prints, cid, false, cids, %{}, components)
 
-        {diff, cdiffs} = extract_events({diff, cdiffs})
-        {maybe_put_cdiffs(diff, cdiffs), components, extra}
+          {cdiffs, components} =
+            render_pending_components(socket, pending, cids, cdiffs, components)
+
+          {diff, cdiffs} = extract_events({diff, cdiffs})
+          {maybe_put_cdiffs(diff, cdiffs), components, extra}
+        end
+
+        if changed? do
+          metadata = %{
+            socket: socket,
+            component: component,
+            id: id,
+            cid: cid,
+            force?: false,
+            changed?: changed?
+          }
+
+          :telemetry.span([:phoenix, :live_view, :render], metadata, fn ->
+            {render.(), metadata}
+          end)
+        else
+          render.()
+        end
 
       %{} ->
         :error
@@ -270,8 +296,8 @@ defmodule Phoenix.LiveView.Diff do
   @doc """
   Sends an update to a component.
 
-  Like `write_component/5`, it will store the result under the `cid
-   key in the `component_diffs` map.
+  Like `write_component/4`, it will store the result under the `cid`
+  key in the `component_diffs` map.
 
   If the component exists, a `{diff, new_components}` tuple
   is returned. Otherwise, `:noop` is returned.
@@ -1142,19 +1168,17 @@ defmodule Phoenix.LiveView.Diff do
     end
   end
 
-  defp mount_component(socket, component, assigns) do
-    private =
-      socket.private
-      |> Map.take([:conn_session, :root_view])
-      |> Map.put(:live_temp, %{})
-      |> Map.put(:children_cids, [])
-      |> Map.put(:lifecycle, %Phoenix.LiveView.Lifecycle{})
-
-    socket =
-      configure_socket_for_component(socket, assigns, private)
-      |> Utils.assign(:flash, %{})
-
-    Utils.maybe_call_live_component_mount!(socket, component)
+  defp mount_component(%{private: parent_private} = socket, component, assigns) do
+    socket
+    |> configure_socket_for_component(assigns, %{
+      conn_session: parent_private[:conn_session],
+      root_view: parent_private[:root_view],
+      live_temp: %{},
+      children_cids: [],
+      lifecycle: %Phoenix.LiveView.Lifecycle{}
+    })
+    |> Utils.assign(:flash, %{})
+    |> Utils.maybe_call_live_component_mount!(component)
   end
 
   defp configure_socket_for_component(socket, assigns, private) do

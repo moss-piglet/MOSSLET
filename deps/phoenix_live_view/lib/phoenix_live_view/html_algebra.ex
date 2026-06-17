@@ -5,12 +5,24 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
 
   @languages ~w(style script)
 
+  # Reference for all inline elements so that we can tell the formatter to not
+  # force a line break. This list has been taken from here:
+  #
+  # https://web.archive.org/web/20220405120608/https://developer.mozilla.org/en-US/docs/Web/HTML/Inline_elements#list_of_inline_elements
+  #
+  # A notable omission is `<script>`, which is handled separately in `html_algebra.ex`.
+  @inline_tags ~w(a abbr acronym audio b bdi bdo big br button canvas cite
+  code data datalist del dfn em embed i iframe img input ins kbd label map
+  mark meter noscript object output picture progress q ruby s samp select slot
+  small span strong sub sup svg template textarea time u tt var video wbr)
+
   # The formatter has two modes:
   #
   # * :normal
   # * :preserve - for preserving text in <pre>, <script>, <style> and HTML Comment tags
   #
   def build(tree, opts) when is_list(tree) do
+    {inline_matcher, opts} = Keyword.pop(opts, :inline_matcher, ["link", "button"])
     {migrate, opts} = Keyword.pop(opts, :migrate_eex_to_curly_interpolation, true)
     {attr_formatters, opts} = Keyword.pop!(opts, :attribute_formatters)
 
@@ -19,7 +31,8 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
       mode: :normal,
       migrate: migrate,
       attr_formatters: attr_formatters,
-      opts: opts
+      opts: opts,
+      inline_matcher: inline_matcher
     })
     |> group()
   end
@@ -73,13 +86,6 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
       |> maybe_force_unfit()
 
     Enum.reduce(tail, {head, type, doc}, fn next_node, {prev_node, prev_type, prev_doc} ->
-      context =
-        if inline?(prev_node) and inline?(next_node) do
-          %{context | mode: :preserve}
-        else
-          context
-        end
-
       {next_type, next_doc} =
         next_node
         |> to_algebra(context)
@@ -101,7 +107,7 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
             concat([prev_doc, line(), next_doc])
 
           next_type == :newline ->
-            {:text, _text, %{newlines: newlines}} = next_node
+            {:text, _text, %{newlines_before_text: newlines}} = next_node
 
             if newlines > 1 do
               concat([prev_doc, nest(line(), :reset), next_doc])
@@ -122,13 +128,17 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
             #     <div label="application programming interface">API</div>
             #   ).
             #
-            # Therefore, this check if the previous or next token is not a text
-            # and, if it is a text, check if that contains whitespace.
-            if (not text?(prev_node) and not text?(next_node)) or
-                 (text_ends_with_space?(prev_node) or text_starts_with_space?(next_node)) do
-              concat([prev_doc, break(""), next_doc])
-            else
-              concat([prev_doc, next_doc])
+            # Therefore, this checks whether the previous or next token is not text
+            # and, if it is text, whether it contains whitespace.
+            cond do
+              text_ends_with_space?(prev_node) or text_starts_with_space?(next_node) ->
+                concat([prev_doc, break(""), next_doc])
+
+              text?(prev_node) or text?(next_node) or (tag?(prev_node) and tag?(next_node)) ->
+                concat([prev_doc, next_doc])
+
+              true ->
+                concat([prev_doc, break(""), next_doc])
             end
         end
 
@@ -140,19 +150,19 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
 
   defp inline_break(prev_node, next_node) do
     cond do
+      # We do not insert breaks when preserving.
+      # We may insert spaces though if both sides are text.
       block_preserve?(prev_node) or block_preserve?(next_node) ->
-        cond do
-          text_ends_with_line_break?(prev_node) ->
-            flex_break(" ")
-
-          text_ends_with_space?(prev_node) or text_starts_with_space?(next_node) ->
-            " "
-
-          true ->
-            ""
+        if (text_ends_with_space?(prev_node) or text_starts_with_space?(next_node)) and
+             not (text_preserve?(prev_node) or text_preserve?(next_node)) do
+          " "
+        else
+          ""
         end
 
-      tag_block?(prev_node) and not tag_block?(next_node) ->
+      # If we have a block followed by anything that is not a tag,
+      # we force a break.
+      tag_block?(prev_node) and not tag?(next_node) ->
         break(" ")
 
       (text_ends_with_space?(prev_node) or text_starts_with_space?(next_node)) and
@@ -164,11 +174,15 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
     end
   end
 
-  defp tag_block?({:tag_block, _, _, _, _}), do: true
+  defp tag_block?({:block, _, _, _, _, _, _}), do: true
   defp tag_block?(_node), do: false
 
-  defp text?({:text, _text, _meta}), do: true
-  defp text?(_node), do: false
+  defp tag?({:block, _, _, _, _, _, _}), do: true
+  defp tag?({:self_close, _, _, _, _}), do: true
+  defp tag?(_node), do: false
+
+  defp text?({:text, _, _}), do: true
+  defp text?(_), do: false
 
   @codepoints ~c"\s\n\r\t"
 
@@ -182,12 +196,7 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
 
   defp text_ends_with_space?(_node), do: false
 
-  defp text_ends_with_line_break?({:text, text, _meta}) when text != "",
-    do: :binary.last(text) in ~c"\n\r"
-
-  defp text_ends_with_line_break?(_node), do: false
-
-  defp block_preserve?({:tag_block, _, _, _, %{mode: :preserve}}), do: true
+  defp block_preserve?({:block, _, _, _, _, %{mode: :preserve}, _}), do: true
   defp block_preserve?({:body_expr, _, _}), do: true
   defp block_preserve?({:eex, _, _}), do: true
   defp block_preserve?(_node), do: false
@@ -200,7 +209,11 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
     {:block, group(nest(children, :reset))}
   end
 
-  defp to_algebra({:tag_block, name, attrs, block, meta}, context) when name in @languages do
+  defp to_algebra(
+         {:block, _type, _name, attrs, block, %{tag_name: name} = meta, _close_meta},
+         context
+       )
+       when name in @languages do
     children = block_to_algebra(block, %{context | mode: :preserve})
 
     # Convert the whole block to text as there are no
@@ -245,20 +258,42 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
     {:block, group}
   end
 
-  defp to_algebra({:tag_block, _name, _attrs, _block, _meta} = doc, %{mode: :preserve} = context) do
-    tag_block_preserve_to_algebra(doc, context)
+  defp to_algebra(
+         {:block, _type, _name, attrs, block, %{tag_name: name} = meta, _close_meta},
+         %{mode: :preserve} = context
+       ) do
+    children = block_to_algebra(block, context)
+
+    children =
+      if inline?(name, context) and meta.mode != :preserve do
+        children
+      else
+        nest(children, 2)
+      end
+
+    tag =
+      concat([format_tag_open(name, attrs, context), children, "</#{name}>"])
+      |> group()
+
+    {:inline, tag}
   end
 
-  defp to_algebra({:tag_block, _name, _attrs, _block, %{mode: :preserve}} = doc, context) do
-    tag_block_preserve_to_algebra(doc, context)
+  defp to_algebra(
+         {:block, _type, _name, _attrs, _block, %{mode: :preserve}, _close_meta} = doc,
+         context
+       ) do
+    to_algebra(doc, %{context | mode: :preserve})
   end
 
-  defp to_algebra({:tag_block, name, attrs, block, meta}, context) do
-    {block, force_newline?} = trim_block_newlines(block)
+  defp to_algebra({:block, _type, _name, attrs, block, %{tag_name: name}, _close_meta}, context) do
+    inline? = inline?(name, context)
+    {block, force_newline?} = trim_block_newlines(block, inline?)
+    inline? = inline? and not force_newline?
 
     children =
       case block do
         [] -> empty()
+        _ when inline? -> block_to_algebra(block, context)
         _ -> nest(concat(break(""), block_to_algebra(block, context)), 2)
       end
 
@@ -268,19 +303,19 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
       concat([
         format_tag_open(name, attrs, context),
         children,
-        break(""),
+        if(inline?, do: empty(), else: break("")),
         "</#{name}>"
       ])
       |> group()
 
-    if !force_newline? and meta.mode == :inline do
+    if inline? do
       {:inline, doc}
     else
       {:block, doc}
     end
   end
 
-  defp to_algebra({:tag_self_close, name, attrs}, context) do
+  defp to_algebra({:self_close, _type, _name, attrs, %{tag_name: name}}, context) do
     doc =
       concat([
         "<#{name}",
@@ -294,7 +329,7 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
   # Handle EEX blocks within preserve tags
   defp to_algebra({:eex_block, expr, block, meta}, %{mode: :preserve} = context) do
     doc =
-      Enum.reduce(block, empty(), fn {block, expr}, doc ->
+      Enum.reduce(block, empty(), fn {block, expr, _clause_meta}, doc ->
         children = block_to_algebra(block, context)
         expr = "<% #{expr} %>"
         concat([doc, children, expr])
@@ -306,8 +341,8 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
   # Handle EEX blocks
   defp to_algebra({:eex_block, expr, block, meta}, context) do
     {doc, _stab} =
-      Enum.reduce(block, {empty(), false}, fn {block, expr}, {doc, stab?} ->
-        {block, _force_newline?} = trim_block_newlines(block)
+      Enum.reduce(block, {empty(), false}, fn {block, expr, _clause_meta}, {doc, stab?} ->
+        {block, _force_newline?} = trim_block_newlines(block, false)
         {next_doc, stab?} = eex_block_to_algebra(expr, block, stab?, context)
         {concat(doc, force_unfit(next_doc)), stab?}
       end)
@@ -370,26 +405,8 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
     end
   end
 
-  # Preserve tag_block
-  defp tag_block_preserve_to_algebra({:tag_block, name, attrs, block, meta}, context) do
-    children = block_to_algebra(block, %{context | mode: :preserve})
-
-    children =
-      if meta.mode == :inline do
-        children
-      else
-        nest(children, 2)
-      end
-
-    tag =
-      concat([
-        format_tag_open(name, attrs, context),
-        children,
-        "</#{name}>"
-      ])
-      |> group()
-
-    {:inline, tag}
+  defp inline?(name, context) do
+    name in @inline_tags or Enum.any?(context.inline_matcher, &(name =~ &1))
   end
 
   # Empty newline
@@ -523,8 +540,8 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
 
   # Handle EEx clauses
   #
-  # {[], "something ->"}
-  # {[{:tag_block, "p", [], [text: "do something"]}], "else"}
+  # {[], "something ->", %{...}}
+  # {[{:block, :tag, "p", [], [...], %{...}, %{...}}], "else", %{...}}
   defp eex_block_to_algebra(expr, block, stab?, context) when is_list(block) do
     indent = if stab?, do: 4, else: 2
 
@@ -583,25 +600,48 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
   defp maybe_force_unfit({:block, doc}), do: {:block, force_unfit(doc)}
   defp maybe_force_unfit(doc), do: doc
 
-  defp trim_block_newlines(block) do
-    {tail, force?} = pop_head_if_only_spaces_or_newlines(block)
+  defp trim_block_newlines(block, inline?) do
+    {tail, first_force?} =
+      pop_head_if_only_spaces_or_newlines(block, inline?, :newlines_before_text)
 
-    {block, _} =
+    {block, last_force?} =
       tail
       |> Enum.reverse()
-      |> pop_head_if_only_spaces_or_newlines()
+      |> pop_head_if_only_spaces_or_newlines(inline?, :newlines_after_text)
 
-    force? = if Enum.empty?(block), do: false, else: force?
+    force? = if Enum.empty?(block), do: false, else: first_force? or last_force?
 
     {Enum.reverse(block), force?}
   end
 
-  defp pop_head_if_only_spaces_or_newlines([{:text, text, meta} | tail] = block) do
-    force? = meta.newlines > 0
-    if String.trim_leading(text) == "", do: {tail, force?}, else: {block, force?}
+  defp pop_head_if_only_spaces_or_newlines(
+         [{:text, text, meta} | tail] = block,
+         inline?,
+         newlines_key
+       ) do
+    force? = Map.fetch!(meta, newlines_key) > 0
+
+    cond do
+      String.trim_leading(text) == "" ->
+        {tail, force?}
+
+      inline? and not force? and whitespace_around?(text, newlines_key) ->
+        text = cleanup_extra_spaces(text, newlines_key)
+        meta = Map.put(meta, :mode, :preserve)
+        {[{:text, text, meta} | tail], false}
+
+      true ->
+        {block, force?}
+    end
   end
 
-  defp pop_head_if_only_spaces_or_newlines(block), do: {block, false}
+  defp pop_head_if_only_spaces_or_newlines(block, _inline?, _where), do: {block, false}
+
+  defp cleanup_extra_spaces(text, :newlines_before_text), do: " " <> String.trim_leading(text)
+  defp cleanup_extra_spaces(text, :newlines_after_text), do: String.trim_trailing(text) <> " "
+
+  defp whitespace_around?(text, :newlines_before_text), do: :binary.first(text) in ~c"\s\t"
+  defp whitespace_around?(text, :newlines_after_text), do: :binary.last(text) in ~c"\s\t"
 
   defp count_indentation(<<?\t, rest::binary>>, indent), do: count_indentation(rest, indent + 2)
   defp count_indentation(<<?\s, rest::binary>>, indent), do: count_indentation(rest, indent + 1)
@@ -612,9 +652,6 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
   defp remove_indentation(<<?\t, rest::binary>>, indent), do: remove_indentation(rest, indent - 2)
   defp remove_indentation(<<?\s, rest::binary>>, indent), do: remove_indentation(rest, indent - 1)
   defp remove_indentation(rest, _indent), do: rest
-
-  defp inline?({:tag_block, _, _, _, %{mode: :inline}}), do: true
-  defp inline?(_), do: false
 
   defp safe_to_migrate?(~S[\{] <> rest, acc), do: safe_to_migrate?(rest, acc)
   defp safe_to_migrate?(~S[\}] <> rest, acc), do: safe_to_migrate?(rest, acc)

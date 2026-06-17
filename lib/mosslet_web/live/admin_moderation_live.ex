@@ -1096,8 +1096,8 @@ defmodule MossletWeb.AdminModerationLive do
             </.liquid_button>
           <% end %>
         </div>
-        
-    <!-- Advanced Moderation Actions (Available for all except dismissed) -->
+
+        <!-- Advanced Moderation Actions (Available for all except dismissed) -->
         <%= if @report.status != :dismissed do %>
           <div class="flex flex-wrap gap-2 sm:gap-3 pt-2.5 sm:pt-3 border-t border-slate-200 dark:border-slate-700">
             <%= if @report.reply_id do %>

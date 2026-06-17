@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.26.1
+
+### 🐛 Bug Fixes
+
+- Fix inline attachment `cid` handling for Mailpit adapter @waseigo (#1155)
+
+## 1.26.0
+
+### ✨ Features
+
+- Add self-hosted Mailpit adapter @waseigo (#1152)
+
+### 📝 Documentation
+
+- Document the new Mailpit adapter in the README
+
+## 1.25.3
+
+### 📝 Documentation
+
+- Document runtime Postmark server keys @dl-alexandre (#1135)
+
+### 🧰 Maintenance
+
+- update to support hackney less than 5.0 @allenwyma (#1132)
+- Allow usage of idna 7.x @sax (#1142)
+- Fix Elixir 1.20 compilation warnings @gilbertwong96 (#1150)
+
 ## 1.25.2
 
 ### 🐛 Bug Fixes

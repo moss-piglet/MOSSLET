@@ -27,6 +27,30 @@
          ws_setopts/2,
          ws_close/1, ws_close/2]).
 
+%% WebTransport API
+-export([wt_connect/1, wt_connect/2,
+         wt_send/2,
+         wt_recv/1, wt_recv/2,
+         wt_setopts/2,
+         wt_close/1, wt_close/2,
+         wt_open_stream/2,
+         wt_stream_send/3, wt_stream_send/4,
+         wt_stream_recv/2, wt_stream_recv/3,
+         wt_close_stream/2,
+         wt_reset_stream/3,
+         wt_stop_sending/3,
+         wt_send_datagram/2,
+         wt_session_info/1]).
+
+%% HTTP/2 bidirectional (gRPC-style) stream API
+-export([h2_open/2, h2_open/3, h2_open/4,
+         h2_send/2, h2_send/3,
+         h2_send_trailers/2,
+         h2_recv/1, h2_recv/2,
+         h2_consume/2,
+         h2_setopts/2,
+         h2_close/1]).
+
 -export([redirect_location/1, location/1]).
 
 -export([get_version/0]).
@@ -61,7 +85,7 @@
 -type request_ret() ::
     {ok, integer(), list(), binary()} | %% response with body
     {ok, integer(), list()} |           %% HEAD request
-    {ok, reference()} |                 %% async mode
+    {ok, conn()} |                      %% async mode or streaming body upload (body = stream)
     {error, term()}.
 -export_type([url/0, conn/0, request_ret/0]).
 
@@ -122,7 +146,7 @@ connect_direct(Transport, Host, Port, Options) ->
         ok ->
           {ok, ConnPid};
         {error, Reason} ->
-          catch hackney_conn:stop(ConnPid),
+          stop_conn(ConnPid),
           {error, Reason}
       end;
     {error, Reason} ->
@@ -149,13 +173,19 @@ connect_pool(Transport, Host, Port, Options) ->
   %% For SSL connections, try multiplexed protocols (HTTP/3 first, then HTTP/2)
   case Transport of
     hackney_ssl ->
+      %% Compute the exact TLS handshake options once; their hash keys the
+      %% shared HTTP/2 connection so requests with different ssl_options
+      %% never share a connection. FinalSslOpts is passed alongside Options
+      %% (not inside it) to keep the large CA material out of the pool state.
+      {FinalSslOpts, TlsKey} = effective_ssl_opts(Host, Options),
+      Options2 = [{tls_key, TlsKey} | Options],
       %% Check HTTP/3 first if allowed
       case H3Allowed andalso try_h3_connection(Host, Port, Transport, Options, PoolHandler) of
         {ok, H3Pid} ->
           {ok, H3Pid};
         _ when H2Allowed ->
           %% Try HTTP/2 multiplexing
-          case PoolHandler:checkout_h2(Host, Port, Transport, Options) of
+          case PoolHandler:checkout_h2(Host, Port, Transport, Options2) of
             {ok, H2Pid} ->
               %% Verify connection is actually in connected state
               %% (OTP 28 on FreeBSD may have timing issues with SSL connections)
@@ -164,30 +194,50 @@ connect_pool(Transport, Host, Port, Options) ->
                           {ok, H2Pid};
                 _ ->
                   %% Connection not ready, unregister and create new
-                  PoolHandler:unregister_h2(H2Pid, Options),
-                  connect_pool_new(Transport, Host, Port, Options, PoolHandler)
+                  PoolHandler:unregister_h2(H2Pid, Options2),
+                  connect_pool_new(Transport, Host, Port, Options2, FinalSslOpts, PoolHandler)
               end;
             none ->
-              connect_pool_new(Transport, Host, Port, Options, PoolHandler)
+              connect_pool_new(Transport, Host, Port, Options2, FinalSslOpts, PoolHandler)
           end;
         _ ->
           %% No multiplexed protocols allowed or available
-          connect_pool_new(Transport, Host, Port, Options, PoolHandler)
+          connect_pool_new(Transport, Host, Port, Options2, FinalSslOpts, PoolHandler)
       end;
     _ ->
       %% Non-SSL, use normal pool
-      connect_pool_new(Transport, Host, Port, Options, PoolHandler)
+      connect_pool_new(Transport, Host, Port, Options, undefined, PoolHandler)
   end.
+
+%% @private Build the exact TLS handshake options for a pooled SSL request,
+%% plus their memoized pool key hash. Single source of truth: replicates
+%% what maybe_upgrade_ssl used to build inline, including the optional
+%% protocols entry for ALPN.
+effective_ssl_opts(Host, Options) ->
+  SslOpts = proplists:get_value(ssl_options, Options, []),
+  SslOpts2 = case proplists:get_value(protocols, Options, undefined) of
+    undefined -> SslOpts;
+    Protocols -> [{protocols, Protocols} | SslOpts]
+  end,
+  ConnectOpts = proplists:get_value(connect_options, Options, []),
+  hackney_ssl:effective_opts_and_key(Host, SslOpts2, ConnectOpts).
 
 %% @private Try to get or establish an HTTP/3 connection
 try_h3_connection(Host, Port, Transport, Options, PoolHandler) ->
+  %% Hash the QUIC trust projection once; it keys both the shared H3
+  %% connection and the 0-RTT ticket cache so requests with differing
+  %% trust configs never share either.
+  ConnectOpts = proplists:get_value(connect_options, Options, []),
+  SslOpts = proplists:get_value(ssl_options, Options, []),
+  K3 = hackney_ssl:h3_options_key(ConnectOpts, SslOpts),
+  Options2 = [{h3_tls_key, K3} | Options],
   %% Check if HTTP/3 is blocked for this host (negative cache)
   case hackney_altsvc:is_h3_blocked(Host, Port) of
     true ->
       false;
     false ->
       %% Check if we have an existing HTTP/3 connection
-      case PoolHandler:checkout_h3(Host, Port, Transport, Options) of
+      case PoolHandler:checkout_h3(Host, Port, Transport, Options2) of
         {ok, H3Pid} ->
           %% Verify connection is actually in connected state
           case hackney_conn:get_state(H3Pid) of
@@ -195,21 +245,21 @@ try_h3_connection(Host, Port, Transport, Options, PoolHandler) ->
               {ok, H3Pid};
             _ ->
               %% Connection not ready, unregister and try new connection
-              PoolHandler:unregister_h3(H3Pid, Options),
-              try_new_h3_connection(Host, Port, Transport, Options, PoolHandler)
+              PoolHandler:unregister_h3(H3Pid, Options2),
+              try_new_h3_connection(Host, Port, Transport, Options2, PoolHandler)
           end;
         none ->
           %% Check Alt-Svc cache for known HTTP/3 endpoint
           case hackney_altsvc:lookup(Host, Port) of
             {ok, h3, H3Port} ->
               %% Alt-Svc says HTTP/3 is available, try connecting
-              try_new_h3_connection(Host, H3Port, Transport, Options, PoolHandler);
+              try_new_h3_connection(Host, H3Port, Transport, Options2, PoolHandler);
             none ->
               %% No Alt-Svc cached, only try H3 if explicitly requested
               case lists:member(http3, proplists:get_value(protocols, Options, [])) of
                 true ->
                   %% User explicitly wants HTTP/3, try it
-                  try_new_h3_connection(Host, Port, Transport, Options, PoolHandler);
+                  try_new_h3_connection(Host, Port, Transport, Options2, PoolHandler);
                 false ->
                   false
               end
@@ -221,33 +271,48 @@ try_h3_connection(Host, Port, Transport, Options, PoolHandler) ->
 try_new_h3_connection(Host, Port, Transport, Options, PoolHandler) ->
   %% Start HTTP/3 connection via hackney_conn
   ConnectTimeout = proplists:get_value(connect_timeout, Options, 8000),
+  BaseConnectOpts = proplists:get_value(connect_options, Options, []),
+  SslOpts = proplists:get_value(ssl_options, Options, []),
+  %% Forward the caller's connect_options (e.g. {family, inet6}) and resolve the
+  %% 0-RTT session ticket (explicit option beats the pool cache).
+  ConnectOpts0 = [{protocols, [http3]} | proplists:delete(protocols, BaseConnectOpts)],
+  ConnectOpts = maybe_inject_h3_session(ConnectOpts0, SslOpts, Host, Port, Transport,
+                                        Options, PoolHandler),
+  PoolName = proplists:get_value(pool, Options, default),
   ConnOpts = #{
     host => Host,
     port => Port,
     transport => Transport,
     connect_timeout => ConnectTimeout,
     recv_timeout => proplists:get_value(recv_timeout, Options, 5000),
-    connect_options => [{protocols, [http3]}],
-    ssl_options => proplists:get_value(ssl_options, Options, [])
+    connect_options => ConnectOpts,
+    ssl_options => SslOpts,
+    pool_name => PoolName,
+    pool_handler => PoolHandler
   },
   case hackney_conn_sup:start_conn(ConnOpts) of
     {ok, ConnPid} ->
       case hackney_conn:connect(ConnPid, ConnectTimeout) of
         ok ->
           %% Verify it's HTTP/3
-          case catch hackney_conn:get_protocol(ConnPid) of
+          try hackney_conn:get_protocol(ConnPid) of
             http3 ->
               %% Register for multiplexing
               PoolHandler:register_h3(Host, Port, Transport, ConnPid, Options),
               {ok, ConnPid};
             _ ->
-              %% Not HTTP/3 or connection terminated, close and fail
-              catch hackney_conn:stop(ConnPid),
+              %% Not HTTP/3, close and fail
+              stop_conn(ConnPid),
+              hackney_altsvc:mark_h3_blocked(Host, Port),
+              false
+          catch
+            _:_ ->
+              %% Connection terminated before we could check
               hackney_altsvc:mark_h3_blocked(Host, Port),
               false
           end;
         {error, _Reason} ->
-          catch hackney_conn:stop(ConnPid),
+          stop_conn(ConnPid),
           hackney_altsvc:mark_h3_blocked(Host, Port),
           false
       end;
@@ -256,7 +321,30 @@ try_new_h3_connection(Host, Port, Transport, Options, PoolHandler) ->
       false
   end.
 
-connect_pool_new(Transport, Host, Port, Options, PoolHandler) ->
+%% @private Resolve the 0-RTT session ticket for a new H3 connection.
+%% Precedence: an explicit `session_ticket' in connect_options or ssl_options
+%% wins; otherwise, unless `zero_rtt' is disabled, a pool-cached ticket for
+%% {Host, Port, Transport} is injected. The pool lookup is guarded so a custom
+%% pool handler without the callback degrades to no reuse rather than crashing.
+maybe_inject_h3_session(ConnectOpts, SslOpts, Host, Port, Transport, Options, PoolHandler) ->
+  ZeroRtt = proplists:get_value(zero_rtt, Options, true),
+  Explicit = proplists:get_value(session_ticket, ConnectOpts,
+               proplists:get_value(session_ticket, SslOpts, undefined)),
+  case {ZeroRtt, Explicit} of
+    {false, _} -> ConnectOpts;
+    {_, T} when T =/= undefined -> ConnectOpts;
+    _ ->
+      case erlang:function_exported(PoolHandler, get_h3_session, 4) of
+        false -> ConnectOpts;
+        true ->
+          case PoolHandler:get_h3_session(Host, Port, Transport, Options) of
+            {ok, Cached} -> [{session_ticket, Cached} | ConnectOpts];
+            _ -> ConnectOpts
+          end
+      end
+  end.
+
+connect_pool_new(Transport, Host, Port, Options, FinalSslOpts, PoolHandler) ->
   MaxPerHost = proplists:get_value(max_per_host, Options, 50),
   CheckoutTimeout = proplists:get_value(checkout_timeout, Options,
                       proplists:get_value(connect_timeout, Options, 8000)),
@@ -265,67 +353,110 @@ connect_pool_new(Transport, Host, Port, Options, PoolHandler) ->
   case hackney_load_regulation:acquire(Host, Port, MaxPerHost, CheckoutTimeout) of
     ok ->
       %% Slot acquired - now get connection from pool
-      %% Always checkout as TCP - pool only stores TCP connections
-      case PoolHandler:checkout(Host, Port, hackney_tcp, Options) of
-        {ok, _PoolRef, ConnPid} ->
-          %% Got TCP connection - upgrade to SSL if needed
-          case maybe_upgrade_ssl(Transport, ConnPid, Host, Options) of
-            ok ->
-              %% Check if HTTP/2 was negotiated, register for multiplexing
-              maybe_register_h2(ConnPid, Host, Port, Transport, Options, PoolHandler),
+      SslPooling = proplists:get_value(ssl_pooling, Options,
+                     hackney_app:get_app_env(ssl_pooling, false)),
+      case Transport =:= hackney_ssl andalso SslPooling =:= true
+           andalso erlang:function_exported(PoolHandler, checkout_ssl, 4) of
+        true ->
+          %% Opt-in ssl_pooling: pooled HTTPS/1.1 connections are reused on
+          %% an exact match of the TLS options hash (tls_key in Options)
+          connect_pool_ssl(Transport, Host, Port, Options, FinalSslOpts, PoolHandler);
+        false ->
+          %% Always checkout as TCP - pool only stores TCP connections
+          case PoolHandler:checkout(Host, Port, hackney_tcp, Options) of
+            {ok, _PoolRef, ConnPid} ->
+              %% Got TCP connection - upgrade to SSL if needed
+              case maybe_upgrade_ssl(Transport, ConnPid, FinalSslOpts) of
+                ok ->
+                  %% Check if HTTP/2 was negotiated, register for multiplexing
+                  maybe_register_h2(ConnPid, Host, Port, Transport, Options, PoolHandler),
                   {ok, ConnPid};
+                {error, Reason} ->
+                  %% Upgrade failed - release slot and close connection
+                  hackney_load_regulation:release(Host, Port),
+                  stop_conn(ConnPid),
+                  {error, Reason}
+              end;
             {error, Reason} ->
-              %% Upgrade failed - release slot and close connection
+              %% Checkout failed - release slot
               hackney_load_regulation:release(Host, Port),
-              catch hackney_conn:stop(ConnPid),
               {error, Reason}
-          end;
-        {error, Reason} ->
-          %% Checkout failed - release slot
-          hackney_load_regulation:release(Host, Port),
-          {error, Reason}
+          end
       end;
     {error, timeout} ->
       {error, checkout_timeout}
   end.
 
+%% @private SSL-pooling checkout. A `ready' conn is an already-upgraded
+%% HTTPS/1.1 connection reused on an exact tls_key match; it was registered
+%% for h2 at creation if applicable, so it is not re-registered here. A
+%% `needs_upgrade' conn is a TCP connection upgraded with pool_ssl so it can
+%% return to the pool at checkin.
+connect_pool_ssl(Transport, Host, Port, Options, FinalSslOpts, PoolHandler) ->
+  case PoolHandler:checkout_ssl(Host, Port, Transport, Options) of
+    {ok, _PoolRef, ConnPid, ready} ->
+      {ok, ConnPid};
+    {ok, _PoolRef, ConnPid, needs_upgrade} ->
+      case hackney_conn:upgrade_to_ssl(ConnPid, FinalSslOpts,
+                                       #{final => true, pool_ssl => true}) of
+        ok ->
+          maybe_register_h2(ConnPid, Host, Port, Transport, Options, PoolHandler),
+          {ok, ConnPid};
+        {error, Reason} ->
+          hackney_load_regulation:release(Host, Port),
+          stop_conn(ConnPid),
+          {error, Reason}
+      end;
+    {error, Reason} ->
+      hackney_load_regulation:release(Host, Port),
+      {error, Reason}
+  end.
+
 %% @private Register HTTP/2 connection for multiplexing if applicable
-%% Uses catch to handle race condition where connection terminates before call
+%% Wrapped in try to handle a race where the connection terminates before the call
 maybe_register_h2(ConnPid, Host, Port, Transport, Options, PoolHandler) ->
-  case catch hackney_conn:get_protocol(ConnPid) of
+  try hackney_conn:get_protocol(ConnPid) of
     http2 ->
       %% HTTP/2 negotiated - register for connection sharing
       PoolHandler:register_h2(Host, Port, Transport, ConnPid, Options);
     http1 ->
       ok;
     http3 ->
-      ok;
-    {'EXIT', _} ->
+      ok
+  catch
+    _:_ ->
       %% Connection terminated before we could check - ignore
       ok
   end.
 
-%% @private Upgrade TCP connection to SSL if needed
-maybe_upgrade_ssl(hackney_ssl, ConnPid, Host, Options) ->
-  SslOpts = proplists:get_value(ssl_options, Options, []),
-  %% Add protocols option for ALPN negotiation if specified
-  Protocols = proplists:get_value(protocols, Options, undefined),
-  SslOpts2 = case Protocols of
-    undefined -> SslOpts;
-    _ -> [{protocols, Protocols} | SslOpts]
-  end,
+%% @private Upgrade TCP connection to SSL if needed.
+%% FinalSslOpts is precomputed by effective_ssl_opts/2 so the handshake uses
+%% exactly the options hashed into the pool tls_key.
+maybe_upgrade_ssl(hackney_ssl, ConnPid, FinalSslOpts) ->
   %% Check if connection is already SSL (e.g., reused SSL connection)
-  case catch hackney_conn:is_upgraded_ssl(ConnPid) of
+  try hackney_conn:is_upgraded_ssl(ConnPid) of
     true ->
       %% Already SSL, no upgrade needed
       ok;
     _ ->
       %% Upgrade TCP to SSL with ALPN
-      hackney_conn:upgrade_to_ssl(ConnPid, [{server_name_indication, Host} | SslOpts2])
+      hackney_conn:upgrade_to_ssl(ConnPid, FinalSslOpts, #{final => true})
+  catch
+    _:_ ->
+      %% Connection terminated, attempt upgrade anyway
+      hackney_conn:upgrade_to_ssl(ConnPid, FinalSslOpts, #{final => true})
   end;
-maybe_upgrade_ssl(_, _ConnPid, _Host, _Options) ->
+maybe_upgrade_ssl(_, _ConnPid, _FinalSslOpts) ->
   %% Not SSL, no upgrade needed
   ok.
+
+%% @private Stop a connection, tolerating an already-dead process.
+stop_conn(ConnPid) ->
+  try hackney_conn:stop(ConnPid) catch _:_ -> ok end.
+
+%% @private Signal the websocket process to shut down, ignoring errors.
+shutdown_ws(WsPid) ->
+  try exit(WsPid, shutdown) catch _:_ -> ok end.
 
 %% @doc Close a connection.
 -spec close(conn()) -> ok.
@@ -678,11 +809,11 @@ ws_connect(URL, Options) when is_binary(URL) orelse is_list(URL) ->
         ok ->
           {ok, WsPid};
         {error, Reason} ->
-          catch exit(WsPid, shutdown),
+          shutdown_ws(WsPid),
           {error, Reason}
       catch
         exit:{timeout, _} ->
-          catch exit(WsPid, shutdown),
+          shutdown_ws(WsPid),
           {error, connect_timeout};
         exit:{noproc, _} ->
           {error, {ws_process_died, noproc}}
@@ -727,6 +858,365 @@ ws_close(WsPid) when is_pid(WsPid) ->
 -spec ws_close(pid(), {integer(), binary()}) -> ok.
 ws_close(WsPid, {Code, Reason}) when is_pid(WsPid) ->
   hackney_ws:close(WsPid, {Code, Reason}).
+
+%%====================================================================
+%% WebTransport API
+%%====================================================================
+
+%% @doc Connect to a WebTransport server.
+%%
+%% The URL must use the https:// scheme (wss:// is accepted as an alias so
+%% existing ws_* code can switch over by changing only the function name).
+%% WebTransport always runs over TLS.
+%%
+%% Options:
+%% <ul>
+%%   <li>transport: h3 (default) or h2</li>
+%%   <li>active: false | true | once (default false)</li>
+%%   <li>headers: extra headers for the CONNECT request</li>
+%%   <li>connect_timeout: connection timeout in ms (default 8000)</li>
+%%   <li>recv_timeout: default receive timeout in ms (default infinity)</li>
+%%   <li>ssl_options: TLS options (verify, cacerts/cacertfile, cert/certfile,
+%%       key/keyfile)</li>
+%%   <li>verify: verify_peer (default) | verify_none</li>
+%%   <li>compat_mode: latest (default) | legacy_browser_compat</li>
+%%   <li>max_recv_buffer: passive buffer cap in bytes (default 64 MiB)</li>
+%% </ul>
+%%
+%% Returns `{ok, WtPid}' on success, where WtPid is the hackney_wt process.
+-spec wt_connect(binary() | string()) -> {ok, pid()} | {error, term()}.
+wt_connect(URL) ->
+  wt_connect(URL, []).
+
+-spec wt_connect(binary() | string(), list()) -> {ok, pid()} | {error, term()}.
+wt_connect(URL, Options) when is_binary(URL) orelse is_list(URL) ->
+  #hackney_url{
+    scheme = Scheme,
+    host = Host,
+    port = Port,
+    path = Path0,
+    qs = Query
+  } = hackney_url:parse_url(URL),
+
+  %% WebTransport runs over HTTP/3 or HTTP/2, both TLS-only.
+  case Scheme of
+    https -> ok;
+    wss -> ok;
+    _ -> error({invalid_webtransport_scheme, Scheme})
+  end,
+
+  Path = case Query of
+    <<>> -> Path0;
+    _ -> <<Path0/binary, "?", Query/binary>>
+  end,
+
+  Headers = normalize_ws_headers(proplists:get_value(headers, Options, [])),
+
+  %% Mirror the WebSocket GHSA-f9vr guard: reject CR/LF/NUL in the request
+  %% path or in any caller-supplied header before it reaches the wire.
+  case valid_wt_fields(Host, Path, Headers) of
+    ok ->
+      Transport = proplists:get_value(transport, Options, h3),
+      ConnectTimeout = proplists:get_value(connect_timeout, Options, 8000),
+      WtOpts = #{
+        host => Host,
+        port => Port,
+        path => Path,
+        transport => Transport,
+        connect_opts => build_wt_connect_opts(Options, Headers),
+        connect_timeout => ConnectTimeout,
+        recv_timeout => proplists:get_value(recv_timeout, Options, infinity),
+        active => proplists:get_value(active, Options, false),
+        max_recv_buffer => proplists:get_value(max_recv_buffer, Options, 16#4000000)
+      },
+      case hackney_wt:start_link(WtOpts) of
+        {ok, WtPid} ->
+          try hackney_wt:connect(WtPid, ConnectTimeout) of
+            ok ->
+              {ok, WtPid};
+            {error, Reason} ->
+              shutdown_wt(WtPid),
+              {error, Reason}
+          catch
+            exit:{noproc, _} ->
+              {error, {wt_process_died, noproc}}
+          end;
+        {error, Reason} ->
+          {error, Reason}
+      end;
+    {error, _} = Err ->
+      Err
+  end.
+
+%% @doc Send on a WebTransport connection.
+%% Frame forms: `{text, Data}', `{binary, Data}', `Data' (write to the
+%% default stream); `{datagram, Data}'; `{stream, StreamId, Data}' or
+%% `{stream, StreamId, Data, fin|nofin}'.
+-spec wt_send(pid(), hackney_wt:wt_frame()) -> ok | {error, term()}.
+wt_send(WtPid, Frame) when is_pid(WtPid) ->
+  hackney_wt:send(WtPid, Frame).
+
+%% @doc Receive the next message on the default channel (passive mode).
+-spec wt_recv(pid()) -> {ok, hackney_wt:wt_msg()} | {error, term()}.
+wt_recv(WtPid) when is_pid(WtPid) ->
+  hackney_wt:recv(WtPid).
+
+-spec wt_recv(pid(), timeout()) -> {ok, hackney_wt:wt_msg()} | {error, term()}.
+wt_recv(WtPid, Timeout) when is_pid(WtPid) ->
+  hackney_wt:recv(WtPid, Timeout).
+
+%% @doc Set WebTransport options. Supported: [{active, true | false | once}]
+-spec wt_setopts(pid(), list()) -> ok | {error, term()}.
+wt_setopts(WtPid, Opts) when is_pid(WtPid) ->
+  hackney_wt:setopts(WtPid, Opts).
+
+%% @doc Close a WebTransport session gracefully.
+-spec wt_close(pid()) -> ok.
+wt_close(WtPid) when is_pid(WtPid) ->
+  hackney_wt:close(WtPid).
+
+-spec wt_close(pid(), {non_neg_integer(), binary()}) -> ok.
+wt_close(WtPid, {Code, Reason}) when is_pid(WtPid) ->
+  hackney_wt:close(WtPid, {Code, Reason}).
+
+%% @doc Open a new stream multiplexed over the session.
+-spec wt_open_stream(pid(), bidi | uni) -> {ok, non_neg_integer()} | {error, term()}.
+wt_open_stream(WtPid, Type) when is_pid(WtPid) ->
+  hackney_wt:open_stream(WtPid, Type).
+
+%% @doc Write to a stream (no FIN).
+-spec wt_stream_send(pid(), non_neg_integer(), iodata()) -> ok | {error, term()}.
+wt_stream_send(WtPid, StreamId, Data) when is_pid(WtPid) ->
+  hackney_wt:stream_send(WtPid, StreamId, Data).
+
+%% @doc Write to a stream, optionally closing the write side (FIN).
+-spec wt_stream_send(pid(), non_neg_integer(), iodata(), fin | nofin) -> ok | {error, term()}.
+wt_stream_send(WtPid, StreamId, Data, Fin) when is_pid(WtPid) ->
+  hackney_wt:stream_send(WtPid, StreamId, Data, Fin).
+
+%% @doc Receive the next chunk on a stream (passive mode).
+-spec wt_stream_recv(pid(), non_neg_integer()) -> hackney_wt:stream_msg().
+wt_stream_recv(WtPid, StreamId) when is_pid(WtPid) ->
+  hackney_wt:stream_recv(WtPid, StreamId).
+
+-spec wt_stream_recv(pid(), non_neg_integer(), timeout()) -> hackney_wt:stream_msg().
+wt_stream_recv(WtPid, StreamId, Timeout) when is_pid(WtPid) ->
+  hackney_wt:stream_recv(WtPid, StreamId, Timeout).
+
+%% @doc Close a stream gracefully (send FIN).
+-spec wt_close_stream(pid(), non_neg_integer()) -> ok | {error, term()}.
+wt_close_stream(WtPid, StreamId) when is_pid(WtPid) ->
+  hackney_wt:close_stream(WtPid, StreamId).
+
+%% @doc Abruptly terminate a stream with an error code.
+-spec wt_reset_stream(pid(), non_neg_integer(), non_neg_integer()) -> ok | {error, term()}.
+wt_reset_stream(WtPid, StreamId, ErrorCode) when is_pid(WtPid) ->
+  hackney_wt:reset_stream(WtPid, StreamId, ErrorCode).
+
+%% @doc Ask the peer to stop sending on a stream.
+-spec wt_stop_sending(pid(), non_neg_integer(), non_neg_integer()) -> ok | {error, term()}.
+wt_stop_sending(WtPid, StreamId, ErrorCode) when is_pid(WtPid) ->
+  hackney_wt:stop_sending(WtPid, StreamId, ErrorCode).
+
+%% @doc Send an unreliable datagram.
+-spec wt_send_datagram(pid(), iodata()) -> ok | {error, term()}.
+wt_send_datagram(WtPid, Data) when is_pid(WtPid) ->
+  hackney_wt:send_datagram(WtPid, Data).
+
+%% @doc Return WebTransport session information.
+-spec wt_session_info(pid()) -> {ok, map()} | {error, term()}.
+wt_session_info(WtPid) when is_pid(WtPid) ->
+  hackney_wt:session_info(WtPid).
+
+%% @private Signal the WebTransport process to shut down, ignoring errors.
+shutdown_wt(WtPid) ->
+  try exit(WtPid, shutdown) catch _:_ -> ok end.
+
+%%====================================================================
+%% HTTP/2 bidirectional (gRPC-style) stream API
+%%====================================================================
+
+%% @doc Open a full-duplex HTTP/2 stream (gRPC-style bidirectional streaming).
+%% Establishes a dedicated HTTP/2 connection (ALPN, so an https URL) and opens
+%% one stream on it. Returns a pid driven with h2_send/h2_recv etc. The method
+%% defaults to POST.
+%%
+%% Options: connect_timeout, recv_timeout, connect_options, ssl_options,
+%% {flow_control, auto | manual}, {active, true | false | once},
+%% {max_recv_buffer, bytes | infinity}.
+-spec h2_open(binary() | string(), list()) -> {ok, pid()} | {error, term()}.
+h2_open(URL, Opts) ->
+  h2_open(post, URL, [], Opts).
+
+-spec h2_open(binary() | string(), list(), list()) -> {ok, pid()} | {error, term()}.
+h2_open(URL, Headers, Opts) ->
+  h2_open(post, URL, Headers, Opts).
+
+-spec h2_open(atom() | binary() | string(), binary() | string(), list(), list()) ->
+  {ok, pid()} | {error, term()}.
+h2_open(Method, URL, Headers, Opts) ->
+  #hackney_url{
+    transport = Transport,
+    scheme = Scheme,
+    host = Host,
+    port = Port,
+    path = Path0,
+    qs = Query
+  } = hackney_url:parse_url(URL),
+  case Transport of
+    hackney_ssl ->
+      Path = case Query of
+        <<>> -> Path0;
+        _ -> <<Path0/binary, "?", Query/binary>>
+      end,
+      H2Opts = #{
+        method => h2_method_bin(Method),
+        host => Host,
+        port => Port,
+        transport => Transport,
+        path => Path,
+        headers => Headers,
+        connect_timeout => proplists:get_value(connect_timeout, Opts, 8000),
+        recv_timeout => proplists:get_value(recv_timeout, Opts, infinity),
+        connect_options => proplists:get_value(connect_options, Opts, []),
+        ssl_options => proplists:get_value(ssl_options, Opts, []),
+        flow_control => proplists:get_value(flow_control, Opts, auto),
+        active => proplists:get_value(active, Opts, false),
+        max_recv_buffer => proplists:get_value(max_recv_buffer, Opts, 16#4000000)
+      },
+      case hackney_h2_stream:start_link(H2Opts) of
+        {ok, Pid} ->
+          Timeout = maps:get(connect_timeout, H2Opts),
+          try hackney_h2_stream:connect(Pid, Timeout) of
+            ok ->
+              {ok, Pid};
+            {error, Reason} ->
+              shutdown_h2(Pid),
+              {error, Reason}
+          catch
+            exit:{timeout, _} ->
+              shutdown_h2(Pid),
+              {error, connect_timeout};
+            exit:{noproc, _} ->
+              {error, {h2_process_died, noproc}}
+          end;
+        {error, Reason} ->
+          {error, Reason}
+      end;
+    _ ->
+      {error, {scheme_not_supported, Scheme}}
+  end.
+
+%% @doc Send a DATA frame on the stream (no END_STREAM).
+-spec h2_send(pid(), iodata()) -> ok | {error, term()}.
+h2_send(Pid, Data) when is_pid(Pid) ->
+  hackney_h2_stream:send(Pid, Data).
+
+%% @doc Send a DATA frame, optionally half-closing the send side (`fin').
+-spec h2_send(pid(), iodata(), fin | nofin) -> ok | {error, term()}.
+h2_send(Pid, Data, Fin) when is_pid(Pid) ->
+  hackney_h2_stream:send(Pid, Data, Fin).
+
+%% @doc Send trailing HEADERS, half-closing the send side (gRPC trailers).
+-spec h2_send_trailers(pid(), list()) -> ok | {error, term()}.
+h2_send_trailers(Pid, Trailers) when is_pid(Pid) ->
+  hackney_h2_stream:send_trailers(Pid, Trailers).
+
+%% @doc Receive the next inbound message: {response, Status, Headers} |
+%% {data, Data} | {trailers, Trailers} | done. After done, returns
+%% {error, closed}. Passive mode only.
+-spec h2_recv(pid()) -> {ok, hackney_h2_stream:h2_msg()} | {error, term()}.
+h2_recv(Pid) when is_pid(Pid) ->
+  hackney_h2_stream:recv(Pid).
+
+-spec h2_recv(pid(), timeout()) -> {ok, hackney_h2_stream:h2_msg()} | {error, term()}.
+h2_recv(Pid, Timeout) when is_pid(Pid) ->
+  hackney_h2_stream:recv(Pid, Timeout).
+
+%% @doc Acknowledge N consumed bytes (manual flow control only).
+-spec h2_consume(pid(), non_neg_integer()) -> ok | {error, term()}.
+h2_consume(Pid, NBytes) when is_pid(Pid) ->
+  hackney_h2_stream:consume(Pid, NBytes).
+
+%% @doc Set options. Supported: [{active, true | false | once}].
+-spec h2_setopts(pid(), list()) -> ok | {error, term()}.
+h2_setopts(Pid, Opts) when is_pid(Pid) ->
+  hackney_h2_stream:setopts(Pid, Opts).
+
+%% @doc Cancel the stream and tear down its connection.
+-spec h2_close(pid()) -> ok.
+h2_close(Pid) when is_pid(Pid) ->
+  hackney_h2_stream:close(Pid).
+
+%% @private Normalize an HTTP method to an uppercase binary.
+h2_method_bin(M) when is_binary(M) -> M;
+h2_method_bin(M) when is_atom(M) -> list_to_binary(string:to_upper(atom_to_list(M)));
+h2_method_bin(M) when is_list(M) -> list_to_binary(string:to_upper(M)).
+
+%% @private Signal the HTTP/2 stream process to shut down, ignoring errors.
+shutdown_h2(Pid) ->
+  try exit(Pid, shutdown) catch _:_ -> ok end.
+
+%% @private Reject CR/LF/NUL in the authority, request path, or any
+%% caller-supplied header used in the WebTransport CONNECT request
+%% (GHSA-f9vr analog).
+valid_wt_fields(Host, Path, Headers) ->
+  Fields = [Host, Path | lists:flatmap(fun({N, V}) -> [N, V] end, Headers)],
+  case lists:any(fun has_ctl_bytes/1, Fields) of
+    true -> {error, invalid_handshake_header};
+    false -> ok
+  end.
+
+has_ctl_bytes(Bin) when is_binary(Bin) ->
+  binary:match(Bin, [<<"\r">>, <<"\n">>, <<0>>]) =/= nomatch;
+has_ctl_bytes(L) when is_list(L) ->
+  has_ctl_bytes(iolist_to_binary(L));
+has_ctl_bytes(_) ->
+  false.
+
+%% @private Translate hackney connect options into a webtransport:connect/4
+%% options map. Honours a caller-supplied CA (cacerts/cacertfile); when
+%% verifying with no CA given, fall back to the bundled certifi store.
+build_wt_connect_opts(Options, Headers) ->
+  SslOpts = proplists:get_value(ssl_options, Options, []),
+  Verify = proplists:get_value(verify, Options,
+                               proplists:get_value(verify, SslOpts, verify_peer)),
+  Base = #{headers => Headers, verify => Verify},
+  Base1 = case proplists:get_value(compat_mode, Options) of
+    undefined -> Base;
+    CompatMode -> Base#{compat_mode => CompatMode}
+  end,
+  Base2 = wt_ca_opts(Base1, SslOpts, Verify),
+  wt_cert_opts(Base2, SslOpts).
+
+%% @private CA trust store selection.
+wt_ca_opts(Base, SslOpts, Verify) ->
+  case {proplists:get_value(cacertfile, SslOpts),
+        proplists:get_value(cacerts, SslOpts)} of
+    {undefined, undefined} when Verify =:= verify_peer ->
+      Base#{cacerts => certifi:cacerts()};
+    {undefined, undefined} ->
+      Base;
+    {CAFile, _} when CAFile =/= undefined ->
+      Base#{cacertfile => CAFile};
+    {_, CACerts} ->
+      Base#{cacerts => CACerts}
+  end.
+
+%% @private Optional client certificate / key.
+wt_cert_opts(Base, SslOpts) ->
+  Base1 = case {proplists:get_value(certfile, SslOpts),
+                proplists:get_value(cert, SslOpts)} of
+    {CertFile, _} when CertFile =/= undefined -> Base#{certfile => CertFile};
+    {_, Cert} when Cert =/= undefined -> Base#{cert => Cert};
+    _ -> Base
+  end,
+  case {proplists:get_value(keyfile, SslOpts),
+        proplists:get_value(key, SslOpts)} of
+    {KeyFile, _} when KeyFile =/= undefined -> Base1#{keyfile => KeyFile};
+    {_, Key} when Key =/= undefined -> Base1#{key => Key};
+    _ -> Base1
+  end.
 
 %% @private Normalize WebSocket headers to {binary(), binary()} format
 normalize_ws_headers(Headers) ->
@@ -1405,17 +1895,17 @@ get_proxy_config(Scheme, TargetHost, Options) ->
       false;
     ProxyUrl when is_binary(ProxyUrl); is_list(ProxyUrl) ->
       parse_proxy_option(ProxyUrl, Scheme, Options);
-    {ProxyHost, ProxyPort} when is_list(ProxyHost), is_integer(ProxyPort) ->
+    {ProxyHost, ProxyPort} when (is_list(ProxyHost) orelse is_atom(ProxyHost) orelse is_binary(ProxyHost)), is_integer(ProxyPort) ->
       %% Simple tuple: use HTTP proxy for http, CONNECT for https
       ProxyAuth = proplists:get_value(proxy_auth, Options),
       ProxyTransport = proplists:get_value(proxy_transport, Options, tcp),
-      {proxy_type_for_scheme(Scheme), ProxyHost, ProxyPort, ProxyAuth, ProxyTransport};
-    {connect, ProxyHost, ProxyPort} when is_list(ProxyHost), is_integer(ProxyPort) ->
+      {proxy_type_for_scheme(Scheme), normalize_proxy_host(ProxyHost), ProxyPort, ProxyAuth, ProxyTransport};
+    {connect, ProxyHost, ProxyPort} when (is_list(ProxyHost) orelse is_atom(ProxyHost) orelse is_binary(ProxyHost)), is_integer(ProxyPort) ->
       %% Explicit CONNECT tunnel
       ProxyAuth = proplists:get_value(proxy_auth, Options),
       ProxyTransport = proplists:get_value(proxy_transport, Options, tcp),
-      {connect, ProxyHost, ProxyPort, ProxyAuth, ProxyTransport};
-    {socks5, ProxyHost, ProxyPort} when is_list(ProxyHost), is_integer(ProxyPort) ->
+      {connect, normalize_proxy_host(ProxyHost), ProxyPort, ProxyAuth, ProxyTransport};
+    {socks5, ProxyHost, ProxyPort} when (is_list(ProxyHost) orelse is_atom(ProxyHost) orelse is_binary(ProxyHost)), is_integer(ProxyPort) ->
       %% SOCKS5 proxy
       User = proplists:get_value(socks5_user, Options),
       Pass = proplists:get_value(socks5_pass, Options, <<>>),
@@ -1424,10 +1914,17 @@ get_proxy_config(Scheme, TargetHost, Options) ->
         _ -> {User, Pass}
       end,
       ProxyTransport = proplists:get_value(proxy_transport, Options, tcp),
-      {socks5, ProxyHost, ProxyPort, Auth, ProxyTransport};
+      {socks5, normalize_proxy_host(ProxyHost), ProxyPort, Auth, ProxyTransport};
     _ ->
       false
   end.
+
+%% @private Accept a proxy host given as a string, a binary or an atom
+%% (e.g. `localhost'), as hackney 1.x did, and normalise it to a string.
+%% A new is_list/1 guard regressed atom hosts to a silent fall-through (#858).
+normalize_proxy_host(H) when is_list(H) -> H;
+normalize_proxy_host(H) when is_atom(H) -> atom_to_list(H);
+normalize_proxy_host(H) when is_binary(H) -> binary_to_list(H).
 
 %% Parse proxy URL and determine type based on target scheme
 parse_proxy_option(ProxyUrl, Scheme, Options) ->

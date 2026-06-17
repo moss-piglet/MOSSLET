@@ -214,7 +214,7 @@ defmodule Phoenix.Socket do
   To deny connection, return `:error` or `{:error, term}`. To control the
   response the client receives in that case, [define an error handler in the
   websocket
-  configuration](https://hexdocs.pm/phoenix/Phoenix.Endpoint.html#socket/3-websocket-configuration).
+  configuration](https://phoenix.hexdocs.pm/Phoenix.Endpoint.html#socket/3-websocket-configuration).
 
   See `Phoenix.Token` documentation for examples in
   performing token verification on connect.
@@ -556,7 +556,11 @@ defmodule Phoenix.Socket do
   end
 
   def __info__(%Broadcast{event: "disconnect"}, state) do
-    {:stop, {:shutdown, :disconnected}, state}
+    # Close code 1001 ("Going Away") signals the client that the connection
+    # is intentionally closed but a reconnect is expected — phoenix.js gates
+    # reconnects behind a closeCode !== 1000 check.
+    # See https://github.com/mtrudel/bandit/issues/582.
+    {:stop, {:shutdown, :disconnected}, 1001, state}
   end
 
   def __info__(:socket_drain, state) do

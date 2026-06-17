@@ -526,8 +526,7 @@ defmodule MossletWeb.TimelineContentFilter do
           "pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200",
           "my-[3px]",
           if(@checked, do: "translate-x-[18px]", else: "translate-x-[3px]")
-        ]}>
-        </span>
+        ]}></span>
       </button>
     </label>
     """

@@ -78,8 +78,7 @@ defmodule MossletWeb.ReaderLayout do
                 :if={@current_book_id}
                 data-decrypt-journal-book-title={@current_book_id}
                 class="truncate max-w-[150px]"
-              >
-              </span>
+              ></span>
               <span :if={!@current_book_id}>Back</span>
             </a>
 
@@ -106,8 +105,7 @@ defmodule MossletWeb.ReaderLayout do
               <span
                 data-decrypt-journal-book-title={@entry_book_id}
                 class="font-medium"
-              >
-              </span>
+              ></span>
             </span>
             <span :if={!@entry_book_id && @current_book_id}>
               Viewing a <span class="font-medium">loose entry</span> (not in this book)
@@ -170,8 +168,7 @@ defmodule MossletWeb.ReaderLayout do
                   :if={@current_book_id}
                   data-decrypt-journal-book-title={@current_book_id}
                   class="truncate max-w-[100px]"
-                >
-                </span>
+                ></span>
                 <span :if={!@current_book_id}>Loose entries</span>
                 <MossletWeb.CoreComponents.phx_icon name="hero-chevron-up-down" class="h-3 w-3" />
               </button>
@@ -196,13 +193,11 @@ defmodule MossletWeb.ReaderLayout do
                   <span class={[
                     "w-3 h-3 rounded-full flex-shrink-0",
                     book_dot_color(book.cover_color)
-                  ]}>
-                  </span>
+                  ]}></span>
                   <span
                     data-decrypt-journal-book-title={book.id}
                     class="truncate"
-                  >
-                  </span>
+                  ></span>
                 </a>
                 <a
                   :if={@has_loose_entries && @current_book_id}
@@ -224,8 +219,7 @@ defmodule MossletWeb.ReaderLayout do
                 :if={@current_book_id}
                 data-decrypt-journal-book-title={@current_book_id}
                 class="text-xs truncate max-w-[120px]"
-              >
-              </span>
+              ></span>
               <span :if={!@current_book_id} class="text-xs">Loose entries</span>
             </div>
 

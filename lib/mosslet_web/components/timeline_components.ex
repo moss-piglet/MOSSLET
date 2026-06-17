@@ -1965,8 +1965,7 @@ defmodule MossletWeb.TimelineComponents do
                     "text-xs px-2 py-0.5 rounded-full border",
                     "bg-teal-100 dark:bg-teal-800/50 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-700"
                   ]}
-                >
-                </span>
+                ></span>
               <% end %>
               <%= if @post.mature_content && !@content_warning_category do %>
                 <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-800/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700">
@@ -3967,8 +3966,7 @@ defmodule MossletWeb.TimelineComponents do
             phx-hook="LocalDateSeparator"
             data-datetime={format_datetime_for_hook(@datetime)}
             class="opacity-0 transition-opacity duration-200"
-          >
-          </span>
+          ></span>
         </div>
       </div>
     </div>
@@ -4609,8 +4607,7 @@ defmodule MossletWeb.TimelineComponents do
           "w-2 h-2 rounded-full transition-colors duration-300",
           sync_dot_classes(@sync_status)
         ]}
-      >
-      </span>
+      ></span>
       <span data-status-text>{sync_status_text(@sync_status)}</span>
       <span
         :if={@sync_status.pending_count > 0}

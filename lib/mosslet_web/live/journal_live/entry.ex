@@ -66,8 +66,7 @@ defmodule MossletWeb.JournalLive.Entry do
                   <span
                     data-decrypt-journal-mood-badge={@entry.id}
                     class="hidden inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-full"
-                  >
-                  </span>
+                  ></span>
                 </div>
                 <button
                   phx-click="toggle_favorite"
@@ -162,8 +161,7 @@ defmodule MossletWeb.JournalLive.Entry do
           <div class="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
             <span>{@word_count} words</span>
             <span :if={@saving} class="flex items-center gap-1.5 text-teal-600 dark:text-teal-400">
-              <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent">
-              </span>
+              <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
               Saving...
             </span>
             <span

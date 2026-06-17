@@ -119,7 +119,7 @@ defmodule Phoenix.LiveView do
   > assign_async(:org, fn -> {:ok, %{org: fetch_org(slug)}} end)
   > ```
   >
-  > See: https://hexdocs.pm/elixir/process-anti-patterns.html#sending-unnecessary-data
+  > See: https://elixir.hexdocs.pm/process-anti-patterns.html#sending-unnecessary-data
 
   The state of the async operation is stored as a `Phoenix.LiveView.AsyncResult`
   in the socket assigns. It carries the loading and failed states, as
@@ -257,6 +257,12 @@ defmodule Phoenix.LiveView do
       this option will override any layout previously set via
       `Phoenix.LiveView.Router.live_session/2` or on `use Phoenix.LiveView`
 
+  > #### Security Note {: .warning}
+  >
+  > The `params` argument contains untrusted data from the client. You must
+  > authorize and validate this data before using it to fetch or modify
+  > resources. See the ["Security considerations" guide](security-model.md#never-trust-user-input-params-and-payloads)
+  > for more information.
   """
   @callback mount(
               params :: unsigned_params() | :not_mounted_at_router,
@@ -302,26 +308,39 @@ defmodule Phoenix.LiveView do
   It must always return `{:noreply, socket}`, where `:noreply`
   means no additional information is sent to the client.
 
+  > #### Security Note {: .warning}
+  >
+  > The `params` argument contains untrusted data from the client. You must
+  > authorize and validate this data before using it to fetch or modify
+  > resources. See the ["Security considerations" guide](security-model.md#never-trust-user-input-params-and-payloads)
+  > for more information.
+
   > #### Note {: .warning}
   >
   > `handle_params` is only allowed on LiveViews mounted at the router,
   > as it takes the current url of the page as the second parameter.
   """
-  @callback handle_params(unsigned_params(), uri :: String.t(), socket :: Socket.t()) ::
+  @callback handle_params(params :: unsigned_params(), uri :: String.t(), socket :: Socket.t()) ::
               {:noreply, Socket.t()}
 
   @doc """
   Invoked to handle events sent by the client.
 
-  It receives the `event` name, the event payload as a map,
-  and the socket.
+  It receives the `event` name, the event payload, and the socket.
 
   It must return `{:noreply, socket}`, where `:noreply` means
   no additional information is sent to the client, or
   `{:reply, map(), socket}`, where the given `map()` is encoded
   and sent as a reply to the client.
+
+  > #### Security Note {: .warning}
+  >
+  > The event `payload` contains untrusted data from the client. You must
+  > authorize and validate this data before using it to fetch or modify
+  > resources. See the ["Security considerations" guide](security-model.md#never-trust-user-input-params-and-payloads)
+  > for more information.
   """
-  @callback handle_event(event :: binary, unsigned_params(), socket :: Socket.t()) ::
+  @callback handle_event(event :: binary, payload :: term(), socket :: Socket.t()) ::
               {:noreply, Socket.t()} | {:reply, map, Socket.t()}
 
   @doc """
@@ -464,7 +483,7 @@ defmodule Phoenix.LiveView do
     * `:log` - configures the log level for the LiveView, either `false`
       or a log level
 
-    * `:on_mount` - a list of tuples with module names and argument to be invoked
+    * `:on_mount` - a list of tuples with module names and arguments to be invoked
       as `on_mount` hooks
 
   """
@@ -891,12 +910,25 @@ defmodule Phoenix.LiveView do
       writing the uploaded chunks. Defaults to writing to a temporary file for consumption.
       See the `Phoenix.LiveView.UploadWriter` docs for custom usage.
 
+    * `:validator` - An optional 1-arity function for performing custom validation
+      on each upload entry. The function receives the upload entry and must return
+      either `:ok` or `{:error, reason}`. When an error tuple is returned, the
+      entry is marked as failed and the error is exposed as `reason` via `upload_errors/2`.
+
   Raises when a previously allowed upload under the same name is still active.
 
   ## Examples
 
       allow_upload(socket, :avatar, accept: ~w(.jpg .jpeg), max_entries: 2)
       allow_upload(socket, :avatar, accept: :any)
+
+      allow_upload(socket, :avatar, validator: fn entry ->
+        if String.length(entry.client_name) > 100 do
+          {:error, :filename_too_long}
+        else
+          :ok
+        end
+      end)
 
   For consuming files automatically as they are uploaded, you can pair `auto_upload: true` with
   a custom progress function to consume the entries as they are completed. For example:
@@ -1037,7 +1069,7 @@ defmodule Phoenix.LiveView do
   all state will be discarded.
 
   Calling redirect shuts down the LiveView channel. If you need
-  to programatically open an external link without causing the
+  to programmatically open an external link without causing the
   LiveView to shut down, for example because of `mailto:` or `tel:`
   URL schemes, consider using `push_event/3` with a custom client-side
   handler instead.
@@ -1216,7 +1248,7 @@ defmodule Phoenix.LiveView do
   })
   ```
 
-  By computing the parameters with a function, reconnections will reevalute
+  By computing the parameters with a function, reconnections will reevaluate
   the code, allowing you to fetch the latest data.
 
   On the LiveView, you will use `get_connect_params/1` to read the data,
@@ -1366,7 +1398,7 @@ defmodule Phoenix.LiveView do
   </div>
   ```
 
-  For larger projects, you can extract this into [a hook](https://hexdocs.pm/phoenix_live_view/Phoenix.LiveView.html#on_mount/1):
+  For larger projects, you can extract this into [a hook](`Phoenix.LiveView.on_mount/1`):
 
       # MyAppWeb.CheckStaticChanged
       def on_mount(:default, _params, _session, socket) do
@@ -1572,9 +1604,10 @@ defmodule Phoenix.LiveView do
   @doc """
   Attaches the given `fun` by `name` for the lifecycle `stage` into `socket`.
 
-  > Note: This function is for server-side lifecycle callbacks.
+  > ### Note {: .info}
+  > This function is for server-side lifecycle callbacks.
   > For client-side hooks, see the
-  > [JS Interop guide](js-interop.html#client-hooks-via-phx-hook).
+  > [JS Interop guide](js-interop.md#client-hooks-via-phx-hook).
 
   Hooks provide a mechanism to tap into key stages of the LiveView
   lifecycle in order to bind/update assigns, intercept events,
@@ -1583,8 +1616,9 @@ defmodule Phoenix.LiveView do
   lifecycle stages: `:handle_params`, `:handle_event`, `:handle_info`, `:handle_async`, and
   `:after_render`. To attach a hook to the `:mount` stage, use `on_mount/1`.
 
-  > Note: only `:after_render`, `:handle_event` and `:handle_async` hooks are currently supported in
-  > LiveComponents.
+  > ### LiveComponents support {: .warning}
+  > In LiveComponents, only `:after_render`, `:handle_event` and `:handle_async`
+  > hooks are currently supported.
 
   ## Return Values
 
@@ -1621,7 +1655,7 @@ defmodule Phoenix.LiveView do
 
   Hooks attached to the `:handle_event` stage are able to reply to client events
   by returning `{:halt, reply, socket}`. This is useful especially for [JavaScript
-  interoperability](js-interop.html#client-hooks-via-phx-hook) because a client hook
+  interoperability](js-interop.md#client-hooks-via-phx-hook) because a client hook
   can push an event and receive a reply.
 
   ## Sharing event handling logic
@@ -1753,15 +1787,16 @@ defmodule Phoenix.LiveView do
   @doc """
   Detaches a hook with the given `name` from the lifecycle `stage`.
 
-  > Note: This function is for server-side lifecycle callbacks.
+  > ### Note {: .info}
+  > This function is for server-side lifecycle callbacks.
   > For client-side hooks, see the
-  > [JS Interop guide](js-interop.html#client-hooks-via-phx-hook).
+  > [JS Interop guide](js-interop.md#client-hooks-via-phx-hook).
 
   If no hook is found, this function is a no-op.
 
   ## Examples
 
-      def handle_event(_, socket) do
+      def handle_event(_, _, socket) do
         {:noreply, detach_hook(socket, :hook_that_was_attached, :handle_event)}
       end
   """
@@ -2167,15 +2202,22 @@ defmodule Phoenix.LiveView do
     streams = socket.assigns.streams
 
     case streams do
-      %{^name => %LiveStream{}} ->
-        new_socket =
-          if opts[:reset] do
-            update_stream(socket, name, &LiveStream.reset(&1))
-          else
-            socket
-          end
+      %{^name => %LiveStream{} = original_stream} ->
+        at = Keyword.get(opts, :at, -1)
+        limit = Keyword.get(opts, :limit)
+        update_only = Keyword.get(opts, :update_only, false)
+        reset? = Keyword.get(opts, :reset, false)
 
-        Enum.reduce(items, new_socket, fn item, acc -> stream_insert(acc, name, item, opts) end)
+        stream = if reset?, do: LiveStream.reset(original_stream), else: original_stream
+
+        new_stream =
+          Enum.reduce(items, stream, &LiveStream.insert_item(&2, &1, at, limit, update_only))
+
+        if new_stream === original_stream and not reset? do
+          socket
+        else
+          update_stream(socket, name, fn _ -> new_stream end)
+        end
 
       %{} ->
         config = get_in(streams, [:__configured__, name]) || []
@@ -2232,8 +2274,8 @@ defmodule Phoenix.LiveView do
   an `Phoenix.LiveView.AsyncResult` struct holding the status of the operation
   and the result when the function completes.
 
-  The function must return either a map or a keyword list with the assigns
-  to merge into the socket.
+  The function must return either `{:ok, assigns}` or `{:error, reason}`,
+  where `assigns` is a map with the keys passed to `assign_async/3`.
 
   The task is only started when the socket is connected.
 

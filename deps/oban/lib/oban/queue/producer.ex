@@ -14,6 +14,7 @@ defmodule Oban.Queue.Producer do
     :foreman,
     :meta,
     :name,
+    :watchman,
     :dispatch_timer,
     :refresh_timer,
     dispatch_cooldown: 5,
@@ -41,7 +42,7 @@ defmodule Oban.Queue.Producer do
   def init(opts) do
     Process.flag(:trap_exit, true)
 
-    {base_opts, meta_opts} = Keyword.split(opts, [:conf, :foreman, :name, :dispatch_cooldown])
+    {base_opts, meta_opts} = Keyword.split(opts, ~w(conf foreman name dispatch_cooldown)a)
 
     state = struct!(State, base_opts)
 
@@ -75,7 +76,8 @@ defmodule Oban.Queue.Producer do
     {:noreply, state}
   end
 
-  def handle_info({:DOWN, ref, :process, pid, reason}, %State{} = state) do
+  def handle_info({:DOWN, ref, :process, pid, reason}, %State{running: running} = state)
+      when is_map_key(running, ref) do
     {^pid, exec} = Map.get(state.running, ref)
 
     # The worker module is resolved after storing the exec struct. We try to resolve it again in
@@ -119,6 +121,10 @@ defmodule Oban.Queue.Producer do
       |> release_ref(ref)
       |> schedule_dispatch()
 
+    {:noreply, state}
+  end
+
+  def handle_info({:DOWN, _ref, :process, _pid, _reason}, %State{} = state) do
     {:noreply, state}
   end
 
@@ -202,21 +208,20 @@ defmodule Oban.Queue.Producer do
     {:reply, meta, %{state | meta: meta}}
   end
 
-  def handle_call(:shutdown, _from, %State{} = state) do
+  def handle_call(:shutdown, {from, _tag}, %State{} = state) do
     meta = Engine.shutdown(state.conf, state.meta)
 
-    {:reply, :ok, %{state | meta: meta}}
+    if map_size(state.running) == 0, do: send(from, {:drained, meta.queue})
+
+    {:reply, :ok, %{state | meta: meta, watchman: from}}
   end
 
   # Killing
 
   defp pkill(ref, pid, %State{} = state) do
     case Task.Supervisor.terminate_child(state.foreman, pid) do
-      :ok ->
-        state
-
-      {:error, :not_found} ->
-        release_ref(state, ref)
+      :ok -> state
+      {:error, :not_found} -> release_ref(state, ref)
     end
   end
 
@@ -226,7 +231,8 @@ defmodule Oban.Queue.Producer do
     if is_reference(state.dispatch_timer) do
       state
     else
-      timer = Process.send_after(self(), :dispatch, state.dispatch_cooldown)
+      stime = Backoff.jitter(state.dispatch_cooldown, mode: :both, mult: 1)
+      timer = Process.send_after(self(), :dispatch, stime)
 
       %{state | dispatch_timer: timer}
     end
@@ -269,6 +275,12 @@ defmodule Oban.Queue.Producer do
   defp release_ref(%State{} = state, ref) do
     Process.demonitor(ref, [:flush])
 
-    %{state | running: Map.delete(state.running, ref)}
+    running = Map.delete(state.running, ref)
+
+    if state.watchman && map_size(running) == 0 do
+      send(state.watchman, {:drained, state.meta.queue})
+    end
+
+    %{state | running: running}
   end
 end

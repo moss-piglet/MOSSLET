@@ -1337,12 +1337,10 @@ defmodule MossletWeb.CoreComponents do
           <ul
             :if={@errors_list}
             id={"form-errors-#{System.unique_integer([:positive])}"}
-            }
             class="mt-2 space-y-1 text-sm text-rose-700 dark:text-rose-300"
           >
             <li :for={error <- @errors_list} class="flex items-start gap-2">
-              <span class="w-1 h-1 bg-rose-500 dark:bg-rose-400 rounded-full mt-2 flex-shrink-0">
-              </span>
+              <span class="w-1 h-1 bg-rose-500 dark:bg-rose-400 rounded-full mt-2 flex-shrink-0"></span>
               <span>{render_slot(error)}</span>
             </li>
           </ul>
@@ -2232,8 +2230,8 @@ defmodule MossletWeb.CoreComponents do
         style="display: block; max-width: 280px; margin: 0 auto;"
         class="email-light-logo"
       />
-      
-    <!-- Dark mode logo (horizontal layout) -->
+
+      <!-- Dark mode logo (horizontal layout) -->
       <img
         height="60"
         width="auto"

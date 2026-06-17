@@ -211,16 +211,126 @@ defmodule Phoenix.LiveView.JS do
 
   defstruct ops: []
 
-  @opaque internal :: []
+  @opaque internal :: list()
   @type t :: %__MODULE__{ops: internal}
 
   @default_transition_time 200
 
   defimpl Phoenix.HTML.Safe, for: Phoenix.LiveView.JS do
     def to_iodata(%Phoenix.LiveView.JS{} = js) do
-      Phoenix.HTML.Engine.html_escape(Phoenix.json_library().encode!(js.ops))
+      js
+      |> JS.to_encodable()
+      |> Phoenix.json_library().encode!()
+      |> Phoenix.HTML.Engine.html_escape()
     end
   end
+
+  if Code.ensure_loaded?(Jason.Encoder) do
+    defimpl Jason.Encoder, for: Phoenix.LiveView.JS do
+      def encode(%Phoenix.LiveView.JS{} = js, opts) do
+        Jason.Encode.list(JS.to_encodable(js), opts)
+      end
+    end
+  end
+
+  if Code.ensure_loaded?(JSON.Encoder) do
+    defimpl JSON.Encoder, for: Phoenix.LiveView.JS do
+      def encode(%Phoenix.LiveView.JS{} = js, encoder) do
+        JSON.Encoder.encode(JS.to_encodable(js), encoder)
+      end
+    end
+  end
+
+  @doc ~S"""
+  Returns a JSON-encodable opaque intermediate representation of the JS command.
+
+  Most of the time you will not need to call this function directly, as
+  JS commands are automatically encoded where they are typically used: in
+  [HEEx templates](assigns-eex.md) or within the payload of
+  `Phoenix.LiveView.push_event/3`.
+
+  This function is useful when you use a custom JSON library. JS commands
+  implement the `Jason.Encoder` and `JSON.Encoder` protocols, such that they
+  are automatically encoded when you use either of those JSON libraries.
+
+  ## Examples
+
+  On the server, dynamically compute some JS commands and push them to the
+  client:
+
+  ```elixir
+  socket
+  |> push_event("myapp:exec_js", %{
+    to: "#items-#{item.id}",
+    js: js_commands_for(item) |> JS.to_encodable()
+  })
+  ```
+
+  > #### Automatic encoding {: .tip}
+  >
+  > Note that you don't need to call `to_encodable/1` if you are using `Jason` or
+  > `JSON`, instead you can pass the JS commands directly:
+  >
+  > ```elixir
+  > socket
+  > |> push_event("myapp:exec_js", %{
+  >   to: "#items-#{item.id}",
+  >   js: JS.show()
+  > })
+  > ```
+
+  On the client, handle the event and execute the commands:
+
+  ```javascript
+  window.addEventListener("phx:myapp:exec_js", e => {
+    const {to, js} = e.detail;
+    const el = document.querySelector(to);
+    if (el && js) {
+      window.liveSocket.execJS(el, js);
+    }
+  });
+  ```
+
+  The common case, though, is having the JS commands stored in an HTML attribute
+  (`phx-*` or `data-*`), such that client-side JavaScript can refer to them
+  later. For example, in a LiveView template:
+
+  ```heex
+  <div id={"items-#{item.id}"} data-js={JS.show()}>
+    Hello!
+  </div>
+  ```
+
+  Now the server can push an event that refers to the `data-js` attribute:
+
+  ```elixir
+  socket
+  |> push_event("myapp:exec_attr", %{
+    to: "#items-#{item.id}",
+    attr: "data-js"
+  })
+  ```
+
+  Finally, on the client, you can read and execute the commands:
+
+  ```javascript
+  window.addEventListener("phx:myapp:exec_attr", e => {
+    const {to, attr} = e.detail;
+    const el = document.querySelector(to);
+    const js = el && attr && el.getAttribute(attr);
+    if (el && js) {
+      window.liveSocket.execJS(el, js);
+    }
+  });
+  ```
+
+  Note how in the code above we didn't need to encode JS commands explicitly,
+  nor to pass them in the event payload, thanks to rendering them in the
+  template.
+
+  """
+  @spec to_encodable(js :: JS.t()) :: internal()
+  def to_encodable(%JS{} = js), do: js.ops
 
   @doc """
   Pushes an event to the server.
@@ -409,7 +519,8 @@ defmodule Phoenix.LiveView.JS do
     * `:time` - The time in milliseconds to apply the transition `:in` and `:out` classes.
       Defaults to #{@default_transition_time}.
     * `:display` - An optional display value to set when toggling in. Defaults
-      to `"block"`.
+      to `"block"`, except for table rows and cells, which default to `"table-row"`
+      and `"table-cell"`.
     * `:blocking` - A boolean flag to block the UI during the transition. Defaults `true`.
 
   When the toggle is complete on the client, a `phx:show-start` or `phx:hide-start`, and
@@ -467,7 +578,9 @@ defmodule Phoenix.LiveView.JS do
     * `:time` - The time in milliseconds to apply the transition from `:transition`.
       Defaults to #{@default_transition_time}.
     * `:blocking` - A boolean flag to block the UI during the transition. Defaults `true`.
-    * `:display` - An optional display value to set when showing. Defaults to `"block"`.
+    * `:display` - An optional display value to set when showing. Defaults to
+      `"block"`, except for table rows and cells, which default to `"table-row"`
+      and `"table-cell"`.
 
   During the process, the following events will be dispatched to the shown elements:
 
@@ -819,8 +932,8 @@ defmodule Phoenix.LiveView.JS do
   > <.button phx-click={JS.dispatch("input:clear", to: "#my_input")}>...</.button>
   > ```
   >
-  > Note: this uses `Phoenix.LiveView.ColocatedJS`, but you can also define the event listener directly inside
-  > your `app.js` instead.
+  > While the example above uses `Phoenix.LiveView.ColocatedJS`, you can also
+  > define the event listener directly inside your `app.js` instead.
   """
   def set_attribute({attr, val}), do: set_attribute(%JS{}, {attr, val}, [])
 
@@ -1086,6 +1199,7 @@ defmodule Phoenix.LiveView.JS do
 
   @doc "See `navigate/1`."
   def navigate(%JS{} = js, href, opts) when is_binary(href) and is_list(opts) do
+    Phoenix.LiveView.Utils.valid_live_navigation_destination!(href, "JS.navigate")
     opts = validate_keys(opts, :navigate, [:replace])
     put_op(js, "navigate", href: href, replace: !!opts[:replace])
   end
@@ -1116,6 +1230,7 @@ defmodule Phoenix.LiveView.JS do
 
   @doc "See `patch/1`."
   def patch(%JS{} = js, href, opts) when is_binary(href) and is_list(opts) do
+    Phoenix.LiveView.Utils.valid_live_navigation_destination!(href, "JS.patch")
     opts = validate_keys(opts, :patch, [:replace])
     put_op(js, "patch", href: href, replace: !!opts[:replace])
   end
@@ -1134,7 +1249,7 @@ defmodule Phoenix.LiveView.JS do
   ## Examples
 
   ```heex
-  <div id="modal" phx-remove={JS.hide("#modal")}>...</div>
+  <div id="modal" phx-remove={JS.hide()}>...</div>
   <button phx-click={JS.exec("phx-remove", to: "#modal")}>close</button>
   ```
   """
@@ -1163,13 +1278,8 @@ defmodule Phoenix.LiveView.JS do
   def concat(%JS{ops: first}, %JS{ops: second}), do: %JS{ops: first ++ second}
 
   defp put_op(%JS{ops: ops} = js, kind, args) do
-    args = drop_nil_values(args)
-    struct!(js, ops: ops ++ [[kind, args]])
-  end
-
-  defp drop_nil_values(args) when is_list(args) do
-    Enum.reject(args, fn {_k, v} -> is_nil(v) end)
-    |> Map.new()
+    args = for {k, v} <- args, v != nil, into: %{}, do: {k, v}
+    %{js | ops: ops ++ [[kind, args]]}
   end
 
   defp class_names(names) do

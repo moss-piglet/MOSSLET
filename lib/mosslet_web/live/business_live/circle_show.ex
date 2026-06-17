@@ -525,8 +525,7 @@ defmodule MossletWeb.BusinessLive.CircleShow do
               </p>
             </div>
             <span class="relative flex h-2.5 w-2.5" title="Live">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75">
-              </span>
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
             </span>
           </div>

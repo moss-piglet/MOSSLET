@@ -404,8 +404,7 @@ defmodule MossletWeb.JournalLive.Index do
                       <span
                         data-decrypt-journal-mood-badge={entry.id}
                         class="hidden text-xs text-slate-500 dark:text-slate-400"
-                      >
-                      </span>
+                      ></span>
                     </div>
                   </div>
                 </div>
@@ -552,8 +551,7 @@ defmodule MossletWeb.JournalLive.Index do
                       <span
                         data-decrypt-journal-mood-badge={entry.id}
                         class="hidden text-xs text-slate-500 dark:text-slate-400"
-                      >
-                      </span>
+                      ></span>
                     </div>
                   </div>
                 </div>

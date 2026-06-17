@@ -57,8 +57,7 @@ defmodule MossletWeb.FocusLayout do
               <MossletWeb.CoreComponents.phx_icon name="hero-arrow-left" class="h-4 w-4" />
               <span :if={!@saving}>Back</span>
               <span :if={@saving} class="flex items-center gap-1.5">
-                <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent">
-                </span>
+                <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
                 Saving...
               </span>
             </span>

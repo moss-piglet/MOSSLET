@@ -156,6 +156,12 @@ defmodule Mint.HTTP2 do
   @default_max_frame_size 16_384
   @valid_max_frame_size_range @default_max_frame_size..16_777_215
 
+  # Default cap on the size of an inbound header block. Advertised to the
+  # server as SETTINGS_MAX_HEADER_LIST_SIZE and enforced while accumulating
+  # HEADERS/CONTINUATION fragments, so that a server cannot exhaust client
+  # memory by streaming an unbounded chain of CONTINUATION frames.
+  @default_max_header_list_size 256 * 1024
+
   @valid_client_settings [
     :max_concurrent_streams,
     :initial_window_size,
@@ -218,6 +224,7 @@ defmodule Mint.HTTP2 do
     streams: %{},
     open_client_stream_count: 0,
     open_server_stream_count: 0,
+    reserved_server_stream_count: 0,
     ref_to_stream_id: %{},
 
     # Settings that the server communicates to the client.
@@ -235,7 +242,7 @@ defmodule Mint.HTTP2 do
     client_settings: %{
       max_concurrent_streams: 100,
       initial_window_size: @default_stream_window_size,
-      max_header_list_size: :infinity,
+      max_header_list_size: @default_max_header_list_size,
       max_frame_size: @default_max_frame_size,
       enable_push: true
     },
@@ -297,7 +304,12 @@ defmodule Mint.HTTP2 do
     * `:max_frame_size` - corresponds to `SETTINGS_MAX_FRAME_SIZE`. Tells what is the
       maximum size of an HTTP/2 frame for the peer that sends this setting.
 
-    * `:max_header_list_size` - corresponds to `SETTINGS_MAX_HEADER_LIST_SIZE`.
+    * `:max_header_list_size` - corresponds to `SETTINGS_MAX_HEADER_LIST_SIZE`. For the
+      client, this also bounds the size of an inbound header block (a HEADERS frame plus
+      its trailing CONTINUATION frames): the connection is closed with a connection error
+      if a server streams a header block larger than this value, which prevents a server
+      from exhausting client memory with an unbounded chain of CONTINUATION frames.
+      Defaults to `256 KB` for the client.
 
     * `:enable_connect_protocol` - corresponds to `SETTINGS_ENABLE_CONNECT_PROTOCOL`.
       Sets whether the client may invoke the extended connect protocol which is used to
@@ -1140,7 +1152,9 @@ defmodule Mint.HTTP2 do
     client_settings_params = Keyword.get(opts, :client_settings, [])
 
     client_settings_params =
-      Keyword.put_new(client_settings_params, :initial_window_size, @default_stream_window_size)
+      client_settings_params
+      |> Keyword.put_new(:initial_window_size, @default_stream_window_size)
+      |> Keyword.put_new(:max_header_list_size, @default_max_header_list_size)
 
     validate_client_settings!(client_settings_params)
     # If the port is the default for the scheme, don't add it to the :authority pseudo-header
@@ -1728,7 +1742,7 @@ defmodule Mint.HTTP2 do
       {nil, _frame} ->
         :ok
 
-      {{stream_id, _, _}, continuation(stream_id: stream_id)} ->
+      {{stream_id, _, _, _}, continuation(stream_id: stream_id)} ->
         :ok
 
       _other ->
@@ -1906,7 +1920,7 @@ defmodule Mint.HTTP2 do
       decode_hbf_and_add_responses(conn, responses, hbf, stream, end_stream?)
     else
       callback = &decode_hbf_and_add_responses(&1, &2, &3, &4, end_stream?)
-      conn = put_in(conn.headers_being_processed, {stream_id, hbf, callback})
+      conn = start_headers_being_processed(conn, stream_id, hbf, callback)
       {conn, responses}
     end
   end
@@ -1981,6 +1995,7 @@ defmodule Mint.HTTP2 do
 
               true ->
                 conn = update_in(conn.open_server_stream_count, &(&1 + 1))
+                conn = update_in(conn.reserved_server_stream_count, &(&1 - 1))
                 conn = put_in(conn.streams[stream.id].state, :half_closed_local)
                 {conn, new_responses}
             end
@@ -2237,7 +2252,7 @@ defmodule Mint.HTTP2 do
       )
     else
       callback = &decode_push_promise_headers_and_add_response(&1, &2, &3, &4, promised_stream_id)
-      conn = put_in(conn.headers_being_processed, {stream_id, hbf, callback})
+      conn = start_headers_being_processed(conn, stream_id, hbf, callback)
       {conn, responses}
     end
   end
@@ -2249,21 +2264,45 @@ defmodule Mint.HTTP2 do
          stream,
          promised_stream_id
        ) do
+    # The header block fragment must always be decoded to keep the HPACK decode
+    # table in sync with the server, even when we end up refusing the stream.
     {conn, headers} = decode_hbf(conn, hbf)
 
-    promised_stream = %{
-      id: promised_stream_id,
-      ref: make_ref(),
-      state: :reserved_remote,
-      send_window_size: conn.server_settings.initial_window_size,
-      receive_window_size: conn.client_settings.initial_window_size,
-      receive_window_remaining: conn.client_settings.initial_window_size,
-      received_first_headers?: false
-    }
+    # A reserved stream stays in `conn.streams` until its response HEADERS
+    # arrive, so promised streams have to be counted against the concurrency
+    # limit at promise time. Otherwise a server can pin an unbounded number of
+    # reserved streams by sending PUSH_PROMISE frames and never following up
+    # with the HEADERS that would open them.
+    server_stream_count = conn.open_server_stream_count + conn.reserved_server_stream_count
 
-    conn = put_in(conn.streams[promised_stream.id], promised_stream)
-    new_response = {:push_promise, stream.ref, promised_stream.ref, headers}
-    {conn, [new_response | responses]}
+    if server_stream_count >= conn.client_settings.max_concurrent_streams do
+      conn = refuse_promised_stream(conn, promised_stream_id)
+      {conn, responses}
+    else
+      promised_stream = %{
+        id: promised_stream_id,
+        ref: make_ref(),
+        state: :reserved_remote,
+        send_window_size: conn.server_settings.initial_window_size,
+        receive_window_size: conn.client_settings.initial_window_size,
+        receive_window_remaining: conn.client_settings.initial_window_size,
+        received_first_headers?: false
+      }
+
+      conn = put_in(conn.streams[promised_stream.id], promised_stream)
+      conn = update_in(conn.reserved_server_stream_count, &(&1 + 1))
+      new_response = {:push_promise, stream.ref, promised_stream.ref, headers}
+      {conn, [new_response | responses]}
+    end
+  end
+
+  defp refuse_promised_stream(conn, promised_stream_id) do
+    if open?(conn) do
+      rst_stream_frame = rst_stream(stream_id: promised_stream_id, error_code: :refused_stream)
+      send!(conn, Frame.encode(rst_stream_frame))
+    else
+      conn
+    end
   end
 
   defp assert_valid_promised_stream_id(conn, promised_stream_id) do
@@ -2392,15 +2431,50 @@ defmodule Mint.HTTP2 do
       assert_stream_in_state(conn, stream, [:open, :half_closed_local, :reserved_remote])
     end
 
-    {^stream_id, hbf_acc, callback} = conn.headers_being_processed
+    {^stream_id, hbf_acc, callback, acc_size} = conn.headers_being_processed
 
     if flag_set?(flags, :continuation, :end_headers) do
       hbf = IO.iodata_to_binary([hbf_acc, hbf_chunk])
       conn = put_in(conn.headers_being_processed, nil)
       callback.(conn, responses, hbf, stream)
     else
-      conn = put_in(conn.headers_being_processed, {stream_id, [hbf_acc, hbf_chunk], callback})
+      new_size = acc_size + byte_size(hbf_chunk)
+      conn = assert_header_block_within_max_size(conn, new_size)
+
+      conn =
+        put_in(
+          conn.headers_being_processed,
+          {stream_id, [hbf_acc, hbf_chunk], callback, new_size}
+        )
+
       {conn, responses}
+    end
+  end
+
+  defp start_headers_being_processed(conn, stream_id, hbf, callback) do
+    hbf_size = byte_size(hbf)
+    conn = assert_header_block_within_max_size(conn, hbf_size)
+    put_in(conn.headers_being_processed, {stream_id, hbf, callback, hbf_size})
+  end
+
+  # The header block accumulated from a HEADERS frame and its trailing
+  # CONTINUATION frames is buffered (in compressed form) until END_HEADERS
+  # arrives. A server can withhold END_HEADERS and stream CONTINUATION frames
+  # indefinitely, so the buffered size is bounded by the locally advertised
+  # SETTINGS_MAX_HEADER_LIST_SIZE. The compressed accumulator is never larger
+  # than the uncompressed header list it decodes to, so this never rejects a
+  # header block that fits within the advertised limit.
+  defp assert_header_block_within_max_size(conn, size) do
+    case conn.client_settings.max_header_list_size do
+      :infinity ->
+        conn
+
+      max_size when size > max_size ->
+        debug_data = "header block exceeds SETTINGS_MAX_HEADER_LIST_SIZE of #{max_size} bytes"
+        send_connection_error!(conn, :protocol_error, debug_data)
+
+      _max_size ->
+        conn
     end
   end
 
@@ -2460,6 +2534,11 @@ defmodule Mint.HTTP2 do
         # Stream initiated by the server.
         stream_open? and Integer.is_even(stream.id) ->
           update_in(conn.open_server_stream_count, &(&1 - 1))
+
+        # Stream reserved by the server through a PUSH_PROMISE, but whose
+        # response HEADERS never arrived to open it.
+        stream.state == :reserved_remote ->
+          update_in(conn.reserved_server_stream_count, &(&1 - 1))
 
         true ->
           conn

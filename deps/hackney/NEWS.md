@@ -1,5 +1,229 @@
 # NEWS
 
+4.4.3 - 2026-06-17
+------------------
+
+### Fixed
+
+- HTTP/2: a response that signals end of stream with a trailing HEADERS frame
+  (trailers, or an empty trailing HEADERS as proxies emit for responses without
+  a content-length) no longer hangs the body read until `recv_timeout`. The
+  trailer event is now treated as end of stream, so reads complete on fresh and
+  reused connections.
+- HTTP/2: sync reads run under a per-stream `recv_timeout` watchdog, so a lost
+  frame fails fast with `{error, timeout}` instead of blocking until the
+  connection dies.
+- HTTP/1.1: a pooled connection that received unsolicited data while idle is
+  dropped at checkout instead of having the bytes discarded, which could strand
+  or corrupt the next read. Healthy idle connections still reuse normally,
+  preserving keep-alive and the issue #544 stale-connection detection.
+
+4.4.2 - 2026-06-16
+------------------
+
+### Fixed
+
+- Apply the pool overflow fix to the opt-in `ssl_pooling` checkout path. With
+  `ssl_pooling` enabled and `pool_size` below `max_per_host`, a second
+  concurrent HTTPS request could still fail with `checkout_timeout`; it now
+  opens an overflow connection like the plain checkout path, closed at checkin
+  rather than pooled. HTTP/2 and HTTP/3 are unaffected (they multiplex over
+  shared connections).
+
+4.4.1 - 2026-06-16
+------------------
+
+### Fixed
+
+- Pool checkout no longer fails with `checkout_timeout` when a connection from
+  a just-completed request has not yet been checked back in. `pool_size` /
+  `max_connections` now bounds the warm (idle) pool kept for reuse; per-host
+  concurrency is capped by `max_per_host`. A request beyond the warm pool size
+  opens an overflow connection that is closed at checkin instead of being
+  pooled. Set `max_per_host` to cap concurrent connections to a host.
+
+### Dependencies
+
+- webtransport 0.4.0 -> ~> 0.4.1, h2 ~> 0.10.0 -> ~> 0.10.1, quic 1.6.5 ->
+  ~> 1.6.5. The exact webtransport 0.4.0 pin required h2 0.9.0, conflicting
+  with hackney's own h2 ~> 0.10.0 and breaking installation on strict
+  resolvers. webtransport 0.4.1 relaxes that requirement; the ranges now
+  accept any 0.4.x / 0.10.x / 1.6.x patch release without a further bump.
+  (#879)
+
+4.4.0 - 2026-06-13
+------------------
+
+### Added
+
+- HTTP/2 streaming request bodies and streaming response reads. Passing
+  `stream` as the body now works over HTTP/2, as it already did for HTTP/1.1
+  and HTTP/3: send the request body in chunks with `send_body/2` then
+  `finish_send_body/1`, and read the response with `start_response/1` followed
+  by `body/1` or `stream_body/1`. (#875)
+- Full-duplex HTTP/2 bidirectional streaming (gRPC-style) via a new `h2_*`
+  API: `h2_open`, `h2_send`, `h2_recv`, `h2_send_trailers`, `h2_consume`,
+  `h2_setopts` and `h2_close`, mirroring the `ws_*` and `wt_*` APIs. A single
+  stream sends and receives interleaved, sends trailers, delivers messages in
+  passive or active mode, and applies receive backpressure with
+  `{flow_control, manual}` plus `h2_consume/2`. Backed by the new
+  `hackney_h2_stream` module. (#876)
+
+### Dependencies
+
+- h2 0.9.0 -> ~> 0.10.0. The requirement now accepts every patched 0.10
+  release without a further bump.
+
+4.3.0 - 2026-06-12
+------------------
+
+### Added
+
+- Opt-in pooling of HTTPS/1.1 connections. With `{ssl_pooling, true}` (request
+  option, or the `ssl_pooling` application env; default false) an upgraded SSL
+  connection returns to the pool keyed by the hash of its effective TLS
+  options and is reused only on an exact match, skipping the TLS handshake on
+  follow-up requests. The default is unchanged: SSL connections are closed at
+  checkin. (#872)
+- TLS 1.3 session resumption for requests using hackney's default TLS config.
+  When no `ssl_options` are passed, connections are opened with
+  `{session_tickets, auto}` so fresh connections to the same server resume
+  the session instead of paying a full handshake. Disable with the
+  `tls_session_resumption` application env (default true). Requests with
+  custom `ssl_options` deliberately get no resumption: OTP's ticket store is
+  node-global and a resumed handshake skips certificate validation, so only
+  the shared default trust config may use it (trust isolation). (#872)
+
+### Changed
+
+- Shared HTTP/2 connections are keyed by the effective TLS options, and shared
+  HTTP/3 connections plus cached 0-RTT session tickets by the QUIC trust
+  options. Requests with different `ssl_options` no longer share a multiplexed
+  connection or resume each other's tickets.
+- The TLS options hash computed for every pooled HTTPS request is memoized in
+  a bounded ETS cache keyed by the pre-merge inputs and the relevant
+  application envs, skipping a sha256 over the full CA bundle on cache hits.
+- SNI handling. No `server_name_indication` is sent when the host is an IP
+  literal (RFC 6066), on HTTP/1.1, HTTP/2 and HTTP/3. A user-supplied
+  `server_name_indication` in `ssl_options` is now honored consistently as
+  both the wire value and the hostname-verification target, works on the
+  HTTP/3 path too, and `disable` suppresses SNI without weakening
+  verification.
+- Bump `quic` to 1.6.5 and `webtransport` to 0.4.0.
+
+4.2.3 - 2026-06-10
+------------------
+
+### Dependencies
+
+- h2 0.8.0 -> 0.9.0.
+- webtransport 0.3.2 -> 0.3.3.
+- parse_trans 3.4.1 -> 3.4.2.
+- cowboy 2.12.0 -> 2.16.0 (test only); ranch test helper updated for the
+  ranch 2.x protocol callback.
+
+4.2.2 - 2026-06-07
+------------------
+
+### Fixed
+
+- Pool no longer crashes when a pooled connection dies during the liveness
+  check. `find_available` could call `hackney_conn:is_ready/1` on a connection
+  that died right after the `is_process_alive/1` check, and the resulting
+  `noproc` exit took down the pool. The dead connection is now skipped. (#869)
+
+4.2.1 - 2026-06-05
+------------------
+
+### Dependencies
+
+- quic 1.6.3 -> 1.6.4.
+- webtransport 0.3.1 -> 0.3.2.
+- certifi 2.16.0 -> 2.17.0.
+
+4.2.0 - 2026-06-03
+------------------
+
+### Added
+
+- IPv6 for HTTP/3. The `family` connect option (`inet` | `inet6`) is forwarded
+  to QUIC, which resolves DNS and races addresses with Happy Eyeballs (RFC
+  8305). IPv6 literals such as `https://[::1]/` work too. `family` may be set in
+  `connect_options` or `ssl_options`.
+- 0-RTT and session resumption for HTTP/3. The server's session ticket is cached
+  in the pool per `{host, port, transport}` and replayed on the next
+  connection; a bodyless one-shot request is then sent as 0-RTT, otherwise the
+  ticket gives a resumed handshake. Enabled by default and controlled by the
+  `zero_rtt` option, with an explicit `session_ticket` taking precedence over
+  the cache. New `hackney_h3` helpers: `early_data_accepted/1`,
+  `get_session_ticket/1`, `wait_session_ticket/2`.
+
+### Fixed
+
+- Recover from an expired cross-signed root instead of failing the handshake
+  (e.g. Let's Encrypt's ISRG Root X2 cross-signed by the expired ISRG Root X1).
+  For HTTP/1.1 and HTTP/2 the verification function rewrites `cert_expired` to
+  `root_cert_expired` so OTP's cross-sign recovery runs; for HTTP/3 and
+  WebTransport the same recovery is in quic 1.6.2. A genuinely expired leaf or
+  intermediate still fails, and partial chains keep working.
+- HTTP/3 connections from the pool now apply `ssl_options` (`cacerts`,
+  `insecure`) that previously did not reach the QUIC layer.
+- A pooled connection that stops between checkout and the request call no
+  longer leaks `exit:{normal, _}` (or `exit:noproc`) to the caller. The
+  request, body and streaming calls now return `{error, closed}` instead
+  (issue #861).
+- A proxy host given as an atom (e.g. `localhost`) or a binary is accepted
+  again for `{ProxyHost, Port}`, `{connect, ...}` and `{socks5, ...}` proxy
+  options, instead of being silently ignored. Regression from a too-strict
+  `is_list/1` guard (issue #858).
+
+### Dependencies
+
+- quic 1.4.5 -> 1.6.3.
+- h2 0.6.1 -> 0.8.0.
+- webtransport 0.2.6 -> 0.3.1.
+
+4.1.0 - 2026-05-29
+------------------
+
+### Added
+
+- WebTransport client API (`hackney:wt_connect/1,2`, `wt_send/2`,
+  `wt_recv/1,2`, `wt_setopts/2`, `wt_close/1,2`). It mirrors the WebSocket
+  API so code can switch by swapping the `ws_` prefix for `wt_`. Runs over
+  HTTP/3 (QUIC) by default, HTTP/2 optional. One session multiplexes many
+  streams (`wt_open_stream/2`, `wt_stream_send/3,4`, `wt_stream_recv/2,3`,
+  `wt_close_stream/2`, `wt_reset_stream/3`, `wt_stop_sending/3`) plus
+  unreliable datagrams (`wt_send_datagram/2`) and `wt_session_info/1`.
+  Backed by the `webtransport` library. Caller-supplied request headers and
+  path are checked for CR/LF/NUL, and a buffer cap bounds unread data.
+  See the WebTransport Guide.
+
+### Dependencies
+
+- Add `webtransport` 0.2.6.
+
+4.0.3 - 2026-05-28
+------------------
+
+### Security
+
+- HTTP/3 now verifies the server certificate. quic 1.4.4 authenticates the
+  server by default; hackney passes the request's `insecure` option and any
+  configured CA (`cacerts`/`cacertfile` in `ssl_options`) through to the QUIC
+  connection, so verification can be disabled or pointed at a custom trust
+  store. Without a configured CA, quic uses its default trust store.
+
+### Changed
+
+- Replace the deprecated `catch Expr` form with `try ... catch` so hackney
+  compiles cleanly on OTP 29.
+
+### Dependencies
+
+- Bump quic to 1.4.5.
+- Bump h2 to 0.6.1.
+
 4.0.2 - 2026-05-25
 ------------------
 

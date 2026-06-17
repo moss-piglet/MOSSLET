@@ -119,6 +119,7 @@ export const modifyRoot = (html, attrs, clearInnerHTML) => {
   return [newHTML, beforeTag, afterTag];
 };
 
+/** @internal */
 export default class Rendered {
   static extract(diff) {
     const { [REPLY]: reply, [EVENTS]: events, [TITLE]: title } = diff;
@@ -223,6 +224,8 @@ export default class Rendered {
       if (isCid(scid)) {
         let tdiff;
 
+        // @ts-expect-error: isCid also allows strings, but the diff always uses numbers
+        // TODO: revisit isCid and consider differentiating cid strings from DOM and cid numbers from diffs / internal usage
         if (scid > 0) {
           tdiff = this.cachedFindComponent(scid, newc[scid], oldc, newc, cache);
         } else {

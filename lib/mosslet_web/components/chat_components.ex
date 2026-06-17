@@ -351,8 +351,7 @@ defmodule MossletWeb.ChatComponents do
           phx-hook="LocalDateSeparator"
           data-datetime={format_datetime_for_hook(@datetime)}
           class="opacity-0 transition-opacity duration-200"
-        >
-        </span>
+        ></span>
       </span>
       <div class="flex-1 h-px bg-gradient-to-r from-slate-200/40 via-slate-200/60 to-transparent dark:from-slate-700/40 dark:via-slate-700/60" />
     </div>

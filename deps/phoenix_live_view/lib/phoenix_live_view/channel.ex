@@ -349,8 +349,10 @@ defmodule Phoenix.LiveView.Channel do
       nil -> :noop
     end
 
+    assigns = Map.delete(socket.assigns, :__changed__)
+
     new_socket =
-      Enum.reduce(socket.assigns, socket, fn {key, val}, socket ->
+      Enum.reduce(assigns, socket, fn {key, val}, socket ->
         Utils.force_assign(socket, key, val)
       end)
 
@@ -826,9 +828,9 @@ defmodule Phoenix.LiveView.Channel do
   defp maybe_merge_meta(value, _raw_payload), do: value
 
   defp gather_keys(%{} = map, acc) do
-    case Enum.at(map, 0) do
-      {key, val} -> gather_keys(val, [key | acc])
-      nil -> acc
+    case :maps.next(:maps.iterator(map)) do
+      {key, val, _iterator} -> gather_keys(val, [key | acc])
+      :none -> acc
     end
   end
 
@@ -1419,11 +1421,19 @@ defmodule Phoenix.LiveView.Channel do
         {:noreply, post_verified_mount(new_state)}
 
       {:live_redirect, opts, new_state} ->
-        GenServer.reply(from, {:error, %{live_redirect: opts}})
+        GenServer.reply(
+          from,
+          {:error, %{live_redirect: opts, events: Utils.get_push_events(new_state.socket)}}
+        )
+
         {:stop, :shutdown, new_state}
 
       {:redirect, opts, new_state} ->
-        GenServer.reply(from, {:error, %{redirect: opts}})
+        GenServer.reply(
+          from,
+          {:error, %{redirect: opts, events: Utils.get_push_events(new_state.socket)}}
+        )
+
         {:stop, :shutdown, new_state}
     end
   end

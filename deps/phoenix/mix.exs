@@ -8,7 +8,7 @@ defmodule Phoenix.MixProject do
     end
   end
 
-  @version "1.8.7"
+  @version "1.8.8"
   @scm_url "https://github.com/phoenixframework/phoenix"
 
   # If the elixir requirement is updated, we need to make the installer
@@ -121,7 +121,7 @@ defmodule Phoenix.MixProject do
       licenses: ["MIT"],
       links: %{
         "GitHub" => @scm_url,
-        "Changelog" => "https://hexdocs.pm/phoenix/changelog.html"
+        "Changelog" => "https://phoenix.hexdocs.pm/changelog.html"
       },
       files: ~w(
           assets/js lib priv usage-rules CHANGELOG.md LICENSE.md mix.exs package.json README.md .formatter.exs

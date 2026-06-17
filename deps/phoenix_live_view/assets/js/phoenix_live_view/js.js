@@ -11,8 +11,9 @@ const JS = {
       null,
       { callback: defaults && defaults.callback },
     ];
-    const commands =
-      phxEvent.charAt(0) === "["
+    const commands = Array.isArray(phxEvent)
+      ? phxEvent
+      : typeof phxEvent === "string" && phxEvent.startsWith("[")
         ? JSON.parse(phxEvent)
         : [[defaultKind, defaultArgs]];
 
@@ -113,7 +114,8 @@ const JS = {
       if (eventType === "change") {
         let { newCid, _target } = args;
         _target =
-          _target || (DOM.isFormInput(sourceEl) ? sourceEl.name : undefined);
+          _target ||
+          (DOM.isFormAssociated(sourceEl) ? sourceEl.name : undefined);
         if (_target) {
           pushOpts._target = _target;
         }

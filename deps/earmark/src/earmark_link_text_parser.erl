@@ -18,7 +18,7 @@ title_tuple({Title, Parsed}) -> {link, Title, string:join(["[", Parsed, "]"], ""
 
 %% SPDX-License-Identifier: Apache-2.0
 
--file("/Users/mark/.asdf/installs/erlang/28.3/lib/parsetools-2.7/include/yeccpre.hrl", 0).
+-file("/Users/mark/.asdf/installs/erlang/29.0.1/lib/parsetools-2.8/include/yeccpre.hrl", 0).
 %%
 %% %CopyrightBegin%
 %%

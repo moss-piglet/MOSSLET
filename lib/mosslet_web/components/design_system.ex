@@ -1710,7 +1710,6 @@ defmodule MossletWeb.DesignSystem do
                 "disabled:opacity-50 disabled:cursor-not-allowed",
                 @errors != [] && "border-rose-400 focus:border-rose-400 hover:border-rose-500"
               ]}
-              }
               {@rest}
             />
           </div>
@@ -4486,13 +4485,11 @@ defmodule MossletWeb.DesignSystem do
                       x-bind:class={"window.moodPickerGetButtonClasses(mood.id, '#{@value || ""}')"}
                       x-bind:title="mood.label"
                     >
-                      <span class="text-lg sm:text-xl leading-none flex-shrink-0" x-text="mood.emoji">
-                      </span>
+                      <span class="text-lg sm:text-xl leading-none flex-shrink-0" x-text="mood.emoji"></span>
                       <span
                         x-bind:class={"window.moodPickerGetLabelClasses(mood.id, '#{@value || ""}')"}
                         x-text="mood.label"
-                      >
-                      </span>
+                      ></span>
                     </button>
                   </template>
                 </div>

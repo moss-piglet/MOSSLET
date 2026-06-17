@@ -98,8 +98,7 @@ defmodule MossletWeb.BookReaderLayout do
               <span
                 data-decrypt-journal-book-title={@book_id}
                 class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate max-w-[200px]"
-              >
-              </span>
+              ></span>
             </div>
 
             <div class="flex items-center gap-2">

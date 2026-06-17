@@ -13,8 +13,7 @@ defmodule MossletWeb.Components.Copyright do
             height="35"
             width="116"
             style="border: 0;"
-          >
-          </iframe>
+          ></iframe>
         </span>
         <span class="ml-4">
           Made with 💙 by <a
