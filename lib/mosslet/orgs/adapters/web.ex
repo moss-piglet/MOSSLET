@@ -24,6 +24,21 @@ defmodule Mosslet.Orgs.Adapters.Web do
     Repo.all(from(o in Org, order_by: :id))
   end
 
+  # All of a user's confirmed org memberships with their `:org` preloaded,
+  # most-recently-joined first. Used by the personal billing page (Task #239
+  # follow-up) to surface family/business seats + ownership alongside the
+  # personal plan. The org subscription status is resolved per org by the caller
+  # against the small org set a user typically belongs to.
+  @impl true
+  def list_memberships_for_user(user) do
+    from(m in Membership,
+      where: m.user_id == ^user.id,
+      order_by: [desc: m.inserted_at],
+      preload: [:org]
+    )
+    |> Repo.all()
+  end
+
   @impl true
   def list_orgs_with_billing do
     # Single query + preload of the org's billing customer and its subscriptions,

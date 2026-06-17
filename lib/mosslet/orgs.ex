@@ -1141,6 +1141,60 @@ defmodule Mosslet.Orgs do
     end
   end
 
+  @doc """
+  Returns a lightweight billing summary for every org the user belongs to, most
+  recently joined first. Each entry describes the user's relationship to one org
+  and that org's `:org`-source plan, so the PERSONAL billing page can show a
+  member that they hold a family/business seat (and whether they own it) even
+  when they have no personal plan — and vice versa.
+
+  Each summary is a map:
+
+    * `:org`        — the `Org`.
+    * `:owner?`     — `true` when the user is the org's owner (`created_by_id`).
+    * `:role`       — the membership role (`:admin`/`:member`).
+    * `:status`     — coverage state for the org's `:org` subscription:
+      `:active` | `:trialing` | `:past_due` | `:lapsed` (covers
+      unpaid/canceled/expired) | `:inert` (org never took a plan).
+    * `:plan`       — the matched `Plans` plan for the active/trialing sub, or `nil`.
+
+  ZK-safe: only ids, roles, status, and (non-sensitive) plan metadata — no
+  plaintext, keys, or secrets. Org subscriptions are resolved per org against the
+  small set a user typically belongs to.
+  """
+  def list_org_billing_summaries(%Mosslet.Accounts.User{} = user) do
+    user
+    |> adapter().list_memberships_for_user()
+    |> Enum.map(fn membership ->
+      org = membership.org
+      subscription = org_source_subscription(org)
+
+      %{
+        org: org,
+        owner?: owner?(org, user.id),
+        role: membership.role,
+        status: org_billing_status(subscription),
+        plan: org_billing_plan(subscription)
+      }
+    end)
+  end
+
+  def list_org_billing_summaries(_), do: []
+
+  defp org_billing_status(nil), do: :inert
+
+  defp org_billing_status(%{status: status}) do
+    case status do
+      s when s in ["active", "trialing", "past_due"] -> String.to_existing_atom(s)
+      _ -> :lapsed
+    end
+  end
+
+  defp org_billing_plan(%{plan_id: plan_id}) when is_binary(plan_id),
+    do: Plans.get_plan_by_id(plan_id)
+
+  defp org_billing_plan(_), do: nil
+
   # Per-org coverage from the org's subscription status.
   defp org_coverage_for_org(%Org{} = org) do
     case org_subscription(org) do

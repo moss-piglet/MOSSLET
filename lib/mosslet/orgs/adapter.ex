@@ -35,6 +35,7 @@ defmodule Mosslet.Orgs.Adapter do
   @callback create_org(user :: User.t(), changeset :: Ecto.Changeset.t()) ::
               {:ok, Org.t()} | {:error, Ecto.Changeset.t()}
 
+  @callback list_memberships_for_user(user :: User.t()) :: [Membership.t()]
   @callback list_owned_orgs(user :: User.t(), type :: atom() | nil) :: [Org.t()]
   @callback count_owned_orgs(user :: User.t(), type :: atom() | nil) :: non_neg_integer()
   @callback count_member_orgs(user :: User.t(), type :: atom() | nil) :: non_neg_integer()

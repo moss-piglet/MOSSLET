@@ -31,6 +31,7 @@ defmodule MossletWeb.BillingLive do
     socket =
       socket
       |> assign(:billing_customer, billing_customer(socket))
+      |> assign_org_memberships()
       |> maybe_load_provider_data()
 
     {:noreply, socket}
@@ -55,6 +56,16 @@ defmodule MossletWeb.BillingLive do
   end
 
   defp maybe_assign_org(socket, _params), do: socket
+
+  # The PERSONAL billing page (source == :user) also surfaces the user's
+  # family/business seats + ownership, so a member with no personal plan still
+  # sees that they're covered by an org, and an owner sees their org plan (even
+  # trialing). Org-scoped pages already show that org's own plan, so we skip it.
+  defp assign_org_memberships(%{assigns: %{source: :user, current_scope: %{user: user}}} = socket) do
+    assign(socket, :org_memberships, Mosslet.Orgs.list_org_billing_summaries(user))
+  end
+
+  defp assign_org_memberships(socket), do: assign(socket, :org_memberships, [])
 
   # Resolves the billing customer for the current source: the org's OWN
   # `:org`-source customer for the org-scoped page, else the user's personal
@@ -446,6 +457,8 @@ defmodule MossletWeb.BillingLive do
             </div>
 
             <div class="space-y-8 max-w-3xl">
+              <.org_memberships_info org_memberships={@org_memberships} />
+
               <.billing_info
                 subscribe_path={subscribe_path(@source, assigns)}
                 billing_provider={@billing_provider}
@@ -457,6 +470,7 @@ defmodule MossletWeb.BillingLive do
                 invoices_has_more_async={@invoices_has_more_async}
                 current_scope={@current_scope}
                 customer={@billing_customer}
+                org_memberships={@org_memberships}
                 invoice_year_filter={@invoice_year_filter}
               />
             </div>
@@ -584,6 +598,141 @@ defmodule MossletWeb.BillingLive do
   defp org_home_path(%Mosslet.Orgs.Org{type: :family, slug: slug}), do: ~p"/app/family/#{slug}"
   defp org_home_path(_), do: ~p"/app/business"
 
+  @doc """
+  Personal-billing summary of the user's family/business memberships (Task #239
+  follow-up). Renders nothing when the user belongs to no org. Each org shows the
+  user's relationship (Owner / Admin / Member) and the org plan's coverage state
+  — so a member with no personal plan still sees they're covered by an org seat,
+  and an owner sees their org plan even while trialing. Billing for an org is
+  managed on that org's own billing page, linked from each row.
+  """
+  attr :org_memberships, :list, default: []
+
+  def org_memberships_info(assigns) do
+    ~H"""
+    <div :if={@org_memberships != []} id="org-memberships-card">
+      <DesignSystem.liquid_card>
+        <:title>
+          <div class="flex items-center gap-3">
+            <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-emerald-100 via-teal-50 to-emerald-100 dark:from-emerald-900/30 dark:via-teal-900/25 dark:to-emerald-900/30">
+              <.phx_icon name="hero-users" class="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <span>{gettext("Your memberships")}</span>
+          </div>
+        </:title>
+
+        <p class="mb-4 text-sm text-slate-600 dark:text-slate-400">
+          {gettext(
+            "Seats you hold in a family or business. These are billed on the organization's own plan, separate from your personal membership below."
+          )}
+        </p>
+
+        <ul role="list" class="divide-y divide-slate-200/60 dark:divide-slate-700/60">
+          <li
+            :for={summary <- @org_memberships}
+            id={"org-membership-#{summary.org.id}"}
+            class="flex items-center gap-4 py-4 first:pt-0 last:pb-0"
+          >
+            <div class={[
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm",
+              org_kind_icon_bg(summary.org.type)
+            ]}>
+              <.phx_icon name={org_kind_icon(summary.org.type)} class="h-5 w-5 text-white" />
+            </div>
+
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                  {summary.org.name}
+                </span>
+                <DesignSystem.liquid_badge
+                  :if={summary.owner?}
+                  variant="soft"
+                  color="amber"
+                  size="xs"
+                >
+                  <.phx_icon name="hero-key" class="h-3 w-3 mr-1" />{gettext("Owner")}
+                </DesignSystem.liquid_badge>
+                <DesignSystem.liquid_badge
+                  :if={!summary.owner? && summary.role == :admin}
+                  variant="soft"
+                  color="blue"
+                  size="xs"
+                >
+                  {gettext("Admin")}
+                </DesignSystem.liquid_badge>
+                <DesignSystem.liquid_badge
+                  :if={!summary.owner? && summary.role == :member}
+                  variant="soft"
+                  color="slate"
+                  size="xs"
+                >
+                  {gettext("Member")}
+                </DesignSystem.liquid_badge>
+              </div>
+
+              <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <span>{org_kind_label(summary.org.type)}</span>
+                <span aria-hidden="true">&middot;</span>
+                <DesignSystem.liquid_badge
+                  variant="soft"
+                  color={org_status_color(summary.status)}
+                  size="xs"
+                >
+                  {org_status_label(summary.status)}
+                </DesignSystem.liquid_badge>
+                <span :if={summary.plan} aria-hidden="true">&middot;</span>
+                <span :if={summary.plan}>{plan_interval_label(summary.plan)}</span>
+              </div>
+            </div>
+
+            <.link
+              navigate={org_billing_path(summary.org)}
+              class="shrink-0 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
+            >
+              {if summary.owner? || summary.role == :admin,
+                do: gettext("Manage"),
+                else: gettext("View")}
+            </.link>
+          </li>
+        </ul>
+      </DesignSystem.liquid_card>
+    </div>
+    """
+  end
+
+  defp org_kind_icon(:family), do: "hero-home-modern"
+  defp org_kind_icon(:business), do: "hero-building-office-2"
+  defp org_kind_icon(_), do: "hero-user-group"
+
+  defp org_kind_icon_bg(:family),
+    do: "bg-gradient-to-br from-purple-500 to-violet-600 shadow-violet-500/25"
+
+  defp org_kind_icon_bg(_),
+    do: "bg-gradient-to-br from-teal-500 to-emerald-600 shadow-emerald-500/25"
+
+  defp org_kind_label(:family), do: gettext("Family")
+  defp org_kind_label(:business), do: gettext("Business")
+  defp org_kind_label(_), do: gettext("Organization")
+
+  defp org_status_label(:active), do: gettext("Active")
+  defp org_status_label(:trialing), do: gettext("Trial")
+  defp org_status_label(:past_due), do: gettext("Payment overdue")
+  defp org_status_label(:lapsed), do: gettext("Inactive")
+  defp org_status_label(_), do: gettext("Not set up")
+
+  defp org_status_color(:active), do: "emerald"
+  defp org_status_color(:trialing), do: "teal"
+  defp org_status_color(:past_due), do: "amber"
+  defp org_status_color(:lapsed), do: "rose"
+  defp org_status_color(_), do: "slate"
+
+  defp plan_interval_label(%{interval: :month}), do: gettext("Monthly")
+  defp plan_interval_label(%{interval: :year}), do: gettext("Yearly")
+  defp plan_interval_label(_), do: ""
+
+  defp org_billing_path(%Mosslet.Orgs.Org{slug: slug}), do: ~p"/app/org/#{slug}/billing"
+
   attr :billing_provider, :atom
   attr :provider_payment_intent_async, :map
   attr :provider_charge_async, :map
@@ -598,6 +747,10 @@ defmodule MossletWeb.BillingLive do
   attr :customer, :any,
     default: nil,
     doc: "the billing customer (org's `:org` customer, or the user's `:user` customer)"
+
+  attr :org_memberships, :list,
+    default: [],
+    doc: "the user's org seats (personal page only) — softens the no-plan notice"
 
   def billing_info(assigns) do
     ~H"""
@@ -660,20 +813,32 @@ defmodule MossletWeb.BillingLive do
             <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-amber-100 via-orange-50 to-amber-100 dark:from-amber-900/30 dark:via-orange-900/25 dark:to-amber-900/30">
               <.phx_icon name="hero-credit-card" class="h-4 w-4 text-amber-600 dark:text-amber-400" />
             </div>
-            <span class="text-amber-800 dark:text-amber-200">No Active Membership</span>
+            <span class="text-amber-800 dark:text-amber-200">
+              {if @org_memberships == [],
+                do: gettext("No Active Membership"),
+                else: gettext("No Personal Plan")}
+            </span>
           </div>
         </:title>
 
         <div class="space-y-4">
           <p class="text-amber-700 dark:text-amber-300">
-            {gettext(
-              "You don't have an active membership yet. Browse our plans to get started with MOSSLET."
-            )}
+            {if @org_memberships == [],
+              do:
+                gettext(
+                  "You don't have an active membership yet. Browse our plans to get started with MOSSLET."
+                ),
+              else:
+                gettext(
+                  "You don't have a personal plan, but you're covered through your organization seat(s) above. Add a personal plan to use MOSSLET outside of your family or business."
+                )}
           </p>
 
           <div class="flex justify-start">
             <DesignSystem.liquid_button href={@subscribe_path} color="amber" icon="hero-eye">
-              {gettext("View Plans")}
+              {if @org_memberships == [],
+                do: gettext("View Plans"),
+                else: gettext("View Personal Plans")}
             </DesignSystem.liquid_button>
           </div>
         </div>
