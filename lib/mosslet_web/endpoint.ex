@@ -95,6 +95,15 @@ defmodule MossletWeb.Endpoint do
       request_host == canonical ->
         conn
 
+      # Subdomain-tolerant (Task #240, Phase B, slice B): an org's branded host,
+      # `<label>.<canonical>` with a valid, non-reserved label (e.g.
+      # `acmebiz.mosslet.com`), is allowed through — it is resolved/tagged by
+      # `MossletWeb.Plugs.OrgSubdomain` and authorized by the membership gate.
+      # Reserved labels (`www`, `app`, …), the apex mismatch, and foreign hosts
+      # still 301 to the canonical host.
+      match?({:ok, _}, MossletWeb.Plugs.OrgSubdomain.subdomain_label(request_host, canonical)) ->
+        conn
+
       true ->
         location = build_canonical_url(conn, canonical)
 

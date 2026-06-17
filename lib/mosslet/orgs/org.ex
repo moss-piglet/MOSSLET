@@ -23,7 +23,7 @@ defmodule Mosslet.Orgs.Org do
     account accounts auth login logout signin signup register oauth sso
     static assets cdn media files uploads download downloads img images
     public private internal secure security root system
-    mosslet mossletapp mossletapps
+    mosslet mossletapp mossletapps podcast
   )
 
   @primary_key {:id, :binary_id, autogenerate: true}
@@ -184,6 +184,21 @@ defmodule Mosslet.Orgs.Org do
   def clear_subdomain_changeset(%__MODULE__{} = org) do
     change(org, %{subdomain: nil})
   end
+
+  @doc """
+  Returns `true` if `label` is a reserved subdomain (Task #240, Phase B).
+
+  Shares the single `@reserved_subdomains` denylist with `subdomain_changeset/2`
+  so the host plug (`MossletWeb.Plugs.OrgSubdomain`) and the canonical-host plug
+  (`MossletWeb.Endpoint`) never resolve/serve an org on a platform/infra host such
+  as `www`, `app`, or `api`. Matched case-insensitively against the lowercased
+  label (DNS is case-insensitive).
+  """
+  def reserved_subdomain?(label) when is_binary(label) do
+    String.downcase(label) in @reserved_subdomains
+  end
+
+  def reserved_subdomain?(_label), do: false
 
   # Canonicalize to lowercase before validation so the stored value and all
   # hostname routing/comparisons are consistent (DNS is case-insensitive).

@@ -16,6 +16,7 @@ defmodule MossletWeb.Router do
     plug :protect_from_forgery
     plug :put_secure_browser_headers
     plug :fetch_current_scope
+    plug MossletWeb.Plugs.OrgSubdomain
     plug :kick_user_if_suspended_or_deleted
     plug Mosslet.SetLocalePlug, gettext: MossletWeb.Gettext
     plug :maybe_desktop_auth
