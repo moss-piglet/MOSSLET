@@ -561,12 +561,12 @@ defmodule MossletWeb.BillingLive do
 
                 <DesignSystem.liquid_button
                   id="orphan-guard-delete"
+                  navigate={"#{org_home_path(@current_org)}#org-danger-zone"}
                   color="rose"
                   icon="hero-trash"
                   variant="ghost"
-                  disabled
                 >
-                  {gettext("Delete organization (coming soon)")}
+                  {gettext("Delete organization")}
                 </DesignSystem.liquid_button>
               </div>
 

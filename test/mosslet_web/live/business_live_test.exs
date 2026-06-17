@@ -394,9 +394,11 @@ defmodule MossletWeb.BusinessLiveTest do
         ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
 
       assert has_element?(lv, "#org-ownership-section")
-      assert has_element?(lv, "#open-transfer-modal")
+      # Transfer/delete live in the calm "manage organization" dropdown now.
+      assert has_element?(lv, "#org-manage-menu")
+      assert lv |> element("#org-manage-menu-menu") |> render() =~ "Transfer ownership"
 
-      lv |> element("#open-transfer-modal") |> render_click()
+      render_hook(lv, "open_transfer_modal", %{})
       # The modal is teleported to <body> via a portal, so query its rendered HTML.
       modal_html = lv |> element("#transfer-ownership-modal-portal") |> render()
       assert modal_html =~ "transfer-ownership-modal"
@@ -431,14 +433,16 @@ defmodule MossletWeb.BusinessLiveTest do
         ctx.conn |> log_in(solo, solo_key) |> live(~p"/app/business/#{solo_org.slug}")
 
       assert has_element?(lv, "#ownership-no-members-notice")
-      refute has_element?(lv, "#open-transfer-modal")
+      # The manage menu still appears (delete is available), but the Transfer
+      # item is hidden until there's an eligible member to hand off to.
+      refute lv |> element("#org-manage-menu-menu") |> render() =~ "Transfer ownership"
     end
 
     test "initiating a transfer with the correct password creates a pending transfer", ctx do
       {:ok, lv, _html} =
         ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
 
-      lv |> element("#open-transfer-modal") |> render_click()
+      render_hook(lv, "open_transfer_modal", %{})
 
       # The transfer form lives inside the body-portaled modal, so submit its
       # event directly (this is exactly what the form's phx-submit emits).
@@ -456,7 +460,7 @@ defmodule MossletWeb.BusinessLiveTest do
       {:ok, lv, _html} =
         ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
 
-      lv |> element("#open-transfer-modal") |> render_click()
+      render_hook(lv, "open_transfer_modal", %{})
 
       html =
         render_hook(lv, "initiate_transfer", %{

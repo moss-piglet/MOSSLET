@@ -10,6 +10,7 @@ defmodule MossletWeb.FamilyLive.Show do
   use MossletWeb, :live_view
 
   import MossletWeb.OrgTransferActions
+  import MossletWeb.OrgDeleteActions
 
   alias Mosslet.Orgs
 
@@ -37,6 +38,8 @@ defmodule MossletWeb.FamilyLive.Show do
        |> assign(:org_display_name_form, to_form(%{"name" => ""}, as: :org_display_name))
        |> assign(:transfer_modal_open, false)
        |> assign(:transfer_form, to_form(%{"password" => "", "to_user_id" => ""}, as: :transfer))
+       |> assign(:delete_modal_open, false)
+       |> assign(:delete_form, to_form(%{"password" => ""}, as: :delete_org))
        |> assign_family_data()}
     else
       {:ok,
@@ -355,6 +358,8 @@ defmodule MossletWeb.FamilyLive.Show do
           pending_transfer={@pending_transfer}
           transfer_modal_open={@transfer_modal_open}
           transfer_form={@transfer_form}
+          delete_modal_open={@delete_modal_open}
+          delete_form={@delete_form}
         />
 
         <%!-- Guardianship management (admin) --%>
@@ -478,6 +483,7 @@ defmodule MossletWeb.FamilyLive.Show do
     {:noreply,
      socket
      |> assign(:transfer_modal_open, true)
+     |> assign(:delete_modal_open, false)
      |> assign(
        :transfer_form,
        to_form(%{"password" => "", "to_user_id" => ""}, as: :transfer)
@@ -511,6 +517,25 @@ defmodule MossletWeb.FamilyLive.Show do
   @impl true
   def handle_event("cancel_transfer", %{"transfer_id" => transfer_id}, socket) do
     {:noreply, do_cancel_transfer(socket, transfer_id, &assign_family_data/1)}
+  end
+
+  ## Safe org deletion + ZK teardown (Task #227)
+
+  @impl true
+  def handle_event("open_delete_org_modal", _params, socket) do
+    {:noreply, open_delete_org_modal(socket)}
+  end
+
+  @impl true
+  def handle_event("close_delete_org_modal", _params, socket) do
+    {:noreply, close_delete_org_modal(socket)}
+  end
+
+  @impl true
+  def handle_event("delete_org", params, socket) do
+    confirm_name = Map.get(params, "confirm_name", "")
+    password = get_in(params, ["delete_org", "password"]) || ""
+    {:noreply, do_delete_org(socket, confirm_name, password, ~p"/app/family")}
   end
 
   @impl true

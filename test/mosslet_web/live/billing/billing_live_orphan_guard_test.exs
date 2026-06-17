@@ -83,7 +83,9 @@ defmodule MossletWeb.BillingLiveOrphanGuardTest do
 
       assert has_element?(lv, "#orphan-guard-modal")
       assert has_element?(lv, "#orphan-guard-transfer")
-      assert has_element?(lv, "#orphan-guard-delete[disabled]")
+      # The delete affordance is now LIVE (Task #227): it deep-links to the org
+      # dashboard's danger zone rather than being a disabled "coming soon" stub.
+      assert has_element?(lv, "#orphan-guard-delete[href$='#org-danger-zone']")
 
       # The subscription is untouched — no Stripe cancel happened.
       assert Subscriptions.get_subscription!(subscription.id).status == "active"

@@ -4016,6 +4016,7 @@ defmodule MossletWeb.DesignSystem do
     values: ~w(bottom-start bottom-end top-start top-end)
 
   attr :class, :string, default: ""
+  attr :menu_class, :string, default: ""
 
   slot :trigger, required: true
 
@@ -4071,7 +4072,8 @@ defmodule MossletWeb.DesignSystem do
           "shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30",
           "transition-all duration-200 ease-out",
           "ring-1 ring-slate-200/60 dark:ring-slate-700/60",
-          placement_classes(@placement)
+          placement_classes(@placement),
+          @menu_class
         ]}
         role="menu"
         aria-orientation="vertical"

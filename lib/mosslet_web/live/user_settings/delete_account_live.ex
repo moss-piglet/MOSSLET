@@ -456,6 +456,73 @@ defmodule MossletWeb.DeleteAccountLive do
                 </div>
               </div>
 
+              <%!-- Owned-organization teardown confirmation (Task #227). Account
+                    deletion deletes any org this user OWNS. Require an explicit,
+                    separate acknowledgement so it's never a surprise. --%>
+              <div :if={@owned_orgs != []} id="owned-orgs-warning" class="space-y-4">
+                <div class="bg-gradient-to-br from-amber-50/60 to-orange-50/40 dark:from-amber-900/20 dark:to-orange-900/10 rounded-xl p-4 border border-amber-200/60 dark:border-amber-700/60 space-y-3">
+                  <div class="flex items-start gap-3">
+                    <.phx_icon
+                      name="hero-building-office-2"
+                      class="h-5 w-5 mt-0.5 text-amber-600 dark:text-amber-400 flex-shrink-0"
+                    />
+                    <div class="space-y-2">
+                      <h3 class="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                        You own {length(@owned_orgs)} organization{if length(@owned_orgs) > 1,
+                          do: "s"}
+                      </h3>
+                      <p class="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
+                        Deleting your account will also permanently delete the organization{if length(
+                                                                                                 @owned_orgs
+                                                                                               ) >
+                                                                                                 1,
+                                                                                               do: "s"} below:
+                        each one's plan is canceled immediately, its circles and shared files are
+                        torn down, and every member's organization membership is removed. Members
+                        keep their personal MOSSLET accounts — only their membership ends.
+                      </p>
+                      <ul class="space-y-1.5">
+                        <li
+                          :for={org <- @owned_orgs}
+                          id={"owned-org-#{org.id}"}
+                          class="flex items-center gap-2 text-xs font-medium text-amber-900 dark:text-amber-100"
+                        >
+                          <.phx_icon name="hero-trash" class="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                          <span>{org.name}</span>
+                          <span class="text-amber-600/70 dark:text-amber-400/70 capitalize">
+                            ({org.type})
+                          </span>
+                        </li>
+                      </ul>
+                      <p class="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
+                        Prefer to keep an organization running? Transfer its ownership to another
+                        member first, then come back to delete your account.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="flex items-start gap-3 pt-1 border-t border-amber-200/50 dark:border-amber-700/40">
+                    <div class="flex-shrink-0 pt-2.5">
+                      <input
+                        type="checkbox"
+                        id="confirm-delete-owned-orgs"
+                        name="user[confirm_delete_owned_orgs]"
+                        value="true"
+                        checked={@confirm_delete_owned_orgs}
+                        class="h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 dark:border-amber-600 dark:bg-slate-800"
+                      />
+                    </div>
+                    <label
+                      for="confirm-delete-owned-orgs"
+                      class="block pt-2 text-sm font-medium text-amber-800 dark:text-amber-200 cursor-pointer leading-relaxed"
+                    >
+                      I understand my organization{if length(@owned_orgs) > 1, do: "s"} will be
+                      permanently deleted along with my account.
+                    </label>
+                  </div>
+                </div>
+              </div>
+
               <%!-- Action Buttons --%>
               <div class="flex flex-col sm:flex-row sm:justify-between gap-4 pt-6 border-t border-slate-200/60 dark:border-slate-700/60">
                 <DesignSystem.liquid_button
@@ -470,9 +537,11 @@ defmodule MossletWeb.DeleteAccountLive do
 
                 <DesignSystem.liquid_button
                   type="submit"
+                  id="delete-account-submit"
                   color="rose"
                   icon="hero-trash"
                   class="w-full sm:w-auto"
+                  disabled={@owned_orgs != [] && !@confirm_delete_owned_orgs}
                   phx-disable-with="Deleting Account..."
                 >
                   Delete My Account Forever
@@ -563,6 +632,11 @@ defmodule MossletWeb.DeleteAccountLive do
     referred_info = Referrals.get_referred_user_deletion_info(current_user.id)
     bluesky_account = Bluesky.get_account_for_user(current_user.id)
 
+    # Owned orgs (Task #227): deleting the account also deletes any org this user
+    # OWNS — its plan is canceled, circles + files are torn down, and every
+    # member's org membership is removed (members keep their personal accounts).
+    owned_orgs = Mosslet.Orgs.list_owned_orgs(current_user)
+
     {:ok,
      assign(socket,
        page_title: "Settings",
@@ -574,6 +648,8 @@ defmodule MossletWeb.DeleteAccountLive do
        bluesky_account: bluesky_account,
        delete_bluesky_account: false,
        bluesky_deletion_error: nil,
+       owned_orgs: owned_orgs,
+       confirm_delete_owned_orgs: false,
        form: to_form(Accounts.change_user_delete_account(current_user))
      )}
   end
@@ -594,12 +670,14 @@ defmodule MossletWeb.DeleteAccountLive do
       |> to_form()
 
     delete_bluesky = user_params["delete_bluesky_account"] == "true"
+    confirm_delete_owned_orgs = user_params["confirm_delete_owned_orgs"] == "true"
 
     {:noreply,
      assign(socket,
        form: form,
        current_password: user_params["current_password"],
        delete_bluesky_account: delete_bluesky,
+       confirm_delete_owned_orgs: confirm_delete_owned_orgs,
        bluesky_deletion_error: nil
      )}
   end
@@ -613,23 +691,35 @@ defmodule MossletWeb.DeleteAccountLive do
     key = socket.assigns.current_scope.key
     bluesky_account = socket.assigns.bluesky_account
     delete_bluesky = user_params["delete_bluesky_account"] == "true"
+    owned_orgs = socket.assigns.owned_orgs
+    confirm_delete_owned_orgs = user_params["confirm_delete_owned_orgs"] == "true"
 
-    if delete_bluesky && bluesky_account do
-      case delete_bluesky_account_first(bluesky_account) do
-        :ok ->
-          proceed_with_account_deletion(socket, user, key, user_params)
+    cond do
+      owned_orgs != [] && !confirm_delete_owned_orgs ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Please confirm that your organization(s) will be deleted along with your account."
+         )}
 
-        {:error, reason} ->
-          Logger.error("Failed to delete Bluesky account: #{inspect(reason)}")
+      delete_bluesky && bluesky_account ->
+        case delete_bluesky_account_first(bluesky_account) do
+          :ok ->
+            proceed_with_account_deletion(socket, user, key, user_params)
 
-          {:noreply,
-           assign(socket,
-             bluesky_deletion_error:
-               "There was an issue trying to delete your Bluesky account. Please uncheck the option and delete your Bluesky account separately from Bluesky's settings."
-           )}
-      end
-    else
-      proceed_with_account_deletion(socket, user, key, user_params)
+          {:error, reason} ->
+            Logger.error("Failed to delete Bluesky account: #{inspect(reason)}")
+
+            {:noreply,
+             assign(socket,
+               bluesky_deletion_error:
+                 "There was an issue trying to delete your Bluesky account. Please uncheck the option and delete your Bluesky account separately from Bluesky's settings."
+             )}
+        end
+
+      true ->
+        proceed_with_account_deletion(socket, user, key, user_params)
     end
   end
 
@@ -644,6 +734,46 @@ defmodule MossletWeb.DeleteAccountLive do
   end
 
   defp proceed_with_account_deletion(socket, user, key, user_params) do
+    # Owned-org teardown (Task #227): before deleting the user, safely delete any
+    # org they OWN — immediate plan cancel + circle/file teardown + cascade. Runs
+    # first because it re-uses the same password gate; a wrong password here means
+    # the account delete would fail too, so we abort early with a clear message
+    # rather than partially tearing down.
+    case teardown_owned_orgs(socket.assigns.owned_orgs, user, user_params["current_password"]) do
+      :ok ->
+        do_proceed_with_account_deletion(socket, user, key, user_params)
+
+      {:error, :invalid_password} ->
+        {:noreply,
+         socket
+         |> assign(form: to_form(Accounts.change_user_delete_account(user)))
+         |> put_flash(:error, "That password is incorrect. Please try again.")}
+
+      {:error, _reason} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Something went wrong deleting your organization(s). Please try again or contact support@mosslet.com."
+         )}
+    end
+  end
+
+  # Safely deletes every org owned by the user (immediate plan cancel + ZK
+  # teardown). Returns :ok if all succeed (or there are none), else the first
+  # error. ZK-safe: org names/keys are never logged.
+  defp teardown_owned_orgs([], _user, _password), do: :ok
+
+  defp teardown_owned_orgs(owned_orgs, user, password) when is_list(owned_orgs) do
+    Enum.reduce_while(owned_orgs, :ok, fn org, _acc ->
+      case Mosslet.Orgs.delete_org_safely(org, user, password) do
+        {:ok, _summary} -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp do_proceed_with_account_deletion(socket, user, key, user_params) do
     # provider_customer_id is Cloak-encrypted at rest (Encrypted.Binary) and
     # auto-decrypted by Ecto on load — read it directly. (It is NOT user-key
     # encrypted; applying decrypt_user_data here returned :failed_verification
@@ -923,10 +1053,13 @@ defmodule MossletWeb.DeleteAccountLive do
       # Subscription doesn't exist, or is already canceled.
       :canceled
     else
-      with {:ok, provider_subscription} <- billing_provider().cancel_subscription(provider_sub.id),
+      # Account deletion is final, so cancel IMMEDIATELY (Task #227 decision #2)
+      # rather than at period end — when you're deleting, everything stops now.
+      with {:ok, provider_subscription} <-
+             billing_provider().cancel_subscription_immediately(provider_sub.id),
            %Subscription{} = subscription <-
              Subscriptions.get_subscription_by_provider_subscription_id(provider_subscription.id),
-           {:ok, _suscription} <- Subscriptions.cancel_subscription(subscription) do
+           {:ok, _suscription} <- Subscriptions.cancel_subscription_immediately(subscription) do
         :canceled
       else
         nil ->

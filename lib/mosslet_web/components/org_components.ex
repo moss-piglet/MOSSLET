@@ -182,6 +182,9 @@ defmodule MossletWeb.OrgComponents do
   attr :pending_transfer, :any, default: nil
   attr :transfer_modal_open, :boolean, default: false
   attr :transfer_form, :any, default: nil
+  attr :member_count, :integer, default: 0
+  attr :delete_modal_open, :boolean, default: false
+  attr :delete_form, :any, default: nil
 
   def ownership_section(assigns) do
     assigns =
@@ -195,9 +198,38 @@ defmodule MossletWeb.OrgComponents do
       id="org-ownership-section"
       class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
     >
-      <div class="flex items-center gap-2">
-        <.phx_icon name="hero-key" class="size-5 text-slate-400 dark:text-slate-500" />
-        <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Ownership</h2>
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2 min-w-0">
+          <.phx_icon name="hero-key" class="size-5 text-slate-400 dark:text-slate-500" />
+          <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Ownership</h2>
+        </div>
+
+        <%!-- Rare, owner-only actions tucked into a calm dropdown so the dashboard
+              stays focused on everyday operations (Task #227 UX). Transfer +
+              delete live here; only shown when nothing time-sensitive is pending. --%>
+        <DesignSystem.liquid_dropdown
+          :if={@is_owner && !@incoming_transfer && !@pending_transfer}
+          id="org-manage-menu"
+          placement="bottom-end"
+          class="z-50"
+          menu_class="mr-1 w-56"
+          trigger_class="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+          trigger_aria_label="Manage organization"
+        >
+          <:trigger>
+            <.phx_icon name="hero-cog-6-tooth" class="size-5" />
+          </:trigger>
+          <:item
+            :if={@eligible_members != []}
+            phx_click="open_transfer_modal"
+            color="blue"
+          >
+            <.phx_icon name="hero-arrow-right-circle" class="size-4" /> Transfer ownership
+          </:item>
+          <:item phx_click="open_delete_org_modal" color="rose">
+            <.phx_icon name="hero-trash" class="size-4" /> Delete organization
+          </:item>
+        </DesignSystem.liquid_dropdown>
       </div>
 
       <%!-- Proposed new owner: Accept / Decline (their own password). --%>
@@ -276,10 +308,14 @@ defmodule MossletWeb.OrgComponents do
           </DesignSystem.liquid_button>
         </div>
 
-        <div :if={!@pending_transfer} class="space-y-3">
+        <%!-- Calm default state: a one-line summary. The rare transfer/delete
+              actions live in the "Manage organization" menu above. --%>
+        <div :if={!@pending_transfer} id="org-danger-zone" class="space-y-2">
           <p class="text-sm text-slate-600 dark:text-slate-300">
-            Transfer ownership of this organization to another member. They'll be promoted to admin
-            and take over its billing; you'll keep your admin membership.
+            You own this organization. Transferring ownership or deleting it lives in the
+            <span class="font-medium text-slate-700 dark:text-slate-200">manage menu</span>
+            <.phx_icon name="hero-cog-6-tooth" class="inline size-3.5 -mt-0.5 text-slate-400" />
+            at the top of this card.
           </p>
 
           <p
@@ -290,19 +326,117 @@ defmodule MossletWeb.OrgComponents do
             Invite another member before you can transfer ownership — a transfer needs someone to
             hand it to.
           </p>
-
-          <DesignSystem.liquid_button
-            :if={@eligible_members != []}
-            type="button"
-            id="open-transfer-modal"
-            color="indigo"
-            icon="hero-arrow-right-circle"
-            phx-click="open_transfer_modal"
-          >
-            Transfer ownership
-          </DesignSystem.liquid_button>
         </div>
       </div>
+
+      <%!-- Delete confirmation modal: password + typed org-name (Task #227). --%>
+      <DesignSystem.liquid_modal
+        :if={@delete_modal_open}
+        id="delete-org-modal"
+        show={@delete_modal_open}
+        on_cancel={JS.push("close_delete_org_modal")}
+      >
+        <:title>Delete {@org.name}?</:title>
+
+        <div id="delete-org-modal-body" class="space-y-4">
+          <div class="rounded-xl border border-rose-200/70 dark:border-rose-800/50 bg-rose-50/60 dark:bg-rose-900/20 p-4 space-y-2">
+            <p class="text-sm font-medium text-rose-900 dark:text-rose-200">
+              This permanently and immediately:
+            </p>
+            <ul class="space-y-1.5 text-xs text-rose-800/90 dark:text-rose-300/90">
+              <li class="flex items-start gap-2">
+                <.phx_icon name="hero-x-mark" class="size-3.5 mt-0.5 shrink-0 text-rose-500" />
+                <span>Deletes every business circle and its end-to-end encrypted files</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <.phx_icon name="hero-x-mark" class="size-3.5 mt-0.5 shrink-0 text-rose-500" />
+                <span>Cancels this organization's plan right now (no period-end grace)</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <.phx_icon name="hero-x-mark" class="size-3.5 mt-0.5 shrink-0 text-rose-500" />
+                <span>Removes all invitations and every member's organization membership</span>
+              </li>
+            </ul>
+            <p class="text-xs text-rose-800/90 dark:text-rose-300/90">
+              <span class="font-medium">Members are safe:</span>
+              everyone keeps their personal MOSSLET account and personal billing — only their
+              membership in {@org.name} is removed.
+            </p>
+          </div>
+
+          <p :if={@eligible_members != []} class="text-xs text-slate-600 dark:text-slate-300">
+            Not sure?
+            <button
+              type="button"
+              id="delete-org-transfer-instead"
+              phx-click="open_transfer_modal"
+              class="font-medium text-emerald-600 dark:text-emerald-400 underline underline-offset-2 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
+            >
+              Transfer ownership instead
+            </button>
+            — it keeps everything and just hands the organization to another member.
+          </p>
+
+          <.form
+            for={@delete_form}
+            id="delete-org-form"
+            phx-submit="delete_org"
+            class="space-y-4"
+          >
+            <div class="space-y-1.5">
+              <label
+                for="delete-org-confirm-name"
+                class="block text-sm font-medium text-slate-900 dark:text-slate-100"
+              >
+                Type the organization name to confirm
+              </label>
+              <input
+                type="text"
+                id="delete-org-confirm-name"
+                name="confirm_name"
+                autocomplete="off"
+                placeholder={@org.name}
+                phx-debounce="200"
+                class="block w-full rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:border-rose-500 dark:focus:border-rose-400 focus:outline-none focus:ring-0 transition-colors"
+              />
+              <p class="text-xs text-slate-500 dark:text-slate-400">
+                Enter
+                <span class="font-semibold text-slate-700 dark:text-slate-200">{@org.name}</span>
+                exactly.
+              </p>
+            </div>
+
+            <.phx_input
+              field={@delete_form[:password]}
+              type="password"
+              label="Your password"
+              placeholder="Confirm your password"
+              phx-debounce="300"
+            />
+
+            <div class="flex flex-col sm:flex-row gap-2 justify-end">
+              <DesignSystem.liquid_button
+                type="button"
+                id="delete-org-cancel"
+                color="slate"
+                variant="ghost"
+                phx-click="close_delete_org_modal"
+              >
+                Keep organization
+              </DesignSystem.liquid_button>
+              <DesignSystem.liquid_button
+                type="submit"
+                id="delete-org-submit"
+                color="rose"
+                icon="hero-trash"
+                phx-disable-with="Deleting…"
+              >
+                Delete this organization
+              </DesignSystem.liquid_button>
+            </div>
+          </.form>
+        </div>
+      </DesignSystem.liquid_modal>
 
       <%!-- Transfer modal: pick an eligible member + confirm with password. --%>
       <DesignSystem.liquid_modal

@@ -410,7 +410,9 @@ defmodule MossletWeb.FamilyLiveTest do
         ctx.conn |> log_in(ctx.owner, ctx.owner_key) |> live(~p"/app/family/#{ctx.org.slug}")
 
       assert has_element?(lv, "#org-ownership-section")
-      assert has_element?(lv, "#open-transfer-modal")
+      # Transfer/delete live in the calm "manage organization" dropdown now.
+      assert has_element?(lv, "#org-manage-menu")
+      assert lv |> element("#org-manage-menu-menu") |> render() =~ "Transfer ownership"
     end
 
     test "the proposed new owner can accept and becomes owner", ctx do

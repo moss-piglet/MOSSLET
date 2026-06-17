@@ -543,6 +543,136 @@ defmodule Mosslet.Orgs do
     adapter().delete_org(org)
   end
 
+  @doc """
+  Owner-facing SAFE org deletion + true ZK teardown (Task #227).
+
+  This is the high-friction, irreversible path an owner uses to permanently
+  delete a Family/Business org. Unlike the bare `delete_org/1` (cascade only —
+  used by the #236 reclaim of never-activated orgs), this performs the complete
+  teardown of everything the org could have shared, in two layers:
+
+  Gates (both must pass before anything is touched):
+
+    * `requesting_user` must OWN the org (`created_by_id`). Members/admins who are
+      not the owner are refused with `{:error, :not_owner}`.
+    * `password` must re-authenticate the owner — refused with
+      `{:error, :invalid_password}`. (High-friction, mirroring #237.)
+
+  Authoritative, SYNCHRONOUS teardown (fast, transactional, consistent):
+
+    1. Business circles — explicitly deleted via `Groups.delete_group/1` per
+       circle (NOT left to the `groups.org_id` `:nilify_all` FK, which would
+       orphan them as personal circles — a privacy/integrity gap). Each
+       `delete_group/1` also tears down that circle's ZK shared files (rows +
+       opaque cloud blobs).
+    2. Org-level shared files — `Files.delete_all_for_org/1` removes any remaining
+       `shared_files`/`user_shared_files` rows and their blobs.
+    3. The org row itself — `delete_org/1` cascades memberships, invitations,
+       billing customer + subscriptions, logs, guardianships, and pending
+       ownership transfers.
+
+  MEMBER SAFETY: deleting an org cascade-removes only the org's `orgs_memberships`
+  rows. Members keep their personal accounts and their personal `:user`-source
+  billing entirely untouched — only their family/business membership is removed.
+
+  Best-effort, ASYNC external side-effects (offloaded to `OrgTeardownJob`, ZK-safe
+  org-id + provider-ref args, retriable, never rolls back the committed teardown):
+
+    * IMMEDIATE Stripe subscription cancellation — deletion stops billing now.
+    * Stripe customer deletion.
+
+  The org's Stripe `provider_customer_id` / `provider_subscription_id` are read
+  BEFORE the cascade removes the local billing rows, then handed to the job.
+
+  Audit log (ZK-safe, ids only — the org `org_id` FK would cascade away, so the
+  deleted org's id lives in metadata) + `{:org_updated, org_id}` broadcast on
+  success.
+
+  Returns `{:ok, %{org_id: id, circles_deleted: n, files_deleted: m}}` or
+  `{:error, reason}`.
+  """
+  def delete_org_safely(%Org{} = org, requesting_user, password) when is_binary(password) do
+    cond do
+      not owner?(org, requesting_user.id) ->
+        {:error, :not_owner}
+
+      not Mosslet.Accounts.User.valid_password?(requesting_user, password) ->
+        {:error, :invalid_password}
+
+      true ->
+        do_delete_org_safely(org, requesting_user)
+    end
+  end
+
+  defp do_delete_org_safely(%Org{} = org, requesting_user) do
+    # Read the org's Stripe refs BEFORE the cascade nukes the local billing rows.
+    {provider_customer_id, provider_subscription_id} = read_org_billing_refs(org)
+
+    # 1. Business circles — explicit delete (NOT :nilify_all orphaning). Each
+    #    delete_group/1 tears down the circle's files (rows + blobs) too.
+    circles = Mosslet.Groups.list_org_business_circles(org)
+
+    Enum.each(circles, fn circle ->
+      _ = Mosslet.Groups.delete_group(circle)
+    end)
+
+    # 2. Any remaining org-level shared files (rows + best-effort blob deletes).
+    files_deleted =
+      case Mosslet.Files.delete_all_for_org(org.id) do
+        {:ok, count} -> count
+        _ -> 0
+      end
+
+    # 3. The org row + its FK cascade (memberships, invitations, billing, logs,
+    #    guardianships, transfers).
+    case delete_org(org) do
+      {:ok, _deleted} ->
+        # Best-effort external side-effects — never blocks/rolls back the
+        # committed teardown. ZK-safe: org id + provider refs only.
+        Mosslet.Orgs.Jobs.OrgTeardownJob.enqueue(
+          org.id,
+          provider_customer_id,
+          provider_subscription_id
+        )
+
+        # ZK-safe audit log: ids only. The org_id FK cascades with the org, so we
+        # record the deleted org's id in metadata (an internal UUID, not a secret).
+        Mosslet.Logs.log_async("orgs.delete_org_safely", %{
+          user: requesting_user,
+          metadata: %{"deleted_org_id" => org.id, "org_type" => to_string(org.type)}
+        })
+
+        broadcast_org_update(org.id)
+
+        {:ok,
+         %{
+           org_id: org.id,
+           circles_deleted: length(circles),
+           files_deleted: files_deleted
+         }}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # Reads the org's Stripe customer + active-subscription provider ids (or nil)
+  # so the async teardown job can cancel/delete them after the local rows have
+  # cascaded away. Provider refs (`cus_…`/`sub_…`) are opaque, non-secret ids.
+  defp read_org_billing_refs(%Org{} = org) do
+    case Customers.get_customer_by_source(:org, org.id) do
+      %Customer{} = customer ->
+        sub =
+          Subscriptions.get_active_subscription_by_customer_id(customer.id) ||
+            List.first(Subscriptions.list_subscriptions_by_customer_id(customer.id))
+
+        {customer.provider_customer_id, sub && sub.provider_subscription_id}
+
+      _ ->
+        {nil, nil}
+    end
+  end
+
   def change_org(org, attrs \\ %{}) do
     if Ecto.get_meta(org, :state) == :loaded do
       Org.update_changeset(org, attrs)
