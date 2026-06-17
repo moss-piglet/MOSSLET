@@ -30,18 +30,18 @@ defmodule MossletWeb.SubscribeController do
     user = conn.assigns.current_user
     seats = parse_seats(plan, params)
 
+    # Mirror the :org clause: never start a NEW Checkout Session when an
+    # active/trialing :user subscription already exists. Doing so would create a
+    # SECOND live Stripe subscription (the old code deleted only the LOCAL
+    # Subscription row, leaving the Stripe sub live -> duplicate charge risk).
+    # Interval/plan changes are routed in-place through SubscribeLive's
+    # "switch_subscription" -> change_plan (Stripe Billing Portal update); the
+    # subscribe UI only renders the "checkout" button when there is no active
+    # billing, so reaching here with an active sub means a stale URL or a
+    # double-submit — we refuse and send the user to billing (Task #239).
     case get_subscription(:user, user.id) do
-      nil ->
-        handle_checkout(conn, plan, :user, user.id, seats)
-
-      sub ->
-        case Mosslet.Repo.delete(sub) do
-          {:ok, _sub_deleted} ->
-            handle_checkout(conn, plan, :user, user.id, seats)
-
-          _error ->
-            handle_subscription(conn, :user, user.id)
-        end
+      nil -> handle_checkout(conn, plan, :user, user.id, seats)
+      _sub -> handle_subscription(conn, :user, user.id)
     end
   end
 
