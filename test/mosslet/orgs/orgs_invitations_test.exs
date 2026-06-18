@@ -2,12 +2,17 @@ defmodule Mosslet.OrgsInvitationsTest do
   use Mosslet.DataCase, async: true
 
   import Mosslet.AccountsFixtures
+  import Mosslet.OrgsFixtures
   import Swoosh.TestAssertions
 
   alias Mosslet.Accounts
   alias Mosslet.Billing.Customers
+  alias Mosslet.Billing.Plans
   alias Mosslet.Billing.Subscriptions
   alias Mosslet.Orgs
+
+  defp monthly_addon_price,
+    do: Plans.subdomain_addon_price(Plans.get_plan_by_id!("business-monthly"))
 
   defp confirmed_user(seed) do
     user = confirmed_user_no_billing(seed)
@@ -94,6 +99,35 @@ defmodule Mosslet.OrgsInvitationsTest do
         assert email.subject =~ "family"
         assert email.subject =~ "The Smiths"
         assert email.html_body =~ "/invite/"
+      end)
+    end
+
+    test "invite link points at the branded subdomain host when subdomain is live (Task #246)" do
+      org = business_org()
+      ensure_org_subscription(org, quantity: 20, items: [%{"price_id" => monthly_addon_price()}])
+      {:ok, org} = Orgs.set_org_subdomain(org, %{"subdomain" => "brandsub"})
+      assert Orgs.subdomain_live?(org)
+
+      {:ok, invitation} = Orgs.create_invitation(org, %{"sent_to" => "branded@example.com"})
+      assert {:ok, _email} = Orgs.deliver_invitation_email(invitation, org)
+
+      branded_base = Orgs.org_base_url(org)
+      assert String.contains?(branded_base, "brandsub.")
+
+      assert_email_sent(fn email ->
+        assert email.html_body =~ branded_base <> "/invite/"
+      end)
+    end
+
+    test "invite link uses the apex host when the org's subdomain is NOT live (Task #246)" do
+      org = business_org()
+      {:ok, invitation} = Orgs.create_invitation(org, %{"sent_to" => "apex@example.com"})
+      assert {:ok, _email} = Orgs.deliver_invitation_email(invitation, org)
+
+      refute Orgs.subdomain_live?(org)
+
+      assert_email_sent(fn email ->
+        assert email.html_body =~ MossletWeb.Endpoint.url() <> "/invite/"
       end)
     end
   end

@@ -138,4 +138,15 @@ defmodule MossletWeb.MenusTest do
                Menus.get_link(:manage_business, business_user)
     end
   end
+
+  describe "get_link/2 sign_out (drives the mosslet:logout ZK-wipe dispatcher)" do
+    test "points at /auth/sign_out with the DELETE method" do
+      # app.js installs a global capture-phase click listener that fires the
+      # `mosslet:logout` ZK-wipe event when a clicked link carries
+      # data-method=\"delete\" + data-to=\"/auth/sign_out\". Those attributes are
+      # derived from this menu entry, so pin them down (Task #246).
+      assert %{name: :sign_out, path: "/auth/sign_out", method: :delete} =
+               Menus.get_link(:sign_out, user_fixture())
+    end
+  end
 end

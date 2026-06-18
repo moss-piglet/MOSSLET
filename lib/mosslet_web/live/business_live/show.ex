@@ -130,6 +130,48 @@ defmodule MossletWeb.BusinessLive.Show do
 
         <.org_coverage_notice status={@coverage_status} />
 
+        <%!-- Branded space pointer (Task #246). Visible to ALL members once the
+             org's custom subdomain is live. We keep in-app navigation path-only
+             (single-origin per session), so this is the one intentional
+             cross-host link: an absolute <a> to the branded host. The "Open" CTA
+             only shows when the member is NOT already on the subdomain. --%>
+        <div
+          :if={@subdomain_live?}
+          id="org-branded-space"
+          class="rounded-2xl border border-teal-200/70 dark:border-teal-800/50 bg-gradient-to-br from-teal-50/80 to-emerald-50/50 dark:from-teal-900/20 dark:to-emerald-900/10 p-4 sm:p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div class="flex items-start gap-3 min-w-0">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/70 dark:bg-slate-800/60 text-teal-600 dark:text-teal-400">
+              <.phx_icon name="hero-globe-alt" class="size-5" />
+            </span>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-teal-900 dark:text-teal-200">
+                Your branded space
+              </p>
+              <p class="text-xs text-teal-800/80 dark:text-teal-300/80 break-all">
+                {subdomain_display_url(@org.subdomain)}
+              </p>
+            </div>
+          </div>
+          <div class="shrink-0">
+            <span
+              :if={@on_org_subdomain?}
+              id="org-branded-space-here"
+              class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-300"
+            >
+              <.phx_icon name="hero-check-circle" class="size-4" /> You're on it
+            </span>
+            <a
+              :if={!@on_org_subdomain?}
+              id="org-branded-space-open"
+              href={@org_branded_url}
+              class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-emerald-500/25 transition-all duration-200 hover:from-teal-600 hover:to-emerald-700 hover:shadow-md"
+            >
+              <.phx_icon name="hero-arrow-top-right-on-square" class="size-4" /> Open branded space
+            </a>
+          </div>
+        </div>
+
         <%!-- Everyday surfaces — members, circles, and files — get the prominent
              real-estate. On lg+ they fan out into a responsive multi-column grid;
              on mobile they stack into one column (Task #248). --%>
@@ -2028,6 +2070,22 @@ defmodule MossletWeb.BusinessLive.Show do
     "#{subdomain}.#{Application.get_env(:mosslet, :canonical_host) || "mosslet.com"}"
   end
 
+  # Whether the current request is being served on THIS org's branded subdomain
+  # (Task #246). Drives the "Open your branded space" CTA — we only invite a
+  # member to switch hosts when they're NOT already on it. Reuses the host plug's
+  # parser against `socket.host_uri`; safely false on apex / when unset.
+  defp on_org_subdomain?(socket, %{subdomain: subdomain}) when is_binary(subdomain) do
+    with %URI{host: host} when is_binary(host) <- socket.host_uri,
+         base when is_binary(base) <- Application.get_env(:mosslet, :canonical_host),
+         {:ok, label} <- MossletWeb.Plugs.OrgSubdomain.subdomain_label(host, base) do
+      label == subdomain
+    else
+      _ -> false
+    end
+  end
+
+  defp on_org_subdomain?(_socket, _org), do: false
+
   # Resolve the org's pending ownership transfer once and derive whether the
   # viewer is its proposed new owner (drives both the ownership section and the
   # "Manage" disclosure gate) — single query, no N+1.
@@ -2159,6 +2217,9 @@ defmodule MossletWeb.BusinessLive.Show do
       Orgs.can_manage_branding?(org, socket.assigns.membership)
     )
     |> assign(:has_branding_addon?, Orgs.has_branding_addon?(org))
+    |> assign(:subdomain_live?, Orgs.subdomain_live?(org))
+    |> assign(:org_branded_url, Orgs.org_base_url(org))
+    |> assign(:on_org_subdomain?, on_org_subdomain?(socket, org))
     |> assign(:subdomain_form, to_form(Org.subdomain_changeset(org, %{}), as: :branding))
     |> assign(:org_logo_url, org_logo_presigned_url(org))
     |> assign_pending_transfer(org, current_user)

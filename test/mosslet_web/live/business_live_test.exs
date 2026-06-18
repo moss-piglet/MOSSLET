@@ -608,6 +608,31 @@ defmodule MossletWeb.BusinessLiveTest do
       # ...but the subdomain (mutates the paid subscription) is owner-only.
       refute has_element?(lv, "#org-subdomain")
     end
+
+    test "the branded-space pointer is shown to ALL members once the subdomain is live (Task #246)",
+         ctx do
+      subscribe_org(ctx.org, items: [%{"price_id" => subdomain_addon_price()}])
+      {:ok, _org} = Orgs.set_org_subdomain(ctx.org, %{"subdomain" => "acmeteam"})
+
+      # A regular (non-admin) member sees the pointer + the "open" CTA (the test
+      # host is the apex, so the member is not yet on the branded subdomain).
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#org-branded-space")
+      assert has_element?(lv, "#org-branded-space-open")
+      refute has_element?(lv, "#org-branded-space-here")
+    end
+
+    test "the branded-space pointer is absent when the subdomain is NOT live (Task #246)", ctx do
+      # Logo-only org (no add-on) — subdomain isn't served, so no pointer.
+      subscribe_org(ctx.org, items: [%{"price_id" => "price_test"}])
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      refute has_element?(lv, "#org-branded-space")
+    end
   end
 
   describe "BusinessLive.Show seats (Task #247, owner-only add-seats)" do
@@ -1307,6 +1332,48 @@ defmodule MossletWeb.BusinessLiveTest do
       member_ids = Enum.map(refreshed.user_groups, & &1.user_id)
       assert ctx.member.id in member_ids
       assert ctx.outsider.id in member_ids
+    end
+  end
+
+  describe "apex branded-space banner (Task #246)" do
+    setup %{conn: conn} do
+      {owner, owner_key} = onboarded_user("bannerowner")
+      {:ok, org} = Orgs.create_org(owner, %{"name" => "Acme", "type" => "business"})
+      %{conn: conn, owner: owner, owner_key: owner_key, org: org}
+    end
+
+    test "shows on apex for a member of a branding-live org", ctx do
+      subscribe_org(ctx.org, items: [%{"price_id" => subdomain_addon_price()}])
+      {:ok, _org} = Orgs.set_org_subdomain(ctx.org, %{"subdomain" => "acmeteam"})
+
+      {:ok, lv, _html} = ctx.conn |> log_in(ctx.owner, ctx.owner_key) |> live(~p"/app")
+
+      assert has_element?(lv, "#branded-space-banner")
+      assert has_element?(lv, "#branded-space-banner-switch")
+    end
+
+    test "is absent when the member's orgs have no live subdomain", ctx do
+      # Active org but no subdomain add-on (logo-only) -> not served on a subdomain.
+      subscribe_org(ctx.org, items: [%{"price_id" => "price_test"}])
+
+      {:ok, lv, _html} = ctx.conn |> log_in(ctx.owner, ctx.owner_key) |> live(~p"/app")
+
+      refute has_element?(lv, "#branded-space-banner")
+    end
+  end
+
+  describe "sign-out link (mosslet:logout ZK-wipe dispatcher, Task #246)" do
+    test "the authenticated layout renders a DELETE sign-out link to /auth/sign_out", %{
+      conn: conn
+    } do
+      {owner, owner_key} = onboarded_user("signoutlink")
+
+      {:ok, lv, _html} = conn |> log_in(owner, owner_key) |> live(~p"/app")
+
+      # The global click dispatcher in app.js matches exactly these attributes to
+      # fire `mosslet:logout` (which wipes sessionStorage/localStorage/IndexedDB
+      # ZK keys) — identical on apex and org subdomains.
+      assert has_element?(lv, ~s|a[data-to="/auth/sign_out"][data-method="delete"]|)
     end
   end
 end

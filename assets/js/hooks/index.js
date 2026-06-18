@@ -100,6 +100,7 @@ import StartConversation from "./start-conversation";
 import SeatStepper from "./seat-stepper";
 import ZkExportHook from "./zk-export-hook";
 import ZkMoodInsights from "./zk-mood-insights";
+import BrandedSpaceBanner from "./branded-space-banner";
 
 export default {
   AccountRecoveryHook,
@@ -207,4 +208,5 @@ export default {
   SeatStepper,
   ZkExportHook,
   ZkMoodInsights,
+  BrandedSpaceBanner,
 };

@@ -104,6 +104,30 @@ defmodule MossletWeb.UserOnMountHooks do
     {:cont, socket}
   end
 
+  # Apex "switch to your branded space" hint (Task #246).
+  #
+  # On a connected mount that is NOT being served on an org subdomain (i.e. the
+  # apex), assigns `:branded_space_orgs` — the orgs the current user belongs to
+  # whose custom subdomain is live (`Orgs.list_branded_orgs_for_user/1`). The
+  # authenticated layout renders a dismissible banner pointing members at their
+  # branded host so their session can live single-origin on the subdomain.
+  #
+  # On a subdomain host (or the disconnected first render) the list is empty, so
+  # nothing is shown. Read-only and idempotent — it NEVER redirects (consistent
+  # with the leave-as-is routing decision); it only offers a user-initiated link.
+  # Must be wired AFTER the auth hooks so `current_scope` is present.
+  def on_mount(:assign_branded_space_hint, _params, _session, socket) do
+    orgs =
+      if connected?(socket) and not on_any_subdomain?(socket) do
+        user = socket.assigns[:current_scope] && socket.assigns.current_scope.user
+        Mosslet.Orgs.list_branded_orgs_for_user(user)
+      else
+        []
+      end
+
+    {:cont, assign(socket, :branded_space_orgs, orgs)}
+  end
+
   def on_mount(:redirect_if_user_is_authenticated, _params, session, socket) do
     socket = maybe_assign_scope(socket, session)
     scope = socket.assigns.current_scope
@@ -164,6 +188,19 @@ defmodule MossletWeb.UserOnMountHooks do
       Mosslet.Orgs.get_org_by_subdomain(label)
     else
       _ -> nil
+    end
+  end
+
+  # True when the current socket is being served on ANY org subdomain (a single
+  # non-reserved label off the canonical host). Used to suppress the apex
+  # "switch to your branded space" hint when the member is already on a branded
+  # host. Safely false on the apex / when no canonical host is configured.
+  defp on_any_subdomain?(socket) do
+    with %URI{host: host} when is_binary(host) <- socket.host_uri,
+         base when is_binary(base) <- Application.get_env(:mosslet, :canonical_host) do
+      match?({:ok, _}, MossletWeb.Plugs.OrgSubdomain.subdomain_label(host, base))
+    else
+      _ -> false
     end
   end
 end

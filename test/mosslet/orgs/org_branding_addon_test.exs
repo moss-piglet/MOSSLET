@@ -138,6 +138,75 @@ defmodule Mosslet.Orgs.OrgBrandingAddonTest do
     end
   end
 
+  describe "org_base_url/1 (branded host for cross-host links, Task #246)" do
+    test "returns the canonical apex when the org's subdomain is NOT live" do
+      org = business_org()
+      ensure_org_subscription(org, items: [%{"price_id" => "price_business_base"}])
+      {:ok, org} = Orgs.set_org_subdomain(org, %{"subdomain" => "apexco"})
+
+      refute Orgs.subdomain_live?(org)
+      assert Orgs.org_base_url(org) == MossletWeb.Endpoint.url()
+    end
+
+    test "prepends the subdomain label to the apex host when live (scheme/port preserved)" do
+      org = business_org()
+      ensure_org_subscription(org, items: [%{"price_id" => monthly_addon_price()}])
+      {:ok, org} = Orgs.set_org_subdomain(org, %{"subdomain" => "brandco"})
+
+      assert Orgs.subdomain_live?(org)
+
+      uri = URI.parse(MossletWeb.Endpoint.url())
+      expected = URI.to_string(%{uri | host: "brandco.#{uri.host}"})
+
+      assert Orgs.org_base_url(org) == expected
+      assert String.contains?(Orgs.org_base_url(org), "brandco.")
+    end
+
+    test "falls back to apex for a non-Org argument" do
+      assert Orgs.org_base_url(nil) == MossletWeb.Endpoint.url()
+    end
+  end
+
+  describe "list_branded_orgs_for_user/1 (apex switch-hint source, Task #246)" do
+    test "includes an org the user belongs to whose subdomain is live" do
+      owner = confirmed_user("brandedowner")
+
+      {:ok, live_org} =
+        Orgs.create_org(owner, %{
+          "name" => "Live Co #{System.unique_integer([:positive])}",
+          "type" => "business"
+        })
+
+      ensure_org_subscription(live_org, items: [%{"price_id" => monthly_addon_price()}])
+
+      {:ok, _} =
+        Orgs.set_org_subdomain(live_org, %{
+          "subdomain" => "liveco#{System.unique_integer([:positive])}"
+        })
+
+      branded_ids = owner |> Orgs.list_branded_orgs_for_user() |> Enum.map(& &1.id)
+      assert live_org.id in branded_ids
+    end
+
+    test "excludes a membered org whose subdomain is NOT live (logo-only)" do
+      owner = confirmed_user("plainowner")
+
+      {:ok, plain_org} =
+        Orgs.create_org(owner, %{
+          "name" => "Plain Co #{System.unique_integer([:positive])}",
+          "type" => "business"
+        })
+
+      ensure_org_subscription(plain_org, items: [%{"price_id" => "price_business_base"}])
+
+      assert Orgs.list_branded_orgs_for_user(owner) == []
+    end
+
+    test "returns [] for a nil user" do
+      assert Orgs.list_branded_orgs_for_user(nil) == []
+    end
+  end
+
   describe "can_manage_billing?/2 (owner-only gate for subscription-affecting settings)" do
     test "true only for the org owner, false for a non-owner admin" do
       owner = confirmed_user("billingowner")

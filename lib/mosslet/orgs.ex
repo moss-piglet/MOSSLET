@@ -381,6 +381,48 @@ defmodule Mosslet.Orgs do
   def subdomain_live?(_), do: false
 
   @doc """
+  The absolute base URL for an org's surfaces (Task #246 entry-point UX).
+
+  When the org's custom-subdomain add-on is live (`subdomain_live?/1`), returns
+  the branded host (e.g. `https://acmebiz.mosslet.com`); otherwise returns the
+  canonical apex (`MossletWeb.Endpoint.url/0`).
+
+  The scheme and port are inherited from the endpoint URL (so dev correctly
+  yields `http://acmebiz.localhost:4000`), and we simply prepend the subdomain
+  label to the canonical host. Never includes a trailing slash.
+
+  Use this anywhere we mint an ABSOLUTE, cross-host link we want a member to land
+  on (e.g. invitation emails) so their session is established single-origin on
+  the branded host. In-app navigation stays path-only (`~p`) per the leave-as-is
+  routing decision; this helper is only for the few intentional cross-host links.
+  """
+  def org_base_url(%Org{} = org) do
+    apex = MossletWeb.Endpoint.url()
+
+    if subdomain_live?(org) do
+      uri = URI.parse(apex)
+      URI.to_string(%{uri | host: "#{org.subdomain}.#{uri.host}"})
+    else
+      apex
+    end
+  end
+
+  def org_base_url(_), do: MossletWeb.Endpoint.url()
+
+  @doc """
+  Lists the orgs a user belongs to whose custom subdomain is currently live
+  (`subdomain_live?/1`) — used to surface the "switch to your branded space"
+  hint on apex (Task #246). Returns `[]` for a nil user.
+  """
+  def list_branded_orgs_for_user(nil), do: []
+
+  def list_branded_orgs_for_user(user) do
+    user
+    |> list_orgs()
+    |> Enum.filter(&subdomain_live?/1)
+  end
+
+  @doc """
   One-click purchase of the paid custom-subdomain add-on for an ALREADY-ACTIVE
   org (Task #240 / #243, Phase B). Appends the interval-matched add-on line item
   to the org's existing `:org`-source subscription via the billing provider —
@@ -1309,7 +1351,11 @@ defmodule Mosslet.Orgs do
   """
   def deliver_invitation_email(%Invitation{} = invitation, %Org{} = org) do
     token = sign_invite_token(invitation)
-    url = MossletWeb.Endpoint.url() <> "/invite/" <> token
+    # Land invitees on the org's branded host when its subdomain is live, so the
+    # whole accept→sign-in/register flow happens single-origin on the subdomain
+    # (the /invite landing's relative ~p links then preserve that host). Falls
+    # back to the canonical apex otherwise (Task #246).
+    url = org_base_url(org) <> "/invite/" <> token
     Mosslet.Accounts.UserNotifier.deliver_org_invitation(invitation.sent_to, org, invitation, url)
   end
 

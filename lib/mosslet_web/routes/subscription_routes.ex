@@ -18,7 +18,8 @@ defmodule MossletWeb.SubscriptionRoutes do
             {MossletWeb.UserAuth, :ensure_session_key},
             {MossletWeb.UserAuth, :maybe_ensure_connection},
             {MossletWeb.UserAuth, :maybe_ensure_private_posts},
-            {MossletWeb.SubscriptionPlugs, :subscribed_user}
+            {MossletWeb.SubscriptionPlugs, :subscribed_user},
+            {MossletWeb.UserOnMountHooks, :assign_branded_space_hint}
           ] do
           # Dashboard
           live "/", UserDashLive, :index

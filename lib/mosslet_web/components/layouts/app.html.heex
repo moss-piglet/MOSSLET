@@ -3,6 +3,47 @@
   :if={assigns[:sync_status]}
   sync_status={@sync_status}
 />
+<%!-- Branded-space hint (Task #246): on apex, nudge members of a branding-live
+     org toward their branded host (user-initiated switch, NOT a redirect). The
+     cross-host "Switch" is a full-page <a>; dismissal is client-only via the
+     BrandedSpaceBanner hook (localStorage, per-subdomain). --%>
+<% branded_org = List.first(assigns[:branded_space_orgs] || []) %>
+<div
+  :if={branded_org}
+  id="branded-space-banner"
+  phx-hook="BrandedSpaceBanner"
+  data-banner-key={branded_org.subdomain}
+  class="relative z-20 flex items-center justify-between gap-3 border-b border-teal-200/70 dark:border-teal-800/50 bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/30 dark:to-emerald-900/20 px-4 py-2.5 sm:px-6"
+>
+  <div class="flex items-center gap-2.5 min-w-0 text-sm text-teal-900 dark:text-teal-200">
+    <.phx_icon name="hero-globe-alt" class="size-4 shrink-0" />
+    <span class="truncate">
+      <span class="font-semibold">{branded_org.name}</span>
+      has a branded space at
+      <span class="font-medium break-all">
+        {URI.parse(Mosslet.Orgs.org_base_url(branded_org)).host}
+      </span>
+    </span>
+  </div>
+  <div class="flex items-center gap-2 shrink-0">
+    <a
+      id="branded-space-banner-switch"
+      href={Mosslet.Orgs.org_base_url(branded_org)}
+      class="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-teal-500 to-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-teal-600 hover:to-emerald-700"
+    >
+      <.phx_icon name="hero-arrow-top-right-on-square" class="size-3.5" /> Switch
+    </a>
+    <button
+      type="button"
+      id="branded-space-banner-dismiss"
+      aria-label="Dismiss"
+      class="rounded-lg p-1.5 text-teal-700/70 dark:text-teal-300/70 transition-colors hover:bg-teal-100/60 dark:hover:bg-teal-800/40 hover:text-teal-900 dark:hover:text-teal-100"
+    >
+      <.phx_icon name="hero-x-mark" class="size-4" />
+    </button>
+  </div>
+</div>
+
 <%!-- Session key deriver — derives and caches encryption keys for all browser-side crypto --%>
 <%= if assigns[:current_scope] && @current_scope.user && @current_scope.key do %>
   <div

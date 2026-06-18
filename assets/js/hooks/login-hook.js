@@ -33,6 +33,21 @@ const LoginHook = {
   mounted() {
     const form = this.el;
 
+    // Forced-disconnect / orphaned-session hardening (Task #246).
+    //
+    // Reaching the sign-in page means there is NO authenticated session
+    // (authenticated users are redirected away by :redirect_if_user_is_authenticated).
+    // So any ZK key material still sitting in this origin's storage is orphaned —
+    // e.g. after a server-side "sign out everywhere", account suspension, or
+    // deletion, whose next request funnels the user here. Wipe it now.
+    //
+    // This is the deploy-safe alternative to wiping on a raw socket disconnect
+    // (which fires on every deploy/network blip and would force needless
+    // re-unlocks). It runs BEFORE the pre-submit KDF below writes a fresh temp
+    // key, so it never clobbers an in-progress login. It never touches
+    // /auth/unlock (which must preserve keys for an existing session).
+    window.dispatchEvent(new CustomEvent("mosslet:logout"));
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
 
