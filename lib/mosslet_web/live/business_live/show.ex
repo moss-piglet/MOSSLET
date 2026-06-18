@@ -50,6 +50,7 @@ defmodule MossletWeb.BusinessLive.Show do
        |> assign(:coverage_status, Orgs.org_coverage_status(current_user))
        |> assign(:invite_form, to_form(%{"email" => ""}, as: :invite))
        |> assign(:org_display_name_form, to_form(%{"name" => ""}, as: :org_display_name))
+       |> assign(:editing_name_user_id, nil)
        |> assign(:show_circle_form?, false)
        |> assign(:circle_form, to_form(%{"name" => "", "description" => ""}, as: :circle))
        |> assign(:show_announcement_form?, false)
@@ -206,8 +207,11 @@ defmodule MossletWeb.BusinessLive.Show do
              real-estate. On lg+ they fan out into a responsive multi-column grid;
              on mobile they stack into one column (Task #248). --%>
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8 lg:items-start">
-          <%!-- Member management --%>
-          <section class="lg:col-span-7 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4">
+          <%!-- Member management. On lg+ this is the right-hand "who's here" rail
+               (col-span-4); the everyday-work column below takes the prominent
+               col-span-8. `order` keeps the work surfaces first on every
+               breakpoint (incl. mobile) regardless of source order (Task #263). --%>
+          <section class="order-2 lg:col-span-4 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4">
             <div class="flex items-center justify-between">
               <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Members</h2>
               <span
@@ -251,7 +255,7 @@ defmodule MossletWeb.BusinessLive.Show do
               <li
                 :for={member <- @members}
                 id={"member-#{member.user.id}"}
-                class="py-3 flex items-center justify-between gap-3"
+                class="py-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2"
                 data-org-member-row
                 data-encrypted-display-name={member.encrypted_display_name}
               >
@@ -279,6 +283,25 @@ defmodule MossletWeb.BusinessLive.Show do
                 </div>
 
                 <div class="flex items-center gap-2 flex-shrink-0">
+                  <%!-- Edit display name (Task #263). The viewer can rename
+                     themselves (re-edit; the first-time prompt below covers the
+                     unset case), and admins/owners can rename anyone — e.g. a
+                     teammate who marries or simply wants a different persona. The
+                     name is re-encrypted browser-side with the shared org_key
+                     (ZK); the server only authorizes + stores ciphertext. --%>
+                  <button
+                    :if={show_edit_name?(member, @viewer_sealed_org_key, @can_manage?)}
+                    type="button"
+                    phx-click="edit_name"
+                    phx-value-user_id={member.user.id}
+                    id={"edit-name-#{member.user.id}"}
+                    aria-label="Edit display name"
+                    title="Edit display name"
+                    class="rounded-lg p-1.5 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors duration-200"
+                  >
+                    <.phx_icon name="hero-pencil-square" class="size-4" />
+                  </button>
+
                   <%!-- One-tap "Connect with teammate" (Task #226): send a personal
                      UserConnection invite to a member you're not yet connected
                      to. Once accepted, their real personal name lights up via the
@@ -340,6 +363,55 @@ defmodule MossletWeb.BusinessLive.Show do
                     </.liquid_button>
                   </div>
                 </div>
+
+                <%!-- Inline edit-name form (Task #263). Lives inside the row but
+                     wraps to its own line (`basis-full`). The OrgDisplayNameFormHook
+                     decrypts `data-current-encrypted-name` to PREFILL the input
+                     and, on submit, re-encrypts with the org_key and pushes
+                     `save_org_display_name` carrying `target_user_id` so the
+                     server stores it on the right membership (re-authorized). --%>
+                <.form
+                  :if={@editing_name_user_id == member.user.id}
+                  for={@org_display_name_form}
+                  id={"edit-name-form-#{member.user.id}"}
+                  phx-hook="OrgDisplayNameFormHook"
+                  data-sealed-org-key={@viewer_sealed_org_key}
+                  data-target-user-id={member.user.id}
+                  data-current-encrypted-name={member.encrypted_display_name}
+                  phx-submit="save_org_display_name"
+                  class="basis-full mt-1 flex flex-col gap-2 rounded-xl border border-teal-200/60 dark:border-teal-800/50 bg-teal-50/60 dark:bg-teal-900/20 p-3 sm:flex-row sm:items-end"
+                >
+                  <div class="flex-1">
+                    <.phx_input
+                      field={@org_display_name_form[:name]}
+                      type="text"
+                      label={if member.self?, do: "Your team display name", else: "Team display name"}
+                      placeholder="e.g. Mark — Engineering"
+                      maxlength="160"
+                      autocomplete="off"
+                    />
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <.liquid_button
+                      type="submit"
+                      size="sm"
+                      color="emerald"
+                      icon="hero-check"
+                      id={"edit-name-submit-#{member.user.id}"}
+                    >
+                      Save
+                    </.liquid_button>
+                    <.liquid_button
+                      type="button"
+                      variant="ghost"
+                      color="slate"
+                      size="sm"
+                      phx-click="cancel_edit_name"
+                    >
+                      Cancel
+                    </.liquid_button>
+                  </div>
+                </.form>
               </li>
             </ul>
 
@@ -416,7 +488,7 @@ defmodule MossletWeb.BusinessLive.Show do
             </div>
           </section>
 
-          <div class="space-y-6 lg:col-span-5">
+          <div class="order-1 space-y-6 lg:col-span-8">
             <%!-- Org-wide ZK announcements (Task #229c): owner/admin author
                  notices encrypted with the org_key; everyone reads them
                  decrypted browser-side. --%>
@@ -660,14 +732,19 @@ defmodule MossletWeb.BusinessLive.Show do
               phx-hook="OrgFileSearch"
               class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
             >
-              <div>
-                <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
-                  Files across your circles
-                </h2>
-                <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                  Everything shared with circles you're in. Encrypted on each member's device —
-                  Mosslet can't read them.
-                </p>
+              <div class="flex items-start gap-3">
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-300">
+                  <.phx_icon name="hero-folder" class="size-5" />
+                </span>
+                <div class="min-w-0">
+                  <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                    Files across your circles
+                  </h2>
+                  <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                    Everything shared with circles you're in. Encrypted on each member's device —
+                    Mosslet can't read them.
+                  </p>
+                </div>
               </div>
 
               <%!-- Find-things-fast toolbar (#229a). Filename SEARCH is client-side
@@ -780,513 +857,548 @@ defmodule MossletWeb.BusinessLive.Show do
           </div>
         </div>
 
-        <%!-- ZK admin activity log (Task #212, §12 of BUSINESS_CIRCLES_DESIGN.md).
-             Owner/admin-only, READ-ONLY, APPEND-ONLY accountability feed. The
-             server stores only opaque ids + a non-sensitive action category +
-             timestamp (no readable content); the human-readable description is
-             reconstructed CLIENT-SIDE by the AuditLog hook from the org_key the
-             admin already holds (member display names). A "Download" button
-             exports a local copy (client-side, ZK) — useful day-to-day and as the
-             owner's final snapshot before deleting the org. --%>
+        <%!-- ADMINISTRATION band (Task #263). Secondary, owner/admin-only zone —
+             the accountability feed plus one-time setup — grouped under a single
+             full-width divider so it reads as a deliberate "admin" footer rather
+             than an abrupt narrow column after the everyday-work grid above. --%>
         <section
-          :if={@can_view_audit_log?}
-          id="org-audit-log"
-          phx-hook="AuditLog"
-          data-sealed-org-key={@viewer_sealed_org_key}
-          data-member-directory={@audit_member_directory}
-          class="mx-auto max-w-3xl space-y-4"
+          :if={@can_view_audit_log? || @can_manage_branding? || @is_owner? || @incoming_transfer?}
+          id="org-admin-band"
+          class="space-y-6"
         >
-          <div class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm overflow-hidden">
-            <header class="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-700/60">
-              <div class="flex items-center gap-3 min-w-0">
-                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400">
-                  <.phx_icon name="hero-shield-check" class="size-5" />
-                </span>
-                <div class="min-w-0">
-                  <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
-                    Activity log
-                  </h2>
-                  <p class="text-xs text-slate-500 dark:text-slate-400">
-                    A tamper-proof, zero-knowledge record of admin actions — visible only to owners and admins.
-                  </p>
-                </div>
-              </div>
-              <.liquid_button
-                :if={@audit_events != []}
-                type="button"
-                variant="secondary"
-                size="sm"
-                icon="hero-arrow-down-tray"
-                id="org-audit-export"
-                data-audit-export
-              >
-                Download
-              </.liquid_button>
-            </header>
-
-            <ol id="org-audit-events" class="divide-y divide-slate-100 dark:divide-slate-700/60">
-              <li
-                :if={@audit_events == []}
-                id="org-audit-empty"
-                class="px-5 py-8 text-center text-sm text-slate-500 dark:text-slate-400"
-              >
-                No admin activity yet. Actions like adding members, changing roles, creating circles, and sharing files will appear here.
-              </li>
-              <li
-                :for={event <- @audit_events}
-                id={"audit-#{event.id}"}
-                class="px-5 py-3 flex items-start gap-3"
-                data-audit-row
-                data-audit-action={event.action}
-                data-audit-actor-id={event.actor_id}
-                data-audit-target-id={event.target_id}
-                data-audit-target-type={event.target_type}
-                data-audit-at={NaiveDateTime.to_iso8601(event.inserted_at)}
-              >
-                <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400">
-                  <.phx_icon name={audit_action_icon(event.action)} class="size-4" />
-                </span>
-                <div class="min-w-0 flex-1">
-                  <p class="text-sm text-slate-700 dark:text-slate-200" data-audit-text>
-                    {audit_action_label(event.action)}
-                  </p>
-                  <p class="text-xs text-slate-400 dark:text-slate-500">
-                    <time>{Calendar.strftime(event.inserted_at, "%b %-d, %Y · %H:%M UTC")}</time>
-                    <span
-                      data-audit-local
-                      class="hidden text-emerald-600 dark:text-emerald-400"
-                    ></span>
-                  </p>
-                </div>
-              </li>
-            </ol>
+          <div class="flex items-center gap-3 pt-2">
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400">
+              <.phx_icon name="hero-lock-closed" class="size-5" />
+            </span>
+            <div class="min-w-0">
+              <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Administration
+              </h2>
+              <p class="text-xs text-slate-500 dark:text-slate-400">
+                Accountability and one-time setup — visible only to owners and admins.
+              </p>
+            </div>
+            <span class="ml-2 hidden h-px flex-1 bg-slate-200/70 dark:bg-slate-700/60 sm:block"></span>
           </div>
-        </section>
 
-        <%!-- One-time SETUP — branding, seats, and ownership — tucked into a
+          <%!-- Match the admin panels to the everyday-work column width above
+               (the files/circles card spans `lg:col-span-8` of the same 12-col,
+               `gap-8` grid), so the left edge AND right edge align with the cards
+               above — no narrower mismatch, no sparse full-bleed (Task #263). --%>
+          <div class="grid grid-cols-1 lg:grid-cols-12 lg:gap-8">
+            <div class="space-y-6 lg:col-span-8">
+              <%!-- ZK admin activity log (Task #212, §12 of BUSINESS_CIRCLES_DESIGN.md).
+                 Owner/admin-only, READ-ONLY, APPEND-ONLY accountability feed. The
+                 server stores only opaque ids + a non-sensitive action category +
+                 timestamp (no readable content); the human-readable description is
+               reconstructed CLIENT-SIDE by the AuditLog hook from the org_key the
+               admin already holds (member display names). A "Download" button
+               exports a local copy (client-side, ZK) — useful day-to-day and as the
+               owner's final snapshot before deleting the org. --%>
+              <section
+                :if={@can_view_audit_log?}
+                id="org-audit-log"
+                phx-hook="AuditLog"
+                data-sealed-org-key={@viewer_sealed_org_key}
+                data-member-directory={@audit_member_directory}
+                class="space-y-4"
+              >
+                <div class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm overflow-hidden">
+                  <header class="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-700/60">
+                    <div class="flex items-center gap-3 min-w-0">
+                      <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400">
+                        <.phx_icon name="hero-shield-check" class="size-5" />
+                      </span>
+                      <div class="min-w-0">
+                        <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                          Activity log
+                        </h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">
+                          A tamper-proof, zero-knowledge record of admin actions — visible only to owners and admins.
+                        </p>
+                      </div>
+                    </div>
+                    <.liquid_button
+                      :if={@audit_events != []}
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      icon="hero-arrow-down-tray"
+                      id="org-audit-export"
+                      data-audit-export
+                    >
+                      Download
+                    </.liquid_button>
+                  </header>
+
+                  <ol id="org-audit-events" class="divide-y divide-slate-100 dark:divide-slate-700/60">
+                    <li
+                      :if={@audit_events == []}
+                      id="org-audit-empty"
+                      class="px-5 py-8 text-center text-sm text-slate-500 dark:text-slate-400"
+                    >
+                      No admin activity yet. Actions like adding members, changing roles, creating circles, and sharing files will appear here.
+                    </li>
+                    <li
+                      :for={event <- @audit_events}
+                      id={"audit-#{event.id}"}
+                      class="px-5 py-3 flex items-start gap-3"
+                      data-audit-row
+                      data-audit-action={event.action}
+                      data-audit-actor-id={event.actor_id}
+                      data-audit-target-id={event.target_id}
+                      data-audit-target-type={event.target_type}
+                      data-audit-at={NaiveDateTime.to_iso8601(event.inserted_at)}
+                    >
+                      <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400">
+                        <.phx_icon name={audit_action_icon(event.action)} class="size-4" />
+                      </span>
+                      <div class="min-w-0 flex-1">
+                        <p class="text-sm text-slate-700 dark:text-slate-200" data-audit-text>
+                          {audit_action_label(event.action)}
+                        </p>
+                      </div>
+                      <p class="shrink-0 text-right text-xs leading-snug text-slate-400 dark:text-slate-500">
+                        <time class="block tabular-nums">
+                          {Calendar.strftime(event.inserted_at, "%b %-d, %Y · %H:%M UTC")}
+                        </time>
+                        <span
+                          data-audit-local
+                          class="hidden tabular-nums text-emerald-600 dark:text-emerald-400"
+                        ></span>
+                      </p>
+                    </li>
+                  </ol>
+                </div>
+              </section>
+
+              <%!-- One-time SETUP — branding, seats, and ownership — tucked into a
              collapsible, accessible disclosure (default collapsed) so the
              dashboard stays focused on everyday work (Task #248). Native button
              disclosure (no PetalComponents); children stay in the DOM and toggle
              via a CSS class so deep links + tests still resolve. --%>
-        <section
-          :if={@can_manage_branding? || @is_owner? || @incoming_transfer?}
-          id="org-manage"
-          class="mx-auto max-w-3xl space-y-4"
-        >
-          <button
-            type="button"
-            id="org-manage-toggle"
-            phx-click="toggle_manage"
-            aria-expanded={to_string(@manage_open?)}
-            aria-controls="org-manage-panel"
-            class="group flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm px-5 py-4 text-left transition-all duration-200 hover:border-slate-300 dark:hover:border-slate-600"
-          >
-            <span class="flex items-center gap-3 min-w-0">
-              <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400 transition-colors group-hover:text-teal-600 dark:group-hover:text-teal-400">
-                <.phx_icon name="hero-cog-6-tooth" class="size-5" />
-              </span>
-              <span class="min-w-0">
-                <span class="block text-base font-semibold text-slate-900 dark:text-slate-100">
-                  Manage organization
-                </span>
-                <span class="block text-xs text-slate-500 dark:text-slate-400">
-                  Branding, seats, and ownership — one-time setup
-                </span>
-              </span>
-            </span>
-            <.phx_icon
-              name="hero-chevron-down"
-              class={[
-                "size-5 shrink-0 text-slate-400 transition-transform duration-200",
-                @manage_open? && "rotate-180"
-              ]}
-            />
-          </button>
+              <section
+                :if={@can_manage_branding? || @is_owner? || @incoming_transfer?}
+                id="org-manage"
+                class="space-y-4"
+              >
+                <button
+                  type="button"
+                  id="org-manage-toggle"
+                  phx-click="toggle_manage"
+                  aria-expanded={to_string(@manage_open?)}
+                  aria-controls="org-manage-panel"
+                  class="group flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm px-5 py-4 text-left transition-all duration-200 hover:border-slate-300 dark:hover:border-slate-600"
+                >
+                  <span class="flex items-center gap-3 min-w-0">
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400 transition-colors group-hover:text-teal-600 dark:group-hover:text-teal-400">
+                      <.phx_icon name="hero-cog-6-tooth" class="size-5" />
+                    </span>
+                    <span class="min-w-0">
+                      <span class="block text-base font-semibold text-slate-900 dark:text-slate-100">
+                        Manage organization
+                      </span>
+                      <span class="block text-xs text-slate-500 dark:text-slate-400">
+                        Branding, seats, and ownership — one-time setup
+                      </span>
+                    </span>
+                  </span>
+                  <.phx_icon
+                    name="hero-chevron-down"
+                    class={[
+                      "size-5 shrink-0 text-slate-400 transition-transform duration-200",
+                      @manage_open? && "rotate-180"
+                    ]}
+                  />
+                </button>
 
-          <div
-            id="org-manage-panel"
-            role="region"
-            aria-labelledby="org-manage-toggle"
-            class={["space-y-6", !@manage_open? && "hidden"]}
-          >
-            <%!-- Branding (Task #228, branding add-on): owner/admin can upload a
+                <div
+                  id="org-manage-panel"
+                  role="region"
+                  aria-labelledby="org-manage-toggle"
+                  class={["space-y-6", !@manage_open? && "hidden"]}
+                >
+                  <%!-- Branding (Task #228, branding add-on): owner/admin can upload a
              brand logo. The logo is encrypted browser-side with the per-org
              org_key (ZK) and surfaced across the org dashboard + circle/file
              UIs. Shown only to those who can manage branding. --%>
-            <section
-              :if={@can_manage_branding?}
-              id="org-branding"
-              class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
-            >
-              <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                  <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
-                    Branding
-                  </h2>
-                  <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                    Upload your organization's logo. It's encrypted on your device with your team's
-                    key — we never see the original image.
-                  </p>
-                </div>
-              </div>
+                  <section
+                    :if={@can_manage_branding?}
+                    id="org-branding"
+                    class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
+                  >
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="min-w-0">
+                        <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                          Branding
+                        </h2>
+                        <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                          Upload your organization's logo. It's encrypted on your device with your team's
+                          key — we never see the original image.
+                        </p>
+                      </div>
+                    </div>
 
-              <div
-                id="org-logo-uploader"
-                phx-hook="OrgLogoUpload"
-                data-sealed-org-key={@viewer_sealed_org_key}
-              >
-              </div>
+                    <div
+                      id="org-logo-uploader"
+                      phx-hook="OrgLogoUpload"
+                      data-sealed-org-key={@viewer_sealed_org_key}
+                    >
+                    </div>
 
-              <.form
-                for={%{}}
-                id="org-logo-form"
-                phx-change="validate_org_logo"
-                phx-submit="validate_org_logo"
-                class="flex flex-col gap-4 sm:flex-row sm:items-center"
-              >
-                <div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-900/40 overflow-hidden">
-                  <%= cond do %>
-                    <% @pending_logo_preview -> %>
-                      <img
-                        id="org-logo-preview-pending"
-                        src={@pending_logo_preview}
-                        alt="Logo preview"
-                        class="h-full w-full object-contain"
-                      />
-                    <% @org.logo_url && @org_logo_url && @viewer_sealed_org_key -> %>
-                      <.org_logo
-                        id="org-logo-preview-current"
-                        logo_url={@org_logo_url}
-                        sealed_org_key={@viewer_sealed_org_key}
-                        frame_class="h-full w-full border-0 bg-transparent"
-                        icon_class="h-8 w-8 text-slate-300 dark:text-slate-600"
-                        alt={@org.name <> " logo"}
+                    <.form
+                      for={%{}}
+                      id="org-logo-form"
+                      phx-change="validate_org_logo"
+                      phx-submit="validate_org_logo"
+                      class="flex flex-col gap-4 sm:flex-row sm:items-center"
+                    >
+                      <div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-900/40 overflow-hidden">
+                        <%= cond do %>
+                          <% @pending_logo_preview -> %>
+                            <img
+                              id="org-logo-preview-pending"
+                              src={@pending_logo_preview}
+                              alt="Logo preview"
+                              class="h-full w-full object-contain"
+                            />
+                          <% @org.logo_url && @org_logo_url && @viewer_sealed_org_key -> %>
+                            <.org_logo
+                              id="org-logo-preview-current"
+                              logo_url={@org_logo_url}
+                              sealed_org_key={@viewer_sealed_org_key}
+                              frame_class="h-full w-full border-0 bg-transparent"
+                              icon_class="h-8 w-8 text-slate-300 dark:text-slate-600"
+                              alt={@org.name <> " logo"}
+                            >
+                              <:fallback>
+                                <.phx_icon
+                                  name="hero-building-office"
+                                  class="h-8 w-8 text-slate-300 dark:text-slate-600"
+                                />
+                              </:fallback>
+                            </.org_logo>
+                          <% true -> %>
+                            <.phx_icon
+                              name="hero-building-office"
+                              class="h-8 w-8 text-slate-300 dark:text-slate-600"
+                            />
+                        <% end %>
+                      </div>
+
+                      <div class="flex-1 space-y-2">
+                        <label
+                          for={@uploads.org_logo.ref}
+                          class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors"
+                        >
+                          <.phx_icon name="hero-arrow-up-tray" class="size-4" />
+                          {if @org.logo_url, do: "Replace logo", else: "Upload logo"}
+                        </label>
+                        <.live_file_input upload={@uploads.org_logo} class="sr-only" />
+
+                        <p class="text-xs text-slate-400 dark:text-slate-500">
+                          PNG, JPG, WebP, or HEIC. Up to 5&nbsp;MB.
+                        </p>
+
+                        <p
+                          :if={logo_processing?(@logo_upload_stage)}
+                          id="org-logo-progress"
+                          class="inline-flex items-center gap-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 animate-pulse"
+                        >
+                          <.phx_icon name="hero-cog-6-tooth" class="size-3.5 animate-spin" />
+                          {logo_stage_label(@logo_upload_stage)}
+                        </p>
+
+                        <%= for entry <- @uploads.org_logo.entries do %>
+                          <%= for err <- upload_errors(@uploads.org_logo, entry) do %>
+                            <p class="text-xs font-medium text-rose-600 dark:text-rose-400">
+                              {logo_upload_error(err)}
+                            </p>
+                          <% end %>
+                        <% end %>
+                      </div>
+
+                      <.liquid_button
+                        :if={@org.logo_url}
+                        type="button"
+                        id="org-logo-remove"
+                        variant="secondary"
+                        icon="hero-trash"
+                        phx-click="remove_org_logo"
+                        data-confirm="Remove your organization's logo?"
                       >
-                        <:fallback>
-                          <.phx_icon
-                            name="hero-building-office"
-                            class="h-8 w-8 text-slate-300 dark:text-slate-600"
-                          />
-                        </:fallback>
-                      </.org_logo>
-                    <% true -> %>
-                      <.phx_icon
-                        name="hero-building-office"
-                        class="h-8 w-8 text-slate-300 dark:text-slate-600"
-                      />
-                  <% end %>
-                </div>
+                        Remove
+                      </.liquid_button>
+                    </.form>
 
-                <div class="flex-1 space-y-2">
-                  <label
-                    for={@uploads.org_logo.ref}
-                    class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors"
-                  >
-                    <.phx_icon name="hero-arrow-up-tray" class="size-4" />
-                    {if @org.logo_url, do: "Replace logo", else: "Upload logo"}
-                  </label>
-                  <.live_file_input upload={@uploads.org_logo} class="sr-only" />
-
-                  <p class="text-xs text-slate-400 dark:text-slate-500">
-                    PNG, JPG, WebP, or HEIC. Up to 5&nbsp;MB.
-                  </p>
-
-                  <p
-                    :if={logo_processing?(@logo_upload_stage)}
-                    id="org-logo-progress"
-                    class="inline-flex items-center gap-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 animate-pulse"
-                  >
-                    <.phx_icon name="hero-cog-6-tooth" class="size-3.5 animate-spin" />
-                    {logo_stage_label(@logo_upload_stage)}
-                  </p>
-
-                  <%= for entry <- @uploads.org_logo.entries do %>
-                    <%= for err <- upload_errors(@uploads.org_logo, entry) do %>
-                      <p class="text-xs font-medium text-rose-600 dark:text-rose-400">
-                        {logo_upload_error(err)}
-                      </p>
-                    <% end %>
-                  <% end %>
-                </div>
-
-                <.liquid_button
-                  :if={@org.logo_url}
-                  type="button"
-                  id="org-logo-remove"
-                  variant="secondary"
-                  icon="hero-trash"
-                  phx-click="remove_org_logo"
-                  data-confirm="Remove your organization's logo?"
-                >
-                  Remove
-                </.liquid_button>
-              </.form>
-
-              <%!-- Custom subdomain (Task #240 / #243, Phase B — the PAID add-on).
+                    <%!-- Custom subdomain (Task #240 / #243, Phase B — the PAID add-on).
                 Gated by has_branding_addon?/1 (server-authoritative) AND, because
                 it mutates the paid subscription, OWNER-ONLY (@is_owner?) — the
                 free logo above stays admin-manageable. --%>
-              <div
-                :if={@is_owner?}
-                id="org-subdomain"
-                class="pt-4 border-t border-slate-100 dark:border-slate-700/60 space-y-3"
-              >
-                <div class="flex items-start justify-between gap-3">
-                  <div class="min-w-0">
-                    <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      Custom subdomain
-                    </h3>
-                    <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                      A branded address like
-                      <span class="font-medium text-slate-600 dark:text-slate-300">yourteam.mosslet.com</span>
-                      — with an org-branded sign-in for your team.
-                    </p>
-                  </div>
-                  <span
-                    :if={@has_branding_addon?}
-                    class="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300"
-                  >
-                    <.phx_icon name="hero-check-badge" class="size-3.5" /> Add-on active
-                  </span>
-                </div>
-
-                <%= cond do %>
-                  <% @has_branding_addon? && @org.subdomain -> %>
                     <div
-                      id="org-subdomain-current"
-                      class="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 space-y-2"
+                      :if={@is_owner?}
+                      id="org-subdomain"
+                      class="pt-4 border-t border-slate-100 dark:border-slate-700/60 space-y-3"
                     >
-                      <p class="text-xs text-slate-500 dark:text-slate-400">Your subdomain</p>
-                      <p class="text-sm font-medium text-slate-900 dark:text-slate-100 break-all">
-                        {subdomain_display_url(@org.subdomain)}
-                      </p>
-                      <.liquid_button
-                        type="button"
-                        id="org-subdomain-release"
-                        variant="secondary"
-                        size="sm"
-                        icon="hero-trash"
-                        phx-click="release_subdomain"
-                        data-confirm="Release this subdomain and remove the custom-subdomain add-on? Your branded address will stop working and the add-on will be removed from your subscription — the prorated credit appears on your next invoice."
-                      >
-                        Release subdomain
-                      </.liquid_button>
-                    </div>
-                  <% @has_branding_addon? -> %>
-                    <.form
-                      for={@subdomain_form}
-                      id="org-subdomain-form"
-                      phx-change="validate_subdomain"
-                      phx-submit="claim_subdomain"
-                      class="space-y-2"
-                    >
-                      <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
-                        <div class="flex-1">
-                          <.phx_input
-                            field={@subdomain_form[:subdomain]}
-                            type="text"
-                            label="Choose your subdomain"
-                            placeholder="yourteam"
-                            autocomplete="off"
-                            phx-debounce="300"
-                          />
+                      <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                          <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            Custom subdomain
+                          </h3>
+                          <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                            A branded address like
+                            <span class="font-medium text-slate-600 dark:text-slate-300">yourteam.mosslet.com</span>
+                            — with an org-branded sign-in for your team.
+                          </p>
                         </div>
-                        <.liquid_button
-                          type="submit"
-                          id="org-subdomain-claim"
-                          color="emerald"
-                          icon="hero-globe-alt"
-                          phx-disable-with="Claiming…"
+                        <span
+                          :if={@has_branding_addon?}
+                          class="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300"
                         >
-                          Claim
-                        </.liquid_button>
+                          <.phx_icon name="hero-check-badge" class="size-3.5" /> Add-on active
+                        </span>
                       </div>
-                      <p class="text-xs text-slate-400 dark:text-slate-500">
-                        Lowercase letters, numbers, and hyphens. 3–63 characters.
-                      </p>
-                    </.form>
-                  <% true -> %>
-                    <%!-- The dashboard is only reachable for an active/trialing/grace
+
+                      <%= cond do %>
+                        <% @has_branding_addon? && @org.subdomain -> %>
+                          <div
+                            id="org-subdomain-current"
+                            class="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 space-y-2"
+                          >
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Your subdomain</p>
+                            <p class="text-sm font-medium text-slate-900 dark:text-slate-100 break-all">
+                              {subdomain_display_url(@org.subdomain)}
+                            </p>
+                            <.liquid_button
+                              type="button"
+                              id="org-subdomain-release"
+                              variant="secondary"
+                              size="sm"
+                              icon="hero-trash"
+                              phx-click="release_subdomain"
+                              data-confirm="Release this subdomain and remove the custom-subdomain add-on? Your branded address will stop working and the add-on will be removed from your subscription — the prorated credit appears on your next invoice."
+                            >
+                              Release subdomain
+                            </.liquid_button>
+                          </div>
+                        <% @has_branding_addon? -> %>
+                          <.form
+                            for={@subdomain_form}
+                            id="org-subdomain-form"
+                            phx-change="validate_subdomain"
+                            phx-submit="claim_subdomain"
+                            class="space-y-2"
+                          >
+                            <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
+                              <div class="flex-1">
+                                <.phx_input
+                                  field={@subdomain_form[:subdomain]}
+                                  type="text"
+                                  label="Choose your subdomain"
+                                  placeholder="yourteam"
+                                  autocomplete="off"
+                                  phx-debounce="300"
+                                />
+                              </div>
+                              <.liquid_button
+                                type="submit"
+                                id="org-subdomain-claim"
+                                color="emerald"
+                                icon="hero-globe-alt"
+                                phx-disable-with="Claiming…"
+                              >
+                                Claim
+                              </.liquid_button>
+                            </div>
+                            <p class="text-xs text-slate-400 dark:text-slate-500">
+                              Lowercase letters, numbers, and hyphens. 3–63 characters.
+                            </p>
+                          </.form>
+                        <% true -> %>
+                          <%!-- The dashboard is only reachable for an active/trialing/grace
                       org (Option B), so the org is always covered here — frame the
                       upsell as ADDING the add-on, never "subscribe" (trial-aware,
                       #218). --%>
-                    <div
-                      id="org-subdomain-upsell-addon"
-                      class="rounded-xl border border-teal-200/70 dark:border-teal-800/50 bg-teal-50/60 dark:bg-teal-900/20 p-4 space-y-3"
-                    >
-                      <p class="text-sm font-medium text-teal-900 dark:text-teal-200">
-                        Add a custom subdomain to your plan
-                      </p>
-                      <p class="text-xs text-teal-800/80 dark:text-teal-300/80">
-                        The custom-subdomain add-on is $15/mo (or $150/yr), matched to your billing
-                        cycle and prorated to your next invoice. Add it in one click — no checkout
-                        needed.
-                      </p>
-                      <.liquid_button
-                        type="button"
-                        id="org-subdomain-add-addon"
-                        color="emerald"
-                        size="sm"
-                        icon="hero-sparkles"
-                        phx-click="add_subdomain_addon"
-                        phx-disable-with="Adding…"
-                        data-confirm="Add the custom-subdomain add-on ($15/mo or $150/yr, matched to your billing cycle) to this organization's plan? The prorated amount will be added to your next invoice."
-                      >
-                        Add custom subdomain
-                      </.liquid_button>
-                      <p class="text-xs text-teal-700/70 dark:text-teal-400/70">
-                        Prefer to review first? <.link
-                          navigate={~p"/app/org/#{@org.slug}/billing"}
-                          class="font-medium underline underline-offset-2 hover:text-teal-800 dark:hover:text-teal-200"
-                        >Manage billing</.link>.
-                      </p>
+                          <div
+                            id="org-subdomain-upsell-addon"
+                            class="rounded-xl border border-teal-200/70 dark:border-teal-800/50 bg-teal-50/60 dark:bg-teal-900/20 p-4 space-y-3"
+                          >
+                            <p class="text-sm font-medium text-teal-900 dark:text-teal-200">
+                              Add a custom subdomain to your plan
+                            </p>
+                            <p class="text-xs text-teal-800/80 dark:text-teal-300/80">
+                              The custom-subdomain add-on is $15/mo (or $150/yr), matched to your billing
+                              cycle and prorated to your next invoice. Add it in one click — no checkout
+                              needed.
+                            </p>
+                            <.liquid_button
+                              type="button"
+                              id="org-subdomain-add-addon"
+                              color="emerald"
+                              size="sm"
+                              icon="hero-sparkles"
+                              phx-click="add_subdomain_addon"
+                              phx-disable-with="Adding…"
+                              data-confirm="Add the custom-subdomain add-on ($15/mo or $150/yr, matched to your billing cycle) to this organization's plan? The prorated amount will be added to your next invoice."
+                            >
+                              Add custom subdomain
+                            </.liquid_button>
+                            <p class="text-xs text-teal-700/70 dark:text-teal-400/70">
+                              Prefer to review first? <.link
+                                navigate={~p"/app/org/#{@org.slug}/billing"}
+                                class="font-medium underline underline-offset-2 hover:text-teal-800 dark:hover:text-teal-200"
+                              >Manage billing</.link>.
+                            </p>
+                          </div>
+                      <% end %>
                     </div>
-                <% end %>
-              </div>
-            </section>
-            <%!-- Owner-only in-app seat control (Task #247): adjust the org's paid
+                  </section>
+                  <%!-- Owner-only in-app seat control (Task #247): adjust the org's paid
                 seat count without a Checkout detour. Mirrors the subscribe page's
                 seat stepper; the write re-clamps + re-guards server-side via
                 Orgs.set_org_seats/2. Gated by can_manage_billing?/2 (owner) since
                 it mutates the paid subscription. --%>
-            <div
-              :if={@is_owner? && @seat_management}
-              id="org-seat-management"
-              class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
-            >
-              <div class="flex items-start justify-between gap-4">
-                <div class="min-w-0">
-                  <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                    Team seats
-                  </h3>
-                  <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                    Adjust your plan's seat count any time — prorated to your next invoice.
-                  </p>
-                </div>
-                <div class="shrink-0 text-right">
-                  <p class="text-2xl font-bold tabular-nums leading-none">
-                    <span class="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">{@seat_management.used}</span><span class="text-slate-400 dark:text-slate-500 font-medium">/{@seat_management.cap}</span>
-                  </p>
-                  <p class="mt-1 text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                    seats in use
-                  </p>
-                </div>
-              </div>
-
-              <%!-- Usage bar: a calm, at-a-glance read of how full the team is. --%>
-              <div class="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700/60">
-                <div
-                  class={[
-                    "h-full rounded-full transition-all duration-500",
-                    if(@seat_management.used >= @seat_management.cap,
-                      do: "bg-gradient-to-r from-amber-400 to-rose-500",
-                      else: "bg-gradient-to-r from-teal-400 to-emerald-500"
-                    )
-                  ]}
-                  style={"width: #{min(100, round(@seat_management.used / max(@seat_management.cap, 1) * 100))}%"}
-                >
-                </div>
-              </div>
-
-              <.form
-                for={to_form(%{})}
-                id="org-seat-form"
-                phx-submit="update_org_seats"
-                class="flex flex-wrap items-end gap-3 pt-1"
-              >
-                <div class="shrink-0">
-                  <label
-                    for="org-seat-input"
-                    class="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5"
-                  >
-                    Seats
-                  </label>
                   <div
-                    id="org-seat-stepper"
-                    phx-hook="SeatStepper"
-                    class={[
-                      "inline-flex h-11 w-36 items-stretch overflow-hidden rounded-xl",
-                      "border border-slate-300 dark:border-slate-600",
-                      "bg-white dark:bg-slate-800 shadow-sm",
-                      "focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500",
-                      "transition-colors duration-200"
-                    ]}
+                    :if={@is_owner? && @seat_management}
+                    id="org-seat-management"
+                    class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
                   >
-                    <button
-                      type="button"
-                      data-seat-step="-1"
-                      aria-label="Decrease seats"
-                      class={[
-                        "flex items-center justify-center w-11 shrink-0 text-slate-500 dark:text-slate-400",
-                        "hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600",
-                        "hover:text-emerald-600 dark:hover:text-emerald-400",
-                        "disabled:opacity-40 disabled:pointer-events-none",
-                        "transition-colors duration-150 focus:outline-none"
-                      ]}
+                    <div class="flex items-start justify-between gap-4">
+                      <div class="min-w-0">
+                        <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          Team seats
+                        </h3>
+                        <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                          Adjust your plan's seat count any time — prorated to your next invoice.
+                        </p>
+                      </div>
+                      <div class="shrink-0 text-right">
+                        <p class="text-2xl font-bold tabular-nums leading-none">
+                          <span class="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">{@seat_management.used}</span><span class="text-slate-400 dark:text-slate-500 font-medium">/{@seat_management.cap}</span>
+                        </p>
+                        <p class="mt-1 text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                          seats in use
+                        </p>
+                      </div>
+                    </div>
+
+                    <%!-- Usage bar: a calm, at-a-glance read of how full the team is. --%>
+                    <div class="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700/60">
+                      <div
+                        class={[
+                          "h-full rounded-full transition-all duration-500",
+                          if(@seat_management.used >= @seat_management.cap,
+                            do: "bg-gradient-to-r from-amber-400 to-rose-500",
+                            else: "bg-gradient-to-r from-teal-400 to-emerald-500"
+                          )
+                        ]}
+                        style={"width: #{min(100, round(@seat_management.used / max(@seat_management.cap, 1) * 100))}%"}
+                      >
+                      </div>
+                    </div>
+
+                    <.form
+                      for={to_form(%{})}
+                      id="org-seat-form"
+                      phx-submit="update_org_seats"
+                      class="flex flex-wrap items-end gap-3 pt-1"
                     >
-                      <.phx_icon name="hero-minus" class="size-4" />
-                    </button>
-                    <input
-                      type="number"
-                      id="org-seat-input"
-                      name="seats"
-                      value={@seat_management.cap}
-                      min={@seat_management.min}
-                      max={@seat_management.max != :infinity && @seat_management.max}
-                      step="1"
-                      inputmode="numeric"
-                      class={[
-                        "min-w-0 flex-1 border-0 bg-transparent text-center font-semibold tabular-nums",
-                        "text-slate-900 dark:text-slate-100 focus:ring-0 sm:text-sm",
-                        "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      ]}
-                    />
-                    <button
-                      type="button"
-                      data-seat-step="1"
-                      aria-label="Increase seats"
-                      class={[
-                        "flex items-center justify-center w-11 shrink-0 text-slate-500 dark:text-slate-400",
-                        "hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600",
-                        "hover:text-emerald-600 dark:hover:text-emerald-400",
-                        "disabled:opacity-40 disabled:pointer-events-none",
-                        "transition-colors duration-150 focus:outline-none"
-                      ]}
-                    >
-                      <.phx_icon name="hero-plus" class="size-4" />
-                    </button>
+                      <div class="shrink-0">
+                        <label
+                          for="org-seat-input"
+                          class="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5"
+                        >
+                          Seats
+                        </label>
+                        <div
+                          id="org-seat-stepper"
+                          phx-hook="SeatStepper"
+                          class={[
+                            "inline-flex h-11 w-36 items-stretch overflow-hidden rounded-xl",
+                            "border border-slate-300 dark:border-slate-600",
+                            "bg-white dark:bg-slate-800 shadow-sm",
+                            "focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500",
+                            "transition-colors duration-200"
+                          ]}
+                        >
+                          <button
+                            type="button"
+                            data-seat-step="-1"
+                            aria-label="Decrease seats"
+                            class={[
+                              "flex items-center justify-center w-11 shrink-0 text-slate-500 dark:text-slate-400",
+                              "hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600",
+                              "hover:text-emerald-600 dark:hover:text-emerald-400",
+                              "disabled:opacity-40 disabled:pointer-events-none",
+                              "transition-colors duration-150 focus:outline-none"
+                            ]}
+                          >
+                            <.phx_icon name="hero-minus" class="size-4" />
+                          </button>
+                          <input
+                            type="number"
+                            id="org-seat-input"
+                            name="seats"
+                            value={@seat_management.cap}
+                            min={@seat_management.min}
+                            max={@seat_management.max != :infinity && @seat_management.max}
+                            step="1"
+                            inputmode="numeric"
+                            class={[
+                              "min-w-0 flex-1 border-0 bg-transparent text-center font-semibold tabular-nums",
+                              "text-slate-900 dark:text-slate-100 focus:ring-0 sm:text-sm",
+                              "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            ]}
+                          />
+                          <button
+                            type="button"
+                            data-seat-step="1"
+                            aria-label="Increase seats"
+                            class={[
+                              "flex items-center justify-center w-11 shrink-0 text-slate-500 dark:text-slate-400",
+                              "hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600",
+                              "hover:text-emerald-600 dark:hover:text-emerald-400",
+                              "disabled:opacity-40 disabled:pointer-events-none",
+                              "transition-colors duration-150 focus:outline-none"
+                            ]}
+                          >
+                            <.phx_icon name="hero-plus" class="size-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <.liquid_button
+                        type="submit"
+                        id="org-seat-update"
+                        color="emerald"
+                        icon="hero-user-group"
+                        phx-disable-with="Updating…"
+                        data-confirm="Update your organization's seat count? Any change is prorated to your next invoice."
+                      >
+                        Update seats
+                      </.liquid_button>
+                    </.form>
+                    <p class="text-xs text-slate-400 dark:text-slate-500">
+                      You can't set fewer seats than your team is currently using (including pending
+                      invites).
+                    </p>
                   </div>
+                  <%!-- Ownership / transfer handshake (Task #237) --%>
+                  <.ownership_section
+                    org={@org}
+                    current_user={@current_scope.user}
+                    is_owner={@is_owner?}
+                    members={@members}
+                    viewer_sealed_org_key={@viewer_sealed_org_key}
+                    pending_transfer={@pending_transfer}
+                    transfer_modal_open={@transfer_modal_open}
+                    transfer_form={@transfer_form}
+                    delete_modal_open={@delete_modal_open}
+                    delete_form={@delete_form}
+                    audit_export?={@can_view_audit_log?}
+                  />
                 </div>
-                <.liquid_button
-                  type="submit"
-                  id="org-seat-update"
-                  color="emerald"
-                  icon="hero-user-group"
-                  phx-disable-with="Updating…"
-                  data-confirm="Update your organization's seat count? Any change is prorated to your next invoice."
-                >
-                  Update seats
-                </.liquid_button>
-              </.form>
-              <p class="text-xs text-slate-400 dark:text-slate-500">
-                You can't set fewer seats than your team is currently using (including pending
-                invites).
-              </p>
+              </section>
             </div>
-            <%!-- Ownership / transfer handshake (Task #237) --%>
-            <.ownership_section
-              org={@org}
-              current_user={@current_scope.user}
-              is_owner={@is_owner?}
-              members={@members}
-              viewer_sealed_org_key={@viewer_sealed_org_key}
-              pending_transfer={@pending_transfer}
-              transfer_modal_open={@transfer_modal_open}
-              transfer_form={@transfer_form}
-              delete_modal_open={@delete_modal_open}
-              delete_form={@delete_form}
-              audit_export?={@can_view_audit_log?}
-            />
           </div>
         </section>
       </div>
@@ -1434,7 +1546,7 @@ defmodule MossletWeb.BusinessLive.Show do
       id={"org-files-circle-#{@entry.group.id}"}
       data-hook-scope={"files-circle-#{@entry.group.id}"}
       data-file-group
-      class="space-y-2"
+      class="overflow-hidden rounded-xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/40"
     >
       <div
         id={"decrypt-files-circle-#{@entry.group.id}"}
@@ -1444,29 +1556,55 @@ defmodule MossletWeb.BusinessLive.Show do
         data-scope-id={"files-circle-#{@entry.group.id}"}
       >
       </div>
+      <%!-- Circle header (Task #263): the primary grouping affordance. The whole
+           row is the "open circle" link with a tinted chip (teal for official
+           Departments & Teams, slate for Community), a clear circle name, a
+           file-count pill, and a chevron that nudges on hover. --%>
       <.link
         navigate={~p"/app/business/#{@org.slug}/circles/#{@entry.group.id}"}
-        class="flex items-center gap-2 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
+        class="group flex items-center gap-3 px-3 py-2.5 bg-slate-50/70 dark:bg-slate-800/60 transition-colors hover:bg-slate-100/80 dark:hover:bg-slate-700/50"
       >
-        <.phx_icon
-          name={if(@tier == :team, do: "hero-building-office-2", else: "hero-chat-bubble-left-right")}
-          class="size-3.5"
-        />
-        <span data-decrypt-group-name>Business circle</span>
-        <span class="text-slate-400 dark:text-slate-500 font-normal">
-          · {length(@entry.files)} file{if length(@entry.files) != 1, do: "s"}
+        <span class={[
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+          if(@tier == :team,
+            do: "bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-300",
+            else: "bg-slate-100 text-slate-500 dark:bg-slate-700/60 dark:text-slate-300"
+          )
+        ]}>
+          <.phx_icon
+            name={
+              if(@tier == :team, do: "hero-building-office-2", else: "hero-chat-bubble-left-right")
+            }
+            class="size-4"
+          />
         </span>
+        <span
+          data-decrypt-group-name
+          class="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900 dark:text-slate-100"
+        >
+          Business circle
+        </span>
+        <span class="shrink-0 inline-flex items-center rounded-full bg-white px-2 py-0.5 text-xs font-medium text-slate-500 ring-1 ring-slate-200/70 dark:bg-slate-700/60 dark:text-slate-400 dark:ring-slate-600/50">
+          {length(@entry.files)} file{if length(@entry.files) != 1, do: "s"}
+        </span>
+        <.phx_icon
+          name="hero-chevron-right"
+          class="size-4 shrink-0 text-slate-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-slate-400 dark:text-slate-600"
+        />
       </.link>
-      <ul role="list" class="divide-y divide-slate-100 dark:divide-slate-700/60 pl-1">
+      <ul
+        role="list"
+        class="divide-y divide-slate-100 border-t border-slate-100 dark:divide-slate-700/50 dark:border-slate-700/50"
+      >
         <li
           :for={file <- @entry.files}
           id={"org-file-#{file.id}"}
           data-file-row
-          class="py-2.5 flex items-center gap-3"
+          class="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800/40"
         >
-          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-300">
             <.phx_icon name="hero-document" class="size-4" />
-          </div>
+          </span>
           <div class="min-w-0 flex-1">
             <% viewer_row = List.first(file.user_shared_files) %>
             <div
@@ -1490,7 +1628,7 @@ defmodule MossletWeb.BusinessLive.Show do
             >
               Encrypted file
             </p>
-            <p class="text-xs text-slate-500 dark:text-slate-400">
+            <p class="text-xs text-slate-400 dark:text-slate-500">
               {format_size(file.size_bytes)}
             </p>
           </div>
@@ -2162,19 +2300,51 @@ defmodule MossletWeb.BusinessLive.Show do
   @impl true
   def handle_event(
         "save_org_display_name",
-        %{"encrypted_display_name" => encrypted_name},
+        %{"encrypted_display_name" => encrypted_name} = params,
         socket
       )
       when is_binary(encrypted_name) do
-    case Orgs.set_org_display_name(socket.assigns.membership, encrypted_name) do
+    # The display name is ciphertext under the shared `org_key` (every member's
+    # sealed key unseals to the SAME key), so any key-holder can re-encrypt any
+    # member's name browser-side. Authority still gates the WRITE here (I1):
+    #   * self-edit — any member may rename themselves.
+    #   * editing someone else — admins/owners only (`@can_manage?`).
+    current_user_id = socket.assigns.current_scope.user.id
+    target_user_id = params["target_user_id"]
+
+    target_membership =
+      cond do
+        is_nil(target_user_id) or target_user_id == current_user_id ->
+          socket.assigns.membership
+
+        socket.assigns.can_manage? ->
+          case Enum.find(socket.assigns.members, &(&1.user.id == target_user_id)) do
+            %{membership: membership} -> membership
+            _ -> nil
+          end
+
+        true ->
+          nil
+      end
+
+    case target_membership && Orgs.set_org_display_name(target_membership, encrypted_name) do
       {:ok, _membership} ->
+        message =
+          if is_nil(target_user_id) or target_user_id == current_user_id,
+            do: "Your team display name is saved",
+            else: "Display name updated"
+
         {:noreply,
          socket
-         |> put_flash(:success, "Your team display name is set")
+         |> assign(:editing_name_user_id, nil)
+         |> put_flash(:success, message)
          |> assign_business_data()}
 
+      nil ->
+        {:noreply, put_flash(socket, :error, "You can't edit that member's name")}
+
       _ ->
-        {:noreply, put_flash(socket, :error, "Could not save your display name")}
+        {:noreply, put_flash(socket, :error, "Could not save the display name")}
     end
   end
 
@@ -2200,6 +2370,29 @@ defmodule MossletWeb.BusinessLive.Show do
        :error,
        "Please use letters, spaces, and basic punctuation (up to 160 characters)."
      )}
+  end
+
+  # Open the inline "edit display name" form for a single roster row (Task #263).
+  # Allowed for the viewer's OWN row, or for any row when the viewer can manage
+  # the org (admin/owner). The actual write is re-authorized in
+  # "save_org_display_name", so a tampered toggle can't escalate.
+  @impl true
+  def handle_event("edit_name", %{"user_id" => user_id}, socket) do
+    allowed? = user_id == socket.assigns.current_scope.user.id or socket.assigns.can_manage?
+
+    if allowed? do
+      {:noreply,
+       socket
+       |> assign(:editing_name_user_id, user_id)
+       |> assign(:org_display_name_form, to_form(%{"name" => ""}, as: :org_display_name))}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("cancel_edit_name", _params, socket) do
+    {:noreply, assign(socket, :editing_name_user_id, nil)}
   end
 
   ## Org-wide ZK announcements (Task #229c)
@@ -2935,6 +3128,17 @@ defmodule MossletWeb.BusinessLive.Show do
 
   defp logo_processing?({stage, _}) when stage in [:receiving, :processing, :encrypting], do: true
   defp logo_processing?(_), do: false
+
+  # Whether to show the inline "edit display name" affordance on a roster row
+  # (Task #263). Requires the viewer to hold the org_key (else they can't
+  # encrypt). The viewer may re-edit their OWN name once set — the first-time
+  # prompt covers the unset case; admins/owners may edit anyone's.
+  defp show_edit_name?(_member, nil, _can_manage?), do: false
+
+  defp show_edit_name?(%{self?: true} = member, _sealed, _can_manage?),
+    do: not is_nil(member.encrypted_display_name)
+
+  defp show_edit_name?(%{self?: false}, _sealed, can_manage?), do: can_manage?
 
   defp logo_stage_label({:receiving, _}), do: "Uploading…"
   defp logo_stage_label({:processing, _}), do: "Processing…"

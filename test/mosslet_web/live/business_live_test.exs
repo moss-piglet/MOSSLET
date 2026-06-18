@@ -488,6 +488,100 @@ defmodule MossletWeb.BusinessLiveTest do
     end
   end
 
+  describe "BusinessLive.Show display-name editing (Task #263)" do
+    setup %{conn: conn} do
+      {owner, owner_key} = onboarded_user("nameowner")
+      {admin, admin_key} = onboarded_user("nameadmin")
+      {member, member_key} = onboarded_user("namemember")
+      {:ok, org} = Orgs.create_org(owner, %{"name" => "Acme", "type" => "business"})
+      subscribe_org(org, quantity: 20)
+      add_member(org, admin, :admin)
+      add_member(org, member, :member)
+      # Every editor needs to hold the org_key (UI gating); the sealed value is
+      # opaque server-side.
+      seal_org_key(org, owner)
+      seal_org_key(org, admin)
+      seal_org_key(org, member)
+
+      %{
+        conn: conn,
+        owner: owner,
+        owner_key: owner_key,
+        admin: admin,
+        admin_key: admin_key,
+        member: member,
+        member_key: member_key,
+        org: org
+      }
+    end
+
+    test "a member can rename THEMSELVES (no target_user_id)", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      render_hook(lv, "save_org_display_name", %{
+        "encrypted_display_name" => "ciphertext-self"
+      })
+
+      assert Orgs.get_membership!(ctx.member, ctx.org.slug).display_name == "ciphertext-self"
+    end
+
+    test "an admin can rename ANOTHER member (target_user_id)", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      render_hook(lv, "save_org_display_name", %{
+        "encrypted_display_name" => "ciphertext-by-admin",
+        "target_user_id" => ctx.member.id
+      })
+
+      assert Orgs.get_membership!(ctx.member, ctx.org.slug).display_name == "ciphertext-by-admin"
+    end
+
+    test "a non-admin member CANNOT rename another member (server re-authorizes)", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      render_hook(lv, "save_org_display_name", %{
+        "encrypted_display_name" => "ciphertext-tampered",
+        "target_user_id" => ctx.admin.id
+      })
+
+      assert is_nil(Orgs.get_membership!(ctx.admin, ctx.org.slug).display_name)
+    end
+
+    test "the viewer sees an edit affordance on their OWN row once a name is set", ctx do
+      membership = Orgs.get_membership!(ctx.member, ctx.org.slug)
+      {:ok, _} = Orgs.set_org_display_name(membership, "ciphertext-existing")
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#edit-name-#{ctx.member.id}")
+
+      lv |> element("#edit-name-#{ctx.member.id}") |> render_click()
+
+      assert has_element?(
+               lv,
+               "#edit-name-form-#{ctx.member.id}[phx-hook='OrgDisplayNameFormHook']"
+             )
+    end
+
+    test "admins see an edit affordance on OTHER members' rows", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#edit-name-#{ctx.member.id}")
+    end
+
+    test "non-admin members do NOT see an edit affordance on OTHER members' rows", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      refute has_element?(lv, "#edit-name-#{ctx.admin.id}")
+    end
+  end
+
   describe "BusinessLive.Show custom subdomain (Task #240 / #243, branding add-on)" do
     setup %{conn: conn} do
       {admin, admin_key} = onboarded_user("subadmin")

@@ -9,6 +9,16 @@
  * Validation (length/characters/expletives) is intentionally client-side: the
  * server only ever holds ciphertext, exactly like every other ZK name field.
  *
+ * EDIT mode (Task #263): the SAME hook also drives the per-row "edit name" form.
+ * Because every member's `Membership.key` unseals to the SAME `org_key`, an
+ * admin/owner can decrypt + re-encrypt ANY member's display name (the server
+ * still authorizes the write). When present:
+ *   data-target-user-id        — the membership whose name is being edited; sent
+ *                                back so the server stores it on the right row.
+ *   data-current-encrypted-name — the existing ciphertext; decrypted on mount to
+ *                                PREFILL the input so a rename (e.g. marriage)
+ *                                starts from the current value.
+ *
  * Data attributes on the form:
  *   data-sealed-org-key — base64 org_key sealed for this member (Membership.key)
  *
@@ -19,6 +29,7 @@ import {
   getPublicKey,
   unwrapKey,
   encryptWithKey,
+  decryptWithKey,
 } from "../crypto/session";
 
 const MAX_LEN = 160;
@@ -49,8 +60,30 @@ const OrgDisplayNameFormHook = {
     try {
       const raw = await unsealContextKey(sealed);
       if (raw) this._orgKey = unwrapKey(raw);
+      if (this._orgKey) this._prefill();
     } catch (e) {
       console.error("OrgDisplayNameFormHook: failed to unseal org key:", e);
+    }
+  },
+
+  // EDIT mode: decrypt the current ciphertext (if any) and seed the input, but
+  // only while it's still empty so we never clobber what the user is typing.
+  async _prefill() {
+    const current = this.el.dataset.currentEncryptedName;
+    if (!current || !this._orgKey) return;
+
+    const input = this.el.querySelector('input[name="org_display_name[name]"]');
+    if (!input || input.value.trim()) return;
+
+    try {
+      const name = await decryptWithKey(current, this._orgKey);
+      if (name && !input.value.trim()) {
+        input.value = name;
+        input.focus();
+        input.setSelectionRange(name.length, name.length);
+      }
+    } catch (e) {
+      console.error("OrgDisplayNameFormHook: failed to prefill name:", e);
     }
   },
 
@@ -80,7 +113,12 @@ const OrgDisplayNameFormHook = {
       this._push("org_display_name_invalid", {});
       return;
     }
-    this._push("save_org_display_name", { encrypted_display_name: encryptedName });
+
+    const payload = { encrypted_display_name: encryptedName };
+    const targetUserId = this.el.dataset.targetUserId;
+    if (targetUserId) payload.target_user_id = targetUserId;
+
+    this._push("save_org_display_name", payload);
   },
 
   _push(event, payload) {
