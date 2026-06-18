@@ -14,6 +14,7 @@ defmodule MossletWeb.BusinessLive.Show do
   import MossletWeb.OrgDeleteActions
 
   alias Mosslet.Accounts
+  alias Mosslet.Announcements
   alias Mosslet.Files
   alias Mosslet.FileUploads.SharedFileStorage
   alias Mosslet.Groups
@@ -49,6 +50,11 @@ defmodule MossletWeb.BusinessLive.Show do
        |> assign(:org_display_name_form, to_form(%{"name" => ""}, as: :org_display_name))
        |> assign(:show_circle_form?, false)
        |> assign(:circle_form, to_form(%{"name" => "", "description" => ""}, as: :circle))
+       |> assign(:show_announcement_form?, false)
+       |> assign(
+         :announcement_form,
+         to_form(%{"title" => "", "body" => "", "priority" => "normal"}, as: :announcement)
+       )
        |> assign(:pending_zk_circle_attrs, nil)
        |> assign(:pending_zk_circle_users, nil)
        |> assign(:pending_zk_circle_type, :community)
@@ -389,6 +395,20 @@ defmodule MossletWeb.BusinessLive.Show do
           </section>
 
           <div class="space-y-6 lg:col-span-5">
+            <%!-- Org-wide ZK announcements (Task #229c): owner/admin author
+                 notices encrypted with the org_key; everyone reads them
+                 decrypted browser-side. --%>
+            <.announcements_panel
+              tier={:org}
+              sealed_key={@viewer_sealed_org_key}
+              can_post?={@can_post_announcement?}
+              show_form?={@show_announcement_form?}
+              form={@announcement_form}
+              banner={@announcement_banner}
+              recent={@announcement_recent}
+              unread_count={@announcement_unread_count}
+              current_user_id={@current_scope.user.id}
+            />
             <%!-- Business circles panel --%>
             <section class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4">
               <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -2006,6 +2026,101 @@ defmodule MossletWeb.BusinessLive.Show do
      )}
   end
 
+  ## Org-wide ZK announcements (Task #229c)
+
+  @impl true
+  def handle_event("show_announcement_form", _params, socket) do
+    {:noreply, assign(socket, :show_announcement_form?, true)}
+  end
+
+  @impl true
+  def handle_event("hide_announcement_form", _params, socket) do
+    {:noreply, assign(socket, :show_announcement_form?, false)}
+  end
+
+  # The browser encrypted the title/body with the org_key and pushed the
+  # ciphertext. Persist it (server re-checks owner/admin authority — I1). The raw
+  # org_key + plaintext NEVER reach the server. We mark it read for the author so
+  # their own post doesn't count as "unread".
+  @impl true
+  def handle_event("save_announcement", params, socket) do
+    user = socket.assigns.current_scope.user
+    org = socket.assigns.org
+
+    attrs = %{
+      "encrypted_title" => params["encrypted_title"],
+      "encrypted_body" => params["encrypted_body"],
+      "priority" => Announcements.parse_priority(params["priority"]),
+      "expires_at" => Announcements.parse_expires_at(params["expires_at"])
+    }
+
+    case Announcements.create_org_announcement(org, user, attrs) do
+      {:ok, announcement} ->
+        Announcements.mark_read(announcement, user)
+
+        {:noreply,
+         socket
+         |> put_flash(:success, "Announcement posted")
+         |> assign(:show_announcement_form?, false)
+         |> assign_business_data()}
+
+      {:error, :unauthorized} ->
+        {:noreply, put_flash(socket, :error, "You don't have permission to post announcements.")}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Could not post that announcement.")}
+    end
+  end
+
+  # Fallback when browser crypto is unavailable: the AnnouncementFormHook normally
+  # intercepts the submit and pushes "save_announcement" with ciphertext. Without
+  # it the raw form params would arrive here — we must NEVER persist plaintext
+  # (ZK), so refuse gracefully.
+  @impl true
+  def handle_event("create_announcement", _params, socket) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       "Your browser couldn't prepare encryption keys. Please reload and try again."
+     )}
+  end
+
+  @impl true
+  def handle_event("announcement_invalid", _params, socket) do
+    {:noreply, put_flash(socket, :error, "Please add a message (up to 5000 characters).")}
+  end
+
+  @impl true
+  def handle_event("delete_announcement", %{"id" => id}, socket) do
+    user = socket.assigns.current_scope.user
+    announcement = Announcements.get_announcement(id)
+
+    cond do
+      is_nil(announcement) or announcement.org_id != socket.assigns.org.id ->
+        {:noreply, socket}
+
+      true ->
+        case Announcements.delete_announcement(announcement, user) do
+          {:ok, :deleted} ->
+            {:noreply,
+             socket |> put_flash(:info, "Announcement deleted") |> assign_business_data()}
+
+          {:error, :unauthorized} ->
+            {:noreply, put_flash(socket, :error, "You can't delete that announcement.")}
+
+          _ ->
+            {:noreply, put_flash(socket, :error, "Could not delete that announcement.")}
+        end
+    end
+  end
+
+  @impl true
+  def handle_event("mark_announcements_read", _params, socket) do
+    Announcements.mark_all_read_org(socket.assigns.org, socket.assigns.current_scope.user)
+    {:noreply, assign_business_data(socket)}
+  end
+
   ## Org brand logo (Task #228, branding add-on)
 
   # The <.live_file_input> change/submit; the writer + hook drive everything else.
@@ -2365,6 +2480,27 @@ defmodule MossletWeb.BusinessLive.Show do
     {:noreply, assign_business_data(socket)}
   end
 
+  # Realtime org-wide announcement published (Task #229c): refresh the panel and,
+  # for everyone EXCEPT the author (who just posted), surface a "new announcement"
+  # toast. Id-only event (no plaintext/keys).
+  def handle_info({:announcement_published, %{scope: :org, author_id: author_id}}, socket) do
+    socket = assign_business_data(socket)
+
+    socket =
+      if author_id == socket.assigns.current_scope.user.id do
+        socket
+      else
+        put_flash(socket, :info, "New announcement posted")
+      end
+
+    {:noreply, socket}
+  end
+
+  # An org-wide announcement was edited or deleted — refresh the panel (no toast).
+  def handle_info({:announcements_updated, %{scope: :org}}, socket) do
+    {:noreply, assign_business_data(socket)}
+  end
+
   # Ignore unrelated process messages (e.g. Swoosh test email delivery, telemetry).
   def handle_info(_message, socket), do: {:noreply, socket}
 
@@ -2526,6 +2662,12 @@ defmodule MossletWeb.BusinessLive.Show do
       |> Enum.sort_by(fn %{files: files} -> hd(files).inserted_at end, {:desc, NaiveDateTime})
       |> sort_org_file_circles(file_sort)
 
+    # Org-wide ZK announcements (Task #229c): the live notices for this org,
+    # split into a single pinned banner + the "Recent" list. Bodies stay
+    # encrypted and decrypt browser-side with the org_key.
+    org_announcements = Announcements.list_org_announcements(org)
+    {announcement_banner, announcement_recent} = Announcements.partition_pinned(org_announcements)
+
     socket
     |> assign(:members, members)
     |> assign(:viewer_sealed_org_key, MossletWeb.OrgIdentity.viewer_sealed_org_key(members))
@@ -2538,6 +2680,13 @@ defmodule MossletWeb.BusinessLive.Show do
     |> assign(:team_circles, Enum.filter(circles, &(&1.org_circle_type == :team)))
     |> assign(:community_circles, Enum.filter(circles, &(&1.org_circle_type != :team)))
     |> assign(:can_create_team_circle?, Orgs.can_create_team_circle?(org, current_user.id))
+    |> assign(:announcement_banner, announcement_banner)
+    |> assign(:announcement_recent, announcement_recent)
+    |> assign(:announcement_unread_count, Announcements.unread_org_count(org, current_user))
+    |> assign(
+      :can_post_announcement?,
+      Announcements.can_post_org_announcement?(org, current_user.id)
+    )
     |> assign_org_file_circles(org_file_circles)
     |> assign(:pending_invitations, Orgs.list_invitations_by_org(org))
     |> assign(:seats, Orgs.seat_summary(org))

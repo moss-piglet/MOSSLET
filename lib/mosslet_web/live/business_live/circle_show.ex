@@ -18,6 +18,7 @@ defmodule MossletWeb.BusinessLive.CircleShow do
   use MossletWeb, :live_view
 
   alias Mosslet.Accounts
+  alias Mosslet.Announcements
   alias Mosslet.Files
   alias Mosslet.Groups
   alias Mosslet.GroupMessages
@@ -77,6 +78,11 @@ defmodule MossletWeb.BusinessLive.CircleShow do
          |> assign(:show_markdown_guide, false)
          |> assign(:show_add_members?, false)
          |> assign(:pending_add_member_ids, [])
+         |> assign(:show_announcement_form?, false)
+         |> assign(
+           :announcement_form,
+           to_form(%{"title" => "", "body" => "", "priority" => "normal"}, as: :announcement)
+         )
          |> ChatSupport.assign_scrolled_to_top()
          |> assign_circle_data()
          |> assign_chat()}
@@ -137,6 +143,21 @@ defmodule MossletWeb.BusinessLive.CircleShow do
           data-scope-id={"business-circle-#{@group.id}"}
         >
         </div>
+
+        <%!-- Circle-level ZK announcements (Task #229c): the circle's team leads
+             (UserGroup owner/admin/moderator) post notices encrypted with the
+             circle's group_key; every member reads them decrypted browser-side. --%>
+        <.announcements_panel
+          tier={:circle}
+          sealed_key={@sealed_group_key}
+          can_post?={@can_post_announcement?}
+          show_form?={@show_announcement_form?}
+          form={@announcement_form}
+          banner={@announcement_banner}
+          recent={@announcement_recent}
+          unread_count={@announcement_unread_count}
+          current_user_id={@current_scope.user.id}
+        />
 
         <%!-- Files panel (ZK file sharing — Task #221) --%>
         <section
@@ -789,6 +810,97 @@ defmodule MossletWeb.BusinessLive.CircleShow do
     end
   end
 
+  ## Circle-level ZK announcements (Task #229c)
+
+  @impl true
+  def handle_event("show_announcement_form", _params, socket) do
+    {:noreply, assign(socket, :show_announcement_form?, true)}
+  end
+
+  @impl true
+  def handle_event("hide_announcement_form", _params, socket) do
+    {:noreply, assign(socket, :show_announcement_form?, false)}
+  end
+
+  # The browser encrypted the title/body with the circle's group_key and pushed
+  # the ciphertext. Persist it (server re-checks the team-lead authority gate:
+  # the viewer's UserGroup role must be owner/admin/moderator — I1). The raw
+  # group_key + plaintext NEVER reach the server. Mark read for the author.
+  @impl true
+  def handle_event("save_announcement", params, socket) do
+    user = socket.assigns.current_scope.user
+    group = socket.assigns.group
+
+    attrs = %{
+      "encrypted_title" => params["encrypted_title"],
+      "encrypted_body" => params["encrypted_body"],
+      "priority" => Announcements.parse_priority(params["priority"]),
+      "expires_at" => Announcements.parse_expires_at(params["expires_at"])
+    }
+
+    case Announcements.create_circle_announcement(group, user, attrs) do
+      {:ok, announcement} ->
+        Announcements.mark_read(announcement, user)
+
+        {:noreply,
+         socket
+         |> put_flash(:success, "Announcement posted")
+         |> assign(:show_announcement_form?, false)
+         |> assign_circle_data()}
+
+      {:error, :unauthorized} ->
+        {:noreply, put_flash(socket, :error, "You don't have permission to post announcements.")}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Could not post that announcement.")}
+    end
+  end
+
+  # Fallback when browser crypto is unavailable (ZK — never persist plaintext).
+  @impl true
+  def handle_event("create_announcement", _params, socket) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       "Your browser couldn't prepare encryption keys. Please reload and try again."
+     )}
+  end
+
+  @impl true
+  def handle_event("announcement_invalid", _params, socket) do
+    {:noreply, put_flash(socket, :error, "Please add a message (up to 5000 characters).")}
+  end
+
+  @impl true
+  def handle_event("delete_announcement", %{"id" => id}, socket) do
+    user = socket.assigns.current_scope.user
+    announcement = Announcements.get_announcement(id)
+
+    cond do
+      is_nil(announcement) or announcement.group_id != socket.assigns.group.id ->
+        {:noreply, socket}
+
+      true ->
+        case Announcements.delete_announcement(announcement, user) do
+          {:ok, :deleted} ->
+            {:noreply, socket |> put_flash(:info, "Announcement deleted") |> assign_circle_data()}
+
+          {:error, :unauthorized} ->
+            {:noreply, put_flash(socket, :error, "You can't delete that announcement.")}
+
+          _ ->
+            {:noreply, put_flash(socket, :error, "Could not delete that announcement.")}
+        end
+    end
+  end
+
+  @impl true
+  def handle_event("mark_announcements_read", _params, socket) do
+    Announcements.mark_all_read_circle(socket.assigns.group, socket.assigns.current_scope.user)
+    {:noreply, assign_circle_data(socket)}
+  end
+
   ## Embedded ZK chat (reused from the personal Circles realm — see ChatSupport)
 
   @impl true
@@ -1048,6 +1160,28 @@ defmodule MossletWeb.BusinessLive.CircleShow do
     {:noreply, assign_circle_data(socket)}
   end
 
+  # Realtime circle announcement published (Task #229c): refresh the panel and,
+  # for everyone EXCEPT the author, surface a "new announcement" toast. Id-only.
+  @impl true
+  def handle_info({:announcement_published, %{scope: :circle, author_id: author_id}}, socket) do
+    socket = assign_circle_data(socket)
+
+    socket =
+      if author_id == socket.assigns.current_scope.user.id do
+        socket
+      else
+        put_flash(socket, :info, "New announcement posted")
+      end
+
+    {:noreply, socket}
+  end
+
+  # A circle announcement was edited or deleted — refresh the panel (no toast).
+  @impl true
+  def handle_info({:announcements_updated, %{scope: :circle}}, socket) do
+    {:noreply, assign_circle_data(socket)}
+  end
+
   # Embedded ZK chat: delegate the shared message-stream broadcasts to
   # `ChatSupport`, which keeps everything realm-agnostic (no personal routes).
   @impl true
@@ -1093,6 +1227,18 @@ defmodule MossletWeb.BusinessLive.CircleShow do
     members =
       Enum.filter(org_members, fn m -> MapSet.member?(circle_member_ids, m.user.id) end)
 
+    # Circle-level ZK announcements (Task #229c): the circle's live notices, split
+    # into a single pinned banner + the "Recent" list. Authored by the circle's
+    # team leads (UserGroup owner/admin/moderator) and encrypted with the circle's
+    # group_key; bodies decrypt browser-side.
+    circle_announcements = Announcements.list_circle_announcements(group)
+
+    {announcement_banner, announcement_recent} =
+      Announcements.partition_pinned(circle_announcements)
+
+    can_post_announcement? =
+      is_struct(user_group) and user_group.role in [:owner, :admin, :moderator]
+
     socket
     |> assign(:group, group)
     |> assign(:current_user_group, user_group)
@@ -1105,6 +1251,10 @@ defmodule MossletWeb.BusinessLive.CircleShow do
     |> assign(:show_add_members?, socket.assigns[:show_add_members?] || false)
     |> assign(:viewer_sealed_org_key, MossletWeb.OrgIdentity.viewer_sealed_org_key(members))
     |> assign(:shared_files, build_shared_files(group, current_user))
+    |> assign(:announcement_banner, announcement_banner)
+    |> assign(:announcement_recent, announcement_recent)
+    |> assign(:announcement_unread_count, Announcements.unread_circle_count(group, current_user))
+    |> assign(:can_post_announcement?, can_post_announcement?)
     |> assign_catch_up(group, current_user, user_group)
     |> maybe_request_org_key_seal(members)
   end
