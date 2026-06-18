@@ -464,6 +464,46 @@ defmodule Mosslet.Orgs do
   end
 
   @doc """
+  Removes the paid custom-subdomain add-on from an org's existing `:org`-source
+  subscription (Task #240, Phase B — the owner releasing their subdomain). The
+  inverse of `add_subdomain_addon/1`: it deletes the add-on line item via the
+  billing provider, so the org stops paying for it and the unused remainder is
+  credited toward the next invoice (proration).
+
+  The caller MUST enforce the owner gate (`can_manage_billing?/2`) first.
+  Idempotent and best-effort by design so a release flow can proceed cleanly:
+
+    * if the org doesn't currently carry the add-on, returns `{:ok, :not_active}`
+      without a provider call;
+    * otherwise it removes the matching line item, syncs the subscription locally
+      (so `has_branding_addon?/1` flips `false` immediately) and broadcasts.
+
+  Returns `{:ok, :removed}`, `{:ok, :not_active}`, or `{:error, reason}`.
+  """
+  def remove_subdomain_addon(%Org{} = org) do
+    cond do
+      not has_branding_addon?(org) ->
+        {:ok, :not_active}
+
+      true ->
+        with %{} = subscription <- org_source_subscription(org),
+             plan when not is_nil(plan) <- Plans.get_plan_by_id(subscription.plan_id),
+             price_id when is_binary(price_id) <- Plans.subdomain_addon_price(plan) do
+          case billing_provider().remove_subscription_item(subscription, price_id) do
+            {:ok, _result} ->
+              broadcast_org_update(org.id)
+              {:ok, :removed}
+
+            {:error, reason} ->
+              {:error, reason}
+          end
+        else
+          _ -> {:error, :addon_unavailable}
+        end
+    end
+  end
+
+  @doc """
   One-click owner-only seat update for an ALREADY-ACTIVE org (Task #247, Phase
   B). Adjusts the seat ADD-ON line item's quantity on the org's existing
   `:org`-source subscription via the billing provider — NOT a new Checkout

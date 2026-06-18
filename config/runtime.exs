@@ -37,6 +37,73 @@ if config_env() == :dev do
     signing_secret: System.get_env("STRIPE_WEBHOOK_SECRET")
 end
 
+# Resolve env-driven Family/Business Stripe price IDs at BOOT so the real IDs
+# (live in prod, test in dev) are honored without committing them to this
+# open-source repo.
+#
+# Why this lives here and not only in config.exs: for a Mix release, all
+# compile-time config (config.exs/dev.exs) is frozen at `mix release`/Docker
+# build time, where Fly secrets are ABSENT — so the `System.get_env` reads in
+# config.exs resolve to the placeholder fallbacks and get baked into the
+# release. runtime.exs runs at BOOT, where Fly secrets exist, so this is the
+# source of truth for prod. (Mirrors metamorphic's runtime.exs price override.)
+#
+# Personal plans hardcode their IDs in config and are intentionally not touched.
+# Each field is only overridden when its env var is actually set, so:
+#   - prod (Fly secrets present at boot) -> real LIVE IDs injected here, winning
+#     over the config.exs placeholders;
+#   - dev (.env is loaded lazily AFTER boot, so these reads are usually nil) ->
+#     no-op, and the real TEST IDs hardcoded as fallbacks in config/dev.exs apply;
+#   - test (no env) -> no-op, config fallbacks apply.
+billing_price_overrides = %{
+  "family-monthly" => %{
+    price: System.get_env("STRIPE_PRICE_FAMILY_MONTHLY"),
+    seat_addon_price: System.get_env("STRIPE_PRICE_FAMILY_SEAT_MONTHLY")
+  },
+  "family-yearly" => %{
+    price: System.get_env("STRIPE_PRICE_FAMILY_YEARLY"),
+    seat_addon_price: System.get_env("STRIPE_PRICE_FAMILY_SEAT_YEARLY")
+  },
+  "business-monthly" => %{
+    price: System.get_env("STRIPE_PRICE_BUSINESS_MONTHLY"),
+    seat_addon_price: System.get_env("STRIPE_PRICE_BUSINESS_SEAT_MONTHLY"),
+    subdomain_addon_price: System.get_env("STRIPE_PRICE_BUSINESS_SUBDOMAIN_MONTHLY")
+  },
+  "business-yearly" => %{
+    price: System.get_env("STRIPE_PRICE_BUSINESS_YEARLY"),
+    seat_addon_price: System.get_env("STRIPE_PRICE_BUSINESS_SEAT_YEARLY"),
+    subdomain_addon_price: System.get_env("STRIPE_PRICE_BUSINESS_SUBDOMAIN_YEARLY")
+  }
+}
+
+case Application.get_env(:mosslet, :billing_products) do
+  products when is_list(products) ->
+    updated_products =
+      Enum.map(products, fn product ->
+        line_items =
+          product
+          |> Map.get(:line_items, [])
+          |> Enum.map(fn item ->
+            case billing_price_overrides[item.id] do
+              nil ->
+                item
+
+              overrides ->
+                Enum.reduce(overrides, item, fn {key, value}, acc ->
+                  if is_binary(value), do: Map.put(acc, key, value), else: acc
+                end)
+            end
+          end)
+
+        Map.put(product, :line_items, line_items)
+      end)
+
+    config :mosslet, :billing_products, updated_products
+
+  _ ->
+    :ok
+end
+
 if config_env() == :prod do
   config :flame, :backend, FLAME.FlyBackend
 

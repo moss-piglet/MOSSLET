@@ -204,12 +204,13 @@ config :mosslet, :billing_products, [
       %{
         id: "family-monthly",
         interval: :month,
-        price: System.get_env("STRIPE_PRICE_FAMILY_MONTHLY") || "price_family_monthly_test",
+        price: System.get_env("STRIPE_PRICE_FAMILY_MONTHLY") || "price_1ThEqaJhDwcSIdONa8Xxy4qk",
         quantity: 1,
         amount: 2000,
         included_seats: 5,
         seat_addon_price:
-          System.get_env("STRIPE_PRICE_FAMILY_SEAT_MONTHLY") || "price_family_seat_monthly_test",
+          System.get_env("STRIPE_PRICE_FAMILY_SEAT_MONTHLY") ||
+            "price_1ThEsvJhDwcSIdONXZ4Wwixn",
         max_seats: 30,
         save_percent: 0,
         trial_days: 14,
@@ -240,13 +241,13 @@ config :mosslet, :billing_products, [
       %{
         id: "family-yearly",
         interval: :year,
-        price: System.get_env("STRIPE_PRICE_FAMILY_YEARLY") || "price_family_yearly_test",
+        price: System.get_env("STRIPE_PRICE_FAMILY_YEARLY") || "price_1ThEqaJhDwcSIdON321oFFcc",
         quantity: 1,
         amount: 16000,
         monthly_equivalent: 1333,
         included_seats: 5,
         seat_addon_price:
-          System.get_env("STRIPE_PRICE_FAMILY_SEAT_YEARLY") || "price_family_seat_yearly_test",
+          System.get_env("STRIPE_PRICE_FAMILY_SEAT_YEARLY") || "price_1ThEtYJhDwcSIdONAuJt555P",
         max_seats: 30,
         save_percent: 33,
         trial_days: 14,
@@ -276,16 +277,17 @@ config :mosslet, :billing_products, [
       %{
         id: "business-monthly",
         interval: :month,
-        price: System.get_env("STRIPE_PRICE_BUSINESS_MONTHLY") || "price_business_monthly_test",
+        price:
+          System.get_env("STRIPE_PRICE_BUSINESS_MONTHLY") || "price_1ThGSjJhDwcSIdONvGqaOZqT",
         quantity: 1,
         amount: 10000,
         included_seats: 10,
         seat_addon_price:
           System.get_env("STRIPE_PRICE_BUSINESS_SEAT_MONTHLY") ||
-            "price_business_seat_monthly_test",
+            "price_1ThGUuJhDwcSIdONjPow9UJx",
         subdomain_addon_price:
           System.get_env("STRIPE_PRICE_BUSINESS_SUBDOMAIN_MONTHLY") ||
-            "price_business_subdomain_monthly_test",
+            "price_1TjPR1JhDwcSIdONvn2KXu1B",
         max_seats: 200,
         save_percent: 0,
         trial_days: 14,
@@ -315,16 +317,16 @@ config :mosslet, :billing_products, [
       %{
         id: "business-yearly",
         interval: :year,
-        price: System.get_env("STRIPE_PRICE_BUSINESS_YEARLY") || "price_business_yearly_test",
+        price: System.get_env("STRIPE_PRICE_BUSINESS_YEARLY") || "price_1ThGTeJhDwcSIdONaoo7atj8",
         quantity: 1,
         amount: 80000,
         monthly_equivalent: 6667,
         included_seats: 10,
         seat_addon_price:
-          System.get_env("STRIPE_PRICE_BUSINESS_SEAT_YEARLY") || "price_business_seat_yearly_test",
+          System.get_env("STRIPE_PRICE_BUSINESS_SEAT_YEARLY") || "price_1ThGVsJhDwcSIdONQ0kOe4E6",
         subdomain_addon_price:
           System.get_env("STRIPE_PRICE_BUSINESS_SUBDOMAIN_YEARLY") ||
-            "price_business_subdomain_yearly_test",
+            "price_1TjPRSJhDwcSIdONWnh2gjCn",
         max_seats: 200,
         save_percent: 33,
         trial_days: 14,

@@ -393,7 +393,14 @@ export async function getConnKey(sealedConnKey) {
   return _cachedConnKey;
 }
 
-// Clear all in-memory key caches, sessionStorage keys, and persistent cache on logout
+// Clear all in-memory key caches, sessionStorage keys, and persistent cache on logout.
+//
+// The synchronous wipes (in-memory caches + sessionStorage) complete inline, so
+// anything dispatching `mosslet:logout` synchronously can rely on those being
+// gone immediately. `clearKeyCache()` returns a Promise for its async IndexedDB
+// teardown; `dispatchEvent` can't await listeners, so callers needing
+// deterministic IDB-wipe ordering should call `clearKeyCache()` directly and
+// await it (see login-hook.js). Here it stays best-effort fire-and-forget.
 window.addEventListener("mosslet:logout", () => {
   _postKeyCache.clear();
   _cachedUserKey = null;
@@ -401,5 +408,5 @@ window.addEventListener("mosslet:logout", () => {
   Object.values(SK).forEach((key) => sessionStorage.removeItem(key));
   sessionStorage.removeItem("_mosslet_unlock_redirect");
   sessionStorage.removeItem("_mosslet_user_key_temp");
-  clearKeyCache();
+  void clearKeyCache();
 });

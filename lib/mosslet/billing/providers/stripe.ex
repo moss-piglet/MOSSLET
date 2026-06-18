@@ -13,6 +13,7 @@ defmodule Mosslet.Billing.Providers.Stripe do
   alias Mosslet.Billing.Providers.Stripe.Services.CreateCheckoutSession
   alias Mosslet.Billing.Providers.Stripe.Services.CreatePortalSession
   alias Mosslet.Billing.Providers.Stripe.Services.FindOrCreateCustomer
+  alias Mosslet.Billing.Providers.Stripe.Services.RemoveSubscriptionItem
   alias Mosslet.Billing.Providers.Stripe.Services.SetSeatQuantity
   alias Mosslet.Billing.Providers.Stripe.Services.SyncCustomer
   alias Mosslet.Billing.Subscriptions.Subscription
@@ -195,6 +196,13 @@ defmodule Mosslet.Billing.Providers.Stripe do
   # `change_plan/3`, which routes a plan SWITCH through the Billing Portal.
   def add_subscription_item(%Subscription{} = subscription, price_id) do
     AddSubscriptionItem.call(subscription, price_id)
+  end
+
+  # Removes the matching add-on line item from an active subscription WITHOUT
+  # swapping the others (Task #240, Phase B — releasing the subdomain add-on).
+  # The inverse of `add_subscription_item/2`; proration credits the next invoice.
+  def remove_subscription_item(%Subscription{} = subscription, price_id) do
+    RemoveSubscriptionItem.call(subscription, price_id)
   end
 
   # Sets the seat add-on line item's quantity on an active subscription (Task

@@ -245,4 +245,25 @@ defmodule Mosslet.Orgs.OrgBrandingAddonTest do
       assert {:error, :addon_unavailable} = Orgs.add_subdomain_addon(business_org())
     end
   end
+
+  describe "remove_subdomain_addon/1 (release path — stop billing for the add-on)" do
+    test "is idempotent — returns :not_active without touching the provider" do
+      org = business_org()
+
+      ensure_org_subscription(org,
+        plan_id: "business-monthly",
+        status: "active",
+        items: [%{"price_id" => "price_business_base_monthly"}]
+      )
+
+      # Org carries a subscription but NOT the add-on line item -> nothing to
+      # remove, short-circuits before any Stripe call.
+      refute Orgs.has_branding_addon?(org)
+      assert {:ok, :not_active} = Orgs.remove_subdomain_addon(org)
+    end
+
+    test "returns :not_active for an org with no subscription at all" do
+      assert {:ok, :not_active} = Orgs.remove_subdomain_addon(business_org())
+    end
+  end
 end

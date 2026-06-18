@@ -26,6 +26,7 @@ import {
   deriveSessionKey,
   decryptSecretboxToString,
 } from "../crypto/nacl";
+import { clearKeyCache } from "../crypto/key_cache";
 
 const TEMP_USER_KEY = "_mosslet_user_key_temp";
 
@@ -68,6 +69,16 @@ const LoginHook = {
       }
 
       try {
+        // Deterministic wipe ordering (Task #250): explicitly await teardown of
+        // any persistent key cache for this origin BEFORE we derive and store
+        // the fresh temp key. The mount-time `mosslet:logout` dispatch above
+        // already kicks off a best-effort wipe, but awaiting here guarantees the
+        // old IndexedDB-backed cache is gone before the new login's keys land,
+        // so a slow `deleteDatabase` can never settle after — and clobber —
+        // the next session's cached keys. `clearKeyCache()` never rejects and
+        // is non-hanging (safety timeout), so this stays progressive-enhancement.
+        await clearKeyCache();
+
         // Fetch the key_hash from the server (timing-normalized)
         const resp = await fetch("/api/auth/salt", {
           method: "POST",

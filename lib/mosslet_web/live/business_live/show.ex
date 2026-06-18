@@ -841,7 +841,7 @@ defmodule MossletWeb.BusinessLive.Show do
                         size="sm"
                         icon="hero-trash"
                         phx-click="release_subdomain"
-                        data-confirm="Release this subdomain? Your branded address will stop working."
+                        data-confirm="Release this subdomain and remove the custom-subdomain add-on? Your branded address will stop working and the add-on will be removed from your subscription — the prorated credit appears on your next invoice."
                       >
                         Release subdomain
                       </.liquid_button>
@@ -1828,6 +1828,7 @@ defmodule MossletWeb.BusinessLive.Show do
             {:noreply,
              socket
              |> assign(:org, org)
+             |> assign_subdomain_state(org)
              |> assign(
                :subdomain_form,
                to_form(Org.subdomain_changeset(org, %{}), as: :branding)
@@ -1849,17 +1850,25 @@ defmodule MossletWeb.BusinessLive.Show do
     org = socket.assigns.org
 
     if Orgs.can_manage_billing?(org, socket.assigns.current_scope.user.id) do
-      case Orgs.clear_org_subdomain(org) do
-        {:ok, org} ->
-          {:noreply,
-           socket
-           |> assign(:org, org)
-           |> assign(
-             :subdomain_form,
-             to_form(Org.subdomain_changeset(org, %{}), as: :branding)
-           )
-           |> put_flash(:success, "Your custom subdomain has been released.")}
-
+      # Releasing is a deliberate teardown: drop the paid add-on first so billing
+      # stops (prorated credit on the next invoice), THEN clear the reserved
+      # subdomain row. If the add-on removal fails we abort and keep BOTH, so the
+      # owner never loses the subdomain while still being charged for it.
+      with {:ok, _} <- Orgs.remove_subdomain_addon(org),
+           {:ok, org} <- Orgs.clear_org_subdomain(org) do
+        {:noreply,
+         socket
+         |> assign(:org, org)
+         |> assign_subdomain_state(org)
+         |> assign(
+           :subdomain_form,
+           to_form(Org.subdomain_changeset(org, %{}), as: :branding)
+         )
+         |> put_flash(
+           :success,
+           "Your custom subdomain has been released and the add-on removed — the prorated credit will appear on your next invoice."
+         )}
+      else
         {:error, _} ->
           {:noreply,
            put_flash(socket, :error, "Could not release the subdomain. Please try again.")}
@@ -1883,7 +1892,7 @@ defmodule MossletWeb.BusinessLive.Show do
         {:ok, _} ->
           {:noreply,
            socket
-           |> assign(:has_branding_addon?, Orgs.has_branding_addon?(org))
+           |> assign_subdomain_state(org)
            |> assign(:subdomain_form, to_form(Org.subdomain_changeset(org, %{}), as: :branding))
            |> put_flash(
              :success,
@@ -2070,6 +2079,11 @@ defmodule MossletWeb.BusinessLive.Show do
     "#{subdomain}.#{Application.get_env(:mosslet, :canonical_host) || "mosslet.com"}"
   end
 
+  # Defensive: a released/absent subdomain renders nothing. The branded-space
+  # sections are already gated by `@subdomain_live?` / `@org.subdomain`, but this
+  # keeps a transient assign state (mid-release) from crashing the diff.
+  defp subdomain_display_url(_), do: ""
+
   # Whether the current request is being served on THIS org's branded subdomain
   # (Task #246). Drives the "Open your branded space" CTA — we only invite a
   # member to switch hosts when they're NOT already on it. Reuses the host plug's
@@ -2216,15 +2230,26 @@ defmodule MossletWeb.BusinessLive.Show do
       :can_manage_branding?,
       Orgs.can_manage_branding?(org, socket.assigns.membership)
     )
-    |> assign(:has_branding_addon?, Orgs.has_branding_addon?(org))
-    |> assign(:subdomain_live?, Orgs.subdomain_live?(org))
-    |> assign(:org_branded_url, Orgs.org_base_url(org))
-    |> assign(:on_org_subdomain?, on_org_subdomain?(socket, org))
+    |> assign_subdomain_state(org)
     |> assign(:subdomain_form, to_form(Org.subdomain_changeset(org, %{}), as: :branding))
     |> assign(:org_logo_url, org_logo_presigned_url(org))
     |> assign_pending_transfer(org, current_user)
     |> assign_manage_circle(members)
     |> maybe_request_org_key_seal()
+  end
+
+  # Recomputes the four subdomain/add-on-derived assigns from the org's current
+  # (server-authoritative) state. Called from `assign_business_data/1` AND from
+  # the claim/add/release handlers so the UI stays consistent after a mutation —
+  # e.g. releasing the subdomain flips `has_branding_addon?`/`subdomain_live?`
+  # to false (which also prevents rendering `subdomain_display_url/1` with a now
+  # nil subdomain).
+  defp assign_subdomain_state(socket, org) do
+    socket
+    |> assign(:has_branding_addon?, Orgs.has_branding_addon?(org))
+    |> assign(:subdomain_live?, Orgs.subdomain_live?(org))
+    |> assign(:org_branded_url, Orgs.org_base_url(org))
+    |> assign(:on_org_subdomain?, on_org_subdomain?(socket, org))
   end
 
   # Builds the per-circle member-management view-model for the circle currently

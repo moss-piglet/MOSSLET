@@ -143,10 +143,26 @@ export async function getCachedKeys() {
   }
 }
 
+// Max time to wait for indexedDB.deleteDatabase to settle before we give up
+// and resolve anyway. A pending `onblocked` (e.g. another tab holding the DB
+// open) must never wedge the logout/wipe chain — wipe stays best-effort.
+const IDB_DELETE_TIMEOUT_MS = 2000;
+
 /**
  * Clear all cached keys.
  *
  * Call on logout, password change, and account deletion.
+ *
+ * The localStorage ciphertext is removed synchronously (best-effort). The
+ * IndexedDB wrapping-key store is deleted asynchronously; the returned Promise
+ * resolves once that delete settles (success/error/blocked) or a safety timeout
+ * fires — so callers that need deterministic wipe ordering can `await` it, while
+ * legacy fire-and-forget callers keep working unchanged.
+ *
+ * The Promise ALWAYS resolves (never rejects): wiping is best-effort and must
+ * never throw into a logout flow.
+ *
+ * @returns {Promise<void>}
  */
 export function clearKeyCache() {
   try {
@@ -154,9 +170,29 @@ export function clearKeyCache() {
   } catch {
     // Best effort
   }
-  try {
-    indexedDB.deleteDatabase(DB_NAME);
-  } catch {
-    // Best effort
-  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve();
+    };
+
+    // Safety net: never let a stuck onblocked (another tab/document holding the
+    // DB open) hang the wipe chain indefinitely.
+    const timer = setTimeout(done, IDB_DELETE_TIMEOUT_MS);
+
+    try {
+      const request = indexedDB.deleteDatabase(DB_NAME);
+      // Resolve (not reject) on every outcome to keep this best-effort.
+      request.onsuccess = done;
+      request.onerror = done;
+      request.onblocked = done;
+    } catch {
+      // indexedDB unavailable / threw synchronously — best effort.
+      done();
+    }
+  });
 }
