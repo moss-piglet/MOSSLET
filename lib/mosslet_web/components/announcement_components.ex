@@ -41,6 +41,7 @@ defmodule MossletWeb.AnnouncementComponents do
   def announcements_panel(assigns) do
     ~H"""
     <section
+      :if={@can_post? || @banner || @recent != []}
       id={"announcements-#{@tier}"}
       class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
     >
@@ -57,7 +58,14 @@ defmodule MossletWeb.AnnouncementComponents do
               {@unread_count} new
             </span>
           </h2>
-          <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+          <%!-- Helper/description text is the EMPTY-STATE guide: it only shows to
+               someone who can post AND only while there are no announcements yet,
+               teaching them how/why to post. Once announcements exist (or for a
+               member who can't post), the card stays clean. --%>
+          <p
+            :if={@can_post? && is_nil(@banner) && @recent == []}
+            class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
+          >
             {announcement_blurb(@tier)} Encrypted on each member's device — Mosslet can't read them.
           </p>
         </div>

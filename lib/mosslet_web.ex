@@ -144,6 +144,7 @@ defmodule MossletWeb do
       import MossletWeb.BusinessComponents
       import MossletWeb.OrgComponents
       import MossletWeb.AnnouncementComponents
+      import MossletWeb.PinComponents
       import MossletWeb.Helpers
       import MossletWeb.Helpers.StatusHelpers
       import MossletWeb.Helpers.StatusHelpers

@@ -2,6 +2,9 @@ import MossletFrameworkHooks from "../../_mosslet_framework/js/hooks";
 import AccountRecoveryHook from "./account-recovery-hook";
 import AnnouncementFormHook from "./announcement-form-hook";
 import DecryptAnnouncement from "./decrypt-announcement";
+import PinLinkFormHook from "./pin-link-form-hook";
+import DecryptPin from "./decrypt-pin";
+import PinsReorderHook from "./pins-reorder-hook";
 import AutoResize from "./auto-resize";
 import BookmarkNoteHook from "./bookmark-note-hook";
 import BookScrollReader from "./book-scroll-reader";
@@ -109,6 +112,9 @@ export default {
   AccountRecoveryHook,
   AnnouncementFormHook,
   DecryptAnnouncement,
+  PinLinkFormHook,
+  DecryptPin,
+  PinsReorderHook,
   AutoResize,
   BookmarkNoteHook,
   BookScrollReader,

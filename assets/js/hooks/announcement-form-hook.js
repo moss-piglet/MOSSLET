@@ -85,7 +85,7 @@ const AnnouncementFormHook = {
     const title = titleInput?.value?.trim() || "";
     const body = bodyInput?.value?.trim() || "";
     const priority = this._readPriority();
-    const expiresAt = expiresInput?.value?.trim() || "";
+    const expiresAt = this._toUtcIso(expiresInput?.value?.trim() || "");
 
     if (!body || body.length > MAX_BODY_LEN || title.length > MAX_TITLE_LEN) {
       this._push("announcement_invalid", {});
@@ -115,6 +115,16 @@ const AnnouncementFormHook = {
       priority: priority,
       expires_at: expiresAt,
     });
+  },
+
+  // Converts a `datetime-local` value (interpreted in the member's LOCAL
+  // timezone) into a UTC ISO8601 string, so the server stores the intended
+  // wall-clock auto-hide time regardless of timezone. Empty → "".
+  _toUtcIso(localValue) {
+    if (!localValue) return "";
+    const date = new Date(localValue);
+    if (isNaN(date.getTime())) return localValue;
+    return date.toISOString();
   },
 
   _readPriority() {

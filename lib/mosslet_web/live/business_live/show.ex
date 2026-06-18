@@ -20,6 +20,7 @@ defmodule MossletWeb.BusinessLive.Show do
   alias Mosslet.Groups
   alias Mosslet.Orgs
   alias Mosslet.Orgs.Org
+  alias Mosslet.Pins
 
   @impl true
   def mount(%{"slug" => slug}, _session, socket) do
@@ -55,6 +56,9 @@ defmodule MossletWeb.BusinessLive.Show do
          :announcement_form,
          to_form(%{"title" => "", "body" => "", "priority" => "normal"}, as: :announcement)
        )
+       |> assign(:show_pin_form?, false)
+       |> assign(:pin_form_scope, :personal)
+       |> assign(:pin_form, to_form(%{"label" => "", "url" => ""}, as: :pin))
        |> assign(:pending_zk_circle_attrs, nil)
        |> assign(:pending_zk_circle_users, nil)
        |> assign(:pending_zk_circle_type, :community)
@@ -179,6 +183,23 @@ defmodule MossletWeb.BusinessLive.Show do
             </a>
           </div>
         </div>
+
+        <%!-- Pinned strip (Task #229d): quick-access shortcuts to circles, files,
+             and links. Two scopes — org-wide (curated by owner/admin) and the
+             viewer's own personal pins. Link labels/URLs are encrypted on each
+             device (user_key / org_key); circle/file pins reuse the already-
+             decrypted name (FK-only). ZK throughout. --%>
+        <.pinned_strip
+          org={@org}
+          sealed_org_key={@viewer_sealed_org_key}
+          org_shared_pins={@org_shared_pins}
+          personal_pins={@personal_pins}
+          can_manage_org_pins?={@can_manage_org_pins?}
+          can_pin_personal?={@can_pin_personal?}
+          show_pin_form?={@show_pin_form?}
+          pin_form={@pin_form}
+          pin_form_scope={@pin_form_scope}
+        />
 
         <%!-- Everyday surfaces — members, circles, and files — get the prominent
              real-estate. On lg+ they fan out into a responsive multi-column grid;
@@ -589,6 +610,9 @@ defmodule MossletWeb.BusinessLive.Show do
                     org={@org}
                     current_user_id={@current_scope.user.id}
                     viewer_sealed_org_key={@viewer_sealed_org_key}
+                    can_manage_org_pins?={@can_manage_org_pins?}
+                    personal_pinned?={MapSet.member?(@personal_pinned_circle_ids, circle.group.id)}
+                    org_pinned?={MapSet.member?(@org_pinned_circle_ids, circle.group.id)}
                   />
                 </ul>
               </div>
@@ -612,6 +636,9 @@ defmodule MossletWeb.BusinessLive.Show do
                     org={@org}
                     current_user_id={@current_scope.user.id}
                     viewer_sealed_org_key={@viewer_sealed_org_key}
+                    can_manage_org_pins?={@can_manage_org_pins?}
+                    personal_pinned?={MapSet.member?(@personal_pinned_circle_ids, circle.group.id)}
+                    org_pinned?={MapSet.member?(@org_pinned_circle_ids, circle.group.id)}
                   />
                 </ul>
               </div>
@@ -722,6 +749,9 @@ defmodule MossletWeb.BusinessLive.Show do
                   entry={entry}
                   tier={:team}
                   org={@org}
+                  can_manage_org_pins?={@can_manage_org_pins?}
+                  personal_pinned_file_ids={@personal_pinned_file_ids}
+                  org_pinned_file_ids={@org_pinned_file_ids}
                 />
               </div>
 
@@ -740,6 +770,9 @@ defmodule MossletWeb.BusinessLive.Show do
                   entry={entry}
                   tier={:community}
                   org={@org}
+                  can_manage_org_pins?={@can_manage_org_pins?}
+                  personal_pinned_file_ids={@personal_pinned_file_ids}
+                  org_pinned_file_ids={@org_pinned_file_ids}
                 />
               </div>
             </section>
@@ -1187,6 +1220,9 @@ defmodule MossletWeb.BusinessLive.Show do
   attr :org, :map, required: true
   attr :current_user_id, :string, required: true
   attr :viewer_sealed_org_key, :string, default: nil
+  attr :can_manage_org_pins?, :boolean, default: false
+  attr :personal_pinned?, :boolean, default: false
+  attr :org_pinned?, :boolean, default: false
 
   defp circle_card(assigns) do
     ~H"""
@@ -1209,43 +1245,62 @@ defmodule MossletWeb.BusinessLive.Show do
         data-scope-id={"business-circle-#{@circle.group.id}"}
       >
       </div>
-      <.link
-        navigate={~p"/app/business/#{@org.slug}/circles/#{@circle.group.id}"}
-        class="flex items-center gap-3 p-3"
-      >
-        <div class={[
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
-          @tier == :team &&
-            "bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-sm",
-          @tier != :team &&
-            "bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300 group-hover:text-teal-600 dark:group-hover:text-teal-300"
-        ]}>
-          <.phx_icon
-            name={
-              if(@tier == :team, do: "hero-building-office-2", else: "hero-chat-bubble-left-right")
-            }
-            class="size-4"
-          />
-        </div>
-        <div class="min-w-0 flex-1">
-          <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-            <span data-decrypt-group-name>Business circle</span>
-          </p>
-          <p class="text-xs text-slate-500 dark:text-slate-400">
-            {@circle.member_count} member{if @circle.member_count != 1, do: "s"}
-          </p>
-        </div>
-        <span
-          :if={@tier == :team}
-          class="shrink-0 inline-flex items-center rounded-full bg-teal-100 dark:bg-teal-900/40 px-2 py-0.5 text-[11px] font-semibold text-teal-700 dark:text-teal-300"
+      <div class="flex items-center">
+        <.link
+          navigate={~p"/app/business/#{@org.slug}/circles/#{@circle.group.id}"}
+          class="flex flex-1 min-w-0 items-center gap-3 p-3"
         >
-          Official
-        </span>
-        <.phx_icon
-          name="hero-chevron-right"
-          class="size-4 shrink-0 text-slate-300 dark:text-slate-600 group-hover:text-teal-500 dark:group-hover:text-teal-400"
+          <div class={[
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+            @tier == :team &&
+              "bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-sm",
+            @tier != :team &&
+              "bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300 group-hover:text-teal-600 dark:group-hover:text-teal-300"
+          ]}>
+            <.phx_icon
+              name={
+                if(@tier == :team, do: "hero-building-office-2", else: "hero-chat-bubble-left-right")
+              }
+              class="size-4"
+            />
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+              <span data-decrypt-group-name>Business circle</span>
+            </p>
+            <p class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+              {@circle.member_count} member{if @circle.member_count != 1, do: "s"}
+              <span
+                :if={@circle.unread_announcements > 0}
+                id={"circle-#{@circle.group.id}-unread-announcements"}
+                class="inline-flex items-center gap-1 rounded-full bg-rose-100 dark:bg-rose-900/40 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-300"
+                title="New announcements you haven't read"
+              >
+                <.phx_icon name="hero-megaphone" class="size-3" />
+                {@circle.unread_announcements} new
+              </span>
+            </p>
+          </div>
+          <span
+            :if={@tier == :team}
+            class="shrink-0 inline-flex items-center rounded-full bg-teal-100 dark:bg-teal-900/40 px-2 py-0.5 text-[11px] font-semibold text-teal-700 dark:text-teal-300"
+          >
+            Official
+          </span>
+          <.phx_icon
+            name="hero-chevron-right"
+            class="size-4 shrink-0 text-slate-300 dark:text-slate-600 group-hover:text-teal-500 dark:group-hover:text-teal-400"
+          />
+        </.link>
+        <.pin_toggle_buttons
+          class="pr-3"
+          pin_type={:circle}
+          target_id={@circle.group.id}
+          personal_pinned?={@personal_pinned?}
+          org_pinned?={@org_pinned?}
+          can_manage_org_pins?={@can_manage_org_pins?}
         />
-      </.link>
+      </div>
 
       <%!-- Per-circle member management (Task #231): an org admin or the circle
        owner/admin can add/remove members without leaving the org dashboard. --%>
@@ -1284,6 +1339,9 @@ defmodule MossletWeb.BusinessLive.Show do
   attr :entry, :map, required: true
   attr :tier, :atom, required: true
   attr :org, :map, required: true
+  attr :can_manage_org_pins?, :boolean, default: false
+  attr :personal_pinned_file_ids, :any, default: %MapSet{}
+  attr :org_pinned_file_ids, :any, default: %MapSet{}
 
   defp file_circle_block(assigns) do
     ~H"""
@@ -1324,7 +1382,7 @@ defmodule MossletWeb.BusinessLive.Show do
           <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
             <.phx_icon name="hero-document" class="size-4" />
           </div>
-          <div class="min-w-0">
+          <div class="min-w-0 flex-1">
             <% viewer_row = List.first(file.user_shared_files) %>
             <div
               :if={viewer_row && file.encrypted_filename}
@@ -1351,6 +1409,13 @@ defmodule MossletWeb.BusinessLive.Show do
               {format_size(file.size_bytes)}
             </p>
           </div>
+          <.pin_toggle_buttons
+            pin_type={:file}
+            target_id={file.id}
+            personal_pinned?={MapSet.member?(@personal_pinned_file_ids, file.id)}
+            org_pinned?={MapSet.member?(@org_pinned_file_ids, file.id)}
+            can_manage_org_pins?={@can_manage_org_pins?}
+          />
         </li>
       </ul>
     </div>
@@ -2121,6 +2186,179 @@ defmodule MossletWeb.BusinessLive.Show do
     {:noreply, assign_business_data(socket)}
   end
 
+  ## Dashboard pins (Task #229d)
+
+  @impl true
+  def handle_event("show_pin_form", _params, socket) do
+    {:noreply, assign(socket, :show_pin_form?, true)}
+  end
+
+  @impl true
+  def handle_event("hide_pin_form", _params, socket) do
+    {:noreply, assign(socket, :show_pin_form?, false)}
+  end
+
+  # Switch the link-compose form's target scope (owner/admin only — re-checked on
+  # write). Personal pins use the user_key; org-wide pins use the org_key.
+  @impl true
+  def handle_event("set_pin_form_scope", %{"scope" => scope}, socket) do
+    scope =
+      if scope == "org_shared" and socket.assigns.can_manage_org_pins?,
+        do: :org_shared,
+        else: :personal
+
+    {:noreply, assign(socket, :pin_form_scope, scope)}
+  end
+
+  # The browser encrypted the link label + URL with the user_key (personal) or
+  # org_key (org-wide) and pushed the ciphertext. Persist it (server re-checks
+  # authority — I1). The raw key + plaintext NEVER reach the server.
+  @impl true
+  def handle_event("save_pin_link", params, socket) do
+    user = socket.assigns.current_scope.user
+    org = socket.assigns.org
+
+    attrs = %{
+      "pin_type" => :link,
+      "encrypted_label" => params["encrypted_label"],
+      "encrypted_url" => params["encrypted_url"]
+    }
+
+    result =
+      if params["scope"] == "org_shared" do
+        Pins.create_org_shared_pin(org, user, attrs)
+      else
+        Pins.create_personal_pin(org, user, attrs)
+      end
+
+    case result do
+      {:ok, _pin} ->
+        {:noreply,
+         socket
+         |> put_flash(:success, "Link pinned")
+         |> assign(:show_pin_form?, false)
+         |> assign(:pin_form_scope, :personal)
+         |> assign_business_data()}
+
+      {:error, :unauthorized} ->
+        {:noreply, put_flash(socket, :error, "You don't have permission to pin that.")}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Could not pin that link.")}
+    end
+  end
+
+  # Fallback when browser crypto is unavailable: PinLinkFormHook normally
+  # intercepts the submit and pushes "save_pin_link" with ciphertext. Without it
+  # the raw params would arrive here — we must NEVER persist plaintext (ZK), so
+  # refuse gracefully.
+  @impl true
+  def handle_event("create_pin_link", _params, socket) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       "Your browser couldn't prepare encryption keys. Please reload and try again."
+     )}
+  end
+
+  @impl true
+  def handle_event("pin_link_invalid", _params, socket) do
+    {:noreply, put_flash(socket, :error, "Please add a label and a valid https:// link.")}
+  end
+
+  # Quick-pin toggle on a circle card / file row: pin the target if not yet
+  # pinned in the chosen scope, else unpin it. Server-authoritative (the context
+  # re-checks authority — I1).
+  @impl true
+  def handle_event(
+        "toggle_pin",
+        %{"pin_type" => pin_type, "target_id" => target_id, "scope" => scope},
+        socket
+      ) do
+    user = socket.assigns.current_scope.user
+    org = socket.assigns.org
+    pin_type = Pins.parse_pin_type(pin_type)
+
+    cond do
+      is_nil(pin_type) or pin_type == :link ->
+        {:noreply, socket}
+
+      scope == "org_shared" ->
+        existing = Pins.get_org_shared_target_pin(org, pin_type, target_id)
+
+        result =
+          if existing do
+            Pins.delete_pin(existing, user)
+          else
+            Pins.create_org_shared_pin(org, user, %{
+              "pin_type" => pin_type,
+              "target_id" => target_id
+            })
+          end
+
+        {:noreply, after_toggle(socket, result)}
+
+      true ->
+        existing = Pins.get_personal_target_pin(org, user, pin_type, target_id)
+
+        result =
+          if existing do
+            Pins.delete_pin(existing, user)
+          else
+            Pins.create_personal_pin(org, user, %{
+              "pin_type" => pin_type,
+              "target_id" => target_id
+            })
+          end
+
+        {:noreply, after_toggle(socket, result)}
+    end
+  end
+
+  @impl true
+  def handle_event("remove_pin", %{"id" => id}, socket) do
+    user = socket.assigns.current_scope.user
+    pin = Pins.get_pin(id)
+
+    cond do
+      is_nil(pin) or pin.org_id != socket.assigns.org.id ->
+        {:noreply, socket}
+
+      true ->
+        case Pins.delete_pin(pin, user) do
+          {:ok, :deleted} ->
+            {:noreply, socket |> put_flash(:info, "Pin removed") |> assign_business_data()}
+
+          {:error, :unauthorized} ->
+            {:noreply, put_flash(socket, :error, "You can't remove that pin.")}
+
+          _ ->
+            {:noreply, put_flash(socket, :error, "Could not remove that pin.")}
+        end
+    end
+  end
+
+  @impl true
+  def handle_event("reorder_pins", %{"scope" => scope, "order" => order}, socket)
+      when is_list(order) do
+    user = socket.assigns.current_scope.user
+    org = socket.assigns.org
+
+    if scope == "org_shared" do
+      Pins.reorder_org_shared_pins(org, user, order)
+    else
+      Pins.reorder_personal_pins(org, user, order)
+    end
+
+    {:noreply, assign_business_data(socket)}
+  end
+
+  defp after_toggle(socket, {:error, :unauthorized}),
+    do: put_flash(socket, :error, "You don't have permission to pin that.")
+
+  defp after_toggle(socket, _result), do: assign_business_data(socket)
+
   ## Org brand logo (Task #228, branding add-on)
 
   # The <.live_file_input> change/submit; the writer + hook drive everything else.
@@ -2501,6 +2739,19 @@ defmodule MossletWeb.BusinessLive.Show do
     {:noreply, assign_business_data(socket)}
   end
 
+  # A CIRCLE announcement was posted/edited/deleted in one of this org's circles
+  # (Task #229c/#229d). Refresh so the per-circle "new announcement" badge on the
+  # dashboard updates live. Id-only event (no plaintext/keys).
+  def handle_info({:circle_announcement_activity, %{}}, socket) do
+    {:noreply, assign_business_data(socket)}
+  end
+
+  # Realtime org-wide pin change (Task #229d): an owner/admin added, removed, or
+  # reordered a shared pin. Refresh the strip (id-only event — no plaintext/keys).
+  def handle_info({:pins_updated, %{scope: :org_shared}}, socket) do
+    {:noreply, assign_business_data(socket)}
+  end
+
   # Ignore unrelated process messages (e.g. Swoosh test email delivery, telemetry).
   def handle_info(_message, socket), do: {:noreply, socket}
 
@@ -2629,6 +2880,7 @@ defmodule MossletWeb.BusinessLive.Show do
           org_circle_type: group.org_circle_type,
           sealed_group_key: user_group && user_group.key,
           member_count: length(group.user_groups),
+          unread_announcements: Announcements.unread_circle_count(group, current_user),
           viewer_can_manage?:
             socket.assigns.membership.role == :admin or
               (is_struct(user_group) and user_group.role in [:owner, :admin])
@@ -2644,9 +2896,10 @@ defmodule MossletWeb.BusinessLive.Show do
 
     file_sort = Map.get(socket.assigns, :file_sort, :newest)
 
+    org_shared_files = Files.list_org_shared_files_for_user(org.id, current_user)
+
     org_file_circles =
-      org.id
-      |> Files.list_org_shared_files_for_user(current_user)
+      org_shared_files
       |> Enum.group_by(& &1.group_id)
       |> Enum.map(fn {group_id, files} ->
         group = hd(files).group
@@ -2668,6 +2921,24 @@ defmodule MossletWeb.BusinessLive.Show do
     org_announcements = Announcements.list_org_announcements(org)
     {announcement_banner, announcement_recent} = Announcements.partition_pinned(org_announcements)
 
+    # Dashboard pins (Task #229d): resolve the org-wide + personal pins into
+    # render view-models. Circle/file pins reuse the already-loaded sealed keys +
+    # ciphertext (FK-only, ZK) and are dropped if the viewer can't access the
+    # target; link pins carry their own encrypted label/URL.
+    can_manage_org_pins? = Pins.can_manage_org_pins?(org, current_user.id)
+    circles_by_id = Map.new(circles, fn circle -> {circle.group.id, circle} end)
+    files_by_id = Map.new(org_shared_files, fn file -> {file.id, file} end)
+
+    org_shared_pins =
+      org
+      |> Pins.list_org_shared_pins()
+      |> resolve_pins(can_manage_org_pins?, circles_by_id, files_by_id, org)
+
+    personal_pins =
+      org
+      |> Pins.list_personal_pins(current_user)
+      |> resolve_pins(true, circles_by_id, files_by_id, org)
+
     socket
     |> assign(:members, members)
     |> assign(:viewer_sealed_org_key, MossletWeb.OrgIdentity.viewer_sealed_org_key(members))
@@ -2687,6 +2958,14 @@ defmodule MossletWeb.BusinessLive.Show do
       :can_post_announcement?,
       Announcements.can_post_org_announcement?(org, current_user.id)
     )
+    |> assign(:org_shared_pins, org_shared_pins)
+    |> assign(:personal_pins, personal_pins)
+    |> assign(:can_manage_org_pins?, can_manage_org_pins?)
+    |> assign(:can_pin_personal?, Pins.can_pin_personal?(org, current_user.id))
+    |> assign(:personal_pinned_circle_ids, pinned_target_ids(personal_pins, :circle))
+    |> assign(:personal_pinned_file_ids, pinned_target_ids(personal_pins, :file))
+    |> assign(:org_pinned_circle_ids, pinned_target_ids(org_shared_pins, :circle))
+    |> assign(:org_pinned_file_ids, pinned_target_ids(org_shared_pins, :file))
     |> assign_org_file_circles(org_file_circles)
     |> assign(:pending_invitations, Orgs.list_invitations_by_org(org))
     |> assign(:seats, Orgs.seat_summary(org))
@@ -2896,6 +3175,77 @@ defmodule MossletWeb.BusinessLive.Show do
       bytes >= 1024 -> "#{Float.round(bytes / 1024, 1)} KB"
       true -> "#{bytes} B"
     end
+  end
+
+  # Resolves each dashboard pin (Task #229d) into a render view-model. Circle and
+  # file pins are FK-only: we reuse the already-loaded sealed key + ciphertext
+  # (ZK — the server never decrypts the name) and DROP pins whose target the
+  # viewer can't access. Link pins carry their own encrypted label/URL. `org` is
+  # used to build the click-through navigation path.
+  defp resolve_pins(pins, can_manage?, circles_by_id, files_by_id, org) do
+    Enum.flat_map(pins, fn pin ->
+      case pin.pin_type do
+        :link ->
+          [
+            %{
+              pin: pin,
+              can_manage?: can_manage?,
+              sealed_key: nil,
+              label_ciphertext: nil,
+              navigate: nil
+            }
+          ]
+
+        :circle ->
+          case Map.get(circles_by_id, pin.target_id) do
+            nil ->
+              []
+
+            circle ->
+              [
+                %{
+                  pin: pin,
+                  can_manage?: can_manage?,
+                  sealed_key: circle.sealed_group_key,
+                  label_ciphertext: circle.encrypted_name,
+                  org_circle_type: circle.org_circle_type,
+                  navigate: ~p"/app/business/#{org.slug}/circles/#{circle.group.id}"
+                }
+              ]
+          end
+
+        :file ->
+          case Map.get(files_by_id, pin.target_id) do
+            nil ->
+              []
+
+            file ->
+              viewer_row = List.first(file.user_shared_files)
+
+              if viewer_row && file.encrypted_filename do
+                [
+                  %{
+                    pin: pin,
+                    can_manage?: can_manage?,
+                    sealed_key: viewer_row.key,
+                    label_ciphertext: file.encrypted_filename,
+                    navigate: ~p"/app/business/#{org.slug}/circles/#{file.group_id}"
+                  }
+                ]
+              else
+                []
+              end
+          end
+      end
+    end)
+  end
+
+  # The set of target ids pinned for a given pin_type (drives the quick-pin
+  # toggle button state on circle cards / file rows).
+  defp pinned_target_ids(resolved_pins, pin_type) do
+    resolved_pins
+    |> Enum.filter(&(&1.pin.pin_type == pin_type))
+    |> MapSet.new(& &1.pin.target_id)
   end
 
   # Assigns the org-wide file overview plus its two classification partitions

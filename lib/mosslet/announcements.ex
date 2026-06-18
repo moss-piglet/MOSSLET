@@ -98,6 +98,8 @@ defmodule Mosslet.Announcements do
       group_topic(group_id),
       {:announcement_published, %{scope: :circle, scope_id: group_id, author_id: author_id}}
     )
+
+    nudge_org_dashboard(group_id)
   end
 
   # An announcement changed (edit/delete) — refresh only, no toast. Ids only.
@@ -115,6 +117,30 @@ defmodule Mosslet.Announcements do
       group_topic(group_id),
       {:announcements_updated, %{scope: :circle, scope_id: group_id}}
     )
+
+    nudge_org_dashboard(group_id)
+  end
+
+  # Circle announcements are read on the circle page (group topic), but the org
+  # dashboard also shows a per-circle "new announcement" badge — so we nudge the
+  # org topic (which the dashboard already subscribes to) with the owning org id
+  # so it can refresh its unread counts live. Id-only (ZK-safe).
+  defp nudge_org_dashboard(group_id) do
+    org_id =
+      Group
+      |> where([g], g.id == ^group_id)
+      |> select([g], g.org_id)
+      |> Repo.one()
+
+    if is_binary(org_id) do
+      Phoenix.PubSub.broadcast(
+        Mosslet.PubSub,
+        org_topic(org_id),
+        {:circle_announcement_activity, %{org_id: org_id, group_id: group_id}}
+      )
+    end
+
+    :ok
   end
 
   ## Write path (ZK)
@@ -378,17 +404,32 @@ defmodule Mosslet.Announcements do
   def parse_priority(_), do: :normal
 
   @doc """
-  Parses the optional `datetime-local` auto-hide value into a UTC `DateTime` (or
-  `nil` when absent/unparseable). The HTML control yields a timezone-less,
-  second-less string (e.g. `"2026-06-18T15:30"`); we normalize + treat it as UTC.
+  Parses the optional auto-hide value into a UTC `DateTime` (or `nil` when
+  absent/unparseable).
+
+  The browser converts the member's local `datetime-local` pick into a full UTC
+  ISO8601 string (with a `Z`/offset) before sending it, so the auto-hide fires at
+  the intended wall-clock time regardless of the member's timezone. We still
+  accept a bare, offset-less value (legacy / no-JS fallback) and treat it as UTC.
   """
   def parse_expires_at(value) when is_binary(value) do
     case String.trim(value) do
-      "" ->
-        nil
+      "" -> nil
+      trimmed -> parse_expires_datetime(trimmed)
+    end
+  end
 
-      trimmed ->
-        normalized = if String.length(trimmed) == 16, do: trimmed <> ":00", else: trimmed
+  def parse_expires_at(_), do: nil
+
+  defp parse_expires_datetime(value) do
+    case DateTime.from_iso8601(value) do
+      {:ok, datetime, _offset} ->
+        DateTime.truncate(datetime, :second)
+
+      _ ->
+        # Offset-less fallback: treat the wall-clock value as UTC. The HTML
+        # control yields a second-less string (e.g. "2026-06-18T15:30").
+        normalized = if String.length(value) == 16, do: value <> ":00", else: value
 
         case NaiveDateTime.from_iso8601(normalized) do
           {:ok, naive} -> naive |> DateTime.from_naive!("Etc/UTC") |> DateTime.truncate(:second)
@@ -396,8 +437,6 @@ defmodule Mosslet.Announcements do
         end
     end
   end
-
-  def parse_expires_at(_), do: nil
 
   defp normalize_keys(entry) do
     Map.new(entry, fn {k, v} -> {to_string(k), v} end)

@@ -330,6 +330,35 @@ defmodule Mosslet.AnnouncementsTest do
     end
   end
 
+  describe "parse_expires_at/1 (timezone-correct auto-hide)" do
+    test "parses a UTC ISO8601 string (with Z) the browser sends from local time" do
+      assert %DateTime{} = dt = Announcements.parse_expires_at("2026-06-18T22:10:00.000Z")
+      assert DateTime.to_iso8601(dt) == "2026-06-18T22:10:00Z"
+    end
+
+    test "parses an offset ISO8601 string into the correct UTC instant" do
+      # 18:10 at +02:00 is 16:10 UTC.
+      dt = Announcements.parse_expires_at("2026-06-18T18:10:00+02:00")
+      assert dt.hour == 16
+      assert dt.minute == 10
+      assert dt.time_zone == "Etc/UTC"
+    end
+
+    test "treats a bare offset-less value (no-JS fallback) as UTC" do
+      dt = Announcements.parse_expires_at("2026-06-18T15:30")
+      assert dt.hour == 15
+      assert dt.minute == 30
+      assert dt.time_zone == "Etc/UTC"
+    end
+
+    test "returns nil for blank or unparseable values" do
+      assert is_nil(Announcements.parse_expires_at(""))
+      assert is_nil(Announcements.parse_expires_at("   "))
+      assert is_nil(Announcements.parse_expires_at("not-a-date"))
+      assert is_nil(Announcements.parse_expires_at(nil))
+    end
+  end
+
   describe "edit/delete authority" do
     test "the author can delete their own announcement", ctx do
       {:ok, ann} = Announcements.create_org_announcement(ctx.org, ctx.owner, announcement_attrs())
