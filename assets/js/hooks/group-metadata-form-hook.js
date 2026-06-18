@@ -138,6 +138,14 @@ const GroupMetadataFormHook = {
       'input[name="group[password]"]',
     );
 
+    // Circle classification hint (#229b, business circles only). Read the checked
+    // radio, falling back to any plain/hidden input, then default to "community".
+    // The server re-checks the :team authority gate regardless of this value.
+    const circleTypeEl =
+      this.el.querySelector(
+        'input[name="group[org_circle_type]"]:checked',
+      ) || this.el.querySelector('input[name="group[org_circle_type]"]');
+
     const target = this.el.getAttribute("phx-target");
     const payload = {
       encrypted_name: encryptedName,
@@ -149,6 +157,7 @@ const GroupMetadataFormHook = {
       user_id: this.el.querySelector('input[name="group[user_id]"]')?.value,
       require_password: requirePassword?.checked ? "true" : "false",
       password: passwordInput?.value || "",
+      circle_type: circleTypeEl?.value || "community",
     };
 
     if (target) {

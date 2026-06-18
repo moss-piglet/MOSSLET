@@ -389,6 +389,7 @@ defmodule Mosslet.Groups do
       Group.create_changeset_zk(zk_attrs)
       |> Ecto.Changeset.put_change(:user_id, owner.id)
       |> maybe_put_org_id(opts[:org_id])
+      |> maybe_put_org_circle_type(opts[:org_circle_type])
 
     owner_changeset =
       UserGroup.owner_changeset_zk(zk_attrs)
@@ -569,16 +570,35 @@ defmodule Mosslet.Groups do
        entry for a non-member is dropped before insert, so a tampered client
        cannot seal a circle key for an outsider.
 
+  `circle_type` classifies the circle (#229b): `:team` (official department —
+  org owner/admin only) vs `:community` (member-made — any org member). The
+  classification is stamped server-authoritatively and the `:team` authority is
+  re-checked here, so a tampered client can never create an official `:team`
+  circle without owner/admin standing. Unknown/`nil` values fall back to
+  `:community`.
+
   `creator_membership` must be a membership of the given `:business` `org`.
   Returns `{:ok, group}` or `{:error, reason}`.
   """
-  def create_business_circle_zk(%Mosslet.Orgs.Org{} = org, owner, zk_attrs, users, sealed_members) do
+  def create_business_circle_zk(
+        %Mosslet.Orgs.Org{} = org,
+        owner,
+        zk_attrs,
+        users,
+        sealed_members,
+        circle_type \\ :community
+      ) do
+    circle_type = if circle_type == :team, do: :team, else: :community
+
     cond do
       org.type != :business ->
         {:error, :not_a_business_org}
 
       not Mosslet.Orgs.member_of_org?(org, owner.id) ->
         {:error, :not_an_org_member}
+
+      circle_type == :team and not Mosslet.Orgs.can_create_team_circle?(org, owner.id) ->
+        {:error, :unauthorized_team_circle}
 
       true ->
         eligible_ids = Mosslet.Orgs.list_member_user_ids_by_org(org)
@@ -589,7 +609,10 @@ defmodule Mosslet.Groups do
         eligible_sealed =
           Enum.filter(sealed_members, fn m -> m["user_id"] in eligible_ids end)
 
-        create_group_zk(zk_attrs, owner, eligible_users, eligible_sealed, org_id: org.id)
+        create_group_zk(zk_attrs, owner, eligible_users, eligible_sealed,
+          org_id: org.id,
+          org_circle_type: circle_type
+        )
     end
   end
 
@@ -648,6 +671,14 @@ defmodule Mosslet.Groups do
 
   defp maybe_put_org_id(changeset, org_id),
     do: Ecto.Changeset.put_change(changeset, :org_id, org_id)
+
+  defp maybe_put_org_circle_type(changeset, nil), do: changeset
+
+  defp maybe_put_org_circle_type(changeset, circle_type)
+       when circle_type in [:team, :community],
+       do: Ecto.Changeset.put_change(changeset, :org_circle_type, circle_type)
+
+  defp maybe_put_org_circle_type(changeset, _), do: changeset
 
   # Legacy (non-ZK) update path I1 enforcement. Mirrors
   # filter_sealed_members_to_org_eligible/2 but for the list of user structs

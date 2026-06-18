@@ -299,6 +299,23 @@ defmodule Mosslet.Orgs do
   def owner?(_, _), do: false
 
   @doc """
+  Returns `true` when `user_id` may create an official `:team` (department) circle
+  in the given org (#229b) — the org OWNER or any org ADMIN. Every member can
+  still create a `:community` circle, so that case is not gated here.
+
+  Server-authoritative: re-checked on the business-circle write path
+  (`Mosslet.Groups.create_business_circle_zk/6`), never trusted from the client.
+  """
+  def can_create_team_circle?(%Org{} = org, user_id) when is_binary(user_id) do
+    owner?(org, user_id) or
+      Enum.any?(list_memberships_with_users(org), fn membership ->
+        membership.user_id == user_id and membership.role == :admin
+      end)
+  end
+
+  def can_create_team_circle?(_, _), do: false
+
+  @doc """
   Returns `true` when the given membership may manage the org's branding
   (Task #228) — i.e. an org admin. Owners who are not admins, members,
   guardians, and managed members cannot upload or remove the brand logo.

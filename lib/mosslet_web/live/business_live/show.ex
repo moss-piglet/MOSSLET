@@ -51,6 +51,7 @@ defmodule MossletWeb.BusinessLive.Show do
        |> assign(:circle_form, to_form(%{"name" => "", "description" => ""}, as: :circle))
        |> assign(:pending_zk_circle_attrs, nil)
        |> assign(:pending_zk_circle_users, nil)
+       |> assign(:pending_zk_circle_type, :community)
        |> assign(:manage_circle_id, nil)
        |> assign(:manage_circle, nil)
        |> assign(:pending_add_member_ids, [])
@@ -455,6 +456,70 @@ defmodule MossletWeb.BusinessLive.Show do
                     placeholder="What is this circle about?"
                   />
 
+                  <%!-- Circle classification (#229b). Official "Department / Team"
+                   circles are authority-gated to org owners/admins; everyone
+                   else creates a "Community" circle (a hidden input pins the
+                   value, and the server re-checks authority on write). The JS
+                   ZK hook reads the chosen value and forwards it. --%>
+                  <div :if={@can_create_team_circle?}>
+                    <span class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                      Circle type
+                    </span>
+                    <div class="grid grid-cols-2 gap-2">
+                      <label class="relative cursor-pointer">
+                        <input
+                          type="radio"
+                          name="group[org_circle_type]"
+                          value="team"
+                          class="peer sr-only"
+                        />
+                        <div class="h-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/40 p-3 transition-all peer-checked:border-teal-500 peer-checked:ring-2 peer-checked:ring-teal-500/30 peer-checked:bg-teal-50/60 dark:peer-checked:bg-teal-900/20">
+                          <div class="flex items-center gap-2">
+                            <.phx_icon
+                              name="hero-building-office-2"
+                              class="size-4 text-teal-600 dark:text-teal-400"
+                            />
+                            <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                              Department / Team
+                            </span>
+                          </div>
+                          <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            Official, org-branded space.
+                          </p>
+                        </div>
+                      </label>
+                      <label class="relative cursor-pointer">
+                        <input
+                          type="radio"
+                          name="group[org_circle_type]"
+                          value="community"
+                          checked
+                          class="peer sr-only"
+                        />
+                        <div class="h-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/40 p-3 transition-all peer-checked:border-teal-500 peer-checked:ring-2 peer-checked:ring-teal-500/30 peer-checked:bg-teal-50/60 dark:peer-checked:bg-teal-900/20">
+                          <div class="flex items-center gap-2">
+                            <.phx_icon
+                              name="hero-user-group"
+                              class="size-4 text-slate-400 dark:text-slate-500"
+                            />
+                            <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                              Community
+                            </span>
+                          </div>
+                          <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            Casual, member-made circle.
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                  <input
+                    :if={!@can_create_team_circle?}
+                    type="hidden"
+                    name="group[org_circle_type]"
+                    value="community"
+                  />
+
                   <p class="text-xs text-slate-500 dark:text-slate-400">
                     All current org members you're connected to will be added. Only org members can
                     be added to a business circle.
@@ -482,76 +547,61 @@ defmodule MossletWeb.BusinessLive.Show do
                 </.form>
               </div>
 
-              <ul role="list" class="space-y-2">
-                <li
-                  :for={circle <- @circles}
-                  id={"circle-#{circle.group.id}"}
-                  data-hook-scope={"business-circle-#{circle.group.id}"}
-                  class="group overflow-hidden rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-white/70 dark:bg-slate-800/50 transition-all duration-200 hover:border-emerald-300/60 dark:hover:border-emerald-700/50"
-                >
-                  <div
-                    id={"decrypt-business-circle-#{circle.group.id}"}
-                    phx-hook="DecryptGroupMetadata"
-                    data-sealed-group-key={circle.sealed_group_key}
-                    data-encrypted-name={circle.encrypted_name}
-                    data-scope-id={"business-circle-#{circle.group.id}"}
-                  >
-                  </div>
-                  <.link
-                    navigate={~p"/app/business/#{@org.slug}/circles/#{circle.group.id}"}
-                    class="flex items-center gap-3 p-3"
-                  >
-                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300 group-hover:text-teal-600 dark:group-hover:text-teal-300">
-                      <.phx_icon name="hero-chat-bubble-left-right" class="size-4" />
-                    </div>
-                    <div class="min-w-0 flex-1">
-                      <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                        <span data-decrypt-group-name>Business circle</span>
-                      </p>
-                      <p class="text-xs text-slate-500 dark:text-slate-400">
-                        {circle.member_count} member{if circle.member_count != 1, do: "s"}
-                      </p>
-                    </div>
-                    <.phx_icon
-                      name="hero-chevron-right"
-                      class="size-4 shrink-0 text-slate-300 dark:text-slate-600 group-hover:text-teal-500 dark:group-hover:text-teal-400"
-                    />
-                  </.link>
+              <%!-- Two distinctly-branded tiers (#229b): official "Departments &
+               Teams" (org owner/admin curated) vs lighter "Community circles"
+               (member-made). Names stay encrypted and decrypt browser-side. --%>
+              <div :if={@team_circles != []} class="space-y-2">
+                <div class="flex items-center gap-2">
+                  <.phx_icon
+                    name="hero-building-office-2"
+                    class="size-4 text-teal-600 dark:text-teal-400"
+                  />
+                  <h3 class="text-xs font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">
+                    Departments &amp; Teams
+                  </h3>
+                </div>
+                <ul role="list" class="space-y-2">
+                  <.circle_card
+                    :for={circle <- @team_circles}
+                    circle={circle}
+                    tier={:team}
+                    manage_circle={@manage_circle}
+                    org={@org}
+                    current_user_id={@current_scope.user.id}
+                    viewer_sealed_org_key={@viewer_sealed_org_key}
+                  />
+                </ul>
+              </div>
 
-                  <%!-- Per-circle member management (Task #231): an org admin or the
-                   circle owner/admin can add/remove members without leaving the
-                   org dashboard. Consistent with the CircleShow members section. --%>
-                  <div
-                    :if={circle.viewer_can_manage?}
-                    class="border-t border-slate-200/60 dark:border-slate-700/60 px-3 py-2"
-                  >
-                    <button
-                      :if={!(@manage_circle && @manage_circle.group.id == circle.group.id)}
-                      type="button"
-                      phx-click="manage_circle"
-                      phx-value-circle_id={circle.group.id}
-                      id={"manage-circle-#{circle.group.id}"}
-                      class="inline-flex items-center gap-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 hover:underline"
-                    >
-                      <.phx_icon name="hero-users" class="size-3.5" /> Manage members
-                    </button>
+              <div :if={@community_circles != []} class="space-y-2">
+                <div class="flex items-center gap-2">
+                  <.phx_icon
+                    name="hero-user-group"
+                    class="size-4 text-slate-400 dark:text-slate-500"
+                  />
+                  <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Community circles
+                  </h3>
+                </div>
+                <ul role="list" class="space-y-2">
+                  <.circle_card
+                    :for={circle <- @community_circles}
+                    circle={circle}
+                    tier={:community}
+                    manage_circle={@manage_circle}
+                    org={@org}
+                    current_user_id={@current_scope.user.id}
+                    viewer_sealed_org_key={@viewer_sealed_org_key}
+                  />
+                </ul>
+              </div>
 
-                    <.circle_manage_panel
-                      :if={@manage_circle && @manage_circle.group.id == circle.group.id}
-                      manage={@manage_circle}
-                      org={@org}
-                      viewer_sealed_org_key={@viewer_sealed_org_key}
-                      current_user_id={@current_scope.user.id}
-                    />
-                  </div>
-                </li>
-                <li
-                  :if={@circles == [] && !@show_circle_form?}
-                  class="text-xs text-slate-500 dark:text-slate-400"
-                >
-                  No business circles yet. Create one to start a private, encrypted team space.
-                </li>
-              </ul>
+              <p
+                :if={@circles == [] && !@show_circle_form?}
+                class="text-xs text-slate-500 dark:text-slate-400"
+              >
+                No business circles yet. Create one to start a private, encrypted team space.
+              </p>
             </section>
             <%!-- Org-wide files overview (Task #221): every file the viewer can read
              across this org's circles, grouped by circle. Names stay encrypted
@@ -632,70 +682,45 @@ defmodule MossletWeb.BusinessLive.Show do
                 No files match “<span data-file-empty-query class="font-medium"></span>”.
               </div>
 
-              <div
-                :for={entry <- @org_file_circles}
-                id={"org-files-circle-#{entry.group.id}"}
-                data-hook-scope={"files-circle-#{entry.group.id}"}
-                data-file-group
-                class="space-y-2"
-              >
-                <div
-                  id={"decrypt-files-circle-#{entry.group.id}"}
-                  phx-hook="DecryptGroupMetadata"
-                  data-sealed-group-key={entry.sealed_group_key}
-                  data-encrypted-name={entry.encrypted_name}
-                  data-scope-id={"files-circle-#{entry.group.id}"}
-                >
+              <%!-- Files grouped by circle, split into the two #229b tiers so
+               official department files read distinctly from community ones.
+               Each tier wrapper carries `data-file-tier` so the OrgFileSearch
+               hook can hide an entire empty tier (heading included) while a
+               filename query is active. --%>
+              <div :if={@team_file_circles != []} data-file-tier class="space-y-3">
+                <div class="flex items-center gap-2">
+                  <.phx_icon
+                    name="hero-building-office-2"
+                    class="size-4 text-teal-600 dark:text-teal-400"
+                  />
+                  <h3 class="text-xs font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">
+                    Departments &amp; Teams
+                  </h3>
                 </div>
-                <.link
-                  navigate={~p"/app/business/#{@org.slug}/circles/#{entry.group.id}"}
-                  class="flex items-center gap-2 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
-                >
-                  <.phx_icon name="hero-chat-bubble-left-right" class="size-3.5" />
-                  <span data-decrypt-group-name>Business circle</span>
-                  <span class="text-slate-400 dark:text-slate-500 font-normal">
-                    · {length(entry.files)} file{if length(entry.files) != 1, do: "s"}
-                  </span>
-                </.link>
-                <ul role="list" class="divide-y divide-slate-100 dark:divide-slate-700/60 pl-1">
-                  <li
-                    :for={file <- entry.files}
-                    id={"org-file-#{file.id}"}
-                    data-file-row
-                    class="py-2.5 flex items-center gap-3"
-                  >
-                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
-                      <.phx_icon name="hero-document" class="size-4" />
-                    </div>
-                    <div class="min-w-0">
-                      <% viewer_row = List.first(file.user_shared_files) %>
-                      <div
-                        :if={viewer_row && file.encrypted_filename}
-                        id={"decrypt-org-filename-#{file.id}"}
-                        phx-hook="DecryptSharedFileName"
-                        phx-update="ignore"
-                        data-sealed-file-key={viewer_row.key}
-                        data-encrypted-filename={file.encrypted_filename}
-                      >
-                        <p
-                          data-shared-filename
-                          class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate"
-                        >
-                          Decrypting…
-                        </p>
-                      </div>
-                      <p
-                        :if={!(viewer_row && file.encrypted_filename)}
-                        class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate"
-                      >
-                        Encrypted file
-                      </p>
-                      <p class="text-xs text-slate-500 dark:text-slate-400">
-                        {format_size(file.size_bytes)}
-                      </p>
-                    </div>
-                  </li>
-                </ul>
+                <.file_circle_block
+                  :for={entry <- @team_file_circles}
+                  entry={entry}
+                  tier={:team}
+                  org={@org}
+                />
+              </div>
+
+              <div :if={@community_file_circles != []} data-file-tier class="space-y-3">
+                <div class="flex items-center gap-2">
+                  <.phx_icon
+                    name="hero-user-group"
+                    class="size-4 text-slate-400 dark:text-slate-500"
+                  />
+                  <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Community circles
+                  </h3>
+                </div>
+                <.file_circle_block
+                  :for={entry <- @community_file_circles}
+                  entry={entry}
+                  tier={:community}
+                  org={@org}
+                />
               </div>
             </section>
           </div>
@@ -1128,6 +1153,187 @@ defmodule MossletWeb.BusinessLive.Show do
         </section>
       </div>
     </.layout>
+    """
+  end
+
+  # A single business-circle row, shared by both dashboard tiers (#229b). The
+  # `:team` tier (official departments) gets org-branded accents + an "Official"
+  # badge; `:community` keeps the lighter, member-made look. The circle NAME stays
+  # encrypted and is decrypted browser-side via the DecryptGroupMetadata hook
+  # (ZK). The inline manage-members affordance is gated by `viewer_can_manage?`.
+  attr :circle, :map, required: true
+  attr :tier, :atom, required: true
+  attr :manage_circle, :map, default: nil
+  attr :org, :map, required: true
+  attr :current_user_id, :string, required: true
+  attr :viewer_sealed_org_key, :string, default: nil
+
+  defp circle_card(assigns) do
+    ~H"""
+    <li
+      id={"circle-#{@circle.group.id}"}
+      data-hook-scope={"business-circle-#{@circle.group.id}"}
+      class={[
+        "group overflow-hidden rounded-xl border transition-all duration-200",
+        @tier == :team &&
+          "border-teal-200/70 dark:border-teal-800/50 bg-gradient-to-br from-teal-50/70 to-emerald-50/40 dark:from-teal-900/15 dark:to-emerald-900/10 hover:border-teal-300 dark:hover:border-teal-700",
+        @tier != :team &&
+          "border-slate-200/60 dark:border-slate-700/60 bg-white/70 dark:bg-slate-800/50 hover:border-emerald-300/60 dark:hover:border-emerald-700/50"
+      ]}
+    >
+      <div
+        id={"decrypt-business-circle-#{@circle.group.id}"}
+        phx-hook="DecryptGroupMetadata"
+        data-sealed-group-key={@circle.sealed_group_key}
+        data-encrypted-name={@circle.encrypted_name}
+        data-scope-id={"business-circle-#{@circle.group.id}"}
+      >
+      </div>
+      <.link
+        navigate={~p"/app/business/#{@org.slug}/circles/#{@circle.group.id}"}
+        class="flex items-center gap-3 p-3"
+      >
+        <div class={[
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+          @tier == :team &&
+            "bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-sm",
+          @tier != :team &&
+            "bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300 group-hover:text-teal-600 dark:group-hover:text-teal-300"
+        ]}>
+          <.phx_icon
+            name={
+              if(@tier == :team, do: "hero-building-office-2", else: "hero-chat-bubble-left-right")
+            }
+            class="size-4"
+          />
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+            <span data-decrypt-group-name>Business circle</span>
+          </p>
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            {@circle.member_count} member{if @circle.member_count != 1, do: "s"}
+          </p>
+        </div>
+        <span
+          :if={@tier == :team}
+          class="shrink-0 inline-flex items-center rounded-full bg-teal-100 dark:bg-teal-900/40 px-2 py-0.5 text-[11px] font-semibold text-teal-700 dark:text-teal-300"
+        >
+          Official
+        </span>
+        <.phx_icon
+          name="hero-chevron-right"
+          class="size-4 shrink-0 text-slate-300 dark:text-slate-600 group-hover:text-teal-500 dark:group-hover:text-teal-400"
+        />
+      </.link>
+
+      <%!-- Per-circle member management (Task #231): an org admin or the circle
+       owner/admin can add/remove members without leaving the org dashboard. --%>
+      <div
+        :if={@circle.viewer_can_manage?}
+        class="border-t border-slate-200/60 dark:border-slate-700/60 px-3 py-2"
+      >
+        <button
+          :if={!(@manage_circle && @manage_circle.group.id == @circle.group.id)}
+          type="button"
+          phx-click="manage_circle"
+          phx-value-circle_id={@circle.group.id}
+          id={"manage-circle-#{@circle.group.id}"}
+          class="inline-flex items-center gap-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 hover:underline"
+        >
+          <.phx_icon name="hero-users" class="size-3.5" /> Manage members
+        </button>
+
+        <.circle_manage_panel
+          :if={@manage_circle && @manage_circle.group.id == @circle.group.id}
+          manage={@manage_circle}
+          org={@org}
+          viewer_sealed_org_key={@viewer_sealed_org_key}
+          current_user_id={@current_user_id}
+        />
+      </div>
+    </li>
+    """
+  end
+
+  # One circle's file group in the org-wide files overview (#229b tiers). The
+  # circle NAME stays encrypted (decrypted browser-side via DecryptGroupMetadata)
+  # and each filename is decrypted via DecryptSharedFileName — all ZK. Carries
+  # the `data-file-group` / `data-file-row` hooks the OrgFileSearch hook filters
+  # on. `:team` blocks get a subtle org-branded icon on the circle link.
+  attr :entry, :map, required: true
+  attr :tier, :atom, required: true
+  attr :org, :map, required: true
+
+  defp file_circle_block(assigns) do
+    ~H"""
+    <div
+      id={"org-files-circle-#{@entry.group.id}"}
+      data-hook-scope={"files-circle-#{@entry.group.id}"}
+      data-file-group
+      class="space-y-2"
+    >
+      <div
+        id={"decrypt-files-circle-#{@entry.group.id}"}
+        phx-hook="DecryptGroupMetadata"
+        data-sealed-group-key={@entry.sealed_group_key}
+        data-encrypted-name={@entry.encrypted_name}
+        data-scope-id={"files-circle-#{@entry.group.id}"}
+      >
+      </div>
+      <.link
+        navigate={~p"/app/business/#{@org.slug}/circles/#{@entry.group.id}"}
+        class="flex items-center gap-2 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
+      >
+        <.phx_icon
+          name={if(@tier == :team, do: "hero-building-office-2", else: "hero-chat-bubble-left-right")}
+          class="size-3.5"
+        />
+        <span data-decrypt-group-name>Business circle</span>
+        <span class="text-slate-400 dark:text-slate-500 font-normal">
+          · {length(@entry.files)} file{if length(@entry.files) != 1, do: "s"}
+        </span>
+      </.link>
+      <ul role="list" class="divide-y divide-slate-100 dark:divide-slate-700/60 pl-1">
+        <li
+          :for={file <- @entry.files}
+          id={"org-file-#{file.id}"}
+          data-file-row
+          class="py-2.5 flex items-center gap-3"
+        >
+          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
+            <.phx_icon name="hero-document" class="size-4" />
+          </div>
+          <div class="min-w-0">
+            <% viewer_row = List.first(file.user_shared_files) %>
+            <div
+              :if={viewer_row && file.encrypted_filename}
+              id={"decrypt-org-filename-#{file.id}"}
+              phx-hook="DecryptSharedFileName"
+              phx-update="ignore"
+              data-sealed-file-key={viewer_row.key}
+              data-encrypted-filename={file.encrypted_filename}
+            >
+              <p
+                data-shared-filename
+                class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate"
+              >
+                Decrypting…
+              </p>
+            </div>
+            <p
+              :if={!(viewer_row && file.encrypted_filename)}
+              class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate"
+            >
+              Encrypted file
+            </p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+              {format_size(file.size_bytes)}
+            </p>
+          </div>
+        </li>
+      </ul>
+    </div>
     """
   end
 
@@ -1622,6 +1828,22 @@ defmodule MossletWeb.BusinessLive.Show do
       (params["user_connections"] || [])
       |> Enum.filter(&MapSet.member?(eligible_user_ids, &1))
 
+    # Circle classification (#229b). The client hints the desired tier, but a
+    # `:team` (official department) circle is authority-gated; we down-grade a
+    # non-owner/admin's `:team` request to `:community` here and the write path
+    # (`create_business_circle_zk/6`) re-checks server-authoritatively. Never
+    # `String.to_atom/1` on user input — map known values only.
+    circle_type =
+      case parse_circle_type(params["circle_type"]) do
+        :team ->
+          if Orgs.can_create_team_circle?(socket.assigns.org, user.id),
+            do: :team,
+            else: :community
+
+        other ->
+          other
+      end
+
     if params["user_id"] == user.id do
       users = Enum.map(user_connections, &Accounts.get_user!/1)
 
@@ -1661,6 +1883,7 @@ defmodule MossletWeb.BusinessLive.Show do
        socket
        |> assign(:pending_zk_circle_attrs, zk_attrs)
        |> assign(:pending_zk_circle_users, users)
+       |> assign(:pending_zk_circle_type, circle_type)
        |> push_event("seal_group_key_for_members", %{
          members: members,
          owner_moniker: FriendlyID.generate(3),
@@ -1679,6 +1902,7 @@ defmodule MossletWeb.BusinessLive.Show do
     org = socket.assigns.org
     zk_attrs = socket.assigns.pending_zk_circle_attrs
     users = socket.assigns.pending_zk_circle_users || []
+    circle_type = socket.assigns.pending_zk_circle_type || :community
 
     if is_nil(zk_attrs) do
       {:noreply, put_flash(socket, :error, "No pending circle to finalize. Please try again.")}
@@ -1694,8 +1918,16 @@ defmodule MossletWeb.BusinessLive.Show do
         socket
         |> assign(:pending_zk_circle_attrs, nil)
         |> assign(:pending_zk_circle_users, nil)
+        |> assign(:pending_zk_circle_type, :community)
 
-      case Groups.create_business_circle_zk(org, user, zk_attrs, users, sealed_members) do
+      case Groups.create_business_circle_zk(
+             org,
+             user,
+             zk_attrs,
+             users,
+             sealed_members,
+             circle_type
+           ) do
         {:ok, group} ->
           Mosslet.Logs.log("orgs.create_business_circle", %{
             user: user,
@@ -2050,7 +2282,7 @@ defmodule MossletWeb.BusinessLive.Show do
     {:noreply,
      socket
      |> assign(:file_sort, sort)
-     |> assign(:org_file_circles, org_file_circles)}
+     |> assign_org_file_circles(org_file_circles)}
   end
 
   # us {:org_logo_upload_*} messages; nothing to do in the LiveView's progress cb.
@@ -2258,6 +2490,7 @@ defmodule MossletWeb.BusinessLive.Show do
         %{
           group: group,
           encrypted_name: group.name,
+          org_circle_type: group.org_circle_type,
           sealed_group_key: user_group && user_group.key,
           member_count: length(group.user_groups),
           viewer_can_manage?:
@@ -2285,6 +2518,7 @@ defmodule MossletWeb.BusinessLive.Show do
         %{
           group: group,
           encrypted_name: group.name,
+          org_circle_type: group.org_circle_type,
           sealed_group_key: Map.get(sealed_keys_by_group, group_id),
           files: files
         }
@@ -2301,7 +2535,10 @@ defmodule MossletWeb.BusinessLive.Show do
     )
     |> assign(:eligible_members, eligible_members)
     |> assign(:circles, circles)
-    |> assign(:org_file_circles, org_file_circles)
+    |> assign(:team_circles, Enum.filter(circles, &(&1.org_circle_type == :team)))
+    |> assign(:community_circles, Enum.filter(circles, &(&1.org_circle_type != :team)))
+    |> assign(:can_create_team_circle?, Orgs.can_create_team_circle?(org, current_user.id))
+    |> assign_org_file_circles(org_file_circles)
     |> assign(:pending_invitations, Orgs.list_invitations_by_org(org))
     |> assign(:seats, Orgs.seat_summary(org))
     |> assign(:seat_management, Orgs.seat_management_data(org))
@@ -2512,6 +2749,19 @@ defmodule MossletWeb.BusinessLive.Show do
     end
   end
 
+  # Assigns the org-wide file overview plus its two classification partitions
+  # (#229b: official "Departments & Teams" vs "Community circles"). Keeps all
+  # three assigns in sync from one place (used by initial load + sort handler).
+  defp assign_org_file_circles(socket, org_file_circles) do
+    socket
+    |> assign(:org_file_circles, org_file_circles)
+    |> assign(:team_file_circles, Enum.filter(org_file_circles, &(&1.org_circle_type == :team)))
+    |> assign(
+      :community_file_circles,
+      Enum.filter(org_file_circles, &(&1.org_circle_type != :team))
+    )
+  end
+
   # Server-side sort of the org-wide file overview (#229a). Only server-VISIBLE
   # metadata is sorted here (upload time, byte size) — filename sorting/search is
   # ZK and lives entirely in the browser (OrgFileSearch hook), since the server
@@ -2540,4 +2790,10 @@ defmodule MossletWeb.BusinessLive.Show do
   defp parse_file_sort("largest"), do: :largest
   defp parse_file_sort("smallest"), do: :smallest
   defp parse_file_sort(_), do: :newest
+
+  # Maps the client circle-type hint to a known atom (never String.to_atom on
+  # user input). Unknown values fall back to :community (the unprivileged tier).
+  defp parse_circle_type("team"), do: :team
+  defp parse_circle_type("community"), do: :community
+  defp parse_circle_type(_), do: :community
 end

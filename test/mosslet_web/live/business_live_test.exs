@@ -1235,6 +1235,45 @@ defmodule MossletWeb.BusinessLiveTest do
                Groups.create_business_circle_zk(ctx.org, ctx.outsider, zk_attrs(), [], [])
     end
 
+    test "create_business_circle_zk defaults to a :community circle (#229b)", ctx do
+      {:ok, group} =
+        Groups.create_business_circle_zk(ctx.org, ctx.admin, zk_attrs(), [], [])
+
+      assert group.org_circle_type == :community
+    end
+
+    test "an org owner/admin can create an official :team circle (#229b)", ctx do
+      {:ok, group} =
+        Groups.create_business_circle_zk(ctx.org, ctx.admin, zk_attrs(), [], [], :team)
+
+      assert group.org_circle_type == :team
+    end
+
+    test "any org member can create a :community circle (#229b)", ctx do
+      {:ok, group} =
+        Groups.create_business_circle_zk(ctx.org, ctx.member, zk_attrs(), [], [], :community)
+
+      assert group.org_circle_type == :community
+    end
+
+    test "a non-admin member cannot create a :team circle (#229b)", ctx do
+      assert {:error, :unauthorized_team_circle} =
+               Groups.create_business_circle_zk(ctx.org, ctx.member, zk_attrs(), [], [], :team)
+    end
+
+    test "can_create_team_circle? gates on org owner/admin (#229b)", ctx do
+      assert Orgs.can_create_team_circle?(ctx.org, ctx.admin.id)
+      refute Orgs.can_create_team_circle?(ctx.org, ctx.member.id)
+      refute Orgs.can_create_team_circle?(ctx.org, ctx.outsider.id)
+    end
+
+    test "a personal circle never gets an org_circle_type (#229b)", ctx do
+      {:ok, group} = Groups.create_group_zk(zk_attrs(), ctx.admin, [], [])
+
+      assert is_nil(group.org_id)
+      assert is_nil(group.org_circle_type)
+    end
+
     test "add_business_circle_members_zk drops a non-org-member", ctx do
       {:ok, group} =
         Groups.create_business_circle_zk(ctx.org, ctx.admin, zk_attrs(), [], [])

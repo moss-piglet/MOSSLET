@@ -19,6 +19,7 @@
  *   [data-file-empty]         — empty-state container (toggled hidden)
  *   [data-file-empty-query]   — span filled with the current query text
  *   [data-file-group]         — each circle block wrapper
+ *   [data-file-tier]          — each classification tier wrapper (#229b)
  *   [data-file-row]           — each file <li>
  *   [data-shared-filename]    — (within a row) the decrypted filename text
  */
@@ -100,6 +101,14 @@ const OrgFileSearch = {
       const anyVisible = group.querySelector("[data-file-row]:not([hidden])");
       const hide = !anyVisible;
       if (group.hidden !== hide) group.hidden = hide;
+    });
+
+    // Hide a whole tier (#229b: "Departments & Teams" / "Community circles"),
+    // heading included, when none of its circle groups have a visible row.
+    this.el.querySelectorAll("[data-file-tier]").forEach((tier) => {
+      const anyVisible = tier.querySelector("[data-file-group]:not([hidden])");
+      const hide = !anyVisible;
+      if (tier.hidden !== hide) tier.hidden = hide;
     });
 
     if (this._clear) this._clear.hidden = query === "";

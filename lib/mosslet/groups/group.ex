@@ -28,6 +28,14 @@ defmodule Mosslet.Groups.Group do
     # field per Ecto guidelines. See docs/BUSINESS_CIRCLES_DESIGN.md.
     belongs_to :org, Mosslet.Orgs.Org
 
+    # Classifies an org-scoped (business) circle (#229b): `:team` (official
+    # department/team, org owner/admin curated) vs `:community` (member-made,
+    # social). Meaningful ONLY when `org_id` is set; nil for personal circles.
+    # Stamped programmatically in the Groups context (never via cast) — the
+    # `:team` tier is authority-gated server-side. Not encrypted: it's
+    # non-sensitive org structure, not member content.
+    field :org_circle_type, Ecto.Enum, values: [:team, :community]
+
     has_many :messages, GroupMessage
     has_many :posts, Mosslet.Timeline.Post
     has_many :user_groups, UserGroup
