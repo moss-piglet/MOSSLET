@@ -2329,6 +2329,18 @@ defmodule MossletWeb.BusinessLive.Show do
 
     case target_membership && Orgs.set_org_display_name(target_membership, encrypted_name) do
       {:ok, _membership} ->
+        # ZK audit (#264): record the rename as metadata only — actor + target
+        # user id + category. actor == target distinguishes a self-rename from an
+        # admin/owner renaming someone else (the client builds the human sentence
+        # from decrypted names). Best-effort; never blocks the save.
+        Audit.record_audit_event(
+          socket.assigns.org,
+          socket.assigns.current_scope.user,
+          "display_name_changed",
+          target_id: target_membership.user_id,
+          target_type: "user"
+        )
+
         message =
           if is_nil(target_user_id) or target_user_id == current_user_id,
             do: "Your team display name is saved",
@@ -3327,6 +3339,7 @@ defmodule MossletWeb.BusinessLive.Show do
   defp audit_action_label("member_added"), do: "A teammate joined the organization"
   defp audit_action_label("member_removed"), do: "A teammate was removed from the organization"
   defp audit_action_label("role_changed"), do: "A teammate's role was changed"
+  defp audit_action_label("display_name_changed"), do: "A teammate's display name was changed"
   defp audit_action_label("circle_created"), do: "A circle was created"
   defp audit_action_label("file_shared"), do: "A file was shared"
   defp audit_action_label("file_revoked"), do: "A file was removed"
@@ -3336,6 +3349,7 @@ defmodule MossletWeb.BusinessLive.Show do
   defp audit_action_icon("member_added"), do: "hero-user-plus"
   defp audit_action_icon("member_removed"), do: "hero-user-minus"
   defp audit_action_icon("role_changed"), do: "hero-adjustments-horizontal"
+  defp audit_action_icon("display_name_changed"), do: "hero-pencil-square"
   defp audit_action_icon("circle_created"), do: "hero-user-group"
   defp audit_action_icon("file_shared"), do: "hero-document-arrow-up"
   defp audit_action_icon("file_revoked"), do: "hero-document-minus"

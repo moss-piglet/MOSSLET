@@ -59,6 +59,35 @@ defmodule Mosslet.Orgs.AuditTest do
       assert event.inserted_at
     end
 
+    test "records the display-name change action (#264, self and admin renames)" do
+      %{admin: admin, member: member, org: org} = setup_org()
+
+      # Self-rename: actor == target.
+      assert {:ok, %AuditEvent{} = self_event} =
+               Audit.record_audit_event(org, member, "display_name_changed",
+                 target_id: member.id,
+                 target_type: "user"
+               )
+
+      assert self_event.action == "display_name_changed"
+      assert self_event.actor_id == member.id
+      assert self_event.target_id == member.id
+      assert self_event.target_type == "user"
+
+      # Admin renames someone else: actor != target.
+      assert {:ok, %AuditEvent{} = other_event} =
+               Audit.record_audit_event(org, admin, "display_name_changed",
+                 target_id: member.id,
+                 target_type: "user"
+               )
+
+      assert other_event.actor_id == admin.id
+      assert other_event.target_id == member.id
+
+      actions = org |> Audit.list_audit_events() |> Enum.map(& &1.action)
+      assert Enum.count(actions, &(&1 == "display_name_changed")) == 2
+    end
+
     test "rejects an action that is not in the whitelist" do
       %{owner: owner, org: org} = setup_org()
 

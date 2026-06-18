@@ -36,6 +36,7 @@ defmodule MossletWeb.FamilyLive.Show do
        |> assign(:coverage_status, Orgs.org_coverage_status(current_user))
        |> assign(:invite_form, to_form(%{"email" => ""}, as: :invite))
        |> assign(:org_display_name_form, to_form(%{"name" => ""}, as: :org_display_name))
+       |> assign(:editing_name_user_id, nil)
        |> assign(:transfer_modal_open, false)
        |> assign(:transfer_form, to_form(%{"password" => "", "to_user_id" => ""}, as: :transfer))
        |> assign(:delete_modal_open, false)
@@ -185,7 +186,7 @@ defmodule MossletWeb.FamilyLive.Show do
             <li
               :for={member <- @members}
               id={"member-#{member.user.id}"}
-              class="py-3 flex items-center justify-between gap-3"
+              class="py-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2"
               data-org-member-row
               data-encrypted-display-name={member.encrypted_display_name}
             >
@@ -219,6 +220,25 @@ defmodule MossletWeb.FamilyLive.Show do
               </div>
 
               <div class="flex items-center gap-2 flex-shrink-0">
+                <%!-- Edit display name (Task #264 parity). The viewer can rename
+                     themselves (re-edit; the first-time prompt below covers the
+                     unset case), and family admins can rename anyone. The name is
+                     re-encrypted browser-side with the shared org_key (ZK); the
+                     server only authorizes + stores ciphertext. No audit log —
+                     unlike business orgs, families have no admin activity feed. --%>
+                <button
+                  :if={show_edit_name?(member, @viewer_sealed_org_key, @membership.role == :admin)}
+                  type="button"
+                  phx-click="edit_name"
+                  phx-value-user_id={member.user.id}
+                  id={"edit-name-#{member.user.id}"}
+                  aria-label="Edit display name"
+                  title="Edit display name"
+                  class="rounded-lg p-1.5 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors duration-200"
+                >
+                  <.phx_icon name="hero-pencil-square" class="size-4" />
+                </button>
+
                 <%!-- One-tap "Connect with teammate" (Task #226): send a personal
                      UserConnection invite to a family member you're not yet
                      connected to. Once accepted, their real personal name lights
@@ -273,6 +293,57 @@ defmodule MossletWeb.FamilyLive.Show do
                   </select>
                 </form>
               </div>
+
+              <%!-- Inline edit-name form (Task #264 parity). Wraps to its own
+                   line (`basis-full`). The OrgDisplayNameFormHook decrypts
+                   `data-current-encrypted-name` to PREFILL the input and, on
+                   submit, re-encrypts with the org_key and pushes
+                   `save_org_display_name` carrying `target_user_id` so the server
+                   stores it on the right membership (re-authorized). --%>
+              <.form
+                :if={@editing_name_user_id == member.user.id}
+                for={@org_display_name_form}
+                id={"edit-name-form-#{member.user.id}"}
+                phx-hook="OrgDisplayNameFormHook"
+                data-sealed-org-key={@viewer_sealed_org_key}
+                data-target-user-id={member.user.id}
+                data-current-encrypted-name={member.encrypted_display_name}
+                phx-submit="save_org_display_name"
+                class="basis-full mt-1 flex flex-col gap-2 rounded-xl border border-teal-200/60 dark:border-teal-800/50 bg-teal-50/60 dark:bg-teal-900/20 p-3 sm:flex-row sm:items-end"
+              >
+                <div class="flex-1">
+                  <.phx_input
+                    field={@org_display_name_form[:name]}
+                    type="text"
+                    label={
+                      if member.self?, do: "Your family display name", else: "Family display name"
+                    }
+                    placeholder="Your family display name"
+                    maxlength="160"
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="flex items-center gap-2">
+                  <.liquid_button
+                    type="submit"
+                    size="sm"
+                    color="emerald"
+                    icon="hero-check"
+                    id={"edit-name-submit-#{member.user.id}"}
+                  >
+                    Save
+                  </.liquid_button>
+                  <.liquid_button
+                    type="button"
+                    variant="ghost"
+                    color="slate"
+                    size="sm"
+                    phx-click="cancel_edit_name"
+                  >
+                    Cancel
+                  </.liquid_button>
+                </div>
+              </.form>
             </li>
           </ul>
 
@@ -714,20 +785,93 @@ defmodule MossletWeb.FamilyLive.Show do
   @impl true
   def handle_event(
         "save_org_display_name",
-        %{"encrypted_display_name" => encrypted_name},
+        %{"encrypted_display_name" => encrypted_name} = params,
         socket
       )
       when is_binary(encrypted_name) do
-    case Orgs.set_org_display_name(socket.assigns.membership, encrypted_name) do
+    # The display name is ciphertext under the shared `org_key`, so any key-holder
+    # can re-encrypt any member's name browser-side. Authority still gates the
+    # WRITE here (I1):
+    #   * self-edit — any member may rename themselves.
+    #   * editing someone else — family admins only.
+    # No audit log: families have no admin activity feed (unlike business orgs).
+    current_user_id = socket.assigns.current_scope.user.id
+    target_user_id = params["target_user_id"]
+    can_manage? = socket.assigns.membership.role == :admin
+
+    target_membership =
+      cond do
+        is_nil(target_user_id) or target_user_id == current_user_id ->
+          socket.assigns.membership
+
+        can_manage? ->
+          case Enum.find(socket.assigns.members, &(&1.user.id == target_user_id)) do
+            %{membership: membership} -> membership
+            _ -> nil
+          end
+
+        true ->
+          nil
+      end
+
+    case target_membership && Orgs.set_org_display_name(target_membership, encrypted_name) do
       {:ok, _membership} ->
+        message =
+          if is_nil(target_user_id) or target_user_id == current_user_id,
+            do: "Your family display name is set",
+            else: "Display name updated"
+
         {:noreply,
          socket
-         |> put_flash(:success, "Your family display name is set")
+         |> assign(:editing_name_user_id, nil)
+         |> put_flash(:success, message)
          |> assign_family_data()}
+
+      nil ->
+        {:noreply, put_flash(socket, :error, "You can't edit that member's name")}
 
       _ ->
         {:noreply, put_flash(socket, :error, "Could not save your display name")}
     end
+  end
+
+  # Fallback (e.g. WASM/keys unavailable): the OrgDisplayNameFormHook normally
+  # intercepts the submit, encrypts the name browser-side with the org_key, and
+  # pushes "save_org_display_name" with `encrypted_display_name`. Without it the
+  # raw form params arrive here. We must NEVER persist the plaintext name (ZK),
+  # so we refuse gracefully and ask the member to reload.
+  def handle_event("save_org_display_name", _params, socket) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       "Your browser couldn't prepare encryption keys. Please reload and try again."
+     )}
+  end
+
+  # Open/close the inline "edit display name" form for a single roster row
+  # (Task #264 parity). Allowed for the viewer's OWN row, or any row when the
+  # viewer is a family admin. The write is re-authorized in
+  # "save_org_display_name", so a tampered toggle can't escalate.
+  @impl true
+  def handle_event("edit_name", %{"user_id" => user_id}, socket) do
+    allowed? =
+      user_id == socket.assigns.current_scope.user.id or
+        socket.assigns.membership.role == :admin
+
+    if allowed? do
+      {:noreply,
+       socket
+       |> assign(:editing_name_user_id, user_id)
+       |> assign(:org_display_name_form, to_form(%{"name" => ""}, as: :org_display_name))}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("cancel_edit_name", _params, socket) do
+    {:noreply, assign(socket, :editing_name_user_id, nil)}
   end
 
   @impl true
@@ -935,6 +1079,17 @@ defmodule MossletWeb.FamilyLive.Show do
   # Resolve a member's display name using the viewer's connection to them
   # (browser/session-key decrypt). Falls back to a generic label when the
   # viewer has no connection (e.g. a member they're not directly connected to).
+  # Whether to show the inline "edit display name" affordance on a roster row
+  # (Task #264 parity). Requires the viewer to hold the org_key (else they can't
+  # encrypt). The viewer may re-edit their OWN name once set — the first-time
+  # prompt covers the unset case; admins may edit anyone's.
+  defp show_edit_name?(_member, nil, _can_manage?), do: false
+
+  defp show_edit_name?(%{self?: true} = member, _sealed, _can_manage?),
+    do: not is_nil(member.encrypted_display_name)
+
+  defp show_edit_name?(%{self?: false}, _sealed, can_manage?), do: can_manage?
+
   defp resolve_display_name(%{id: same_id}, %{id: same_id}, _key), do: "You"
 
   defp resolve_display_name(user, current_user, key) do

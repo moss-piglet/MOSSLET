@@ -170,6 +170,10 @@ const AuditLog = {
         return `${actor} removed ${targetName} from the organization`;
       case "role_changed":
         return `${actor} changed ${targetName}'s role`;
+      case "display_name_changed":
+        return d.auditActorId && d.auditActorId === d.auditTargetId
+          ? `${actor} updated their display name`
+          : `${actor} changed ${targetName}'s display name`;
       case "circle_created":
         return `${actor} created a circle`;
       case "file_shared":

@@ -550,6 +550,50 @@ defmodule MossletWeb.BusinessLiveTest do
       assert is_nil(Orgs.get_membership!(ctx.admin, ctx.org.slug).display_name)
     end
 
+    test "a self-rename records a display_name_changed audit event (actor == target) (#264)",
+         ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      render_hook(lv, "save_org_display_name", %{
+        "encrypted_display_name" => "ciphertext-self"
+      })
+
+      [event] = Orgs.Audit.list_audit_events(ctx.org)
+      assert event.action == "display_name_changed"
+      assert event.actor_id == ctx.member.id
+      assert event.target_id == ctx.member.id
+      assert event.target_type == "user"
+    end
+
+    test "an admin renaming another member records a display_name_changed event (actor != target) (#264)",
+         ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      render_hook(lv, "save_org_display_name", %{
+        "encrypted_display_name" => "ciphertext-by-admin",
+        "target_user_id" => ctx.member.id
+      })
+
+      [event] = Orgs.Audit.list_audit_events(ctx.org)
+      assert event.action == "display_name_changed"
+      assert event.actor_id == ctx.admin.id
+      assert event.target_id == ctx.member.id
+    end
+
+    test "a rejected (tampered) rename records NO audit event (#264)", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      render_hook(lv, "save_org_display_name", %{
+        "encrypted_display_name" => "ciphertext-tampered",
+        "target_user_id" => ctx.admin.id
+      })
+
+      assert Orgs.Audit.list_audit_events(ctx.org) == []
+    end
+
     test "the viewer sees an edit affordance on their OWN row once a name is set", ctx do
       membership = Orgs.get_membership!(ctx.member, ctx.org.slug)
       {:ok, _} = Orgs.set_org_display_name(membership, "ciphertext-existing")

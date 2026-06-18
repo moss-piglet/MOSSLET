@@ -130,12 +130,12 @@ defmodule MossletWeb.SubscribeLiveTest do
   end
 
   describe "org on-ramp (:user source Family/Business tabs)" do
-    test "submitting the Family on-ramp creates an inert org and routes to its subscribe page",
+    test "submitting the Family on-ramp creates an inert org and routes to its subscribe page carrying the chosen billing interval (#266)",
          %{conn: conn} do
       {user, key} = subscribe_user(true)
       conn = log_in(conn, user, key)
 
-      {:ok, lv, _html} = live(conn, ~p"/app/subscribe?#{%{plan: "family"}}")
+      {:ok, lv, _html} = live(conn, ~p"/app/subscribe?#{%{plan: "family", billing: "year"}}")
 
       lv
       |> form("#org-onramp-form-family", %{"org" => %{"name" => "The Smiths"}})
@@ -145,14 +145,29 @@ defmodule MossletWeb.SubscribeLiveTest do
       assert org
       assert org.type == :family
       refute Mosslet.Orgs.org_active?(org)
-      assert_redirect(lv, ~p"/app/org/#{org.slug}/subscribe")
+      assert_redirect(lv, ~p"/app/org/#{org.slug}/subscribe?#{%{billing: "year"}}")
+    end
+
+    test "the Family on-ramp carries a MONTHLY choice through to the org subscribe page (#266)",
+         %{conn: conn} do
+      {user, key} = subscribe_user(true)
+      conn = log_in(conn, user, key)
+
+      {:ok, lv, _html} = live(conn, ~p"/app/subscribe?#{%{plan: "family", billing: "month"}}")
+
+      lv
+      |> form("#org-onramp-form-family", %{"org" => %{"name" => "The Smiths"}})
+      |> render_submit()
+
+      org = Mosslet.Orgs.list_owned_orgs(user, :family) |> List.first()
+      assert_redirect(lv, ~p"/app/org/#{org.slug}/subscribe?#{%{billing: "month"}}")
     end
 
     test "submitting the Business on-ramp creates an inert business org", %{conn: conn} do
       {user, key} = subscribe_user(true)
       conn = log_in(conn, user, key)
 
-      {:ok, lv, _html} = live(conn, ~p"/app/subscribe?#{%{plan: "business"}}")
+      {:ok, lv, _html} = live(conn, ~p"/app/subscribe?#{%{plan: "business", billing: "year"}}")
 
       lv
       |> form("#org-onramp-form-business", %{"org" => %{"name" => "Acme Inc"}})
@@ -161,7 +176,7 @@ defmodule MossletWeb.SubscribeLiveTest do
       org = Mosslet.Orgs.list_owned_orgs(user, :business) |> List.first()
       assert org
       assert org.type == :business
-      assert_redirect(lv, ~p"/app/org/#{org.slug}/subscribe")
+      assert_redirect(lv, ~p"/app/org/#{org.slug}/subscribe?#{%{billing: "year"}}")
     end
 
     test "blank name flashes an error and does not create an org", %{conn: conn} do
@@ -186,10 +201,15 @@ defmodule MossletWeb.SubscribeLiveTest do
       ensure_org_subscription(org, status: "active")
       conn = log_in(conn, user, key)
 
-      {:ok, lv, _html} = live(conn, ~p"/app/subscribe?#{%{plan: "family"}}")
+      {:ok, lv, _html} = live(conn, ~p"/app/subscribe?#{%{plan: "family", billing: "year"}}")
 
       assert has_element?(lv, "#org-onramp-manage-family")
       refute has_element?(lv, "#org-onramp-form-family")
+      # The Manage deep-link carries the chosen billing interval (#266).
+      assert has_element?(
+               lv,
+               "#org-onramp-manage-family[href='/app/org/#{org.slug}/subscribe?billing=year']"
+             )
     end
   end
 

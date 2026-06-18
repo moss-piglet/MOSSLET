@@ -5,7 +5,7 @@ defmodule Mosslet.Orgs.Audit do
 
   **Option B — metadata-only, server-authoritative, APPEND-ONLY.** A read-only
   activity feed of business-org admin actions (member added/removed, role change,
-  circle created, file shared/revoked). Each event stores ONLY opaque ids + a
+  display-name change, circle created, file shared/revoked). Each event stores ONLY opaque ids + a
   non-sensitive `action` category + timestamp; the human-readable description
   ("Jane changed Bob's role") is reconstructed CLIENT-SIDE by an org admin from
   data they already decrypt (member `display_name`s, circle names). The server

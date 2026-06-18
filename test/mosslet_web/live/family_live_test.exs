@@ -119,6 +119,26 @@ defmodule MossletWeb.FamilyLiveTest do
     {user, key}
   end
 
+  defp add_member(org, user, role) do
+    {:ok, {:ok, membership}} =
+      Mosslet.Repo.transaction_on_primary(fn ->
+        Orgs.Membership.insert_changeset(org, user, role) |> Mosslet.Repo.insert()
+      end)
+
+    membership
+  end
+
+  # Seals an (opaque) org_key for a member so view-models that gate on the viewer
+  # holding the org_key render. Server-side the sealed key is just an opaque blob.
+  defp seal_org_key(org, user) do
+    {:ok, _count} =
+      Orgs.seal_org_key_for_members(org, [
+        %{user_id: user.id, sealed_key: "sealed-org-key-#{System.unique_integer([:positive])}"}
+      ])
+
+    :ok
+  end
+
   describe "FamilyLive.Index" do
     test "lists families and creates a new one", %{conn: conn} do
       {user, key} = onboarded_user("familyadmin")
@@ -286,6 +306,107 @@ defmodule MossletWeb.FamilyLiveTest do
         ctx.conn |> log_in(ctx.managed, ctx.managed_key) |> live(~p"/app/family/#{ctx.org.slug}")
 
       assert has_element?(lv, "#guardian-transparency-panel")
+    end
+  end
+
+  describe "FamilyLive.Show display-name editing (Task #264 parity)" do
+    setup %{conn: conn} do
+      {admin, admin_key} = onboarded_user("famnameadmin")
+      {member, member_key} = onboarded_user("famnamemember")
+      {:ok, org} = Orgs.create_org(admin, %{"name" => "Smiths", "type" => "family"})
+      subscribe_family(org)
+      add_member(org, member, :member)
+      # Every editor needs to hold the org_key (UI gating); the sealed value is
+      # opaque server-side.
+      seal_org_key(org, admin)
+      seal_org_key(org, member)
+
+      %{
+        conn: conn,
+        admin: admin,
+        admin_key: admin_key,
+        member: member,
+        member_key: member_key,
+        org: org
+      }
+    end
+
+    test "a member can rename THEMSELVES (no target_user_id)", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/family/#{ctx.org.slug}")
+
+      render_hook(lv, "save_org_display_name", %{
+        "encrypted_display_name" => "ciphertext-self"
+      })
+
+      assert Orgs.get_membership!(ctx.member, ctx.org.slug).display_name == "ciphertext-self"
+    end
+
+    test "a family admin can rename ANOTHER member (target_user_id)", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/family/#{ctx.org.slug}")
+
+      render_hook(lv, "save_org_display_name", %{
+        "encrypted_display_name" => "ciphertext-by-admin",
+        "target_user_id" => ctx.member.id
+      })
+
+      assert Orgs.get_membership!(ctx.member, ctx.org.slug).display_name == "ciphertext-by-admin"
+    end
+
+    test "a non-admin member CANNOT rename another member (server re-authorizes)", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/family/#{ctx.org.slug}")
+
+      render_hook(lv, "save_org_display_name", %{
+        "encrypted_display_name" => "ciphertext-tampered",
+        "target_user_id" => ctx.admin.id
+      })
+
+      assert is_nil(Orgs.get_membership!(ctx.admin, ctx.org.slug).display_name)
+    end
+
+    test "renames record NO audit log (families have no admin activity feed)", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/family/#{ctx.org.slug}")
+
+      render_hook(lv, "save_org_display_name", %{
+        "encrypted_display_name" => "ciphertext-by-admin",
+        "target_user_id" => ctx.member.id
+      })
+
+      assert Orgs.Audit.list_audit_events(ctx.org) == []
+    end
+
+    test "the viewer sees an edit affordance on their OWN row once a name is set", ctx do
+      membership = Orgs.get_membership!(ctx.member, ctx.org.slug)
+      {:ok, _} = Orgs.set_org_display_name(membership, "ciphertext-existing")
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/family/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#edit-name-#{ctx.member.id}")
+
+      lv |> element("#edit-name-#{ctx.member.id}") |> render_click()
+
+      assert has_element?(
+               lv,
+               "#edit-name-form-#{ctx.member.id}[phx-hook='OrgDisplayNameFormHook']"
+             )
+    end
+
+    test "admins see an edit affordance on OTHER members' rows", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/family/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#edit-name-#{ctx.member.id}")
+    end
+
+    test "non-admin members do NOT see an edit affordance on OTHER members' rows", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/family/#{ctx.org.slug}")
+
+      refute has_element?(lv, "#edit-name-#{ctx.admin.id}")
     end
   end
 

@@ -190,7 +190,13 @@ defmodule MossletWeb.SubscribeLive do
        when family in ["Family", "Business"] do
     type = family_to_type(family)
     existing = Mosslet.Orgs.active_org_of_type(socket.assigns.current_user, type)
-    product = family_product(socket.assigns.subscription_products, family)
+
+    product =
+      family_product(
+        socket.assigns.subscription_products,
+        family,
+        socket.assigns.selected_interval
+      )
 
     socket
     |> assign(:org_onramp, %{
@@ -208,20 +214,25 @@ defmodule MossletWeb.SubscribeLive do
   defp family_to_type(_), do: :family
 
   # Pick a representative product for the family to surface an indicative
-  # "from" price on the org on-ramp card. We prefer the MONTHLY line item (the
-  # lowest entry point) and label it as "starting at" — the binding monthly vs
-  # yearly choice happens later on the org's own subscribe page, so we must not
-  # imply a yearly commitment here (Option B, Task #235).
-  defp family_product(subscription_products, family) do
+  # "from" price on the org on-ramp card. We honor the interval the user picked
+  # on /pricing (`?billing=`, defaulting to yearly — our best value) so the card
+  # reflects their choice; the binding monthly vs yearly selection is still
+  # confirmed on the org's own subscribe page (Option B, Task #235). Falls back
+  # to monthly, then any product, if the chosen interval has no line item.
+  defp family_product(subscription_products, family, interval \\ "year") do
     products =
       Enum.filter(subscription_products, fn product ->
         short_name(product.name) == family
       end)
 
-    Enum.find(products, fn product ->
-      item = List.first(product.line_items)
-      item && item.interval == :month
-    end) || List.first(products)
+    by_interval = fn wanted ->
+      Enum.find(products, fn product ->
+        item = List.first(product.line_items)
+        item && to_string(item.interval) == wanted
+      end)
+    end
+
+    by_interval.(interval) || by_interval.("month") || List.first(products)
   end
 
   defp billing_param(%{"billing" => b}) when b in ~w(month monthly), do: "month"
@@ -309,7 +320,11 @@ defmodule MossletWeb.SubscribeLive do
             />
 
             <%= if @org_onramp do %>
-              <.org_onramp_card onramp={@org_onramp} org_name_form={@org_name_form} />
+              <.org_onramp_card
+                onramp={@org_onramp}
+                org_name_form={@org_name_form}
+                selected_interval={@selected_interval}
+              />
             <% else %>
               <.active_billing_notice
                 :if={@has_active_billing}
@@ -589,6 +604,7 @@ defmodule MossletWeb.SubscribeLive do
 
   attr :onramp, :map, required: true
   attr :org_name_form, :any, required: true
+  attr :selected_interval, :string, default: "year"
 
   # Org on-ramp card shown on the `:user`-source subscribe page when the
   # Family / Business tab is selected (Option B, Task #235). These tabs do NOT
@@ -679,7 +695,12 @@ defmodule MossletWeb.SubscribeLive do
           </ul>
 
           <%= if @onramp.existing_org do %>
-            <.org_onramp_existing onramp={@onramp} label={@label} type_label={@type_label} />
+            <.org_onramp_existing
+              onramp={@onramp}
+              label={@label}
+              type_label={@type_label}
+              selected_interval={@selected_interval}
+            />
           <% else %>
             <.org_onramp_create
               onramp={@onramp}
@@ -697,9 +718,11 @@ defmodule MossletWeb.SubscribeLive do
   attr :onramp, :map, required: true
   attr :label, :string, required: true
   attr :type_label, :string, required: true
+  attr :selected_interval, :string, default: "year"
 
   # Deep-link variant: the user already runs an active org of this type, so we
-  # send them to that org instead of creating a duplicate.
+  # send them to that org instead of creating a duplicate. Carries the chosen
+  # billing interval (#266) so the org page opens on the right monthly/yearly tab.
   defp org_onramp_existing(assigns) do
     ~H"""
     <div class="rounded-xl bg-emerald-50/70 dark:bg-emerald-900/20 border border-emerald-200/60 dark:border-emerald-700/40 p-4 mb-4">
@@ -709,7 +732,7 @@ defmodule MossletWeb.SubscribeLive do
       </p>
     </div>
     <DesignSystem.liquid_button
-      navigate={~p"/app/org/#{@onramp.existing_org.slug}/subscribe"}
+      navigate={~p"/app/org/#{@onramp.existing_org.slug}/subscribe?#{%{billing: @selected_interval}}"}
       variant="primary"
       color="emerald"
       size="lg"
@@ -1741,7 +1764,7 @@ defmodule MossletWeb.SubscribeLive do
 
     cond do
       existing = Mosslet.Orgs.active_org_of_type(current_user, type_atom) ->
-        {:noreply, push_navigate(socket, to: ~p"/app/org/#{existing.slug}/subscribe")}
+        {:noreply, push_navigate(socket, to: org_subscribe_path(socket, existing.slug))}
 
       name == "" ->
         {:noreply,
@@ -1762,7 +1785,7 @@ defmodule MossletWeb.SubscribeLive do
           org_id: org.id
         })
 
-        {:noreply, push_navigate(socket, to: ~p"/app/org/#{org.slug}/subscribe")}
+        {:noreply, push_navigate(socket, to: org_subscribe_path(socket, org.slug))}
 
       {:error, reason} when is_atom(reason) ->
         {:noreply, put_flash(socket, :error, org_create_error_message(reason, type))}
@@ -1857,6 +1880,15 @@ defmodule MossletWeb.SubscribeLive do
 
   defp subscribe_patch_path(_socket, family, interval) do
     ~p"/app/subscribe?#{%{plan: family_to_plan(family), billing: interval}}"
+  end
+
+  # Org on-ramp destination (Option B): route to the org's own subscribe page,
+  # CARRYING the billing interval the user picked on /pricing (and on the
+  # `:user` on-ramp page) so they land on their chosen monthly/yearly tab rather
+  # than the org page's session/default fallback (#266).
+  defp org_subscribe_path(socket, slug) do
+    interval = socket.assigns[:selected_interval] || "year"
+    ~p"/app/org/#{slug}/subscribe?#{%{billing: interval}}"
   end
 
   defp family_to_plan("Family"), do: "family"
