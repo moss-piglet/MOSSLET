@@ -189,7 +189,8 @@ defmodule MossletWeb.SubscribeLive do
   defp assign_org_onramp(%{assigns: %{source: :user}} = socket, family)
        when family in ["Family", "Business"] do
     type = family_to_type(family)
-    existing = Mosslet.Orgs.active_org_of_type(socket.assigns.current_user, type)
+    existing = Mosslet.Orgs.resumable_org_of_type(socket.assigns.current_user, type)
+    existing_active? = existing != nil and Mosslet.Orgs.org_active?(existing)
 
     product =
       family_product(
@@ -203,6 +204,7 @@ defmodule MossletWeb.SubscribeLive do
       type: type,
       family: family,
       existing_org: existing,
+      existing_active?: existing_active?,
       product: product
     })
     |> assign_new(:org_name_form, fn -> to_form(%{"name" => ""}, as: :org) end)
@@ -425,11 +427,11 @@ defmodule MossletWeb.SubscribeLive do
           </div>
           <div class="flex-1 min-w-0">
             <p class="text-sm font-semibold text-sky-800 dark:text-sky-200">
-              {gettext("Confirm your email to unlock everything")}
+              {gettext("Confirm your email to get started")}
             </p>
             <p class="mt-0.5 text-sm text-sky-700 dark:text-sky-300">
               {gettext(
-                "You can choose a plan now. We've sent a confirmation link to your inbox—confirm it to start connecting, posting, and inviting people."
+                "You can explore plans now, but you'll need to confirm your email before starting a trial or creating your space. We've sent a confirmation link to your inbox—it only takes a moment."
               )}
             </p>
             <.link
@@ -720,15 +722,26 @@ defmodule MossletWeb.SubscribeLive do
   attr :type_label, :string, required: true
   attr :selected_interval, :string, default: "year"
 
-  # Deep-link variant: the user already runs an active org of this type, so we
-  # send them to that org instead of creating a duplicate. Carries the chosen
-  # billing interval (#266) so the org page opens on the right monthly/yearly tab.
+  # Deep-link variant: the user already owns an org of this type, so we send them
+  # to that org instead of creating a duplicate. Two states (#266):
+  #   * active   — "Manage your <plan>"
+  #   * inert    — they created it but never finished checkout (e.g. re-unlocked
+  #                auth in a new tab); send them back to RESUME the trial setup
+  #                rather than re-offering the create form (which would hit the
+  #                one-family limit).
+  # Carries the chosen billing interval so the org page opens on the right tab.
   defp org_onramp_existing(assigns) do
     ~H"""
     <div class="rounded-xl bg-emerald-50/70 dark:bg-emerald-900/20 border border-emerald-200/60 dark:border-emerald-700/40 p-4 mb-4">
       <p class="text-sm text-emerald-800 dark:text-emerald-200">
         <.phx_icon name="hero-check-badge" class="inline w-4 h-4 mr-1 -mt-0.5" />
-        {gettext("You already have an active %{type}.", type: @type_label)}
+        <%= if @onramp.existing_active? do %>
+          {gettext("You already have an active %{type}.", type: @type_label)}
+        <% else %>
+          {gettext("You already started setting up your %{type}. Pick up where you left off.",
+            type: @type_label
+          )}
+        <% end %>
       </p>
     </div>
     <DesignSystem.liquid_button
@@ -737,10 +750,14 @@ defmodule MossletWeb.SubscribeLive do
       color="emerald"
       size="lg"
       class="w-full"
-      icon="hero-cog-6-tooth"
+      icon={if @onramp.existing_active?, do: "hero-cog-6-tooth", else: "hero-rocket-launch"}
       id={"org-onramp-manage-#{@onramp.type}"}
     >
-      {gettext("Manage your %{label}", label: @label)}
+      <%= if @onramp.existing_active? do %>
+        {gettext("Manage your %{label}", label: @label)}
+      <% else %>
+        {gettext("Continue & start your trial")}
+      <% end %>
     </DesignSystem.liquid_button>
     """
   end
@@ -1763,7 +1780,22 @@ defmodule MossletWeb.SubscribeLive do
     name = params |> Map.get("org", %{}) |> Map.get("name", "") |> String.trim()
 
     cond do
-      existing = Mosslet.Orgs.active_org_of_type(current_user, type_atom) ->
+      # Unconfirmed users may BROWSE plans (we show a confirm-email banner), but
+      # creating an org / starting a trial requires confirmation — Orgs.create_org/2
+      # raises otherwise. Guard here so the on-ramp shows a friendly nudge instead
+      # of crashing the LiveView.
+      is_nil(current_user.confirmed_at) ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext(
+             "Please confirm your email before starting your %{type}. Check your inbox for the confirmation link.",
+             type: type
+           )
+         )}
+
+      existing = Mosslet.Orgs.resumable_org_of_type(current_user, type_atom) ->
         {:noreply, push_navigate(socket, to: org_subscribe_path(socket, existing.slug))}
 
       name == "" ->

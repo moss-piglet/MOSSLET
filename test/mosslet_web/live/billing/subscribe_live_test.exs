@@ -179,6 +179,22 @@ defmodule MossletWeb.SubscribeLiveTest do
       assert_redirect(lv, ~p"/app/org/#{org.slug}/subscribe?#{%{billing: "year"}}")
     end
 
+    test "an UNCONFIRMED user submitting the on-ramp gets a confirm-email nudge, not a crash (#266)",
+         %{conn: conn} do
+      {user, key} = subscribe_user(false)
+      conn = log_in(conn, user, key)
+
+      {:ok, lv, _html} = live(conn, ~p"/app/subscribe?#{%{plan: "family", billing: "year"}}")
+
+      html =
+        lv
+        |> form("#org-onramp-form-family", %{"org" => %{"name" => "The Smiths"}})
+        |> render_submit()
+
+      assert html =~ "confirm your email"
+      assert Mosslet.Orgs.count_owned_orgs(user, :family) == 0
+    end
+
     test "blank name flashes an error and does not create an org", %{conn: conn} do
       {user, key} = subscribe_user(true)
       conn = log_in(conn, user, key)
@@ -210,6 +226,45 @@ defmodule MossletWeb.SubscribeLiveTest do
                lv,
                "#org-onramp-manage-family[href='/app/org/#{org.slug}/subscribe?billing=year']"
              )
+    end
+
+    test "resumes an INERT owned org (mid-checkout) instead of re-offering create (#266)",
+         %{conn: conn} do
+      {user, key} = subscribe_user(true)
+      # Inert: created but NEVER activated (no :org subscription) — e.g. the user
+      # re-unlocked auth in a new tab before finishing Stripe checkout.
+      org = org_fixture(user, %{"name" => "Half-set Fam", "type" => :family})
+      refute Mosslet.Orgs.org_active?(org)
+      conn = log_in(conn, user, key)
+
+      {:ok, lv, html} = live(conn, ~p"/app/subscribe?#{%{plan: "family", billing: "year"}}")
+
+      # No create form (it would hit the one-family limit); instead a resume CTA
+      # to the inert org's subscribe page, carrying the chosen interval.
+      refute has_element?(lv, "#org-onramp-form-family")
+
+      assert has_element?(
+               lv,
+               "#org-onramp-manage-family[href='/app/org/#{org.slug}/subscribe?billing=year']"
+             )
+
+      assert html =~ "Continue &amp; start your trial"
+    end
+
+    test "the create_org event resumes an existing inert org rather than erroring on the limit (#266)",
+         %{conn: conn} do
+      {user, key} = subscribe_user(true)
+      org = org_fixture(user, %{"name" => "Half-set Fam", "type" => :family})
+      conn = log_in(conn, user, key)
+
+      {:ok, lv, _html} = live(conn, ~p"/app/subscribe?#{%{plan: "family", billing: "month"}}")
+
+      # A stale create_org submit (e.g. an old tab) must NOT crash on the
+      # one-family limit; it resumes the inert org's checkout instead.
+      render_hook(lv, "create_org", %{"type" => "family", "org" => %{"name" => "Whatever"}})
+
+      assert Mosslet.Orgs.count_owned_orgs(user, :family) == 1
+      assert_redirect(lv, ~p"/app/org/#{org.slug}/subscribe?#{%{billing: "month"}}")
     end
   end
 

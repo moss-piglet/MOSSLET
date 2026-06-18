@@ -1663,6 +1663,24 @@ defmodule Mosslet.Orgs do
   end
 
   @doc """
+  Returns an existing org of `type` the user OWNS that the subscribe funnel
+  should route to instead of creating a new one (Task #235 / #266).
+
+  Prefers an ACTIVE org (deep-link to manage); otherwise returns an owned org
+  that is NOT yet active — e.g. an INERT org the user just created but abandoned
+  mid-checkout (auth re-unlock in a new tab, tab close, etc.), or a lapsed one.
+  Routing them back to that org's subscribe page lets them resume/initiate
+  Stripe checkout rather than re-creating a duplicate or hitting the one-family
+  limit. Returns `nil` when the user owns no org of the type.
+  """
+  def resumable_org_of_type(nil, _type), do: nil
+
+  def resumable_org_of_type(user, type) when type in [:family, :business] do
+    active_org_of_type(user, type) ||
+      user |> list_owned_orgs(type) |> List.first()
+  end
+
+  @doc """
   Server-authoritative coverage status for a user across ALL their confirmed org
   memberships. A user is covered if ANY org grants coverage; the best status
   across orgs wins.
