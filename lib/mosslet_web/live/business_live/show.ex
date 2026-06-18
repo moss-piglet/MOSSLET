@@ -19,6 +19,7 @@ defmodule MossletWeb.BusinessLive.Show do
   alias Mosslet.FileUploads.SharedFileStorage
   alias Mosslet.Groups
   alias Mosslet.Orgs
+  alias Mosslet.Orgs.Audit
   alias Mosslet.Orgs.Org
   alias Mosslet.Pins
 
@@ -779,6 +780,89 @@ defmodule MossletWeb.BusinessLive.Show do
           </div>
         </div>
 
+        <%!-- ZK admin activity log (Task #212, §12 of BUSINESS_CIRCLES_DESIGN.md).
+             Owner/admin-only, READ-ONLY, APPEND-ONLY accountability feed. The
+             server stores only opaque ids + a non-sensitive action category +
+             timestamp (no readable content); the human-readable description is
+             reconstructed CLIENT-SIDE by the AuditLog hook from the org_key the
+             admin already holds (member display names). A "Download" button
+             exports a local copy (client-side, ZK) — useful day-to-day and as the
+             owner's final snapshot before deleting the org. --%>
+        <section
+          :if={@can_view_audit_log?}
+          id="org-audit-log"
+          phx-hook="AuditLog"
+          data-sealed-org-key={@viewer_sealed_org_key}
+          data-member-directory={@audit_member_directory}
+          class="mx-auto max-w-3xl space-y-4"
+        >
+          <div class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm overflow-hidden">
+            <header class="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-700/60">
+              <div class="flex items-center gap-3 min-w-0">
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400">
+                  <.phx_icon name="hero-shield-check" class="size-5" />
+                </span>
+                <div class="min-w-0">
+                  <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                    Activity log
+                  </h2>
+                  <p class="text-xs text-slate-500 dark:text-slate-400">
+                    A tamper-proof, zero-knowledge record of admin actions — visible only to owners and admins.
+                  </p>
+                </div>
+              </div>
+              <.liquid_button
+                :if={@audit_events != []}
+                type="button"
+                variant="secondary"
+                size="sm"
+                icon="hero-arrow-down-tray"
+                id="org-audit-export"
+                data-audit-export
+              >
+                Download
+              </.liquid_button>
+            </header>
+
+            <ol id="org-audit-events" class="divide-y divide-slate-100 dark:divide-slate-700/60">
+              <li
+                :if={@audit_events == []}
+                id="org-audit-empty"
+                class="px-5 py-8 text-center text-sm text-slate-500 dark:text-slate-400"
+              >
+                No admin activity yet. Actions like adding members, changing roles, creating circles, and sharing files will appear here.
+              </li>
+              <li
+                :for={event <- @audit_events}
+                id={"audit-#{event.id}"}
+                class="px-5 py-3 flex items-start gap-3"
+                data-audit-row
+                data-audit-action={event.action}
+                data-audit-actor-id={event.actor_id}
+                data-audit-target-id={event.target_id}
+                data-audit-target-type={event.target_type}
+                data-audit-at={NaiveDateTime.to_iso8601(event.inserted_at)}
+              >
+                <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400">
+                  <.phx_icon name={audit_action_icon(event.action)} class="size-4" />
+                </span>
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm text-slate-700 dark:text-slate-200" data-audit-text>
+                    {audit_action_label(event.action)}
+                  </p>
+                  <p class="text-xs text-slate-400 dark:text-slate-500">
+                    <time>{Calendar.strftime(event.inserted_at, "%b %-d, %Y · %H:%M UTC")}</time>
+                    <span
+                      data-audit-local
+                      class="hidden text-emerald-600 dark:text-emerald-400"
+                    ></span>
+                  </p>
+                </div>
+              </li>
+            </ol>
+          </div>
+        </section>
+
         <%!-- One-time SETUP — branding, seats, and ownership — tucked into a
              collapsible, accessible disclosure (default collapsed) so the
              dashboard stays focused on everyday work (Task #248). Native button
@@ -1201,6 +1285,7 @@ defmodule MossletWeb.BusinessLive.Show do
               transfer_form={@transfer_form}
               delete_modal_open={@delete_modal_open}
               delete_form={@delete_form}
+              audit_export?={@can_view_audit_log?}
             />
           </div>
         </section>
@@ -1582,6 +1667,14 @@ defmodule MossletWeb.BusinessLive.Show do
       {:ok, invitation} ->
         flash = invitation_sent_flash(invitation, socket.assigns.org)
 
+        Audit.record_audit_event(
+          socket.assigns.org,
+          socket.assigns.current_scope.user,
+          "member_invited",
+          target_id: invitation.user_id,
+          target_type: invitation.user_id && "user"
+        )
+
         {:noreply,
          socket
          |> put_invitation_flash(flash)
@@ -1644,6 +1737,14 @@ defmodule MossletWeb.BusinessLive.Show do
     if socket.assigns.can_manage? && member && not Orgs.owner?(socket.assigns.org, user_id) do
       case Orgs.update_membership(member.membership, %{"role" => role}) do
         {:ok, _membership} ->
+          Audit.record_audit_event(
+            socket.assigns.org,
+            socket.assigns.current_scope.user,
+            "role_changed",
+            target_id: user_id,
+            target_type: "user"
+          )
+
           {:noreply,
            socket
            |> put_flash(:success, "Role updated")
@@ -1680,6 +1781,11 @@ defmodule MossletWeb.BusinessLive.Show do
 
       case Orgs.delete_membership(member.membership) do
         {:ok, _} ->
+          Audit.record_audit_event(org, socket.assigns.current_scope.user, "member_removed",
+            target_id: user_id,
+            target_type: "user"
+          )
+
           {:noreply,
            socket
            |> put_flash(
@@ -2019,6 +2125,11 @@ defmodule MossletWeb.BusinessLive.Show do
             org_id: org.id,
             metadata: %{"group_id" => group.id}
           })
+
+          Audit.record_audit_event(org, user, "circle_created",
+            target_id: group.id,
+            target_type: "group"
+          )
 
           {:noreply,
            socket
@@ -2752,6 +2863,13 @@ defmodule MossletWeb.BusinessLive.Show do
     {:noreply, assign_business_data(socket)}
   end
 
+  # Realtime audit event recorded (Task #212): an admin action was logged.
+  # Refresh just the audit feed so connected admins see it live. Id-only event
+  # (no plaintext/keys — descriptions render client-side).
+  def handle_info({:audit_recorded, %{org_id: _org_id}}, socket) do
+    {:noreply, assign(socket, :audit_events, Audit.list_audit_events(socket.assigns.org))}
+  end
+
   # Ignore unrelated process messages (e.g. Swoosh test email delivery, telemetry).
   def handle_info(_message, socket), do: {:noreply, socket}
 
@@ -2972,6 +3090,9 @@ defmodule MossletWeb.BusinessLive.Show do
     |> assign(:seat_management, Orgs.seat_management_data(org))
     |> assign(:can_manage?, socket.assigns.membership.role == :admin)
     |> assign(:is_owner?, Orgs.owner?(org, current_user.id))
+    |> assign(:can_view_audit_log?, Audit.can_view_audit_log?(org, current_user.id))
+    |> assign(:audit_events, Audit.list_audit_events(org))
+    |> assign(:audit_member_directory, audit_member_directory(members))
     |> assign(
       :can_manage_branding?,
       Orgs.can_manage_branding?(org, socket.assigns.membership)
@@ -2983,6 +3104,38 @@ defmodule MossletWeb.BusinessLive.Show do
     |> assign_manage_circle(members)
     |> maybe_request_org_key_seal()
   end
+
+  # Compact JSON directory mapping each member's user_id -> their org-display-name
+  # CIPHERTEXT (org_key secretbox). Handed to the AuditLog hook so it can resolve
+  # actor/target names CLIENT-SIDE (decrypting with the org_key the viewer already
+  # holds) — the server never sees the plaintext names. ZK-safe: only opaque ids
+  # + ciphertext leave the server.
+  defp audit_member_directory(members) do
+    members
+    |> Enum.map(fn m -> %{"id" => m.user.id, "name" => m.encrypted_display_name || ""} end)
+    |> Jason.encode!()
+  end
+
+  # Generic, name-free server-rendered fallback for an audit row (shown before the
+  # AuditLog hook enriches it with client-decrypted names, or if decryption is
+  # unavailable). NEVER contains sensitive content.
+  defp audit_action_label("member_invited"), do: "A teammate was invited"
+  defp audit_action_label("member_added"), do: "A teammate joined the organization"
+  defp audit_action_label("member_removed"), do: "A teammate was removed from the organization"
+  defp audit_action_label("role_changed"), do: "A teammate's role was changed"
+  defp audit_action_label("circle_created"), do: "A circle was created"
+  defp audit_action_label("file_shared"), do: "A file was shared"
+  defp audit_action_label("file_revoked"), do: "A file was removed"
+  defp audit_action_label(_), do: "An action was performed"
+
+  defp audit_action_icon("member_invited"), do: "hero-envelope"
+  defp audit_action_icon("member_added"), do: "hero-user-plus"
+  defp audit_action_icon("member_removed"), do: "hero-user-minus"
+  defp audit_action_icon("role_changed"), do: "hero-adjustments-horizontal"
+  defp audit_action_icon("circle_created"), do: "hero-user-group"
+  defp audit_action_icon("file_shared"), do: "hero-document-arrow-up"
+  defp audit_action_icon("file_revoked"), do: "hero-document-minus"
+  defp audit_action_icon(_), do: "hero-clock"
 
   # Recomputes the four subdomain/add-on-derived assigns from the org's current
   # (server-authoritative) state. Called from `assign_business_data/1` AND from

@@ -16,7 +16,6 @@ defmodule Mosslet.Orgs do
   alias Mosslet.Billing.Plans
   alias Mosslet.Billing.Subscriptions
   alias Mosslet.Orgs.{Org, Membership, Invitation, Guardianship, OwnershipTransfer}
-
   @membership_roles ~w(member admin)
 
   @family_owned_limit 1
@@ -2052,7 +2051,16 @@ defmodule Mosslet.Orgs do
       {:error, :seat_limit_reached}
     else
       membership = adapter().accept_invitation!(user, id)
-      if org, do: broadcast_org_update(org.id)
+
+      if org do
+        broadcast_org_update(org.id)
+
+        Mosslet.Orgs.Audit.record_audit_event(org, user, "member_added",
+          target_id: user.id,
+          target_type: "user"
+        )
+      end
+
       {:ok, membership}
     end
   end

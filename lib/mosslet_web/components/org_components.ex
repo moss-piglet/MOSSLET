@@ -186,6 +186,11 @@ defmodule MossletWeb.OrgComponents do
   attr :delete_modal_open, :boolean, default: false
   attr :delete_form, :any, default: nil
 
+  attr :audit_export?, :boolean,
+    default: false,
+    doc:
+      "Business only: show a 'download your activity log first' affordance in the delete modal. Triggers the AuditLog hook's client-side export via JS.dispatch (the log is permanently cascade-deleted with the org)."
+
   def ownership_section(assigns) do
     assigns =
       assigns
@@ -362,6 +367,33 @@ defmodule MossletWeb.OrgComponents do
               everyone keeps their personal MOSSLET account and personal billing — only their
               membership in {@org.name} is removed.
             </p>
+          </div>
+
+          <%!-- Business audit log (Task #212): the activity log is permanently
+               cascade-deleted with the org (zero orphaned logs — our ZK value).
+               Offer the owner a final downloadable copy first. The export runs
+               client-side (ZK) via the AuditLog hook on the dashboard. --%>
+          <div
+            :if={@audit_export?}
+            class="flex items-start gap-2 rounded-xl border border-slate-200/70 dark:border-slate-700/60 bg-slate-50/70 dark:bg-slate-900/30 p-3"
+          >
+            <.phx_icon
+              name="hero-arrow-down-tray"
+              class="size-4 mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+            />
+            <div class="min-w-0 space-y-1.5">
+              <p class="text-xs text-slate-600 dark:text-slate-300">
+                Your activity log is permanently deleted with the organization. Download a copy for your records first — this is your last chance.
+              </p>
+              <button
+                type="button"
+                id="delete-org-export-audit"
+                phx-click={JS.dispatch("mosslet:export-audit-log", to: "#org-audit-log")}
+                class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 underline underline-offset-2 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
+              >
+                <.phx_icon name="hero-arrow-down-tray" class="size-3.5" /> Download activity log
+              </button>
+            </div>
           </div>
 
           <p :if={@eligible_members != []} class="text-xs text-slate-600 dark:text-slate-300">

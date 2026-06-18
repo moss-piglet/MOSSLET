@@ -1415,4 +1415,80 @@ defmodule MossletWeb.BusinessLiveTest do
       assert has_element?(lv, ~s|a[data-to="/auth/sign_out"][data-method="delete"]|)
     end
   end
+
+  describe "ZK admin activity log (Task #212)" do
+    setup %{conn: conn} do
+      {owner, owner_key} = onboarded_user("auditowner")
+      {:ok, org} = Orgs.create_org(owner, %{"name" => "Audited Co", "type" => "business"})
+      subscribe_org(org, quantity: 20)
+
+      {member, member_key} = onboarded_user("auditmember")
+      add_member(org, member, :member)
+
+      %{
+        conn: conn,
+        owner: owner,
+        owner_key: owner_key,
+        org: org,
+        member: member,
+        member_key: member_key
+      }
+    end
+
+    test "an admin/owner sees the activity log panel + export wiring", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.owner, ctx.owner_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#org-audit-log")
+      # The hook carries the member directory + the viewer's sealed org_key so it
+      # can resolve names client-side (ZK).
+      assert has_element?(lv, "#org-audit-log[phx-hook='AuditLog']")
+      # Empty state until an action is recorded.
+      assert has_element?(lv, "#org-audit-empty")
+    end
+
+    test "a plain member does NOT see the activity log panel", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.member, ctx.member_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      refute has_element?(lv, "#org-audit-log")
+    end
+
+    test "recorded events render as rows for an admin (newest first) with an export button",
+         ctx do
+      target = Ecto.UUID.generate()
+
+      {:ok, e1} =
+        Orgs.Audit.record_audit_event(ctx.org, ctx.owner, "circle_created",
+          target_id: target,
+          target_type: "group"
+        )
+
+      {:ok, e2} =
+        Orgs.Audit.record_audit_event(ctx.org, ctx.owner, "role_changed",
+          target_id: ctx.member.id,
+          target_type: "user"
+        )
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.owner, ctx.owner_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      assert has_element?(lv, "#audit-#{e1.id}[data-audit-action='circle_created']")
+      assert has_element?(lv, "#audit-#{e2.id}[data-audit-action='role_changed']")
+      assert has_element?(lv, "#org-audit-export")
+      refute has_element?(lv, "#org-audit-empty")
+    end
+
+    test "the delete-org modal offers a final audit-log download (owner)", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.owner, ctx.owner_key) |> live(~p"/app/business/#{ctx.org.slug}")
+
+      render_click(lv, "open_delete_org_modal")
+
+      # The modal is teleported to a portal, so query its rendered HTML rather
+      # than has_element? (mirrors org_safe_delete_live_test.exs).
+      modal_html = lv |> element("#delete-org-modal-portal") |> render()
+      assert modal_html =~ "delete-org-export-audit"
+    end
+  end
 end

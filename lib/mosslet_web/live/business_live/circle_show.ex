@@ -23,6 +23,7 @@ defmodule MossletWeb.BusinessLive.CircleShow do
   alias Mosslet.Groups
   alias Mosslet.GroupMessages
   alias Mosslet.Orgs
+  alias Mosslet.Orgs.Audit
   alias MossletWeb.GroupLive.{Group, GroupMessage.EditForm}
   alias MossletWeb.GroupLive.ChatSupport
 
@@ -648,6 +649,14 @@ defmodule MossletWeb.BusinessLive.CircleShow do
       shared_file ->
         {:ok, _count} = Files.finalize_shared_file_zk(shared_file, sealed)
 
+        Audit.record_audit_event(
+          socket.assigns.org,
+          socket.assigns.current_scope.user,
+          "file_shared",
+          target_id: shared_file.id,
+          target_type: "shared_file"
+        )
+
         {:noreply,
          socket
          |> put_flash(:success, "File shared with the circle.")
@@ -724,6 +733,11 @@ defmodule MossletWeb.BusinessLive.CircleShow do
       shared_file ->
         case Files.delete_shared_file(shared_file, current_user) do
           {:ok, :revoked} ->
+            Audit.record_audit_event(socket.assigns.org, current_user, "file_revoked",
+              target_id: shared_file.id,
+              target_type: "shared_file"
+            )
+
             {:noreply,
              socket
              |> put_flash(:info, "File removed. (Copies already downloaded can't be recalled.)")
