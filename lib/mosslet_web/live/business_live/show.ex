@@ -61,6 +61,7 @@ defmodule MossletWeb.BusinessLive.Show do
        |> assign(:logo_upload_stage, nil)
        |> assign(:pending_logo_preview, nil)
        |> assign(:manage_open?, false)
+       |> assign(:file_sort, :newest)
        |> allow_upload(:org_logo,
          accept: ~w(.jpg .jpeg .png .webp .heic .heif),
          auto_upload: true,
@@ -558,6 +559,7 @@ defmodule MossletWeb.BusinessLive.Show do
             <section
               :if={@org_file_circles != []}
               id="org-files-overview"
+              phx-hook="OrgFileSearch"
               class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
             >
               <div>
@@ -570,10 +572,71 @@ defmodule MossletWeb.BusinessLive.Show do
                 </p>
               </div>
 
+              <%!-- Find-things-fast toolbar (#229a). Filename SEARCH is client-side
+                   (ZK — names only exist decrypted in the browser, via the
+                   DecryptSharedFileName hook); the OrgFileSearch hook filters rows
+                   by their decrypted text. SORT uses only server-visible metadata
+                   (upload time / size) and is handled server-side. --%>
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div id="org-file-search-bar" phx-update="ignore" class="relative flex-1">
+                  <.phx_icon
+                    name="hero-magnifying-glass"
+                    class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 dark:text-slate-500"
+                  />
+                  <input
+                    type="text"
+                    data-file-search
+                    id="org-file-search-input"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="Search files by name…"
+                    aria-label="Search files by name"
+                    class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 py-2 pl-9 pr-9 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-teal-500 focus:ring-teal-500"
+                  />
+                  <button
+                    type="button"
+                    data-file-search-clear
+                    hidden
+                    aria-label="Clear search"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  >
+                    <.phx_icon name="hero-x-mark" class="size-4" />
+                  </button>
+                </div>
+                <form phx-change="sort_files" class="shrink-0">
+                  <label for="org-file-sort" class="sr-only">Sort files</label>
+                  <select
+                    id="org-file-sort"
+                    name="sort"
+                    class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 py-2 pl-3 pr-8 text-sm text-slate-700 dark:text-slate-200 focus:border-teal-500 focus:ring-teal-500"
+                  >
+                    <option value="newest" selected={@file_sort == :newest}>Newest first</option>
+                    <option value="oldest" selected={@file_sort == :oldest}>Oldest first</option>
+                    <option value="largest" selected={@file_sort == :largest}>Largest first</option>
+                    <option value="smallest" selected={@file_sort == :smallest}>
+                      Smallest first
+                    </option>
+                  </select>
+                </form>
+              </div>
+
+              <p class="text-xs text-slate-500 dark:text-slate-400">
+                <span data-file-count></span>
+              </p>
+
+              <div
+                data-file-empty
+                hidden
+                class="rounded-xl border border-dashed border-slate-300 dark:border-slate-600 px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400"
+              >
+                No files match “<span data-file-empty-query class="font-medium"></span>”.
+              </div>
+
               <div
                 :for={entry <- @org_file_circles}
                 id={"org-files-circle-#{entry.group.id}"}
                 data-hook-scope={"files-circle-#{entry.group.id}"}
+                data-file-group
                 class="space-y-2"
               >
                 <div
@@ -598,6 +661,7 @@ defmodule MossletWeb.BusinessLive.Show do
                   <li
                     :for={file <- entry.files}
                     id={"org-file-#{file.id}"}
+                    data-file-row
                     class="py-2.5 flex items-center gap-3"
                   >
                     <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
@@ -1975,6 +2039,20 @@ defmodule MossletWeb.BusinessLive.Show do
     {:noreply, assign(socket, :manage_open?, true)}
   end
 
+  # Org-wide file overview sort (#229a). Only server-visible metadata (upload
+  # time, byte size) is sortable server-side; filename search stays client-side
+  # (ZK). Re-sorts the already-loaded list in memory (no re-query).
+  def handle_event("sort_files", %{"sort" => sort}, socket) do
+    sort = parse_file_sort(sort)
+
+    org_file_circles = sort_org_file_circles(socket.assigns.org_file_circles, sort)
+
+    {:noreply,
+     socket
+     |> assign(:file_sort, sort)
+     |> assign(:org_file_circles, org_file_circles)}
+  end
+
   # us {:org_logo_upload_*} messages; nothing to do in the LiveView's progress cb.
   defp handle_logo_progress(:org_logo, _entry, socket), do: {:noreply, socket}
 
@@ -2195,6 +2273,8 @@ defmodule MossletWeb.BusinessLive.Show do
     sealed_keys_by_group =
       Map.new(circles, fn circle -> {circle.group.id, circle.sealed_group_key} end)
 
+    file_sort = Map.get(socket.assigns, :file_sort, :newest)
+
     org_file_circles =
       org.id
       |> Files.list_org_shared_files_for_user(current_user)
@@ -2210,6 +2290,7 @@ defmodule MossletWeb.BusinessLive.Show do
         }
       end)
       |> Enum.sort_by(fn %{files: files} -> hd(files).inserted_at end, {:desc, NaiveDateTime})
+      |> sort_org_file_circles(file_sort)
 
     socket
     |> assign(:members, members)
@@ -2430,4 +2511,33 @@ defmodule MossletWeb.BusinessLive.Show do
       true -> "#{bytes} B"
     end
   end
+
+  # Server-side sort of the org-wide file overview (#229a). Only server-VISIBLE
+  # metadata is sorted here (upload time, byte size) — filename sorting/search is
+  # ZK and lives entirely in the browser (OrgFileSearch hook), since the server
+  # never sees plaintext names. We sort the files WITHIN each circle; the circle
+  # blocks themselves stay ordered by their most-recent file.
+  defp sort_org_file_circles(org_file_circles, sort) do
+    Enum.map(org_file_circles, fn entry ->
+      %{entry | files: sort_files(entry.files, sort)}
+    end)
+  end
+
+  defp sort_files(files, :newest),
+    do: Enum.sort_by(files, & &1.inserted_at, {:desc, NaiveDateTime})
+
+  defp sort_files(files, :oldest),
+    do: Enum.sort_by(files, & &1.inserted_at, {:asc, NaiveDateTime})
+
+  defp sort_files(files, :largest), do: Enum.sort_by(files, &(&1.size_bytes || 0), :desc)
+  defp sort_files(files, :smallest), do: Enum.sort_by(files, &(&1.size_bytes || 0), :asc)
+  defp sort_files(files, _), do: files
+
+  # Maps the user-supplied sort string to a known atom (never String.to_atom on
+  # user input). Unknown values fall back to :newest.
+  defp parse_file_sort("newest"), do: :newest
+  defp parse_file_sort("oldest"), do: :oldest
+  defp parse_file_sort("largest"), do: :largest
+  defp parse_file_sort("smallest"), do: :smallest
+  defp parse_file_sort(_), do: :newest
 end
