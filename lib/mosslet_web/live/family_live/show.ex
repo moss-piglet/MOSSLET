@@ -70,7 +70,7 @@ defmodule MossletWeb.FamilyLive.Show do
           </.link>
           <div class="flex items-center gap-3 min-w-0">
             <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 shadow-lg shadow-emerald-500/25">
-              <.phx_icon name="hero-users" class="h-6 w-6 text-white" />
+              <.phx_icon name="hero-heart" class="h-6 w-6 text-white" />
             </div>
             <div class="min-w-0">
               <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate">
@@ -79,7 +79,7 @@ defmodule MossletWeb.FamilyLive.Show do
               <div class="flex items-center gap-2">
                 <.family_role_badge role={@membership.role} />
                 <.link
-                  :if={@membership.role == :guardian}
+                  :if={@is_guardian?}
                   navigate={~p"/app/family/#{@org.slug}/feed"}
                   class="text-xs font-medium text-teal-600 dark:text-teal-400 hover:text-teal-700"
                 >
@@ -508,9 +508,16 @@ defmodule MossletWeb.FamilyLive.Show do
               Guardian
               <select
                 name="guardian_membership_id"
+                id="establish-guardian-select"
+                phx-hook="DecryptOrgNameOptions"
+                data-sealed-org-key={@viewer_sealed_org_key}
                 class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-700 text-sm focus:border-emerald-500 focus:ring-emerald-500/30"
               >
-                <option :for={m <- @guardian_options} value={m.membership.id}>
+                <option
+                  :for={m <- @guardian_options}
+                  value={m.membership.id}
+                  data-encrypted-display-name={m.encrypted_display_name}
+                >
                   {m.display_name}
                 </option>
               </select>
@@ -519,9 +526,16 @@ defmodule MossletWeb.FamilyLive.Show do
               Managed member
               <select
                 name="managed_membership_id"
+                id="establish-managed-select"
+                phx-hook="DecryptOrgNameOptions"
+                data-sealed-org-key={@viewer_sealed_org_key}
                 class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-700 text-sm focus:border-emerald-500 focus:ring-emerald-500/30"
               >
-                <option :for={m <- @managed_options} value={m.membership.id}>
+                <option
+                  :for={m <- @managed_options}
+                  value={m.membership.id}
+                  data-encrypted-display-name={m.encrypted_display_name}
+                >
                   {m.display_name}
                 </option>
               </select>
@@ -534,7 +548,7 @@ defmodule MossletWeb.FamilyLive.Show do
             :if={@membership.role == :admin && !@can_establish?}
             class="text-xs text-slate-500 dark:text-slate-400"
           >
-            Assign at least one Guardian and one Managed member (above) to create a guardianship.
+            Assign at least one Managed member (above) to create a guardianship — you (the owner) or any Guardian can serve as the guardian.
           </p>
         </section>
       </div>
@@ -716,58 +730,65 @@ defmodule MossletWeb.FamilyLive.Show do
   end
 
   def handle_event("accept_guardianship", %{"id" => id}, socket) do
-    guardianship = Orgs.get_guardianship!(id)
+    # Consent (§6.3): only the MANAGED member can accept their own guardianship.
+    with_authorized_guardianship(socket, id, &consent_actor?/3, fn guardianship, socket ->
+      case Orgs.accept_guardianship(guardianship) do
+        {:ok, _g} ->
+          socket
+          |> put_flash(:success, "Guardianship accepted")
+          |> assign_family_data()
 
-    case Orgs.accept_guardianship(guardianship) do
-      {:ok, _g} ->
-        {:noreply,
-         socket
-         |> put_flash(:success, "Guardianship accepted")
-         |> assign_family_data()}
-
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Could not accept")}
-    end
+        {:error, _} ->
+          put_flash(socket, :error, "Could not accept")
+      end
+    end)
   end
 
   def handle_event("decline_guardianship", %{"id" => id}, socket) do
-    guardianship = Orgs.get_guardianship!(id)
-    {:ok, _g} = Orgs.decline_guardianship(guardianship)
+    # Consent (§6.3): only the MANAGED member can decline.
+    with_authorized_guardianship(socket, id, &consent_actor?/3, fn guardianship, socket ->
+      {:ok, _g} = Orgs.decline_guardianship(guardianship)
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "Guardianship declined")
-     |> assign_family_data()}
+      socket
+      |> put_flash(:info, "Guardianship declined")
+      |> assign_family_data()
+    end)
   end
 
   def handle_event("pause_guardianship", %{"id" => id}, socket) do
-    guardianship = Orgs.get_guardianship!(id)
-    {:ok, _g} = Orgs.pause_guardianship(guardianship)
+    # Privacy toggle (DESIGN §0): the managed member, the guardian, OR an admin.
+    with_authorized_guardianship(socket, id, &can_toggle_guardianship?/3, fn guardianship,
+                                                                             socket ->
+      {:ok, _g} = Orgs.pause_guardianship(guardianship)
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "Paused — no NEW content will be shared. Past content stays shared.")
-     |> assign_family_data()}
+      socket
+      |> put_flash(:info, "Paused — no NEW content will be shared. Past content stays shared.")
+      |> assign_family_data()
+    end)
   end
 
   def handle_event("resume_guardianship", %{"id" => id}, socket) do
-    guardianship = Orgs.get_guardianship!(id)
-    {:ok, _g} = Orgs.resume_guardianship(guardianship)
+    with_authorized_guardianship(socket, id, &can_toggle_guardianship?/3, fn guardianship,
+                                                                             socket ->
+      {:ok, _g} = Orgs.resume_guardianship(guardianship)
 
-    {:noreply,
-     socket
-     |> put_flash(:success, "Resumed — new content will be shared with the guardian.")
-     |> assign_family_data()}
+      socket
+      |> put_flash(:success, "Resumed — new content will be shared with the guardian.")
+      |> assign_family_data()
+    end)
   end
 
   def handle_event("revoke_guardianship", %{"id" => id}, socket) do
-    guardianship = Orgs.get_guardianship!(id)
-    {:ok, _g} = Orgs.revoke_guardianship(guardianship)
+    # Structural teardown: admin or guardian only. The managed member uses Pause
+    # (reversible, keeps the transparency record honest) rather than deleting.
+    with_authorized_guardianship(socket, id, &can_revoke_guardianship?/3, fn guardianship,
+                                                                             socket ->
+      {:ok, _g} = Orgs.revoke_guardianship(guardianship)
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "Guardianship revoked. Future co-sealing stopped.")
-     |> assign_family_data()}
+      socket
+      |> put_flash(:info, "Guardianship revoked. Future co-sealing stopped.")
+      |> assign_family_data()
+    end)
   end
 
   # Org-scoped ZK identity (Task #225). Persist browser-sealed org_key copies
@@ -1004,7 +1025,19 @@ defmodule MossletWeb.FamilyLive.Show do
         %{guardianship: g, guardian_name: name_for_user.(g.guardian_membership.user)}
       end)
 
-    guardian_options = Enum.filter(members, &(&1.membership.role == :guardian))
+    # Whether the viewer actually ACTS as a guardian of someone (role :guardian
+    # OR owner-as-guardian, Task #267) — drives the "View family feed" link.
+    i_am_guardian? =
+      Enum.any?(guardianships, fn g ->
+        g.guardian_membership.user_id == current_user.id and g.status in [:active, :paused]
+      end)
+
+    # The owner/admin is guardian-eligible too (Task #267), so a 2-member family
+    # (owner + one managed child) can establish a guardianship. Self-guardianship
+    # is impossible (single role per membership + distinct-membership validation).
+    guardian_options =
+      Enum.filter(members, &(&1.membership.role in [:guardian, :admin]))
+
     managed_options = Enum.filter(members, &(&1.membership.role == :managed_member))
 
     socket
@@ -1019,6 +1052,7 @@ defmodule MossletWeb.FamilyLive.Show do
     |> assign(:my_pending_consent, my_pending_consent)
     |> assign(:guardian_options, guardian_options)
     |> assign(:managed_options, managed_options)
+    |> assign(:is_guardian?, i_am_guardian?)
     |> assign(:pending_invitations, Orgs.list_invitations_by_org(org))
     |> assign(:seats, Orgs.seat_summary(org))
     |> assign(:can_establish?, guardian_options != [] and managed_options != [])
@@ -1149,10 +1183,47 @@ defmodule MossletWeb.FamilyLive.Show do
     end
   end
 
+  # Server-authoritative guardianship action gate (I1). Loads the guardianship,
+  # confirms it belongs to THIS org, and runs `auth_fun.(guardianship, user,
+  # membership)` before performing `action_fun.(guardianship, socket)`. Any
+  # unauthorized or cross-org attempt is refused with a flash — the buttons are
+  # never the only line of defense.
+  defp with_authorized_guardianship(socket, id, auth_fun, action_fun) do
+    guardianship = Orgs.get_guardianship!(id)
+    current_user = socket.assigns.current_scope.user
+    membership = socket.assigns.membership
+
+    if guardianship.org_id == socket.assigns.org.id and
+         auth_fun.(guardianship, current_user, membership) do
+      {:noreply, action_fun.(guardianship, socket)}
+    else
+      {:noreply, put_flash(socket, :error, "You're not allowed to change that guardianship.")}
+    end
+  end
+
+  # Accept/Decline: only the MANAGED member of the guardianship (their consent).
+  defp consent_actor?(guardianship, current_user, _membership),
+    do: guardianship.managed_membership.user_id == current_user.id
+
+  # Pause/Resume (the privacy toggle, DESIGN §0): the managed member themselves,
+  # the guardian, or an org admin — anyone with a legitimate stake in the link.
+  defp can_toggle_guardianship?(guardianship, current_user, membership) do
+    membership.role == :admin or
+      guardianship.guardian_membership.user_id == current_user.id or
+      guardianship.managed_membership.user_id == current_user.id
+  end
+
+  # Revoke (delete the relationship): admin or guardian only. The managed member
+  # pauses instead — pause is reversible and stops all future co-sealing too.
+  defp can_revoke_guardianship?(guardianship, current_user, membership) do
+    membership.role == :admin or
+      guardianship.guardian_membership.user_id == current_user.id
+  end
+
   defp establish_error_message(:different_orgs), do: "Both members must be in this family."
 
   defp establish_error_message(:guardian_role_required),
-    do: "Guardian must have the Guardian role."
+    do: "Guardian must be a Guardian or the family owner."
 
   defp establish_error_message(:managed_member_role_required),
     do: "Managed member must have the Managed role."

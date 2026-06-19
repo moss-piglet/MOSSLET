@@ -27,7 +27,11 @@ defmodule MossletWeb.FamilyLive.Feed do
          |> put_flash(:error, "Not a family organization")
          |> push_navigate(to: ~p"/app/family")}
 
-      membership.role != :guardian ->
+      # Guardian-eligible = role in [:guardian, :admin] (Task #267): the owner can
+      # also serve as a guardian, so they get the reading feed too. The `managed`
+      # list below is scoped to THIS membership's active guardianships, so a
+      # guardian-eligible member who guards nobody simply sees the empty state.
+      membership.role not in [:guardian, :admin] ->
         {:ok,
          socket
          |> put_flash(:error, "Only guardians have a family reading feed.")

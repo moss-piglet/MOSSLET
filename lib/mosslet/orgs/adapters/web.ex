@@ -495,7 +495,12 @@ defmodule Mosslet.Orgs.Adapters.Web do
       guardian.org_id != managed.org_id ->
         {:error, :different_orgs}
 
-      guardian.role != :guardian ->
+      # The owner/admin may ALSO serve as a guardian (Task #267) — a small family
+      # (owner + one managed child) needs this. We broaden guardian-eligibility to
+      # role in [:guardian, :admin] WITHOUT mutating the owner's role, keeping the
+      # billing/admin anchor intact (Task #237). Self-guardianship stays blocked by
+      # the single-role model + Guardianship.validate_distinct_memberships/1.
+      guardian.role not in [:guardian, :admin] ->
         {:error, :guardian_role_required}
 
       managed.role != :managed_member ->

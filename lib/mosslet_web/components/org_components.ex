@@ -201,7 +201,7 @@ defmodule MossletWeb.OrgComponents do
     <section
       :if={@is_owner || @incoming_transfer}
       id="org-ownership-section"
-      class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
+      class="relative z-30 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
     >
       <div class="flex items-center justify-between gap-3">
         <div class="flex items-center gap-2 min-w-0">

@@ -112,17 +112,47 @@ defmodule MossletWeb.FamilyComponents do
           <ul class="mt-3 space-y-1.5">
             <li
               :for={item <- @guardianships}
-              class="flex items-center gap-2 text-xs text-teal-900 dark:text-teal-100"
+              class="flex items-center justify-between gap-2 text-xs text-teal-900 dark:text-teal-100"
             >
-              <.phx_icon name="hero-user" class="size-3.5 text-teal-600 dark:text-teal-400" />
-              <span class="font-medium">{item.guardian_name}</span>
-              <span class="text-teal-700/80 dark:text-teal-300/70">
-                <%= if item.guardianship.status == :active do %>
-                  — can read your future posts &amp; conversations
-                <% else %>
-                  — paused (no new content is shared)
-                <% end %>
-              </span>
+              <div class="flex items-center gap-2 min-w-0">
+                <.phx_icon
+                  name="hero-user"
+                  class="size-3.5 text-teal-600 dark:text-teal-400 flex-shrink-0"
+                />
+                <span class="font-medium truncate">{item.guardian_name}</span>
+                <span class="text-teal-700/80 dark:text-teal-300/70 truncate">
+                  <%= if item.guardianship.status == :active do %>
+                    — can read your future posts &amp; conversations
+                  <% else %>
+                    — paused (no new content is shared)
+                  <% end %>
+                </span>
+              </div>
+
+              <%!-- The managed member's own privacy toggle (DESIGN §0): pause to
+                    stop sharing NEW content, resume to share again. Past content
+                    can't be un-shared, so there is no "revoke" here — pausing is
+                    the honest, reversible control. --%>
+              <button
+                :if={item.guardianship.status == :active}
+                type="button"
+                phx-click="pause_guardianship"
+                phx-value-id={item.guardianship.id}
+                id={"pause-guardianship-#{item.guardianship.id}"}
+                class="inline-flex shrink-0 items-center gap-1 rounded-full border border-teal-300/70 dark:border-teal-700/60 bg-white/70 dark:bg-teal-900/30 px-2.5 py-1 text-[11px] font-medium text-teal-700 dark:text-teal-200 transition-colors hover:bg-teal-100/80 dark:hover:bg-teal-800/40 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+              >
+                <.phx_icon name="hero-pause" class="size-3" /> Pause sharing
+              </button>
+              <button
+                :if={item.guardianship.status == :paused}
+                type="button"
+                phx-click="resume_guardianship"
+                phx-value-id={item.guardianship.id}
+                id={"resume-guardianship-#{item.guardianship.id}"}
+                class="inline-flex shrink-0 items-center gap-1 rounded-full border border-teal-300/70 dark:border-teal-700/60 bg-white/70 dark:bg-teal-900/30 px-2.5 py-1 text-[11px] font-medium text-teal-700 dark:text-teal-200 transition-colors hover:bg-teal-100/80 dark:hover:bg-teal-800/40 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+              >
+                <.phx_icon name="hero-play" class="size-3" /> Resume sharing
+              </button>
             </li>
           </ul>
 

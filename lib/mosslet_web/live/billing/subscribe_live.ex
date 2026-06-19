@@ -1956,7 +1956,7 @@ defmodule MossletWeb.SubscribeLive do
     do: %{label: gettext("Personal"), icon: "hero-user"}
 
   defp family_meta("Family"),
-    do: %{label: gettext("Family"), icon: "hero-users"}
+    do: %{label: gettext("Family"), icon: "hero-heart"}
 
   defp family_meta("Business"),
     do: %{label: gettext("Business"), icon: "hero-building-office-2"}

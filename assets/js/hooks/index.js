@@ -55,6 +55,7 @@ import MessageReactions from "./message-reactions";
 import OrgMembers from "./org-members";
 import AuditLog from "./audit-log";
 import OrgDisplayNameFormHook from "./org-display-name-form-hook";
+import DecryptOrgNameOptions from "./decrypt-org-name-options";
 import OrgFileSearch from "./org-file-search";
 import OrgLogoUpload from "./org-logo-upload";
 import OrgLogoDisplay from "./org-logo-display";
@@ -171,6 +172,7 @@ export default {
   OrgMembers,
   AuditLog,
   OrgDisplayNameFormHook,
+  DecryptOrgNameOptions,
   OrgFileSearch,
   OrgLogoUpload,
   OrgLogoDisplay,

@@ -307,6 +307,160 @@ defmodule MossletWeb.FamilyLiveTest do
 
       assert has_element?(lv, "#guardian-transparency-panel")
     end
+
+    test "managed member can pause and resume their own guardianship (privacy toggle)", ctx do
+      g_ms = Orgs.get_membership!(ctx.guardian, ctx.org.slug)
+      m_ms = Orgs.get_membership!(ctx.managed, ctx.org.slug)
+      {:ok, gship} = Orgs.establish_guardianship(g_ms, m_ms)
+      {:ok, _} = Orgs.accept_guardianship(gship)
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.managed, ctx.managed_key) |> live(~p"/app/family/#{ctx.org.slug}")
+
+      # Pause: stops co-sealing FUTURE content.
+      assert has_element?(lv, "#pause-guardianship-#{gship.id}")
+      lv |> element("#pause-guardianship-#{gship.id}") |> render_click()
+
+      assert Orgs.get_guardianship!(gship.id).status == :paused
+      assert Orgs.list_active_guardian_users_for_user(ctx.managed.id) == []
+
+      # Resume: re-opens future sharing.
+      assert has_element?(lv, "#resume-guardianship-#{gship.id}")
+      lv |> element("#resume-guardianship-#{gship.id}") |> render_click()
+
+      assert Orgs.get_guardianship!(gship.id).status == :active
+      assert [guardian_user] = Orgs.list_active_guardian_users_for_user(ctx.managed.id)
+      assert guardian_user.id == ctx.guardian.id
+    end
+
+    test "managed member has NO revoke affordance and a forged revoke is refused (I1)", ctx do
+      g_ms = Orgs.get_membership!(ctx.guardian, ctx.org.slug)
+      m_ms = Orgs.get_membership!(ctx.managed, ctx.org.slug)
+      {:ok, gship} = Orgs.establish_guardianship(g_ms, m_ms)
+      {:ok, _} = Orgs.accept_guardianship(gship)
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.managed, ctx.managed_key) |> live(~p"/app/family/#{ctx.org.slug}")
+
+      refute has_element?(lv, "button[phx-click='revoke_guardianship']")
+
+      # Server is authoritative: even a forged revoke event must not delete it.
+      render_hook(lv, "revoke_guardianship", %{"id" => gship.id})
+      assert Orgs.get_guardianship!(gship.id).status == :active
+    end
+
+    test "admin (not the managed member) retains pause AND revoke controls", ctx do
+      g_ms = Orgs.get_membership!(ctx.guardian, ctx.org.slug)
+      m_ms = Orgs.get_membership!(ctx.managed, ctx.org.slug)
+      {:ok, gship} = Orgs.establish_guardianship(g_ms, m_ms)
+      {:ok, _} = Orgs.accept_guardianship(gship)
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/family/#{ctx.org.slug}")
+
+      # The admin's guardianships roster offers revoke; the managed-member panel
+      # is not shown to the admin (they aren't managed here).
+      assert has_element?(lv, "button[phx-click='revoke_guardianship']")
+
+      lv
+      |> element("button[phx-click='revoke_guardianship'][phx-value-id='#{gship.id}']")
+      |> render_click()
+
+      assert_raise Ecto.NoResultsError, fn -> Orgs.get_guardianship!(gship.id) end
+    end
+  end
+
+  describe "FamilyLive.Show owner-as-guardian (Task #267)" do
+    setup %{conn: conn} do
+      # Smallest meaningful family: just the owner (role :admin) + one managed
+      # child — no separate :guardian member. The owner must be able to guard.
+      {owner, owner_key} = onboarded_user("famowner")
+      {:ok, org} = Orgs.create_org(owner, %{"name" => "Just Us", "type" => "family"})
+      subscribe_family(org)
+
+      {child, child_key} = onboarded_user("famchild")
+
+      {:ok, {:ok, _m_ms}} =
+        Mosslet.Repo.transaction_on_primary(fn ->
+          Orgs.Membership.insert_changeset(org, child, :managed_member) |> Mosslet.Repo.insert()
+        end)
+
+      %{
+        conn: conn,
+        owner: owner,
+        owner_key: owner_key,
+        org: org,
+        child: child,
+        child_key: child_key
+      }
+    end
+
+    test "the owner/admin appears as a Guardian option in the establish form", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.owner, ctx.owner_key) |> live(~p"/app/family/#{ctx.org.slug}")
+
+      owner_ms = Orgs.get_membership!(ctx.owner, ctx.org.slug)
+      assert owner_ms.role == :admin
+
+      assert has_element?(lv, "#establish-form")
+
+      assert has_element?(
+               lv,
+               "#establish-form select[name=guardian_membership_id] option[value='#{owner_ms.id}']"
+             )
+    end
+
+    test "the owner can establish + co-seal as guardian of the managed child", ctx do
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.owner, ctx.owner_key) |> live(~p"/app/family/#{ctx.org.slug}")
+
+      owner_ms = Orgs.get_membership!(ctx.owner, ctx.org.slug)
+      child_ms = Orgs.get_membership!(ctx.child, ctx.org.slug)
+
+      lv
+      |> element("#establish-form")
+      |> render_submit(%{
+        "guardian_membership_id" => owner_ms.id,
+        "managed_membership_id" => child_ms.id
+      })
+
+      assert [gship] = Orgs.list_guardianships_by_org(ctx.org)
+      assert gship.guardian_membership_id == owner_ms.id
+      assert gship.status == :pending
+
+      # Consent gate: nothing co-sealed until the child accepts.
+      assert Orgs.list_active_guardian_users_for_user(ctx.child.id) == []
+
+      {:ok, _} = Orgs.accept_guardianship(gship)
+
+      # Now the co-seal path lists the OWNER (role :admin) as the guardian, proving
+      # co-sealing keys off the guardian membership, not the role (no crypto change).
+      assert [guardian_user] = Orgs.list_active_guardian_users_for_user(ctx.child.id)
+      assert guardian_user.id == ctx.owner.id
+    end
+
+    test "the owner-as-guardian sees the family-feed link once guarding someone", ctx do
+      owner_ms = Orgs.get_membership!(ctx.owner, ctx.org.slug)
+      child_ms = Orgs.get_membership!(ctx.child, ctx.org.slug)
+      {:ok, gship} = Orgs.establish_guardianship(owner_ms, child_ms)
+      {:ok, _} = Orgs.accept_guardianship(gship)
+
+      {:ok, lv, _html} =
+        ctx.conn |> log_in(ctx.owner, ctx.owner_key) |> live(~p"/app/family/#{ctx.org.slug}")
+
+      assert has_element?(lv, "a[href='/app/family/#{ctx.org.slug}/feed']")
+
+      # And the guardian reading feed is reachable for the owner-as-guardian.
+      {:ok, _feed_lv, html} =
+        ctx.conn |> log_in(ctx.owner, ctx.owner_key) |> live(~p"/app/family/#{ctx.org.slug}/feed")
+
+      assert html =~ "Family feed"
+    end
+
+    test "self-guardianship is still rejected for the owner", ctx do
+      owner_ms = Orgs.get_membership!(ctx.owner, ctx.org.slug)
+      assert {:error, _} = Orgs.establish_guardianship(owner_ms, owner_ms)
+    end
   end
 
   describe "FamilyLive.Show display-name editing (Task #264 parity)" do

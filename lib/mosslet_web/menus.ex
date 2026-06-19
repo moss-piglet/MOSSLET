@@ -448,7 +448,7 @@ defmodule MossletWeb.Menus do
         name: name,
         label: gettext("Family"),
         path: ~p"/app/family",
-        icon: "hero-users"
+        icon: "hero-heart"
       }
     end
   end
@@ -485,7 +485,7 @@ defmodule MossletWeb.Menus do
         name: name,
         label: gettext("Manage Family"),
         path: ~p"/app/family",
-        icon: "hero-users"
+        icon: "hero-heart"
       }
     end
   end

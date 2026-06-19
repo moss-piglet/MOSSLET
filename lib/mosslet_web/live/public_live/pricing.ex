@@ -792,7 +792,7 @@ defmodule MossletWeb.PublicLive.Pricing do
   defp family_meta("Family"),
     do: %{
       label: "Family",
-      icon: "hero-users",
+      icon: "hero-heart",
       tagline: "For the people you love. Stay close without surveillance."
     }
 

@@ -37,7 +37,7 @@ defmodule MossletWeb.FamilyLive.Index do
         <header class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div class="flex items-center gap-4">
             <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 shadow-lg shadow-emerald-500/25">
-              <.phx_icon name="hero-users" class="h-6 w-6 text-white" />
+              <.phx_icon name="hero-heart" class="h-6 w-6 text-white" />
             </div>
             <div class="min-w-0">
               <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
@@ -133,7 +133,7 @@ defmodule MossletWeb.FamilyLive.Index do
               class="flex items-center gap-4 p-4"
             >
               <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-600 dark:text-slate-300 transition-colors duration-200 group-hover:from-teal-100 group-hover:to-emerald-100 dark:group-hover:from-teal-900/40 dark:group-hover:to-emerald-900/40 group-hover:text-teal-700 dark:group-hover:text-teal-300">
-                <.phx_icon name="hero-users" class="h-5 w-5" />
+                <.phx_icon name="hero-heart" class="h-5 w-5" />
               </div>
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2">
