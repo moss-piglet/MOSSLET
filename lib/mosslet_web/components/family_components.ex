@@ -90,6 +90,7 @@ defmodule MossletWeb.FamilyComponents do
     ~H"""
     <div
       id="guardian-transparency-panel"
+      phx-hook="DecryptComposerGuardians"
       class={[
         "rounded-2xl border border-teal-200/70 dark:border-teal-800/40 bg-teal-50/80 dark:bg-teal-900/15 p-4",
         @class
@@ -119,7 +120,12 @@ defmodule MossletWeb.FamilyComponents do
                   name="hero-user"
                   class="size-3.5 text-teal-600 dark:text-teal-400 flex-shrink-0"
                 />
-                <span class="font-medium truncate">{item.guardian_name}</span>
+                <span
+                  class="font-medium truncate"
+                  data-guardian-name
+                  data-sealed-org-key={item[:sealed_org_key]}
+                  data-encrypted-display-name={item[:encrypted_display_name]}
+                >{item.guardian_name}</span>
                 <span class="text-teal-700/80 dark:text-teal-300/70 truncate">
                   <%= if item.guardianship.status == :active do %>
                     — can read your future posts &amp; conversations

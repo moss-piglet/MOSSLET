@@ -102,6 +102,7 @@ defmodule MossletWeb.FamilyLive.Show do
         <div
           :if={@my_pending_consent != []}
           id="pending-consent-requests"
+          phx-hook="DecryptComposerGuardians"
           class="rounded-2xl border border-amber-200/70 dark:border-amber-800/40 bg-amber-50/80 dark:bg-amber-900/15 p-4 space-y-3"
         >
           <h2 class="text-sm font-semibold text-amber-900 dark:text-amber-100">
@@ -113,7 +114,12 @@ defmodule MossletWeb.FamilyLive.Show do
             class="flex items-center justify-between gap-3"
           >
             <p class="text-xs text-amber-800 dark:text-amber-200">
-              <span class="font-medium">{item.guardian_name}</span>
+              <span
+                class="font-medium"
+                data-guardian-name
+                data-sealed-org-key={item[:sealed_org_key]}
+                data-encrypted-display-name={item[:encrypted_display_name]}
+              >{item.guardian_name}</span>
               would like to read posts and conversations you create here. They'll use their own
               key — Mosslet still can't read them. You can pause or stop this any time.
             </p>
@@ -1012,7 +1018,14 @@ defmodule MossletWeb.FamilyLive.Show do
         g.managed_membership.user_id == current_user.id and g.status in [:active, :paused]
       end)
       |> Enum.map(fn g ->
-        %{guardianship: g, guardian_name: name_for_user.(g.guardian_membership.user)}
+        entry = guardian_name_entry(g.guardian_membership.user, current_user, key)
+
+        %{
+          guardianship: g,
+          guardian_name: entry.name,
+          sealed_org_key: entry.sealed_org_key,
+          encrypted_display_name: entry.encrypted_display_name
+        }
       end)
 
     # Pending consent requests where I am the managed member.
@@ -1022,7 +1035,14 @@ defmodule MossletWeb.FamilyLive.Show do
         g.managed_membership.user_id == current_user.id and g.status == :pending
       end)
       |> Enum.map(fn g ->
-        %{guardianship: g, guardian_name: name_for_user.(g.guardian_membership.user)}
+        entry = guardian_name_entry(g.guardian_membership.user, current_user, key)
+
+        %{
+          guardianship: g,
+          guardian_name: entry.name,
+          sealed_org_key: entry.sealed_org_key,
+          encrypted_display_name: entry.encrypted_display_name
+        }
       end)
 
     # Whether the viewer actually ACTS as a guardian of someone (role :guardian
@@ -1134,6 +1154,40 @@ defmodule MossletWeb.FamilyLive.Show do
 
       _ ->
         "Family member"
+    end
+  end
+
+  # Resolves a guardian's display name for the managed member's transparency
+  # surfaces. When the guardian is also a personal connection, the server can
+  # decrypt the name directly. Otherwise there is NO personal UserConnection (the
+  # common Family case) so we fall back to the ZK family `org_key` path (Task
+  # #225/#270): the server returns the viewer's sealed org_key + the guardian's
+  # org_key-sealed display name, and the `DecryptComposerGuardians` hook resolves
+  # the real name in the browser. Returns a neutral "Family member" placeholder
+  # when no org name is set (or the viewer doesn't yet hold the org_key).
+  defp guardian_name_entry(guardian_user, current_user, key) do
+    case Mosslet.Accounts.get_user_connection_between_users(guardian_user.id, current_user.id) do
+      %{} = uconn ->
+        uconn = Mosslet.Repo.preload(uconn, :connection)
+
+        %{
+          name: get_decrypted_connection_name(uconn, current_user, key),
+          sealed_org_key: nil,
+          encrypted_display_name: nil
+        }
+
+      _ ->
+        case Orgs.org_name_resolution_between_users(current_user.id, guardian_user.id) do
+          %{sealed_org_key: sealed_org_key, encrypted_display_name: encrypted_display_name} ->
+            %{
+              name: "Family member",
+              sealed_org_key: sealed_org_key,
+              encrypted_display_name: encrypted_display_name
+            }
+
+          _ ->
+            %{name: "Family member", sealed_org_key: nil, encrypted_display_name: nil}
+        end
     end
   end
 

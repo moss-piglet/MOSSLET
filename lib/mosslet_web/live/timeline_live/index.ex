@@ -6149,13 +6149,19 @@ defmodule MossletWeb.TimelineLive.Index do
           post.user_id == current_user.id ->
             true
 
+          # Co-seal recipients (e.g. guardians of a managed member) receive a
+          # co-sealed UserPost row at write time, so they can read the post —
+          # INCLUDING :private posts. This branch MUST come before the blanket
+          # :private rejection below so guardian co-reads match in realtime
+          # exactly as they already do on reload (filter_timeline_posts surfaces
+          # any post the viewer has a user_post for).
+          current_user.id in shared_user_ids ->
+            post.visibility in [:private, :connections, :specific_users, :specific_groups]
+
           post.visibility == :private ->
             false
 
           post.user_id in connection_user_ids ->
-            post.visibility in [:connections, :specific_users, :specific_groups]
-
-          current_user.id in shared_user_ids ->
             post.visibility in [:connections, :specific_users, :specific_groups]
 
           true ->

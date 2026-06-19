@@ -3565,18 +3565,38 @@ defmodule Mosslet.Timeline do
   end
 
   defp private_broadcast({:ok, post}, event) do
-    Phoenix.PubSub.broadcast(Mosslet.PubSub, "priv_posts:#{post.user_id}", {event, post})
+    # Co-seal recipients (e.g. guardians of a managed member) are appended to
+    # the post's shared_users at write time and receive a co-sealed UserPost row,
+    # so they can read even :private posts. Union them into the recipient set so
+    # they receive realtime push too — mirroring the read query (which already
+    # surfaces these posts for them on reload). Recipient set is derived from
+    # server-authoritative shared_users (set from Guardianship records), never
+    # client params (I1). Encrypted content only — server never sees plaintext.
+    shared_user_ids = Enum.map(post.shared_users || [], & &1.user_id)
+    recipient_ids = Enum.uniq([post.user_id | shared_user_ids])
+
+    Enum.each(recipient_ids, fn user_id ->
+      Phoenix.PubSub.broadcast(Mosslet.PubSub, "priv_posts:#{user_id}", {event, post})
+    end)
+
     {:ok, post}
   end
 
   defp private_reply_broadcast({:ok, reply}, event) do
     post = get_post!(reply.post_id)
 
-    Phoenix.PubSub.broadcast(
-      Mosslet.PubSub,
-      "priv_replies:#{reply.user_id}",
-      {event, post, reply}
-    )
+    # Include co-seal recipients (e.g. guardians) of the parent post so they
+    # receive realtime reply push on :private posts too.
+    shared_user_ids = Enum.map(post.shared_users || [], & &1.user_id)
+    recipient_ids = Enum.uniq([reply.user_id, post.user_id | shared_user_ids])
+
+    Enum.each(recipient_ids, fn user_id ->
+      Phoenix.PubSub.broadcast(
+        Mosslet.PubSub,
+        "priv_replies:#{user_id}",
+        {event, post, reply}
+      )
+    end)
 
     {:ok, reply}
   end
