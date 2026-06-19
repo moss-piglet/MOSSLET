@@ -3599,10 +3599,17 @@ defmodule Mosslet.Timeline do
           end)
 
         true ->
-          all_recipient_ids =
+          connection_ids =
             conn.user_connections
             |> Enum.flat_map(fn uconn -> [uconn.user_id, uconn.reverse_user_id] end)
-            |> Enum.uniq()
+
+          # Guardians (and any co-seal recipients) are appended to shared_users
+          # at write time but are NOT personal connections, so they would be
+          # excluded from the connection-derived recipient set. Union them in so
+          # they receive realtime push for :connections-visibility posts too.
+          shared_user_ids = Enum.map(post.shared_users || [], & &1.user_id)
+
+          all_recipient_ids = Enum.uniq(connection_ids ++ shared_user_ids)
 
           Enum.each(all_recipient_ids, fn user_id ->
             Phoenix.PubSub.broadcast(
@@ -3639,10 +3646,15 @@ defmodule Mosslet.Timeline do
           end)
 
         true ->
-          all_recipient_ids =
+          connection_ids =
             conn.user_connections
             |> Enum.flat_map(fn uconn -> [uconn.user_id, uconn.reverse_user_id] end)
-            |> Enum.uniq()
+
+          # Include co-seal recipients (e.g. guardians) who are not personal
+          # connections so they receive realtime reply push as well.
+          shared_user_ids = Enum.map(post.shared_users || [], & &1.user_id)
+
+          all_recipient_ids = Enum.uniq(connection_ids ++ shared_user_ids)
 
           Enum.each(all_recipient_ids, fn user_id ->
             Phoenix.PubSub.broadcast(

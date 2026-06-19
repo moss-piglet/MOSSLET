@@ -648,6 +648,66 @@ defmodule Mosslet.Orgs.Adapters.Web do
     )
   end
 
+  @impl true
+  def org_name_resolution_between_users(viewer_user_id, author_user_id)
+      when is_binary(viewer_user_id) and is_binary(author_user_id) do
+    # ZK family-name resolution for the timeline read path (Task #270).
+    #
+    # Family guardian↔managed relationships have NO personal UserConnection, so
+    # the connection-keyed author-name path falls back to a placeholder. The
+    # correct ZK source is the per-org `org_key` (Task #225): both parties hold a
+    # sealed copy in their `Membership.key`, and each member's `display_name` is
+    # `org_key`-sealed. Any member can decrypt any member's `display_name`.
+    #
+    # Given the VIEWER and the post AUTHOR, find an :active guardianship that
+    # links them (either direction) within a family org and return:
+    #   * `sealed_org_key` — the VIEWER's `Membership.key` (org_key sealed for
+    #     them) so the browser can unseal the org_key.
+    #   * `encrypted_display_name` — the AUTHOR's org_key-sealed `display_name`.
+    #
+    # Returns nil when no active guardianship links them, when the viewer does not
+    # yet hold the org_key, or when the author has not set an org display name.
+    query =
+      from(g in Guardianship,
+        join: m_guardian in Membership,
+        on: m_guardian.id == g.guardian_membership_id,
+        join: m_managed in Membership,
+        on: m_managed.id == g.managed_membership_id,
+        where: g.status == :active,
+        where:
+          (m_guardian.user_id == ^viewer_user_id and m_managed.user_id == ^author_user_id) or
+            (m_guardian.user_id == ^author_user_id and m_managed.user_id == ^viewer_user_id),
+        select: %{
+          guardian_user_id: m_guardian.user_id,
+          guardian_key: m_guardian.key,
+          guardian_display_name: m_guardian.display_name,
+          managed_user_id: m_managed.user_id,
+          managed_key: m_managed.key,
+          managed_display_name: m_managed.display_name
+        },
+        limit: 1
+      )
+
+    case Repo.one(query) do
+      nil ->
+        nil
+
+      row ->
+        {viewer_key, author_display_name} =
+          if row.guardian_user_id == viewer_user_id do
+            {row.guardian_key, row.managed_display_name}
+          else
+            {row.managed_key, row.guardian_display_name}
+          end
+
+        if is_binary(viewer_key) and is_binary(author_display_name) do
+          %{sealed_org_key: viewer_key, encrypted_display_name: author_display_name}
+        end
+    end
+  end
+
+  def org_name_resolution_between_users(_, _), do: nil
+
   defp update_guardianship_status(guardianship, attrs) do
     case Repo.transaction_on_primary(fn ->
            guardianship

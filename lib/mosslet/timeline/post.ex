@@ -575,7 +575,14 @@ defmodule Mosslet.Timeline.Post do
         changeset
 
       :connections ->
-        if Accounts.has_any_user_connections?(opts[:user]) do
+        # A managed member may have NO peer connections yet still have active
+        # guardian(s) who co-read their content (Task #270). Allow a :connections
+        # post when the author has any personal connection OR at least one active
+        # guardianship — the guardian is appended to shared_users server-side and
+        # receives a co-sealed UserPost. Server-authoritative (guardian set derives
+        # from Guardianship records, never client params).
+        if Accounts.has_any_user_connections?(opts[:user]) or
+             has_active_guardian?(opts[:user]) do
           changeset
         else
           changeset
@@ -592,6 +599,16 @@ defmodule Mosslet.Timeline.Post do
         validate_specific_users(changeset, opts)
     end
   end
+
+  # True when the post author is a managed member with at least one ACTIVE
+  # guardianship. The guardian set is derived purely from Guardianship records
+  # (server-authoritative, never client params) per GUARDIANSHIP_DESIGN.md I1.
+  # Called at runtime (fully-qualified) to avoid a compile-time cycle with Orgs.
+  defp has_active_guardian?(%{id: user_id}) when is_binary(user_id) do
+    Mosslet.Orgs.list_active_guardian_users_for_user(user_id) != []
+  end
+
+  defp has_active_guardian?(_), do: false
 
   # NEW - Enhanced privacy validation
   defp validate_enhanced_privacy_controls(changeset, _opts) do

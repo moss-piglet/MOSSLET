@@ -290,7 +290,7 @@ defmodule MossletWeb.TimelineLive.Index do
       socket
       |> assign(:user_connections, user_connections)
       |> assign(:post_shared_users, post_shared_users)
-      |> assign(:composer_guardian_names, composer_guardian_names(current_user, key))
+      |> assign(:composer_guardian_entries, composer_guardian_entries(current_user, key))
       |> assign(:content_filters, hydrated_content_filters)
       |> assign(:options, options)
       |> assign(:return_url, url)
@@ -6000,20 +6000,40 @@ defmodule MossletWeb.TimelineLive.Index do
     |> to_string()
   end
 
-  # Resolves the display names of the current user's active guardians for the
-  # composer transparency chip (I2 — no surprise at authorship time). Uses the
-  # author's own connection to each guardian where one exists.
-  defp composer_guardian_names(current_user, key) do
+  # Resolves the current user's active guardians for the composer transparency
+  # chip (I2 — no surprise at authorship time). Each entry is either a
+  # server-decryptable `%{name: ...}` (when the guardian is also a personal
+  # connection) or a ZK `%{sealed_org_key:, encrypted_display_name:}` pair that
+  # the browser resolves via the family org_key (Task #225/#270) when no personal
+  # UserConnection exists. The "(guardian)" role suffix is added in the chip.
+  defp composer_guardian_entries(current_user, key) do
     current_user.id
     |> Mosslet.Orgs.list_active_guardian_users_for_user()
     |> Enum.map(fn guardian ->
       case Accounts.get_user_connection_between_users(guardian.id, current_user.id) do
         %{} = uconn ->
           uconn = Mosslet.Repo.preload(uconn, :connection)
-          MossletWeb.ConnectionComponents.get_decrypted_connection_name(uconn, current_user, key)
+
+          %{
+            name:
+              MossletWeb.ConnectionComponents.get_decrypted_connection_name(
+                uconn,
+                current_user,
+                key
+              )
+          }
 
         _ ->
-          "your guardian"
+          case Mosslet.Orgs.org_name_resolution_between_users(current_user.id, guardian.id) do
+            %{sealed_org_key: sealed_org_key, encrypted_display_name: encrypted_display_name} ->
+              %{
+                sealed_org_key: sealed_org_key,
+                encrypted_display_name: encrypted_display_name
+              }
+
+            _ ->
+              %{name: "your guardian"}
+          end
       end
     end)
   end
@@ -6117,6 +6137,12 @@ defmodule MossletWeb.TimelineLive.Index do
       |> Enum.map(& &1.reverse_user_id)
       |> Enum.uniq()
 
+    # Co-seal recipients (e.g. guardians of a managed member) are appended to the
+    # post's shared_users at write time and receive a UserPost row, so the read
+    # query (filter_timeline_posts) surfaces the post for them even though they
+    # are not personal connections. Mirror that here so realtime inserts match.
+    shared_user_ids = Enum.map(post.shared_users || [], & &1.user_id)
+
     case current_tab do
       "home" ->
         cond do
@@ -6127,6 +6153,9 @@ defmodule MossletWeb.TimelineLive.Index do
             false
 
           post.user_id in connection_user_ids ->
+            post.visibility in [:connections, :specific_users, :specific_groups]
+
+          current_user.id in shared_user_ids ->
             post.visibility in [:connections, :specific_users, :specific_groups]
 
           true ->
@@ -6556,6 +6585,21 @@ defmodule MossletWeb.TimelineLive.Index do
             encrypted_username: uconn.connection.username,
             show_name: show_name?
           }
+        else
+          # No personal UserConnection (e.g. a guardian viewing a managed
+          # member's post). Fall back to the per-org `org_key` ZK resolution
+          # (Task #225/#270): the viewer holds the family org_key and the author's
+          # org display name is org_key-sealed, so the browser can resolve it.
+          case Mosslet.Orgs.org_name_resolution_between_users(current_user.id, post.user_id) do
+            %{sealed_org_key: sealed_org_key, encrypted_display_name: encrypted_display_name} ->
+              %{
+                sealed_org_key: sealed_org_key,
+                encrypted_org_display_name: encrypted_display_name
+              }
+
+            _ ->
+              nil
+          end
         end
     end
   end

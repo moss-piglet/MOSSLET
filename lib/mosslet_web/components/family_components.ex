@@ -169,15 +169,23 @@ defmodule MossletWeb.FamilyComponents do
   @doc """
   Compact composer chip shown when a guardian will be a recipient of the post
   being written (I2 — no surprise at authorship time).
+
+  Each guardian entry is either `%{name: "..."}` (a guardian who is also a
+  personal connection, so the server can decrypt the name) or
+  `%{sealed_org_key: ..., encrypted_display_name: ...}` (no personal connection —
+  the browser resolves the name via the family `org_key`, Task #225/#270). The
+  `DecryptComposerGuardians` hook fills the ZK entries in-place. The "(guardian)"
+  role suffix is always shown; only the NAME resolves.
   """
-  attr :guardian_names, :list, required: true
+  attr :guardian_entries, :list, required: true
   attr :class, :string, default: ""
 
   def composer_guardian_chip(assigns) do
     ~H"""
     <div
-      :if={@guardian_names != []}
+      :if={@guardian_entries != []}
       id="composer-guardian-chip"
+      phx-hook="DecryptComposerGuardians"
       class={[
         "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium",
         "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
@@ -186,7 +194,15 @@ defmodule MossletWeb.FamilyComponents do
     >
       <.phx_icon name="hero-eye" class="size-3" />
       <span>
-        Also shared with {Enum.join(@guardian_names, ", ")} (guardian)
+        Also shared with
+        <%= for {entry, idx} <- Enum.with_index(@guardian_entries) do %>
+          <span :if={idx > 0}>, </span><span
+            data-guardian-name
+            data-sealed-org-key={entry[:sealed_org_key]}
+            data-encrypted-display-name={entry[:encrypted_display_name]}
+          >{entry[:name] || "your guardian"}</span>
+        <% end %>
+        (guardian)
       </span>
     </div>
     """

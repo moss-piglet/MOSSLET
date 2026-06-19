@@ -2243,6 +2243,25 @@ defmodule Mosslet.Orgs do
   end
 
   @doc """
+  ZK family-name resolution for the timeline read path (Task #270).
+
+  Family guardian↔managed relationships have NO personal `UserConnection`, so the
+  connection-keyed author-name path falls back to a placeholder. Given the VIEWER
+  and the post AUTHOR, this returns the per-org `org_key` ZK data (Task #225) when
+  an :active guardianship links them within a family org:
+
+    * `sealed_org_key` — the VIEWER's `Membership.key` (org_key sealed for them).
+    * `encrypted_display_name` — the AUTHOR's org_key-sealed `display_name`.
+
+  The browser unseals the org_key and decrypts the author's display name with it.
+  Returns nil when no active guardianship links them, the viewer does not hold the
+  org_key yet, or the author has not set an org display name. Server-authoritative.
+  """
+  def org_name_resolution_between_users(viewer_user_id, author_user_id) do
+    adapter().org_name_resolution_between_users(viewer_user_id, author_user_id)
+  end
+
+  @doc """
   Given the full set of participant `user_id`s in a conversation, returns the
   list of MANAGED-MEMBER `user_id`s whose active guardian is ALSO a participant
   in this conversation.

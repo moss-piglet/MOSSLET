@@ -30,6 +30,8 @@
  *   data-encrypted-author-name             — base64 secretbox-encrypted connection display name (optional)
  *   data-encrypted-author-username         — base64 secretbox-encrypted connection username (optional)
  *   data-author-show-name                  — "true"/"false": whether to prefer display name over username
+ *   data-sealed-org-key                    — base64 sealed org_key (viewer's Membership.key, optional)
+ *   data-encrypted-org-display-name        — base64 secretbox-encrypted org display name (optional, ZK family fallback)
  *
  * External DOM targets (outside this element, matched by data-* + post ID):
  *   [data-decrypt-handle-target="{postId}"]       — username/handle span
@@ -86,6 +88,34 @@ async function getCachedConnKey(sealedUconnKey) {
   }
   _connKeyCache.set(sealedUconnKey, connKey);
   return connKey;
+}
+
+/**
+ * LRU cache for unsealed org_keys, keyed by the viewer's sealed Membership.key.
+ * Used for ZK family-name resolution (Task #225/#270): a guardian has no personal
+ * UserConnection to a managed member, but both hold the same per-org org_key, so
+ * the guardian can decrypt the managed member's org_key-sealed display name.
+ */
+const _orgKeyCache = new Map();
+const ORG_KEY_CACHE_MAX = 20;
+
+async function getCachedOrgKey(sealedOrgKey) {
+  if (!sealedOrgKey) return null;
+
+  const cached = _orgKeyCache.get(sealedOrgKey);
+  if (cached) return cached;
+
+  const raw = await unsealContextKey(sealedOrgKey);
+  if (!raw) return null;
+
+  const orgKey = unwrapKey(raw);
+
+  if (_orgKeyCache.size >= ORG_KEY_CACHE_MAX) {
+    const oldest = _orgKeyCache.keys().next().value;
+    _orgKeyCache.delete(oldest);
+  }
+  _orgKeyCache.set(sealedOrgKey, orgKey);
+  return orgKey;
 }
 
 const DecryptPost = {
@@ -238,6 +268,26 @@ const DecryptPost = {
           }
         } catch {
           // conn_key unseal or decryption failure — placeholder preserved
+        }
+      }
+
+      // ZK family-name fallback (Task #225/#270): when there is no personal
+      // UserConnection (e.g. a guardian viewing a managed member's post), resolve
+      // the author's display name via the per-org org_key. Both parties hold the
+      // same org_key (sealed in their Membership.key) and the author's display
+      // name is org_key-sealed, so any family member can decrypt it.
+      if (!results.authorName) {
+        const sealedOrgKey = this.el.dataset.sealedOrgKey;
+        const encryptedOrgName = this.el.dataset.encryptedOrgDisplayName;
+        if (sealedOrgKey && encryptedOrgName) {
+          try {
+            const orgKey = await getCachedOrgKey(sealedOrgKey);
+            if (orgKey) {
+              results.authorName = await decryptWithKey(encryptedOrgName, orgKey);
+            }
+          } catch {
+            // org_key unseal or decryption failure — placeholder preserved
+          }
         }
       }
 

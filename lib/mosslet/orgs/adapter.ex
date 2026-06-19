@@ -124,6 +124,10 @@ defmodule Mosslet.Orgs.Adapter do
   @callback list_guardianships_for_guardian_membership(membership :: Membership.t()) ::
               [Guardianship.t()]
   @callback get_guardianship!(id :: String.t()) :: Guardianship.t()
+  @callback org_name_resolution_between_users(
+              viewer_user_id :: String.t(),
+              author_user_id :: String.t()
+            ) :: %{sealed_org_key: binary(), encrypted_display_name: binary()} | nil
 
   # Ownership transfer handshake (Task #237).
   @callback insert_ownership_transfer(attrs :: map()) ::

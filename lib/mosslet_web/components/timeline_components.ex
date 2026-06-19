@@ -531,9 +531,10 @@ defmodule MossletWeb.TimelineComponents do
   attr :collapsed, :boolean, default: false
   attr :bluesky_sync_enabled, :boolean, default: false
 
-  attr :guardian_names, :list,
+  attr :guardian_entries, :list,
     default: [],
-    doc: "active guardian display names that will co-read this post (I2 transparency chip)"
+    doc:
+      "active guardian entries that will co-read this post (I2 transparency chip). Each entry is %{name: ...} (server-decrypted) or %{sealed_org_key:, encrypted_display_name:} (ZK family resolution)"
 
   attr :encrypted_avatar_data, :map,
     default: nil,
@@ -613,8 +614,8 @@ defmodule MossletWeb.TimelineComponents do
           <div class="flex-1 min-w-0">
             <%!-- Guardianship transparency chip (I2): show when a guardian will co-read --%>
             <MossletWeb.FamilyComponents.composer_guardian_chip
-              :if={@selector != "public" && @guardian_names != []}
-              guardian_names={@guardian_names}
+              :if={@selector != "public" && @guardian_entries != []}
+              guardian_entries={@guardian_entries}
               class="mb-2"
             />
             <div class="relative group">
@@ -2408,6 +2409,12 @@ defmodule MossletWeb.TimelineComponents do
             }
             data-author-show-name={
               @encrypted_author_name_data && to_string(@encrypted_author_name_data[:show_name])
+            }
+            data-sealed-org-key={
+              @encrypted_author_name_data && @encrypted_author_name_data[:sealed_org_key]
+            }
+            data-encrypted-org-display-name={
+              @encrypted_author_name_data && @encrypted_author_name_data[:encrypted_org_display_name]
             }
           >
             <div
