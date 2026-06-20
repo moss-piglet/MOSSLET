@@ -15,7 +15,11 @@ defmodule MossletWeb.ConversationLive.Show do
       current_scope={@current_scope}
       type="sidebar"
     >
-      <div class="flex flex-col h-full" id="conversation-show-container">
+      <div
+        class="flex flex-col h-full"
+        id="conversation-show-container"
+        phx-hook="DecryptComposerGuardians"
+      >
         <div class={[
           "flex-shrink-0 flex items-center gap-3 px-4 sm:px-6 py-3",
           "border-b border-slate-200/60 dark:border-slate-700/60",
@@ -40,7 +44,11 @@ defmodule MossletWeb.ConversationLive.Show do
             </div>
             <div class="min-w-0">
               <h1 class="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">
-                {@partner_name}
+                <span
+                  data-guardian-name
+                  data-sealed-org-key={@partner_org_name_data[:sealed_org_key]}
+                  data-encrypted-display-name={@partner_org_name_data[:encrypted_display_name]}
+                >{@partner_name}</span>
               </h1>
               <p class="text-xs text-slate-500 dark:text-slate-400 truncate">
                 <span class="inline-flex items-center gap-1">
@@ -149,7 +157,13 @@ defmodule MossletWeb.ConversationLive.Show do
                 Start your encrypted conversation
               </p>
               <p class="text-xs text-slate-500 dark:text-slate-400 max-w-xs">
-                Messages are encrypted end-to-end. Only you and {@partner_name} can read them.
+                Messages are encrypted end-to-end. Only you and
+                <span
+                  data-guardian-name
+                  data-sealed-org-key={@partner_org_name_data[:sealed_org_key]}
+                  data-encrypted-display-name={@partner_org_name_data[:encrypted_display_name]}
+                >{@partner_name}</span>
+                can read them.
               </p>
             </div>
 
@@ -317,7 +331,12 @@ defmodule MossletWeb.ConversationLive.Show do
                   <span class="w-1.5 h-1.5 rounded-full bg-teal-500/70 animate-bounce [animation-delay:300ms]" />
                 </div>
                 <span class="text-xs text-slate-500 dark:text-slate-400">
-                  {@partner_name} is typing...
+                  <span
+                    data-guardian-name
+                    data-sealed-org-key={@partner_org_name_data[:sealed_org_key]}
+                    data-encrypted-display-name={@partner_org_name_data[:encrypted_display_name]}
+                  >{@partner_name}</span>
+                  is typing...
                 </span>
               </div>
             </div>
@@ -671,16 +690,24 @@ defmodule MossletWeb.ConversationLive.Show do
     else
       my_user_connection = find_my_user_connection(conversation, current_user)
 
-      {partner_name, partner_encrypted_avatar, _partner_username} =
+      participant_user_ids =
+        Enum.map(conversation.user_conversations, & &1.user_id)
+
+      {partner_name, partner_encrypted_avatar, partner_org_name_data} =
         case my_user_connection do
           nil ->
-            {"[Unknown]", nil, "unknown"}
+            # No personal UserConnection. The common case here is a co-reading
+            # guardian (I2b) who is NOT part of the participants' connection. We
+            # surface the MANAGED member's ZK org display name (Task #276) — the
+            # guardian is entitled to recognize their child. The 3rd party is
+            # never surfaced. Falls back to "[Unknown]" otherwise.
+            resolve_guardian_partner_identity(current_user, participant_user_ids)
 
           uconn ->
             {
               get_decrypted_connection_name(uconn, current_user, key),
               get_encrypted_avatar_data(uconn, key),
-              get_decrypted_connection_username(uconn, current_user, key)
+              nil
             }
         end
 
@@ -709,9 +736,6 @@ defmodule MossletWeb.ConversationLive.Show do
       # I2b mandatory transparency: if this conversation is co-sealed for a
       # guardian, show a persistent banner to ALL participants. We never let a
       # guardian read a third party's messages covertly.
-      participant_user_ids =
-        Enum.map(conversation.user_conversations, & &1.user_id)
-
       coreading_managed_ids =
         Mosslet.Orgs.managed_members_with_coreading_guardians(participant_user_ids)
 
@@ -730,6 +754,7 @@ defmodule MossletWeb.ConversationLive.Show do
        |> assign(:conversation, conversation)
        |> assign(:user_conversation, user_conversation)
        |> assign(:partner_name, partner_name)
+       |> assign(:partner_org_name_data, partner_org_name_data)
        |> assign(:partner_encrypted_avatar, partner_encrypted_avatar)
        |> assign(:partner_user_id, partner_user_id)
        |> assign(:is_blocked, is_blocked)
@@ -1344,6 +1369,46 @@ defmodule MossletWeb.ConversationLive.Show do
       end
 
     "#{subject} guardian can read this conversation."
+  end
+
+  # Resolves the conversation partner's identity for a viewer with NO personal
+  # UserConnection. The common case (Task #276) is a co-reading guardian (I2b):
+  # we surface the MANAGED member's ZK org display name so the guardian can
+  # recognize their child. A guardian must NOT learn a 3rd party's identity via
+  # co-read, so non-managed participants stay "[Unknown]".
+  #
+  # Returns `{name_placeholder, encrypted_avatar, org_name_data}` where
+  # `org_name_data` is `%{sealed_org_key, encrypted_display_name}` (decrypted
+  # browser-side by the DecryptComposerGuardians hook) or nil. Server-authoritative:
+  # the relationship is derived from active Guardianship records (I1), never params.
+  defp resolve_guardian_partner_identity(current_user, participant_user_ids) do
+    managed_partner_id = managed_partner_for_guardian(current_user.id, participant_user_ids)
+
+    org_name_data =
+      managed_partner_id &&
+        Mosslet.Orgs.org_name_resolution_between_users(current_user.id, managed_partner_id)
+
+    case org_name_data do
+      %{sealed_org_key: sealed_org_key, encrypted_display_name: encrypted_display_name} ->
+        {"Family member", nil,
+         %{sealed_org_key: sealed_org_key, encrypted_display_name: encrypted_display_name}}
+
+      _ ->
+        {"[Unknown]", nil, nil}
+    end
+  end
+
+  # Finds the participant (other than the viewer) that the viewer is an ACTIVE
+  # guardian of. Directional and server-authoritative — only returns a managed
+  # member the viewer is entitled to recognize.
+  defp managed_partner_for_guardian(viewer_user_id, participant_user_ids) do
+    participant_user_ids
+    |> Enum.reject(&(&1 == viewer_user_id))
+    |> Enum.find(fn participant_id ->
+      participant_id
+      |> Mosslet.Orgs.list_active_guardian_users_for_user()
+      |> Enum.any?(fn guardian -> guardian.id == viewer_user_id end)
+    end)
   end
 
   defp find_my_user_connection(conversation, current_user) do

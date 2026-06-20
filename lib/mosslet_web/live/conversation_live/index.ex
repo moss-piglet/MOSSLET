@@ -87,6 +87,7 @@ defmodule MossletWeb.ConversationLive.Index do
             <div
               :if={@active_tab == "active" && @conversations != []}
               id="conversations-list"
+              phx-hook="DecryptComposerGuardians"
               class="space-y-1"
             >
               <div
@@ -133,7 +134,12 @@ defmodule MossletWeb.ConversationLive.Index do
                           else: "text-slate-700 dark:text-slate-300"
                         )
                       ]}>
-                        {get_name(conv, @current_scope)}
+                        <% name_data = get_name_data(conv, @current_scope) %>
+                        <span
+                          data-guardian-name
+                          data-sealed-org-key={name_data[:sealed_org_key]}
+                          data-encrypted-display-name={name_data[:encrypted_display_name]}
+                        >{name_data.name}</span>
                       </span>
                       <span
                         :if={conv.last_message}
@@ -235,6 +241,7 @@ defmodule MossletWeb.ConversationLive.Index do
             <div
               :if={@active_tab == "archived" && @archived_conversations != []}
               id="archived-conversations-list"
+              phx-hook="DecryptComposerGuardians"
               class="space-y-1"
             >
               <div
@@ -266,7 +273,12 @@ defmodule MossletWeb.ConversationLive.Index do
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center justify-between gap-2">
                       <span class="font-semibold text-sm truncate text-slate-500 dark:text-slate-400">
-                        {get_name(conv, @current_scope)}
+                        <% name_data = get_name_data(conv, @current_scope) %>
+                        <span
+                          data-guardian-name
+                          data-sealed-org-key={name_data[:sealed_org_key]}
+                          data-encrypted-display-name={name_data[:encrypted_display_name]}
+                        >{name_data.name}</span>
                       </span>
                       <span class="inline-flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
                         <.phx_icon name="hero-archive-box" class="size-3" /> Archived
@@ -754,6 +766,58 @@ defmodule MossletWeb.ConversationLive.Index do
       nil -> "[Unknown]"
       uconn -> get_decrypted_connection_name(uconn, scope.user, scope.key)
     end
+  end
+
+  # Name data for the list row's visible name span. Mirrors the show page (Task
+  # #276): when there is no personal UserConnection (a co-reading guardian, I2b),
+  # surface the MANAGED member's ZK org display name so the guardian recognizes
+  # their child — decrypted browser-side by DecryptComposerGuardians. A 3rd party
+  # the guardian doesn't manage stays "[Unknown]". `get_name/2` still returns a
+  # plain string for server-side params (delete/block confirmations).
+  defp get_name_data(conv, scope) do
+    case conv.user_connection do
+      nil ->
+        participant_user_ids =
+          conv.user_conversation.conversation.user_conversations
+          |> Enum.map(& &1.user_id)
+
+        managed_partner_id = managed_partner_for_guardian(scope.user.id, participant_user_ids)
+
+        org_name_data =
+          managed_partner_id &&
+            Mosslet.Orgs.org_name_resolution_between_users(scope.user.id, managed_partner_id)
+
+        case org_name_data do
+          %{sealed_org_key: sealed_org_key, encrypted_display_name: encrypted_display_name} ->
+            %{
+              name: "Family member",
+              sealed_org_key: sealed_org_key,
+              encrypted_display_name: encrypted_display_name
+            }
+
+          _ ->
+            %{name: "[Unknown]", sealed_org_key: nil, encrypted_display_name: nil}
+        end
+
+      uconn ->
+        %{
+          name: get_decrypted_connection_name(uconn, scope.user, scope.key),
+          sealed_org_key: nil,
+          encrypted_display_name: nil
+        }
+    end
+  end
+
+  # Finds the participant (other than the viewer) that the viewer is an ACTIVE
+  # guardian of. Directional and server-authoritative (I1).
+  defp managed_partner_for_guardian(viewer_user_id, participant_user_ids) do
+    participant_user_ids
+    |> Enum.reject(&(&1 == viewer_user_id))
+    |> Enum.find(fn participant_id ->
+      participant_id
+      |> Mosslet.Orgs.list_active_guardian_users_for_user()
+      |> Enum.any?(fn guardian -> guardian.id == viewer_user_id end)
+    end)
   end
 
   defp refresh_conversations(socket) do
