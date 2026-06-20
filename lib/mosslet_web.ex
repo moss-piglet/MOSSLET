@@ -143,6 +143,7 @@ defmodule MossletWeb do
       import MossletWeb.FamilyComponents
       import MossletWeb.BusinessComponents
       import MossletWeb.OrgComponents
+      import MossletWeb.OrgCircleComponents
       import MossletWeb.AnnouncementComponents
       import MossletWeb.PinComponents
       import MossletWeb.Helpers

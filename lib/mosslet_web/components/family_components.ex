@@ -106,8 +106,8 @@ defmodule MossletWeb.FamilyComponents do
             Who can read what you share here
           </h3>
           <p class="mt-1 text-xs text-teal-800/90 dark:text-teal-200/80">
-            Your guardians can read posts and conversations you create in Mosslet, using their own
-            private key. Mosslet's servers can't read them.
+            Your guardians can read posts and conversations you create in Mosslet — and any family
+            circle you're in — using their own private key. Mosslet's servers can't read them.
           </p>
 
           <ul class="mt-3 space-y-1.5">
@@ -128,7 +128,7 @@ defmodule MossletWeb.FamilyComponents do
                 >{item.guardian_name}</span>
                 <span class="text-teal-700/80 dark:text-teal-300/70 truncate">
                   <%= if item.guardianship.status == :active do %>
-                    — can read your future posts &amp; conversations
+                    — can read your future posts, conversations &amp; family circles
                   <% else %>
                     — paused (no new content is shared)
                   <% end %>

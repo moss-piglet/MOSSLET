@@ -520,6 +520,10 @@ defmodule MossletWeb.Router do
       # Family plan (guardianship)
       live "/family/:slug", FamilyLive.Show, :show
       live "/family/:slug/feed", FamilyLive.Feed, :feed
+      # Family shared circle (Task #271): a dedicated family-scoped circle —
+      # chat + ZK file sharing + guardian co-read — kept structurally separate
+      # from both personal Circles and Business circles.
+      live "/family/:slug/circles/:id", FamilyLive.CircleShow, :show
 
       # Business plan (private business circles)
       live "/business/:slug", BusinessLive.Show, :show

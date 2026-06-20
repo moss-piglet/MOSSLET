@@ -12,6 +12,7 @@ defmodule MossletWeb.FamilyLive.Show do
   import MossletWeb.OrgTransferActions
   import MossletWeb.OrgDeleteActions
 
+  alias Mosslet.Groups
   alias Mosslet.Orgs
 
   @impl true
@@ -41,6 +42,9 @@ defmodule MossletWeb.FamilyLive.Show do
        |> assign(:transfer_form, to_form(%{"password" => "", "to_user_id" => ""}, as: :transfer))
        |> assign(:delete_modal_open, false)
        |> assign(:delete_form, to_form(%{"password" => ""}, as: :delete_org))
+       |> assign(:show_circle_form?, false)
+       |> assign(:circle_form, to_form(%{"name" => "", "description" => ""}, as: :circle))
+       |> assign(:pending_zk_circle_attrs, nil)
        |> assign_family_data()}
     else
       {:ok,
@@ -423,6 +427,143 @@ defmodule MossletWeb.FamilyLive.Show do
               </.liquid_button>
             </.form>
           </div>
+        </section>
+
+        <%!-- Family circle (Task #271): a dedicated shared family space — chat +
+             ZK file sharing — kept separate from personal Circles. Guardians of
+             managed members co-read it (consent-based, transparent). --%>
+        <section class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div class="min-w-0">
+              <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                Family circles
+              </h2>
+              <p class="mt-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                A private, end-to-end encrypted space for your family to chat and share files.
+                A managed member's guardian co-reads it with their own key.
+              </p>
+            </div>
+            <.liquid_button
+              :if={!@show_circle_form?}
+              phx-click="show_circle_form"
+              id="new-family-circle-button"
+              color="emerald"
+              size="md"
+              icon="hero-plus"
+              class="w-full shrink-0 sm:w-auto"
+            >
+              New family circle
+            </.liquid_button>
+          </div>
+
+          <div
+            :if={@show_circle_form?}
+            id="new-family-circle-form-wrapper"
+            class="rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-gradient-to-br from-slate-50/80 to-slate-100/50 dark:from-slate-800/50 dark:to-slate-900/30 p-4"
+          >
+            <.form
+              for={@circle_form}
+              id="new-family-circle-form"
+              phx-submit="create_circle"
+              phx-hook="GroupMetadataFormHook"
+              data-action="new"
+              data-public="false"
+              class="space-y-4"
+            >
+              <input type="hidden" name="group[user_id]" value={@current_scope.user.id} />
+              <input
+                type="hidden"
+                name="group[user_name]"
+                value={@current_scope.user.decrypted[:name]}
+              />
+
+              <.phx_input
+                field={@circle_form[:name]}
+                name="group[name]"
+                type="text"
+                label="Circle name"
+                placeholder="e.g. The Smiths"
+              />
+              <.phx_input
+                field={@circle_form[:description]}
+                name="group[description]"
+                type="text"
+                label="Description"
+                placeholder="What is this circle about?"
+              />
+
+              <p class="text-xs text-slate-500 dark:text-slate-400">
+                You'll start as the only member — add family members from inside the circle.
+              </p>
+
+              <div class="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+                <.liquid_button
+                  type="button"
+                  variant="ghost"
+                  color="slate"
+                  phx-click="hide_circle_form"
+                >
+                  Cancel
+                </.liquid_button>
+                <.liquid_button
+                  type="submit"
+                  id="create-family-circle-submit"
+                  color="emerald"
+                  icon="hero-sparkles"
+                  phx-disable-with="Creating..."
+                >
+                  Create circle
+                </.liquid_button>
+              </div>
+            </.form>
+          </div>
+
+          <ul :if={@family_circles != []} role="list" class="space-y-2">
+            <li
+              :for={circle <- @family_circles}
+              id={"family-circle-#{circle.group.id}"}
+              data-hook-scope={"family-circle-#{circle.group.id}"}
+              class="group overflow-hidden rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-white/70 dark:bg-slate-800/50 hover:border-emerald-300/60 dark:hover:border-emerald-700/50 transition-all duration-200"
+            >
+              <div
+                id={"decrypt-family-circle-#{circle.group.id}"}
+                phx-hook="DecryptGroupMetadata"
+                data-sealed-group-key={circle.sealed_group_key}
+                data-encrypted-name={circle.encrypted_name}
+                data-scope-id={"family-circle-#{circle.group.id}"}
+              >
+              </div>
+              <.link
+                navigate={~p"/app/family/#{@org.slug}/circles/#{circle.group.id}"}
+                class="flex items-center gap-3 p-3"
+              >
+                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/40 dark:to-emerald-900/40 text-teal-600 dark:text-teal-300 group-hover:text-teal-700">
+                  <.phx_icon name="hero-home-modern" class="size-4" />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                    <span id={"family-circle-name-#{circle.group.id}"} phx-update="ignore">
+                      <span data-decrypt-group-name>Family circle</span>
+                    </span>
+                  </p>
+                  <p class="text-xs text-slate-500 dark:text-slate-400">
+                    {circle.member_count} member{if circle.member_count != 1, do: "s"}
+                  </p>
+                </div>
+                <.phx_icon
+                  name="hero-chevron-right"
+                  class="size-4 shrink-0 text-slate-300 dark:text-slate-600 group-hover:text-teal-500 dark:group-hover:text-teal-400"
+                />
+              </.link>
+            </li>
+          </ul>
+
+          <p
+            :if={@family_circles == [] && !@show_circle_form?}
+            class="text-xs text-slate-500 dark:text-slate-400"
+          >
+            No family circle yet. Create one to start a private, encrypted space for your family.
+          </p>
         </section>
 
         <%!-- Ownership / transfer handshake (Task #237) --%>
@@ -809,6 +950,105 @@ defmodule MossletWeb.FamilyLive.Show do
     end
   end
 
+  ## Family circle create (Task #271 — owner-only ZK create; members are added
+  ## from inside the circle via the org_key-based add flow, which also co-seals
+  ## for guardians of any managed-member participants).
+
+  @impl true
+  def handle_event("show_circle_form", _params, socket) do
+    {:noreply, assign(socket, :show_circle_form?, true)}
+  end
+
+  @impl true
+  def handle_event("hide_circle_form", _params, socket) do
+    {:noreply, assign(socket, :show_circle_form?, false)}
+  end
+
+  # Fallback when browser crypto is unavailable (ZK — never persist plaintext).
+  @impl true
+  def handle_event("create_circle", _params, socket) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       "Your browser couldn't prepare encryption keys. Please reload and try again."
+     )}
+  end
+
+  # Phase 1 (ZK): the browser generated a fresh group_key, encrypted the
+  # name/description, and sealed the creator's own copy. The family circle starts
+  # owner-only; we hand back an empty member list (plus the owner moniker/avatar)
+  # for the hook to finalize. The raw group_key never reaches the server.
+  @impl true
+  def handle_event("create_group_zk", params, socket) do
+    user = socket.assigns.current_scope.user
+
+    if params["user_id"] == user.id do
+      zk_attrs = %{
+        encrypted_name: params["encrypted_name"],
+        encrypted_description: params["encrypted_description"],
+        name_blind_index: params["name_blind_index"],
+        sealed_creator_key: params["sealed_creator_key"],
+        encrypted_user_name: params["encrypted_user_name"],
+        require_password?: false,
+        password: ""
+      }
+
+      {:noreply,
+       socket
+       |> assign(:pending_zk_circle_attrs, zk_attrs)
+       |> push_event("seal_group_key_for_members", %{
+         members: [],
+         owner_moniker: FriendlyID.generate(3),
+         owner_avatar_img: random_avatar()
+       })}
+    else
+      {:noreply, put_flash(socket, :error, "Could not create the family circle.")}
+    end
+  end
+
+  # Phase 2 (ZK): the browser sealed the owner's moniker/avatar with the
+  # group_key. Persist via the family-circle write path (stamps the family
+  # `org_id` + enforces org-membership server-side). The raw group_key NEVER
+  # reaches the server.
+  @impl true
+  def handle_event("finalize_group_zk", params, socket) do
+    user = socket.assigns.current_scope.user
+    org = socket.assigns.org
+    zk_attrs = socket.assigns.pending_zk_circle_attrs
+
+    if is_nil(zk_attrs) do
+      {:noreply, put_flash(socket, :error, "No pending circle to finalize. Please try again.")}
+    else
+      zk_attrs =
+        zk_attrs
+        |> Map.put(:encrypted_owner_moniker, params["encrypted_owner_moniker"])
+        |> Map.put(:encrypted_owner_avatar_img, params["encrypted_owner_avatar_img"])
+
+      sealed_members = params["sealed_members"] || []
+      socket = assign(socket, :pending_zk_circle_attrs, nil)
+
+      case Groups.create_family_circle_zk(org, user, zk_attrs, [], sealed_members) do
+        {:ok, group} ->
+          Mosslet.Logs.log("orgs.create_family_circle", %{
+            user: user,
+            org_id: org.id,
+            metadata: %{"group_id" => group.id}
+          })
+
+          {:noreply,
+           socket
+           |> put_flash(:success, "Family circle created")
+           |> assign(:show_circle_form?, false)
+           |> assign(:circle_form, to_form(%{"name" => "", "description" => ""}, as: :circle))
+           |> push_navigate(to: ~p"/app/family/#{org.slug}/circles/#{group.id}")}
+
+        {:error, _reason} ->
+          {:noreply, put_flash(socket, :error, "Could not create the family circle.")}
+      end
+    end
+  end
+
   @impl true
   def handle_event(
         "save_org_display_name",
@@ -1060,6 +1300,8 @@ defmodule MossletWeb.FamilyLive.Show do
 
     managed_options = Enum.filter(members, &(&1.membership.role == :managed_member))
 
+    family_circles = build_family_circles(org, current_user)
+
     socket
     |> assign(:members, members)
     |> assign(:viewer_sealed_org_key, MossletWeb.OrgIdentity.viewer_sealed_org_key(members))
@@ -1078,7 +1320,35 @@ defmodule MossletWeb.FamilyLive.Show do
     |> assign(:can_establish?, guardian_options != [] and managed_options != [])
     |> assign(:is_owner?, Orgs.owner?(org, current_user.id))
     |> assign(:pending_transfer, Orgs.get_pending_transfer_for_org(org))
+    |> assign(:family_circles, family_circles)
     |> maybe_request_org_key_seal()
+  end
+
+  # Family circle view-models (Task #271): the shared family circles the viewer
+  # is a confirmed member of, each carrying the viewer's sealed `group_key` so
+  # the circle NAME decrypts browser-side (ZK) on the card.
+  defp build_family_circles(org, current_user) do
+    org
+    |> Groups.list_family_circles(current_user)
+    |> Enum.map(fn group ->
+      ug = Enum.find(group.user_groups, &(&1.user_id == current_user.id))
+
+      member_count =
+        group.user_groups |> Enum.count(&(not is_nil(&1.confirmed_at)))
+
+      %{
+        group: group,
+        encrypted_name: group.name,
+        sealed_group_key: ug && ug.key,
+        member_count: member_count
+      }
+    end)
+  end
+
+  defp random_avatar do
+    Enum.random(
+      ~w(astronaut.png bear.png cat.png chicken.png dinosaur.png dog.png panda.png penguin.png rabbit.png sea-lion.png)
+    )
   end
 
   # See OrgIdentity (Task #225): seal/bootstrap the org_key on the viewer's

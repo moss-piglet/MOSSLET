@@ -588,12 +588,50 @@ defmodule Mosslet.Groups do
         sealed_members,
         circle_type \\ :community
       ) do
+    if org.type == :business do
+      create_org_circle_zk(org, owner, zk_attrs, users, sealed_members, circle_type)
+    else
+      {:error, :not_a_business_org}
+    end
+  end
+
+  @doc """
+  Creates a **family** circle (ZK write path) — the dedicated shared family
+  surface (Task #271). Identical ZK mechanics to a business circle, but scoped
+  to a `:family` org and always classified `:community` (family circles have no
+  `:team`/`:community` tier distinction in the UI). The guardian co-read is
+  layered on by the caller (the seal payload includes active guardians of any
+  managed-member participants — server-authoritative, see
+  `docs/GUARDIANSHIP_DESIGN.md`).
+
+  Returns `{:ok, group}` or `{:error, reason}`.
+  """
+  def create_family_circle_zk(%Mosslet.Orgs.Org{} = org, owner, zk_attrs, users, sealed_members) do
+    if org.type == :family do
+      create_org_circle_zk(org, owner, zk_attrs, users, sealed_members, :community)
+    else
+      {:error, :not_a_family_org}
+    end
+  end
+
+  @doc """
+  Generic org-circle ZK create core shared by `create_business_circle_zk/6` and
+  `create_family_circle_zk/5`. Org-type-agnostic: it only enforces
+  org-membership (I1) and, for `:team` circles, the team-creation authority. The
+  org-type guard lives in the domain-specific wrappers so family and business
+  surfaces stay cleanly separated.
+  """
+  def create_org_circle_zk(
+        %Mosslet.Orgs.Org{} = org,
+        owner,
+        zk_attrs,
+        users,
+        sealed_members,
+        circle_type \\ :community
+      ) do
     circle_type = if circle_type == :team, do: :team, else: :community
 
     cond do
-      org.type != :business ->
-        {:error, :not_a_business_org}
-
       not Mosslet.Orgs.member_of_org?(org, owner.id) ->
         {:error, :not_an_org_member}
 
@@ -642,6 +680,25 @@ defmodule Mosslet.Groups do
   member of. Always org-scoped (I4).
   """
   def list_business_circles(%Mosslet.Orgs.Org{} = org, %User{} = user) do
+    list_org_circles(org, user)
+  end
+
+  @doc """
+  Lists the family circles for the given org that the user is a confirmed
+  member of (Task #271). Family circles are `Group`s stamped with the family
+  `org_id` — same ZK mechanics as business circles, surfaced only on the family
+  dashboard. Always org-scoped (I4).
+  """
+  def list_family_circles(%Mosslet.Orgs.Org{} = org, %User{} = user) do
+    list_org_circles(org, user)
+  end
+
+  @doc """
+  Generic org-scoped circle listing shared by `list_business_circles/2` and
+  `list_family_circles/2`: circles stamped with this `org_id` that the user is a
+  confirmed member of. Org-type-agnostic (I4).
+  """
+  def list_org_circles(%Mosslet.Orgs.Org{} = org, %User{} = user) do
     Group
     |> join(:inner, [g], ug in UserGroup, on: ug.group_id == g.id)
     |> where([g, ug], g.org_id == ^org.id)

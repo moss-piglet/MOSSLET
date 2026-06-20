@@ -160,10 +160,18 @@ same server-side guardian append, for symmetry.
   > the no-silent-path invariant on all sides while still giving the guardian
   > full protective visibility.
 
-- **Groups / Circles & Journals (Q1 = deferred):** **out of scope for Phase 2.**
-  Phase 2 ships **posts + conversations** as the co-sealed surfaces. Group/circle
-  authorship and personal journals can be added later behind the identical
-  pattern. The transparency panel always states exactly which surfaces are
+- **Family circles (Q1 — SHIPPED, Task #271):** the dedicated **family shared
+  circle** (`FamilyLive.CircleShow`) co-seals for guardians behind the identical
+  pattern. When a managed member is added to a family circle, the active
+  guardians of that member (derived server-side from `Guardianship` records — I1)
+  are folded into the circle group-key seal payload (`OrgCircleSupport`), so the
+  circle's `group_key` is co-sealed for each guardian's public key — they become
+  transparent co-reading members (shown in the roster + a mandatory "a guardian
+  can read this family circle" notice, I2). No master key, no silent path. The
+  transparency panel lists family circles among the covered surfaces.
+- **Personal Circles & Journals (still deferred):** personal-circle authorship
+  and personal journals remain out of scope and can be added later behind the
+  same pattern. The transparency panel always states exactly which surfaces are
   currently covered, so members are never misled about scope.
 
 #### 4.2.1 Conversation co-seal timing
@@ -354,9 +362,10 @@ both ends.
 
 ## 9. Open questions for sign-off
 
-- **Q1 — Surfaces in Phase 2 — RESOLVED:** Phase 2 co-seals **posts + DM
-  conversations** involving the managed member. Groups/circles and journals are
-  **deferred** to a later phase.
+- **Q1 — Surfaces in Phase 2 — RESOLVED + EXTENDED:** Phase 2 co-seals **posts +
+  DM conversations** involving the managed member. **Family circles now also
+  co-seal** (Task #271) behind the identical pattern — see §4.2. Personal Circles
+  and journals remain deferred to a later phase.
 - **Q2 — DMs the member joins vs. starts — RESOLVED (all DMs, both directions):**
   once consent is active, **every** DM the managed member participates in
   co-seals for the guardian (started by the member *or* by someone else), so the
