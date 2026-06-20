@@ -210,6 +210,28 @@ defmodule MossletWeb.PublicLive.Terms do
                         </li>
                       </ul>
                     </div>
+                    <div class="p-4 bg-teal-50 dark:bg-teal-900/20 rounded-lg border-l-4 border-teal-500">
+                      <p class="font-semibold text-teal-800 dark:text-teal-200 mb-2">
+                        Guardianship & Family Safety
+                      </p>
+                      <p class="text-sm text-teal-700 dark:text-teal-300">
+                        MOSSLET's Family guardianship is consent-based co-reading using each person's
+                        own encryption keys — never surveillance, and there is no master key. Using
+                        guardianship (or any account relationship) to surveil, coerce, monitor,
+                        control, harvest data from, or otherwise abuse a family member — including a
+                        minor — is a serious violation of these Terms and may result in account
+                        termination and, where appropriate, referral to authorities.
+                      </p>
+                      <p class="text-sm text-teal-700 dark:text-teal-300 mt-2">
+                        If you feel unsafe or controlled by a guardian or anyone else, you can pause
+                        sharing at any time and find confidential outside help on our
+                        <.link
+                          navigate={~p"/safety"}
+                          class="font-semibold text-emerald-700 dark:text-emerald-300 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:text-emerald-600 dark:hover:text-emerald-200"
+                        >Safety &amp; Help</.link>
+                        page.
+                      </p>
+                    </div>
                   </div>
                 </div>
 

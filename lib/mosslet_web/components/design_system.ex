@@ -400,6 +400,7 @@ defmodule MossletWeb.DesignSystem do
                 <%!-- <.footer_link href="/download" label="Download" /> --%>
                 <.footer_link href="/faq" label="FAQ" />
                 <.footer_link href="/support" label="Support" />
+                <.footer_link href="/safety" label="Safety" />
                 <.footer_link href="/referrals" label="Referrals" />
               </ul>
             </div>

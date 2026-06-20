@@ -166,6 +166,18 @@ defmodule MossletWeb.FamilyComponents do
             Pausing stops sharing <strong>new</strong>
             content with a guardian. Things you already shared stay shared — that can't be undone.
           </p>
+
+          <%!-- Independent safety path (#273): always reachable, never co-read by
+                a guardian. Points to outside crisis/abuse organizations. --%>
+          <p class="mt-3 text-[11px] text-teal-700/80 dark:text-teal-300/70">
+            Feeling unsafe, controlled, or hurt?
+            <.link
+              navigate={~p"/safety"}
+              class="font-semibold text-teal-700 dark:text-teal-200 underline decoration-teal-500/40 hover:text-teal-800 dark:hover:text-teal-100"
+            >
+              Get confidential help →
+            </.link>
+          </p>
         </div>
       </div>
     </div>

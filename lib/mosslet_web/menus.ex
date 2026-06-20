@@ -82,6 +82,7 @@ defmodule MossletWeb.Menus do
       %{label: gettext("Pricing"), path: "/pricing"},
       %{label: gettext("Privacy"), path: "/privacy"},
       %{label: gettext("Referrals"), path: "/referrals"},
+      %{label: gettext("Safety"), path: "/safety"},
       %{label: gettext("Support"), path: "/support"},
       %{label: gettext("Updates"), path: "/updates"}
     ]
@@ -119,6 +120,7 @@ defmodule MossletWeb.Menus do
             :family,
             :business,
             :settings,
+            :support,
             :subscribe
           ],
           current_user
@@ -137,6 +139,7 @@ defmodule MossletWeb.Menus do
             :family,
             :business,
             :settings,
+            :support,
             :subscribe
           ],
           current_user
@@ -510,6 +513,19 @@ defmodule MossletWeb.Menus do
         icon: "hero-credit-card"
       }
     end
+  end
+
+  # Support is shown to EVERY signed-in user regardless of plan (personal,
+  # family, business). It links to our public Support page, which in turn
+  # surfaces the /safety crisis & abuse resources — a help path that is always
+  # reachable and never co-read by a guardian.
+  def get_link(:support = name, _current_user) do
+    %{
+      name: name,
+      label: gettext("Support"),
+      path: ~p"/support",
+      icon: "hero-lifebuoy"
+    }
   end
 
   def get_link(:timeline = name, _current_user) do

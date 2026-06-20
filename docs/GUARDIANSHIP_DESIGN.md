@@ -414,3 +414,40 @@ both ends.
 **Sign-off status: APPROVED (Q1–Q5 resolved).** Q3 = consent required; Q4/Q5 =
 defaults; Q1 = posts + conversations (groups/journals deferred); Q2 = all DMs
 both directions + mandatory third-party banner. Implementing in the order in §10.
+
+## 11. Safety & anti-abuse (Task #273)
+
+Guardianship can be misused (a guardian surveilling, coercing, or harvesting a
+managed member — especially a minor). MOSSLET's crypto already forbids covert
+reading (I1/I2), but a managed member still needs an **independent, always-
+reachable way to get help** that a guardian cannot intercept or co-read.
+
+We deliberately **do not** build an in-app abuse-report/escalation channel into
+MOSSLET. Under our ZK model we cannot meaningfully investigate or adjudicate
+abuse, and acting as the intermediary would be a liability and a false promise.
+Instead we **route people to established, independent help organizations and
+government agencies** that are trained and available 24/7.
+
+**Implementation:**
+
+- **Public `/safety` page** (`MossletWeb.PublicLive.Safety`). Being public, it is
+  reachable without signing in and is **structurally impossible for a guardian to
+  co-read** — guardianship co-read only ever covers a managed member's own ZK
+  content (posts/DMs), never a static public page. It is area-aware: a US ZIP
+  resolves to a state label (cosmetic) and surfaces national, auto-routing
+  hotlines (988, Childhelp, National DV Hotline, Crisis Text Line, NCMEC,
+  StopBullying.gov); any other country routes to maintained global directories
+  (Find A Helpline, Child Helpline International) + local emergency services.
+- **Data** lives in `Mosslet.Safety` (curated, with a documented bias against
+  shipping per-country hotline numbers we can't keep accurate). The ZIP is
+  resolved in-memory only and is **never stored or sent to a third party**.
+- **Discoverability:** an in-app **Support** sidebar entry for *all* plans
+  (personal/family/business) → `/support` → which links to `/safety`; a discreet
+  **"Feeling unsafe? Get confidential help"** link in the managed member's
+  always-visible transparency panel → `/safety`; and footer links.
+- **Terms of Service** (`/terms`, §2 User Conduct) explicitly state that using
+  guardianship to surveil/coerce/control/harvest a family member (incl. a minor)
+  violates the Terms, and point to `/safety`.
+
+This keeps the honest invariants intact (no silent path, member-visible
+controls) while giving managed members a real, guardian-independent path to help.

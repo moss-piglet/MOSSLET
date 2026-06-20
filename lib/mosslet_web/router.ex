@@ -120,6 +120,7 @@ defmodule MossletWeb.Router do
       live "/download", PublicLive.Download, :download
       live "/faq", PublicLive.Faq, :faq
       live "/support", PublicLive.Support, :support
+      live "/safety", PublicLive.Safety, :safety
       live "/features", PublicLive.Features, :features
       live "/pricing", PublicLive.Pricing, :pricing
       live "/press", PublicLive.Press, :press
