@@ -11,6 +11,7 @@ defmodule MossletWeb.UserHomeLive do
   alias Mosslet.Timeline.Post
   alias MossletWeb.Helpers.StatusHelpers
   alias MossletWeb.Helpers.URLPreviewHelpers
+  alias MossletWeb.UserHomeLive.ProfileViewModel
 
   @posts_per_page 10
 
@@ -128,67 +129,12 @@ defmodule MossletWeb.UserHomeLive do
       |> URLPreviewHelpers.assign_url_preview_defaults()
       |> maybe_load_custom_banner_async(profile_user, profile_owner?)
 
-    profile_fields =
-      cond do
-        profile_owner? ->
-          decrypt_profile_fields(
-            current_user.connection.profile,
-            current_user,
-            key,
-            viewing: :own,
-            connection: current_user.connection
-          )
+    # Profile display decisions (viewing mode, sealed/decrypted fields, shown
+    # identity, show_* flags) are concentrated in the view-model. Render reads
+    # from `@profile`; components consume it directly in the next slice.
+    profile = ProfileViewModel.build(profile_user, current_user, key, user_connection)
 
-        user_connection && profile_user.visibility == :connections ->
-          decrypt_profile_fields(
-            profile_user.connection.profile,
-            current_user,
-            key,
-            viewing: :connection,
-            uconn_key: user_connection.key,
-            connection: profile_user.connection
-          )
-
-        profile_user.visibility == :public ->
-          decrypt_profile_fields(
-            profile_user.connection.profile,
-            current_user,
-            key,
-            viewing: :public,
-            connection: profile_user.connection
-          )
-
-        true ->
-          nil
-      end
-
-    socket = assign(socket, :profile_fields, profile_fields)
-
-    # Pre-decrypt profile identity fields (name, username, email). For own
-    # profile, use the pre_decrypt_user fast path. For connection/public
-    # profiles, read from profile_fields (which now includes these fields via
-    # decrypt_profile_fields with the :connection opt).
-    decrypted_profile =
-      cond do
-        profile_owner? ->
-          %{
-            name: resolve_decrypted_field(current_user, :name),
-            username: resolve_decrypted_field(current_user, :username),
-            email: resolve_decrypted_field(current_user, :email)
-          }
-
-        profile_fields ->
-          %{
-            name: profile_fields[:name],
-            username: profile_fields[:username],
-            email: profile_fields[:email]
-          }
-
-        true ->
-          %{name: nil, username: nil, email: nil}
-      end
-
-    socket = assign(socket, :decrypted_profile, decrypted_profile)
+    socket = assign(socket, :profile, profile)
 
     socket =
       if connected?(socket) do
@@ -284,11 +230,11 @@ defmodule MossletWeb.UserHomeLive do
   end
 
   def render(assigns) do
-    case {assigns.current_user_is_profile_owner?, assigns.profile_user.visibility} do
-      {true, _} -> render_own_profile(assigns)
-      {false, :public} -> render_public_profile(assigns)
-      {false, :connections} -> render_connections_profile(assigns)
-      {false, :private} -> render_no_access(assigns)
+    case assigns.profile.access do
+      :own -> render_own_profile(assigns)
+      :public -> render_public_profile(assigns)
+      :connections -> render_connections_profile(assigns)
+      :denied -> render_no_access(assigns)
     end
   end
 
@@ -2771,7 +2717,7 @@ defmodule MossletWeb.UserHomeLive do
                         if @profile_user.connection.profile.show_avatar?,
                           do: get_encrypted_avatar_data(@current_scope.user, @current_scope.key)
                       }
-                      name={@decrypted_profile.name}
+                      name={@profile.identity.name}
                       size="xxl"
                       status={to_string(@current_scope.user.status)}
                       status_message={
@@ -2798,7 +2744,7 @@ defmodule MossletWeb.UserHomeLive do
                         :if={@current_scope.user.connection.profile.show_name?}
                         class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
                       >
-                        {@decrypted_profile.name}
+                        {@profile.identity.name}
                       </h1>
 
                       <h1
@@ -2922,7 +2868,7 @@ defmodule MossletWeb.UserHomeLive do
           <div class="mb-8">
             <MossletWeb.TimelineComponents.liquid_new_post_prompt
               id="home-new-post-prompt"
-              user_name={@decrypted_profile.name}
+              user_name={@profile.identity.name}
               user_avatar={
                 if not @profile_user.connection.profile.show_avatar?,
                   do: nil
@@ -2947,19 +2893,19 @@ defmodule MossletWeb.UserHomeLive do
             <div class="space-y-8" data-profile-scope="own-profile">
               <%!-- DecryptProfileFields hook for browser-side ZK decryption --%>
               <div
-                :if={@profile_fields && @profile_fields[:browser_decrypt?]}
+                :if={@profile.fields && @profile.fields[:browser_decrypt?]}
                 id="decrypt-own-profile-fields"
                 phx-hook="DecryptProfileFields"
                 phx-update="ignore"
                 data-profile-id="own-profile"
-                data-sealed-profile-key={@profile_fields[:sealed_profile_key]}
-                data-encrypted-about={@profile_fields[:encrypted_about]}
-                data-encrypted-alternate-email={@profile_fields[:encrypted_alternate_email]}
-                data-encrypted-website-url={@profile_fields[:encrypted_website_url]}
-                data-encrypted-website-label={@profile_fields[:encrypted_website_label]}
-                data-encrypted-name={@profile_fields[:encrypted_name]}
-                data-encrypted-username={@profile_fields[:encrypted_username]}
-                data-encrypted-email={@profile_fields[:encrypted_email]}
+                data-sealed-profile-key={@profile.fields[:sealed_profile_key]}
+                data-encrypted-about={@profile.fields[:encrypted_about]}
+                data-encrypted-alternate-email={@profile.fields[:encrypted_alternate_email]}
+                data-encrypted-website-url={@profile.fields[:encrypted_website_url]}
+                data-encrypted-website-label={@profile.fields[:encrypted_website_label]}
+                data-encrypted-name={@profile.fields[:encrypted_name]}
+                data-encrypted-username={@profile.fields[:encrypted_username]}
+                data-encrypted-email={@profile.fields[:encrypted_email]}
                 class="hidden"
               >
               </div>
@@ -2987,16 +2933,16 @@ defmodule MossletWeb.UserHomeLive do
                       <a
                         data-decrypt-profile="alternate_email"
                         href={
-                          if @profile_fields && @profile_fields[:alternate_email],
-                            do: "mailto:#{@profile_fields[:alternate_email]}",
+                          if @profile.fields && @profile.fields[:alternate_email],
+                            do: "mailto:#{@profile.fields[:alternate_email]}",
                             else: "#"
                         }
                         class={[
                           "text-slate-900 dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors",
-                          @profile_fields && @profile_fields[:browser_decrypt?] && "animate-pulse"
+                          @profile.fields && @profile.fields[:browser_decrypt?] && "animate-pulse"
                         ]}
                       >
-                        {if @profile_fields, do: @profile_fields[:alternate_email], else: "..."}
+                        {if @profile.fields, do: @profile.fields[:alternate_email], else: "..."}
                       </a>
                     </div>
                   </div>
@@ -3005,11 +2951,11 @@ defmodule MossletWeb.UserHomeLive do
                     :if={@current_scope.user.connection.profile.website_url}
                     preview={@website_url_preview}
                     loading={@website_url_preview_loading}
-                    url={if @profile_fields, do: @profile_fields[:website_url]}
+                    url={if @profile.fields, do: @profile.fields[:website_url]}
                     label={
                       cond do
-                        @profile_fields && @profile_fields[:website_label] ->
-                          @profile_fields[:website_label]
+                        @profile.fields && @profile.fields[:website_label] ->
+                          @profile.fields[:website_label]
 
                         @current_scope.user.connection.profile.website_label ->
                           "..."
@@ -3038,10 +2984,10 @@ defmodule MossletWeb.UserHomeLive do
                     data-decrypt-profile="about"
                     class={[
                       "text-slate-700 dark:text-slate-300 leading-relaxed",
-                      @profile_fields && @profile_fields[:browser_decrypt?] && "animate-pulse"
+                      @profile.fields && @profile.fields[:browser_decrypt?] && "animate-pulse"
                     ]}
                   >
-                    {if @profile_fields, do: @profile_fields[:about], else: "..."}
+                    {if @profile.fields, do: @profile.fields[:about], else: "..."}
                   </p>
                 </div>
                 <div
@@ -3581,13 +3527,13 @@ defmodule MossletWeb.UserHomeLive do
                       <p class="text-sm text-slate-500 dark:text-slate-400">Contact Email</p>
                       <a
                         href={
-                          if @profile_fields && @profile_fields[:alternate_email],
-                            do: "mailto:#{@profile_fields[:alternate_email]}",
+                          if @profile.fields && @profile.fields[:alternate_email],
+                            do: "mailto:#{@profile.fields[:alternate_email]}",
                             else: "#"
                         }
                         class="text-slate-900 dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
                       >
-                        {if @profile_fields, do: @profile_fields[:alternate_email]}
+                        {if @profile.fields, do: @profile.fields[:alternate_email]}
                       </a>
                     </div>
                   </div>
@@ -3596,11 +3542,11 @@ defmodule MossletWeb.UserHomeLive do
                     :if={@profile_user.connection.profile.website_url}
                     preview={@website_url_preview}
                     loading={@website_url_preview_loading}
-                    url={if @profile_fields, do: @profile_fields[:website_url]}
+                    url={if @profile.fields, do: @profile.fields[:website_url]}
                     label={
                       cond do
-                        @profile_fields && @profile_fields[:website_label] ->
-                          @profile_fields[:website_label]
+                        @profile.fields && @profile.fields[:website_label] ->
+                          @profile.fields[:website_label]
 
                         @profile_user.connection.profile.website_label ->
                           nil
@@ -3625,7 +3571,7 @@ defmodule MossletWeb.UserHomeLive do
                   class="prose prose-slate dark:prose-invert max-w-none"
                 >
                   <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
-                    {if @profile_fields, do: @profile_fields[:about]}
+                    {if @profile.fields, do: @profile.fields[:about]}
                   </p>
                 </div>
                 <div
@@ -3981,7 +3927,7 @@ defmodule MossletWeb.UserHomeLive do
                           do: get_encrypted_avatar_data(@user_connection, @current_scope.key)
                       }
                       id={"profile-user-avatar-#{@profile_user.id}"}
-                      name={@decrypted_profile.name || "..."}
+                      name={@profile.identity.name || "..."}
                       size="xxl"
                       status={to_string(@profile_user.status)}
                       encrypted_status_data={
@@ -4008,7 +3954,7 @@ defmodule MossletWeb.UserHomeLive do
                         class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
                         data-decrypt-profile="name"
                       >
-                        {@decrypted_profile.name || "..."}
+                        {@profile.identity.name || "..."}
                       </h1>
                       <h1
                         :if={!@profile_user.connection.profile.show_name?}
@@ -4028,7 +3974,7 @@ defmodule MossletWeb.UserHomeLive do
                           }
                           size="sm"
                         >
-                          @<span data-decrypt-profile="username">{@decrypted_profile.username || "..."}</span>
+                          @<span data-decrypt-profile="username">{@profile.identity.username || "..."}</span>
                         </MossletWeb.DesignSystem.liquid_badge>
 
                         <%!-- Email badge if show_email? is true --%>
@@ -4048,7 +3994,7 @@ defmodule MossletWeb.UserHomeLive do
                         >
                           <.phx_icon name="hero-envelope" class="size-3 mr-1" />
                           <span data-decrypt-profile="email">
-                            {@decrypted_profile.email || "..."}
+                            {@profile.identity.email || "..."}
                           </span>
                         </MossletWeb.DesignSystem.liquid_badge>
 
@@ -4079,19 +4025,19 @@ defmodule MossletWeb.UserHomeLive do
             <div class="space-y-8">
               <%!-- DecryptProfileFields hook for browser-side ZK decryption --%>
               <div
-                :if={@profile_fields && @profile_fields[:browser_decrypt?]}
+                :if={@profile.fields && @profile.fields[:browser_decrypt?]}
                 id="decrypt-conn-profile-fields"
                 phx-hook="DecryptProfileFields"
                 phx-update="ignore"
                 data-profile-id="conn-profile"
-                data-sealed-profile-key={@profile_fields[:sealed_profile_key]}
-                data-encrypted-about={@profile_fields[:encrypted_about]}
-                data-encrypted-alternate-email={@profile_fields[:encrypted_alternate_email]}
-                data-encrypted-website-url={@profile_fields[:encrypted_website_url]}
-                data-encrypted-website-label={@profile_fields[:encrypted_website_label]}
-                data-encrypted-name={@profile_fields[:encrypted_name]}
-                data-encrypted-username={@profile_fields[:encrypted_username]}
-                data-encrypted-email={@profile_fields[:encrypted_email]}
+                data-sealed-profile-key={@profile.fields[:sealed_profile_key]}
+                data-encrypted-about={@profile.fields[:encrypted_about]}
+                data-encrypted-alternate-email={@profile.fields[:encrypted_alternate_email]}
+                data-encrypted-website-url={@profile.fields[:encrypted_website_url]}
+                data-encrypted-website-label={@profile.fields[:encrypted_website_label]}
+                data-encrypted-name={@profile.fields[:encrypted_name]}
+                data-encrypted-username={@profile.fields[:encrypted_username]}
+                data-encrypted-email={@profile.fields[:encrypted_email]}
                 class="hidden"
               >
               </div>
@@ -4119,16 +4065,16 @@ defmodule MossletWeb.UserHomeLive do
                       <a
                         data-decrypt-profile="alternate_email"
                         href={
-                          if @profile_fields && @profile_fields[:alternate_email],
-                            do: "mailto:#{@profile_fields[:alternate_email]}",
+                          if @profile.fields && @profile.fields[:alternate_email],
+                            do: "mailto:#{@profile.fields[:alternate_email]}",
                             else: "#"
                         }
                         class={[
                           "text-slate-900 dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors",
-                          @profile_fields && @profile_fields[:browser_decrypt?] && "animate-pulse"
+                          @profile.fields && @profile.fields[:browser_decrypt?] && "animate-pulse"
                         ]}
                       >
-                        {if @profile_fields, do: @profile_fields[:alternate_email], else: "..."}
+                        {if @profile.fields, do: @profile.fields[:alternate_email], else: "..."}
                       </a>
                     </div>
                   </div>
@@ -4137,11 +4083,11 @@ defmodule MossletWeb.UserHomeLive do
                     :if={@profile_user.connection.profile.website_url}
                     preview={@website_url_preview}
                     loading={@website_url_preview_loading}
-                    url={if @profile_fields, do: @profile_fields[:website_url]}
+                    url={if @profile.fields, do: @profile.fields[:website_url]}
                     label={
                       cond do
-                        @profile_fields && @profile_fields[:website_label] ->
-                          @profile_fields[:website_label]
+                        @profile.fields && @profile.fields[:website_label] ->
+                          @profile.fields[:website_label]
 
                         @profile_user.connection.profile.website_label ->
                           "..."
@@ -4170,10 +4116,10 @@ defmodule MossletWeb.UserHomeLive do
                     data-decrypt-profile="about"
                     class={[
                       "text-slate-700 dark:text-slate-300 leading-relaxed",
-                      @profile_fields && @profile_fields[:browser_decrypt?] && "animate-pulse"
+                      @profile.fields && @profile.fields[:browser_decrypt?] && "animate-pulse"
                     ]}
                   >
-                    {if @profile_fields, do: @profile_fields[:about], else: "..."}
+                    {if @profile.fields, do: @profile.fields[:about], else: "..."}
                   </p>
                 </div>
                 <div
