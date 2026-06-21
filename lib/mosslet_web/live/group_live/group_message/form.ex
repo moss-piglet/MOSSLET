@@ -164,6 +164,7 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
         phx-hook="GroupMessageFormHook"
         data-public={to_string(@public?)}
         data-sealed-group-key={not @public? && @user_group_key}
+        data-mention-variant={MossletWeb.GroupLive.ChatSupport.mention_variant(@current_page)}
         class="max-w-4xl mx-auto"
       >
         <div class="relative">

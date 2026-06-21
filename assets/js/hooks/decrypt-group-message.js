@@ -24,42 +24,51 @@ import MentionPicker from "./mention-picker";
 
 const MENTION_TOKEN_RE = /@\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/gi;
 
-function resolveMentions(text, currentUserGroupId, isOwnMessage) {
+const MENTION_PILL_BASE =
+  "mention inline-flex items-baseline rounded-md px-1.5 py-0.5 font-medium leading-tight transition-colors";
+
+// Surface-tailored pill themes — kept in lockstep with the server renderer in
+// MossletWeb.GroupLive.GroupMessages.mention_pill_theme/2.
+const MENTION_PILL_THEME = {
+  family: {
+    normal: "bg-rose-100/70 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+    self: "bg-rose-200/80 text-rose-800 ring-1 ring-rose-400/50 font-semibold dark:bg-rose-500/25 dark:text-rose-200 dark:ring-rose-400/40",
+  },
+  business: {
+    normal: "bg-indigo-100/70 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
+    self: "bg-indigo-200/80 text-indigo-800 ring-1 ring-indigo-400/50 font-semibold dark:bg-indigo-500/25 dark:text-indigo-200 dark:ring-indigo-400/40",
+  },
+  personal: {
+    normal: "bg-teal-100/70 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300",
+    self: "bg-teal-200/80 text-teal-800 ring-1 ring-teal-400/50 font-semibold dark:bg-teal-500/25 dark:text-teal-200 dark:ring-teal-400/40",
+  },
+};
+
+function mentionPillClass(variant, isOwnMessage, isSelf) {
+  if (isOwnMessage) {
+    const base = `${MENTION_PILL_BASE} bg-white/20 text-white`;
+    return isSelf ? `${base} ring-1 ring-white/40 font-semibold` : base;
+  }
+  const theme = MENTION_PILL_THEME[variant] || MENTION_PILL_THEME.personal;
+  return `${MENTION_PILL_BASE} ${isSelf ? theme.self : theme.normal}`;
+}
+
+function resolveMentions(text, currentUserGroupId, isOwnMessage, variant) {
   const members = MentionPicker._sharedMembers || [];
   if (!members.length) return text;
 
   return text.replace(MENTION_TOKEN_RE, (_match, userGroupId) => {
     const member = members.find((m) => m.user_group_id === userGroupId);
-    if (!member) return "@unknown";
+    const isSelf = userGroupId === currentUserGroupId;
+    const cls = mentionPillClass(variant, isOwnMessage, isSelf);
+
+    if (!member) {
+      return `<span class="${cls}"><span class="opacity-60">@</span>unknown</span>`;
+    }
 
     const displayName = member.is_connected ? member.username : member.moniker;
-    const isSelf = userGroupId === currentUserGroupId;
-    const role = member.role || "member";
-
-    const textClass = mentionTextClass(role, isOwnMessage);
-
-    if (isSelf) {
-      return `<span class="mention-self ${textClass} font-semibold underline decoration-2 underline-offset-2"><span class="opacity-60">@</span>${escapeHtml(displayName)}</span>`;
-    }
-    return `<span class="mention ${textClass} font-medium"><span class="opacity-50">@</span>${escapeHtml(displayName)}</span>`;
+    return `<span class="${cls}"><span class="opacity-60">@</span>${escapeHtml(displayName)}</span>`;
   });
-}
-
-function mentionTextClass(role, isOwnMessage) {
-  if (isOwnMessage) {
-    switch (role) {
-      case "owner": return "text-pink-200";
-      case "admin": return "text-orange-200";
-      case "moderator": return "text-sky-200";
-      default: return "text-teal-200";
-    }
-  }
-  switch (role) {
-    case "owner": return "text-amber-600 dark:text-amber-400";
-    case "admin": return "text-purple-600 dark:text-purple-400";
-    case "moderator": return "text-blue-600 dark:text-blue-400";
-    default: return "text-teal-600 dark:text-teal-400";
-  }
 }
 
 const FAILED_MARKUP =
@@ -123,12 +132,14 @@ const DecryptGroupMessage = {
 
       const currentUserGroupId = this.el.dataset.currentUserGroupId || "";
       const isOwnMessage = this.el.dataset.isOwnMessage === "true";
+      const mentionVariant = this.el.dataset.mentionVariant || "personal";
 
       this._plaintext = plaintext;
       this._currentUserGroupId = currentUserGroupId;
       this._isOwnMessage = isOwnMessage;
+      this._mentionVariant = mentionVariant;
 
-      const withMentions = resolveMentions(plaintext, currentUserGroupId, isOwnMessage);
+      const withMentions = resolveMentions(plaintext, currentUserGroupId, isOwnMessage, mentionVariant);
       const html = renderMarkdown(withMentions);
       this.el.innerHTML = html;
       this._decrypted = true;
@@ -184,7 +195,8 @@ const DecryptGroupMessage = {
     const withMentions = resolveMentions(
       this._plaintext,
       this._currentUserGroupId,
-      this._isOwnMessage
+      this._isOwnMessage,
+      this._mentionVariant
     );
     const html = renderMarkdown(withMentions);
     this.el.innerHTML = html;

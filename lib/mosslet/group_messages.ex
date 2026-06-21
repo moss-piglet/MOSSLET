@@ -281,4 +281,22 @@ defmodule Mosslet.GroupMessages do
     )
     |> Repo.exists?()
   end
+
+  @doc """
+  Returns true if the given message mentions the given user_group.
+
+  Server-authoritative and ZK-safe: it consults the persisted
+  `GroupMessageMention` records (which store only user_group_id UUIDs the server
+  already knows), never the encrypted message body. This is the only reliable
+  way to detect mentions for non-public (browser-encrypted) circles, where the
+  `@[user_group_id]` token lives inside ciphertext the server cannot read.
+  """
+  def message_mentions_user_group?(message_id, user_group_id) do
+    from(m in GroupMessageMention,
+      where: m.group_message_id == ^message_id,
+      where: m.mentioned_user_group_id == ^user_group_id,
+      limit: 1
+    )
+    |> Repo.exists?()
+  end
 end

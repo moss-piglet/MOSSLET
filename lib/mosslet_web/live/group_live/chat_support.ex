@@ -28,6 +28,21 @@ defmodule MossletWeb.GroupLive.ChatSupport do
 
   @grouping_window_minutes 5
 
+  ## Surface variant ---------------------------------------------------------
+
+  @doc """
+  Maps a host LiveView's `current_page` to the chat surface variant used for
+  tailored mention theming. The mention *mechanics* (token format, persistence,
+  notify/mark-read) are identical across surfaces — only presentation differs.
+
+      :family   -> "family"   (warm)
+      :business -> "business" (professional)
+      _         -> "personal" (brand default)
+  """
+  def mention_variant(:family), do: "family"
+  def mention_variant(:business), do: "business"
+  def mention_variant(_), do: "personal"
+
   ## Initial load -----------------------------------------------------------
 
   @doc """
@@ -314,6 +329,7 @@ defmodule MossletWeb.GroupLive.ChatSupport do
     message = GroupMessages.preload_message_sender(message)
     last_info = Map.get(socket.assigns, :last_message_info)
     is_new = Keyword.get(opts, :is_new, false)
+    current_user_group = socket.assigns.current_user_group
 
     message_date = get_message_date(message.inserted_at)
 
@@ -328,11 +344,19 @@ defmodule MossletWeb.GroupLive.ChatSupport do
         {false, true}
       end
 
+    # A realtime mention highlight fires only for freshly-arrived messages that
+    # mention the current user. Detection is server-authoritative via the
+    # persisted mention records (ZK-safe) — see GroupMessages.message_mentions_user_group?/2.
+    is_new_mention =
+      is_new && current_user_group != nil &&
+        GroupMessages.message_mentions_user_group?(message.id, current_user_group.id)
+
     message
     |> Map.put(:is_grouped, is_grouped)
     |> Map.put(:show_date_separator, show_date_separator)
     |> Map.put(:message_date, message_date)
     |> Map.put(:is_new_message, is_new)
+    |> Map.put(:is_new_mention, is_new_mention)
   end
 
   def extract_message_info(message) do
@@ -367,6 +391,7 @@ defmodule MossletWeb.GroupLive.ChatSupport do
       |> Map.put(:show_date_separator, show_date_separator)
       |> Map.put(:message_date, message_date)
       |> Map.put(:is_new_message, MapSet.member?(unread_message_ids, message.id))
+      |> Map.put(:is_new_mention, MapSet.member?(unread_message_ids, message.id))
     end)
   end
 

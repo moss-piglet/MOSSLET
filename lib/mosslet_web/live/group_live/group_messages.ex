@@ -28,6 +28,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
               group={@group}
               user_group={@user_group}
               messages_list={@messages_list}
+              current_page={@current_page}
             />
           </div>
         </div>
@@ -42,6 +43,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
   attr :group, :map, required: true
   attr :user_group, :map, required: true
   attr :messages_list, :list, required: true
+  attr :current_page, :atom, default: nil
 
   def message_details(assigns) do
     decrypted = Map.get(assigns.message, :decrypted, %{})
@@ -114,13 +116,15 @@ defmodule MossletWeb.GroupLive.GroupMessages do
     # For public groups, content is pre-decrypted by the server.
     raw_content = decrypted[:content]
 
-    {content, can_check_mentions} =
+    variant = MossletWeb.GroupLive.ChatSupport.mention_variant(assigns.current_page)
+
+    {content, _can_check_mentions} =
       if browser_decrypt? do
         # Content will be decrypted and rendered by the DecryptGroupMessage hook
         {nil, false}
       else
         markdown_html = Mosslet.MarkdownRenderer.to_html(raw_content)
-        rendered = render_mentions(markdown_html, assigns, is_own_message)
+        rendered = render_mentions(markdown_html, assigns, is_own_message, variant)
         {rendered, true}
       end
 
@@ -130,18 +134,12 @@ defmodule MossletWeb.GroupLive.GroupMessages do
     is_grouped = Map.get(assigns.message, :is_grouped, false)
     show_date_separator = Map.get(assigns.message, :show_date_separator, false)
     message_datetime = assigns.message.inserted_at
-    is_new_message = Map.get(assigns.message, :is_new_message, false)
 
-    is_mentioned =
-      if can_check_mentions do
-        content_mentions_user?(raw_content, assigns.user_group.id)
-      else
-        # For browser-decrypted messages, check the encrypted content for mention tokens
-        # (mention tokens @[uuid] are not encrypted — they're part of the plaintext structure)
-        content_mentions_user?(assigns.message.content, assigns.user_group.id)
-      end
-
-    is_new_mention = is_mentioned && is_new_message
+    # Mention highlight is server-authoritative (mention records), set upstream in
+    # ChatSupport for both the initial load and realtime paths. This works for
+    # ZK circles where the @[id] token is sealed inside the ciphertext.
+    is_new_mention = Map.get(assigns.message, :is_new_mention, false)
+    is_mentioned = is_new_mention
 
     assigns =
       assigns
@@ -163,6 +161,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       |> assign(:encrypted_content, decrypted[:encrypted_content])
       |> assign(:sealed_group_key, decrypted[:sealed_group_key])
       |> assign(:current_user_group_id, assigns.user_group.id)
+      |> assign(:mention_variant, variant)
 
     ~H"""
     <ChatComponents.liquid_chat_message
@@ -193,6 +192,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
         data-encrypted-avatar-img={@encrypted_avatar_img}
         data-current-user-group-id={@current_user_group_id}
         data-is-own-message={to_string(@is_own_message)}
+        data-mention-variant={@mention_variant}
       >
         <span class="text-slate-400 dark:text-slate-500 text-sm italic">Decrypting...</span>
       </div>
@@ -203,26 +203,20 @@ defmodule MossletWeb.GroupLive.GroupMessages do
     """
   end
 
-  defp content_mentions_user?(content, user_group_id) when is_binary(content) do
-    String.contains?(content, "@[#{user_group_id}]")
-  end
-
-  defp content_mentions_user?(_, _), do: false
-
-  defp render_mentions(content, assigns, is_own_message) when is_binary(content) do
+  defp render_mentions(content, assigns, is_own_message, variant) when is_binary(content) do
     Regex.replace(@mention_token_regex, content, fn _full, user_group_id ->
-      render_mention_pill(user_group_id, assigns, is_own_message)
+      render_mention_pill(user_group_id, assigns, is_own_message, variant)
     end)
   end
 
-  defp render_mentions(content, _assigns, _is_own_message), do: content
+  defp render_mentions(content, _assigns, _is_own_message, _variant), do: content
 
-  defp render_mention_pill(user_group_id, assigns, is_own_message) do
+  defp render_mention_pill(user_group_id, assigns, is_own_message, variant) do
     is_self = user_group_id == assigns.user_group.id
 
     case Groups.get_user_group(user_group_id) do
       nil ->
-        "@unknown"
+        ~s(<span class="#{mention_pill_class(variant, is_own_message, false)}"><span class="opacity-60">@</span>unknown</span>)
 
       mentioned_ug ->
         mentioned_user = get_user_from_user_group_id(user_group_id)
@@ -255,25 +249,44 @@ defmodule MossletWeb.GroupLive.GroupMessages do
               )
           end
 
-        role = mentioned_ug.role || :member
-        text_class = mention_text_class(role, is_own_message)
-
-        if is_self do
-          "<span class=\"mention-self #{text_class} font-semibold underline decoration-2 underline-offset-2\"><span class=\"opacity-60\">@</span>#{display_name}</span>"
-        else
-          "<span class=\"mention #{text_class} font-medium\"><span class=\"opacity-50\">@</span>#{display_name}</span>"
-        end
+        ~s(<span class="#{mention_pill_class(variant, is_own_message, is_self)}"><span class="opacity-60">@</span>#{display_name}</span>)
     end
   end
 
-  defp mention_text_class(:owner, true), do: "text-pink-200"
-  defp mention_text_class(:admin, true), do: "text-orange-200"
-  defp mention_text_class(:moderator, true), do: "text-purple-200"
-  defp mention_text_class(:member, true), do: "text-yellow-200"
-  defp mention_text_class(_, true), do: "text-slate-200"
-  defp mention_text_class(:owner, _), do: "text-pink-600 dark:text-pink-300"
-  defp mention_text_class(:admin, _), do: "text-orange-600 dark:text-orange-300"
-  defp mention_text_class(:moderator, _), do: "text-purple-600 dark:text-purple-300"
-  defp mention_text_class(:member, _), do: "text-emerald-600 dark:text-emerald-300"
-  defp mention_text_class(_, _), do: "text-slate-600 dark:text-slate-300"
+  # Shared base shape — a real, visually distinct chip.
+  defp mention_pill_base do
+    "mention inline-flex items-baseline rounded-md px-1.5 py-0.5 font-medium leading-tight transition-colors"
+  end
+
+  # Inside an own-message bubble (teal gradient, white text) a light-on-color
+  # pill is the only legible choice regardless of surface.
+  defp mention_pill_class(_variant, true, is_self) do
+    base = "#{mention_pill_base()} bg-white/20 text-white"
+    if is_self, do: base <> " ring-1 ring-white/40 font-semibold", else: base
+  end
+
+  defp mention_pill_class(variant, false, is_self) do
+    "#{mention_pill_base()} #{mention_pill_theme(variant, is_self)}"
+  end
+
+  defp mention_pill_theme("family", false),
+    do: "bg-rose-100/70 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300"
+
+  defp mention_pill_theme("family", true),
+    do:
+      "bg-rose-200/80 text-rose-800 ring-1 ring-rose-400/50 font-semibold dark:bg-rose-500/25 dark:text-rose-200 dark:ring-rose-400/40"
+
+  defp mention_pill_theme("business", false),
+    do: "bg-indigo-100/70 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"
+
+  defp mention_pill_theme("business", true),
+    do:
+      "bg-indigo-200/80 text-indigo-800 ring-1 ring-indigo-400/50 font-semibold dark:bg-indigo-500/25 dark:text-indigo-200 dark:ring-indigo-400/40"
+
+  defp mention_pill_theme(_personal, false),
+    do: "bg-teal-100/70 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300"
+
+  defp mention_pill_theme(_personal, true),
+    do:
+      "bg-teal-200/80 text-teal-800 ring-1 ring-teal-400/50 font-semibold dark:bg-teal-500/25 dark:text-teal-200 dark:ring-teal-400/40"
 end

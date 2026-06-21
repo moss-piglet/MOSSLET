@@ -3,6 +3,42 @@ import { decryptSecretbox } from "../crypto/session";
 
 let _cachedGroupKeyForMentions = null;
 
+function normalizeVariant(value) {
+  if (value === "family" || value === "business") return value;
+  return "personal";
+}
+
+// Dropdown "selected option" gradient per surface. Written as literal class
+// strings so Tailwind's source scanner keeps them in the build.
+const DROPDOWN_SELECTED_CLASSES = {
+  personal: [
+    "bg-gradient-to-r",
+    "from-teal-50",
+    "to-emerald-50",
+    "dark:from-teal-900/30",
+    "dark:to-emerald-900/30",
+  ],
+  family: [
+    "bg-gradient-to-r",
+    "from-rose-50",
+    "to-pink-50",
+    "dark:from-rose-900/30",
+    "dark:to-pink-900/30",
+  ],
+  business: [
+    "bg-gradient-to-r",
+    "from-indigo-50",
+    "to-sky-50",
+    "dark:from-indigo-900/30",
+    "dark:to-sky-900/30",
+  ],
+};
+
+const DROPDOWN_UNSELECTED_CLASSES = [
+  "hover:bg-slate-50",
+  "dark:hover:bg-slate-700/50",
+];
+
 async function getGroupKey(sealedKey) {
   if (_cachedGroupKeyForMentions) return _cachedGroupKeyForMentions;
   const raw = await unsealContextKey(sealedKey);
@@ -41,6 +77,11 @@ const MentionPicker = {
     this.isOpen = false;
     this.mentionMap = {};
 
+    this.form = this.textarea.closest("form");
+    // Surface variant (family | business | personal) — drives tailored theming
+    // while the mention mechanics stay single-sourced here.
+    this.variant = normalizeVariant(this.form?.dataset?.mentionVariant);
+
     this.isMobile =
       /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
         navigator.userAgent
@@ -52,17 +93,19 @@ const MentionPicker = {
     this.handleClickOutside = this.handleClickOutside.bind(this);
     this.handleScroll = this.handleScroll.bind(this);
     this.handleTriggerMention = this.handleTriggerMention.bind(this);
-    this.handleFormSubmit = this.handleFormSubmit.bind(this);
+    this.handleSubmitCapture = this.handleSubmitCapture.bind(this);
 
     this.textarea.addEventListener("input", this.handleInput);
     this.textarea.addEventListener("keydown", this.handleKeyDown);
     this.textarea.addEventListener("trigger-mention", this.handleTriggerMention);
     document.addEventListener("click", this.handleClickOutside);
 
-    this.form = this.textarea.closest("form");
-    if (this.form) {
-      this.form.addEventListener("submit", this.handleFormSubmit);
-    }
+    // Convert visible @display-name mentions into @[user_group_id] tokens in the
+    // capturing phase, BEFORE any other submit handler runs (the ZK encryption
+    // hook on the form and LiveView's own form serialization). Capturing at the
+    // document means we always run first regardless of hook mount order — this
+    // is what makes mentions persist on every submit path (button, Enter, mobile).
+    document.addEventListener("submit", this.handleSubmitCapture, true);
 
     this.handleEvent("set_members", async ({ members }) => {
       const raw = members || [];
@@ -111,10 +154,8 @@ const MentionPicker = {
     this.textarea.removeEventListener("keydown", this.handleKeyDown);
     this.textarea.removeEventListener("trigger-mention", this.handleTriggerMention);
     document.removeEventListener("click", this.handleClickOutside);
+    document.removeEventListener("submit", this.handleSubmitCapture, true);
     window.removeEventListener("scroll", this.handleScroll, true);
-    if (this.form) {
-      this.form.removeEventListener("submit", this.handleFormSubmit);
-    }
     if (this.dropdown && this.dropdown.parentNode) {
       this.dropdown.parentNode.removeChild(this.dropdown);
       this.dropdown = null;
@@ -122,10 +163,22 @@ const MentionPicker = {
     this.isOpen = false;
   },
 
-  handleFormSubmit(e) {
-    const convertedContent = this.convertMentionsToTokens(this.textarea.value);
-    this.textarea.value = convertedContent;
+  handleSubmitCapture(e) {
+    if (e.target !== this.form) return;
+    this.applyMentionTokens();
+  },
+
+  // Replace every visible "@display-name" with its "@[user_group_id]" token so
+  // the downstream consumer (ZK encryption hook or LiveView) sees only tokens.
+  // Idempotent: once converted the map is cleared, so re-entrant submits are no-ops.
+  applyMentionTokens() {
+    if (!this.textarea) return;
+    const converted = this.convertMentionsToTokens(this.textarea.value);
+    if (converted !== this.textarea.value) {
+      this.textarea.value = converted;
+    }
     this.mentionMap = {};
+    this.hideDropdown();
   },
 
   handleTriggerMention() {
@@ -202,10 +255,7 @@ const MentionPicker = {
         e.preventDefault();
         const form = this.textarea.closest("form");
         if (form) {
-          const convertedContent = this.convertMentionsToTokens(value);
-          this.textarea.value = convertedContent;
-          this.mentionMap = {};
-
+          // Token conversion happens in the document-capture submit handler.
           form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
         }
       }
@@ -351,8 +401,8 @@ const MentionPicker = {
           class="mention-option w-full px-3 py-2.5 flex items-center gap-3 text-left transition-all duration-150
             ${
               index === this.selectedIndex
-                ? "bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/30 dark:to-emerald-900/30"
-                : "hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                ? DROPDOWN_SELECTED_CLASSES[this.variant].join(" ")
+                : DROPDOWN_UNSELECTED_CLASSES.join(" ")
             }"
         >
           <div class="relative flex-shrink-0">
@@ -409,29 +459,19 @@ const MentionPicker = {
   updateSelection() {
     if (!this.dropdown) return;
 
+    const selectedClasses = DROPDOWN_SELECTED_CLASSES[this.variant];
+
     this.dropdown.querySelectorAll(".mention-option").forEach((btn, index) => {
       const isSelected = index === this.selectedIndex;
       btn.setAttribute("aria-selected", isSelected);
 
       if (isSelected) {
-        btn.classList.add(
-          "bg-gradient-to-r",
-          "from-teal-50",
-          "to-emerald-50",
-          "dark:from-teal-900/30",
-          "dark:to-emerald-900/30"
-        );
-        btn.classList.remove("hover:bg-slate-50", "dark:hover:bg-slate-700/50");
+        btn.classList.add(...selectedClasses);
+        btn.classList.remove(...DROPDOWN_UNSELECTED_CLASSES);
         btn.scrollIntoView({ block: "nearest" });
       } else {
-        btn.classList.remove(
-          "bg-gradient-to-r",
-          "from-teal-50",
-          "to-emerald-50",
-          "dark:from-teal-900/30",
-          "dark:to-emerald-900/30"
-        );
-        btn.classList.add("hover:bg-slate-50", "dark:hover:bg-slate-700/50");
+        btn.classList.remove(...selectedClasses);
+        btn.classList.add(...DROPDOWN_UNSELECTED_CLASSES);
       }
     });
   },
