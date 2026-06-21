@@ -355,7 +355,10 @@ defmodule MossletWeb.PublicLive.BusinessPlan do
      |> assign_new(:meta_description, fn ->
        "MOSSLET Business: private, org-scoped business circles with zero-knowledge file sharing, per-seat billing, an optional branding add-on (custom subdomain + logo), and a zero-knowledge admin audit log. Post-quantum encrypted, never mined."
      end)
-     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/pricing/pricing_og.png")
+     |> assign(
+       :og_image,
+       MossletWeb.Endpoint.url() <> ~p"/images/business_plan/business_plan_og.png"
+     )
      |> assign(:og_image_type, "image/png")
      |> assign(
        :og_image_alt,

@@ -299,7 +299,7 @@ defmodule MossletWeb.PublicLive.Safety do
      |> assign_new(:meta_description, fn ->
        "If you feel unsafe or are being hurt or controlled — including by a guardian — confidential help is available. Find trusted crisis and abuse-support organizations and government agencies in your area."
      end)
-     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/support/support_og.png")
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/safety/safety_og.png")
      |> assign(:og_image_type, "image/png")
      |> assign(
        :og_image_alt,

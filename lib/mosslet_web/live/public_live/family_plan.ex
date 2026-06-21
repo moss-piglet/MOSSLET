@@ -189,7 +189,9 @@ defmodule MossletWeb.PublicLive.FamilyPlan do
                       <.link
                         navigate={~p"/safety"}
                         class="font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 underline decoration-emerald-500/30"
-                      >Safety page</.link>
+                      >
+                        Safety page
+                      </.link>
                       points to trusted, independent crisis and abuse organizations — a help path
                       MOSSLET can never co-read or interfere with.
                     </p>
@@ -370,7 +372,7 @@ defmodule MossletWeb.PublicLive.FamilyPlan do
      |> assign_new(:meta_description, fn ->
        "MOSSLET Family: a private, ad-free home for the people you love. Consent-based guardianship with zero-knowledge encryption, no master key, mandatory transparency, and an honest pause-sharing toggle."
      end)
-     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/pricing/pricing_og.png")
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/family_plan/family_plan_og.png")
      |> assign(:og_image_type, "image/png")
      |> assign(
        :og_image_alt,
