@@ -182,6 +182,7 @@ defmodule MossletWeb.FamilyLive.CircleShow do
           current_user_group={@current_user_group}
           sealed_group_key={@sealed_group_key}
           viewer_sealed_org_key={@viewer_sealed_org_key}
+          guardian_avatars={@guardian_avatars}
           org_path={~p"/app/family/#{@org.slug}"}
         />
 
@@ -200,6 +201,7 @@ defmodule MossletWeb.FamilyLive.CircleShow do
           viewer_sealed_org_key={@viewer_sealed_org_key}
           org_display_names={@org_display_names}
           org_avatars={@org_avatars}
+          guardian_avatars={@guardian_avatars}
         />
       </div>
     </.layout>

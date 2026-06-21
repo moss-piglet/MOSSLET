@@ -26,6 +26,7 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
      |> assign(:viewer_sealed_org_key, assigns[:viewer_sealed_org_key])
      |> assign(:org_display_names, assigns[:org_display_names] || %{})
      |> assign(:org_avatars, assigns[:org_avatars] || %{})
+     |> assign(:guardian_avatars, assigns[:guardian_avatars] || %{})
      |> assign(assigns)
      |> assign(:circle_members, members)
      |> assign_form()}
@@ -43,6 +44,7 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
     public? = assigns[:public?]
     org_display_names = assigns[:org_display_names] || %{}
     org_avatars = assigns[:org_avatars] || %{}
+    guardian_avatars = assigns[:guardian_avatars] || %{}
 
     if group_id && current_scope do
       group = Groups.get_group(group_id)
@@ -71,6 +73,13 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
             if not is_self and not is_connected and user,
               do: Map.get(org_avatars, user.id)
 
+          # Family guardian safety override (Task #284): if the VIEWER is an
+          # active guardian of this member, surface their PERSONAL avatar
+          # (conn_key sealed for this guardian + the live blob) so a minor can't
+          # hide behind a misleading org avatar. Server-authoritative directory.
+          guardian_avatar =
+            if not is_self and user, do: Map.get(guardian_avatars, user.id)
+
           if public? do
             build_public_member(
               ug,
@@ -81,7 +90,8 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
               user_group_key,
               group,
               encrypted_org_display_name,
-              encrypted_org_avatar
+              encrypted_org_avatar,
+              guardian_avatar
             )
           else
             build_private_member(
@@ -91,7 +101,8 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
               uconn,
               current_scope,
               encrypted_org_display_name,
-              encrypted_org_avatar
+              encrypted_org_avatar,
+              guardian_avatar
             )
           end
         end)
@@ -113,7 +124,8 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
          user_group_key,
          group,
          encrypted_org_display_name,
-         encrypted_org_avatar
+         encrypted_org_avatar,
+         guardian_avatar
        ) do
     moniker =
       decr_item(ug.moniker, current_scope.user, user_group_key, current_scope.key, group)
@@ -146,6 +158,8 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
       encrypted_avatar: encrypted_avatar,
       encrypted_org_display_name: encrypted_org_display_name,
       encrypted_org_avatar: encrypted_org_avatar,
+      guardian_avatar_blob: guardian_avatar && guardian_avatar[:encrypted_blob_b64],
+      guardian_sealed_key: guardian_avatar && guardian_avatar[:sealed_key],
       is_connected: is_connected || is_self,
       browser_decrypt: false
     }
@@ -159,7 +173,8 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
          uconn,
          current_scope,
          encrypted_org_display_name,
-         encrypted_org_avatar
+         encrypted_org_avatar,
+         guardian_avatar
        ) do
     encrypted_avatar =
       if is_connected && !is_self,
@@ -193,6 +208,8 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
       encrypted_avatar: encrypted_avatar,
       encrypted_org_display_name: encrypted_org_display_name,
       encrypted_org_avatar: encrypted_org_avatar,
+      guardian_avatar_blob: guardian_avatar && guardian_avatar[:encrypted_blob_b64],
+      guardian_sealed_key: guardian_avatar && guardian_avatar[:sealed_key],
       is_connected: is_connected || is_self,
       is_self: is_self,
       browser_decrypt: true

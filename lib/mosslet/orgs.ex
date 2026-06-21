@@ -2296,6 +2296,41 @@ defmodule Mosslet.Orgs do
   end
 
   @doc """
+  Family guardian safety override (Task #284): the :active guardianships for which
+  `managed_user_id` is the managed member and the guardian's avatar key has NOT
+  yet been sealed. Returns `[%{guardianship_id, guardian_user}]` so the managed
+  member's browser can seal its `conn_key` for each guardian's public key.
+  Server-authoritative (I1).
+  """
+  def list_guardianships_needing_avatar_key(managed_user_id) do
+    adapter().list_guardianships_needing_avatar_key(managed_user_id)
+  end
+
+  @doc """
+  Persists per-guardianship sealed copies of the managed member's `conn_key`
+  (Task #284). `sealed_list` is a list of maps with `guardianship_id` and
+  `sealed_key` (the managed member's `conn_key` sealed for that guardian via
+  `sealForUser`). Server-authoritative + idempotent: only :active guardianships
+  where this user is the managed member and the key is not yet set are updated.
+  Returns `{:ok, count_sealed}`.
+  """
+  def seal_managed_avatar_keys(managed_user_id, sealed_list) when is_list(sealed_list) do
+    adapter().seal_managed_avatar_keys(managed_user_id, sealed_list)
+  end
+
+  @doc """
+  Family guardian safety override (Task #284): returns the managed member's
+  `conn_key` sealed for `guardian_user_id` when an :active guardianship links
+  them (guardian -> managed) and the key has been sealed, else `nil`. The
+  guardian's browser unseals it to decrypt the managed member's LIVE personal
+  avatar. Server-authoritative (I1) — the relationship is derived purely from
+  active guardianship rows, never from params.
+  """
+  def guardian_avatar_key_for(guardian_user_id, managed_user_id) do
+    adapter().guardian_avatar_key_for(guardian_user_id, managed_user_id)
+  end
+
+  @doc """
   Given the full set of participant `user_id`s in a conversation, returns the
   list of MANAGED-MEMBER `user_id`s whose active guardian is ALSO a participant
   in this conversation.

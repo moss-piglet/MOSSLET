@@ -3143,6 +3143,90 @@ defmodule MossletWeb.Helpers do
   def get_encrypted_avatar_data(nil, _key), do: nil
 
   @doc """
+  Family guardian safety override (Task #284): returns the managed member's LIVE
+  PERSONAL avatar blob + the managed member's `conn_key` sealed for THIS guardian
+  (`sealed_key`), so a guardian's browser can decrypt the personal avatar a minor
+  might otherwise hide behind an org avatar. Same `%{encrypted_blob_b64,
+  sealed_key}` shape as `get_encrypted_avatar_data/2`, so the existing
+  DecryptAvatar read path handles it unchanged.
+
+  `sealed_key` MUST be the per-guardianship `managed_avatar_key` resolved via
+  `Mosslet.Orgs.guardian_avatar_key_for/2` (server-authoritative active-guardian
+  gate, I1) — never derived from params. `viewer_key` is the GUARDIAN's session
+  key, used only to fetch the encrypted blob from object storage on a cache miss
+  (decrypting the storage path, never the image). Returns `nil` when the managed
+  member has no personal avatar or the blob can't be fetched.
+  """
+  def get_guardian_avatar_data(%User{} = viewer, %User{} = managed_user, sealed_key, viewer_key)
+      when is_binary(sealed_key) do
+    managed_user = preload_connection(managed_user)
+    connection = managed_user.connection
+
+    cond do
+      is_nil(connection) or is_nil(connection.avatar_url) ->
+        nil
+
+      blob = AvatarProcessor.get_ets_avatar("profile-#{connection.id}") ->
+        %{encrypted_blob_b64: ensure_base64(blob), sealed_key: sealed_key}
+
+      blob = fetch_guardian_avatar_blob(connection, viewer, sealed_key, viewer_key) ->
+        %{encrypted_blob_b64: ensure_base64(blob), sealed_key: sealed_key}
+
+      true ->
+        nil
+    end
+  end
+
+  def get_guardian_avatar_data(_viewer, _managed_user, _sealed_key, _viewer_key), do: nil
+
+  # Fetches the managed member's ENCRYPTED avatar blob into the shared ETS cache
+  # on a miss, using the guardian's sealed conn_key (`managed_avatar_key`) + the
+  # guardian's session key to decrypt the storage path. The image bytes stay
+  # encrypted (secretbox under conn_key) — only the guardian's browser decrypts
+  # them. Returns the encrypted binary or nil. Synchronous (small N — a guardian
+  # has few managed members) and cached, so repeat renders never re-fetch.
+  defp fetch_guardian_avatar_blob(connection, viewer, sealed_key, viewer_key) do
+    avatars_bucket = Encrypted.Session.avatars_bucket()
+
+    with d_url when is_binary(d_url) and d_url != "" and d_url != "failed_verification" <-
+           decr_avatar(connection.avatar_url, viewer, sealed_key, viewer_key),
+         {:ok, %{body: obj}} <-
+           ExAws.S3.get_object(avatars_bucket, d_url) |> ExAws.request() do
+      AvatarProcessor.put_ets_avatar("profile-#{connection.id}", obj)
+      obj
+    else
+      _ -> nil
+    end
+  end
+
+  @doc """
+  Builds a `user_id => %{encrypted_blob_b64, sealed_key}` directory of the
+  PERSONAL avatars of the roster members the `viewer` is an ACTIVE guardian of
+  (Task #284). Server-authoritative (I1): each entry is gated by
+  `Mosslet.Orgs.guardian_avatar_key_for/2`, so only members the viewer truly
+  guards (with a sealed conn_key) appear. Members without a personal avatar are
+  omitted. Surfaced to the roster + chat so a guardian sees their child's real
+  avatar even when the child set a misleading org avatar.
+
+  `members` are roster view-models with `:user` and `:self?`. `viewer_key` is the
+  guardian's session key (for cold-cache blob fetch only).
+  """
+  def guardian_avatar_directory(members, %User{} = viewer, viewer_key) when is_list(members) do
+    members
+    |> Enum.reject(& &1.self?)
+    |> Enum.reduce(%{}, fn member, acc ->
+      with sealed_key when is_binary(sealed_key) <-
+             Mosslet.Orgs.guardian_avatar_key_for(viewer.id, member.user.id),
+           %{} = data <-
+             get_guardian_avatar_data(viewer, member.user, sealed_key, viewer_key) do
+        Map.put(acc, member.user.id, data)
+      else
+        _ -> acc
+      end
+    end)
+  end
+
+  @doc """
   Resolves encrypted avatar data for any entity that references a user:
   %User{}, %UserConnection{}, or any struct with a :user_id field (posts, replies, etc.).
 

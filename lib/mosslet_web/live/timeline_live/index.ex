@@ -299,6 +299,12 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:loading_content_filter, false)
       |> assign_keyword_filter_form()
       |> assign(:load_more_loading, false)
+      # Family guardian safety override (Task #284): if the viewer is a managed
+      # member whose guardian(s) still lack a sealed copy of their conn_key, seal
+      # it here (the timeline is where managed members are active + post). This
+      # makes the guardian's view of the managed member's PERSONAL avatar work
+      # without requiring a family-dashboard visit.
+      |> MossletWeb.GuardianAvatarSealSupport.assign_and_request(current_user)
 
     # Start async operation to load timeline data (posts and counts together)
     # This ensures data synchronization while providing loading UI
@@ -1869,6 +1875,23 @@ defmodule MossletWeb.TimelineLive.Index do
       |> put_flash(:info, "Download complete!")
 
     {:noreply, socket}
+  end
+
+  # Family guardian safety override (Task #284): the managed member's browser
+  # sealed their conn_key for each guardian; persist it so the guardian can
+  # decrypt the managed member's PERSONAL avatar. Server-authoritative +
+  # idempotent. On success, clear the now-satisfied seal targets.
+  def handle_event("finalize_managed_avatar_key", %{"sealed" => sealed}, socket)
+      when is_list(sealed) do
+    current_user = socket.assigns.current_user
+
+    case MossletWeb.GuardianAvatarSealSupport.finalize(current_user, sealed) do
+      {:ok, count} when count > 0 ->
+        {:noreply, assign(socket, :guardian_avatar_seal_targets, [])}
+
+      _ ->
+        {:noreply, socket}
+    end
   end
 
   def handle_event("toggle_read_posts", _params, socket) do
@@ -6437,7 +6460,7 @@ defmodule MossletWeb.TimelineLive.Index do
   # For current user: uses conn_key sealed key.
   # For other users: uses UserConnection.key sealed key.
   # Returns nil when avatar is hidden or data unavailable (component falls back to logo).
-  defp get_encrypted_post_author_avatar_data(post, current_user, _key) do
+  defp get_encrypted_post_author_avatar_data(post, current_user, key) do
     if post.user_id == current_user.id do
       if show_avatar?(current_user),
         do: get_encrypted_avatar_data(current_user, nil),
@@ -6445,9 +6468,37 @@ defmodule MossletWeb.TimelineLive.Index do
     else
       user_connection = get_uconn_for_shared_item(post, current_user)
 
-      if show_avatar?(user_connection),
-        do: get_encrypted_avatar_data(user_connection, nil),
-        else: nil
+      cond do
+        not is_nil(user_connection) ->
+          if show_avatar?(user_connection),
+            do: get_encrypted_avatar_data(user_connection, nil),
+            else: nil
+
+        true ->
+          # Family guardian safety override (Task #284): no personal
+          # UserConnection, but the viewer may be an ACTIVE guardian of the post
+          # author. Surface the managed member's PERSONAL avatar so a minor can't
+          # hide behind a misleading org avatar/initials. Server-authoritative —
+          # gated by Orgs.guardian_avatar_key_for/2, intentionally bypassing the
+          # managed member's display preferences for safety.
+          guardian_post_author_avatar(post, current_user, key)
+      end
+    end
+  end
+
+  defp guardian_post_author_avatar(post, current_user, key) do
+    case Mosslet.Orgs.guardian_avatar_key_for(current_user.id, post.user_id) do
+      sealed_key when is_binary(sealed_key) ->
+        case Accounts.get_user_with_preloads(post.user_id) do
+          %Mosslet.Accounts.User{} = author ->
+            MossletWeb.Helpers.get_guardian_avatar_data(current_user, author, sealed_key, key)
+
+          _ ->
+            nil
+        end
+
+      _ ->
+        nil
     end
   end
 

@@ -15,6 +15,7 @@ defmodule MossletWeb.GroupLive.Group do
   attr :viewer_sealed_org_key, :string, default: nil
   attr :org_display_names, :map, default: %{}
   attr :org_avatars, :map, default: %{}
+  attr :guardian_avatars, :map, default: %{}
 
   def show(assigns) do
     ~H"""
@@ -31,6 +32,7 @@ defmodule MossletWeb.GroupLive.Group do
         viewer_sealed_org_key={@viewer_sealed_org_key}
         org_display_names={@org_display_names}
         org_avatars={@org_avatars}
+        guardian_avatars={@guardian_avatars}
       />
 
       <div class="flex-shrink-0">
@@ -45,6 +47,7 @@ defmodule MossletWeb.GroupLive.Group do
           viewer_sealed_org_key={@viewer_sealed_org_key}
           org_display_names={@org_display_names}
           org_avatars={@org_avatars}
+          guardian_avatars={@guardian_avatars}
           id={"group-#{@group.id}-message-form"}
         />
       </div>

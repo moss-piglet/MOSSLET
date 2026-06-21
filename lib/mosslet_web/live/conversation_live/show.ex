@@ -701,7 +701,7 @@ defmodule MossletWeb.ConversationLive.Show do
             # surface the MANAGED member's ZK org display name (Task #276) — the
             # guardian is entitled to recognize their child. The 3rd party is
             # never surfaced. Falls back to "[Unknown]" otherwise.
-            resolve_guardian_partner_identity(current_user, participant_user_ids)
+            resolve_guardian_partner_identity(current_user, key, participant_user_ids)
 
           uconn ->
             {
@@ -1378,23 +1378,45 @@ defmodule MossletWeb.ConversationLive.Show do
   # co-read, so non-managed participants stay "[Unknown]".
   #
   # Returns `{name_placeholder, encrypted_avatar, org_name_data}` where
-  # `org_name_data` is `%{sealed_org_key, encrypted_display_name}` (decrypted
-  # browser-side by the DecryptComposerGuardians hook) or nil. Server-authoritative:
-  # the relationship is derived from active Guardianship records (I1), never params.
-  defp resolve_guardian_partner_identity(current_user, participant_user_ids) do
+  # `encrypted_avatar` is the managed member's PERSONAL avatar (Task #284) —
+  # `%{encrypted_blob_b64, sealed_key}` for the existing DecryptAvatar path, so a
+  # guardian sees their child's real avatar (a minor can't hide behind a
+  # misleading org avatar) — or nil. `org_name_data` is `%{sealed_org_key,
+  # encrypted_display_name}` (decrypted browser-side by DecryptComposerGuardians)
+  # or nil. Server-authoritative: the relationship is derived from active
+  # Guardianship records (I1), never params.
+  defp resolve_guardian_partner_identity(current_user, key, participant_user_ids) do
     managed_partner_id = managed_partner_for_guardian(current_user.id, participant_user_ids)
 
     org_name_data =
       managed_partner_id &&
         Mosslet.Orgs.org_name_resolution_between_users(current_user.id, managed_partner_id)
 
+    guardian_avatar = managed_guardian_avatar(current_user, key, managed_partner_id)
+
     case org_name_data do
       %{sealed_org_key: sealed_org_key, encrypted_display_name: encrypted_display_name} ->
-        {"Family member", nil,
+        {"Family member", guardian_avatar,
          %{sealed_org_key: sealed_org_key, encrypted_display_name: encrypted_display_name}}
 
       _ ->
-        {"[Unknown]", nil, nil}
+        {"[Unknown]", guardian_avatar, nil}
+    end
+  end
+
+  # The managed member's PERSONAL avatar (Task #284) when the viewer is their
+  # active guardian and the conn_key has been sealed for the guardian, else nil.
+  # Server-authoritative — gated by `Orgs.guardian_avatar_key_for/2`.
+  defp managed_guardian_avatar(_current_user, _key, nil), do: nil
+
+  defp managed_guardian_avatar(current_user, key, managed_partner_id) do
+    case Mosslet.Orgs.guardian_avatar_key_for(current_user.id, managed_partner_id) do
+      sealed_key when is_binary(sealed_key) ->
+        managed_user = Accounts.get_user!(managed_partner_id)
+        MossletWeb.Helpers.get_guardian_avatar_data(current_user, managed_user, sealed_key, key)
+
+      _ ->
+        nil
     end
   end
 

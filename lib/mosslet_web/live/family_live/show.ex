@@ -98,6 +98,18 @@ defmodule MossletWeb.FamilyLive.Show do
 
         <.org_coverage_notice status={@coverage_status} />
 
+        <%!-- Family guardian safety override (Task #284): when the viewer is a
+        managed member whose guardian(s) still lack a sealed copy of their
+        conn_key, this hidden hook seals it browser-side (the only place conn_key
+        exists) so the guardian can see the managed member's PERSONAL avatar. --%>
+        <div
+          :if={@guardian_avatar_seal_targets != []}
+          id="guardian-avatar-seal"
+          phx-hook="GuardianAvatarSeal"
+          class="hidden"
+        >
+        </div>
+
         <%!-- Managed-member transparency panel (I2, always visible) --%>
         <.transparency_panel
           :if={@my_guardianships != []}
@@ -202,6 +214,16 @@ defmodule MossletWeb.FamilyLive.Show do
               data-org-member-row
               data-encrypted-display-name={member.encrypted_display_name}
               data-encrypted-org-avatar={member.encrypted_org_avatar}
+              data-guardian-avatar-blob={
+                MossletWeb.OrgIdentity.guardian_avatar_attr(
+                  @guardian_avatars,
+                  member,
+                  :encrypted_blob_b64
+                )
+              }
+              data-guardian-sealed-key={
+                MossletWeb.OrgIdentity.guardian_avatar_attr(@guardian_avatars, member, :sealed_key)
+              }
             >
               <div class="flex items-center gap-3 min-w-0">
                 <div class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
@@ -1030,6 +1052,21 @@ defmodule MossletWeb.FamilyLive.Show do
     end
   end
 
+  # Family guardian safety override (Task #284): persist the managed member's
+  # conn_key sealed for each guardian (the viewer IS the managed member here).
+  # Server-authoritative + idempotent — only :active guardianships where this
+  # user is the managed member and the key is unset are written.
+  @impl true
+  def handle_event("finalize_managed_avatar_key", %{"sealed" => sealed}, socket)
+      when is_list(sealed) do
+    current_user = socket.assigns.current_scope.user
+
+    case Orgs.seal_managed_avatar_keys(current_user.id, sealed) do
+      {:ok, count} when count > 0 -> {:noreply, assign_family_data(socket)}
+      _ -> {:noreply, socket}
+    end
+  end
+
   ## Family circle create (Task #271 — owner-only ZK create; members are added
   ## from inside the circle via the org_key-based add flow, which also co-seals
   ## for guardians of any managed-member participants).
@@ -1437,8 +1474,27 @@ defmodule MossletWeb.FamilyLive.Show do
 
     family_circles = build_family_circles(org, current_user)
 
+    # Family guardian safety override (Task #284): guardianships where the viewer
+    # IS the managed member and their guardian still lacks a sealed copy of the
+    # viewer's conn_key. The viewer's browser (the only holder of conn_key) seals
+    # it for each guardian. Server-authoritative recipient set (I1).
+    guardian_avatar_seal_targets =
+      Orgs.list_guardianships_needing_avatar_key(current_user.id)
+      |> Enum.map(fn %{guardianship_id: gid, guardian_user: guardian} ->
+        %{
+          guardianship_id: gid,
+          public_key: guardian.key_pair["public"],
+          pq_public_key: guardian.pq_public_key
+        }
+      end)
+      |> Enum.reject(&is_nil(&1.public_key))
+
     socket
     |> assign(:members, members)
+    |> assign(
+      :guardian_avatars,
+      MossletWeb.Helpers.guardian_avatar_directory(members, current_user, key)
+    )
     |> assign(:viewer_sealed_org_key, MossletWeb.OrgIdentity.viewer_sealed_org_key(members))
     |> assign(
       :should_bootstrap_org_key?,
@@ -1456,7 +1512,9 @@ defmodule MossletWeb.FamilyLive.Show do
     |> assign(:is_owner?, Orgs.owner?(org, current_user.id))
     |> assign(:pending_transfer, Orgs.get_pending_transfer_for_org(org))
     |> assign(:family_circles, family_circles)
+    |> assign(:guardian_avatar_seal_targets, guardian_avatar_seal_targets)
     |> maybe_request_org_key_seal()
+    |> maybe_request_avatar_key_seal()
   end
 
   # Family circle view-models (Task #271): the shared family circles the viewer
@@ -1540,6 +1598,20 @@ defmodule MossletWeb.FamilyLive.Show do
 
       true ->
         socket
+    end
+  end
+
+  # Family guardian safety override (Task #284): when the viewer is a managed
+  # member whose guardian(s) still need a sealed copy of their conn_key, ask the
+  # viewer's browser (GuardianAvatarSeal hook) to seal it. The recipient set is
+  # server-authoritative (I1) — built from the active guardianship rows.
+  defp maybe_request_avatar_key_seal(socket) do
+    targets = socket.assigns.guardian_avatar_seal_targets
+
+    if connected?(socket) and targets != [] do
+      push_event(socket, "seal_avatar_key_for_guardians", %{guardians: targets})
+    else
+      socket
     end
   end
 

@@ -13,6 +13,17 @@
     <div phx-hook="RepostFormHook" id="repost-form-handler" style="display: none;"></div>
     <div phx-hook="StatusIndicatorHook" id="status-indicator-handler" style="display: none;">
     </div>
+    <%!-- Family guardian safety override (Task #284): when the viewer is a
+    managed member whose guardian(s) still need a sealed copy of their conn_key,
+    this hidden hook seals it browser-side (the only place conn_key exists) so the
+    guardian can see the managed member's PERSONAL avatar across the app. --%>
+    <div
+      :if={@guardian_avatar_seal_targets != []}
+      id="guardian-avatar-seal"
+      phx-hook="GuardianAvatarSeal"
+      style="display: none;"
+    >
+    </div>
     <MossletWeb.DesignSystem.liquid_container
       max_width="lg"
       class="space-y-6 sm:space-y-8 pt-6 sm:pt-8 pb-24 sm:pb-8"

@@ -548,6 +548,7 @@ defmodule MossletWeb.OrgCircleSupport do
     |> assign(:members, members)
     |> assign(:org_display_names, OrgIdentity.display_name_directory(members))
     |> assign(:org_avatars, OrgIdentity.org_avatar_directory(members))
+    |> assign(:guardian_avatars, guardian_avatar_directory(org, members, current_user, key))
     |> assign(:addable_members, addable_members(org_members, circle_member_ids))
     |> assign(:can_manage_circle?, can_edit_group?(user_group, current_user))
     |> assign(:can_leave_circle?, not is_nil(user_group) and group.user_id != current_user.id)
@@ -680,6 +681,15 @@ defmodule MossletWeb.OrgCircleSupport do
   end
 
   defp guardian_coread_ids(_org, _selected_ids, _eligible_ids), do: []
+
+  # Family guardian safety override (Task #284): the viewer's personal-avatar
+  # directory for the managed members they guard among the circle roster. Only
+  # family orgs have guardianships — business orgs skip the lookup entirely.
+  defp guardian_avatar_directory(%{type: :family}, members, current_user, key) do
+    MossletWeb.Helpers.guardian_avatar_directory(members, current_user, key)
+  end
+
+  defp guardian_avatar_directory(_org, _members, _current_user, _key), do: %{}
 
   ## Internals
 

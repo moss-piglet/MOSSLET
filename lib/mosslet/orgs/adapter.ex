@@ -137,6 +137,17 @@ defmodule Mosslet.Orgs.Adapter do
               author_user_id :: String.t()
             ) :: %{sealed_org_key: binary(), encrypted_display_name: binary()} | nil
 
+  # Family guardian safety override (Task #284): co-seal the managed member's
+  # conn_key for their guardian so the guardian can decrypt the personal avatar.
+  @callback list_guardianships_needing_avatar_key(managed_user_id :: String.t()) ::
+              [%{guardianship_id: String.t(), guardian_user: User.t()}]
+  @callback seal_managed_avatar_keys(managed_user_id :: String.t(), sealed_list :: [map()]) ::
+              {:ok, non_neg_integer()} | {:error, term()}
+  @callback guardian_avatar_key_for(
+              guardian_user_id :: String.t(),
+              managed_user_id :: String.t()
+            ) :: binary() | nil
+
   # Ownership transfer handshake (Task #237).
   @callback insert_ownership_transfer(attrs :: map()) ::
               {:ok, OwnershipTransfer.t()} | {:error, Ecto.Changeset.t()}

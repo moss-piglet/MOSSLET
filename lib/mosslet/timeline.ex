@@ -3579,8 +3579,28 @@ defmodule Mosslet.Timeline do
       Phoenix.PubSub.broadcast(Mosslet.PubSub, "priv_posts:#{user_id}", {event, post})
     end)
 
+    # Drop each recipient's cached home timeline so a full reload re-fetches and
+    # includes this post. Realtime push updates the live stream for OPEN sessions,
+    # but the 5-minute cache would otherwise serve a stale (pre-post) feed on
+    # refresh — e.g. a guardian's co-read of a managed member's :private post
+    # vanishing on reload until the cache expired.
+    invalidate_recipient_home_caches(recipient_ids, event)
+
     {:ok, post}
   end
+
+  # Invalidate the "home" timeline cache for post recipients on create/delete so a
+  # subsequent full reload reflects the change (the realtime stream already
+  # updates open sessions). Scoped to the explicit recipient set (author +
+  # co-seal recipients like guardians + specific_users), so it stays low-volume.
+  defp invalidate_recipient_home_caches(user_ids, event)
+       when event in [:post_created, :post_deleted] do
+    Enum.each(user_ids, fn user_id ->
+      TimelineCache.invalidate_timeline(user_id, "home")
+    end)
+  end
+
+  defp invalidate_recipient_home_caches(_user_ids, _event), do: :ok
 
   defp private_reply_broadcast({:ok, reply}, event) do
     post = get_post!(reply.post_id)
@@ -3618,6 +3638,9 @@ defmodule Mosslet.Timeline do
             )
           end)
 
+          # Explicit recipients (incl. guardian co-readers) get a fresh reload.
+          invalidate_recipient_home_caches(all_recipient_ids, event)
+
         true ->
           connection_ids =
             conn.user_connections
@@ -3638,6 +3661,12 @@ defmodule Mosslet.Timeline do
               {event, post}
             )
           end)
+
+          # Invalidate the home cache for the author + co-seal recipients (e.g.
+          # guardians) so their reload re-fetches and includes this post. We do
+          # NOT invalidate the full connection set here — that high-volume feed
+          # keeps its existing short-TTL eventual consistency.
+          invalidate_recipient_home_caches([post.user_id | shared_user_ids], event)
       end
 
       {:ok, post}

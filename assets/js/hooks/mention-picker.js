@@ -686,6 +686,19 @@ const MentionPicker = {
         if (url) result.avatar_src = url;
       }
 
+      // Family guardian safety override (Task #284): if the VIEWER is an active
+      // guardian of this member (server-authoritative — the member carries their
+      // conn_key sealed for this guardian), show the member's PERSONAL avatar so
+      // a minor can't hide behind a misleading org avatar. Takes precedence over
+      // the org avatar/initials above.
+      if (member.guardian_avatar_blob && member.guardian_sealed_key && !member.is_self) {
+        const personalUrl = await this._decryptConnectionAvatar({
+          encrypted_blob_b64: member.guardian_avatar_blob,
+          sealed_key: member.guardian_sealed_key,
+        });
+        if (personalUrl) result.avatar_src = personalUrl;
+      }
+
       if (!result.avatar_src && !member.is_self) {
         result.avatar_src = "/images/groups/default.png";
       }

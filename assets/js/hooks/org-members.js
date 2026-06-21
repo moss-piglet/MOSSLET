@@ -33,6 +33,9 @@ import {
   getPublicKey,
   getPqPublicKey,
   unwrapKey,
+  unwrapConnKey,
+  decryptSecretbox,
+  b64Encode,
 } from "../crypto/session";
 import { generateKey, sealForUser, b64Decode } from "../crypto/nacl";
 import { orgInitialsDataUrl, decryptOrgAvatarUrl } from "./org-avatar";
@@ -110,10 +113,17 @@ const OrgMembers = {
       // Org-scoped ZK display AVATAR (Task #277): fill the row's avatar <img>
       // with the member's org avatar, or initials from their org name. Persona
       // separation — never their personal avatar.
+      //
+      // EXCEPTION — family guardian safety override (Task #284): if the viewer
+      // is an ACTIVE guardian of this member (server-authoritative — the row
+      // carries the member's conn_key sealed for THIS guardian), show the
+      // member's PERSONAL avatar so a minor can't hide behind a misleading org
+      // avatar. Falls back to org avatar / initials if that decrypt fails.
       const avatarEl = row.querySelector("[data-org-avatar-target]");
       if (avatarEl) {
         const encryptedAvatar = row.dataset.encryptedOrgAvatar;
         const url =
+          (await this._guardianPersonalAvatarUrl(row)) ||
           (await decryptOrgAvatarUrl(encryptedAvatar, orgKey)) ||
           orgInitialsDataUrl(name);
         if (url) {
@@ -126,6 +136,26 @@ const OrgMembers = {
       }
     }
     this._decrypted = true;
+  },
+
+  // Family guardian safety override (Task #284): decrypt the managed member's
+  // PERSONAL avatar from their conn_key sealed for THIS guardian. Returns a
+  // data: URL or null (caller then falls back to org avatar / initials).
+  async _guardianPersonalAvatarUrl(row) {
+    const blob = row.dataset.guardianAvatarBlob;
+    const sealedKey = row.dataset.guardianSealedKey;
+    if (!blob || !sealedKey) return null;
+
+    try {
+      const raw = await unsealContextKey(sealedKey);
+      if (!raw) return null;
+      const connKey = unwrapConnKey(raw);
+      const bytes = await decryptSecretbox(blob, connKey);
+      if (!bytes) return null;
+      return `data:image/webp;base64,${b64Encode(bytes)}`;
+    } catch (_e) {
+      return null;
+    }
   },
 
   // Owner bootstrap (design Q1=A): nobody holds the org_key yet. Generate it,

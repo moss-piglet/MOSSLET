@@ -256,6 +256,7 @@ defmodule MossletWeb.OrgCircleComponents do
   attr :current_user_group, :map, default: nil
   attr :sealed_group_key, :string, default: nil
   attr :viewer_sealed_org_key, :string, default: nil
+  attr :guardian_avatars, :map, default: %{}
   attr :org_path, :string, required: true
 
   def circle_members_roster(assigns) do
@@ -293,6 +294,12 @@ defmodule MossletWeb.OrgCircleComponents do
           data-org-member-row
           data-encrypted-display-name={member.encrypted_display_name}
           data-encrypted-org-avatar={member.encrypted_org_avatar}
+          data-guardian-avatar-blob={
+            OrgIdentity.guardian_avatar_attr(@guardian_avatars, member, :encrypted_blob_b64)
+          }
+          data-guardian-sealed-key={
+            OrgIdentity.guardian_avatar_attr(@guardian_avatars, member, :sealed_key)
+          }
         >
           <div class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full overflow-hidden bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/40 dark:to-emerald-900/40 text-teal-600 dark:text-teal-300">
             <span data-org-avatar-fallback class="flex items-center justify-center">
@@ -468,6 +475,11 @@ defmodule MossletWeb.OrgCircleComponents do
     doc:
       "user_id => encrypted org avatar ciphertext (org_key-secretbox), for org-mate recognition"
 
+  attr :guardian_avatars, :map,
+    default: %{},
+    doc:
+      "user_id => %{encrypted_blob_b64, sealed_key}, the managed member's PERSONAL avatar surfaced to their guardian (Task #284)"
+
   def circle_chat_panel(assigns) do
     ~H"""
     <section
@@ -511,6 +523,7 @@ defmodule MossletWeb.OrgCircleComponents do
           viewer_sealed_org_key={@viewer_sealed_org_key}
           org_display_names={@org_display_names}
           org_avatars={@org_avatars}
+          guardian_avatars={@guardian_avatars}
         />
       </div>
 

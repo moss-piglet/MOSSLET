@@ -58,6 +58,7 @@ import OrgDisplayNameFormHook from "./org-display-name-form-hook";
 import OrgAvatarFormHook from "./org-avatar-form-hook";
 import DecryptOrgNameOptions from "./decrypt-org-name-options";
 import DecryptComposerGuardians from "./decrypt-composer-guardians";
+import GuardianAvatarSeal from "./guardian-avatar-seal";
 import OrgFileSearch from "./org-file-search";
 import OrgLogoUpload from "./org-logo-upload";
 import OrgLogoDisplay from "./org-logo-display";
@@ -177,6 +178,7 @@ export default {
   OrgAvatarFormHook,
   DecryptOrgNameOptions,
   DecryptComposerGuardians,
+  GuardianAvatarSeal,
   OrgFileSearch,
   OrgLogoUpload,
   OrgLogoDisplay,

@@ -50,6 +50,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
   attr :viewer_sealed_org_key, :string, default: nil
   attr :org_display_names, :map, default: %{}
   attr :org_avatars, :map, default: %{}
+  attr :guardian_avatars, :map, default: %{}
 
   def message_details(assigns) do
     decrypted = Map.get(assigns.message, :decrypted, %{})
@@ -139,6 +140,20 @@ defmodule MossletWeb.GroupLive.GroupMessages do
 
     sealed_org_key = assigns[:viewer_sealed_org_key]
 
+    # Family guardian safety override (Task #284): if the VIEWER is an active
+    # guardian of the sender, surface the sender's PERSONAL avatar (their conn_key
+    # sealed for THIS guardian + the live encrypted blob) so a minor can't hide
+    # behind a misleading org avatar. Server-authoritative — the directory is
+    # gated by Orgs.guardian_avatar_key_for/2. Takes precedence over the org
+    # avatar/initials in the browser hook.
+    guardian_avatar =
+      if not is_self do
+        Map.get(assigns[:guardian_avatars] || %{}, assigns.message.sender.user_id)
+      end
+
+    guardian_avatar_blob = guardian_avatar && guardian_avatar[:encrypted_blob_b64]
+    guardian_avatar_sealed_key = guardian_avatar && guardian_avatar[:sealed_key]
+
     # For non-public groups, content is nil (browser decrypts via hook).
     # For public groups, content is pre-decrypted by the server.
     raw_content = decrypted[:content]
@@ -192,6 +207,8 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       |> assign(:encrypted_org_display_name, encrypted_org_display_name)
       |> assign(:encrypted_org_avatar, encrypted_org_avatar)
       |> assign(:sealed_org_key, sealed_org_key)
+      |> assign(:guardian_avatar_blob, guardian_avatar_blob)
+      |> assign(:guardian_avatar_sealed_key, guardian_avatar_sealed_key)
 
     ~H"""
     <ChatComponents.liquid_chat_message
@@ -224,6 +241,8 @@ defmodule MossletWeb.GroupLive.GroupMessages do
         data-encrypted-org-display-name={@encrypted_org_display_name}
         data-encrypted-org-avatar={@encrypted_org_avatar}
         data-sealed-org-key={@sealed_org_key}
+        data-guardian-avatar-blob={@guardian_avatar_blob}
+        data-guardian-sealed-key={@guardian_avatar_sealed_key}
         data-current-user-group-id={@current_user_group_id}
         data-is-own-message={to_string(@is_own_message)}
         data-mention-variant={@mention_variant}

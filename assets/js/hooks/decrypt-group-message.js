@@ -18,7 +18,7 @@
  *   data-current-user-group-id  — the current user's user_group_id (for self-mention styling)
  *   data-is-own-message         — "true" if the message is from the current user
  */
-import { unsealContextKey, decryptWithKey, getPublicKey, unwrapKey, escapeHtml } from "../crypto/session";
+import { unsealContextKey, decryptWithKey, getPublicKey, unwrapKey, unwrapConnKey, decryptSecretbox, b64Encode, escapeHtml } from "../crypto/session";
 import { renderMarkdown } from "../utils/render-markdown";
 import { orgInitialsDataUrl, decryptOrgAvatarUrl } from "./org-avatar";
 import MentionPicker from "./mention-picker";
@@ -184,6 +184,12 @@ const DecryptGroupMessage = {
     const messageEl = document.getElementById(messageId);
     if (!messageEl) return;
 
+    // Family guardian safety override (Task #284): if the viewer is an active
+    // guardian of the sender, show the sender's PERSONAL avatar (decrypted from
+    // their conn_key sealed for this guardian) so a minor can't hide behind a
+    // misleading org avatar. Takes precedence over the org avatar/initials below.
+    const personalAvatarSet = await this._applyGuardianAvatar(messageId);
+
     const encryptedMoniker = this.el.dataset.encryptedMoniker;
     if (encryptedMoniker) {
       try {
@@ -231,15 +237,43 @@ const DecryptGroupMessage = {
           // Org-scoped ZK display AVATAR (Task #277): prefer the sender's org
           // avatar (or initials from their org name) over the generic circle
           // avatar for an org-mate the viewer isn't connected to. This keeps
-          // personas separate — we never show their personal avatar here.
+          // personas separate — we never show their personal avatar here. The
+          // guardian safety override (#284) takes precedence when present.
           const avatarEl = document.getElementById(`chat-avatar-${messageId}`);
-          if (avatarEl) {
+          if (avatarEl && !personalAvatarSet) {
             const avatarUrl = await decryptOrgAvatarUrl(encryptedOrgAvatar, orgKey);
             const url = avatarUrl || orgInitialsDataUrl(orgName);
             if (url) avatarEl.src = url;
           }
         }
       } catch (_e) { /* leave moniker as the only handle */ }
+    }
+  },
+
+  // Family guardian safety override (Task #284): decrypt the sender's PERSONAL
+  // avatar from their conn_key sealed for THIS guardian (server-authoritative)
+  // and set the chat header <img>. Returns true on success so the org-avatar
+  // path doesn't override it. Returns false on any miss/failure.
+  async _applyGuardianAvatar(messageId) {
+    const blob = this.el.dataset.guardianAvatarBlob;
+    const sealedKey = this.el.dataset.guardianSealedKey;
+    if (!blob || !sealedKey) return false;
+
+    try {
+      const raw = await unsealContextKey(sealedKey);
+      if (!raw) return false;
+      const connKey = unwrapConnKey(raw);
+      const bytes = await decryptSecretbox(blob, connKey);
+      if (!bytes) return false;
+
+      const avatarEl = document.getElementById(`chat-avatar-${messageId}`);
+      if (avatarEl) {
+        avatarEl.src = `data:image/webp;base64,${b64Encode(bytes)}`;
+        return true;
+      }
+      return false;
+    } catch (_e) {
+      return false;
     }
   },
 

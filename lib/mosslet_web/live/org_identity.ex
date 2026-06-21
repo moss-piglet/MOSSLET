@@ -110,6 +110,24 @@ defmodule MossletWeb.OrgIdentity do
   end
 
   @doc """
+  Template helper (Task #284): pulls a single field (`:encrypted_blob_b64` or
+  `:sealed_key`) out of the guardian-avatar directory for a roster member's row,
+  or `nil` when the viewer doesn't guard them. The directory is built by
+  `MossletWeb.Helpers.guardian_avatar_directory/3`; values are
+  `%{encrypted_blob_b64, sealed_key}`. Embedding ciphertext + a sealed key is
+  ZK-safe — only the guardian's browser can unseal + decrypt.
+  """
+  def guardian_avatar_attr(guardian_avatars, member, field)
+      when is_map(guardian_avatars) and is_atom(field) do
+    case Map.get(guardian_avatars, member.user.id) do
+      %{} = data -> Map.get(data, field)
+      _ -> nil
+    end
+  end
+
+  def guardian_avatar_attr(_guardian_avatars, _member, _field), do: nil
+
+  @doc """
   Whether to show the one-tap "Connect with teammate" button for a roster row
   (Task #226): only for other members the viewer has no personal `UserConnection`
   with yet. Hidden for self, and once a request is pending or connected.

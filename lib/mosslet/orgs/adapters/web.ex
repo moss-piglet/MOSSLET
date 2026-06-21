@@ -737,6 +737,83 @@ defmodule Mosslet.Orgs.Adapters.Web do
 
   def org_name_resolution_between_users(_, _), do: nil
 
+  ## Family guardian safety override (Task #284)
+
+  @impl true
+  def list_guardianships_needing_avatar_key(managed_user_id) when is_binary(managed_user_id) do
+    managed_user_id
+    |> Guardianship.active_needing_avatar_key_for_managed_user()
+    |> Repo.all()
+  end
+
+  def list_guardianships_needing_avatar_key(_), do: []
+
+  @impl true
+  def seal_managed_avatar_keys(managed_user_id, sealed_list)
+      when is_binary(managed_user_id) and is_list(sealed_list) do
+    # Server-authoritative recipient set (I1): we only persist a sealed key into a
+    # guardianship that is :active, where this user IS the managed member, and the
+    # key is not already set. A tampered client cannot seal into an unrelated
+    # guardianship — the candidate set is derived purely from the active
+    # guardianship rows for this managed user. Each write goes through
+    # `seal_avatar_key_changeset/2` + `Repo.update` so Cloak wrapping applies.
+    candidates =
+      managed_user_id
+      |> Guardianship.active_needing_avatar_key_for_managed_user()
+      |> Repo.all()
+      |> Map.new(&{&1.guardianship_id, true})
+
+    result =
+      Repo.transaction_on_primary(fn ->
+        Enum.reduce(sealed_list, 0, fn entry, acc ->
+          entry = Map.new(entry, fn {k, v} -> {to_string(k), v} end)
+          guardianship_id = entry["guardianship_id"]
+          sealed_key = entry["sealed_key"]
+
+          cond do
+            not is_binary(sealed_key) ->
+              acc
+
+            not is_binary(guardianship_id) ->
+              acc
+
+            not Map.has_key?(candidates, guardianship_id) ->
+              acc
+
+            true ->
+              case Repo.get(Guardianship, guardianship_id) do
+                %Guardianship{} = g ->
+                  case g
+                       |> Guardianship.seal_avatar_key_changeset(sealed_key)
+                       |> Repo.update() do
+                    {:ok, _} -> acc + 1
+                    {:error, _} -> acc
+                  end
+
+                _ ->
+                  acc
+              end
+          end
+        end)
+      end)
+
+    case result do
+      {:ok, count} when is_integer(count) -> {:ok, count}
+      error -> error
+    end
+  end
+
+  def seal_managed_avatar_keys(_, _), do: {:ok, 0}
+
+  @impl true
+  def guardian_avatar_key_for(guardian_user_id, managed_user_id)
+      when is_binary(guardian_user_id) and is_binary(managed_user_id) do
+    Guardianship.active_avatar_key_for(guardian_user_id, managed_user_id)
+    |> Repo.one()
+  end
+
+  def guardian_avatar_key_for(_, _), do: nil
+
   defp update_guardianship_status(guardianship, attrs) do
     case Repo.transaction_on_primary(fn ->
            guardianship
