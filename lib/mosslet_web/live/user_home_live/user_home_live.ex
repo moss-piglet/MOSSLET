@@ -82,7 +82,6 @@ defmodule MossletWeb.UserHomeLive do
       |> assign(:uploads_in_progress, false)
       |> assign(:trix_key, nil)
       |> assign(:profile_user, profile_user)
-      |> assign(:current_user_is_profile_owner?, profile_owner?)
       |> assign(:user_connection, user_connection)
       |> assign(:user_connections, user_connections)
       |> assign(:post_shared_users, post_shared_users)
@@ -344,7 +343,7 @@ defmodule MossletWeb.UserHomeLive do
   end
 
   def handle_info({:uconn_visibility_updated, uconn}, socket) do
-    profile_owner? = socket.assigns.current_user_is_profile_owner?
+    profile_owner? = socket.assigns.profile.owner?
     profile_user = socket.assigns.profile_user
 
     cond do
@@ -360,7 +359,7 @@ defmodule MossletWeb.UserHomeLive do
   end
 
   def handle_info({:uconn_updated, uconn}, socket) do
-    profile_owner? = socket.assigns.current_user_is_profile_owner?
+    profile_owner? = socket.assigns.profile.owner?
     profile_user = socket.assigns.profile_user
 
     cond do
@@ -381,7 +380,7 @@ defmodule MossletWeb.UserHomeLive do
   end
 
   def handle_info({:uconn_avatar_updated, uconn}, socket) do
-    profile_owner? = socket.assigns.current_user_is_profile_owner?
+    profile_owner? = socket.assigns.profile.owner?
     profile_user = socket.assigns.profile_user
 
     cond do
@@ -397,7 +396,7 @@ defmodule MossletWeb.UserHomeLive do
   end
 
   def handle_info({:conn_updated, uconn}, socket) do
-    profile_owner? = socket.assigns.current_user_is_profile_owner?
+    profile_owner? = socket.assigns.profile.owner?
     profile_user = socket.assigns.profile_user
 
     cond do
@@ -2662,204 +2661,18 @@ defmodule MossletWeb.UserHomeLive do
         <div phx-hook="RepostFormHook" id="repost-form-handler" style="display: none;"></div>
         <%!-- Hero Section with responsive design --%>
         <div class="relative overflow-hidden">
-          <%!-- Banner/Cover Image Section --%>
-          <div class="relative h-48 sm:h-64 lg:h-80 bg-gradient-to-br from-teal-100 via-emerald-50 to-cyan-100 dark:from-teal-900/40 dark:via-emerald-900/30 dark:to-cyan-900/40">
-            <%!-- Custom banner image if available --%>
-            <% banner_data = get_async_banner_data(@custom_banner_src) %>
-            <%= cond do %>
-              <% @custom_banner_src.loading -> %>
-                <div class="absolute inset-0 flex items-center justify-center">
-                  <div class="w-10 h-10 border-3 border-purple-400 border-t-transparent rounded-full animate-spin">
-                  </div>
-                </div>
-              <% banner_data -> %>
-                <div
-                  id="profile-banner-img"
-                  phx-hook="DecryptAvatar"
-                  data-encrypted-blob={banner_data[:encrypted_blob_b64]}
-                  data-sealed-key={banner_data[:sealed_key]}
-                  data-mime="image/webp"
-                  class="absolute inset-0"
-                >
-                  <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
-                </div>
-              <% get_banner_image_for_connection(@profile_user.connection) != "" -> %>
-                <div
-                  class="absolute inset-0 bg-cover bg-center bg-no-repeat"
-                  style={"background-image: url('/images/profile/#{get_banner_image_for_connection(@profile_user.connection)}')"}
-                >
-                  <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
-                </div>
-              <% true -> %>
-            <% end %>
-
-            <%!-- Liquid metal overlay pattern --%>
-            <div class="absolute inset-0 opacity-20">
-              <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-pulse">
-              </div>
-            </div>
-          </div>
+          <MossletWeb.ProfileComponents.profile_hero
+            access={@profile.access}
+            connection={@profile_user.connection}
+            custom_banner_src={@custom_banner_src}
+          />
 
           <%!-- Profile Header --%>
-          <div class="relative px-4 sm:px-6 lg:px-8 -mt-8 sm:-mt-12 lg:-mt-16">
-            <div class="mx-auto max-w-7xl">
-              <div class="relative pb-8">
-                <%!-- Avatar and Basic Info --%>
-                <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                  <%!-- Enhanced Avatar with built-in status support --%>
-                  <div class="relative flex-shrink-0">
-                    <MossletWeb.DesignSystem.liquid_avatar
-                      src={
-                        if not @profile_user.connection.profile.show_avatar?,
-                          do: nil
-                      }
-                      encrypted_avatar_data={
-                        if @profile_user.connection.profile.show_avatar?,
-                          do: get_encrypted_avatar_data(@current_scope.user, @current_scope.key)
-                      }
-                      name={@profile.identity.name}
-                      size="xxl"
-                      status={to_string(@current_scope.user.status)}
-                      status_message={
-                        get_user_status_message(
-                          @current_scope.user,
-                          @current_scope.user,
-                          @current_scope.key
-                        )
-                      }
-                      show_status={
-                        can_view_status?(@current_scope.user, @current_scope.user, @current_scope.key)
-                      }
-                      user_id={@current_scope.user.id}
-                      id="user-home-profile-avatar"
-                      verified={@current_scope.user.connection.profile.visibility == "public"}
-                    />
-                  </div>
-
-                  <%!-- Name, username, and actions --%>
-                  <div class="flex-1 text-center sm:text-left space-y-4">
-                    <%!-- Name and username --%>
-                    <div class="space-y-1">
-                      <h1
-                        :if={@current_scope.user.connection.profile.show_name?}
-                        class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
-                      >
-                        {@profile.identity.name}
-                      </h1>
-
-                      <h1
-                        :if={!@current_scope.user.connection.profile.show_name?}
-                        class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
-                      >
-                        {"Profile 🌿"}
-                      </h1>
-                      <div class="flex items-center justify-center sm:justify-start gap-2 flex-wrap text-lg text-emerald-600 dark:text-emerald-400">
-                        <%!-- username badge --%>
-                        <MossletWeb.DesignSystem.liquid_badge
-                          variant="soft"
-                          color={
-                            if(@profile_user.connection.profile.visibility == "public",
-                              do: "cyan",
-                              else: "emerald"
-                            )
-                          }
-                          size="sm"
-                        >
-                          @<span data-decrypt-field="username">{@current_scope.user.decrypted[
-                            :username
-                          ]}</span>
-                        </MossletWeb.DesignSystem.liquid_badge>
-
-                        <%!-- Email badge if show_email? is true --%>
-                        <MossletWeb.DesignSystem.liquid_badge
-                          :if={@current_scope.user.connection.profile.show_email?}
-                          variant="soft"
-                          color={
-                            if(@profile_user.connection.profile.visibility == "public",
-                              do: "cyan",
-                              else: "emerald"
-                            )
-                          }
-                          size="sm"
-                        >
-                          <.phx_icon name="hero-envelope" class="size-3 mr-1" />
-                          <span data-decrypt-field="email">
-                            {@current_scope.user.decrypted[:email]}
-                          </span>
-                        </MossletWeb.DesignSystem.liquid_badge>
-
-                        <%!-- Visibility badge --%>
-                        <MossletWeb.DesignSystem.liquid_badge
-                          variant="soft"
-                          color={
-                            if(@profile_user.connection.profile.visibility == "public",
-                              do: "cyan",
-                              else: "emerald"
-                            )
-                          }
-                          size="sm"
-                        >
-                          <.phx_icon
-                            name={
-                              if(@current_scope.user.connection.profile.visibility == "public",
-                                do: "hero-globe-alt",
-                                else: "hero-lock-closed"
-                              )
-                            }
-                            class="size-3 mr-1"
-                          />
-                          {String.capitalize(
-                            to_string(@current_scope.user.connection.profile.visibility)
-                          )}
-                        </MossletWeb.DesignSystem.liquid_badge>
-                      </div>
-                    </div>
-
-                    <%!-- Action buttons --%>
-                    <div class="flex flex-col sm:flex-row items-center gap-3">
-                      <%!-- Edit Profile --%>
-                      <MossletWeb.DesignSystem.liquid_button
-                        navigate={~p"/app/users/edit-profile"}
-                        variant="primary"
-                        color="teal"
-                        icon="hero-pencil-square"
-                        class="w-full sm:w-auto"
-                      >
-                        Edit Profile
-                      </MossletWeb.DesignSystem.liquid_button>
-
-                      <%!-- Status Settings --%>
-                      <MossletWeb.DesignSystem.liquid_button
-                        navigate={~p"/app/users/edit-status"}
-                        variant="secondary"
-                        color="blue"
-                        icon="hero-face-smile"
-                        size="md"
-                        class="w-full sm:w-auto"
-                      >
-                        Status Settings
-                      </MossletWeb.DesignSystem.liquid_button>
-
-                      <%!-- Share Profile
-
-                <MossletWeb.DesignSystem.liquid_button
-                  variant="ghost"
-                  color="slate"
-                  icon="hero-share"
-                  size="md"
-                  phx-click="share_profile"
-                  data-tippy-content="Share your profile"
-                  phx-hook="TippyHook"
-                >
-                  Share
-                </MossletWeb.DesignSystem.liquid_button>
-                --%>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <MossletWeb.ProfileComponents.profile_header
+            profile={@profile}
+            profile_user={@profile_user}
+            current_scope={@current_scope}
+          />
         </div>
 
         <%!-- Main Content --%>
@@ -2892,128 +2705,26 @@ defmodule MossletWeb.UserHomeLive do
             <%!-- Profile Details: contact, about, and posts --%>
             <div class="space-y-8" data-profile-scope="own-profile">
               <%!-- DecryptProfileFields hook for browser-side ZK decryption --%>
-              <div
-                :if={@profile.fields && @profile.fields[:browser_decrypt?]}
+              <MossletWeb.ProfileComponents.profile_decrypt_fields
+                profile={@profile}
                 id="decrypt-own-profile-fields"
-                phx-hook="DecryptProfileFields"
-                phx-update="ignore"
-                data-profile-id="own-profile"
-                data-sealed-profile-key={@profile.fields[:sealed_profile_key]}
-                data-encrypted-about={@profile.fields[:encrypted_about]}
-                data-encrypted-alternate-email={@profile.fields[:encrypted_alternate_email]}
-                data-encrypted-website-url={@profile.fields[:encrypted_website_url]}
-                data-encrypted-website-label={@profile.fields[:encrypted_website_label]}
-                data-encrypted-name={@profile.fields[:encrypted_name]}
-                data-encrypted-username={@profile.fields[:encrypted_username]}
-                data-encrypted-email={@profile.fields[:encrypted_email]}
-                class="hidden"
-              >
-              </div>
+                profile_id="own-profile"
+              />
               <%!-- Contact & Links Section --%>
-              <MossletWeb.DesignSystem.liquid_card
-                :if={has_contact_links?(@current_scope.user.connection.profile)}
-                heading_level={2}
-              >
-                <:title>
-                  <div class="flex items-center gap-2">
-                    <.phx_icon name="hero-link" class="size-5 text-violet-600 dark:text-violet-400" />
-                    Contact & Links
-                  </div>
-                </:title>
-                <div class="space-y-4">
-                  <div
-                    :if={@current_scope.user.connection.profile.alternate_email}
-                    class="flex items-center gap-3"
-                  >
-                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
-                      <.phx_icon name="hero-envelope" class="size-5 text-teal-600 dark:text-teal-400" />
-                    </div>
-                    <div>
-                      <p class="text-sm text-slate-500 dark:text-slate-400">Contact Email</p>
-                      <a
-                        data-decrypt-profile="alternate_email"
-                        href={
-                          if @profile.fields && @profile.fields[:alternate_email],
-                            do: "mailto:#{@profile.fields[:alternate_email]}",
-                            else: "#"
-                        }
-                        class={[
-                          "text-slate-900 dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors",
-                          @profile.fields && @profile.fields[:browser_decrypt?] && "animate-pulse"
-                        ]}
-                      >
-                        {if @profile.fields, do: @profile.fields[:alternate_email], else: "..."}
-                      </a>
-                    </div>
-                  </div>
-
-                  <MossletWeb.MediaComponents.website_url_preview
-                    :if={@current_scope.user.connection.profile.website_url}
-                    preview={@website_url_preview}
-                    loading={@website_url_preview_loading}
-                    url={if @profile.fields, do: @profile.fields[:website_url]}
-                    label={
-                      cond do
-                        @profile.fields && @profile.fields[:website_label] ->
-                          @profile.fields[:website_label]
-
-                        @current_scope.user.connection.profile.website_label ->
-                          "..."
-
-                        true ->
-                          "Website"
-                      end
-                    }
-                  />
-                </div>
-              </MossletWeb.DesignSystem.liquid_card>
+              <MossletWeb.ProfileComponents.profile_contact_card
+                profile={@profile}
+                profile_user={@profile_user}
+                current_scope={@current_scope}
+                website_url_preview={@website_url_preview}
+                website_url_preview_loading={@website_url_preview_loading}
+              />
 
               <%!-- About Section --%>
-              <MossletWeb.DesignSystem.liquid_card heading_level={2}>
-                <:title>
-                  <div class="flex items-center gap-2">
-                    <.phx_icon name="hero-user" class="size-5 text-teal-600 dark:text-teal-400" />
-                    About
-                  </div>
-                </:title>
-                <div
-                  :if={@current_scope.user.connection.profile.about}
-                  class="prose prose-slate dark:prose-invert max-w-none"
-                >
-                  <p
-                    data-decrypt-profile="about"
-                    class={[
-                      "text-slate-700 dark:text-slate-300 leading-relaxed",
-                      @profile.fields && @profile.fields[:browser_decrypt?] && "animate-pulse"
-                    ]}
-                  >
-                    {if @profile.fields, do: @profile.fields[:about], else: "..."}
-                  </p>
-                </div>
-                <div
-                  :if={!@current_scope.user.connection.profile.about}
-                  class="text-center py-8"
-                >
-                  <div class="mb-4">
-                    <.phx_icon
-                      name="hero-chat-bubble-left-right"
-                      class="size-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"
-                    />
-                    <p class="text-sm text-slate-600 dark:text-slate-400">
-                      Share something about yourself!
-                    </p>
-                  </div>
-                  <MossletWeb.DesignSystem.liquid_button
-                    navigate={~p"/app/users/edit-profile"}
-                    variant="secondary"
-                    color="teal"
-                    size="sm"
-                    icon="hero-plus"
-                  >
-                    Add Bio
-                  </MossletWeb.DesignSystem.liquid_button>
-                </div>
-              </MossletWeb.DesignSystem.liquid_card>
+              <MossletWeb.ProfileComponents.profile_about
+                profile={@profile}
+                profile_user={@profile_user}
+                current_scope={@current_scope}
+              />
 
               <%!-- Posts Section --%>
               <MossletWeb.DesignSystem.liquid_card heading_level={2}>
@@ -3380,213 +3091,35 @@ defmodule MossletWeb.UserHomeLive do
         <div phx-hook="ImageDownloadHook" id="image-download-handler" style="display: none;"></div>
         <div phx-hook="RepostFormHook" id="repost-form-handler" style="display: none;"></div>
         <div class="relative overflow-hidden">
-          <div class="relative h-48 sm:h-64 lg:h-80 bg-gradient-to-br from-teal-100 via-emerald-50 to-cyan-100 dark:from-teal-900/40 dark:via-emerald-900/30 dark:to-cyan-900/40">
-            <div
-              :if={get_banner_image_for_connection(@profile_user.connection) != ""}
-              class="absolute inset-0 bg-cover bg-center bg-no-repeat"
-              style={"background-image: url('/images/profile/#{get_banner_image_for_connection(@profile_user.connection)}')"}
-            >
-              <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
-            </div>
+          <MossletWeb.ProfileComponents.profile_hero
+            access={@profile.access}
+            connection={@profile_user.connection}
+          />
 
-            <div class="absolute inset-0 opacity-20">
-              <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-pulse">
-              </div>
-            </div>
-          </div>
-
-          <div class="relative px-4 sm:px-6 lg:px-8 -mt-8 sm:-mt-12 lg:-mt-16">
-            <div class="mx-auto max-w-7xl">
-              <div class="relative pb-8">
-                <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                  <div class="relative flex-shrink-0">
-                    <MossletWeb.DesignSystem.liquid_avatar
-                      src={
-                        if @profile_user.connection.profile.show_avatar?,
-                          do: get_public_avatar(@profile_user, @current_scope.user)
-                      }
-                      name={
-                        decrypt_public_field(
-                          @profile_user.connection.profile.name,
-                          @profile_user.connection.profile.profile_key
-                        )
-                      }
-                      size="xxl"
-                      status={get_public_status(@profile_user)}
-                      status_message={get_public_status_message(@profile_user)}
-                      show_status={
-                        can_view_status?(@profile_user, @current_scope.user, @current_scope.key)
-                      }
-                      user_id={@profile_user.id}
-                      verified={false}
-                    />
-                  </div>
-
-                  <div class="flex-1 text-center sm:text-left space-y-4">
-                    <div class="space-y-1">
-                      <h1
-                        :if={@profile_user.connection.profile.show_name?}
-                        class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
-                      >
-                        {decrypt_public_field(
-                          @profile_user.connection.profile.name,
-                          @profile_user.connection.profile.profile_key
-                        )}
-                      </h1>
-
-                      <h1
-                        :if={!@profile_user.connection.profile.show_name?}
-                        class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
-                      >
-                        {"Profile 🌿"}
-                      </h1>
-
-                      <div class="flex items-center justify-center sm:justify-start gap-2 flex-wrap text-lg text-emerald-600 dark:text-emerald-400">
-                        <MossletWeb.DesignSystem.liquid_badge
-                          variant="soft"
-                          color="cyan"
-                          size="sm"
-                        >
-                          @{decrypt_public_field(
-                            @profile_user.connection.profile.username,
-                            @profile_user.connection.profile.profile_key
-                          )}
-                        </MossletWeb.DesignSystem.liquid_badge>
-
-                        <MossletWeb.DesignSystem.liquid_badge
-                          :if={
-                            @profile_user.connection.profile.show_email? &&
-                              @profile_user.connection.profile.email
-                          }
-                          variant="soft"
-                          color="cyan"
-                          size="sm"
-                        >
-                          <.phx_icon name="hero-envelope" class="size-3 mr-1" />
-                          {decrypt_public_field(
-                            @profile_user.connection.profile.email,
-                            @profile_user.connection.profile.profile_key
-                          )}
-                        </MossletWeb.DesignSystem.liquid_badge>
-
-                        <MossletWeb.DesignSystem.liquid_badge
-                          variant="soft"
-                          color="cyan"
-                          size="sm"
-                        >
-                          <.phx_icon name="hero-globe-alt" class="size-3 mr-1" /> Public
-                        </MossletWeb.DesignSystem.liquid_badge>
-                      </div>
-                    </div>
-
-                    <div
-                      :if={
-                        @current_scope.user && !@current_user_is_profile_owner? && !@user_connection
-                      }
-                      class="flex flex-col sm:flex-row items-center gap-3"
-                    >
-                      <MossletWeb.DesignSystem.liquid_button
-                        navigate={~p"/app/users/connections"}
-                        variant="primary"
-                        color="teal"
-                        icon="hero-user-plus"
-                        class="w-full sm:w-auto"
-                      >
-                        Connect
-                      </MossletWeb.DesignSystem.liquid_button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <MossletWeb.ProfileComponents.profile_header
+            profile={@profile}
+            profile_user={@profile_user}
+            current_scope={@current_scope}
+            user_connection={@user_connection}
+          />
         </div>
 
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
           <div class="mx-auto max-w-3xl">
             <div class="space-y-8">
-              <MossletWeb.DesignSystem.liquid_card
-                :if={has_contact_links?(@profile_user.connection.profile)}
-                heading_level={2}
-              >
-                <:title>
-                  <div class="flex items-center gap-2">
-                    <.phx_icon name="hero-link" class="size-5 text-violet-600 dark:text-violet-400" />
-                    Contact & Links
-                  </div>
-                </:title>
-                <div class="space-y-4">
-                  <div
-                    :if={@profile_user.connection.profile.alternate_email}
-                    class="flex items-center gap-3"
-                  >
-                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
-                      <.phx_icon name="hero-envelope" class="size-5 text-teal-600 dark:text-teal-400" />
-                    </div>
-                    <div>
-                      <p class="text-sm text-slate-500 dark:text-slate-400">Contact Email</p>
-                      <a
-                        href={
-                          if @profile.fields && @profile.fields[:alternate_email],
-                            do: "mailto:#{@profile.fields[:alternate_email]}",
-                            else: "#"
-                        }
-                        class="text-slate-900 dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
-                      >
-                        {if @profile.fields, do: @profile.fields[:alternate_email]}
-                      </a>
-                    </div>
-                  </div>
+              <MossletWeb.ProfileComponents.profile_contact_card
+                profile={@profile}
+                profile_user={@profile_user}
+                current_scope={@current_scope}
+                website_url_preview={@website_url_preview}
+                website_url_preview_loading={@website_url_preview_loading}
+              />
 
-                  <MossletWeb.MediaComponents.website_url_preview
-                    :if={@profile_user.connection.profile.website_url}
-                    preview={@website_url_preview}
-                    loading={@website_url_preview_loading}
-                    url={if @profile.fields, do: @profile.fields[:website_url]}
-                    label={
-                      cond do
-                        @profile.fields && @profile.fields[:website_label] ->
-                          @profile.fields[:website_label]
-
-                        @profile_user.connection.profile.website_label ->
-                          nil
-
-                        true ->
-                          "Website"
-                      end
-                    }
-                  />
-                </div>
-              </MossletWeb.DesignSystem.liquid_card>
-
-              <MossletWeb.DesignSystem.liquid_card heading_level={2}>
-                <:title>
-                  <div class="flex items-center gap-2">
-                    <.phx_icon name="hero-user" class="size-5 text-teal-600 dark:text-teal-400" />
-                    About
-                  </div>
-                </:title>
-                <div
-                  :if={@profile_user.connection.profile.about}
-                  class="prose prose-slate dark:prose-invert max-w-none"
-                >
-                  <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
-                    {if @profile.fields, do: @profile.fields[:about]}
-                  </p>
-                </div>
-                <div
-                  :if={!@profile_user.connection.profile.about}
-                  class="text-center py-8"
-                >
-                  <div class="text-slate-400 dark:text-slate-500 mb-4">
-                    <.phx_icon
-                      name="hero-chat-bubble-left-right"
-                      class="size-12 mx-auto mb-3 opacity-50"
-                    />
-                    <p class="text-sm">No bio available.</p>
-                  </div>
-                </div>
-              </MossletWeb.DesignSystem.liquid_card>
+              <MossletWeb.ProfileComponents.profile_about
+                profile={@profile}
+                profile_user={@profile_user}
+                current_scope={@current_scope}
+              />
 
               <%!-- Posts Section --%>
               <MossletWeb.DesignSystem.liquid_card heading_level={2}>
@@ -3895,127 +3428,18 @@ defmodule MossletWeb.UserHomeLive do
         <div phx-hook="RepostFormHook" id="repost-form-handler" style="display: none;"></div>
         <%!-- Hero Section with responsive design --%>
         <div class="relative overflow-hidden">
-          <%!-- Banner/Cover Image Section --%>
-          <div class="relative h-48 sm:h-64 lg:h-80 bg-gradient-to-br from-teal-100 via-emerald-50 to-cyan-100 dark:from-teal-900/40 dark:via-emerald-900/30 dark:to-cyan-900/40">
-            <%!-- Banner image if available --%>
-            <div
-              :if={get_banner_image_for_connection(@profile_user.connection) != ""}
-              class="absolute inset-0 bg-cover bg-center bg-no-repeat"
-              style={"background-image: url('/images/profile/#{get_banner_image_for_connection(@profile_user.connection)}')"}
-            >
-              <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
-            </div>
-
-            <%!-- Liquid metal overlay pattern --%>
-            <div class="absolute inset-0 opacity-20">
-              <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-pulse">
-              </div>
-            </div>
-          </div>
+          <MossletWeb.ProfileComponents.profile_hero
+            access={@profile.access}
+            connection={@profile_user.connection}
+          />
 
           <%!-- Profile Header --%>
-          <div class="relative px-4 sm:px-6 lg:px-8 -mt-8 sm:-mt-12 lg:-mt-16">
-            <div class="mx-auto max-w-7xl">
-              <div class="relative pb-8">
-                <%!-- Avatar and Basic Info --%>
-                <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                  <%!-- Enhanced Avatar --%>
-                  <div class="relative flex-shrink-0">
-                    <MossletWeb.DesignSystem.liquid_avatar
-                      encrypted_avatar_data={
-                        if @profile_user.connection.profile.show_avatar?,
-                          do: get_encrypted_avatar_data(@user_connection, @current_scope.key)
-                      }
-                      id={"profile-user-avatar-#{@profile_user.id}"}
-                      name={@profile.identity.name || "..."}
-                      size="xxl"
-                      status={to_string(@profile_user.status)}
-                      encrypted_status_data={
-                        get_encrypted_status_data(
-                          @profile_user,
-                          @current_scope.user,
-                          @current_scope.key
-                        )
-                      }
-                      show_status={
-                        can_view_status?(@profile_user, @current_scope.user, @current_scope.key)
-                      }
-                      user_id={@profile_user.id}
-                      verified={false}
-                    />
-                  </div>
-
-                  <%!-- Name, username, and info --%>
-                  <div class="flex-1 text-center sm:text-left space-y-4">
-                    <%!-- Name and username --%>
-                    <div class="space-y-1">
-                      <h1
-                        :if={@profile_user.connection.profile.show_name?}
-                        class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
-                        data-decrypt-profile="name"
-                      >
-                        {@profile.identity.name || "..."}
-                      </h1>
-                      <h1
-                        :if={!@profile_user.connection.profile.show_name?}
-                        class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
-                      >
-                        {"Profile 🌿"}
-                      </h1>
-                      <div class="flex items-center justify-center sm:justify-start gap-2 flex-wrap text-lg text-slate-600 dark:text-slate-400">
-                        <%!-- username badge --%>
-                        <MossletWeb.DesignSystem.liquid_badge
-                          variant="soft"
-                          color={
-                            if(@profile_user.connection.profile.visibility == "public",
-                              do: "cyan",
-                              else: "emerald"
-                            )
-                          }
-                          size="sm"
-                        >
-                          @<span data-decrypt-profile="username">{@profile.identity.username || "..."}</span>
-                        </MossletWeb.DesignSystem.liquid_badge>
-
-                        <%!-- Email badge if show_email? is true --%>
-                        <MossletWeb.DesignSystem.liquid_badge
-                          :if={
-                            @profile_user.connection.profile.show_email? &&
-                              @profile_user.connection.email
-                          }
-                          variant="soft"
-                          color={
-                            if(@profile_user.connection.profile.visibility == "public",
-                              do: "cyan",
-                              else: "emerald"
-                            )
-                          }
-                          size="sm"
-                        >
-                          <.phx_icon name="hero-envelope" class="size-3 mr-1" />
-                          <span data-decrypt-profile="email">
-                            {@profile.identity.email || "..."}
-                          </span>
-                        </MossletWeb.DesignSystem.liquid_badge>
-
-                        <%!-- Connection badge --%>
-                        <MossletWeb.DesignSystem.liquid_badge
-                          variant="soft"
-                          color="emerald"
-                          size="sm"
-                        >
-                          <.phx_icon
-                            name="hero-user-group"
-                            class="size-3 mr-1"
-                          /> Connection
-                        </MossletWeb.DesignSystem.liquid_badge>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <MossletWeb.ProfileComponents.profile_header
+            profile={@profile}
+            profile_user={@profile_user}
+            current_scope={@current_scope}
+            user_connection={@user_connection}
+          />
         </div>
 
         <%!-- Main Content --%>
@@ -4024,117 +3448,26 @@ defmodule MossletWeb.UserHomeLive do
             <%!-- Connection Profile Details --%>
             <div class="space-y-8">
               <%!-- DecryptProfileFields hook for browser-side ZK decryption --%>
-              <div
-                :if={@profile.fields && @profile.fields[:browser_decrypt?]}
+              <MossletWeb.ProfileComponents.profile_decrypt_fields
+                profile={@profile}
                 id="decrypt-conn-profile-fields"
-                phx-hook="DecryptProfileFields"
-                phx-update="ignore"
-                data-profile-id="conn-profile"
-                data-sealed-profile-key={@profile.fields[:sealed_profile_key]}
-                data-encrypted-about={@profile.fields[:encrypted_about]}
-                data-encrypted-alternate-email={@profile.fields[:encrypted_alternate_email]}
-                data-encrypted-website-url={@profile.fields[:encrypted_website_url]}
-                data-encrypted-website-label={@profile.fields[:encrypted_website_label]}
-                data-encrypted-name={@profile.fields[:encrypted_name]}
-                data-encrypted-username={@profile.fields[:encrypted_username]}
-                data-encrypted-email={@profile.fields[:encrypted_email]}
-                class="hidden"
-              >
-              </div>
+                profile_id="conn-profile"
+              />
               <%!-- Contact & Links Section --%>
-              <MossletWeb.DesignSystem.liquid_card
-                :if={has_contact_links?(@profile_user.connection.profile)}
-                heading_level={2}
-              >
-                <:title>
-                  <div class="flex items-center gap-2">
-                    <.phx_icon name="hero-link" class="size-5 text-violet-600 dark:text-violet-400" />
-                    Contact & Links
-                  </div>
-                </:title>
-                <div class="space-y-4">
-                  <div
-                    :if={@profile_user.connection.profile.alternate_email}
-                    class="flex items-center gap-3"
-                  >
-                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
-                      <.phx_icon name="hero-envelope" class="size-5 text-teal-600 dark:text-teal-400" />
-                    </div>
-                    <div>
-                      <p class="text-sm text-slate-500 dark:text-slate-400">Contact Email</p>
-                      <a
-                        data-decrypt-profile="alternate_email"
-                        href={
-                          if @profile.fields && @profile.fields[:alternate_email],
-                            do: "mailto:#{@profile.fields[:alternate_email]}",
-                            else: "#"
-                        }
-                        class={[
-                          "text-slate-900 dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors",
-                          @profile.fields && @profile.fields[:browser_decrypt?] && "animate-pulse"
-                        ]}
-                      >
-                        {if @profile.fields, do: @profile.fields[:alternate_email], else: "..."}
-                      </a>
-                    </div>
-                  </div>
-
-                  <MossletWeb.MediaComponents.website_url_preview
-                    :if={@profile_user.connection.profile.website_url}
-                    preview={@website_url_preview}
-                    loading={@website_url_preview_loading}
-                    url={if @profile.fields, do: @profile.fields[:website_url]}
-                    label={
-                      cond do
-                        @profile.fields && @profile.fields[:website_label] ->
-                          @profile.fields[:website_label]
-
-                        @profile_user.connection.profile.website_label ->
-                          "..."
-
-                        true ->
-                          "Website"
-                      end
-                    }
-                  />
-                </div>
-              </MossletWeb.DesignSystem.liquid_card>
+              <MossletWeb.ProfileComponents.profile_contact_card
+                profile={@profile}
+                profile_user={@profile_user}
+                current_scope={@current_scope}
+                website_url_preview={@website_url_preview}
+                website_url_preview_loading={@website_url_preview_loading}
+              />
 
               <%!-- About Section --%>
-              <MossletWeb.DesignSystem.liquid_card heading_level={2}>
-                <:title>
-                  <div class="flex items-center gap-2">
-                    <.phx_icon name="hero-user" class="size-5 text-teal-600 dark:text-teal-400" />
-                    About
-                  </div>
-                </:title>
-                <div
-                  :if={@profile_user.connection.profile.about}
-                  class="prose prose-slate dark:prose-invert max-w-none"
-                >
-                  <p
-                    data-decrypt-profile="about"
-                    class={[
-                      "text-slate-700 dark:text-slate-300 leading-relaxed",
-                      @profile.fields && @profile.fields[:browser_decrypt?] && "animate-pulse"
-                    ]}
-                  >
-                    {if @profile.fields, do: @profile.fields[:about], else: "..."}
-                  </p>
-                </div>
-                <div
-                  :if={!@profile_user.connection.profile.about}
-                  class="text-center py-8"
-                >
-                  <div class="text-slate-400 dark:text-slate-500 mb-4">
-                    <.phx_icon
-                      name="hero-chat-bubble-left-right"
-                      class="size-12 mx-auto mb-3 opacity-50"
-                    />
-                    <p class="text-sm">This connection hasn't shared a bio yet.</p>
-                  </div>
-                </div>
-              </MossletWeb.DesignSystem.liquid_card>
+              <MossletWeb.ProfileComponents.profile_about
+                profile={@profile}
+                profile_user={@profile_user}
+                current_scope={@current_scope}
+              />
 
               <%!-- Posts Section --%>
               <MossletWeb.DesignSystem.liquid_card heading_level={2}>
@@ -4538,10 +3871,6 @@ defmodule MossletWeb.UserHomeLive do
     end
   end
 
-  defp has_contact_links?(profile) do
-    profile.alternate_email || profile.website_url
-  end
-
   defp get_public_post_author_name(_post, profile_user) do
     decrypt_public_field(
       profile_user.connection.profile.name,
@@ -4730,11 +4059,6 @@ defmodule MossletWeb.UserHomeLive do
       end)
     end
   end
-
-  defp get_async_banner_data(%Phoenix.LiveView.AsyncResult{ok?: true, result: result}),
-    do: if(is_map(result), do: result, else: nil)
-
-  defp get_async_banner_data(_), do: nil
 
   # Helper function to get the profile post author's display name.
   # For non-public posts, returns a placeholder — the browser-side DecryptPost
