@@ -123,6 +123,8 @@ defmodule MossletWeb.Router do
       live "/safety", PublicLive.Safety, :safety
       live "/features", PublicLive.Features, :features
       live "/pricing", PublicLive.Pricing, :pricing
+      live "/family-plan", PublicLive.FamilyPlan, :family_plan
+      live "/business-plan", PublicLive.BusinessPlan, :business_plan
       live "/press", PublicLive.Press, :press
       live "/privacy", PublicLive.Privacy, :privacy
       live "/terms", PublicLive.Terms, :terms

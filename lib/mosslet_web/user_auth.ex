@@ -39,6 +39,8 @@ defmodule MossletWeb.UserAuth do
     "Support",
     "Safety",
     "Pricing",
+    "FamilyPlan",
+    "BusinessPlan",
     "Privacy",
     "Terms",
     "Features",

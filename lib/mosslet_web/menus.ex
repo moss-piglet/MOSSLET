@@ -75,8 +75,10 @@ defmodule MossletWeb.Menus do
     do: [
       %{label: gettext("About"), path: "/about"},
       %{label: gettext("Blog"), path: "/blog"},
+      %{label: gettext("Business"), path: "/business-plan"},
       %{label: gettext("Discover"), path: "/discover"},
       # %{label: gettext("Download"), path: "/download"},
+      %{label: gettext("Family"), path: "/family-plan"},
       %{label: gettext("FAQ"), path: "/faq"},
       %{label: gettext("Features"), path: "/features"},
       %{label: gettext("Pricing"), path: "/pricing"},

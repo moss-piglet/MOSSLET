@@ -112,7 +112,7 @@ defmodule MossletWeb.DesignSystem do
 
   attr :color, :string,
     default: "teal",
-    values: ~w(teal emerald blue purple amber rose cyan indigo slate orange)
+    values: ~w(teal emerald blue purple amber rose pink cyan indigo slate orange)
 
   attr :icon, :string, default: nil
   attr :disabled, :boolean, default: false
@@ -387,6 +387,8 @@ defmodule MossletWeb.DesignSystem do
               <ul class="space-y-2">
                 <.footer_link href="/features" label="Features" />
                 <.footer_link href="/pricing" label="Pricing" />
+                <.footer_link href="/family-plan" label="Family" />
+                <.footer_link href="/business-plan" label="Business" />
                 <.footer_link href="/discover" label="Discover" />
               </ul>
             </div>
@@ -914,6 +916,7 @@ defmodule MossletWeb.DesignSystem do
   defp gradient_for_color("purple"), do: "bg-gradient-to-r from-purple-500 to-violet-500"
   defp gradient_for_color("amber"), do: "bg-gradient-to-r from-amber-500 to-orange-500"
   defp gradient_for_color("rose"), do: "bg-gradient-to-r from-rose-500 to-pink-500"
+  defp gradient_for_color("pink"), do: "bg-gradient-to-r from-pink-500 to-fuchsia-500"
   defp gradient_for_color("cyan"), do: "bg-gradient-to-r from-cyan-500 to-teal-500"
   defp gradient_for_color("indigo"), do: "bg-gradient-to-r from-indigo-500 to-blue-500"
   defp gradient_for_color("slate"), do: "bg-gradient-to-r from-slate-500 to-slate-600"
@@ -928,6 +931,7 @@ defmodule MossletWeb.DesignSystem do
   defp primary_color_for("purple"), do: "violet"
   defp primary_color_for("amber"), do: "orange"
   defp primary_color_for("rose"), do: "pink"
+  defp primary_color_for("pink"), do: "fuchsia"
   defp primary_color_for("cyan"), do: "teal"
   defp primary_color_for("indigo"), do: "blue"
   defp primary_color_for("slate"), do: "slate"
@@ -942,6 +946,7 @@ defmodule MossletWeb.DesignSystem do
   defp secondary_color_for("purple"), do: "violet"
   defp secondary_color_for("amber"), do: "orange"
   defp secondary_color_for("rose"), do: "pink"
+  defp secondary_color_for("pink"), do: "fuchsia"
   defp secondary_color_for("cyan"), do: "teal"
   defp secondary_color_for("indigo"), do: "blue"
   defp secondary_color_for("slate"), do: "slate"
