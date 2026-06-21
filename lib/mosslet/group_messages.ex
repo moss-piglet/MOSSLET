@@ -234,11 +234,17 @@ defmodule Mosslet.GroupMessages do
   @doc """
   Marks all mentions as read for a user_group in a specific group.
   Called when user views the circle chat.
+
+  When this actually clears one or more unread mentions, it broadcasts a
+  ZK-safe `mentions_read` event on the circle's `group:` topic so any
+  live unread-@mention surface (e.g. the business sidebar mention indicator,
+  Task #281) recomputes its count without a reload. The payload carries only the
+  `group_id`/`user_group_id` UUIDs the server already holds — never ciphertext.
   """
   def mark_mentions_as_read(user_group_id, group_id) do
     now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
 
-    {:ok, _} =
+    {:ok, {updated, _}} =
       Repo.transaction_on_primary(fn ->
         from(m in GroupMessageMention,
           join: gm in GroupMessage,
@@ -249,6 +255,13 @@ defmodule Mosslet.GroupMessages do
         )
         |> Repo.update_all(set: [read_at: now])
       end)
+
+    if updated > 0 do
+      Phoenix.PubSub.broadcast(Mosslet.PubSub, "group:#{group_id}", %{
+        event: "mentions_read",
+        payload: %{group_id: group_id, user_group_id: user_group_id}
+      })
+    end
 
     :ok
   end

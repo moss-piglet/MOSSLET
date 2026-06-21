@@ -96,6 +96,15 @@
     sticky: true
   )}
 <% end %>
+<%!-- Business-only global unread-@mention indicator (sticky, Task #281). Gates
+     to business membership itself; renders nothing for family/personal users. --%>
+<%= if assigns[:socket] && assigns[:current_scope] && @current_scope.user do %>
+  {live_render(@socket, MossletWeb.MentionIndicatorLive,
+    id: "mention-indicator-live",
+    session: %{"user_id" => @current_scope.user.id},
+    sticky: true
+  )}
+<% end %>
 <div
   id="mosslet-app"
   class="relative bg-gradient-to-br from-slate-50/95 via-slate-50/90 to-slate-100/95 dark:from-slate-800/95 dark:via-slate-800/90 dark:to-slate-900/95 min-h-screen"
