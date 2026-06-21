@@ -284,7 +284,7 @@ defmodule MossletWeb.BusinessLive.Show do
                   </div>
                 </div>
 
-                <div class="flex items-center gap-2 flex-shrink-0">
+                <div class="flex flex-wrap items-center justify-end gap-2 min-w-0">
                   <%!-- Edit display name (Task #263). The viewer can rename
                      themselves (re-edit; the first-time prompt below covers the
                      unset case), and admins/owners can rename anyone — e.g. a
