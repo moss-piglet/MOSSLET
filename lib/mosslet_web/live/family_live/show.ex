@@ -12,6 +12,7 @@ defmodule MossletWeb.FamilyLive.Show do
   import MossletWeb.OrgTransferActions
   import MossletWeb.OrgDeleteActions
 
+  alias Mosslet.GroupMessages
   alias Mosslet.Groups
   alias Mosslet.Orgs
 
@@ -45,7 +46,8 @@ defmodule MossletWeb.FamilyLive.Show do
        |> assign(:show_circle_form?, false)
        |> assign(:circle_form, to_form(%{"name" => "", "description" => ""}, as: :circle))
        |> assign(:pending_zk_circle_attrs, nil)
-       |> assign_family_data()}
+       |> assign_family_data()
+       |> maybe_subscribe_to_family_circles(connected?(socket))}
     else
       {:ok,
        socket
@@ -537,8 +539,13 @@ defmodule MossletWeb.FamilyLive.Show do
                 navigate={~p"/app/family/#{@org.slug}/circles/#{circle.group.id}"}
                 class="flex items-center gap-3 p-3"
               >
-                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/40 dark:to-emerald-900/40 text-teal-600 dark:text-teal-300 group-hover:text-teal-700">
+                <div class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/40 dark:to-emerald-900/40 text-teal-600 dark:text-teal-300 group-hover:text-teal-700">
                   <.phx_icon name="hero-home-modern" class="size-4" />
+                  <.mention_badge
+                    id={"family-circle-#{circle.group.id}-mentions"}
+                    count={circle.unread_mention_count}
+                    variant={:family}
+                  />
                 </div>
                 <div class="min-w-0 flex-1">
                   <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
@@ -1188,6 +1195,15 @@ defmodule MossletWeb.FamilyLive.Show do
     {:noreply, assign_family_data(socket)}
   end
 
+  # Realtime unread-@mention badge (Task #280): a new message in any family
+  # circle the viewer belongs to. Recompute only the per-circle counts over the
+  # circles we already hold (server-authoritative, ZK-safe) — no full data
+  # refresh, so the browser-side circle-name decryption isn't re-triggered.
+  def handle_info(%{event: "new_message"}, socket) do
+    circles = put_unread_mention_counts(socket.assigns.family_circles)
+    {:noreply, assign(socket, :family_circles, circles)}
+  end
+
   # Ignore unrelated process messages (e.g. Swoosh test email delivery, telemetry).
   def handle_info(_message, socket), do: {:noreply, socket}
 
@@ -1340,9 +1356,44 @@ defmodule MossletWeb.FamilyLive.Show do
         group: group,
         encrypted_name: group.name,
         sealed_group_key: ug && ug.key,
-        member_count: member_count
+        # The viewer's user_group id drives the server-authoritative, ZK-safe
+        # unread-@mention count (Task #280); never derived from ciphertext.
+        user_group_id: ug && ug.id,
+        member_count: member_count,
+        unread_mention_count: 0
       }
     end)
+    |> put_unread_mention_counts()
+  end
+
+  # Recompute the per-circle unread @mention count (Task #280) over already-built
+  # family-circle view-models. Server-authoritative + ZK-safe: counts come from
+  # `GroupMessageMention` records keyed on the viewer's `user_group_id`, returned
+  # as `%{group_id => count}`. Used in mount and on every realtime `new_message`.
+  defp put_unread_mention_counts(circles) do
+    user_group_ids =
+      circles |> Enum.map(& &1.user_group_id) |> Enum.reject(&is_nil/1)
+
+    counts = GroupMessages.get_unread_mention_counts_by_group(user_group_ids)
+
+    Enum.map(circles, fn circle ->
+      %{circle | unread_mention_count: Map.get(counts, circle.group.id, 0)}
+    end)
+  end
+
+  # Subscribe to each family circle's `group:#{id}` PubSub topic (Task #280) so a
+  # new message anywhere refreshes the unread-@mention badge live. Subscribing is
+  # NOT idempotent (a repeat yields duplicate messages), so this runs exactly once
+  # in mount — never on data refresh.
+  defp subscribe_to_family_circles(circles) do
+    Enum.each(circles, fn %{group: group} -> Groups.group_subscribe(group) end)
+  end
+
+  defp maybe_subscribe_to_family_circles(socket, false), do: socket
+
+  defp maybe_subscribe_to_family_circles(socket, true) do
+    subscribe_to_family_circles(socket.assigns.family_circles)
+    socket
   end
 
   defp random_avatar do

@@ -17,6 +17,7 @@ defmodule MossletWeb.BusinessLive.Show do
   alias Mosslet.Announcements
   alias Mosslet.Files
   alias Mosslet.FileUploads.SharedFileStorage
+  alias Mosslet.GroupMessages
   alias Mosslet.Groups
   alias Mosslet.Orgs
   alias Mosslet.Orgs.Audit
@@ -90,7 +91,8 @@ defmodule MossletWeb.BusinessLive.Show do
             }}
          end
        )
-       |> assign_business_data()}
+       |> assign_business_data()
+       |> maybe_subscribe_to_business_circles(connected?(socket))}
     else
       {:ok,
        socket
@@ -1448,7 +1450,7 @@ defmodule MossletWeb.BusinessLive.Show do
           class="flex flex-1 min-w-0 items-center gap-3 p-3"
         >
           <div class={[
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg relative",
             @tier == :team &&
               "bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-sm",
             @tier != :team &&
@@ -1459,6 +1461,11 @@ defmodule MossletWeb.BusinessLive.Show do
                 if(@tier == :team, do: "hero-building-office-2", else: "hero-chat-bubble-left-right")
               }
               class="size-4"
+            />
+            <.mention_badge
+              id={"circle-#{@circle.group.id}-mentions"}
+              count={@circle.unread_mention_count}
+              variant={:business}
             />
           </div>
           <div class="min-w-0 flex-1">
@@ -3075,6 +3082,20 @@ defmodule MossletWeb.BusinessLive.Show do
     {:noreply, assign(socket, :audit_events, Audit.list_audit_events(socket.assigns.org))}
   end
 
+  # Realtime unread-@mention badge (Task #280): a new message in any business
+  # circle the viewer belongs to. Recompute only the per-circle counts over the
+  # circles we already hold (server-authoritative, ZK-safe) — no full data
+  # refresh, so the browser-side circle-name decryption isn't re-triggered.
+  def handle_info(%{event: "new_message"}, socket) do
+    circles = put_unread_mention_counts(socket.assigns.circles)
+
+    {:noreply,
+     socket
+     |> assign(:circles, circles)
+     |> assign(:team_circles, Enum.filter(circles, &(&1.org_circle_type == :team)))
+     |> assign(:community_circles, Enum.filter(circles, &(&1.org_circle_type != :team)))}
+  end
+
   # Ignore unrelated process messages (e.g. Swoosh test email delivery, telemetry).
   def handle_info(_message, socket), do: {:noreply, socket}
 
@@ -3162,6 +3183,35 @@ defmodule MossletWeb.BusinessLive.Show do
   defp logo_upload_error(:not_accepted), do: "Please use a PNG, JPG, WebP, or HEIC image."
   defp logo_upload_error(_), do: "Something went wrong with that file."
 
+  # Recompute the per-circle unread @mention count (Task #280) over already-built
+  # business-circle view-models. Server-authoritative + ZK-safe: counts come from
+  # `GroupMessageMention` records keyed on the viewer's `user_group_id`, returned
+  # as `%{group_id => count}`. Used in mount and on every realtime `new_message`.
+  defp put_unread_mention_counts(circles) do
+    user_group_ids =
+      circles |> Enum.map(& &1.user_group_id) |> Enum.reject(&is_nil/1)
+
+    counts = GroupMessages.get_unread_mention_counts_by_group(user_group_ids)
+
+    Enum.map(circles, fn circle ->
+      %{circle | unread_mention_count: Map.get(counts, circle.group.id, 0)}
+    end)
+  end
+
+  # Subscribe to each business circle's `group:#{id}` PubSub topic (Task #280) so
+  # a new message anywhere refreshes the unread-@mention badge live. Subscribing
+  # is NOT idempotent (a repeat yields duplicate messages), so this runs exactly
+  # once in mount — never on data refresh.
+  defp maybe_subscribe_to_business_circles(socket, false), do: socket
+
+  defp maybe_subscribe_to_business_circles(socket, true) do
+    Enum.each(socket.assigns.circles, fn %{group: group} ->
+      Groups.group_subscribe(group)
+    end)
+
+    socket
+  end
+
   defp assign_business_data(socket) do
     current_user = socket.assigns.current_scope.user
     key = socket.assigns.current_scope.key
@@ -3213,13 +3263,18 @@ defmodule MossletWeb.BusinessLive.Show do
           encrypted_name: group.name,
           org_circle_type: group.org_circle_type,
           sealed_group_key: user_group && user_group.key,
+          # The viewer's user_group id drives the server-authoritative, ZK-safe
+          # unread-@mention count (Task #280); never derived from ciphertext.
+          user_group_id: user_group && user_group.id,
           member_count: length(group.user_groups),
           unread_announcements: Announcements.unread_circle_count(group, current_user),
+          unread_mention_count: 0,
           viewer_can_manage?:
             socket.assigns.membership.role == :admin or
               (is_struct(user_group) and user_group.role in [:owner, :admin])
         }
       end)
+      |> put_unread_mention_counts()
 
     # Org-wide ZK file overview (Task #221 / #229): every file the viewer can
     # read across this org's circles, grouped by circle, newest first. The

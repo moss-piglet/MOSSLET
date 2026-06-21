@@ -24,6 +24,45 @@ defmodule MossletWeb.OrgCircleComponents do
   alias MossletWeb.OrgIdentity
 
   @doc """
+  Unread `@mention` count badge for a circle (Task #280) — a small overlay chip
+  meant to sit on top of a circle's icon (render it inside a `relative`-positioned
+  container, mirroring the personal circles index badge).
+
+  Surface-tinted to match the #279 mention pills: `:family` → rose, `:business`
+  → indigo, `:personal` (default) → teal. Counts are server-authoritative and
+  ZK-safe — derived from `GroupMessageMention` records (UUIDs the server already
+  holds), never from ciphertext. Renders nothing when `count` is 0.
+  """
+  attr :count, :integer, required: true
+  attr :variant, :atom, default: :personal, values: [:personal, :family, :business]
+  attr :id, :string, default: nil
+
+  def mention_badge(assigns) do
+    ~H"""
+    <span
+      :if={@count > 0}
+      id={@id}
+      class={[
+        "absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white shadow-lg ring-2 ring-white dark:ring-slate-800",
+        mention_badge_theme(@variant)
+      ]}
+      title="Unread @mentions"
+    >
+      {if @count > 9, do: "9+", else: @count}
+    </span>
+    """
+  end
+
+  defp mention_badge_theme(:family),
+    do: "bg-gradient-to-br from-rose-500 to-pink-500 shadow-rose-500/30"
+
+  defp mention_badge_theme(:business),
+    do: "bg-gradient-to-br from-indigo-500 to-violet-500 shadow-indigo-500/30"
+
+  defp mention_badge_theme(_personal),
+    do: "bg-gradient-to-br from-teal-500 to-emerald-500 shadow-teal-500/30"
+
+  @doc """
   ZK file sharing panel: upload (browser-encrypted), the file list (filenames
   decrypted in-place), the catch-up affordance (#232), and the mandatory
   who-can-read transparency surface (I4).
