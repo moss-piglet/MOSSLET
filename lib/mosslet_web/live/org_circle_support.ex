@@ -547,6 +547,7 @@ defmodule MossletWeb.OrgCircleSupport do
     |> assign(:member_count, MapSet.size(circle_member_ids))
     |> assign(:members, members)
     |> assign(:org_display_names, OrgIdentity.display_name_directory(members))
+    |> assign(:org_avatars, OrgIdentity.org_avatar_directory(members))
     |> assign(:addable_members, addable_members(org_members, circle_member_ids))
     |> assign(:can_manage_circle?, can_edit_group?(user_group, current_user))
     |> assign(:can_leave_circle?, not is_nil(user_group) and group.user_id != current_user.id)

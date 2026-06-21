@@ -31,8 +31,15 @@ defmodule Mosslet.Orgs.Membership do
     # `display_name` — the member's org-facing persona (e.g. "Mark —
     # Engineering"), encrypted WITH the `org_key` (secretbox) in the browser.
     # Null until the member sets one. Server never sees plaintext.
+    #
+    # `avatar` — the member's org-facing display avatar (Task #277): the resized
+    # WebP bytes encrypted WITH the `org_key` (secretbox) in the browser, base64.
+    # Null until the member sets one (fallback is initials derived from the org
+    # `display_name`, never the bare Mosslet logo). Lets members keep their
+    # personal and org personas separate. Server never sees the plaintext image.
     field :key, Encrypted.Binary, redact: true
     field :display_name, Encrypted.Binary, redact: true
+    field :avatar, Encrypted.Binary, redact: true
 
     belongs_to :user, User
     belongs_to :org, Org
@@ -113,6 +120,27 @@ defmodule Mosslet.Orgs.Membership do
   def display_name_changeset(%__MODULE__{} = membership, encrypted_name)
       when is_binary(encrypted_name) do
     change(membership, %{display_name: encrypted_name})
+  end
+
+  @doc """
+  ZK changeset that stores the member's org-facing `avatar` — the resized WebP
+  bytes encrypted WITH the `org_key` (secretbox) in the browser, base64
+  (Task #277). `encrypted_avatar` is the opaque ciphertext; the server never
+  sees the plaintext image, so size/format validation happens client-side
+  (consistent with `display_name` and all other ZK image/name fields). Set
+  programmatically (never via `cast` of user params).
+  """
+  def avatar_changeset(%__MODULE__{} = membership, encrypted_avatar)
+      when is_binary(encrypted_avatar) do
+    change(membership, %{avatar: encrypted_avatar})
+  end
+
+  @doc """
+  ZK changeset that CLEARS the member's org-facing `avatar` (Task #277), so the
+  display falls back to initials derived from the org `display_name`.
+  """
+  def clear_avatar_changeset(%__MODULE__{} = membership) do
+    change(membership, %{avatar: nil})
   end
 
   defp validate_at_least_one_admin(changeset) do

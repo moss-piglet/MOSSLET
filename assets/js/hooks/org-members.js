@@ -35,6 +35,7 @@ import {
   unwrapKey,
 } from "../crypto/session";
 import { generateKey, sealForUser, b64Decode } from "../crypto/nacl";
+import { orgInitialsDataUrl, decryptOrgAvatarUrl } from "./org-avatar";
 
 const OrgMembers = {
   mounted() {
@@ -95,13 +96,33 @@ const OrgMembers = {
     const rows = this.el.querySelectorAll("[data-org-member-row]");
     for (const row of rows) {
       const ciphertext = row.dataset.encryptedDisplayName;
-      if (!ciphertext) continue;
 
-      const name = await decryptWithKey(ciphertext, orgKey);
-      if (name) {
-        row.querySelectorAll("[data-decrypt-org-name]").forEach((el) => {
-          el.textContent = name;
-        });
+      let name = null;
+      if (ciphertext) {
+        name = await decryptWithKey(ciphertext, orgKey);
+        if (name) {
+          row.querySelectorAll("[data-decrypt-org-name]").forEach((el) => {
+            el.textContent = name;
+          });
+        }
+      }
+
+      // Org-scoped ZK display AVATAR (Task #277): fill the row's avatar <img>
+      // with the member's org avatar, or initials from their org name. Persona
+      // separation — never their personal avatar.
+      const avatarEl = row.querySelector("[data-org-avatar-target]");
+      if (avatarEl) {
+        const encryptedAvatar = row.dataset.encryptedOrgAvatar;
+        const url =
+          (await decryptOrgAvatarUrl(encryptedAvatar, orgKey)) ||
+          orgInitialsDataUrl(name);
+        if (url) {
+          avatarEl.src = url;
+          avatarEl.hidden = false;
+          avatarEl.classList.remove("hidden");
+          const fallback = row.querySelector("[data-org-avatar-fallback]");
+          if (fallback) fallback.classList.add("hidden");
+        }
       }
     }
     this._decrypted = true;

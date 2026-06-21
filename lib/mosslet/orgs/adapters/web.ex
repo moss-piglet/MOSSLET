@@ -286,6 +286,35 @@ defmodule Mosslet.Orgs.Adapters.Web do
     end
   end
 
+  ## Org-scoped ZK display avatar (Task #277)
+
+  @impl true
+  def set_org_avatar(%Membership{} = membership, encrypted_avatar)
+      when is_binary(encrypted_avatar) do
+    case Repo.transaction_on_primary(fn ->
+           membership
+           |> Membership.avatar_changeset(encrypted_avatar)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, membership}} -> {:ok, membership}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
+  end
+
+  @impl true
+  def clear_org_avatar(%Membership{} = membership) do
+    case Repo.transaction_on_primary(fn ->
+           membership
+           |> Membership.clear_avatar_changeset()
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, membership}} -> {:ok, membership}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
+  end
+
   ## Org brand logo (Task #228)
 
   @impl true

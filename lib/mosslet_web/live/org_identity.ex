@@ -20,6 +20,8 @@ defmodule MossletWeb.OrgIdentity do
 
     * `:user` / `:membership` — as before.
     * `:encrypted_display_name` — the member's org persona ciphertext (or nil).
+    * `:encrypted_org_avatar` — the member's org avatar ciphertext (or nil),
+      org_key-secretbox of the resized WebP bytes (Task #277).
     * `:personal_name` — a personal connection name the viewer can already read
       (preferred when present, design Q4), or nil.
     * `:self?` — true for the viewer's own row.
@@ -50,6 +52,7 @@ defmodule MossletWeb.OrgIdentity do
         user: user,
         membership: membership,
         encrypted_display_name: membership.display_name,
+        encrypted_org_avatar: membership.avatar,
         personal_name: if(self?, do: nil, else: personal_name_fun.(user)),
         self?: self?,
         connection_status: connection_status
@@ -72,6 +75,31 @@ defmodule MossletWeb.OrgIdentity do
     |> Enum.reject(& &1.self?)
     |> Enum.reduce(%{}, fn member, acc ->
       case member.encrypted_display_name do
+        ciphertext when is_binary(ciphertext) and ciphertext != "" ->
+          Map.put(acc, member.user.id, ciphertext)
+
+        _ ->
+          acc
+      end
+    end)
+  end
+
+  @doc """
+  A `user_id => encrypted_org_avatar` directory for the org-scoped ZK display
+  AVATARS of everyone in a pre-built member list EXCEPT the viewer (Task #277).
+  The values are ciphertext (org_key-secretbox of the resized WebP bytes,
+  base64) — ZK-safe to embed; the browser decrypts them with the viewer's
+  unsealed `org_key`. Members without a set org avatar are omitted (the chat
+  then falls back to initials derived from their org display name).
+
+  This keeps personal and org personas separate: a non-connected org-mate sees
+  the ORG avatar (or initials), never the personal avatar.
+  """
+  def org_avatar_directory(members) when is_list(members) do
+    members
+    |> Enum.reject(& &1.self?)
+    |> Enum.reduce(%{}, fn member, acc ->
+      case member.encrypted_org_avatar do
         ciphertext when is_binary(ciphertext) and ciphertext != "" ->
           Map.put(acc, member.user.id, ciphertext)
 

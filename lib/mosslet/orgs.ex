@@ -1236,6 +1236,40 @@ defmodule Mosslet.Orgs do
   end
 
   @doc """
+  Stores the member's org-facing `avatar` ciphertext — the resized WebP bytes
+  encrypted with the `org_key` browser-side (Task #277). Broadcasts an org
+  update so other members' rosters/chat refresh. Returns `{:ok, membership}` or
+  `{:error, changeset}`.
+  """
+  def set_org_avatar(%Membership{} = membership, encrypted_avatar)
+      when is_binary(encrypted_avatar) do
+    case adapter().set_org_avatar(membership, encrypted_avatar) do
+      {:ok, updated} = ok ->
+        broadcast_org_update(updated.org_id)
+        ok
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Clears the member's org-facing `avatar` (Task #277) so the display falls back
+  to initials derived from the org `display_name`. Broadcasts an org update.
+  Returns `{:ok, membership}` or `{:error, changeset}`.
+  """
+  def clear_org_avatar(%Membership{} = membership) do
+    case adapter().clear_org_avatar(membership) do
+      {:ok, updated} = ok ->
+        broadcast_org_update(updated.org_id)
+        ok
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
   Stamps the org brand-logo storage path (Task #228, branding add-on).
 
   `storage_path` is the opaque Tigris object key returned by

@@ -190,6 +190,7 @@ defmodule MossletWeb.BusinessLive.CircleShow do
           current_page={:business}
           viewer_sealed_org_key={@viewer_sealed_org_key}
           org_display_names={@org_display_names}
+          org_avatars={@org_avatars}
         />
       </div>
     </.layout>

@@ -201,10 +201,19 @@ defmodule MossletWeb.FamilyLive.Show do
               class="py-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2"
               data-org-member-row
               data-encrypted-display-name={member.encrypted_display_name}
+              data-encrypted-org-avatar={member.encrypted_org_avatar}
             >
               <div class="flex items-center gap-3 min-w-0">
-                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
-                  <.phx_icon name="hero-user" class="size-4" />
+                <div class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
+                  <span data-org-avatar-fallback class="flex items-center justify-center">
+                    <.phx_icon name="hero-user" class="size-4" />
+                  </span>
+                  <img
+                    data-org-avatar-target
+                    hidden
+                    alt=""
+                    class="absolute inset-0 h-full w-full object-cover"
+                  />
                 </div>
                 <div class="min-w-0">
                   <div class="flex items-center gap-2">
@@ -393,6 +402,70 @@ defmodule MossletWeb.FamilyLive.Show do
                 Save
               </.liquid_button>
             </.form>
+          </div>
+
+          <%!-- Org display-AVATAR control (Task #277): set the avatar your
+               family sees — separate from your personal avatar. Resized +
+               encrypted with the org_key entirely in the browser; the server
+               only stores ciphertext. When unset, family members see initials
+               from the family display name. --%>
+          <div
+            :if={@viewer_sealed_org_key}
+            id="org-avatar-manage"
+            phx-hook="OrgAvatarFormHook"
+            data-sealed-org-key={@viewer_sealed_org_key}
+            data-current-encrypted-avatar={@membership.avatar}
+            class="rounded-xl border border-teal-200/60 dark:border-teal-800/50 bg-teal-50/60 dark:bg-teal-900/20 p-4"
+          >
+            <div class="flex items-center gap-4">
+              <div class="relative w-14 h-14 flex-shrink-0 rounded-full overflow-hidden ring-2 ring-teal-300/60 dark:ring-teal-700/60 bg-white dark:bg-slate-800">
+                <img
+                  data-org-avatar-preview
+                  src={~p"/images/logo.svg"}
+                  alt="Your family avatar"
+                  class="w-full h-full object-cover"
+                />
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
+                  Your family avatar
+                </p>
+                <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  How family members see you when you're not personally connected. Encrypted on
+                  your device — we never see the image.
+                </p>
+                <div class="mt-2 flex items-center gap-2">
+                  <input
+                    type="file"
+                    data-org-avatar-input
+                    accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif"
+                    class="sr-only"
+                  />
+                  <.liquid_button
+                    type="button"
+                    size="sm"
+                    color="teal"
+                    icon="hero-photo"
+                    data-org-avatar-trigger
+                    id="org-avatar-trigger"
+                  >
+                    {if @membership.avatar, do: "Change avatar", else: "Upload avatar"}
+                  </.liquid_button>
+                  <.liquid_button
+                    :if={@membership.avatar}
+                    type="button"
+                    variant="ghost"
+                    color="slate"
+                    size="sm"
+                    phx-click="remove_org_avatar"
+                    data-confirm="Remove your family avatar? Family members will see your initials instead."
+                    id="org-avatar-remove"
+                  >
+                    Remove
+                  </.liquid_button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <.pending_invitations_panel
@@ -1158,6 +1231,51 @@ defmodule MossletWeb.FamilyLive.Show do
      )}
   end
 
+  # The member set their family display AVATAR (Task #277), resized + encrypted
+  # browser-side with the org_key. Persist ciphertext only, on the viewer's OWN
+  # membership (avatars are self-managed).
+  @impl true
+  def handle_event("save_org_avatar", %{"encrypted_avatar" => encrypted_avatar}, socket)
+      when is_binary(encrypted_avatar) do
+    case socket.assigns.membership &&
+           Orgs.set_org_avatar(socket.assigns.membership, encrypted_avatar) do
+      {:ok, membership} ->
+        {:noreply,
+         socket
+         |> assign(:membership, membership)
+         |> put_flash(:success, "Your family avatar is saved")
+         |> assign_family_data()}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Could not save your family avatar")}
+    end
+  end
+
+  @impl true
+  def handle_event("org_avatar_invalid", _params, socket) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       "We couldn't prepare that image. Use a PNG/JPEG/WebP under 8MB and try again."
+     )}
+  end
+
+  @impl true
+  def handle_event("remove_org_avatar", _params, socket) do
+    case socket.assigns.membership && Orgs.clear_org_avatar(socket.assigns.membership) do
+      {:ok, membership} ->
+        {:noreply,
+         socket
+         |> assign(:membership, membership)
+         |> put_flash(:success, "Your family avatar was removed")
+         |> assign_family_data()}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Could not remove your family avatar")}
+    end
+  end
+
   @impl true
   def handle_info({:org_updated, _org_id}, socket) do
     current_user = socket.assigns.current_scope.user
@@ -1248,6 +1366,7 @@ defmodule MossletWeb.FamilyLive.Show do
           # personal name / "Team member"); the org persona is decrypted
           # client-side by the OrgMembers hook.
           encrypted_display_name: membership.display_name,
+          encrypted_org_avatar: membership.avatar,
           personal_name: personal_name,
           self?: self?,
           connection_status: connection_status,

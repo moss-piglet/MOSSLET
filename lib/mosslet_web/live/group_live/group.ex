@@ -14,6 +14,7 @@ defmodule MossletWeb.GroupLive.Group do
   # (Family/Business). Personal circles pass the defaults and are unaffected.
   attr :viewer_sealed_org_key, :string, default: nil
   attr :org_display_names, :map, default: %{}
+  attr :org_avatars, :map, default: %{}
 
   def show(assigns) do
     ~H"""
@@ -29,6 +30,7 @@ defmodule MossletWeb.GroupLive.Group do
         user_group={@user_group}
         viewer_sealed_org_key={@viewer_sealed_org_key}
         org_display_names={@org_display_names}
+        org_avatars={@org_avatars}
       />
 
       <div class="flex-shrink-0">
@@ -42,6 +44,7 @@ defmodule MossletWeb.GroupLive.Group do
           current_page={@current_page}
           viewer_sealed_org_key={@viewer_sealed_org_key}
           org_display_names={@org_display_names}
+          org_avatars={@org_avatars}
           id={"group-#{@group.id}-message-form"}
         />
       </div>

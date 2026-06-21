@@ -31,6 +31,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
               current_page={@current_page}
               viewer_sealed_org_key={@viewer_sealed_org_key}
               org_display_names={@org_display_names}
+              org_avatars={@org_avatars}
             />
           </div>
         </div>
@@ -48,6 +49,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
   attr :current_page, :atom, default: nil
   attr :viewer_sealed_org_key, :string, default: nil
   attr :org_display_names, :map, default: %{}
+  attr :org_avatars, :map, default: %{}
 
   def message_details(assigns) do
     decrypted = Map.get(assigns.message, :decrypted, %{})
@@ -125,6 +127,16 @@ defmodule MossletWeb.GroupLive.GroupMessages do
         Map.get(assigns[:org_display_names] || %{}, assigns.message.sender.user_id)
       end
 
+    # Org-scoped ZK display AVATAR (Task #277): companion to the org display
+    # name above. For a non-connected org-mate, the browser decrypts their org
+    # avatar (org_key-secretbox) and fills the header <img>; if they haven't set
+    # one, it falls back to initials derived from their decrypted org name (never
+    # the personal avatar — that stays sealed to conn_key, persona separation).
+    encrypted_org_avatar =
+      if browser_decrypt? and not is_self and not is_connected do
+        Map.get(assigns[:org_avatars] || %{}, assigns.message.sender.user_id)
+      end
+
     sealed_org_key = assigns[:viewer_sealed_org_key]
 
     # For non-public groups, content is nil (browser decrypts via hook).
@@ -178,6 +190,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       |> assign(:current_user_group_id, assigns.user_group.id)
       |> assign(:mention_variant, variant)
       |> assign(:encrypted_org_display_name, encrypted_org_display_name)
+      |> assign(:encrypted_org_avatar, encrypted_org_avatar)
       |> assign(:sealed_org_key, sealed_org_key)
 
     ~H"""
@@ -209,6 +222,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
         data-encrypted-moniker={@encrypted_moniker}
         data-encrypted-avatar-img={@encrypted_avatar_img}
         data-encrypted-org-display-name={@encrypted_org_display_name}
+        data-encrypted-org-avatar={@encrypted_org_avatar}
         data-sealed-org-key={@sealed_org_key}
         data-current-user-group-id={@current_user_group_id}
         data-is-own-message={to_string(@is_own_message)}

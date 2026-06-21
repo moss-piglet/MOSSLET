@@ -25,6 +25,7 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
      socket
      |> assign(:viewer_sealed_org_key, assigns[:viewer_sealed_org_key])
      |> assign(:org_display_names, assigns[:org_display_names] || %{})
+     |> assign(:org_avatars, assigns[:org_avatars] || %{})
      |> assign(assigns)
      |> assign(:circle_members, members)
      |> assign_form()}
@@ -41,6 +42,7 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
     sender_id = assigns[:sender_id]
     public? = assigns[:public?]
     org_display_names = assigns[:org_display_names] || %{}
+    org_avatars = assigns[:org_avatars] || %{}
 
     if group_id && current_scope do
       group = Groups.get_group(group_id)
@@ -61,6 +63,14 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
             if not is_self and not is_connected and user,
               do: Map.get(org_display_names, user.id)
 
+          # Companion org-scoped ZK display AVATAR (Task #277) — same gating: only
+          # for org-mates the viewer has no personal connection to, so they get a
+          # recognizable org persona (avatar or initials) instead of a generic
+          # circle avatar, while their personal avatar stays private.
+          encrypted_org_avatar =
+            if not is_self and not is_connected and user,
+              do: Map.get(org_avatars, user.id)
+
           if public? do
             build_public_member(
               ug,
@@ -70,7 +80,8 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
               current_scope,
               user_group_key,
               group,
-              encrypted_org_display_name
+              encrypted_org_display_name,
+              encrypted_org_avatar
             )
           else
             build_private_member(
@@ -79,7 +90,8 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
               is_connected,
               uconn,
               current_scope,
-              encrypted_org_display_name
+              encrypted_org_display_name,
+              encrypted_org_avatar
             )
           end
         end)
@@ -100,7 +112,8 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
          current_scope,
          user_group_key,
          group,
-         encrypted_org_display_name
+         encrypted_org_display_name,
+         encrypted_org_avatar
        ) do
     moniker =
       decr_item(ug.moniker, current_scope.user, user_group_key, current_scope.key, group)
@@ -132,6 +145,7 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
       avatar_src: avatar_src,
       encrypted_avatar: encrypted_avatar,
       encrypted_org_display_name: encrypted_org_display_name,
+      encrypted_org_avatar: encrypted_org_avatar,
       is_connected: is_connected || is_self,
       browser_decrypt: false
     }
@@ -144,7 +158,8 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
          is_connected,
          uconn,
          current_scope,
-         encrypted_org_display_name
+         encrypted_org_display_name,
+         encrypted_org_avatar
        ) do
     encrypted_avatar =
       if is_connected && !is_self,
@@ -177,6 +192,7 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
       avatar_src: nil,
       encrypted_avatar: encrypted_avatar,
       encrypted_org_display_name: encrypted_org_display_name,
+      encrypted_org_avatar: encrypted_org_avatar,
       is_connected: is_connected || is_self,
       is_self: is_self,
       browser_decrypt: true

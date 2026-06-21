@@ -222,9 +222,11 @@ defmodule MossletWeb.OrgCircleComponents do
             <.phx_icon
               name="hero-clock"
               class="mt-0.5 size-3.5 shrink-0 text-teal-500 dark:text-teal-400"
-            /> New members see files shared after they join. Use
-            <span class="font-medium text-slate-700 dark:text-slate-200">Catch up</span>
-            to share earlier ones too.
+            /> New members see files shared after they join. Use the
+            <span class="inline-flex items-center gap-1 rounded-md border border-teal-200/80 dark:border-teal-700/60 bg-teal-50 dark:bg-teal-900/40 px-1.5 py-0.5 align-baseline text-[11px] font-semibold text-teal-700 dark:text-teal-300">
+              <.phx_icon name="hero-sparkles" class="size-3" /> Catch up
+            </span>
+            button to share earlier ones too.
           </li>
           <li class="flex items-start gap-2">
             <.phx_icon
@@ -290,9 +292,18 @@ defmodule MossletWeb.OrgCircleComponents do
           class="py-2.5 flex items-center gap-3"
           data-org-member-row
           data-encrypted-display-name={member.encrypted_display_name}
+          data-encrypted-org-avatar={member.encrypted_org_avatar}
         >
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/40 dark:to-emerald-900/40 text-teal-600 dark:text-teal-300">
-            <.phx_icon name="hero-user" class="size-4" />
+          <div class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full overflow-hidden bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/40 dark:to-emerald-900/40 text-teal-600 dark:text-teal-300">
+            <span data-org-avatar-fallback class="flex items-center justify-center">
+              <.phx_icon name="hero-user" class="size-4" />
+            </span>
+            <img
+              data-org-avatar-target
+              hidden
+              alt=""
+              class="absolute inset-0 h-full w-full object-cover"
+            />
           </div>
           <p class="min-w-0 text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
             <span {OrgIdentity.org_name_target(member)}>
@@ -452,6 +463,11 @@ defmodule MossletWeb.OrgCircleComponents do
     default: %{},
     doc: "user_id => encrypted org display name ciphertext, for org-mate recognition"
 
+  attr :org_avatars, :map,
+    default: %{},
+    doc:
+      "user_id => encrypted org avatar ciphertext (org_key-secretbox), for org-mate recognition"
+
   def circle_chat_panel(assigns) do
     ~H"""
     <section
@@ -494,6 +510,7 @@ defmodule MossletWeb.OrgCircleComponents do
           current_page={@current_page}
           viewer_sealed_org_key={@viewer_sealed_org_key}
           org_display_names={@org_display_names}
+          org_avatars={@org_avatars}
         />
       </div>
 

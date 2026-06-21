@@ -20,6 +20,7 @@
  */
 import { unsealContextKey, decryptWithKey, getPublicKey, unwrapKey, escapeHtml } from "../crypto/session";
 import { renderMarkdown } from "../utils/render-markdown";
+import { orgInitialsDataUrl, decryptOrgAvatarUrl } from "./org-avatar";
 import MentionPicker from "./mention-picker";
 
 const MENTION_TOKEN_RE = /@\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/gi;
@@ -209,18 +210,33 @@ const DecryptGroupMessage = {
     // persona next to their per-circle moniker when the viewer isn't personally
     // connected to them. Decrypted with the shared org_key (never server-side).
     const encryptedOrgName = this.el.dataset.encryptedOrgDisplayName;
+    const encryptedOrgAvatar = this.el.dataset.encryptedOrgAvatar;
     const sealedOrgKey = this.el.dataset.sealedOrgKey;
-    if (encryptedOrgName && sealedOrgKey) {
+    if (sealedOrgKey && (encryptedOrgName || encryptedOrgAvatar)) {
       try {
         const orgKey = await getOrgKey(sealedOrgKey);
         if (orgKey) {
-          const orgName = await decryptWithKey(encryptedOrgName, orgKey);
-          if (orgName) {
-            const target = messageEl.querySelector(`[data-decrypt-org-name-target="${messageId}"]`);
-            if (target) {
-              target.textContent = orgName;
-              target.classList.remove("hidden");
+          let orgName = null;
+          if (encryptedOrgName) {
+            orgName = await decryptWithKey(encryptedOrgName, orgKey);
+            if (orgName) {
+              const target = messageEl.querySelector(`[data-decrypt-org-name-target="${messageId}"]`);
+              if (target) {
+                target.textContent = orgName;
+                target.classList.remove("hidden");
+              }
             }
+          }
+
+          // Org-scoped ZK display AVATAR (Task #277): prefer the sender's org
+          // avatar (or initials from their org name) over the generic circle
+          // avatar for an org-mate the viewer isn't connected to. This keeps
+          // personas separate — we never show their personal avatar here.
+          const avatarEl = document.getElementById(`chat-avatar-${messageId}`);
+          if (avatarEl) {
+            const avatarUrl = await decryptOrgAvatarUrl(encryptedOrgAvatar, orgKey);
+            const url = avatarUrl || orgInitialsDataUrl(orgName);
+            if (url) avatarEl.src = url;
           }
         }
       } catch (_e) { /* leave moniker as the only handle */ }

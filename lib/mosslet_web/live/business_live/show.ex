@@ -260,10 +260,19 @@ defmodule MossletWeb.BusinessLive.Show do
                 class="py-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2"
                 data-org-member-row
                 data-encrypted-display-name={member.encrypted_display_name}
+                data-encrypted-org-avatar={member.encrypted_org_avatar}
               >
                 <div class="flex items-center gap-3 min-w-0">
-                  <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
-                    <.phx_icon name="hero-user" class="size-4" />
+                  <div class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-300">
+                    <span data-org-avatar-fallback class="flex items-center justify-center">
+                      <.phx_icon name="hero-user" class="size-4" />
+                    </span>
+                    <img
+                      data-org-avatar-target
+                      hidden
+                      alt=""
+                      class="absolute inset-0 h-full w-full object-cover"
+                    />
                   </div>
                   <div class="min-w-0">
                     <div class="flex items-center gap-2">
@@ -285,40 +294,8 @@ defmodule MossletWeb.BusinessLive.Show do
                 </div>
 
                 <div class="flex flex-wrap items-center justify-end gap-2 min-w-0">
-                  <%!-- Edit display name (Task #263). The viewer can rename
-                     themselves (re-edit; the first-time prompt below covers the
-                     unset case), and admins/owners can rename anyone — e.g. a
-                     teammate who marries or simply wants a different persona. The
-                     name is re-encrypted browser-side with the shared org_key
-                     (ZK); the server only authorizes + stores ciphertext. --%>
-                  <button
-                    :if={show_edit_name?(member, @viewer_sealed_org_key, @can_manage?)}
-                    type="button"
-                    phx-click="edit_name"
-                    phx-value-user_id={member.user.id}
-                    id={"edit-name-#{member.user.id}"}
-                    aria-label="Edit display name"
-                    title="Edit display name"
-                    class="rounded-lg p-1.5 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors duration-200"
-                  >
-                    <.phx_icon name="hero-pencil-square" class="size-4" />
-                  </button>
-
-                  <%!-- One-tap "Connect with teammate" (Task #226): send a personal
-                     UserConnection invite to a member you're not yet connected
-                     to. Once accepted, their real personal name lights up via the
-                     existing resolution path. --%>
-                  <.liquid_button
-                    :if={MossletWeb.OrgIdentity.show_connect_button?(member)}
-                    variant="secondary"
-                    size="sm"
-                    icon="hero-user-plus"
-                    phx-click="connect_teammate"
-                    phx-value-user_id={member.user.id}
-                    id={"connect-#{member.user.id}"}
-                  >
-                    Connect
-                  </.liquid_button>
+                  <%!-- Pending personal-connection status (Task #226) — a quiet
+                       status pill, not an action. --%>
                   <span
                     :if={MossletWeb.OrgIdentity.connection_pending?(member)}
                     id={"connect-pending-#{member.user.id}"}
@@ -327,43 +304,96 @@ defmodule MossletWeb.BusinessLive.Show do
                     <.phx_icon name="hero-clock" class="size-3.5" /> Pending
                   </span>
 
-                  <%!-- Owner is the org's billing/coverage anchor and can't be
-                     role-changed or removed by an admin (ownership transfer is the
-                     only path — Task #237). --%>
-                  <div
+                  <%!-- Member actions collapsed into a single quiet "⋯" menu
+                       (keeps the roster calm). Each action re-authorizes server
+                       side, so a tampered menu can't escalate:
+                         * Edit display name (#263) — self, or admins for anyone;
+                           re-encrypted browser-side with the org_key (ZK).
+                         * Connect with teammate (#226) — personal UserConnection
+                           invite when not yet connected.
+                         * Make admin / member + Remove — admins only, never the
+                           owner (billing/coverage anchor; transfer is the only
+                           path, #237). --%>
+                  <.liquid_dropdown
                     :if={
-                      @can_manage? && member.user.id != @current_scope.user.id &&
-                        !Orgs.owner?(@org, member.user.id)
+                      member_menu_actions?(
+                        member,
+                        @viewer_sealed_org_key,
+                        @can_manage?,
+                        @org,
+                        @current_scope.user.id
+                      )
                     }
-                    class="flex items-center gap-2"
+                    id={"member-menu-#{member.user.id}"}
+                    trigger_class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    trigger_aria_label="Member actions"
+                    placement="bottom-end"
+                    menu_class="w-56"
+                    content_class=""
                   >
-                    <form phx-change="change_role" id={"role-form-#{member.user.id}"}>
-                      <input type="hidden" name="user_id" value={member.user.id} />
-                      <select
-                        name="role"
-                        class="rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-700 text-xs py-1.5 focus:border-emerald-500 focus:ring-emerald-500/30"
-                      >
-                        <option value="member" selected={member.membership.role == :member}>
-                          Member
-                        </option>
-                        <option value="admin" selected={member.membership.role == :admin}>
-                          Admin
-                        </option>
-                      </select>
-                    </form>
-                    <.liquid_button
-                      variant="ghost"
-                      color="rose"
-                      size="sm"
-                      icon="hero-user-minus"
-                      phx-click="offboard_member"
-                      phx-value-user_id={member.user.id}
-                      id={"offboard-#{member.user.id}"}
-                      data-confirm="Remove this person from the organization and from all of this org's business circles? We can't recall content they've already downloaded."
+                    <:trigger>
+                      <.phx_icon name="hero-ellipsis-horizontal" class="size-5" />
+                    </:trigger>
+
+                    <:item
+                      :if={show_edit_name?(member, @viewer_sealed_org_key, @can_manage?)}
+                      id={"edit-name-#{member.user.id}"}
+                      phx_click="edit_name"
+                      phx_value_user_id={member.user.id}
                     >
-                      Remove
-                    </.liquid_button>
-                  </div>
+                      <.phx_icon name="hero-pencil-square" class="size-4" /> Edit display name
+                    </:item>
+
+                    <:item
+                      :if={MossletWeb.OrgIdentity.show_connect_button?(member)}
+                      id={"connect-#{member.user.id}"}
+                      phx_click="connect_teammate"
+                      phx_value_user_id={member.user.id}
+                      color="emerald"
+                    >
+                      <.phx_icon name="hero-user-plus" class="size-4" /> Connect with teammate
+                    </:item>
+
+                    <:item
+                      :if={
+                        can_change_member_role?(member, @can_manage?, @org, @current_scope.user.id) &&
+                          member.membership.role == :member
+                      }
+                      id={"make-admin-#{member.user.id}"}
+                      phx_click="change_role"
+                      phx_value_user_id={member.user.id}
+                      phx_value_role="admin"
+                      color="blue"
+                    >
+                      <.phx_icon name="hero-shield-check" class="size-4" /> Make admin
+                    </:item>
+
+                    <:item
+                      :if={
+                        can_change_member_role?(member, @can_manage?, @org, @current_scope.user.id) &&
+                          member.membership.role == :admin
+                      }
+                      id={"make-member-#{member.user.id}"}
+                      phx_click="change_role"
+                      phx_value_user_id={member.user.id}
+                      phx_value_role="member"
+                    >
+                      <.phx_icon name="hero-user" class="size-4" /> Make member
+                    </:item>
+
+                    <:item
+                      :if={
+                        can_change_member_role?(member, @can_manage?, @org, @current_scope.user.id)
+                      }
+                      id={"offboard-#{member.user.id}"}
+                      phx_click="offboard_member"
+                      phx_value_user_id={member.user.id}
+                      color="rose"
+                      data_confirm="Remove this person from the organization and from all of this org's business circles? We can't recall content they've already downloaded."
+                    >
+                      <.phx_icon name="hero-user-minus" class="size-4" /> Remove from organization
+                    </:item>
+                  </.liquid_dropdown>
                 </div>
 
                 <%!-- Inline edit-name form (Task #263). Lives inside the row but
@@ -452,6 +482,71 @@ defmodule MossletWeb.BusinessLive.Show do
                   Save
                 </.liquid_button>
               </.form>
+            </div>
+
+            <%!-- Org display-AVATAR control (Task #277): the member sets the
+                 avatar their teammates see — separate from their personal
+                 avatar, so work and personal personas stay distinct. The image
+                 is resized + encrypted with the org_key entirely in the browser
+                 (OrgAvatarFormHook); the server only stores ciphertext. When
+                 unset, teammates see initials from the org display name. --%>
+            <div
+              :if={@viewer_sealed_org_key}
+              id="org-avatar-manage"
+              phx-hook="OrgAvatarFormHook"
+              data-sealed-org-key={@viewer_sealed_org_key}
+              data-current-encrypted-avatar={@membership.avatar}
+              class="rounded-xl border border-teal-200/60 dark:border-teal-800/50 bg-teal-50/60 dark:bg-teal-900/20 p-4"
+            >
+              <div class="flex items-center gap-4">
+                <div class="relative w-14 h-14 flex-shrink-0 rounded-full overflow-hidden ring-2 ring-teal-300/60 dark:ring-teal-700/60 bg-white dark:bg-slate-800">
+                  <img
+                    data-org-avatar-preview
+                    src={~p"/images/logo.svg"}
+                    alt="Your team avatar"
+                    class="w-full h-full object-cover"
+                  />
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
+                    Your team avatar
+                  </p>
+                  <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                    How teammates see you when you're not personally connected. Encrypted on your
+                    device — we never see the image.
+                  </p>
+                  <div class="mt-2 flex items-center gap-2">
+                    <input
+                      type="file"
+                      data-org-avatar-input
+                      accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif"
+                      class="sr-only"
+                    />
+                    <.liquid_button
+                      type="button"
+                      size="sm"
+                      color="teal"
+                      icon="hero-photo"
+                      data-org-avatar-trigger
+                      id="org-avatar-trigger"
+                    >
+                      {if @membership.avatar, do: "Change avatar", else: "Upload avatar"}
+                    </.liquid_button>
+                    <.liquid_button
+                      :if={@membership.avatar}
+                      type="button"
+                      variant="ghost"
+                      color="slate"
+                      size="sm"
+                      phx-click="remove_org_avatar"
+                      data-confirm="Remove your team avatar? Teammates will see your initials instead."
+                      id="org-avatar-remove"
+                    >
+                      Remove
+                    </.liquid_button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <.pending_invitations_panel
@@ -2391,6 +2486,54 @@ defmodule MossletWeb.BusinessLive.Show do
      )}
   end
 
+  # The member set their org display AVATAR (Task #277), resized + encrypted
+  # browser-side with the org_key. Persist the ciphertext only, on the viewer's
+  # OWN membership (avatars are self-managed — no admin-edit-others path).
+  @impl true
+  def handle_event("save_org_avatar", %{"encrypted_avatar" => encrypted_avatar}, socket)
+      when is_binary(encrypted_avatar) do
+    case socket.assigns.membership &&
+           Orgs.set_org_avatar(socket.assigns.membership, encrypted_avatar) do
+      {:ok, membership} ->
+        {:noreply,
+         socket
+         |> assign(:membership, membership)
+         |> put_flash(:success, "Your team avatar is saved")
+         |> assign_business_data()}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Could not save your team avatar")}
+    end
+  end
+
+  # Fallback (WASM/keys unavailable): the OrgAvatarFormHook normally intercepts
+  # and encrypts the image browser-side. We must NEVER persist a plaintext image
+  # (ZK), so we refuse gracefully.
+  @impl true
+  def handle_event("org_avatar_invalid", _params, socket) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       "We couldn't prepare that image. Use a PNG/JPEG/WebP under 8MB and try again."
+     )}
+  end
+
+  @impl true
+  def handle_event("remove_org_avatar", _params, socket) do
+    case socket.assigns.membership && Orgs.clear_org_avatar(socket.assigns.membership) do
+      {:ok, membership} ->
+        {:noreply,
+         socket
+         |> assign(:membership, membership)
+         |> put_flash(:success, "Your team avatar was removed")
+         |> assign_business_data()}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Could not remove your team avatar")}
+    end
+  end
+
   # Open the inline "edit display name" form for a single roster row (Task #263).
   # Allowed for the viewer's OWN row, or for any row when the viewer can manage
   # the org (admin/owner). The actual write is re-authorized in
@@ -3172,6 +3315,21 @@ defmodule MossletWeb.BusinessLive.Show do
     do: not is_nil(member.encrypted_display_name)
 
   defp show_edit_name?(%{self?: false}, _sealed, can_manage?), do: can_manage?
+
+  # Admin-only role/removal actions (Task #226/#237): an admin may re-role or
+  # remove anyone EXCEPT themselves and EXCEPT the owner (the billing/coverage
+  # anchor — ownership transfer is the only path). Re-authorized server-side.
+  defp can_change_member_role?(member, can_manage?, org, current_user_id) do
+    can_manage? and member.user.id != current_user_id and not Orgs.owner?(org, member.user.id)
+  end
+
+  # Whether the per-row "⋯" actions menu has at least one item to show (else we
+  # don't render the trigger at all, keeping the roster quiet).
+  defp member_menu_actions?(member, sealed_org_key, can_manage?, org, current_user_id) do
+    show_edit_name?(member, sealed_org_key, can_manage?) or
+      MossletWeb.OrgIdentity.show_connect_button?(member) or
+      can_change_member_role?(member, can_manage?, org, current_user_id)
+  end
 
   defp logo_stage_label({:receiving, _}), do: "Uploading…"
   defp logo_stage_label({:processing, _}), do: "Processing…"

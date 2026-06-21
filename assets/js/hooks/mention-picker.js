@@ -1,5 +1,6 @@
 import { unsealContextKey, decryptWithKey, getPublicKey, unwrapConnKey, unwrapKey } from "../crypto/session";
 import { decryptSecretbox } from "../crypto/session";
+import { orgInitialsDataUrl, decryptOrgAvatarUrl } from "./org-avatar";
 
 // Cache the unwrapped group key, but key the cache on the *sealed* key so we
 // never reuse one circle's group key to decrypt another circle's members after
@@ -672,6 +673,17 @@ const MentionPicker = {
         if (avatarDataUrl) {
           result.avatar_src = avatarDataUrl;
         }
+      }
+
+      // Org-scoped display AVATAR (Task #277): for a non-connected org-mate,
+      // prefer their org avatar (or initials from their org name) over the
+      // generic circle avatar — persona separation, never the personal avatar.
+      // Connected members already showed their personal avatar above and carry
+      // no org-avatar ciphertext, so this only affects org-only relationships.
+      if (orgKey && !member.is_self && (member.encrypted_org_avatar || result.org_display_name)) {
+        const orgAvatarUrl = await decryptOrgAvatarUrl(member.encrypted_org_avatar, orgKey);
+        const url = orgAvatarUrl || orgInitialsDataUrl(result.org_display_name);
+        if (url) result.avatar_src = url;
       }
 
       if (!result.avatar_src && !member.is_self) {

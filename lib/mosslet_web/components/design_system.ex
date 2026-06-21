@@ -4018,18 +4018,25 @@ defmodule MossletWeb.DesignSystem do
   attr :class, :string, default: ""
   attr :menu_class, :string, default: ""
 
+  attr :content_class, :string,
+    default: "max-h-[12.5rem] overflow-y-auto",
+    doc: "classes for the scrollable items wrapper; override to remove the scroll cap"
+
   slot :trigger, required: true
 
   slot :item do
     attr :color, :string, values: ~w(slate gray red emerald blue amber purple rose)
+    attr :id, :string
     attr :phx_click, :string
     attr :phx_value_id, :string
+    attr :phx_value_user_id, :string
     attr :phx_value_post_id, :string
     attr :phx_value_username, :string
     attr :phx_value_user_name, :string
     attr :phx_value_item_id, :string
     attr :phx_value_reply_id, :string
     attr :phx_value_reported_user_id, :string
+    attr :phx_value_role, :string
     attr :href, :string
     attr :data_confirm, :string
   end
@@ -4082,9 +4089,10 @@ defmodule MossletWeb.DesignSystem do
         <div class="absolute inset-0 rounded-xl bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10 opacity-50">
         </div>
 
-        <div class="relative py-2 max-h-[12.5rem] overflow-y-auto">
+        <div class={["relative py-2", @content_class]}>
           <div
             :for={item <- @item}
+            id={item[:id]}
             class={[
               "group flex items-center gap-3 px-4 py-2.5 text-sm transition-all duration-200 ease-out cursor-pointer",
               "hover:bg-slate-100/80 dark:hover:bg-slate-700/80",
@@ -4094,12 +4102,14 @@ defmodule MossletWeb.DesignSystem do
             role="menuitem"
             phx-click={item[:phx_click]}
             phx-value-id={item[:phx_value_id]}
+            phx-value-user_id={item[:phx_value_user_id]}
             phx-value-post-id={item[:phx_value_post_id]}
             phx-value-username={item[:phx_value_username]}
             phx-value-user-name={item[:phx_value_user_name]}
             phx-value-item-id={item[:phx_value_item_id]}
             phx-value-reply-id={item[:phx_value_reply_id]}
             phx-value-reported-user-id={item[:phx_value_reported_user_id]}
+            phx-value-role={item[:phx_value_role]}
             {if item[:href], do: ["phx-click": "navigate", "phx-value-href": item[:href]], else: []}
             data-confirm={item[:data_confirm]}
           >

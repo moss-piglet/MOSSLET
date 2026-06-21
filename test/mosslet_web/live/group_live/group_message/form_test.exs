@@ -205,6 +205,41 @@ defmodule MossletWeb.GroupLive.GroupMessage.FormTest do
     end
   end
 
+  describe "org display AVATAR in the @mention picker (Task #277)" do
+    test "ships a non-connected member's org avatar ciphertext + sealed org key", ctx do
+      member_membership = Orgs.get_membership!(ctx.member, ctx.org.slug)
+      {:ok, _} = Orgs.set_org_avatar(member_membership, "ct-org-avatar-blob")
+
+      directory = %{ctx.member.id => "ct-org-avatar-blob"}
+
+      {html, members} =
+        render_members(ctx.group, ctx.admin, ctx.admin_key,
+          org_avatars: directory,
+          viewer_sealed_org_key: "sealed-org-key-blob"
+        )
+
+      # The viewer's sealed org_key lets the browser unseal the shared org_key
+      # and decrypt the org avatar.
+      assert html =~ ~s|data-sealed-org-key="sealed-org-key-blob"|
+
+      member = Enum.find(members, &(&1["user_group_id"] != self_user_group_id(ctx)))
+      assert member["encrypted_org_avatar"] == "ct-org-avatar-blob"
+    end
+
+    test "never ships the viewer's own org avatar (persona separation)", ctx do
+      directory = %{ctx.admin.id => "ct-self-avatar", ctx.member.id => "ct-member-avatar"}
+
+      {_html, members} =
+        render_members(ctx.group, ctx.admin, ctx.admin_key,
+          org_avatars: directory,
+          viewer_sealed_org_key: "sealed-org-key-blob"
+        )
+
+      self_member = Enum.find(members, &(&1["user_group_id"] == self_user_group_id(ctx)))
+      assert is_nil(self_member["encrypted_org_avatar"])
+    end
+  end
+
   defp self_user_group_id(ctx) do
     Groups.get_group!(ctx.group.id).user_groups
     |> Enum.find(&(&1.user_id == ctx.admin.id))

@@ -67,6 +67,14 @@ defmodule Mosslet.Orgs.Adapter do
   @callback set_org_display_name(membership :: Membership.t(), encrypted_name :: String.t()) ::
               {:ok, Membership.t()} | {:error, Ecto.Changeset.t()}
 
+  # Org-scoped ZK display avatar (Task #277). `encrypted_avatar` is the opaque
+  # org_key-secretbox ciphertext (base64) of the resized WebP bytes; clearing
+  # falls back to initials derived from the org display name.
+  @callback set_org_avatar(membership :: Membership.t(), encrypted_avatar :: String.t()) ::
+              {:ok, Membership.t()} | {:error, Ecto.Changeset.t()}
+  @callback clear_org_avatar(membership :: Membership.t()) ::
+              {:ok, Membership.t()} | {:error, Ecto.Changeset.t()}
+
   # Org brand logo (Task #228, branding add-on). `storage_path` is the opaque
   # Tigris object key for the (already org_key-encrypted) logo blob.
   @callback set_org_logo(org :: Org.t(), storage_path :: String.t()) ::
