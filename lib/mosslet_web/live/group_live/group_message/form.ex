@@ -23,10 +23,11 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
 
     {:ok,
      socket
+     |> assign(:viewer_sealed_org_key, assigns[:viewer_sealed_org_key])
+     |> assign(:org_display_names, assigns[:org_display_names] || %{})
      |> assign(assigns)
      |> assign(:circle_members, members)
-     |> assign_form()
-     |> push_members_to_client(members)}
+     |> assign_form()}
   end
 
   def assign_form(socket) do
@@ -39,6 +40,7 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
     user_group_key = assigns[:user_group_key]
     sender_id = assigns[:sender_id]
     public? = assigns[:public?]
+    org_display_names = assigns[:org_display_names] || %{}
 
     if group_id && current_scope do
       group = Groups.get_group(group_id)
@@ -52,6 +54,13 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
           uconn = get_uconn_for_users(user, current_scope.user)
           is_connected = not is_nil(uconn)
 
+          # The member's org-scoped ZK display name (ciphertext) — only surfaced
+          # for org-mates the viewer has no personal connection to, so the per-
+          # circle moniker isn't the only handle they have to recognize them.
+          encrypted_org_display_name =
+            if not is_self and not is_connected and user,
+              do: Map.get(org_display_names, user.id)
+
           if public? do
             build_public_member(
               ug,
@@ -60,10 +69,18 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
               uconn,
               current_scope,
               user_group_key,
-              group
+              group,
+              encrypted_org_display_name
             )
           else
-            build_private_member(ug, is_self, is_connected, uconn, current_scope)
+            build_private_member(
+              ug,
+              is_self,
+              is_connected,
+              uconn,
+              current_scope,
+              encrypted_org_display_name
+            )
           end
         end)
       else
@@ -75,7 +92,16 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
   end
 
   # Public groups: server decrypts everything (no ZK needed)
-  defp build_public_member(ug, is_self, is_connected, uconn, current_scope, user_group_key, group) do
+  defp build_public_member(
+         ug,
+         is_self,
+         is_connected,
+         uconn,
+         current_scope,
+         user_group_key,
+         group,
+         encrypted_org_display_name
+       ) do
     moniker =
       decr_item(ug.moniker, current_scope.user, user_group_key, current_scope.key, group)
 
@@ -105,13 +131,21 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
       role: Atom.to_string(ug.role),
       avatar_src: avatar_src,
       encrypted_avatar: encrypted_avatar,
+      encrypted_org_display_name: encrypted_org_display_name,
       is_connected: is_connected || is_self,
       browser_decrypt: false
     }
   end
 
   # Non-public groups: pass encrypted blobs for browser-side ZK decryption
-  defp build_private_member(ug, is_self, is_connected, uconn, current_scope) do
+  defp build_private_member(
+         ug,
+         is_self,
+         is_connected,
+         uconn,
+         current_scope,
+         encrypted_org_display_name
+       ) do
     encrypted_avatar =
       if is_connected && !is_self,
         do: get_encrypted_avatar_data(uconn, current_scope.key)
@@ -142,14 +176,11 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
       role: Atom.to_string(ug.role),
       avatar_src: nil,
       encrypted_avatar: encrypted_avatar,
+      encrypted_org_display_name: encrypted_org_display_name,
       is_connected: is_connected || is_self,
       is_self: is_self,
       browser_decrypt: true
     }
-  end
-
-  defp push_members_to_client(socket, members) do
-    push_event(socket, "set_members", %{members: members})
   end
 
   def render(assigns) do
@@ -164,6 +195,8 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
         phx-hook="GroupMessageFormHook"
         data-public={to_string(@public?)}
         data-sealed-group-key={not @public? && @user_group_key}
+        data-sealed-org-key={@viewer_sealed_org_key}
+        data-members={Jason.encode!(@circle_members)}
         data-mention-variant={MossletWeb.GroupLive.ChatSupport.mention_variant(@current_page)}
         class="max-w-4xl mx-auto"
       >

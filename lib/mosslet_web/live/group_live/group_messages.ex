@@ -29,6 +29,8 @@ defmodule MossletWeb.GroupLive.GroupMessages do
               user_group={@user_group}
               messages_list={@messages_list}
               current_page={@current_page}
+              viewer_sealed_org_key={@viewer_sealed_org_key}
+              org_display_names={@org_display_names}
             />
           </div>
         </div>
@@ -44,6 +46,8 @@ defmodule MossletWeb.GroupLive.GroupMessages do
   attr :user_group, :map, required: true
   attr :messages_list, :list, required: true
   attr :current_page, :atom, default: nil
+  attr :viewer_sealed_org_key, :string, default: nil
+  attr :org_display_names, :map, default: %{}
 
   def message_details(assigns) do
     decrypted = Map.get(assigns.message, :decrypted, %{})
@@ -112,6 +116,17 @@ defmodule MossletWeb.GroupLive.GroupMessages do
     # For public groups, server-decrypted value.
     moniker = decrypted[:moniker] || "member"
 
+    # Org-scoped ZK display name (Task #283): for org-backed circles, surface an
+    # org-mate's recognizable persona next to their per-circle moniker when the
+    # viewer has no personal connection (so the moniker isn't the only handle).
+    # Ciphertext only — the browser decrypts it with the viewer's sealed org_key.
+    encrypted_org_display_name =
+      if browser_decrypt? and not is_self and not is_connected do
+        Map.get(assigns[:org_display_names] || %{}, assigns.message.sender.user_id)
+      end
+
+    sealed_org_key = assigns[:viewer_sealed_org_key]
+
     # For non-public groups, content is nil (browser decrypts via hook).
     # For public groups, content is pre-decrypted by the server.
     raw_content = decrypted[:content]
@@ -162,6 +177,8 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       |> assign(:sealed_group_key, decrypted[:sealed_group_key])
       |> assign(:current_user_group_id, assigns.user_group.id)
       |> assign(:mention_variant, variant)
+      |> assign(:encrypted_org_display_name, encrypted_org_display_name)
+      |> assign(:sealed_org_key, sealed_org_key)
 
     ~H"""
     <ChatComponents.liquid_chat_message
@@ -171,6 +188,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       avatar_alt="circle member avatar"
       sender_name={@sender_name}
       moniker={@moniker}
+      org_display_name_decrypt?={not is_nil(@encrypted_org_display_name)}
       role={@message.sender.role}
       timestamp={@message.inserted_at}
       is_own_message={@is_own_message}
@@ -190,6 +208,8 @@ defmodule MossletWeb.GroupLive.GroupMessages do
         data-sealed-group-key={@sealed_group_key}
         data-encrypted-moniker={@encrypted_moniker}
         data-encrypted-avatar-img={@encrypted_avatar_img}
+        data-encrypted-org-display-name={@encrypted_org_display_name}
+        data-sealed-org-key={@sealed_org_key}
         data-current-user-group-id={@current_user_group_id}
         data-is-own-message={to_string(@is_own_message)}
         data-mention-variant={@mention_variant}

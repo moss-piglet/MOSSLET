@@ -197,6 +197,8 @@ defmodule MossletWeb.FamilyLive.CircleShow do
           message={@message}
           show_markdown_guide={@show_markdown_guide}
           current_page={:family}
+          viewer_sealed_org_key={@viewer_sealed_org_key}
+          org_display_names={@org_display_names}
         />
       </div>
     </.layout>

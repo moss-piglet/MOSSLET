@@ -58,6 +58,30 @@ defmodule MossletWeb.OrgIdentity do
   end
 
   @doc """
+  A `user_id => encrypted_display_name` directory for the org-scoped ZK display
+  names of everyone in a pre-built member list EXCEPT the viewer. The values are
+  ciphertext (secretbox under the shared `org_key`) — ZK-safe to embed; the
+  browser decrypts them with the viewer's unsealed `org_key`. Members without a
+  set display name are omitted.
+
+  Used by the circle chat to show an org-mate's recognizable org persona next to
+  their per-circle moniker when the viewer has no personal connection to them.
+  """
+  def display_name_directory(members) when is_list(members) do
+    members
+    |> Enum.reject(& &1.self?)
+    |> Enum.reduce(%{}, fn member, acc ->
+      case member.encrypted_display_name do
+        ciphertext when is_binary(ciphertext) and ciphertext != "" ->
+          Map.put(acc, member.user.id, ciphertext)
+
+        _ ->
+          acc
+      end
+    end)
+  end
+
+  @doc """
   Whether to show the one-tap "Connect with teammate" button for a roster row
   (Task #226): only for other members the viewer has no personal `UserConnection`
   with yet. Hidden for self, and once a request is pending or connected.

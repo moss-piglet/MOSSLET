@@ -1,7 +1,13 @@
 import { unsealContextKey, decryptWithKey, getPublicKey, unwrapConnKey, unwrapKey } from "../crypto/session";
 import { decryptSecretbox } from "../crypto/session";
 
+// Cache the unwrapped group key, but key the cache on the *sealed* key so we
+// never reuse one circle's group key to decrypt another circle's members after
+// a live-navigation (module statics persist across navigations). Reusing a
+// stale key silently fails every member decrypt → empty/broken picker until a
+// hard refresh wiped the static. Keying on the sealed key fixes that.
 let _cachedGroupKeyForMentions = null;
+let _cachedSealedKeyForMentions = null;
 
 function normalizeVariant(value) {
   if (value === "family" || value === "business") return value;
@@ -40,14 +46,41 @@ const DROPDOWN_UNSELECTED_CLASSES = [
 ];
 
 async function getGroupKey(sealedKey) {
-  if (_cachedGroupKeyForMentions) return _cachedGroupKeyForMentions;
+  if (_cachedGroupKeyForMentions && _cachedSealedKeyForMentions === sealedKey) {
+    return _cachedGroupKeyForMentions;
+  }
   const raw = await unsealContextKey(sealedKey);
-  if (raw) _cachedGroupKeyForMentions = unwrapKey(raw);
+  if (raw) {
+    _cachedGroupKeyForMentions = unwrapKey(raw);
+    _cachedSealedKeyForMentions = sealedKey;
+  }
   return _cachedGroupKeyForMentions;
+}
+
+// The org_key (shared per org, sealed per member) lets us decrypt an org-mate's
+// org display name. Cached per sealed key for the same cross-circle-safety
+// reason as the group key above.
+let _cachedOrgKeyForMentions = null;
+let _cachedSealedOrgKeyForMentions = null;
+
+async function getOrgKey(sealedOrgKey) {
+  if (!sealedOrgKey) return null;
+  if (_cachedOrgKeyForMentions && _cachedSealedOrgKeyForMentions === sealedOrgKey) {
+    return _cachedOrgKeyForMentions;
+  }
+  const raw = await unsealContextKey(sealedOrgKey);
+  if (raw) {
+    _cachedOrgKeyForMentions = unwrapKey(raw);
+    _cachedSealedOrgKeyForMentions = sealedOrgKey;
+  }
+  return _cachedOrgKeyForMentions;
 }
 
 window.addEventListener("mosslet:logout", () => {
   _cachedGroupKeyForMentions = null;
+  _cachedSealedKeyForMentions = null;
+  _cachedOrgKeyForMentions = null;
+  _cachedSealedOrgKeyForMentions = null;
 });
 
 const MentionPicker = {
@@ -107,46 +140,88 @@ const MentionPicker = {
     // is what makes mentions persist on every submit path (button, Enter, mobile).
     document.addEventListener("submit", this.handleSubmitCapture, true);
 
-    this.handleEvent("set_members", async ({ members }) => {
-      const raw = members || [];
-      const needsDecrypt = raw.some((m) => m.browser_decrypt);
+    // Members are embedded as a JSON data attribute on the form (ciphertext-only
+    // for private circles — ZK-safe). We read them here in mounted() and again in
+    // updated(), mirroring the DecryptGroupMetadata pattern. This is race-free:
+    // unlike push_event("set_members"), LiveView does NOT buffer pushed events for
+    // a hook that hasn't registered its handler yet, so on connected mount /
+    // live-navigation the member list was being silently dropped (empty picker
+    // until a hard refresh re-ordered things).
+    this._loadMembers();
+  },
 
-      if (needsDecrypt) {
-        const form = this.textarea.closest("form");
-        const sealedKey = form?.dataset?.sealedGroupKey;
-        if (sealedKey && getPublicKey()) {
-          const groupKey = await getGroupKey(sealedKey);
-          if (groupKey) {
-            const decrypted = await Promise.all(
-              raw.map((m) => this._decryptMember(m, groupKey))
-            );
-            this.members = decrypted;
-            MentionPicker._sharedMembers = this.members;
-            window.dispatchEvent(new CustomEvent("mosslet:members-ready"));
-            return;
-          }
-        }
-        // Keys not ready yet — listen and retry
-        const retry = async () => {
-          const form2 = this.textarea.closest("form");
-          const sk = form2?.dataset?.sealedGroupKey;
-          if (!sk) return;
-          const gk = await getGroupKey(sk);
-          if (!gk) return;
-          const dec = await Promise.all(
-            raw.map((m) => this._decryptMember(m, gk))
-          );
-          this.members = dec;
-          MentionPicker._sharedMembers = this.members;
-          window.dispatchEvent(new CustomEvent("mosslet:members-ready"));
-        };
-        window.addEventListener("mosslet:keys-ready", retry, { once: true });
-      } else {
-        this.members = raw;
-        MentionPicker._sharedMembers = this.members;
-        window.dispatchEvent(new CustomEvent("mosslet:members-ready"));
-      }
-    });
+  updated() {
+    // A DOM patch (e.g. phx-change) may carry an updated member payload, or a
+    // late key arrival may now let us decrypt one we previously couldn't.
+    this._loadMembers();
+  },
+
+  async _loadMembers() {
+    const json = this.form?.dataset?.members || "[]";
+
+    // Skip redundant re-decryption on every keystroke if nothing changed and we
+    // already have members. If we're still empty (keys weren't ready), retry.
+    if (json === this._lastMembersJson && this.members.length > 0) return;
+    this._lastMembersJson = json;
+
+    let raw;
+    try {
+      raw = JSON.parse(json);
+    } catch (e) {
+      console.error("MentionPicker: failed to parse members payload:", e);
+      raw = [];
+    }
+
+    await this._processMembers(raw);
+  },
+
+  async _processMembers(raw) {
+    raw = raw || [];
+    const needsDecrypt = raw.some((m) => m.browser_decrypt);
+
+    if (!needsDecrypt) {
+      this._publishMembers(raw);
+      return;
+    }
+
+    const decrypted = await this._tryDecryptMembers(raw);
+    if (decrypted) {
+      this._publishMembers(decrypted);
+      return;
+    }
+
+    // Keys not ready yet — retry once they arrive, re-reading the latest payload.
+    if (!this._onMembersKeysReady) {
+      this._onMembersKeysReady = () => {
+        this._onMembersKeysReady = null;
+        // Force a fresh attempt even if the payload string is unchanged.
+        this._lastMembersJson = null;
+        this._loadMembers();
+      };
+      window.addEventListener("mosslet:keys-ready", this._onMembersKeysReady, {
+        once: true,
+      });
+    }
+  },
+
+  async _tryDecryptMembers(raw) {
+    const sealedKey = this.form?.dataset?.sealedGroupKey;
+    if (!sealedKey || !getPublicKey()) return null;
+
+    const groupKey = await getGroupKey(sealedKey);
+    if (!groupKey) return null;
+
+    // org_key is optional — present only for org-backed (Family/Business)
+    // circles. When absent, org display names simply aren't shown.
+    const orgKey = await getOrgKey(this.form?.dataset?.sealedOrgKey);
+
+    return Promise.all(raw.map((m) => this._decryptMember(m, groupKey, orgKey)));
+  },
+
+  _publishMembers(members) {
+    this.members = members;
+    MentionPicker._sharedMembers = members;
+    window.dispatchEvent(new CustomEvent("mosslet:members-ready"));
   },
 
   destroyed() {
@@ -156,6 +231,10 @@ const MentionPicker = {
     document.removeEventListener("click", this.handleClickOutside);
     document.removeEventListener("submit", this.handleSubmitCapture, true);
     window.removeEventListener("scroll", this.handleScroll, true);
+    if (this._onMembersKeysReady) {
+      window.removeEventListener("mosslet:keys-ready", this._onMembersKeysReady);
+      this._onMembersKeysReady = null;
+    }
     if (this.dropdown && this.dropdown.parentNode) {
       this.dropdown.parentNode.removeChild(this.dropdown);
       this.dropdown = null;
@@ -425,10 +504,10 @@ const MentionPicker = {
           </div>
           <div class="flex-1 min-w-0">
             ${
-              member.username
+              (member.username || member.org_display_name)
                 ? `
               <div class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                ${this.escapeHtml(member.username)}
+                ${this.escapeHtml(member.username || member.org_display_name)}
               </div>
             `
                 : ""
@@ -555,7 +634,7 @@ const MentionPicker = {
     return div.innerHTML;
   },
 
-  async _decryptMember(member, groupKey) {
+  async _decryptMember(member, groupKey, orgKey) {
     if (!member.browser_decrypt) return member;
 
     const result = { ...member };
@@ -572,6 +651,13 @@ const MentionPicker = {
           const username = await decryptWithKey(member.encrypted_username, connKey);
           if (username) result.username = username;
         }
+      }
+
+      // Org-scoped display name (ZK): recognizable persona for org-mates the
+      // viewer isn't personally connected to. Decrypted with the shared org_key.
+      if (member.encrypted_org_display_name && orgKey && !member.is_self) {
+        const orgName = await decryptWithKey(member.encrypted_org_display_name, orgKey);
+        if (orgName) result.org_display_name = orgName;
       }
 
       if (member.encrypted_avatar_img && !member.is_self) {

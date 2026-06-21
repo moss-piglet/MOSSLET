@@ -444,6 +444,14 @@ defmodule MossletWeb.OrgCircleComponents do
   attr :show_markdown_guide, :boolean, default: false
   attr :current_page, :atom, required: true
 
+  attr :viewer_sealed_org_key, :string,
+    default: nil,
+    doc: "the viewer's sealed org_key, so the chat can ZK-decrypt org display names"
+
+  attr :org_display_names, :map,
+    default: %{},
+    doc: "user_id => encrypted org display name ciphertext, for org-mate recognition"
+
   def circle_chat_panel(assigns) do
     ~H"""
     <section
@@ -484,6 +492,8 @@ defmodule MossletWeb.OrgCircleComponents do
           user_group={@current_user_group}
           scrolled_to_top={@scrolled_to_top}
           current_page={@current_page}
+          viewer_sealed_org_key={@viewer_sealed_org_key}
+          org_display_names={@org_display_names}
         />
       </div>
 

@@ -36,6 +36,12 @@ defmodule MossletWeb.ChatComponents do
   attr :encrypted_avatar_data, :map, default: nil, doc: "ZK encrypted avatar blob + sealed key"
   attr :sender_name, :string, required: true
   attr :moniker, :string, required: true
+
+  attr :org_display_name_decrypt?, :boolean,
+    default: false,
+    doc:
+      "render a browser-filled placeholder for the sender's org-scoped ZK display name (Task #283)"
+
   attr :role, :atom, default: :member
   attr :timestamp, :any, required: true
   attr :is_own_message, :boolean, default: false
@@ -142,6 +148,20 @@ defmodule MossletWeb.ChatComponents do
                 >
                   {@sender_name}
                 </span>
+
+                <%!-- Org-scoped ZK display name (Task #283): for an org-mate the
+                     viewer isn't personally connected to, the browser decrypts
+                     their recognizable org persona and fills this span. Hidden
+                     until filled so there's no empty gap or server placeholder. --%>
+                <span
+                  :if={@org_display_name_decrypt? && !@sender_name && !@is_own_message}
+                  data-decrypt-org-name-target={@id}
+                  class={[
+                    "hidden font-semibold text-sm truncate max-w-[120px] sm:max-w-[180px]",
+                    liquid_chat_sender_name_color(@role),
+                    "transition-colors duration-200"
+                  ]}
+                ></span>
 
                 <span
                   :if={!@is_own_message}

@@ -24,6 +24,28 @@ import MentionPicker from "./mention-picker";
 
 const MENTION_TOKEN_RE = /@\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/gi;
 
+// The org_key (shared per org, sealed per member) decrypts an org-mate's org
+// display name (Task #283). Cached per sealed key so every message bubble in a
+// circle reuses one unseal. Cleared on logout with the rest of the ZK state.
+let _cachedOrgKey = null;
+let _cachedSealedOrgKey = null;
+
+async function getOrgKey(sealedOrgKey) {
+  if (!sealedOrgKey) return null;
+  if (_cachedOrgKey && _cachedSealedOrgKey === sealedOrgKey) return _cachedOrgKey;
+  const raw = await unsealContextKey(sealedOrgKey);
+  if (raw) {
+    _cachedOrgKey = unwrapKey(raw);
+    _cachedSealedOrgKey = sealedOrgKey;
+  }
+  return _cachedOrgKey;
+}
+
+window.addEventListener("mosslet:logout", () => {
+  _cachedOrgKey = null;
+  _cachedSealedOrgKey = null;
+});
+
 const MENTION_PILL_BASE =
   "mention inline-flex items-baseline rounded-md px-1.5 py-0.5 font-medium leading-tight transition-colors";
 
@@ -181,6 +203,27 @@ const DecryptGroupMessage = {
           if (avatarEl) avatarEl.src = `/images/groups/${avatarImg}`;
         }
       } catch (_e) { /* leave default avatar */ }
+    }
+
+    // Org-scoped ZK display name (Task #283): show the sender's recognizable org
+    // persona next to their per-circle moniker when the viewer isn't personally
+    // connected to them. Decrypted with the shared org_key (never server-side).
+    const encryptedOrgName = this.el.dataset.encryptedOrgDisplayName;
+    const sealedOrgKey = this.el.dataset.sealedOrgKey;
+    if (encryptedOrgName && sealedOrgKey) {
+      try {
+        const orgKey = await getOrgKey(sealedOrgKey);
+        if (orgKey) {
+          const orgName = await decryptWithKey(encryptedOrgName, orgKey);
+          if (orgName) {
+            const target = messageEl.querySelector(`[data-decrypt-org-name-target="${messageId}"]`);
+            if (target) {
+              target.textContent = orgName;
+              target.classList.remove("hidden");
+            }
+          }
+        }
+      } catch (_e) { /* leave moniker as the only handle */ }
     }
   },
 
