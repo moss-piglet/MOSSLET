@@ -20,6 +20,7 @@ defmodule Mosslet.Billing.OrgCheckoutTest do
 
   alias Mosslet.Accounts
   alias Mosslet.Billing.Customers
+  alias Mosslet.Billing.Plans
   alias Mosslet.Billing.Providers.Stripe.Services.CreateCheckoutSession
   alias Mosslet.Billing.Providers.Stripe.Services.SyncSubscription
   alias Mosslet.Billing.Subscriptions
@@ -124,6 +125,11 @@ defmodule Mosslet.Billing.OrgCheckoutTest do
       now = System.system_time(:second)
       stripe_subscription_id = "sub_#{System.unique_integer([:positive])}"
 
+      # Resolve the configured family-monthly price id from billing config so the
+      # sync matches the plan regardless of which (env-driven) Stripe price id is
+      # set in dev/test/CI.
+      family_monthly = Plans.get_plan_by_id!("family-monthly")
+
       stripe_subscription = %Stripe.Subscription{
         id: stripe_subscription_id,
         customer: provider_customer_id,
@@ -140,7 +146,7 @@ defmodule Mosslet.Billing.OrgCheckoutTest do
               current_period_start: now,
               current_period_end: now + 14 * 86_400,
               price: %{
-                id: "price_1ThEqaJhDwcSIdONa8Xxy4qk",
+                id: family_monthly.price,
                 product: "prod_Ugc48UDU9hdbji"
               }
             }
