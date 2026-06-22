@@ -1,7 +1,7 @@
 defmodule Mosslet.MixProject do
   use Mix.Project
 
-  @version "0.18.0"
+  @version "0.20.0"
 
   def project do
     [

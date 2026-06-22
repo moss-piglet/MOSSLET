@@ -73,10 +73,57 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.19.0"
-                  date="May 2026"
+                  version="0.20.0"
+                  date="June 2026"
                   tag="Latest"
                   tag_color="emerald"
+                >
+                  <:title>Family & Business Plans, Real Dashboard & Polished Timeline 🌱</:title>
+                  <:description>
+                    MOSSLET grows with you. Bring the people you love onto a shared Family plan with consent-based guardianship, or run a private, zero-knowledge workspace for your team with Business circles and encrypted file sharing. Plus a brand-new personal dashboard, a rebuilt profile, and a more delightful timeline — all without ever touching the zero-knowledge, post-quantum core.
+                  </:description>
+                  <:items>
+                    <.changelog_item icon="hero-users" color="emerald">
+                      Family plan — invite loved ones onto a shared subscription with consent-based guardianship (no master key, ever) and a dedicated family dashboard
+                    </.changelog_item>
+                    <.changelog_item icon="hero-shield-check" color="teal">
+                      Guardianship done right — guardians and managed members each keep their own keys; family safety features are transparent and consent-based, never silent surveillance
+                    </.changelog_item>
+                    <.changelog_item icon="hero-briefcase" color="blue">
+                      Business plan — private, org-scoped circles with zero-knowledge file sharing, member roster management, and per-seat billing for your whole team
+                    </.changelog_item>
+                    <.changelog_item icon="hero-document-duplicate" color="cyan">
+                      ZK file sharing — share files inside business circles with the same browser-side, post-quantum encryption that protects everything else on MOSSLET
+                    </.changelog_item>
+                    <.changelog_item icon="hero-megaphone" color="purple">
+                      Org tools — admin announcements, org-wide file search, pinning, and an append-only, privacy-preserving admin audit log
+                    </.changelog_item>
+                    <.changelog_item icon="hero-globe-alt" color="indigo">
+                      Org branding — bring your own custom subdomain and brand logos (encrypted, of course) for a workspace that feels like home
+                    </.changelog_item>
+                    <.changelog_item icon="hero-identification" color="amber">
+                      Org display names & avatars — a separate, per-membership persona so teammates and family recognize each other without exposing your personal identity
+                    </.changelog_item>
+                    <.changelog_item icon="hero-home-modern" color="emerald">
+                      Real personal dashboard — a calm home base that surfaces what matters most, replacing the old placeholder
+                    </.changelog_item>
+                    <.changelog_item icon="hero-user-circle" color="teal">
+                      Rebuilt profile — cleaner, faster, and more expressive, built on a modern component architecture
+                    </.changelog_item>
+                    <.changelog_item icon="hero-sparkles" color="rose">
+                      Timeline polish — a more enjoyable, intuitive timeline and post cards, with smoother sharing and reposting and groundwork for healthier photo and video viewing
+                    </.changelog_item>
+                    <.changelog_item icon="hero-at-symbol" color="purple">
+                      Circle @mentions everywhere — improved mention picker, per-circle unread badges, and realtime mention notifications across Family and Business
+                    </.changelog_item>
+                  </:items>
+                </.changelog_entry>
+
+                <.changelog_entry
+                  version="0.19.0"
+                  date="May 2026"
+                  tag="Security"
+                  tag_color="blue"
                 >
                   <:title>Full Zero-Knowledge Post-Quantum Architecture</:title>
                   <:description>
