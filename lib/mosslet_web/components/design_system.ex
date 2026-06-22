@@ -4182,8 +4182,11 @@ defmodule MossletWeb.DesignSystem do
   def liquid_image_modal(assigns) do
     images_json = Jason.encode!(assigns.images || [])
 
+    raw_alt = Enum.at(assigns.image_alt_texts || [], assigns.current_index)
+    has_caption = is_binary(raw_alt) && String.trim(raw_alt) != ""
+
     current_alt =
-      case Enum.at(assigns.image_alt_texts || [], assigns.current_index) do
+      case raw_alt do
         nil -> "Image #{assigns.current_index + 1}"
         "" -> "Image #{assigns.current_index + 1}"
         alt -> alt
@@ -4193,6 +4196,7 @@ defmodule MossletWeb.DesignSystem do
       assigns
       |> assign(:images_json, images_json)
       |> assign(:current_alt, current_alt)
+      |> assign(:has_caption, has_caption)
 
     ~H"""
     <.portal :if={@show} id={"#{@id}-portal"} target="body">
@@ -4341,6 +4345,15 @@ defmodule MossletWeb.DesignSystem do
                   <div class="nav-spinner hidden w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin">
                   </div>
                 </button>
+
+                <%!-- Alt-text caption overlay (accessibility + context) --%>
+                <figcaption
+                  :if={@has_caption}
+                  aria-hidden="true"
+                  class="absolute inset-x-0 bottom-0 px-4 py-3 bg-gradient-to-t from-black/70 via-black/40 to-transparent text-sm text-white/95 leading-relaxed pointer-events-none"
+                >
+                  <span class="line-clamp-3">{@current_alt}</span>
+                </figcaption>
               </div>
             </div>
 

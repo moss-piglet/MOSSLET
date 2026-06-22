@@ -1117,7 +1117,7 @@ defmodule MossletWeb.TimelineComponents do
       phx-hook="PostExpandHook"
       class={[
         "group relative rounded-3xl transition-all duration-300 ease-out flex flex-col",
-        "w-full max-w-2xl mx-auto",
+        "w-full max-w-2xl mx-auto min-h-[11rem]",
         "bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm",
         "border border-slate-200/40 dark:border-slate-700/40",
         "shadow-sm shadow-slate-900/5 dark:shadow-slate-900/15",
@@ -1356,7 +1356,7 @@ defmodule MossletWeb.TimelineComponents do
     <div
       :if={@is_repost && @current_user_id != @post.user_id}
       id={"share-overlay-#{@post.id}"}
-      class="hidden absolute inset-0 z-20 bg-white/98 dark:bg-slate-800/98 backdrop-blur-sm rounded-2xl overflow-hidden"
+      class="hidden absolute inset-x-0 top-0 min-h-full z-20 bg-white/98 dark:bg-slate-800/98 backdrop-blur-sm rounded-2xl overflow-hidden"
       phx-window-keydown={
         JS.hide(
           to: "#share-overlay-#{@post.id}",
@@ -1368,7 +1368,7 @@ defmodule MossletWeb.TimelineComponents do
     >
       <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-emerald-400 via-teal-400 to-emerald-400 dark:from-emerald-500 dark:via-teal-500 dark:to-emerald-500 rounded-r-full shadow-[0_0_8px_rgba(52,211,153,0.4)] dark:shadow-[0_0_8px_rgba(52,211,153,0.3)]">
       </div>
-      <div class="h-full flex flex-col p-4 pl-5 overflow-hidden">
+      <div class="min-h-full flex flex-col p-4 pl-5">
         <div class="flex items-center gap-3 mb-3 shrink-0">
           <div class="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/50 dark:to-teal-900/50 shadow-sm">
             <.phx_icon
@@ -1397,7 +1397,7 @@ defmodule MossletWeb.TimelineComponents do
           </button>
         </div>
         <%= if @share_note do %>
-          <div class="flex-1 min-h-0 overflow-y-auto">
+          <div class="flex-1 min-h-0 overflow-y-auto max-h-72">
             <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed break-words whitespace-pre-wrap">
               {@share_note}
             </p>
@@ -1430,7 +1430,7 @@ defmodule MossletWeb.TimelineComponents do
     <div
       :if={@current_user_id == @post.user_id && !Enum.empty?(@post.shared_users)}
       id={"shared-by-you-overlay-#{@post.id}"}
-      class="hidden absolute inset-0 z-20 bg-white/98 dark:bg-slate-800/98 backdrop-blur-sm rounded-2xl overflow-hidden"
+      class="hidden absolute inset-x-0 top-0 min-h-full z-20 bg-white/98 dark:bg-slate-800/98 backdrop-blur-sm rounded-2xl overflow-hidden"
       phx-window-keydown={
         JS.hide(
           to: "#shared-by-you-overlay-#{@post.id}",
@@ -1442,7 +1442,7 @@ defmodule MossletWeb.TimelineComponents do
     >
       <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-sky-400 via-blue-400 to-sky-400 dark:from-sky-500 dark:via-blue-500 dark:to-sky-500 rounded-r-full shadow-[0_0_8px_rgba(56,189,248,0.4)] dark:shadow-[0_0_8px_rgba(56,189,248,0.3)]">
       </div>
-      <div class="h-full flex flex-col p-4 pl-5 overflow-hidden">
+      <div class="min-h-full flex flex-col p-4 pl-5">
         <div class="flex items-center gap-3 mb-3 shrink-0">
           <div class="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-sky-100 to-blue-100 dark:from-sky-900/50 dark:to-blue-900/50 shadow-sm">
             <.phx_icon
@@ -1475,45 +1475,49 @@ defmodule MossletWeb.TimelineComponents do
             do: "person",
             else: "people"}
         </p>
-        <div class="flex-1 min-h-0 overflow-y-auto space-y-1.5">
-          <%= for shared_user <- @post.shared_users do %>
-            <% shared_post_user =
-              MossletWeb.ReplyComponents.get_shared_connection(
-                shared_user.user_id,
-                @post_shared_users
-              ) %>
-            <div class="flex items-center gap-3 p-2 bg-slate-50/80 dark:bg-slate-700/50 rounded-lg">
-              <%= if shared_post_user do %>
-                <div class={[
-                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-                  "bg-gradient-to-br transition-all duration-200",
-                  MossletWeb.ConnectionComponents.get_post_shared_user_classes(shared_post_user.color)
-                ]}>
-                  <span class={[
-                    "text-sm font-semibold",
-                    MossletWeb.ConnectionComponents.get_post_shared_user_text_classes(
+        <div class="flex-1 min-h-0 overflow-y-auto max-h-72">
+          <div class="flex flex-wrap gap-2">
+            <%= for shared_user <- @post.shared_users do %>
+              <% shared_post_user =
+                MossletWeb.ReplyComponents.get_shared_connection(
+                  shared_user.user_id,
+                  @post_shared_users
+                ) %>
+              <div class="inline-flex items-center gap-2 max-w-full pl-1 pr-3 py-1 bg-slate-50/80 dark:bg-slate-700/50 rounded-full border border-slate-200/60 dark:border-slate-600/50">
+                <%= if shared_post_user do %>
+                  <div class={[
+                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
+                    "bg-gradient-to-br transition-all duration-200",
+                    MossletWeb.ConnectionComponents.get_post_shared_user_classes(
                       shared_post_user.color
                     )
                   ]}>
-                    {String.first(shared_post_user.username || "?") |> String.upcase()}
+                    <span class={[
+                      "text-xs font-semibold",
+                      MossletWeb.ConnectionComponents.get_post_shared_user_text_classes(
+                        shared_post_user.color
+                      )
+                    ]}>
+                      {String.first(shared_post_user.username || "?") |> String.upcase()}
+                    </span>
+                  </div>
+                  <span class="text-xs font-medium text-slate-900 dark:text-slate-100 truncate max-w-[8rem]">
+                    {shared_post_user.username}
                   </span>
-                </div>
-                <span class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                  {shared_post_user.username}
-                </span>
-              <% else %>
-                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-200 dark:bg-slate-700">
-                  <.phx_icon
-                    name="hero-user-minus"
-                    class="w-4 h-4 text-slate-400 dark:text-slate-500"
-                  />
-                </div>
-                <span class="text-sm font-medium text-slate-500 dark:text-slate-400 truncate italic">
-                  Former connection
-                </span>
-              <% end %>
-            </div>
-          <% end %>
+                <% else %>
+                  <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700">
+                    <.phx_icon
+                      name="hero-user-minus"
+                      class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500"
+                    />
+                  </div>
+                  <span class="text-xs font-medium text-slate-500 dark:text-slate-400 truncate italic max-w-[8rem]">
+                    Former connection
+                  </span>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
         </div>
         <button
           type="button"
@@ -1535,7 +1539,7 @@ defmodule MossletWeb.TimelineComponents do
     <div
       :if={@current_user_id == @post.user_id && @post.visibility != :public}
       id={"visibility-overlay-#{@post.id}"}
-      class="hidden absolute inset-0 z-20 bg-white/98 dark:bg-slate-800/98 backdrop-blur-sm rounded-2xl overflow-hidden"
+      class="hidden absolute inset-x-0 top-0 min-h-full z-20 bg-white/98 dark:bg-slate-800/98 backdrop-blur-sm rounded-2xl overflow-hidden"
       phx-window-keydown={
         JS.hide(
           to: "#visibility-overlay-#{@post.id}",
@@ -1546,7 +1550,7 @@ defmodule MossletWeb.TimelineComponents do
     >
       <div class={"absolute right-0 top-0 bottom-0 w-1.5 bg-gradient-to-b #{visibility_overlay_gradient(@post.visibility)} rounded-l-full shadow-[0_0_8px_rgba(168,85,247,0.4)] dark:shadow-[0_0_8px_rgba(168,85,247,0.3)]"}>
       </div>
-      <div class="h-full flex flex-col p-4 pr-5 overflow-hidden">
+      <div class="min-h-full flex flex-col p-4 pr-5">
         <div class="flex items-center gap-3 mb-3 shrink-0">
           <div class={"flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br #{visibility_overlay_icon_bg(@post.visibility)} shadow-sm"}>
             <.phx_icon
@@ -1612,8 +1616,8 @@ defmodule MossletWeb.TimelineComponents do
             </button>
           </div>
         <% else %>
-          <div class="flex-1 min-h-0 overflow-y-auto">
-            <div class="grid grid-cols-2 gap-1.5">
+          <div class="flex-1 min-h-0 overflow-y-auto max-h-72">
+            <div class="flex flex-wrap gap-2">
               <%= for shared_user <- @post.shared_users do %>
                 <% shared_post_user =
                   MossletWeb.ReplyComponents.get_shared_connection(
@@ -1626,7 +1630,7 @@ defmodule MossletWeb.TimelineComponents do
                     else: shared_user.user_id %>
                 <% is_removing = @removing_shared_user_id == shared_user_id_str %>
                 <div class={[
-                  "relative flex items-center gap-2 p-1.5 bg-slate-50/80 dark:bg-slate-700/50 rounded-lg transition-all duration-200",
+                  "relative inline-flex items-center gap-1 max-w-full py-1 pl-1 pr-1 rounded-full bg-slate-50/80 dark:bg-slate-700/50 border border-slate-200/60 dark:border-slate-600/50 transition-all duration-200",
                   is_removing && "opacity-50 pointer-events-none"
                 ]}>
                   <%= if shared_post_user do %>
@@ -1636,10 +1640,10 @@ defmodule MossletWeb.TimelineComponents do
                       phx-hook="TippyHook"
                       data-tippy-content="View profile"
                       navigate={~p"/app/profile/#{shared_post_user.profile_slug}"}
-                      class="flex items-center gap-2 flex-1 min-w-0"
+                      class="flex items-center gap-1.5 min-w-0"
                     >
                       <div class={[
-                        "flex h-6 w-6 shrink-0 items-center justify-center rounded",
+                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
                         "bg-gradient-to-br transition-all duration-200",
                         MossletWeb.ConnectionComponents.get_post_shared_user_classes(
                           shared_post_user.color
@@ -1654,16 +1658,16 @@ defmodule MossletWeb.TimelineComponents do
                           {String.first(shared_post_user.username || "?") |> String.upcase()}
                         </span>
                       </div>
-                      <span class="text-xs font-medium text-slate-900 dark:text-slate-100 truncate">
+                      <span class="text-xs font-medium text-slate-900 dark:text-slate-100 truncate max-w-[7rem]">
                         {shared_post_user.username}
                       </span>
                     </.link>
                     <div
                       :if={!MossletWeb.ReplyComponents.show_profile?(shared_post_user)}
-                      class="flex items-center gap-2 flex-1 min-w-0"
+                      class="flex items-center gap-1.5 min-w-0"
                     >
                       <div class={[
-                        "flex h-6 w-6 shrink-0 items-center justify-center rounded",
+                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
                         "bg-gradient-to-br transition-all duration-200",
                         MossletWeb.ConnectionComponents.get_post_shared_user_classes(
                           shared_post_user.color
@@ -1678,7 +1682,7 @@ defmodule MossletWeb.TimelineComponents do
                           {String.first(shared_post_user.username || "?") |> String.upcase()}
                         </span>
                       </div>
-                      <span class="text-xs font-medium text-slate-900 dark:text-slate-100 truncate">
+                      <span class="text-xs font-medium text-slate-900 dark:text-slate-100 truncate max-w-[7rem]">
                         {shared_post_user.username}
                       </span>
                     </div>
@@ -1688,7 +1692,7 @@ defmodule MossletWeb.TimelineComponents do
                       phx-value-post-id={@post.id}
                       phx-value-user-id={shared_user.user_id}
                       phx-value-shared-username={shared_post_user.username}
-                      class="p-0.5 rounded text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200 shrink-0"
+                      class="p-1 rounded-full text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200 shrink-0"
                       phx-hook="TippyHook"
                       data-tippy-content="Remove access"
                       id={"remove-access-#{@post.id}-person-#{shared_user.user_id}"}
@@ -1697,18 +1701,18 @@ defmodule MossletWeb.TimelineComponents do
                       <%= if is_removing do %>
                         <.phx_icon name="hero-arrow-path-mini" class="w-3.5 h-3.5 animate-spin" />
                       <% else %>
-                        <.phx_icon name="hero-trash-mini" class="w-3.5 h-3.5" />
+                        <.phx_icon name="hero-x-mark-mini" class="w-3.5 h-3.5" />
                       <% end %>
                     </button>
                   <% else %>
-                    <div class="flex items-center gap-2 flex-1 min-w-0">
-                      <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slate-200 dark:bg-slate-700">
+                    <div class="flex items-center gap-1.5 min-w-0">
+                      <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700">
                         <.phx_icon
                           name="hero-user-minus"
-                          class="w-3 h-3 text-slate-400 dark:text-slate-500"
+                          class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500"
                         />
                       </div>
-                      <span class="text-xs font-medium text-slate-500 dark:text-slate-400 truncate italic">
+                      <span class="text-xs font-medium text-slate-500 dark:text-slate-400 truncate italic max-w-[7rem]">
                         Former
                       </span>
                     </div>
@@ -1718,13 +1722,13 @@ defmodule MossletWeb.TimelineComponents do
                       phx-value-post-id={@post.id}
                       phx-value-user-id={shared_user.user_id}
                       phx-value-shared-username=""
-                      class="p-0.5 rounded text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200 shrink-0"
+                      class="p-1 rounded-full text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200 shrink-0"
                       title="Remove"
                     >
                       <%= if is_removing do %>
                         <.phx_icon name="hero-arrow-path-mini" class="w-3.5 h-3.5 animate-spin" />
                       <% else %>
-                        <.phx_icon name="hero-trash-mini" class="w-3.5 h-3.5" />
+                        <.phx_icon name="hero-x-mark-mini" class="w-3.5 h-3.5" />
                       <% end %>
                     </button>
                   <% end %>
@@ -2605,56 +2609,8 @@ defmodule MossletWeb.TimelineComponents do
     <% end %>
 
     <div class="flex items-center justify-between pt-2.5 border-t border-slate-200/40 dark:border-slate-700/40">
+      <%!-- Primary actions: reply -> share -> like --%>
       <div class="flex items-center gap-0.5">
-        <button
-          id={
-            if @unread?,
-              do: "mark-read-button-#{@post_id}",
-              else: "mark-as-unread-button-#{@post_id}"
-          }
-          class={[
-            "p-1.5 sm:p-2 rounded-lg transition-all duration-200 ease-out group/read active:scale-95 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-1 sm:focus:ring-offset-2",
-            "phx-click-loading:opacity-60 phx-click-loading:cursor-wait phx-click-loading:pointer-events-none",
-            if(@unread?,
-              do: "text-teal-600 dark:text-cyan-400 bg-teal-50/50 dark:bg-teal-900/20",
-              else:
-                "text-slate-400 hover:text-teal-600 dark:hover:text-cyan-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/20"
-            )
-          ]}
-          phx-hook="TippyHook"
-          data-tippy-content={if @unread?, do: "Mark post as read.", else: "Mark post as unread."}
-          phx-click="toggle-read-status"
-          phx-value-id={@post_id}
-        >
-          <.phx_icon
-            name={if @unread?, do: "hero-eye-solid", else: "hero-eye-slash"}
-            class="h-4 w-4 transition-transform duration-200 group-hover/read:scale-110 phx-click-loading:hidden"
-          />
-          <svg
-            class="hidden phx-click-loading:block h-4 w-4 animate-spin text-teal-500"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              class="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              stroke-width="4"
-            >
-            </circle>
-            <path
-              class="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            >
-            </path>
-          </svg>
-          <span class="sr-only">{if @unread?, do: "Mark as read", else: "Mark as unread"}</span>
-        </button>
-
         <.liquid_timeline_action
           :if={@can_reply?}
           icon="hero-chat-bubble-oval-left"
@@ -2757,58 +2713,110 @@ defmodule MossletWeb.TimelineComponents do
         />
       </div>
 
-      <button
-        :if={@can_bookmark?}
-        id={
-          if @bookmarked,
-            do: "hero-bookmark-solid-button-#{@post_id}",
-            else: "hero-bookmark-button-#{@post_id}"
-        }
-        class={[
-          "p-1.5 sm:p-2 rounded-lg transition-all duration-200 ease-out group/bookmark active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-1 sm:focus:ring-offset-2",
-          "phx-click-loading:opacity-60 phx-click-loading:cursor-wait phx-click-loading:pointer-events-none",
-          if(@bookmarked,
-            do: "text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/20",
-            else:
-              "text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20"
-          )
-        ]}
-        phx-click={if(@bookmarked, do: "bookmark_post")}
-        phx-value-id={@post_id}
-        phx-hook={if(@bookmarked, do: "TippyHook", else: "BookmarkNoteHook")}
-        data-tippy-content={if @bookmarked, do: "Remove bookmark", else: "Bookmark this post"}
-        data-post-id={@post_id}
-        data-bookmarked={to_string(@bookmarked)}
-        data-is-public={to_string(@post.visibility == :public)}
-      >
-        <.phx_icon
+      <%!-- Utilities: mark read/unread + bookmark --%>
+      <div class="flex items-center gap-0.5">
+        <button
+          id={
+            if @unread?,
+              do: "mark-read-button-#{@post_id}",
+              else: "mark-as-unread-button-#{@post_id}"
+          }
+          class={[
+            "p-1.5 sm:p-2 rounded-lg sm:rounded-xl transition-all duration-200 ease-out group/read active:scale-95 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-1 sm:focus:ring-offset-2",
+            "phx-click-loading:opacity-60 phx-click-loading:cursor-wait phx-click-loading:pointer-events-none",
+            if(@unread?,
+              do: "text-teal-600 dark:text-cyan-400 bg-teal-50/50 dark:bg-teal-900/20",
+              else:
+                "text-slate-400 hover:text-teal-600 dark:hover:text-cyan-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/20"
+            )
+          ]}
+          phx-hook="TippyHook"
+          data-tippy-content={if @unread?, do: "Mark post as read.", else: "Mark post as unread."}
+          phx-click="toggle-read-status"
+          phx-value-id={@post_id}
+        >
+          <.phx_icon
+            name={if @unread?, do: "hero-eye-solid", else: "hero-eye-slash"}
+            class="h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform duration-200 group-hover/read:scale-110 phx-click-loading:hidden"
+          />
+          <svg
+            class="hidden phx-click-loading:block h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin text-teal-500"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              class="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              stroke-width="4"
+            >
+            </circle>
+            <path
+              class="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            >
+            </path>
+          </svg>
+          <span class="sr-only">{if @unread?, do: "Mark as read", else: "Mark as unread"}</span>
+        </button>
+
+        <button
+          :if={@can_bookmark?}
           id={
             if @bookmarked,
-              do: "hero-bookmark-solid-icon-#{@post_id}",
-              else: "hero-bookmark-icon-#{@post_id}"
+              do: "hero-bookmark-solid-button-#{@post_id}",
+              else: "hero-bookmark-button-#{@post_id}"
           }
-          name={if @bookmarked, do: "hero-bookmark-solid", else: "hero-bookmark"}
-          class="h-4 w-4 transition-transform duration-200 group-hover/bookmark:scale-110 phx-click-loading:hidden"
-        />
-        <svg
-          class="hidden phx-click-loading:block h-4 w-4 animate-spin text-amber-500"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
+          class={[
+            "p-1.5 sm:p-2 rounded-lg sm:rounded-xl transition-all duration-200 ease-out group/bookmark active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-1 sm:focus:ring-offset-2",
+            "phx-click-loading:opacity-60 phx-click-loading:cursor-wait phx-click-loading:pointer-events-none",
+            if(@bookmarked,
+              do: "text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/20",
+              else:
+                "text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20"
+            )
+          ]}
+          phx-click={if(@bookmarked, do: "bookmark_post")}
+          phx-value-id={@post_id}
+          phx-hook={if(@bookmarked, do: "TippyHook", else: "BookmarkNoteHook")}
+          data-tippy-content={if @bookmarked, do: "Remove bookmark", else: "Bookmark this post"}
+          data-post-id={@post_id}
+          data-bookmarked={to_string(@bookmarked)}
+          data-is-public={to_string(@post.visibility == :public)}
         >
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
-          </circle>
-          <path
-            class="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          <.phx_icon
+            id={
+              if @bookmarked,
+                do: "hero-bookmark-solid-icon-#{@post_id}",
+                else: "hero-bookmark-icon-#{@post_id}"
+            }
+            name={if @bookmarked, do: "hero-bookmark-solid", else: "hero-bookmark"}
+            class="h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform duration-200 group-hover/bookmark:scale-110 phx-click-loading:hidden"
+          />
+          <svg
+            class="hidden phx-click-loading:block h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin text-amber-500"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
           >
-          </path>
-        </svg>
-        <span class="sr-only">
-          {if @bookmarked, do: "Remove bookmark", else: "Bookmark this post"}
-        </span>
-      </button>
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+            </circle>
+            <path
+              class="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            >
+            </path>
+          </svg>
+          <span class="sr-only">
+            {if @bookmarked, do: "Remove bookmark", else: "Bookmark this post"}
+          </span>
+        </button>
+      </div>
     </div>
     """
   end

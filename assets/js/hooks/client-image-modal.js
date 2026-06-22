@@ -73,6 +73,17 @@ function render() {
     img.alt = alt && alt.trim() ? alt : `Photo ${_currentIndex + 1}`;
   }
 
+  const caption = _modalEl.querySelector(`#${MODAL_ID}-caption`);
+  if (caption) {
+    const alt = _altTexts[_currentIndex];
+    if (alt && alt.trim()) {
+      caption.querySelector("span").textContent = alt;
+      caption.classList.remove("hidden");
+    } else {
+      caption.classList.add("hidden");
+    }
+  }
+
   const counter = _modalEl.querySelector(`#${MODAL_ID}-counter`);
   if (counter) counter.textContent = `Photo ${_currentIndex + 1} of ${_images.length}`;
 
@@ -183,6 +194,7 @@ function buildModal() {
             <img id="${MODAL_ID}-img" src="${_images[_currentIndex] || ""}" alt="${altText}" class="max-w-full max-h-full w-auto h-auto object-contain select-none" loading="lazy" style="max-height:calc(95vh - 200px);max-width:calc(100vw);" draggable="false" />
             <button id="${MODAL_ID}-prev" class="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white transition-all duration-200 hover:scale-110" aria-label="Previous photo" style="${_currentIndex > 0 ? "" : "display:none"}">${heroIcon("left")}</button>
             <button id="${MODAL_ID}-next" class="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white transition-all duration-200 hover:scale-110" aria-label="Next photo" style="${_currentIndex < _images.length - 1 ? "" : "display:none"}">${heroIcon("right")}</button>
+            <figcaption id="${MODAL_ID}-caption" aria-hidden="true" class="absolute inset-x-0 bottom-0 px-4 py-3 bg-gradient-to-t from-black/70 via-black/40 to-transparent text-sm text-white/95 leading-relaxed pointer-events-none ${alt && alt.trim() ? "" : "hidden"}"><span class="line-clamp-3">${altText}</span></figcaption>
           </div>
         </div>
         ${_images.length > 1 ? buildDots() : ""}
