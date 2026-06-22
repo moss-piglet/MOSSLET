@@ -2675,8 +2675,9 @@ defmodule MossletWeb.UserHomeLive do
           />
         </div>
 
-        <%!-- Main Content --%>
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
+        <%!-- Main Content. Constrained to max-w-3xl so the new-post prompt aligns
+        with the profile detail cards (contact/about/posts) below it. --%>
+        <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
           <%!-- New Post Prompt --%>
           <div class="mb-8">
             <MossletWeb.TimelineComponents.liquid_new_post_prompt

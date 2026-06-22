@@ -305,6 +305,9 @@ defmodule MossletWeb.TimelineLive.Index do
       # makes the guardian's view of the managed member's PERSONAL avatar work
       # without requiring a family-dashboard visit.
       |> MossletWeb.GuardianAvatarSealSupport.assign_and_request(current_user)
+      # Allow other surfaces (e.g. the dashboard "New post" action) to deep-link
+      # straight into an open composer via `?compose=1`.
+      |> maybe_open_composer(params)
 
     # Start async operation to load timeline data (posts and counts together)
     # This ensures data synchronization while providing loading UI
@@ -372,6 +375,15 @@ defmodule MossletWeb.TimelineLive.Index do
 
     {:noreply, socket}
   end
+
+  # Deep-link helper: expand the composer when navigated to with `?compose=1`
+  # (used by the dashboard "New post" quick action). Any other navigation leaves
+  # the current collapsed/expanded state untouched so pagination etc. don't close
+  # an open composer.
+  defp maybe_open_composer(socket, %{"compose" => compose}) when compose in ["1", "true", "new"],
+    do: assign(socket, :composer_collapsed, false)
+
+  defp maybe_open_composer(socket, _params), do: socket
 
   defp is_post_unread?(post, current_user, opts) do
     tab = Keyword.get(opts, :tab)

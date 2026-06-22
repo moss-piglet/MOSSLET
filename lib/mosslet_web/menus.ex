@@ -109,30 +109,13 @@ defmodule MossletWeb.Menus do
           current_user
         )
 
-      # Regular users get normal app menu
-      current_user.connection.profile ->
-        build_menu(
-          [
-            :home,
-            :journal,
-            :circles,
-            :connections,
-            :conversations,
-            :timeline,
-            :family,
-            :business,
-            :settings,
-            :support,
-            :subscribe
-          ],
-          current_user
-        )
-
-      # Users without profile get dashboard menu
+      # Regular users get normal app menu. "Home" is the personal dashboard
+      # (`/app`); it renders a profile summary + quick links for users with a
+      # profile, or a "create your profile" prompt for those without one.
       true ->
         build_menu(
           [
-            :dashboard,
+            :home,
             :journal,
             :circles,
             :connections,
@@ -154,11 +137,7 @@ defmodule MossletWeb.Menus do
   def user_menu_items(%{totp_pending: true}), do: build_menu([:sign_in, :register], nil)
 
   def user_menu_items(%{current_user: current_user}) do
-    if current_user.connection.profile do
-      build_menu([:home, :settings, :sign_out], current_user)
-    else
-      build_menu([:dashboard, :settings, :sign_out], current_user)
-    end
+    build_menu([:home, :settings, :sign_out], current_user)
   end
 
   # Fallback for legacy direct calls with just a user
@@ -391,29 +370,13 @@ defmodule MossletWeb.Menus do
     }
   end
 
-  def get_link(:dashboard = name, _current_user) do
+  def get_link(:home = name, _current_user) do
+    # "Home" is the personal dashboard at `/app` (see `UserDashLive`). The profile
+    # page lives at `/app/profile/:slug` and is reached from the dashboard.
     %{
       name: name,
       label: gettext("Home"),
       path: ~p"/app",
-      icon: "hero-home"
-    }
-  end
-
-  def get_link(:home = name, current_user) do
-    profile = current_user.connection.profile
-
-    path =
-      if profile && profile.slug do
-        ~p"/app/profile/#{profile.slug}"
-      else
-        ~p"/app"
-      end
-
-    %{
-      name: name,
-      label: gettext("Home"),
-      path: path,
       icon: "hero-home"
     }
   end
