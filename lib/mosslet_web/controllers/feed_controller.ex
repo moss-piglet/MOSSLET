@@ -12,7 +12,7 @@ defmodule MossletWeb.FeedController do
       date: "June 22, 2026",
       title: "Bring Your People With You: Family and Business Plans Are Here",
       preview:
-        "Sharing privacy feels like an oxymoron, but that's exactly what we're introducing: two new ways to bring the people you love and trust onto MOSSLET with our Family and Business plans. Both run on the same zero-knowledge, post-quantum encryption that protects everything else here. Best of all, you don't have to give anything up. Augment your existing tech stack with MOSSLET, the calm, private space you add on top for the conversations and files that deserve real protection.",
+        "Sharing privacy? Feels like an oxymoron, but that's exactly what I'm excited to introduce today; two new ways to bring the people you love and trust onto Mosslet with our Family and Business plans. Both run on the same zero-knowledge, post-quantum encryption that protects everything else here, which means we still can't read your data, and now neither can anyone snooping on the people you care about.",
       path: "/blog/articles/18"
     },
     %{
