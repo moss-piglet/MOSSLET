@@ -175,7 +175,7 @@ defmodule Mosslet.Accounts.Adapter do
   @doc """
   Checks if a user has any confirmed connections.
   """
-  @callback has_any_user_connections?(user :: User.t() | nil) :: boolean() | nil
+  @callback has_any_user_connections?(user :: User.t() | nil) :: boolean()
 
   @doc """
   Returns pending user connection arrivals for the user.

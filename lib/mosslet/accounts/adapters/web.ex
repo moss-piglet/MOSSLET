@@ -368,7 +368,7 @@ defmodule Mosslet.Accounts.Adapters.Web do
   end
 
   @impl true
-  def has_any_user_connections?(nil), do: nil
+  def has_any_user_connections?(nil), do: false
 
   def has_any_user_connections?(user) do
     query =

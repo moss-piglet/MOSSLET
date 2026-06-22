@@ -2288,9 +2288,9 @@ defmodule MossletWeb.TimelineComponents do
         </div>
       </div>
 
-      <%!-- Post menu with liquid dropdown - show for both owned and other posts --%>
+      <%!-- Post menu with liquid dropdown - shown for all posts (own + others;
+      the individual menu items below gate on ownership) --%>
       <.liquid_dropdown
-        :if={@current_user_id == @post.user_id or @current_user_id != @post.user_id}
         id={"post-menu-#{@post.id}"}
         trigger_class="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100/50 dark:hover:bg-slate-700/50 transition-all duration-200 ease-out"
         placement="bottom-end"

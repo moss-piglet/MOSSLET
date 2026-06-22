@@ -75,8 +75,9 @@ defmodule MossletWeb.SubscriptionRoutes do
           live "/journal/:id", JournalLive.Entry, :show
           live "/journal/:id/edit", JournalLive.Entry, :edit
 
-          # Posts
-          live "/posts/new", PostLive.Index, :new
+          # Posts (composition happens inline in the timeline composer; the old
+          # /posts/new PostLive.Index was removed as dead code — only the
+          # individual post Show/edit/reply routes remain).
           live "/posts/:id/edit", PostLive.Show, :edit
           live "/posts/:id", PostLive.Show, :show
           live "/posts/:id/show/edit", PostLive.Show, :edit

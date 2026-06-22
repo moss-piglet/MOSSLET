@@ -17,7 +17,12 @@ config :mosslet, Mosslet.Repo,
   hostname: "localhost",
   database: "mosslet_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
-  pool_size: 10
+  # ExUnit runs up to `System.schedulers_online() * 2` test cases concurrently
+  # (the default `max_cases`). Each async test owns its own sandbox connection,
+  # so the pool must be at least that large or concurrent tests starve each
+  # other and fail with `DBConnection.Ownership` checkout timeouts. Size the
+  # pool to the concurrency plus a small buffer for spawned/allowed processes.
+  pool_size: System.schedulers_online() * 2 + 4
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.

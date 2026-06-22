@@ -473,8 +473,15 @@
             </div>
           </div>
 
-          <%!-- Show gentle message when no posts available --%>
-          <div class="hidden only:block text-center py-8 sm:py-12 max-w-2xl mx-auto">
+          <%!-- Welcoming empty state — shown when the active tab has no posts at
+          all (total count 0). Gated on the count rather than the unread stream,
+          since the stream only holds unread posts. --%>
+          <div
+            :if={
+              Map.get(@timeline_counts, String.to_existing_atom(@active_tab || "home"), 0) == 0
+            }
+            class="text-center py-8 sm:py-12 max-w-2xl mx-auto"
+          >
             <div class="inline-flex flex-col items-center gap-3 sm:gap-4 px-6 sm:px-8 py-5 sm:py-6 rounded-2xl bg-gradient-to-br from-emerald-50/40 via-teal-50/30 to-cyan-50/40 dark:from-emerald-900/10 dark:via-teal-900/5 dark:to-cyan-900/10 border border-emerald-200/40 dark:border-emerald-700/30">
               <.phx_icon name="hero-sparkles" class="h-7 sm:h-8 w-7 sm:w-8 text-emerald-500" />
               <div class="text-center">
@@ -490,8 +497,13 @@
         </.async_result>
       </div>
 
-      <%!-- Gentle end of feed message with enhanced calm messaging --%>
-      <div class="text-center py-12 max-w-2xl mx-auto">
+      <%!-- Gentle end-of-feed message — only when the active tab actually has
+      posts, so an empty timeline shows the welcoming empty state above instead
+      of a contradictory "all caught up". --%>
+      <div
+        :if={Map.get(@timeline_counts, String.to_existing_atom(@active_tab || "home"), 0) > 0}
+        class="text-center py-12 max-w-2xl mx-auto"
+      >
         <div class="inline-flex flex-col items-center gap-4 px-8 py-6 rounded-2xl bg-gradient-to-br from-emerald-50/40 via-teal-50/30 to-cyan-50/40 dark:from-emerald-900/10 dark:via-teal-900/5 dark:to-cyan-900/10 border border-emerald-200/40 dark:border-emerald-700/30">
           <.phx_icon name="hero-heart" class="h-8 w-8 text-emerald-500" />
           <div class="text-center">
