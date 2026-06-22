@@ -67,7 +67,7 @@ jobs:
       # Install Rebar3
       - name: Install Rebar3
         run: |
-          wget https://github.com/erlang/rebar3/releases/download/3.24.0/rebar3 
+          wget https://github.com/erlang/rebar3/releases/download/3.27.0/rebar3 
           chmod +x rebar3
           sudo mv rebar3 /usr/local/bin/rebar3
           rebar3 --version
