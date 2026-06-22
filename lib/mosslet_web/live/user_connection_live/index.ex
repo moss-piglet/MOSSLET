@@ -1350,6 +1350,13 @@ defmodule MossletWeb.UserConnectionLive.Index do
     |> assign(:active_tab, "connections")
   end
 
+  defp apply_action(socket, :greet, _params) do
+    socket
+    |> assign(:page_title, "Connection Requests")
+    |> assign(:uconn, nil)
+    |> assign(:active_tab, "requests")
+  end
+
   defp valid_sort_by(%{"sort_by" => sort_by})
        when sort_by in ~w(id inserted_at confirmed_at) do
     String.to_existing_atom(sort_by)
