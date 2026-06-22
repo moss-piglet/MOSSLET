@@ -2,6 +2,10 @@ import { unsealContextKey, decryptWithKey, getPublicKey, unwrapKey } from "../cr
 
 const DecryptConnectionCard = {
   async mounted() {
+    this._cache = null;
+    this._cachedAttrs = null;
+    this._onKeysReady = null;
+
     if (!await this._decrypt()) {
       this._onKeysReady = () => this._decrypt();
       window.addEventListener("mosslet:keys-ready", this._onKeysReady, { once: true });
@@ -9,19 +13,60 @@ const DecryptConnectionCard = {
   },
 
   async updated() {
-    this._decrypted = false;
-    await this._decrypt();
+    // The visible target spans live outside this (phx-update-managed) element,
+    // so a server re-render resets them to "". Re-apply the cached plaintext if
+    // the encrypted attributes are unchanged; otherwise re-decrypt from scratch.
+    if (this._cache && this._cachedAttrs === this._attrFingerprint()) {
+      this._applyCache();
+    } else {
+      this._cache = null;
+      this._cachedAttrs = null;
+      await this._decrypt();
+    }
   },
 
   destroyed() {
     if (this._onKeysReady) {
       window.removeEventListener("mosslet:keys-ready", this._onKeysReady);
+      this._onKeysReady = null;
     }
   },
 
-  async _decrypt() {
-    if (this._decrypted) return true;
+  _attrFingerprint() {
+    const d = this.el.dataset;
+    return [
+      d.sealedUconnKey,
+      d.encryptedConnName,
+      d.encryptedConnUsername,
+      d.encryptedConnLabel,
+      d.encryptedConnEmail,
+      d.encryptedArrivalName,
+      d.encryptedArrivalEmail,
+      d.encryptedArrivalLabel,
+    ].join("|");
+  },
 
+  _scopeEl() {
+    const scope = this.el.dataset.connScope;
+    return scope
+      ? document.querySelector(`[data-conn-scope="${scope}"]`) || this.el.parentElement
+      : this.el.parentElement;
+  },
+
+  _applyCache() {
+    if (!this._cache) return;
+    const scopeEl = this._scopeEl();
+    if (!scopeEl) return;
+
+    this._cache.forEach(({ selector, value }) => {
+      scopeEl.querySelectorAll(selector).forEach((el) => {
+        el.textContent = value;
+        el.classList.remove("animate-pulse");
+      });
+    });
+  },
+
+  async _decrypt() {
     const sealedKey = this.el.dataset.sealedUconnKey;
     if (!sealedKey) return true;
     if (!getPublicKey()) return false;
@@ -31,89 +76,30 @@ const DecryptConnectionCard = {
       if (!rawKey) return true;
 
       const connKey = unwrapKey(rawKey);
+      const d = this.el.dataset;
 
-      const scope = this.el.dataset.connScope;
-      const scopeEl = scope
-        ? document.querySelector(`[data-conn-scope="${scope}"]`) || this.el.parentElement
-        : this.el.parentElement;
+      const fields = [
+        ["[data-decrypt-conn-name]", d.encryptedConnName],
+        ["[data-decrypt-conn-username]", d.encryptedConnUsername],
+        ["[data-decrypt-conn-label]", d.encryptedConnLabel],
+        ["[data-decrypt-conn-email]", d.encryptedConnEmail],
+        ["[data-decrypt-arrival-name]", d.encryptedArrivalName],
+        ["[data-decrypt-arrival-email]", d.encryptedArrivalEmail],
+        ["[data-decrypt-arrival-label]", d.encryptedArrivalLabel],
+      ];
 
-      const encryptedName = this.el.dataset.encryptedConnName;
-      const encryptedUsername = this.el.dataset.encryptedConnUsername;
-      const encryptedConnLabel = this.el.dataset.encryptedConnLabel;
-      const encryptedConnEmail = this.el.dataset.encryptedConnEmail;
+      const cache = [];
 
-      if (encryptedName) {
-        const name = await decryptWithKey(encryptedName, connKey);
-        if (name) {
-          scopeEl.querySelectorAll("[data-decrypt-conn-name]").forEach(el => {
-            el.textContent = name;
-            el.classList.remove("animate-pulse");
-          });
-        }
+      for (const [selector, encrypted] of fields) {
+        if (!encrypted) continue;
+        const value = await decryptWithKey(encrypted, connKey);
+        if (value) cache.push({ selector, value });
       }
 
-      if (encryptedUsername) {
-        const username = await decryptWithKey(encryptedUsername, connKey);
-        if (username) {
-          scopeEl.querySelectorAll("[data-decrypt-conn-username]").forEach(el => {
-            el.textContent = username;
-            el.classList.remove("animate-pulse");
-          });
-        }
-      }
+      this._cache = cache;
+      this._cachedAttrs = this._attrFingerprint();
+      this._applyCache();
 
-      if (encryptedConnLabel) {
-        const label = await decryptWithKey(encryptedConnLabel, connKey);
-        if (label) {
-          scopeEl.querySelectorAll("[data-decrypt-conn-label]").forEach(el => {
-            el.textContent = label;
-            el.classList.remove("animate-pulse");
-          });
-        }
-      }
-
-      if (encryptedConnEmail) {
-        const email = await decryptWithKey(encryptedConnEmail, connKey);
-        if (email) {
-          scopeEl.querySelectorAll("[data-decrypt-conn-email]").forEach(el => {
-            el.textContent = email;
-            el.classList.remove("animate-pulse");
-          });
-        }
-      }
-
-      const encryptedArrivalName = this.el.dataset.encryptedArrivalName;
-      const encryptedArrivalEmail = this.el.dataset.encryptedArrivalEmail;
-      const encryptedArrivalLabel = this.el.dataset.encryptedArrivalLabel;
-
-      if (encryptedArrivalName) {
-        const name = await decryptWithKey(encryptedArrivalName, connKey);
-        if (name) {
-          scopeEl.querySelectorAll("[data-decrypt-arrival-name]").forEach(el => {
-            el.textContent = name;
-          });
-        }
-      }
-
-      if (encryptedArrivalEmail) {
-        const email = await decryptWithKey(encryptedArrivalEmail, connKey);
-        if (email) {
-          scopeEl.querySelectorAll("[data-decrypt-arrival-email]").forEach(el => {
-            el.textContent = email;
-          });
-        }
-      }
-
-      if (encryptedArrivalLabel) {
-        const label = await decryptWithKey(encryptedArrivalLabel, connKey);
-        if (label) {
-          scopeEl.querySelectorAll("[data-decrypt-arrival-label]").forEach(el => {
-            el.textContent = label;
-          });
-        }
-      }
-
-      this._decrypted = true;
       return true;
     } catch (e) {
       console.error("DecryptConnectionCard: decryption failed:", e);

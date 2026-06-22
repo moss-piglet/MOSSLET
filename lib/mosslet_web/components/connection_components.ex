@@ -759,7 +759,6 @@ defmodule MossletWeb.ConnectionComponents do
           :if={@sealed_uconn_key}
           id={"decrypt-conn-card-#{@connection_id}"}
           phx-hook="DecryptConnectionCard"
-          phx-update="ignore"
           data-sealed-uconn-key={@sealed_uconn_key}
           data-encrypted-conn-name={@encrypted_name}
           data-encrypted-conn-username={@encrypted_username}
@@ -805,10 +804,18 @@ defmodule MossletWeb.ConnectionComponents do
                     level={@heading_level}
                     class="text-lg font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-teal-700 dark:group-hover:text-teal-300 transition-colors duration-200"
                   >
-                    <span data-decrypt-conn-name>{if @sealed_uconn_key, do: "", else: @name}</span>
+                    <span
+                      id={"conn-name-#{@connection_id}"}
+                      phx-update={if @sealed_uconn_key, do: "ignore"}
+                      data-decrypt-conn-name
+                    >{if @sealed_uconn_key, do: "", else: @name}</span>
                   </.dynamic_heading>
                   <p class="text-sm text-slate-600 dark:text-slate-400 truncate">
-                    @<span data-decrypt-conn-username>{if @sealed_uconn_key, do: "", else: @username}</span>
+                    @<span
+                      id={"conn-username-#{@connection_id}"}
+                      phx-update={if @sealed_uconn_key, do: "ignore"}
+                      data-decrypt-conn-username
+                    >{if @sealed_uconn_key, do: "", else: @username}</span>
                   </p>
 
                   <%!-- Connection indicators (similar to timeline post indicators) --%>
@@ -841,7 +848,11 @@ defmodule MossletWeb.ConnectionComponents do
                   color={connection_badge_color(@color)}
                   size="sm"
                 >
-                  <span data-decrypt-conn-label>{if @sealed_uconn_key, do: "", else: @label}</span>
+                  <span
+                    id={"conn-label-#{@connection_id}"}
+                    phx-update={if @sealed_uconn_key, do: "ignore"}
+                    data-decrypt-conn-label
+                  >{if @sealed_uconn_key, do: "", else: @label}</span>
                 </.liquid_badge>
               </div>
 
@@ -1082,7 +1093,6 @@ defmodule MossletWeb.ConnectionComponents do
         :if={@sealed_uconn_key}
         id={"decrypt-arrival-card-#{@arrival_id}"}
         phx-hook="DecryptConnectionCard"
-        phx-update="ignore"
         data-sealed-uconn-key={@sealed_uconn_key}
         data-encrypted-arrival-name={@encrypted_name}
         data-encrypted-arrival-email={@encrypted_email}
@@ -1129,7 +1139,11 @@ defmodule MossletWeb.ConnectionComponents do
                     level={@heading_level}
                     class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 truncate group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors duration-200 leading-tight"
                   >
-                    <span data-decrypt-arrival-name>{if @sealed_uconn_key, do: "", else: @name}</span>
+                    <span
+                      id={"arrival-name-#{@arrival_id}"}
+                      phx-update={if @sealed_uconn_key, do: "ignore"}
+                      data-decrypt-arrival-name
+                    >{if @sealed_uconn_key, do: "", else: @name}</span>
                   </.dynamic_heading>
                 </div>
 
@@ -1140,7 +1154,11 @@ defmodule MossletWeb.ConnectionComponents do
                     color={connection_badge_color(@color)}
                     size="md"
                   >
-                    <span data-decrypt-arrival-label>
+                    <span
+                      id={"arrival-label-#{@arrival_id}"}
+                      phx-update={if @sealed_uconn_key, do: "ignore"}
+                      data-decrypt-arrival-label
+                    >
                       {if @sealed_uconn_key, do: "", else: @label}
                     </span>
                   </.liquid_badge>
@@ -1149,7 +1167,11 @@ defmodule MossletWeb.ConnectionComponents do
 
               <%!-- Email with improved secondary hierarchy --%>
               <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 truncate mb-3 font-medium">
-                <span data-decrypt-arrival-email>{if @sealed_uconn_key, do: "", else: @email}</span>
+                <span
+                  id={"arrival-email-#{@arrival_id}"}
+                  phx-update={if @sealed_uconn_key, do: "ignore"}
+                  data-decrypt-arrival-email
+                >{if @sealed_uconn_key, do: "", else: @email}</span>
               </p>
 
               <%!-- Timestamp with enhanced visual treatment --%>

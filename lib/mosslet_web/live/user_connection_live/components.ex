@@ -19,7 +19,6 @@ defmodule MossletWeb.UserConnectionLive.Components do
         :if={@conn_fields[:sealed_uconn_key]}
         id={"decrypt-conn-show-#{@user_connection.id}"}
         phx-hook="DecryptConnectionCard"
-        phx-update="ignore"
         data-sealed-uconn-key={@conn_fields[:sealed_uconn_key]}
         data-encrypted-conn-name={@conn_fields[:encrypted_name]}
         data-encrypted-conn-username={@conn_fields[:encrypted_username]}
@@ -60,18 +59,33 @@ defmodule MossletWeb.UserConnectionLive.Components do
               :if={show_name?(@user_connection)}
               class="text-2xl font-bold text-gray-900 dark:text-gray-100"
             >
-              <span data-decrypt-conn-name class="animate-pulse">&nbsp;</span>
+              <span
+                id={"conn-show-name-#{@user_connection.id}"}
+                phx-update="ignore"
+                data-decrypt-conn-name
+                class="animate-pulse"
+              >&nbsp;</span>
             </h1>
             <h1
               :if={!show_name?(@user_connection)}
               class="text-2xl font-bold text-gray-900 dark:text-gray-100"
             >
-              <span data-decrypt-conn-username class="animate-pulse">&nbsp;</span>
+              <span
+                id={"conn-show-username-#{@user_connection.id}"}
+                phx-update="ignore"
+                data-decrypt-conn-username
+                class="animate-pulse"
+              >&nbsp;</span>
             </h1>
             <p class="text-sm font-medium text-gray-500 dark:text-gray-400">
               Became your
               <span class={username_link_text_color_no_hover(@user_connection.color)}>
-                <span data-decrypt-conn-label class="animate-pulse">&nbsp;</span>
+                <span
+                  id={"conn-show-label-#{@user_connection.id}"}
+                  phx-update="ignore"
+                  data-decrypt-conn-label
+                  class="animate-pulse"
+                >&nbsp;</span>
               </span>
               on
               <time datetime={@user_connection.confirmed_at}>
@@ -171,13 +185,23 @@ defmodule MossletWeb.UserConnectionLive.Components do
           <div class="sm:col-span-1">
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Username</dt>
             <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
-              <span data-decrypt-conn-username class="animate-pulse">&nbsp;</span>
+              <span
+                id={"conn-profile-username-#{@user_connection.id}"}
+                phx-update="ignore"
+                data-decrypt-conn-username
+                class="animate-pulse"
+              >&nbsp;</span>
             </dd>
           </div>
           <div :if={show_email?(@user_connection)} class="sm:col-span-1">
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Email address</dt>
             <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
-              <span data-decrypt-conn-email class="animate-pulse">&nbsp;</span>
+              <span
+                id={"conn-profile-email-#{@user_connection.id}"}
+                phx-update="ignore"
+                data-decrypt-conn-email
+                class="animate-pulse"
+              >&nbsp;</span>
             </dd>
           </div>
           <div
