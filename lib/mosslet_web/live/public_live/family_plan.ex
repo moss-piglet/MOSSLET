@@ -275,7 +275,10 @@ defmodule MossletWeb.PublicLive.FamilyPlan do
     ~H"""
     <div class="flex items-center justify-center gap-3">
       <div class={["h-px w-12 bg-gradient-to-r from-transparent", eyebrow_line_class(@accent)]}></div>
-      <span class={["text-sm font-semibold uppercase tracking-wider", eyebrow_text_class(@accent)]}>
+      <span class={[
+        "text-sm font-semibold uppercase tracking-wider text-center",
+        eyebrow_text_class(@accent)
+      ]}>
         {render_slot(@inner_block)}
       </span>
       <div class={["h-px w-12 bg-gradient-to-l from-transparent", eyebrow_line_class(@accent)]}></div>

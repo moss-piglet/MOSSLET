@@ -57,7 +57,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog18 do
           </a>
         </h2>
         <p>
-          Most "family" features on other platforms are really just monitoring with a makeover. We built the opposite. Mosslet Family runs on consent based guardianship with no master key. A guardian can only co-read a member's content after that member says "yes" and every managed member always sees exactly who can read what. Additionally, either side can hit "pause" on sharing any future content whenever they want.
+          Most "family" features on other platforms are really just monitoring with a makeover. We built the opposite. Mosslet Family runs on consent based guardianship with no master key. A guardian can only co-read a member's content after that member says "yes", and every managed member always sees exactly who can read what. Additionally, either side can hit "pause" on sharing any future content whenever they want.
         </p>
         <p>
           It might take some coordination but we think getting family's talking again is a good thing. And that's why you'd bring yours to Mosslet. It's a warm, private space for the people closest to you, and it works happily alongside whatever your family already uses to stay in touch.
