@@ -262,7 +262,7 @@ config :mosslet, :billing_products, [
     id: "prod_UgdkpX4fDFkSTx",
     name: "MOSSLET (Business)",
     description:
-      "Run your team on a calm, private platform. MOSSLET (Business) includes 20 members with private business circles and zero-knowledge file sharing — your team's work stays cryptographically private, never read by us.",
+      "Run your team on a calm, private platform. MOSSLET (Business) includes 10 members with private business circles and zero-knowledge file sharing — your team's work stays cryptographically private, never read by us.",
     most_popular: false,
     features: [
       "Everything in Personal, for up to 10 members",
@@ -302,7 +302,7 @@ config :mosslet, :billing_products, [
     id: "prod_UgdkpX4fDFkSTx",
     name: "MOSSLET (Business)",
     description:
-      "Get a full year of MOSSLET (Business) at our best rate. Includes 20 members with private business circles and zero-knowledge file sharing — privacy-first collaboration for your whole team.",
+      "Get a full year of MOSSLET (Business) at our best rate. Includes 10 members with private business circles and zero-knowledge file sharing — privacy-first collaboration for your whole team.",
     most_popular: false,
     features: [
       "Everything in Personal, for up to 10 members",

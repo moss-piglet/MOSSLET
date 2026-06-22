@@ -8,6 +8,14 @@ defmodule MossletWeb.FeedController do
 
   @blog_entries [
     %{
+      id: "18",
+      date: "June 22, 2026",
+      title: "Bring Your People With You: Family and Business Plans Are Here",
+      preview:
+        "Sharing privacy feels like an oxymoron, but that's exactly what we're introducing: two new ways to bring the people you love and trust onto MOSSLET with our Family and Business plans. Both run on the same zero-knowledge, post-quantum encryption that protects everything else here. Best of all, you don't have to give anything up. Augment your existing tech stack with MOSSLET, the calm, private space you add on top for the conversations and files that deserve real protection.",
+      path: "/blog/articles/18"
+    },
+    %{
       id: "17",
       date: "May 25, 2026",
       title: "We Can't Read Your Data. Here's How.",

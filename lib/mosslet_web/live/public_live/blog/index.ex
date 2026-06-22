@@ -29,6 +29,13 @@ defmodule MossletWeb.PublicLive.Blog.Index do
             <%!-- Blog entries --%>
             <div class="space-y-8">
               <.blog_entry
+                id="blog_18"
+                date="June 22, 2026"
+                title="Bring Your People With You: Family and Business Plans Are Here"
+                preview="Sharing privacy? Feels like an oxymoron, but that's exactly what I'm excited to introduce today; two new ways to bring the people you love and trust onto Mosslet with our Family and Business plans. Both run on the same zero-knowledge, post-quantum encryption that protects everything else here, which means we still can't read your data, and now neither can anyone snooping on the people you care about."
+                link={~p"/blog/articles/18"}
+              />
+              <.blog_entry
                 id="blog_17"
                 date="May 25, 2026"
                 title="We Can't Read Your Data. Here's How."
