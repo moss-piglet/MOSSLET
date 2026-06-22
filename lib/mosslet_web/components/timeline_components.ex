@@ -411,7 +411,7 @@ defmodule MossletWeb.TimelineComponents do
 
     ~H"""
     <.link
-      navigate={~p"/app/timeline"}
+      navigate={~p"/app/timeline?compose=1"}
       id={@id}
       class={[
         "block relative rounded-2xl transition-all duration-300 ease-out",
