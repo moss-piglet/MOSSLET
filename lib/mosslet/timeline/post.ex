@@ -422,7 +422,13 @@ defmodule Mosslet.Timeline.Post do
       :visibility
     ])
     |> validate_required([:body, :repost, :user_id, :original_post_id])
-    |> put_change(:user_post_map, Map.get(attrs, :user_post_map))
+    # `username` is already browser-encrypted (true ZK — the reposted author's
+    # username re-sealed with the new post_key). The server has no plaintext to
+    # blind-index, but `username_hash` is NOT NULL. Mirror `repost_changeset/3`
+    # and derive the hash from the stored (ciphertext) username: it satisfies the
+    # constraint, leaks nothing, and `posts.username_hash` is never queried.
+    |> add_username_hash()
+    |> put_change(:user_post_map, Map.get(attrs, "user_post_map", Map.get(attrs, :user_post_map)))
     |> cast_embed(:shared_users,
       with: &shared_user_repost_changeset/2,
       sort_param: :shared_users_order,

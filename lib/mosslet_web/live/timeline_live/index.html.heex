@@ -280,25 +280,21 @@
                 id={"timeline-card-container-#{post.id}"}
                 class="timeline-post-item new-post max-w-2xl mx-auto"
               >
+                <% post_vm =
+                  MossletWeb.TimelineLive.PostViewModel.build(post, @current_user, @key) %>
                 <MossletWeb.TimelineComponents.liquid_timeline_post
-                  user_name={get_post_author_name(post, @current_user, @key)}
-                  encrypted_author_name_data={
-                    get_encrypted_post_author_name_data(post, @current_user)
-                  }
+                  user_name={post_vm.user_name}
+                  encrypted_author_name_data={post_vm.encrypted_author_name_data}
                   user_handle={"@" <> (post.decrypted[:username] || "author")}
-                  user_avatar={get_post_author_avatar_fallback(post, @current_user)}
-                  encrypted_avatar_data={
-                    get_encrypted_post_author_avatar_data(post, @current_user, @key)
-                  }
+                  user_avatar={post_vm.user_avatar}
+                  encrypted_avatar_data={post_vm.encrypted_avatar_data}
                   user_status={get_cached_user_status(@user_statuses, post.user_id)}
                   encrypted_status_data={
                     get_cached_encrypted_status_data(@user_statuses, post.user_id)
                   }
                   show_post_author_status={can_view_cached_status?(@user_statuses, post.user_id)}
-                  author_profile_slug={get_post_author_profile_slug(post, @current_user, @key)}
-                  author_profile_visibility={
-                    get_post_author_profile_visibility(post, @current_user, @key)
-                  }
+                  author_profile_slug={post_vm.author_profile_slug}
+                  author_profile_visibility={post_vm.author_profile_visibility}
                   timestamp={format_post_timestamp(post.inserted_at)}
                   verified={false}
                   content_warning?={post.content_warning?}
@@ -326,11 +322,11 @@
                   bookmark_notes={post.decrypted[:bookmark_notes]}
                   encrypted_bookmark_notes={post.decrypted[:encrypted_bookmark_notes]}
                   liked={@current_user.id in (post.decrypted[:favs_list] || [])}
-                  bookmarked={get_post_bookmarked_status(post, @current_user)}
+                  bookmarked={post_vm.bookmarked?}
                   can_repost={can_repost_with_pre_decrypted?(post, @current_user)}
                   can_reply?={can_reply?(post, @current_user)}
                   can_bookmark?={can_bookmark?(post, @current_user)}
-                  unread?={get_post_unread_status(post, @current_user)}
+                  unread?={post_vm.unread?}
                   unread_replies_count={Map.get(@unread_replies_by_post, post.id, 0)}
                   unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
                   calm_notifications={@current_user.calm_notifications}
@@ -380,16 +376,14 @@
                   id={"timeline-card-container-read-#{post.id}"}
                   class="timeline-post-item max-w-2xl mx-auto"
                 >
+                  <% post_vm =
+                    MossletWeb.TimelineLive.PostViewModel.build(post, @current_user, @key) %>
                   <MossletWeb.TimelineComponents.liquid_timeline_post
-                    user_name={get_post_author_name(post, @current_user, @key)}
-                    encrypted_author_name_data={
-                      get_encrypted_post_author_name_data(post, @current_user)
-                    }
+                    user_name={post_vm.user_name}
+                    encrypted_author_name_data={post_vm.encrypted_author_name_data}
                     user_handle={"@" <> (post.decrypted[:username] || "author")}
-                    user_avatar={get_post_author_avatar_fallback(post, @current_user)}
-                    encrypted_avatar_data={
-                      get_encrypted_post_author_avatar_data(post, @current_user, @key)
-                    }
+                    user_avatar={post_vm.user_avatar}
+                    encrypted_avatar_data={post_vm.encrypted_avatar_data}
                     user_status={get_cached_user_status(@user_statuses, post.user_id)}
                     encrypted_status_data={
                       get_cached_encrypted_status_data(@user_statuses, post.user_id)
@@ -397,10 +391,8 @@
                     show_post_author_status={
                       can_view_cached_status?(@user_statuses, post.user_id)
                     }
-                    author_profile_slug={get_post_author_profile_slug(post, @current_user, @key)}
-                    author_profile_visibility={
-                      get_post_author_profile_visibility(post, @current_user, @key)
-                    }
+                    author_profile_slug={post_vm.author_profile_slug}
+                    author_profile_visibility={post_vm.author_profile_visibility}
                     timestamp={format_post_timestamp(post.inserted_at)}
                     verified={false}
                     content_warning?={post.content_warning?}
@@ -429,7 +421,7 @@
                     bookmark_notes={post.decrypted[:bookmark_notes]}
                     encrypted_bookmark_notes={post.decrypted[:encrypted_bookmark_notes]}
                     liked={@current_user.id in (post.decrypted[:favs_list] || [])}
-                    bookmarked={get_post_bookmarked_status(post, @current_user)}
+                    bookmarked={post_vm.bookmarked?}
                     can_repost={can_repost_with_pre_decrypted?(post, @current_user)}
                     can_reply?={can_reply?(post, @current_user)}
                     can_bookmark?={can_bookmark?(post, @current_user)}

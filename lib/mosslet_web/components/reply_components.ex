@@ -769,7 +769,7 @@ defmodule MossletWeb.ReplyComponents do
         end
 
       not is_connected_to_reply_author?(reply, current_user) ->
-        "[Reply from non-connected user]"
+        "[Reply from non-connected author]"
 
       true ->
         case get_reply_post_key(reply, current_user) do

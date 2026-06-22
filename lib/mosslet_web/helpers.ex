@@ -881,7 +881,7 @@ defmodule MossletWeb.Helpers do
         end
 
       not is_connected_to_reply_author?(reply, current_user) ->
-        "[Reply from non-connected user]"
+        "[Reply from non-connected author]"
 
       true ->
         with {:ok, post_key} <- get_reply_post_key(reply, current_user),
