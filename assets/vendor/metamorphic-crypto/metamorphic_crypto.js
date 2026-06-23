@@ -637,6 +637,177 @@ export function sealForUserWithLevel(plaintext_b64, public_key_b64, pq_public_ke
 }
 
 /**
+ * SHA-256 (SHA-2) digest of base64-encoded `data`. Returns the 32-byte digest as base64.
+ * @param {string} data_b64
+ * @returns {string}
+ */
+export function sha256(data_b64) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passStringToWasm0(data_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.sha256(retptr, ptr0, len0);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+        var ptr2 = r0;
+        var len2 = r1;
+        if (r3) {
+            ptr2 = 0; len2 = 0;
+            throw takeObject(r2);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+        wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * SHA3-256 digest of base64-encoded `data`. Returns the 32-byte digest as base64.
+ * @param {string} data_b64
+ * @returns {string}
+ */
+export function sha3_256(data_b64) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passStringToWasm0(data_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.sha3_256(retptr, ptr0, len0);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+        var ptr2 = r0;
+        var len2 = r1;
+        if (r3) {
+            ptr2 = 0; len2 = 0;
+            throw takeObject(r2);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+        wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * SHA3-512 digest of base64-encoded `data`. Returns the 64-byte digest as base64.
+ *
+ * This is the recommended default hash (NIST Cat-5).
+ * @param {string} data_b64
+ * @returns {string}
+ */
+export function sha3_512(data_b64) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passStringToWasm0(data_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.sha3_512(retptr, ptr0, len0);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+        var ptr2 = r0;
+        var len2 = r1;
+        if (r3) {
+            ptr2 = 0; len2 = 0;
+            throw takeObject(r2);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+        wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * Domain-separated SHA3-512: binds the digest to a UTF-8 `context` label.
+ *
+ * `data` is base64; returns the 64-byte digest as base64. Prefer this over
+ * `sha3_512` for fingerprints / safety numbers / key-transparency entries.
+ *
+ * Wire format (reproduce exactly for parity with native/Elixir):
+ * `SHA3-512( u64_be(len(context_utf8)) || context_utf8 || data )`.
+ * @param {string} context
+ * @param {string} data_b64
+ * @returns {string}
+ */
+export function sha3_512WithContext(context, data_b64) {
+    let deferred4_0;
+    let deferred4_1;
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passStringToWasm0(context, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(data_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len1 = WASM_VECTOR_LEN;
+        wasm.sha3_512WithContext(retptr, ptr0, len0, ptr1, len1);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+        var ptr3 = r0;
+        var len3 = r1;
+        if (r3) {
+            ptr3 = 0; len3 = 0;
+            throw takeObject(r2);
+        }
+        deferred4_0 = ptr3;
+        deferred4_1 = len3;
+        return getStringFromWasm0(ptr3, len3);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+        wasm.__wbindgen_export4(deferred4_0, deferred4_1, 1);
+    }
+}
+
+/**
+ * SHA-512 (SHA-2) digest of base64-encoded `data`. Returns the 64-byte digest as base64.
+ * @param {string} data_b64
+ * @returns {string}
+ */
+export function sha512(data_b64) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passStringToWasm0(data_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.sha512(retptr, ptr0, len0);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+        var ptr2 = r0;
+        var len2 = r1;
+        if (r3) {
+            ptr2 = 0; len2 = 0;
+            throw takeObject(r2);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+        wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
  * Unseal ciphertext using the user's keys. Auto-detects format.
  * Returns base64-encoded plaintext.
  * @param {string} ciphertext_b64

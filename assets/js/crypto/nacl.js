@@ -34,15 +34,35 @@ import wasmInit, {
   recoveryKeyToSecret as _recoveryKeyToSecret,
   parseSaltFromKeyHash as _parseSaltFromKeyHash,
   sealForUserWithLevel as _sealForUserWithLevel,
+  sha3_512 as _sha3_512,
+  sha3_512WithContext as _sha3_512WithContext,
+  sha3_256 as _sha3_256,
+  sha256 as _sha256,
+  sha512 as _sha512,
 } from "../../vendor/metamorphic-crypto/metamorphic_crypto.js";
 
 // --- WASM initialization ---
 
 let _ready = null;
+let _wasmSource = "/wasm/metamorphic_crypto_bg.wasm";
+
+/**
+ * Override where the WASM binary is loaded from before first use.
+ *
+ * In the browser the default Phoenix static path ("/wasm/...") is correct and
+ * this never needs to be called. It exists so non-browser environments (e.g. a
+ * future SDK harness) can initialize from explicit bytes/URL via the same glue.
+ *
+ * @param {string|URL|BufferSource|Response|WebAssembly.Module} input
+ */
+export function setWasmSource(input) {
+  if (_ready) throw new Error("setWasmSource must be called before crypto is initialized");
+  _wasmSource = input;
+}
 
 async function ensureReady() {
   if (_ready) return _ready;
-  _ready = wasmInit("/wasm/metamorphic_crypto_bg.wasm").catch((e) => {
+  _ready = wasmInit(_wasmSource).catch((e) => {
     _ready = null;
     throw e;
   });
@@ -311,5 +331,68 @@ export async function parseSaltFromKeyHash(keyHash) {
   await ensureReady();
   return _parseSaltFromKeyHash(keyHash);
 }
+
+// --- Hashing (metamorphic-crypto SHA3 / SHA2) ---
+//
+// These are thin wrappers over the same audited Rust crate that powers the
+// server-side NIF (MetamorphicCrypto.Hash), guaranteeing byte-for-byte parity
+// between browser and server. All take and return base64 strings; SHA3-512 is
+// the project default (Cat-5 posture, consistent with the Keccak seal combiner).
+
+/**
+ * SHA3-512 digest of base64-encoded data. Returns the 64-byte digest as base64.
+ * @param {string} dataBase64
+ * @returns {Promise<string>} base64 digest
+ */
+export async function sha3_512(dataBase64) {
+  await ensureReady();
+  return _sha3_512(dataBase64);
+}
+
+/**
+ * Domain-separated SHA3-512 — the primitive for key fingerprints / safety
+ * numbers / key-transparency entries. Wire format:
+ *   SHA3-512( u64_be(byteLength(context)) || utf8(context) || data )
+ *
+ * @param {string} context - versioned UTF-8 label, e.g. "mosslet/key-fingerprint/v1"
+ * @param {string} dataBase64 - base64-encoded payload
+ * @returns {Promise<string>} base64 digest (64 bytes)
+ */
+export async function sha3_512WithContext(context, dataBase64) {
+  await ensureReady();
+  return _sha3_512WithContext(context, dataBase64);
+}
+
+/**
+ * SHA3-256 digest of base64-encoded data. Returns the 32-byte digest as base64.
+ * @param {string} dataBase64
+ * @returns {Promise<string>} base64 digest
+ */
+export async function sha3_256(dataBase64) {
+  await ensureReady();
+  return _sha3_256(dataBase64);
+}
+
+/**
+ * SHA-256 (SHA-2) digest of base64-encoded data. Returns 32-byte digest as base64.
+ * @param {string} dataBase64
+ * @returns {Promise<string>} base64 digest
+ */
+export async function sha256(dataBase64) {
+  await ensureReady();
+  return _sha256(dataBase64);
+}
+
+/**
+ * SHA-512 (SHA-2) digest of base64-encoded data. Returns 64-byte digest as base64.
+ * @param {string} dataBase64
+ * @returns {Promise<string>} base64 digest
+ */
+export async function sha512(dataBase64) {
+  await ensureReady();
+  return _sha512(dataBase64);
+}
+
+// --- Utility ---
 
 export { b64Decode };
