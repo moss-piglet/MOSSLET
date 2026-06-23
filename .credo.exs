@@ -36,7 +36,7 @@
       #
       # Load and configure plugins here:
       #
-      plugins: [],
+      plugins: [{ExSlop, []}],
       #
       # If you create your own checks, you must specify the source files for
       # them here, so they can be loaded by Credo before running the analysis.
@@ -161,15 +161,7 @@
           {Credo.Check.Warning.UnusedRegexOperation, []},
           {Credo.Check.Warning.UnusedStringOperation, []},
           {Credo.Check.Warning.UnusedTupleOperation, []},
-          {Credo.Check.Warning.WrongTestFilename, []},
-          # ExSlop
-          {ExSlop.Check.Warning.BlanketRescue, []},
-          {ExSlop.Check.Warning.RescueWithoutReraise, []},
-          {ExSlop.Check.Warning.RepoAllThenFilter, []},
-          {ExSlop.Check.Warning.QueryInEnumMap, []},
-          {ExSlop.Check.Warning.GenserverAsKvStore, []},
-          {ExSlop.Check.Warning.PathExpandPriv, []},
-          {ExSlop.Check.Warning.DualKeyAccess, []}
+          {Credo.Check.Warning.WrongTestFilename, []}
         ],
         disabled: [
           #
