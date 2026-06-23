@@ -21,6 +21,7 @@ defmodule Mosslet.Accounts.Adapters.Web do
 
   alias Mosslet.Accounts.{
     Connection,
+    KeyPin,
     User,
     UserBlock,
     UserConnection,
@@ -267,7 +268,7 @@ defmodule Mosslet.Accounts.Adapters.Web do
     |> where_confirmed()
     |> where_not_blocked(blocked_user_ids)
     |> order_by([uc], desc: uc.confirmed_at)
-    |> preload([:connection])
+    |> preload([:connection, :reverse_user])
     |> Repo.all()
   end
 
@@ -472,7 +473,7 @@ defmodule Mosslet.Accounts.Adapters.Web do
       |> where_not_blocked(blocked_user_ids)
       |> where([uc], uc.label_hash == ^normalized_query)
       |> order_by([uc], desc: uc.confirmed_at)
-      |> preload([:connection])
+      |> preload([:connection, :reverse_user])
       |> Repo.all()
     else
       filter_user_connections(%{}, user)
@@ -631,6 +632,47 @@ defmodule Mosslet.Accounts.Adapters.Web do
          end) do
       {:ok, {:ok, uconn}} ->
         {:ok, uconn |> Repo.preload([:user, :connection])}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      _rest ->
+        {:error, "error"}
+    end
+  end
+
+  @impl true
+  def get_key_pin(viewer_id, peer_user_id) do
+    Repo.one(
+      from kp in KeyPin,
+        where: kp.user_id == ^viewer_id and kp.peer_user_id == ^peer_user_id
+    )
+  end
+
+  @impl true
+  def list_key_pins_for(_viewer_id, []), do: %{}
+
+  def list_key_pins_for(viewer_id, peer_user_ids) when is_list(peer_user_ids) do
+    Repo.all(
+      from kp in KeyPin,
+        where: kp.user_id == ^viewer_id and kp.peer_user_id in ^peer_user_ids,
+        select: {kp.peer_user_id, kp.pinned_fingerprint}
+    )
+    |> Map.new()
+  end
+
+  @impl true
+  def upsert_key_pin(viewer_id, peer_user_id, sealed_fingerprint) do
+    changeset = KeyPin.pin_changeset(viewer_id, peer_user_id, sealed_fingerprint)
+
+    case Repo.transaction_on_primary(fn ->
+           Repo.insert(changeset,
+             on_conflict: :nothing,
+             conflict_target: [:user_id, :peer_user_id]
+           )
+         end) do
+      {:ok, {:ok, key_pin}} ->
+        {:ok, key_pin}
 
       {:ok, {:error, changeset}} ->
         {:error, changeset}

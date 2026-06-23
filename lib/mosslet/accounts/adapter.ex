@@ -295,6 +295,34 @@ defmodule Mosslet.Accounts.Adapter do
             ) :: {:ok, UserConnection.t()} | {:error, Ecto.Changeset.t() | String.t()}
 
   @doc """
+  Returns the viewer's TOFU key pin for a peer, or nil (EPIC #291 / #293).
+  """
+  @callback get_key_pin(
+              viewer_id :: String.t(),
+              peer_user_id :: String.t()
+            ) :: Mosslet.Accounts.KeyPin.t() | nil
+
+  @doc """
+  Batch-hydrates the viewer's key pins for a list of peers, returning a map of
+  `peer_user_id => pinned_fingerprint` (EPIC #291 / #293). Avoids N+1.
+  """
+  @callback list_key_pins_for(
+              viewer_id :: String.t(),
+              peer_user_ids :: [String.t()]
+            ) :: %{optional(String.t()) => binary()}
+
+  @doc """
+  Insert-only upsert of the viewer's browser-sealed TOFU pin for a peer
+  (EPIC #291 / #293). First-write-wins (`on_conflict: :nothing` on the unique
+  (viewer, peer) pair); the opaque blob is never overwritten here.
+  """
+  @callback upsert_key_pin(
+              viewer_id :: String.t(),
+              peer_user_id :: String.t(),
+              sealed_fingerprint :: binary()
+            ) :: {:ok, Mosslet.Accounts.KeyPin.t()} | {:error, term()}
+
+  @doc """
   Updates user profile on their connection.
   Thin wrapper - only handles Repo transaction, business logic stays in context.
   """

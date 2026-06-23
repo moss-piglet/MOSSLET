@@ -102,6 +102,7 @@ defmodule MossletWeb.UserConnectionLive.Index do
      |> stream_configure(:user_connections,
        dom_id: fn connection -> "user-connection-#{connection.id}" end
      )
+     |> assign(:key_pins, %{})
      |> stream(:user_connections, [])}
   end
 
@@ -149,6 +150,15 @@ defmodule MossletWeb.UserConnectionLive.Index do
 
     connections_count = length(connections)
 
+    # TOFU pin hydration (EPIC #291 / #293): batch-load the viewer's sealed pins
+    # for every peer on screen, keyed by peer_user_id (avoids N+1). The card
+    # passes the matching blob to the DecryptConnectionCard hook.
+    key_pins =
+      Accounts.list_key_pins_for(
+        current_user.id,
+        Enum.map(connections, & &1.reverse_user_id)
+      )
+
     # Load visibility groups for streaming
     visibility_groups =
       Accounts.get_user_visibility_groups_with_connections(current_user)
@@ -160,6 +170,7 @@ defmodule MossletWeb.UserConnectionLive.Index do
       |> assign(:any_pending_arrivals?, any_pending_arrivals?)
       |> assign(:arrivals_count, Accounts.arrivals_count(current_user))
       |> assign(:connections_count, connections_count)
+      |> assign(:key_pins, key_pins)
       |> assign(:modal_connections, connections)
       |> assign(:loading_list, arrivals_loading_list)
       |> assign(:return_url, url)
@@ -971,6 +982,13 @@ defmodule MossletWeb.UserConnectionLive.Index do
           socket
           |> stream(:user_connections, connections, reset: true)
           |> assign(:connections_count, length(connections))
+          |> assign(
+            :key_pins,
+            Accounts.list_key_pins_for(
+              current_user.id,
+              Enum.map(connections, & &1.reverse_user_id)
+            )
+          )
 
         _ ->
           # For any other tabs, just update the active tab
@@ -1293,6 +1311,32 @@ defmodule MossletWeb.UserConnectionLive.Index do
     end
   end
 
+  # TOFU pin store (EPIC #291 / #293, REVISED — unified key_pins). The browser
+  # computed the PEER's key fingerprint, sealed it under the viewer's user_key,
+  # and pushed the opaque blob here keyed by peer_user_id. We persist it only
+  # after verifying the viewer has a CONFIRMED connection to that peer (prevents
+  # unbounded writes; org co-membership acceptance lands in #294). The server
+  # cannot read or forge the blob; the match/mismatch verdict is client-side.
+  # Insert-only (first-write-wins) at the context layer.
+  @impl true
+  def handle_event(
+        "store_peer_pin",
+        %{"peer_user_id" => peer_user_id, "sealed_pin" => sealed_pin},
+        socket
+      )
+      when is_binary(peer_user_id) and is_binary(sealed_pin) and sealed_pin != "" do
+    user = socket.assigns.current_user
+    uconn = Accounts.get_user_connection_between_users(peer_user_id, user.id)
+
+    if uconn && not is_nil(uconn.confirmed_at) do
+      _ = Accounts.upsert_key_pin(user.id, peer_user_id, sealed_pin)
+    end
+
+    {:noreply, socket}
+  end
+
+  def handle_event("store_peer_pin", _params, socket), do: {:noreply, socket}
+
   @impl true
   def handle_event("accept_uconn", %{"id" => id}, socket) do
     uconn = Accounts.get_user_connection!(id)
@@ -1538,6 +1582,38 @@ defmodule MossletWeb.UserConnectionLive.Index do
   defp decrypt_user_item(encrypted_item, user, key) do
     Mosslet.Encrypted.Users.Utils.decrypt_user_item(encrypted_item, user, user.user_key, key)
   end
+
+  # TOFU (EPIC #291 / #293): the peer is the OTHER side of the connection
+  # (`reverse_user`). Their X25519 + ML-KEM PUBLIC keys are emitted into the
+  # card so the browser can recompute the fingerprint and compare it against
+  # the viewer-sealed pin. Returns nil when the assoc isn't loaded so the card
+  # simply skips pinning rather than crashing.
+  defp peer_public_key(%{reverse_user: %Mosslet.Accounts.User{} = peer}),
+    do: get_in(peer.key_pair, ["public"])
+
+  defp peer_public_key(_), do: nil
+
+  defp peer_pq_public_key(%{reverse_user: %Mosslet.Accounts.User{} = peer}),
+    do: peer.pq_public_key
+
+  defp peer_pq_public_key(_), do: nil
+
+  # TOFU (EPIC #291 / #293, REVISED): the pin is keyed by peer_user_id in the
+  # unified key_pins store, NOT by the relationship row. The peer is the OTHER
+  # side of the connection (`reverse_user`).
+  defp peer_user_id(%{reverse_user_id: id}) when not is_nil(id), do: id
+  defp peer_user_id(_), do: nil
+
+  # Hydrate the viewer-sealed pin (opaque blob) for a card from the batch-loaded
+  # key_pins map (peer_user_id => sealed blob). nil when not yet pinned.
+  defp peer_sealed_pin(connection, key_pins) when is_map(key_pins) do
+    case peer_user_id(connection) do
+      nil -> nil
+      pid -> Map.get(key_pins, pid)
+    end
+  end
+
+  defp peer_sealed_pin(_connection, _key_pins), do: nil
 
   # Status helper functions moved to MossletWeb.Helpers.StatusHelpers
 

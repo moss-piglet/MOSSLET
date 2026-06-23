@@ -475,6 +475,40 @@ defmodule Mosslet.Accounts do
   end
 
   @doc """
+  Returns the viewer's unified TOFU key pin for a peer, or nil
+  (EPIC #291 / #293).
+  """
+  def get_key_pin(viewer_id, peer_user_id) do
+    adapter().get_key_pin(viewer_id, peer_user_id)
+  end
+
+  @doc """
+  Batch-hydrates the viewer's key pins for a list of peers, returning a map of
+  `peer_user_id => pinned_fingerprint` (EPIC #291 / #293). Avoids N+1 when
+  rendering many cards.
+  """
+  def list_key_pins_for(viewer_id, peer_user_ids) do
+    adapter().list_key_pins_for(viewer_id, peer_user_ids)
+  end
+
+  @doc """
+  Insert-only upsert of the viewer's browser-sealed TOFU pin of a peer's key
+  fingerprint (EPIC #291 / #293).
+
+  The `sealed_fingerprint` is an opaque NaCl-secretbox blob produced in the
+  viewer's browser under their `user_key`; the server can neither read nor
+  forge it. First-write-wins: re-pinning after a (possibly legitimate) key
+  rotation is a later-phase explicit re-verification flow, NOT an overwrite
+  here. Deliberately silent — pinning is a viewer-local security operation.
+
+  Callers MUST verify the viewer has a confirmed relationship to `peer_user_id`
+  before invoking this (prevents unbounded writes).
+  """
+  def upsert_key_pin(viewer_id, peer_user_id, sealed_fingerprint) do
+    adapter().upsert_key_pin(viewer_id, peer_user_id, sealed_fingerprint)
+  end
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for tracking user changes.
 
   ## Examples

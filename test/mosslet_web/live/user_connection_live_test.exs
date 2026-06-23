@@ -69,6 +69,73 @@ defmodule MossletWeb.UserConnectionLiveTest do
       assert has_element?(lv, "form")
     end
 
+    test "renders peer public keys + peer user id for client-side TOFU pinning", %{
+      conn: conn,
+      user: user,
+      key: key
+    } do
+      {:ok, _lv, html} =
+        conn
+        |> log_in_user(user, key)
+        |> live(~p"/app/users/connections")
+
+      assert html =~ "data-peer-public-key"
+      assert html =~ "data-peer-pq-public-key"
+      assert html =~ "data-peer-user-id"
+    end
+
+    test "store_peer_pin persists the sealed blob for a confirmed peer", %{
+      conn: conn,
+      user: user,
+      key: key,
+      reverse_user: reverse_user
+    } do
+      {:ok, lv, _html} =
+        conn
+        |> log_in_user(user, key)
+        |> live(~p"/app/users/connections")
+
+      assert is_nil(Accounts.get_key_pin(user.id, reverse_user.id))
+
+      blob = Base.encode64(:crypto.strong_rand_bytes(96))
+
+      render_hook(lv, "store_peer_pin", %{
+        "peer_user_id" => reverse_user.id,
+        "sealed_pin" => blob
+      })
+
+      pin = Accounts.get_key_pin(user.id, reverse_user.id)
+      assert pin.pinned_fingerprint == blob
+    end
+
+    test "store_peer_pin rejects a peer the viewer has no confirmed connection to", %{
+      conn: conn,
+      user: user,
+      key: key
+    } do
+      {:ok, lv, _html} =
+        conn
+        |> log_in_user(user, key)
+        |> live(~p"/app/users/connections")
+
+      # A stranger the viewer has no user_connection to at all.
+      stranger =
+        user_fixture(%{
+          username: "pin_stranger",
+          email: "pin_stranger@example.com",
+          password: @valid_password
+        })
+
+      blob = Base.encode64(:crypto.strong_rand_bytes(96))
+
+      render_hook(lv, "store_peer_pin", %{
+        "peer_user_id" => stranger.id,
+        "sealed_pin" => blob
+      })
+
+      assert is_nil(Accounts.get_key_pin(user.id, stranger.id))
+    end
+
     test "displays connection information correctly", %{
       conn: conn,
       user: user,

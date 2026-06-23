@@ -1,15 +1,19 @@
 import { unsealContextKey, decryptWithKey, getPublicKey, unwrapKey } from "../crypto/session";
+import { verifyOrPin } from "../crypto/pin_store";
 
 const DecryptConnectionCard = {
   async mounted() {
     this._cache = null;
     this._cachedAttrs = null;
     this._onKeysReady = null;
+    this._pinnedFor = null;
 
     if (!await this._decrypt()) {
       this._onKeysReady = () => this._decrypt();
       window.addEventListener("mosslet:keys-ready", this._onKeysReady, { once: true });
     }
+
+    this._pin();
   },
 
   async updated() {
@@ -23,12 +27,49 @@ const DecryptConnectionCard = {
       this._cachedAttrs = null;
       await this._decrypt();
     }
+    this._pin();
   },
 
   destroyed() {
     if (this._onKeysReady) {
       window.removeEventListener("mosslet:keys-ready", this._onKeysReady);
       this._onKeysReady = null;
+    }
+  },
+
+  // TOFU key pinning (EPIC #291 / #293, REVISED — unified key_pins). Compute
+  // the peer's fingerprint from the served public keys and verify it against
+  // the viewer-sealed pin (or pin it on first encounter), keyed by the PEER's
+  // user id (one pin per peer, independent of relationship). When a new pin is
+  // produced, persist the opaque blob server-side. Idempotent per
+  // (peer-user, peer-key, pin) so re-renders don't re-push.
+  async _pin() {
+    const d = this.el.dataset;
+    const peerUserId = d.peerUserId;
+    const peerPublicKey = d.peerPublicKey;
+    const peerPqPublicKey = d.peerPqPublicKey;
+    if (!peerUserId || !peerPublicKey || !peerPqPublicKey) return;
+
+    const guard = [peerUserId, peerPublicKey, peerPqPublicKey, d.sealedPeerPin || ""].join("|");
+    if (this._pinnedFor === guard) return;
+    this._pinnedFor = guard;
+
+    try {
+      const result = await verifyOrPin({
+        peerUserId,
+        sealedPin: d.sealedPeerPin || null,
+        peerPublicKey,
+        peerPqPublicKey,
+      });
+
+      if (result && result.sealedPinToStore) {
+        this.pushEvent("store_peer_pin", {
+          peer_user_id: peerUserId,
+          sealed_pin: result.sealedPinToStore,
+        });
+      }
+    } catch (e) {
+      console.error("DecryptConnectionCard: TOFU pin failed:", e);
     }
   },
 

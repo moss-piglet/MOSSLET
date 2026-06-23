@@ -725,6 +725,22 @@ defmodule MossletWeb.ConnectionComponents do
     default: nil,
     doc: "ZK sealed connection key for browser unseal"
 
+  attr :peer_user_id, :string,
+    default: nil,
+    doc: "Peer user id — the key the unified TOFU pin is stored under"
+
+  attr :peer_public_key, :string,
+    default: nil,
+    doc: "Peer's X25519 public key (base64) for TOFU fingerprint compute"
+
+  attr :peer_pq_public_key, :string,
+    default: nil,
+    doc: "Peer's ML-KEM public key (base64) for TOFU fingerprint compute"
+
+  attr :sealed_peer_pin, :string,
+    default: nil,
+    doc: "Viewer-sealed TOFU pin of the peer fingerprint, or nil if not yet pinned"
+
   attr :color, :atom, required: true
   attr :avatar_src, :string, default: nil
   attr :encrypted_avatar_data, :map, default: nil, doc: "ZK encrypted avatar blob + sealed key"
@@ -763,6 +779,10 @@ defmodule MossletWeb.ConnectionComponents do
           data-encrypted-conn-name={@encrypted_name}
           data-encrypted-conn-username={@encrypted_username}
           data-encrypted-conn-label={@encrypted_label}
+          data-peer-user-id={@peer_user_id}
+          data-peer-public-key={@peer_public_key}
+          data-peer-pq-public-key={@peer_pq_public_key}
+          data-sealed-peer-pin={@sealed_peer_pin}
           class="hidden"
         >
         </div>

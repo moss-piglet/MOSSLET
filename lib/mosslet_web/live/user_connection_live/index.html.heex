@@ -304,6 +304,10 @@
                 encrypted_username={connection.connection.username}
                 encrypted_label={connection.label}
                 sealed_uconn_key={connection.key}
+                peer_user_id={peer_user_id(connection)}
+                peer_public_key={peer_public_key(connection)}
+                peer_pq_public_key={peer_pq_public_key(connection)}
+                sealed_peer_pin={peer_sealed_pin(connection, @key_pins)}
                 color={connection.color}
                 encrypted_avatar_data={get_encrypted_avatar_data(connection, @key)}
                 connected_at={connection.confirmed_at}
