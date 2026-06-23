@@ -38,6 +38,7 @@ import {
   b64Encode,
 } from "../crypto/session";
 import { generateKey, sealForUser, b64Decode } from "../crypto/nacl";
+import { guardRecipients } from "../crypto/seal_guard";
 import { orgInitialsDataUrl, decryptOrgAvatarUrl } from "./org-avatar";
 
 const OrgMembers = {
@@ -191,8 +192,19 @@ const OrgMembers = {
       const members = payload.members || [];
       if (members.length === 0) return;
 
+      // Verify-before-seal (#294): substituting a member's key here would leak
+      // the entire org_key, so only seal for members whose served key matches
+      // their pinned fingerprint (or is pinned now via TOFU). Mismatched /
+      // unverifiable members are dropped. Pins keyed by peer user id (unified
+      // store), persisted via store_peer_pins (co-membership guard server-side).
+      const { sealable, pinsToStore } = await guardRecipients(members);
+
+      if (pinsToStore.length > 0) {
+        this._push("store_peer_pins", { pins: pinsToStore });
+      }
+
       const sealedMembers = await Promise.all(
-        members.map(async (member) => {
+        sealable.map(async (member) => {
           const sealedKey = await sealForUser(
             keyBytes,
             member.public_key,

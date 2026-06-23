@@ -27,6 +27,7 @@
  */
 import { unsealContextKey, getPublicKey, unwrapKey } from "../crypto/session";
 import { sealForUser, b64Decode } from "../crypto/nacl";
+import { guardRecipients } from "../crypto/seal_guard";
 
 const KEY_WAIT_TIMEOUT_MS = 15_000;
 
@@ -47,6 +48,7 @@ const CircleCatchUpHook = {
 
       const list = files || [];
       const sealedEntries = [];
+      const allPins = [];
 
       for (const file of list) {
         // Unseal the actor's own sealed copy of this file's file_key.
@@ -55,8 +57,13 @@ const CircleCatchUpHook = {
         const fileKey = unwrapKey(rawKey);
         const keyBytes = b64Decode(fileKey);
 
-        const missing = file.missing || [];
-        for (const member of missing) {
+        // Verify-before-seal (#294): only re-seal the file_key for missing
+        // members whose served key matches their pinned fingerprint (or is
+        // pinned now via TOFU). A mismatched/unverifiable member is dropped.
+        const { sealable, pinsToStore } = await guardRecipients(file.missing || []);
+        for (const pin of pinsToStore) allPins.push(pin);
+
+        for (const member of sealable) {
           const sealedKey = await sealForUser(
             keyBytes,
             member.public_key,
@@ -68,6 +75,10 @@ const CircleCatchUpHook = {
             sealed_key: sealedKey,
           });
         }
+      }
+
+      if (allPins.length > 0) {
+        this.pushEvent("store_peer_pins", { pins: allPins });
       }
 
       this.pushEvent("finalize_catch_up_zk", { sealed_entries: sealedEntries });

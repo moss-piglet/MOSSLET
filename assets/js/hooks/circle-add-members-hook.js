@@ -39,6 +39,7 @@ import {
   unwrapKey,
 } from "../crypto/session";
 import { sealForUser, b64Decode } from "../crypto/nacl";
+import { guardRecipients } from "../crypto/seal_guard";
 
 const FALLBACK_NAME = "Team member";
 
@@ -112,8 +113,19 @@ const CircleAddMembersHook = {
       const keyBytes = b64Decode(groupKey);
       const members = payload.members || [];
 
+      // Verify-before-seal (#294): only seal the circle group_key for members
+      // whose served key matches their pinned fingerprint (or is pinned now via
+      // TOFU). Substituting a member key here would leak the whole group_key, so
+      // a mismatched/unverifiable member is dropped from the seal set. Pins are
+      // keyed by peer user id (unified store) and persisted via store_peer_pins.
+      const { sealable, pinsToStore } = await guardRecipients(members);
+
+      if (pinsToStore.length > 0) {
+        this.pushEvent("store_peer_pins", { pins: pinsToStore });
+      }
+
       const sealedMembers = await Promise.all(
-        members.map(async (member) => {
+        sealable.map(async (member) => {
           const sealedKey = await sealForUser(
             keyBytes,
             member.public_key,

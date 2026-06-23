@@ -602,16 +602,29 @@ defmodule MossletWeb.ConversationLive.Index do
            other_user_id: conn_data.reverse_user_id,
            other_user_public_key: conn_data.other_user_public_key,
            other_user_pq_public_key: conn_data.other_user_pq_public_key,
+           other_user_sealed_pin:
+             MossletWeb.Helpers.sealed_pin_for(current_user.id, conn_data.reverse_user_id),
            guardian_recipients:
-             MossletWeb.Helpers.guardian_recipients_for_conversation([
-               current_user.id,
-               conn_data.reverse_user_id
-             ])
+             MossletWeb.Helpers.hydrate_sealed_pins(
+               MossletWeb.Helpers.guardian_recipients_for_conversation([
+                 current_user.id,
+                 conn_data.reverse_user_id
+               ]),
+               to_string(current_user.id)
+             )
          })}
       end
     else
       {:noreply, socket}
     end
+  end
+
+  # TOFU key-pin persist from the verify-before-seal path (#294). The browser
+  # pinned a peer's fingerprint while sealing the conversation_key and pushes the
+  # opaque blob here. Persisted only for CONFIRMED connections (server guard).
+  def handle_event("store_peer_pins", %{"pins" => pins}, socket) do
+    MossletWeb.Helpers.store_connection_peer_pins(socket.assigns.current_user, pins)
+    {:noreply, socket}
   end
 
   def handle_event("create_conversation", params, socket) do
@@ -889,11 +902,16 @@ defmodule MossletWeb.ConversationLive.Index do
           other_user_id: conn.reverse_user_id,
           other_user_public_key: other_keys.public_key,
           other_user_pq_public_key: other_keys.pq_public_key,
+          other_user_sealed_pin:
+            MossletWeb.Helpers.sealed_pin_for(current_user.id, conn.reverse_user_id),
           guardian_recipients:
-            MossletWeb.Helpers.guardian_recipients_for_conversation([
-              current_user.id,
-              conn.reverse_user_id
-            ])
+            MossletWeb.Helpers.hydrate_sealed_pins(
+              MossletWeb.Helpers.guardian_recipients_for_conversation([
+                current_user.id,
+                conn.reverse_user_id
+              ]),
+              to_string(current_user.id)
+            )
         })
       end
     else

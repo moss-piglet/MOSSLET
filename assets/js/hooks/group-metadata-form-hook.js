@@ -26,6 +26,7 @@
  */
 import { unsealContextKey, getPublicKey, getPqPublicKey, unwrapKey, encryptWithKey } from "../crypto/session";
 import { generateKey, sealForUser, b64Decode, encryptSecretboxString } from "../crypto/nacl";
+import { guardRecipients } from "../crypto/seal_guard";
 
 const GroupMetadataFormHook = {
   mounted() {
@@ -183,8 +184,16 @@ const GroupMetadataFormHook = {
       const keyBytes = b64Decode(groupKey);
       const members = payload.members || [];
 
+      // Verify-before-seal (#294): only seal the group_key for members whose
+      // served key matches their pinned fingerprint (or is pinned now via TOFU).
+      const { sealable, pinsToStore } = await guardRecipients(members);
+
+      if (pinsToStore.length > 0) {
+        this._pushGroup("store_peer_pins", { pins: pinsToStore });
+      }
+
       const sealedMembers = await Promise.all(
-        members.map(async (member) => {
+        sealable.map(async (member) => {
           const sealedKey = await sealForUser(
             keyBytes,
             member.public_key,
@@ -257,8 +266,16 @@ const GroupMetadataFormHook = {
       const keyBytes = b64Decode(groupKey);
       const members = payload.members || [];
 
+      // Verify-before-seal (#294): drop members whose served key fails pin
+      // verification; auto-pin first-contact peers and persist them.
+      const { sealable, pinsToStore } = await guardRecipients(members);
+
+      if (pinsToStore.length > 0) {
+        this._pushGroup("store_peer_pins", { pins: pinsToStore });
+      }
+
       const sealedMembers = await Promise.all(
-        members.map(async (member) => {
+        sealable.map(async (member) => {
           const sealedKey = await sealForUser(
             keyBytes,
             member.public_key,
@@ -332,6 +349,15 @@ const GroupMetadataFormHook = {
       this.pushEventTo(target, "save_group_zk", payload);
     } else {
       this.pushEvent("save_group_zk", payload);
+    }
+  },
+
+  _pushGroup(event, payload) {
+    const target = this.el.getAttribute("phx-target");
+    if (target) {
+      this.pushEventTo(target, event, payload);
+    } else {
+      this.pushEvent(event, payload);
     }
   },
 };

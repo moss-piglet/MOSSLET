@@ -37,6 +37,7 @@ import {
   encryptWithKey,
   unwrapKey,
 } from "../crypto/session";
+import { guardRecipients } from "../crypto/seal_guard";
 
 const RepostFormHook = {
   mounted() {
@@ -194,10 +195,19 @@ const RepostFormHook = {
       const keyBytes = b64Decode(newPostKey);
       const sealedAuthorKey = await sealForUser(keyBytes, authorPk, authorPqPk);
 
-      // Step 6: Seal the new post_key for each recipient
-      const recipients = recipient_keys || [];
+      // Step 6: Seal the new post_key for each recipient.
+      // Verify-before-seal (#294): drop recipients whose served key fails pin
+      // verification; auto-pin first-contact peers and persist them.
+      const { sealable, pinsToStore } = await guardRecipients(
+        recipient_keys || [],
+      );
+
+      if (pinsToStore.length > 0) {
+        this.pushEvent("store_peer_pins", { pins: pinsToStore });
+      }
+
       const sealedRecipientKeys = await Promise.all(
-        recipients.map(async (r) => ({
+        sealable.map(async (r) => ({
           user_id: r.user_id,
           sealed_key: await sealForUser(
             keyBytes,

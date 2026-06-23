@@ -1093,6 +1093,11 @@ defmodule MossletWeb.UserHomeLive do
     end
   end
 
+  def handle_event("store_peer_pins", %{"pins" => pins}, socket) do
+    MossletWeb.Helpers.store_connection_peer_pins(socket.assigns.current_user, pins)
+    {:noreply, socket}
+  end
+
   def handle_event("repost_encrypted", params, socket) do
     user = socket.assigns.current_scope.user
     pending = socket.assigns[:pending_repost]

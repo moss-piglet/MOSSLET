@@ -45,6 +45,7 @@ import {
   b64Decode,
   b64Encode,
 } from "../crypto/nacl";
+import { guardRecipients } from "../crypto/seal_guard";
 
 // 512 KB of ciphertext per chunk (base64-expanded ~683 KB per event) keeps us
 // well within the LiveView channel frame limit while uploading large files.
@@ -159,8 +160,17 @@ const SharedFileHook = {
       const keyBytes = b64Decode(this._fileKey);
       const list = recipients || [];
 
+      // Verify-before-seal (#294): only seal the file_key for recipients whose
+      // served key matches their pinned fingerprint (or is pinned now via TOFU).
+      // A mismatched/unverifiable circle member is dropped from the seal set.
+      const { sealable, pinsToStore } = await guardRecipients(list);
+
+      if (pinsToStore.length > 0) {
+        this.pushEvent("store_peer_pins", { pins: pinsToStore });
+      }
+
       const sealed_recipients = await Promise.all(
-        list.map(async (r) => {
+        sealable.map(async (r) => {
           const sealed_key = await sealForUser(
             keyBytes,
             r.public_key,

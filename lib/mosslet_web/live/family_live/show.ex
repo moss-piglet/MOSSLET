@@ -1052,6 +1052,22 @@ defmodule MossletWeb.FamilyLive.Show do
     end
   end
 
+  # TOFU key-pin persist from the verify-before-seal paths on the family
+  # dashboard (#294): org_key seal (OrgMembers) and the guardian conn_key seal
+  # (GuardianAvatarSeal). CO-MEMBERSHIP guard — guardians and managed members are
+  # all members of the same family org, so a current family-org membership is the
+  # legitimate authority (no personal connection required). First-write-wins.
+  def handle_event("store_peer_pins", %{"pins" => pins}, socket) do
+    org = socket.assigns.org
+    user = socket.assigns.current_scope.user
+
+    MossletWeb.Helpers.persist_peer_pins(to_string(user.id), pins, fn pid ->
+      Orgs.member_of_org?(org, pid)
+    end)
+
+    {:noreply, socket}
+  end
+
   # Family guardian safety override (Task #284): persist the managed member's
   # conn_key sealed for each guardian (the viewer IS the managed member here).
   # Server-authoritative + idempotent — only :active guardianships where this
@@ -1483,6 +1499,7 @@ defmodule MossletWeb.FamilyLive.Show do
       |> Enum.map(fn %{guardianship_id: gid, guardian_user: guardian} ->
         %{
           guardianship_id: gid,
+          user_id: guardian.id,
           public_key: guardian.key_pair["public"],
           pq_public_key: guardian.pq_public_key
         }
@@ -1593,7 +1610,11 @@ defmodule MossletWeb.FamilyLive.Show do
 
       MossletWeb.OrgIdentity.viewer_can_seal_for_others?(socket.assigns.members) ->
         push_event(socket, "seal_org_key_for_members", %{
-          members: MossletWeb.OrgIdentity.members_to_seal(org)
+          members:
+            MossletWeb.Helpers.hydrate_sealed_pins(
+              MossletWeb.OrgIdentity.members_to_seal(org),
+              to_string(socket.assigns.current_scope.user.id)
+            )
         })
 
       true ->
@@ -1609,7 +1630,13 @@ defmodule MossletWeb.FamilyLive.Show do
     targets = socket.assigns.guardian_avatar_seal_targets
 
     if connected?(socket) and targets != [] do
-      push_event(socket, "seal_avatar_key_for_guardians", %{guardians: targets})
+      push_event(socket, "seal_avatar_key_for_guardians", %{
+        guardians:
+          MossletWeb.Helpers.hydrate_sealed_pins(
+            targets,
+            to_string(socket.assigns.current_scope.user.id)
+          )
+      })
     else
       socket
     end

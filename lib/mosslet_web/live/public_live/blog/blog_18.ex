@@ -81,8 +81,33 @@ defmodule MossletWeb.PublicLive.Blog.Blog18 do
           You also get a zero-knowledge admin audit log, a clear append-only record of who did what, without exposing anyone's private content, plus simple per-seat billing and an optional branding add-on for a custom subdomain.
         </p>
         <p>
-          Already have Slack? That's great, use Mosslet Business right alongside it for the work that should stay between your team — you can even pin the link to your Slack or Notion in your org dashboard so everyone teammates can easily navigate your company's most important digital spaces.
+          And that's not all, other features at launch include:
         </p>
+        <ul>
+          <li>
+            <strong>Announcements</strong>
+            — company-wide or per circle, make sure important news is seen
+          </li>
+          <li>
+            <strong>Mentions</strong> — signal for attention by "@" mentioning someone in a circle
+          </li>
+          <li>
+            <strong>Pinning</strong>
+            — announcements, circles, files, and links for quick and easy access (including team and personal pins)
+          </li>
+          <li>
+            <strong>File search</strong>
+            — quickly search your files across circles with the same zero-knowledge privacy
+          </li>
+          <li>
+            <strong>Connections</strong>
+            — quick connect with teammates to build your relationships beyond your organization while maintaining operational boundaries and privacy
+          </li>
+        </ul>
+        <p>
+          Already have Slack? That's great, use Mosslet Business right alongside it for the work that should stay between your team — you can even pin the link to your Slack or Notion in your org dashboard so teammates can easily navigate your company's most important digital spaces.
+        </p>
+
         <p>
           Business is $100/month or $800/year (save 33%), includes 10 members, with extra seats at $5/month each, and it scales to 200. Same 14 day free trial and 30 day money back guarantee. See the details on the <.link navigate={
             ~p"/business-plan"

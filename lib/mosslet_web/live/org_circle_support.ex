@@ -214,7 +214,15 @@ defmodule MossletWeb.OrgCircleSupport do
   def handle_circle_event("request_catch_up", _params, socket) do
     if socket.assigns.can_catch_up? do
       current_user = socket.assigns.current_scope.user
-      files = Files.catch_up_payload(socket.assigns.group, current_user)
+
+      files =
+        socket.assigns.group
+        |> Files.catch_up_payload(current_user)
+        |> Enum.map(fn file ->
+          Map.update(file, :missing, [], fn missing ->
+            MossletWeb.Helpers.hydrate_sealed_pins(missing, to_string(current_user.id))
+          end)
+        end)
 
       if files == [] do
         {:halt,
@@ -265,6 +273,21 @@ defmodule MossletWeb.OrgCircleSupport do
   end
 
   # --- Markdown guide (chat composer) ---
+  # TOFU key-pin persist from the verify-before-seal path (#294). The browser
+  # pinned a co-member's fingerprint while sealing the group_key/org_key/file_key
+  # and pushes the opaque blob here. CO-MEMBERSHIP guard (NOT a personal
+  # connection — circle/org members may have none): the peer must be a current
+  # member of this org. Insert-only / first-write-wins at the context layer.
+  def handle_circle_event("store_peer_pins", %{"pins" => pins}, socket) do
+    user = socket.assigns.current_scope.user
+    org = socket.assigns.org
+
+    MossletWeb.Helpers.persist_peer_pins(to_string(user.id), pins, fn pid ->
+      Orgs.member_of_org?(org, pid)
+    end)
+
+    {:halt, socket}
+  end
 
   def handle_circle_event("open_markdown_guide", _params, socket) do
     {:halt, assign(socket, :show_markdown_guide, true)}
@@ -319,6 +342,7 @@ defmodule MossletWeb.OrgCircleSupport do
           |> Map.put(:moniker, FriendlyID.generate(3))
           |> Map.put(:avatar_img, random_avatar())
         end)
+        |> MossletWeb.Helpers.hydrate_sealed_pins(to_string(current_user.id))
 
       if members == [] do
         {:halt, put_flash(socket, :info, "No eligible org members selected.")}
@@ -730,7 +754,11 @@ defmodule MossletWeb.OrgCircleSupport do
         |> assign(:pending_shared_file, nil)
         |> push_event("shared_file_created", %{
           shared_file_id: shared_file.id,
-          recipients: Files.circle_recipients(socket.assigns.group)
+          recipients:
+            MossletWeb.Helpers.hydrate_sealed_pins(
+              Files.circle_recipients(socket.assigns.group),
+              to_string(socket.assigns.current_scope.user.id)
+            )
         })
       else
         error ->

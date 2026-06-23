@@ -25,6 +25,7 @@
  */
 import { getConnKey, getPublicKey } from "../crypto/session";
 import { sealForUser, b64Decode } from "../crypto/nacl";
+import { guardRecipients } from "../crypto/seal_guard";
 
 const GuardianAvatarSeal = {
   mounted() {
@@ -51,8 +52,18 @@ const GuardianAvatarSeal = {
 
       const keyBytes = b64Decode(connKey);
 
+      // Verify-before-seal (#294): the guardians are peers (keyed by their user
+      // id in the unified pin store). Only seal our conn_key for guardians whose
+      // served key matches the pinned fingerprint (or is pinned now via TOFU).
+      // guardRecipients preserves each object's extra fields (guardianship_id).
+      const { sealable, pinsToStore } = await guardRecipients(guardians);
+
+      if (pinsToStore.length > 0) {
+        this._push("store_peer_pins", { pins: pinsToStore });
+      }
+
       const sealed = await Promise.all(
-        guardians.map(async (g) => {
+        sealable.map(async (g) => {
           const sealedKey = await sealForUser(
             keyBytes,
             g.public_key,

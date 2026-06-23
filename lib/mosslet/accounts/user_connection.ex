@@ -417,6 +417,18 @@ defmodule Mosslet.Accounts.UserConnection do
        ) do
     # We next encrypt the current_user's conn key
     # and post key and username and email.
+    #
+    # RESIDUAL SERVER-SIDE SEAL — verify-before-seal exemption (EPIC #291 / #294).
+    # This seals the new connection's `conn_key` for the recipient using the
+    # recipient's server-supplied public key. It is intentionally NOT gated by the
+    # unified key_pins verify-before-seal path because it IS the connection-request
+    # TOFU moment: there is no prior pin for this peer yet (the pair has never been
+    # connected), so there is nothing to verify against. The pin for this peer is
+    # created CLIENT-side elsewhere (the DecryptConnectionCard hook, #293, plus the
+    # browser seal paths, #294). The mutual safety-number out-of-band compare that
+    # closes this initial-trust gap is Phase 3 (#295). Documented so this is not
+    # mistaken for an unguarded bypass of the browser verification that covers
+    # ALREADY-pinned relationships.
     changeset
     |> put_change(
       :key,

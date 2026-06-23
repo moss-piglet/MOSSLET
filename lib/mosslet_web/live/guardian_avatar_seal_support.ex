@@ -22,7 +22,9 @@ defmodule MossletWeb.GuardianAvatarSealSupport do
   @doc """
   The active guardianships where `user` is the managed member and the guardian's
   avatar key has NOT yet been sealed, as a browser-seal payload
-  `[%{guardianship_id, public_key, pq_public_key}]`. Empty for non-managed users.
+  `[%{guardianship_id, user_id, public_key, pq_public_key}]`. The `user_id` is
+  the guardian's id, used by the verify-before-seal pin check (#294). Empty for
+  non-managed users.
   """
   def seal_targets(%{id: user_id}) when is_binary(user_id) do
     user_id
@@ -30,6 +32,7 @@ defmodule MossletWeb.GuardianAvatarSealSupport do
     |> Enum.map(fn %{guardianship_id: gid, guardian_user: guardian} ->
       %{
         guardianship_id: gid,
+        user_id: guardian.id,
         public_key: guardian.key_pair["public"],
         pq_public_key: guardian.pq_public_key
       }
@@ -50,7 +53,9 @@ defmodule MossletWeb.GuardianAvatarSealSupport do
       socket = assign(socket, :guardian_avatar_seal_targets, targets)
 
       if targets != [] do
-        push_event(socket, "seal_avatar_key_for_guardians", %{guardians: targets})
+        push_event(socket, "seal_avatar_key_for_guardians", %{
+          guardians: MossletWeb.Helpers.hydrate_sealed_pins(targets, to_string(user.id))
+        })
       else
         socket
       end

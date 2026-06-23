@@ -2158,6 +2158,9 @@ defmodule MossletWeb.BusinessLive.Show do
             |> Map.put(:moniker, FriendlyID.generate(3))
             |> Map.put(:avatar_img, random_avatar())
           end)
+          |> MossletWeb.Helpers.hydrate_sealed_pins(
+            to_string(socket.assigns.current_scope.user.id)
+          )
 
         if members == [] do
           {:noreply, put_flash(socket, :info, "No eligible org members selected.")}
@@ -2395,6 +2398,20 @@ defmodule MossletWeb.BusinessLive.Show do
       {:ok, _count} -> {:noreply, assign_business_data(socket)}
       _ -> {:noreply, socket}
     end
+  end
+
+  # TOFU key-pin persist from the verify-before-seal path (#294). CO-MEMBERSHIP
+  # guard (org members may have no personal connection): the peer must be a
+  # current member of this org. Insert-only / first-write-wins.
+  def handle_event("store_peer_pins", %{"pins" => pins}, socket) do
+    org = socket.assigns.org
+    user = socket.assigns.current_scope.user
+
+    MossletWeb.Helpers.persist_peer_pins(to_string(user.id), pins, fn pid ->
+      Mosslet.Orgs.member_of_org?(org, pid)
+    end)
+
+    {:noreply, socket}
   end
 
   # The member set their org display name (encrypted browser-side with the
@@ -3651,7 +3668,11 @@ defmodule MossletWeb.BusinessLive.Show do
 
       MossletWeb.OrgIdentity.viewer_can_seal_for_others?(socket.assigns.members) ->
         push_event(socket, "seal_org_key_for_members", %{
-          members: MossletWeb.OrgIdentity.members_to_seal(org)
+          members:
+            MossletWeb.Helpers.hydrate_sealed_pins(
+              MossletWeb.OrgIdentity.members_to_seal(org),
+              to_string(socket.assigns.current_scope.user.id)
+            )
         })
 
       true ->

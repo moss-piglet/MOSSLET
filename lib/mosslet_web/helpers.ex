@@ -215,6 +215,7 @@ defmodule MossletWeb.Helpers do
         end)
 
       recipient_keys = append_guardian_recipient_keys(recipient_keys, opts[:user])
+      recipient_keys = hydrate_sealed_pins(recipient_keys, to_string(opts[:user].id))
 
       payload = %{
         post_id: post.id,
@@ -301,6 +302,97 @@ defmodule MossletWeb.Helpers do
   end
 
   def append_guardian_shared_users(shared_users, _author), do: shared_users
+
+  @doc """
+  Injects the viewer's sealed key-pin for each recipient (EPIC #291 / #294).
+
+  Each recipient map `%{user_id, public_key, pq_public_key}` gains a
+  `:sealed_pin` key holding the viewer-sealed opaque fingerprint blob from the
+  unified `key_pins` store (or `nil` when the viewer has never pinned that peer —
+  the browser then auto-pins via TOFU). The lookup is a single batched query via
+  `Accounts.list_key_pins_for/2`; the server never reads or forges the blob.
+
+  The browser's `seal_guard.guardRecipients/1` consumes `sealed_pin` to verify
+  each recipient's served key against the pin BEFORE sealing for them — without a
+  per-recipient round-trip.
+
+  `viewer_id` is the current user's id (the viewer who holds the pins).
+  """
+  def hydrate_sealed_pins(recipient_keys, viewer_id)
+      when is_list(recipient_keys) and is_binary(viewer_id) do
+    peer_ids =
+      recipient_keys
+      |> Enum.map(&recipient_user_id/1)
+      |> Enum.reject(&(&1 in [nil, ""]))
+      |> Enum.uniq()
+
+    pins = Accounts.list_key_pins_for(viewer_id, peer_ids)
+
+    Enum.map(recipient_keys, fn recipient ->
+      pid = recipient_user_id(recipient)
+      Map.put(recipient, :sealed_pin, Map.get(pins, pid))
+    end)
+  end
+
+  def hydrate_sealed_pins(recipient_keys, _viewer_id), do: recipient_keys
+
+  @doc """
+  Returns the viewer's sealed key-pin blob for a single peer, or `nil` (#294).
+  Used by single-recipient seal feeds (e.g. the DM `start-conversation` payload).
+  """
+  def sealed_pin_for(viewer_id, peer_id) do
+    Accounts.list_key_pins_for(to_string(viewer_id), [to_string(peer_id)])
+    |> Map.get(to_string(peer_id))
+  end
+
+  @doc """
+  Persists viewer-sealed key-pins pushed by a seal-path hook (EPIC #291 / #294).
+
+  `pins` is the browser's `store_peer_pins` payload — a list of
+  `%{"peer_user_id" => id, "sealed_pin" => blob}` produced by
+  `seal_guard.guardRecipients/1` for peers it pinned via TOFU during sealing.
+
+  Each pin is persisted only when `authorized_fn.(peer_user_id)` returns true.
+  This is the server-authoritative relationship guard and is context-specific:
+  a CONFIRMED `user_connection` for personal seal paths, or CO-MEMBERSHIP
+  (org / circle / group / guardianship) for org-scoped paths — the latter must
+  NOT require a personal connection, since members may have none. Reuse the same
+  authority the chokepoint already enforces to authorize the seal itself.
+
+  Insert-only / first-write-wins is enforced at the context layer
+  (`Accounts.upsert_key_pin/3`); the server never reads or forges the blob.
+  """
+  def persist_peer_pins(viewer_id, pins, authorized_fn)
+      when is_binary(viewer_id) and is_list(pins) and is_function(authorized_fn, 1) do
+    Enum.each(pins, fn
+      %{"peer_user_id" => pid, "sealed_pin" => blob}
+      when is_binary(pid) and is_binary(blob) and blob != "" ->
+        if authorized_fn.(pid) do
+          _ = Accounts.upsert_key_pin(viewer_id, pid, blob)
+        end
+
+      _ ->
+        :ok
+    end)
+
+    :ok
+  end
+
+  def persist_peer_pins(_viewer_id, _pins, _authorized_fn), do: :ok
+
+  @doc """
+  Persists seal-path key-pins for a PERSONAL seal path, authorized by a CONFIRMED
+  `user_connection` between viewer and peer (#294). Used by post/repost/DM seal
+  paths whose recipients are the viewer's connections.
+  """
+  def store_connection_peer_pins(%{id: viewer_id}, pins) do
+    persist_peer_pins(to_string(viewer_id), pins, fn peer_user_id ->
+      uconn = Accounts.get_user_connection_between_users(peer_user_id, viewer_id)
+      uconn && not is_nil(uconn.confirmed_at)
+    end)
+  end
+
+  def store_connection_peer_pins(_viewer, _pins), do: :ok
 
   # Extracts the `user_id` (as a string) from a recipient/shared_user map,
   # tolerating either atom or string keys by normalizing once.

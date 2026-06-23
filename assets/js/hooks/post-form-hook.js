@@ -29,6 +29,7 @@ import {
   b64Decode,
 } from "../crypto/nacl";
 import { getPublicKey, getPqPublicKey } from "../crypto/session";
+import { guardRecipients } from "../crypto/seal_guard";
 import { moderateText, preloadTextModeration } from "../ai/text-moderation";
 
 const PostFormHook = {
@@ -225,10 +226,21 @@ const PostFormHook = {
       const keyBytes = b64Decode(postKey);
       const sealedAuthorKey = await sealForUser(keyBytes, authorPk, authorPqPk);
 
-      // Seal post_key for each recipient (same pattern as start-conversation.js)
-      const recipientKeys = payload.recipient_keys || [];
+      // Seal post_key for each recipient (same pattern as start-conversation.js).
+      // Verify-before-seal (#294): only seal for recipients whose served key
+      // matches their pinned fingerprint (or is pinned now via TOFU). Mismatched
+      // / unverifiable peers are dropped from the seal set and never receive the
+      // post_key. Newly pinned peers are persisted server-side.
+      const { sealable, pinsToStore } = await guardRecipients(
+        payload.recipient_keys || [],
+      );
+
+      if (pinsToStore.length > 0) {
+        this.pushEvent("store_peer_pins", { pins: pinsToStore });
+      }
+
       const sealedRecipientKeys = await Promise.all(
-        recipientKeys.map(async (recipient) => ({
+        sealable.map(async (recipient) => ({
           user_id: recipient.user_id,
           sealed_key: await sealForUser(
             keyBytes,

@@ -425,6 +425,14 @@ defmodule MossletWeb.GroupLive.FormComponent do
   # Two-phase ZK group creation: same pattern as PostFormHook.
   # Phase 1: Browser sends encrypted group content. Server stashes it,
   # resolves member public keys, and pushes them to the browser.
+  # TOFU key-pin persist from the group verify-before-seal path (#294). Group
+  # members are the creator's personal connections, so a CONFIRMED connection is
+  # the legitimate guard.
+  def handle_event("store_peer_pins", %{"pins" => pins}, socket) do
+    MossletWeb.Helpers.store_connection_peer_pins(socket.assigns.current_scope.user, pins)
+    {:noreply, socket}
+  end
+
   def handle_event("create_group_zk", params, socket) do
     user = socket.assigns.current_scope.user
     key = socket.assigns.current_scope.key
@@ -485,7 +493,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
        |> assign(:pending_zk_group_attrs, zk_attrs)
        |> assign(:pending_zk_group_users, users)
        |> push_event("seal_group_key_for_members", %{
-         members: members,
+         members: MossletWeb.Helpers.hydrate_sealed_pins(members, to_string(user.id)),
          owner_moniker: owner_moniker,
          owner_avatar_img: owner_avatar_img
        })}
@@ -596,7 +604,9 @@ defmodule MossletWeb.GroupLive.FormComponent do
             {:noreply,
              socket
              |> assign(:pending_member_group_id, updated_group.id)
-             |> push_event("seal_group_key_for_new_members", %{members: new_members})}
+             |> push_event("seal_group_key_for_new_members", %{
+               members: MossletWeb.Helpers.hydrate_sealed_pins(new_members, to_string(user.id))
+             })}
           end
 
         {:error, _changeset} ->

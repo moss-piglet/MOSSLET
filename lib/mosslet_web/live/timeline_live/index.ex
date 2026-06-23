@@ -3066,6 +3066,11 @@ defmodule MossletWeb.TimelineLive.Index do
             }
           end)
 
+        # Inject the viewer's sealed key-pin per recipient (#294) so the browser
+        # can verify each served key against the pin before sealing the post_key.
+        recipient_keys =
+          MossletWeb.Helpers.hydrate_sealed_pins(recipient_keys, to_string(current_user.id))
+
         # Stash the post_params and encrypted fragments for finalize_post_encrypted.
         # This avoids a second round of recipient resolution.
         encrypted_opts = [encrypted_body: encrypted_body]
@@ -3101,6 +3106,13 @@ defmodule MossletWeb.TimelineLive.Index do
     else
       {:noreply, put_flash(socket, :warning, "Not connected. Please refresh and try again.")}
     end
+  end
+
+  # TOFU key-pin persist from the verify-before-seal path (#294). Confirmed
+  # connection guard (post recipients are the author's connections).
+  def handle_event("store_peer_pins", %{"pins" => pins}, socket) do
+    MossletWeb.Helpers.store_connection_peer_pins(socket.assigns.current_user, pins)
+    {:noreply, socket}
   end
 
   # True ZK write path — Phase 2: browser encrypted ALL fields and sealed
