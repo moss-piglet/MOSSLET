@@ -58,8 +58,13 @@ const GuardianAvatarSeal = {
       // guardRecipients preserves each object's extra fields (guardianship_id).
       const { sealable, pinsToStore } = await guardRecipients(guardians);
 
+      // Use a dedicated event so the persist authority matches the SEAL
+      // authority — the active Guardianship — rather than colliding with the
+      // generic, connection/co-membership-guarded `store_peer_pins` handler
+      // (which rejects guardians, who have no personal connection). See #294
+      // follow-up.
       if (pinsToStore.length > 0) {
-        this._push("store_peer_pins", { pins: pinsToStore });
+        this._push("store_managed_guardian_pins", { pins: pinsToStore });
       }
 
       const sealed = await Promise.all(

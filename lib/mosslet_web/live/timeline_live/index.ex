@@ -3115,6 +3115,18 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
+  # Guardian-avatar seal TOFU pins (#294 follow-up): authorized by the active
+  # Guardianship (guardians have no personal connection), NOT the connection /
+  # co-membership guard used by `store_peer_pins`.
+  def handle_event("store_managed_guardian_pins", %{"pins" => pins}, socket) do
+    MossletWeb.GuardianAvatarSealSupport.persist_guardian_pins(
+      socket.assigns.current_user,
+      pins
+    )
+
+    {:noreply, socket}
+  end
+
   # True ZK write path — Phase 2: browser encrypted ALL fields and sealed
   # the post_key for every recipient. The server stores everything as-is.
   # The raw post_key NEVER exists in server memory.

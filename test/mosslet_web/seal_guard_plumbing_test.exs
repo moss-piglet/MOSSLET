@@ -238,4 +238,88 @@ defmodule MossletWeb.SealGuardPlumbingTest do
       assert is_nil(Accounts.get_key_pin(owner.id, outsider.id))
     end
   end
+
+  describe "GuardianAvatarSealSupport.persist_guardian_pins/2 (guardianship guard)" do
+    alias MossletWeb.GuardianAvatarSealSupport
+
+    setup do
+      {owner, _} = onboarded("g_owner", "Guardian Owner")
+      owner = Accounts.confirm_user!(owner)
+      {:ok, owner} = Accounts.update_user_onboarding(owner, %{is_onboarded?: true})
+
+      {guardian, _} = onboarded("g_guardian", "Guardian")
+      {managed, _} = onboarded("g_managed", "Managed Member")
+      {co_member, _} = onboarded("g_comember", "Org Co-member")
+
+      {:ok, org} =
+        Orgs.create_org(owner, %{
+          "name" => "Family #{System.unique_integer([:positive])}",
+          "type" => "family"
+        })
+
+      _g_ms = add_membership(org, guardian, :guardian)
+      m_ms = add_membership(org, managed, :managed_member)
+      # A plain org co-member who is NOT a guardian of the managed member.
+      _co_ms = add_membership(org, co_member, :member)
+
+      g_ms = Orgs.get_membership!(guardian, org.slug)
+      {:ok, gship} = Orgs.establish_guardianship(g_ms, m_ms)
+      {:ok, _active} = Orgs.accept_guardianship(gship)
+
+      %{org: org, guardian: guardian, managed: managed, co_member: co_member}
+    end
+
+    test "upserts a pin when the peer is an active guardian of the managed member", %{
+      guardian: guardian,
+      managed: managed
+    } do
+      blob = Base.encode64(:crypto.strong_rand_bytes(96))
+
+      :ok =
+        GuardianAvatarSealSupport.persist_guardian_pins(managed, [
+          %{"peer_user_id" => guardian.id, "sealed_pin" => blob}
+        ])
+
+      assert Accounts.get_key_pin(managed.id, guardian.id).pinned_fingerprint == blob
+    end
+
+    test "rejects an org co-member who is NOT a guardian (tighter than the org guard)", %{
+      org: org,
+      managed: managed,
+      co_member: co_member
+    } do
+      # The co-member IS a member of the same org — the org guard would accept.
+      assert Orgs.member_of_org?(org, co_member.id)
+
+      blob = Base.encode64(:crypto.strong_rand_bytes(96))
+
+      :ok =
+        GuardianAvatarSealSupport.persist_guardian_pins(managed, [
+          %{"peer_user_id" => co_member.id, "sealed_pin" => blob}
+        ])
+
+      assert is_nil(Accounts.get_key_pin(managed.id, co_member.id))
+    end
+
+    test "rejects a total non-member", %{managed: managed} do
+      {stranger, _} = onboarded("g_stranger", "Stranger")
+      blob = Base.encode64(:crypto.strong_rand_bytes(96))
+
+      :ok =
+        GuardianAvatarSealSupport.persist_guardian_pins(managed, [
+          %{"peer_user_id" => stranger.id, "sealed_pin" => blob}
+        ])
+
+      assert is_nil(Accounts.get_key_pin(managed.id, stranger.id))
+    end
+  end
+
+  defp add_membership(org, user, role) do
+    {:ok, {:ok, membership}} =
+      Mosslet.Repo.transaction_on_primary(fn ->
+        Orgs.Membership.insert_changeset(org, user, role) |> Mosslet.Repo.insert()
+      end)
+
+    membership
+  end
 end

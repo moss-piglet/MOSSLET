@@ -71,4 +71,34 @@ defmodule MossletWeb.GuardianAvatarSealSupport do
   def finalize(%{id: user_id}, sealed) when is_binary(user_id) and is_list(sealed) do
     Orgs.seal_managed_avatar_keys(user_id, sealed)
   end
+
+  @doc """
+  Persists the verify-before-seal TOFU pins pushed by the GuardianAvatarSeal hook
+  (#294 follow-up).
+
+  Unlike the generic `store_peer_pins` handler (guarded by a personal connection
+  or org co-membership), the guardian-avatar seal targets are the managed
+  member's GUARDIANS — who have NO personal connection and whose authority is the
+  active `Guardianship`, not org co-membership. So we authorize each pin against
+  the SAME server-authoritative guardianship source the seal itself uses
+  (`Orgs.list_active_guardian_users_for_user/1`), never client params (I1).
+
+  `managed_user` is the managed member (the viewer/holder of the pins); `pins` is
+  the browser `store_peer_pins` payload.
+  """
+  def persist_guardian_pins(%{id: managed_user_id} = _managed_user, pins)
+      when is_binary(managed_user_id) do
+    guardian_ids =
+      managed_user_id
+      |> Orgs.list_active_guardian_users_for_user()
+      |> MapSet.new(&to_string(&1.id))
+
+    MossletWeb.Helpers.persist_peer_pins(
+      to_string(managed_user_id),
+      pins,
+      fn peer_user_id -> MapSet.member?(guardian_ids, to_string(peer_user_id)) end
+    )
+  end
+
+  def persist_guardian_pins(_managed_user, _pins), do: :ok
 end

@@ -1068,6 +1068,18 @@ defmodule MossletWeb.FamilyLive.Show do
     {:noreply, socket}
   end
 
+  # Guardian-avatar seal TOFU pins (#294 follow-up): authorized by the active
+  # Guardianship rather than the coarser org co-membership guard above, so the
+  # persist authority matches the seal authority exactly.
+  def handle_event("store_managed_guardian_pins", %{"pins" => pins}, socket) do
+    MossletWeb.GuardianAvatarSealSupport.persist_guardian_pins(
+      socket.assigns.current_scope.user,
+      pins
+    )
+
+    {:noreply, socket}
+  end
+
   # Family guardian safety override (Task #284): persist the managed member's
   # conn_key sealed for each guardian (the viewer IS the managed member here).
   # Server-authoritative + idempotent — only :active guardianships where this
