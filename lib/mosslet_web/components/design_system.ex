@@ -2993,7 +2993,7 @@ defmodule MossletWeb.DesignSystem do
                         <.live_img_preview
                           entry={entry}
                           class="w-full h-full object-cover"
-                          alt={@alt_text || "Avatar preview"}
+                          aria-label={@alt_text || "Avatar preview"}
                         />
                       <% end %>
                     </div>
@@ -3038,7 +3038,7 @@ defmodule MossletWeb.DesignSystem do
                         phx-hook="TippyHook"
                         data-tippy-content={
                           if(@alt_text && @alt_text != "",
-                            do: "Edit alt text: #{String.slice(@alt_text || "", 0..30)}...",
+                            do: "Edit alt text: #{String.slice(@alt_text, 0..30)}...",
                             else: "Add alt text for accessibility"
                           )
                         }
@@ -3264,7 +3264,6 @@ defmodule MossletWeb.DesignSystem do
   defp get_upload_error_message({:error, {:nsfw, msg}}), do: msg
   defp get_upload_error_message({:error, msg}) when is_binary(msg), do: msg
   defp get_upload_error_message({:error, _}), do: "Upload failed. Please try again."
-  defp get_upload_error_message(_), do: ""
 
   defp get_stage_status(nil, _stage_key), do: :pending
   defp get_stage_status({:error, _}, _stage_key), do: :error

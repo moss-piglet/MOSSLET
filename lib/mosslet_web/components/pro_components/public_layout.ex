@@ -279,13 +279,13 @@ defmodule MossletWeb.PublicLayout do
                 </div>
                 <div class="ml-3">
                   <div
-                    :if={@current_scope && @current_scope.user && !@session_locked}
+                    :if={!@session_locked}
                     class="text-base font-semibold text-slate-900 dark:text-slate-100"
                   >
                     {@current_user_name}
                   </div>
                   <div
-                    :if={@current_scope && @current_scope.user && @session_locked}
+                    :if={@session_locked}
                     class="text-base font-semibold text-slate-900 dark:text-slate-100"
                   >
                     Online

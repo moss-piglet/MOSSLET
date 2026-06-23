@@ -320,7 +320,7 @@ defmodule MossletWeb.MediaComponents do
           <div class="relative group overflow-hidden rounded-lg border border-emerald-200/60 dark:border-emerald-700/60 bg-white dark:bg-slate-800">
             <.live_img_preview
               entry={entry}
-              alt={"Photo upload preview #{entry.ref}"}
+              aria-label={"Photo upload preview #{entry.ref}"}
               class="w-full h-24 object-cover transition-all duration-200 group-hover:scale-105"
             />
 
@@ -462,7 +462,6 @@ defmodule MossletWeb.MediaComponents do
   defp format_error({:error, {:nsfw, _}}), do: "Content not allowed"
   defp format_error({:error, reason}) when is_binary(reason), do: reason
   defp format_error({:error, _}), do: "Upload failed"
-  defp format_error(_), do: ""
 
   defp stage_label({:receiving, _}), do: "Receiving..."
   defp stage_label({:validating, _}), do: "Checking..."
@@ -851,7 +850,7 @@ defmodule MossletWeb.MediaComponents do
                     <.live_img_preview
                       entry={entry}
                       class="w-full h-full object-cover"
-                      alt={@alt_text || "Banner preview"}
+                      aria-label={@alt_text || "Banner preview"}
                     />
                   <% end %>
                   <div
@@ -895,7 +894,7 @@ defmodule MossletWeb.MediaComponents do
                       phx-hook="TippyHook"
                       data-tippy-content={
                         if(@alt_text && @alt_text != "",
-                          do: "Edit alt text: #{String.slice(@alt_text || "", 0..30)}...",
+                          do: "Edit alt text: #{String.slice(@alt_text, 0..30)}...",
                           else: "Add alt text for accessibility"
                         )
                       }
@@ -1129,7 +1128,7 @@ defmodule MossletWeb.MediaComponents do
               <.live_img_preview
                 entry={entry}
                 class="w-full h-full object-cover"
-                alt="Cover preview"
+                aria-label="Cover preview"
               />
               <div
                 :if={entry.progress < 100}
@@ -1254,7 +1253,6 @@ defmodule MossletWeb.MediaComponents do
   defp cover_stage_label({:processing, _}), do: "Processing..."
   defp cover_stage_label({:encrypting, _}), do: "Encrypting..."
   defp cover_stage_label({:uploading, _}), do: "Saving..."
-  defp cover_stage_label({:ready, _}), do: "Done!"
   defp cover_stage_label(_), do: "Processing..."
 
   defp is_processing?(nil), do: false
@@ -1271,7 +1269,6 @@ defmodule MossletWeb.MediaComponents do
   defp get_upload_error_message({:error, {:nsfw, msg}}), do: msg
   defp get_upload_error_message({:error, msg}) when is_binary(msg), do: msg
   defp get_upload_error_message({:error, _}), do: "Upload failed. Please try again."
-  defp get_upload_error_message(_), do: ""
 
   defp get_stage_status(nil, _stage_key), do: :pending
   defp get_stage_status({:error, _}, _stage_key), do: :error

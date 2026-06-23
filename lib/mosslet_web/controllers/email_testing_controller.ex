@@ -40,7 +40,7 @@ defmodule MossletWeb.EmailTestingController do
   defp generate_email("org_invitation", current_user) do
     org = %{name: "MOSSLET", slug: "org"}
     invitation = %{email: current_user.email, user_id: current_user.id}
-    Email.org_invitation(org, invitation, "#")
+    Email.org_invitation(current_user.email, org, invitation, "#")
   end
 
   defp generate_email("passwordless_pin", current_user) do

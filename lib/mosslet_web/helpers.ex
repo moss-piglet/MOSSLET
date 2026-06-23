@@ -3351,6 +3351,8 @@ defmodule MossletWeb.Helpers do
     end
   end
 
+  def get_encrypted_avatar_data_for_item(%{user_id: _user_id}, nil), do: nil
+
   def get_encrypted_avatar_data_for_item(nil, _current_user), do: nil
 
   @doc """

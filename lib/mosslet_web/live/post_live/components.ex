@@ -150,7 +150,7 @@ defmodule MossletWeb.PostLive.Components do
   end
 
   attr :id, :string, doc: "the html id of the post card"
-  attr :current_user, :string, required: true
+  attr :current_user, :map, required: true
   attr :key, :string, required: true
   attr :post, Mosslet.Timeline.Post, required: true
 
@@ -461,7 +461,7 @@ defmodule MossletWeb.PostLive.Components do
             <li id={"reply-#{reply.id}"}>
               <div class="relative pb-8">
                 <div class="relative flex items-start space-x-3">
-                  <div :if={reply.user_id == @current_user.id} class="relative">
+                  <div :if={@current_user && reply.user_id == @current_user.id} class="relative">
                     <.phx_avatar
                       encrypted_avatar_data={
                         if show_avatar?(@current_user),
@@ -485,12 +485,13 @@ defmodule MossletWeb.PostLive.Components do
                       </svg>
                     </span>
                   </div>
-                  <div :if={reply.user_id != @current_user.id} class="relative">
+                  <div :if={!@current_user || reply.user_id != @current_user.id} class="relative">
                     <% user_connection =
-                      Accounts.get_user_connection_for_reply_shared_users(
-                        reply.user_id,
-                        @current_user.id
-                      ) %>
+                      @current_user &&
+                        Accounts.get_user_connection_for_reply_shared_users(
+                          reply.user_id,
+                          @current_user.id
+                        ) %>
                     <.phx_avatar
                       encrypted_avatar_data={
                         if user_connection && show_avatar?(user_connection),
@@ -543,9 +544,8 @@ defmodule MossletWeb.PostLive.Components do
                           --%>
                           <.link
                             :if={
-                              @current_user &&
-                                (@current_user.id == reply.user_id ||
-                                   @current_user.id == @post.user_id)
+                              @current_user.id == reply.user_id ||
+                                @current_user.id == @post.user_id
                             }
                             phx-click={JS.push("delete-reply", value: %{id: reply.id})}
                             data-confirm="Are you sure you want to delete this reply?"
@@ -1069,7 +1069,7 @@ defmodule MossletWeb.PostLive.Components do
   end
 
   attr :id, :string, doc: "the html id for the reply card"
-  attr :current_user, :string, required: true
+  attr :current_user, :map, required: true
   attr :key, :string, required: true
   attr :post, Mosslet.Timeline.Post, required: true
 
@@ -1171,8 +1171,7 @@ defmodule MossletWeb.PostLive.Components do
                         --%>
                         <.link
                           :if={
-                            @current_user &&
-                              (@current_user.id == @reply.user_id || @current_user.id == @post.user_id)
+                            @current_user.id == @reply.user_id || @current_user.id == @post.user_id
                           }
                           phx-click={JS.push("delete-reply", value: %{id: @reply.id})}
                           data-confirm="Are you sure you want to delete this reply?"

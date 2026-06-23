@@ -949,7 +949,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
     if should_show_post and passes_content_filters do
       decrypted_favs = decrypt_post_favs_list(post, current_user, key)
-      is_liked = current_user && current_user.id in decrypted_favs
+      is_liked = current_user.id in decrypted_favs
 
       {:noreply,
        push_event(socket, "update_post_fav_count", %{
@@ -3975,7 +3975,7 @@ defmodule MossletWeb.TimelineLive.Index do
         %{"id" => id, "encrypted_favs_list" => encrypted_list, "is_liked" => is_liked},
         socket
       ) do
-    post = Timeline.get_post!(id)
+    post = Timeline.get_post(id)
 
     if post do
       is_liked_bool = is_liked == "true"
@@ -6393,10 +6393,7 @@ defmodule MossletWeb.TimelineLive.Index do
         current_user.decrypted[:username] || "You"
 
       post.visibility == :public ->
-        case username(post, current_user, key) do
-          name when is_binary(name) -> "@" <> name
-          _ -> "a connection"
-        end
+        "@" <> username(post, current_user, key)
 
       true ->
         # Non-public post from another user — the server must not decrypt

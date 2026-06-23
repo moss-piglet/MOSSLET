@@ -2837,11 +2837,6 @@ defmodule MossletWeb.BusinessLive.Show do
     {:noreply, assign_business_data(socket)}
   end
 
-  defp after_toggle(socket, {:error, :unauthorized}),
-    do: put_flash(socket, :error, "You don't have permission to pin that.")
-
-  defp after_toggle(socket, _result), do: assign_business_data(socket)
-
   ## Org brand logo (Task #228, branding add-on)
 
   # The <.live_file_input> change/submit; the writer + hook drive everything else.
@@ -3121,6 +3116,11 @@ defmodule MossletWeb.BusinessLive.Show do
      |> assign_org_file_circles(org_file_circles)}
   end
 
+  defp after_toggle(socket, {:error, :unauthorized}),
+    do: put_flash(socket, :error, "You don't have permission to pin that.")
+
+  defp after_toggle(socket, _result), do: assign_business_data(socket)
+
   # us {:org_logo_upload_*} messages; nothing to do in the LiveView's progress cb.
   defp handle_logo_progress(:org_logo, _entry, socket), do: {:noreply, socket}
 
@@ -3351,7 +3351,6 @@ defmodule MossletWeb.BusinessLive.Show do
   defp logo_stage_label({:receiving, _}), do: "Uploading…"
   defp logo_stage_label({:processing, _}), do: "Processing…"
   defp logo_stage_label({:encrypting, _}), do: "Encrypting…"
-  defp logo_stage_label(_), do: "Working…"
 
   defp logo_upload_error(:too_large), do: "That image is too large (5 MB max)."
   defp logo_upload_error(:too_many_files), do: "Please choose a single image."

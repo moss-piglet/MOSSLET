@@ -1397,7 +1397,7 @@ defmodule MossletWeb.UserHomeLive do
         %{"id" => id, "encrypted_favs_list" => encrypted_list, "is_liked" => is_liked},
         socket
       ) do
-    post = Timeline.get_post!(id)
+    post = Timeline.get_post(id)
 
     if post do
       is_liked_bool = is_liked == "true"

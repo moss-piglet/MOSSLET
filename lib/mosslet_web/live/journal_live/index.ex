@@ -804,7 +804,7 @@ defmodule MossletWeb.JournalLive.Index do
                         <.live_img_preview
                           entry={entry}
                           class="w-full h-full object-cover pointer-events-none"
-                          alt={"Journal page #{get_page_number(entry.ref, @uploads.journal_image.entries, @page_order)} preview"}
+                          aria-label={"Journal page #{get_page_number(entry.ref, @uploads.journal_image.entries, @page_order)} preview"}
                         />
                         <% processing_status = Map.get(@processing_images, to_string(entry.ref)) %>
                         <%= cond do %>

@@ -44,7 +44,6 @@ defmodule MossletWeb.GroupLive.Show do
 
   @impl true
   def handle_params(%{"id" => id} = params, _uri, socket) do
-    current_scope = socket.assigns.current_scope
     group = Groups.get_group(id)
 
     # if the group is deleted we redirect everyone currently viewing it.

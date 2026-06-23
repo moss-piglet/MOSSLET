@@ -221,7 +221,7 @@ defmodule MossletWeb.SubscribeLive do
   # reflects their choice; the binding monthly vs yearly selection is still
   # confirmed on the org's own subscribe page (Option B, Task #235). Falls back
   # to monthly, then any product, if the chosen interval has no line item.
-  defp family_product(subscription_products, family, interval \\ "year") do
+  defp family_product(subscription_products, family, interval) do
     products =
       Enum.filter(subscription_products, fn product ->
         short_name(product.name) == family

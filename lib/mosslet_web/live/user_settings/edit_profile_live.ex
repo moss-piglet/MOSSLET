@@ -413,7 +413,7 @@ defmodule MossletWeb.EditProfileLive do
                         encryption_key={@key}
                         on_delete="delete_banner"
                         url={
-                          if @profile && Map.get(@profile, :custom_banner_url),
+                          if Map.get(@profile, :custom_banner_url),
                             do: "encrypted-banner-exists",
                             else: nil
                         }
@@ -944,7 +944,7 @@ defmodule MossletWeb.EditProfileLive do
         })
       )
 
-    if user && user.confirmed_at do
+    if user.confirmed_at do
       case Accounts.update_user_profile(user, profile_params,
              key: key,
              user: user,
@@ -1076,7 +1076,7 @@ defmodule MossletWeb.EditProfileLive do
         })
       )
 
-    if user && user.confirmed_at do
+    if user.confirmed_at do
       case Accounts.create_user_profile(user, profile_params,
              key: key,
              user: user,
