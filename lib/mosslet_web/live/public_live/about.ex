@@ -387,7 +387,7 @@ defmodule MossletWeb.PublicLive.About do
               <.article_preview
                 id="blogPostZKPQ"
                 img_source={~p"/images/blog/jun_22_2026_bypwyfb.jpg"}
-                date="May 25, 2026"
+                date="June 22, 2026"
                 title="Bring Your People With You: Family and Business Plans Are Here"
                 author_mark?={true}
                 author_isabella?={false}

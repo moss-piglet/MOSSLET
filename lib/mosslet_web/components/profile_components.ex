@@ -28,6 +28,8 @@ defmodule MossletWeb.ProfileComponents do
 
   import MossletWeb.CoreComponents, only: [phx_icon: 1]
 
+  import MossletWeb.ConnectionComponents, only: [key_verification_compact: 1]
+
   import MossletWeb.DesignSystem,
     only: [
       liquid_avatar: 1,
@@ -132,6 +134,7 @@ defmodule MossletWeb.ProfileComponents do
   attr :profile_user, :map, required: true
   attr :current_scope, :map, required: true
   attr :user_connection, :any, default: nil
+  attr :sealed_peer_pin, :string, default: nil
 
   def profile_header(assigns) do
     ~H"""
@@ -153,6 +156,7 @@ defmodule MossletWeb.ProfileComponents do
                   profile_user={@profile_user}
                   current_scope={@current_scope}
                   user_connection={@user_connection}
+                  sealed_peer_pin={@sealed_peer_pin}
                 />
               <% _ -> %>
                 <.public_header
@@ -160,6 +164,7 @@ defmodule MossletWeb.ProfileComponents do
                   profile_user={@profile_user}
                   current_scope={@current_scope}
                   user_connection={@user_connection}
+                  sealed_peer_pin={@sealed_peer_pin}
                 />
             <% end %>
           </div>
@@ -278,6 +283,7 @@ defmodule MossletWeb.ProfileComponents do
   attr :profile_user, :map, required: true
   attr :current_scope, :map, required: true
   attr :user_connection, :any, default: nil
+  attr :sealed_peer_pin, :string, default: nil
 
   defp connections_header(assigns) do
     ~H"""
@@ -342,6 +348,18 @@ defmodule MossletWeb.ProfileComponents do
             <.phx_icon name="hero-user-group" class="size-3 mr-1" /> Connection
           </.liquid_badge>
         </div>
+
+        <%!-- Key verification (compact trigger + modal) on its own row --%>
+        <div
+          :if={@user_connection}
+          class="mt-2 flex items-center justify-center sm:justify-start"
+        >
+          <.key_verification_compact
+            id={"profile-kv-#{@profile_user.id}"}
+            peer_user={@profile_user}
+            sealed_peer_pin={@sealed_peer_pin}
+          />
+        </div>
       </div>
     </div>
     """
@@ -351,6 +369,7 @@ defmodule MossletWeb.ProfileComponents do
   attr :profile_user, :map, required: true
   attr :current_scope, :map, required: true
   attr :user_connection, :any, default: nil
+  attr :sealed_peer_pin, :string, default: nil
 
   defp public_header(assigns) do
     ~H"""
@@ -415,6 +434,18 @@ defmodule MossletWeb.ProfileComponents do
           <.liquid_badge variant="soft" color="cyan" size="sm">
             <.phx_icon name="hero-globe-alt" class="size-3 mr-1" /> Public
           </.liquid_badge>
+        </div>
+
+        <%!-- Key verification (compact trigger + modal) on its own row --%>
+        <div
+          :if={@user_connection}
+          class="mt-2 flex items-center justify-center sm:justify-start"
+        >
+          <.key_verification_compact
+            id={"profile-kv-#{@profile_user.id}"}
+            peer_user={@profile_user}
+            sealed_peer_pin={@sealed_peer_pin}
+          />
         </div>
       </div>
 

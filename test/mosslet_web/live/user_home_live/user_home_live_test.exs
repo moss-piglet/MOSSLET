@@ -82,15 +82,17 @@ defmodule MossletWeb.UserHomeLiveTest do
       refute has_element?(lv, "#decrypt-own-profile-fields")
     end
 
-    test "renders the key-verification panel for a connected profile (#295)", %{
-      conn: conn,
-      owner: owner,
-      owner_key: key,
-      connections_user: connections_user
-    } do
+    test "renders the compact key-verification trigger + modal for a connected profile (#295/#302)",
+         %{
+           conn: conn,
+           owner: owner,
+           owner_key: key,
+           connections_user: connections_user
+         } do
       {:ok, lv, html} = visit_profile(conn, owner, key, connections_user.connection.profile.slug)
 
-      assert has_element?(lv, "#key-verification-profile-#{connections_user.id}")
+      assert has_element?(lv, "#profile-kv-#{connections_user.id}")
+      assert html =~ "View verification"
       assert html =~ "Key verification"
       assert html =~ "data-safety-number"
       assert html =~ ~s(data-peer-user-id="#{connections_user.id}")

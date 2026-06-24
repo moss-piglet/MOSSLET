@@ -379,7 +379,7 @@
                   :for={{dom_id, group_with_user} <- @streams.visibility_groups}
                   id={dom_id}
                   class={[
-                    "group backdrop-blur-sm rounded-2xl border transition-all duration-300 hover:shadow-lg transform-gpu will-change-transform p-5",
+                    "group backdrop-blur-sm rounded-2xl border transition-all duration-300 hover:shadow-lg transform-gpu hover:will-change-transform p-5",
                     get_group_card_classes(group_with_user.group.color)
                   ]}
                 >

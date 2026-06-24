@@ -119,7 +119,7 @@ defmodule MossletWeb.PublicLive.Blog.Components do
       "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
       "border border-slate-200/60 dark:border-slate-700/60",
       "shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30",
-      "transition-all duration-300 ease-out transform-gpu will-change-transform",
+      "transition-all duration-300 ease-out transform-gpu hover:will-change-transform",
       "hover:scale-[1.02] hover:shadow-2xl hover:shadow-emerald-500/10",
       "p-6 lg:p-8",
       if(@link, do: "cursor-pointer", else: "")
@@ -273,7 +273,7 @@ defmodule MossletWeb.PublicLive.Blog.Components do
         "shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30",
         "hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/10",
         "px-6 pb-6 pt-60 sm:pt-48 lg:pt-60",
-        "will-change-transform",
+        "hover:will-change-transform",
         if(@link, do: "cursor-pointer", else: "")
       ]}
     >

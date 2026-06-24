@@ -62,7 +62,7 @@ export function setWasmSource(input) {
 
 async function ensureReady() {
   if (_ready) return _ready;
-  _ready = wasmInit(_wasmSource).catch((e) => {
+  _ready = wasmInit({ module_or_path: _wasmSource }).catch((e) => {
     _ready = null;
     throw e;
   });

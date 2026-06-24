@@ -81,7 +81,7 @@ defmodule MossletWeb.ModernSidebarMenu do
           "group relative flex items-center text-sm font-medium w-full",
           "lg:rounded-lg",
           "px-6 py-4 lg:py-3",
-          "transition-all duration-200 ease-out will-change-transform",
+          "transition-all duration-200 ease-out hover:will-change-transform",
           "overflow-hidden backdrop-blur-sm transform-gpu",
           menu_item_classes(@current_page, @item[:name], @item[:children])
         ]}
@@ -197,7 +197,7 @@ defmodule MossletWeb.ModernSidebarMenu do
                 class={[
                   "group relative flex items-start gap-x-3 text-sm",
                   "rounded-lg px-2 py-2.5 lg:px-3 lg:py-2.5",
-                  "transition-all duration-200 ease-out will-change-transform",
+                  "transition-all duration-200 ease-out hover:will-change-transform",
                   "overflow-hidden backdrop-blur-sm transform-gpu",
                   "hover:translate-x-1 active:translate-x-0",
                   submenu_item_classes(@current_page, child[:name])
@@ -256,7 +256,7 @@ defmodule MossletWeb.ModernSidebarMenu do
         "group relative flex items-center text-sm font-medium",
         "lg:rounded-lg",
         "px-6 py-4 lg:py-3",
-        "transition-all duration-200 ease-out will-change-transform",
+        "transition-all duration-200 ease-out hover:will-change-transform",
         "overflow-hidden backdrop-blur-sm transform-gpu",
         menu_item_classes(@current_page, @item[:name], @item[:children])
       ]}
@@ -338,7 +338,7 @@ defmodule MossletWeb.ModernSidebarMenu do
     <div class={[
       "relative flex shrink-0 items-center justify-center rounded-lg overflow-hidden",
       icon_container_size_classes(@size),
-      "transition-all duration-200 ease-out transform-gpu will-change-transform",
+      "transition-all duration-200 ease-out transform-gpu hover:will-change-transform",
       @class,
       if(@active,
         do: [

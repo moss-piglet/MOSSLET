@@ -171,7 +171,7 @@ defmodule MossletWeb.ChatComponents do
                     liquid_chat_role_badge(@role)
                   ]}
                 >
-                  <.phx_icon name="hero-finger-print" class="w-3 h-3" />
+                  <.phx_icon name="hero-identification" class="w-3 h-3" />
                   <span
                     class="truncate max-w-[60px] sm:max-w-[100px]"
                     data-decrypt-moniker-target={@id}

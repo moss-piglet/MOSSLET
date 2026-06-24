@@ -238,7 +238,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
           <div class="flex flex-wrap items-center gap-x-2 sm:gap-x-3 gap-y-1 text-xs sm:text-sm">
             <span class="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-400 min-w-0">
               <.phx_icon
-                name="hero-finger-print"
+                name="hero-identification"
                 class="w-4 h-4 text-teal-500 dark:text-teal-400 flex-shrink-0"
               />
               <span
@@ -332,7 +332,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
             <.phx_icon name="hero-user-minus" class="w-5 h-5 text-rose-500" />
             <span class="text-sm text-slate-700 dark:text-slate-300">
               <span :if={block.blocked_moniker} class="inline-flex items-center gap-1.5">
-                <.phx_icon name="hero-finger-print" class="w-4 h-4 text-rose-400" />
+                <.phx_icon name="hero-identification" class="w-4 h-4 text-rose-400" />
                 <span
                   phx-update={if @group_metadata[:browser_decrypt?], do: "ignore"}
                   id={"blocked-moniker-#{block.id}"}
@@ -438,7 +438,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
           <strong class="text-slate-900 dark:text-slate-100">
             <.phx_icon
               :if={is_nil(@member_name) && !@browser_decrypt?}
-              name="hero-finger-print"
+              name="hero-identification"
               class="size-4"
             />
             <span
@@ -563,7 +563,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
           <strong class="text-slate-900 dark:text-slate-100">
             <.phx_icon
               :if={is_nil(@member_name) && !@browser_decrypt?}
-              name="hero-finger-print"
+              name="hero-identification"
               class="size-4"
             />
             <span

@@ -143,7 +143,7 @@ defmodule MossletWeb.PublicLive.Features do
               <div class="max-w-2xl mx-auto mb-12">
                 <article
                   id="features-demo-post"
-                  class="group relative rounded-2xl overflow-hidden transition-all duration-300 ease-out bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20 hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30 hover:border-slate-300/60 dark:hover:border-slate-600/60 transform-gpu will-change-transform"
+                  class="group relative rounded-2xl overflow-hidden transition-all duration-300 ease-out bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20 hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30 hover:border-slate-300/60 dark:hover:border-slate-600/60 transform-gpu hover:will-change-transform"
                 >
                   <%!-- Enhanced liquid background on hover --%>
                   <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10">

@@ -60,7 +60,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive.FormComponent 
           </h3>
           <div class="flex items-center gap-2 mt-1.5 text-sm text-slate-500 dark:text-slate-400">
             <.phx_icon
-              name="hero-finger-print"
+              name="hero-identification"
               class="w-4 h-4 text-teal-500 dark:text-teal-400 flex-shrink-0"
             />
             <span class="truncate">

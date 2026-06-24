@@ -137,11 +137,11 @@ defmodule MossletWeb.CoreComponents do
     >
       <div
         id={"#{@id}-bg"}
-        class="bg-background-50/90 dark:bg-zinc-950/90 fixed inset-0 transition-opacity"
+        class="bg-background-50/90 dark:bg-zinc-950/90 fixed inset-0 z-[90] transition-opacity"
         aria-hidden="true"
       />
       <div
-        class="fixed inset-0 z-10 w-screen pl-2 pr-6 overflow-y-auto"
+        class="fixed inset-0 z-[100] w-screen pl-2 pr-6 overflow-y-auto"
         aria-labelledby={"#{@id}-title"}
         aria-describedby={"#{@id}-description"}
         role="dialog"
@@ -154,7 +154,7 @@ defmodule MossletWeb.CoreComponents do
               id={"#{@id}-container"}
               phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
               phx-key="escape"
-              phx-click-away={%JS{}}
+              phx-click-away={@click_away}
               class="shadow-zinc-700/10 ring-zinc-700/10 relative hidden rounded-2xl bg-white dark:bg-gray-800 shadow-lg ring-1 transition overflow-visible"
             >
               <div class="absolute top-6 right-5">
@@ -608,7 +608,7 @@ defmodule MossletWeb.CoreComponents do
       data-kind={@kind}
       class={
         [
-          "group relative z-10 rounded-xl shadow-xl backdrop-blur-sm border transform-gpu transition-all duration-300 ease-out will-change-transform cursor-pointer",
+          "group relative z-10 rounded-xl shadow-xl backdrop-blur-sm border transform-gpu transition-all duration-300 ease-out hover:will-change-transform cursor-pointer",
           "hover:scale-105 hover:shadow-2xl active:scale-95",
           "max-w-sm w-full overflow-hidden",
           # Expanded state for better readability when clicked

@@ -139,7 +139,7 @@ defmodule MossletWeb.DesignSystem do
         [
           # Base styles
           "group relative overflow-hidden inline-flex items-center justify-center gap-2 font-semibold",
-          "transition-all duration-200 ease-out transform-gpu will-change-transform",
+          "transition-all duration-200 ease-out transform-gpu hover:will-change-transform",
           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2",
           "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
 
@@ -184,7 +184,7 @@ defmodule MossletWeb.DesignSystem do
       disabled={@disabled}
       class={[
         "group relative overflow-hidden inline-flex items-center justify-center gap-2 font-semibold",
-        "transition-all duration-200 ease-out transform-gpu will-change-transform",
+        "transition-all duration-200 ease-out transform-gpu hover:will-change-transform",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2",
         "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
         "phx-submit-loading:opacity-80 phx-submit-loading:cursor-wait",
@@ -778,7 +778,7 @@ defmodule MossletWeb.DesignSystem do
         [
           # Base navigation styling
           "group relative flex items-center gap-x-3 text-sm font-medium",
-          "transition-all duration-200 ease-out will-change-transform transform-gpu",
+          "transition-all duration-200 ease-out hover:will-change-transform transform-gpu",
           "overflow-hidden backdrop-blur-sm",
           "hover:translate-x-1 active:translate-x-0",
 
@@ -3828,7 +3828,7 @@ defmodule MossletWeb.DesignSystem do
 
             <%!-- Contact section matching support page style --%>
             <div class="mt-16">
-              <div class="group relative overflow-hidden rounded-xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30 transition-all duration-300 ease-out transform-gpu will-change-transform hover:scale-[1.02] hover:shadow-2xl hover:shadow-emerald-500/10">
+              <div class="group relative overflow-hidden rounded-xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30 transition-all duration-300 ease-out transform-gpu hover:will-change-transform hover:scale-[1.02] hover:shadow-2xl hover:shadow-emerald-500/10">
                 <%!-- Liquid background effects --%>
                 <div class="absolute inset-0 -z-10 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10 group-hover:opacity-100">
                 </div>

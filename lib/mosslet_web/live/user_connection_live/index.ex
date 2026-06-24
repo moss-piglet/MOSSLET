@@ -1337,6 +1337,29 @@ defmodule MossletWeb.UserConnectionLive.Index do
 
   def handle_event("store_peer_pin", _params, socket), do: {:noreply, socket}
 
+  # Out-of-band verification (EPIC #291 / #295, #302). The browser re-sealed the
+  # v1 pin record with verified:true (after the viewer compared the safety number
+  # out-of-band, by reading the digits OR scanning the QR) and pushed the opaque
+  # blob. "verify_peer_key" marks the current key verified; "repin_peer_key"
+  # re-verifies & re-pins a CHANGED key. Both rewrite the same opaque blob on the
+  # existing (viewer, peer) row, gated by a CONFIRMED connection. The server can
+  # neither read nor forge the record. Mirrors UserConnectionLive.Show.
+  def handle_event(event, %{"peer_user_id" => peer_user_id, "sealed_pin" => sealed_pin}, socket)
+      when event in ["verify_peer_key", "repin_peer_key"] and
+             is_binary(peer_user_id) and is_binary(sealed_pin) and sealed_pin != "" do
+    MossletWeb.Helpers.verify_connection_peer_pin(
+      socket.assigns.current_user,
+      peer_user_id,
+      sealed_pin
+    )
+
+    {:noreply, socket}
+  end
+
+  def handle_event(event, _params, socket)
+      when event in ["verify_peer_key", "repin_peer_key"],
+      do: {:noreply, socket}
+
   @impl true
   def handle_event("accept_uconn", %{"id" => id}, socket) do
     uconn = Accounts.get_user_connection!(id)

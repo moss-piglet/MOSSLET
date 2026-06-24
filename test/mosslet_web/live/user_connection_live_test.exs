@@ -136,6 +136,75 @@ defmodule MossletWeb.UserConnectionLiveTest do
       assert is_nil(Accounts.get_key_pin(user.id, stranger.id))
     end
 
+    test "verify_peer_key persists a verified pin for a confirmed peer (#302)", %{
+      conn: conn,
+      user: user,
+      key: key,
+      reverse_user: reverse_user
+    } do
+      {:ok, lv, _html} =
+        conn
+        |> log_in_user(user, key)
+        |> live(~p"/app/users/connections")
+
+      verified = Base.encode64(:crypto.strong_rand_bytes(120))
+
+      render_hook(lv, "verify_peer_key", %{
+        "peer_user_id" => reverse_user.id,
+        "sealed_pin" => verified
+      })
+
+      assert Accounts.get_key_pin(user.id, reverse_user.id).pinned_fingerprint == verified
+    end
+
+    test "repin_peer_key OVERWRITES an existing pin for a confirmed peer (#302)", %{
+      conn: conn,
+      user: user,
+      key: key,
+      reverse_user: reverse_user
+    } do
+      {:ok, lv, _html} =
+        conn
+        |> log_in_user(user, key)
+        |> live(~p"/app/users/connections")
+
+      pinned = Base.encode64(:crypto.strong_rand_bytes(96))
+      reverified = Base.encode64(:crypto.strong_rand_bytes(120))
+      assert {:ok, _} = Accounts.upsert_key_pin(user.id, reverse_user.id, pinned)
+
+      render_hook(lv, "repin_peer_key", %{
+        "peer_user_id" => reverse_user.id,
+        "sealed_pin" => reverified
+      })
+
+      assert Accounts.get_key_pin(user.id, reverse_user.id).pinned_fingerprint == reverified
+    end
+
+    test "verify_peer_key rejects a peer the viewer has no confirmed connection to (#302)", %{
+      conn: conn,
+      user: user,
+      key: key
+    } do
+      {:ok, lv, _html} =
+        conn
+        |> log_in_user(user, key)
+        |> live(~p"/app/users/connections")
+
+      stranger =
+        user_fixture(%{
+          username: "verify_index_stranger",
+          email: "verify_index_stranger@example.com",
+          password: @valid_password
+        })
+
+      render_hook(lv, "verify_peer_key", %{
+        "peer_user_id" => stranger.id,
+        "sealed_pin" => Base.encode64(:crypto.strong_rand_bytes(96))
+      })
+
+      assert is_nil(Accounts.get_key_pin(user.id, stranger.id))
+    end
+
     test "displays connection information correctly", %{
       conn: conn,
       user: user,

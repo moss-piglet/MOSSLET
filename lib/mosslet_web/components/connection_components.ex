@@ -8,7 +8,8 @@ defmodule MossletWeb.ConnectionComponents do
   use Phoenix.Component
   use MossletWeb, :verified_routes
 
-  import MossletWeb.CoreComponents, only: [phx_icon: 1, local_time_ago: 1]
+  import MossletWeb.CoreComponents,
+    only: [phx_icon: 1, local_time_ago: 1, phx_modal: 1, phx_show_modal: 2]
 
   import MossletWeb.DesignSystem,
     only: [
@@ -767,7 +768,7 @@ defmodule MossletWeb.ConnectionComponents do
         "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
         "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30",
         "hover:border-slate-300/60 dark:hover:border-slate-600/60",
-        "transform-gpu will-change-transform cursor-pointer",
+        "transform-gpu hover:will-change-transform cursor-pointer",
         @class
       ]}>
         <%!-- DecryptConnectionCard hook for browser-side ZK decryption --%>
@@ -968,6 +969,19 @@ defmodule MossletWeb.ConnectionComponents do
 
         <div class="relative py-2">
           <div
+            :if={@peer_user_id}
+            class="group flex items-center gap-3 px-4 py-2.5 text-sm transition-all duration-200 ease-out cursor-pointer hover:bg-slate-100/80 dark:hover:bg-slate-700/80 first:rounded-t-lg last:rounded-b-lg text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
+            role="menuitem"
+            phx-click={
+              JS.hide(to: "#connection-menu-#{@connection_id}-menu")
+              |> phx_show_modal("verify-connection-modal-#{@connection_id}")
+              |> JS.dispatch("verification:open", to: "#kv-panel-#{@connection_id}")
+            }
+          >
+            <.phx_icon name="hero-finger-print" class="h-4 w-4" /> Verify Contact
+          </div>
+
+          <div
             class="group flex items-center gap-3 px-4 py-2.5 text-sm transition-all duration-200 ease-out cursor-pointer hover:bg-slate-100/80 dark:hover:bg-slate-700/80 first:rounded-t-lg last:rounded-b-lg text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
             role="menuitem"
             phx-click="edit_connection"
@@ -1021,6 +1035,26 @@ defmodule MossletWeb.ConnectionComponents do
           </div>
         </div>
       </div>
+
+      <%!-- Key-verification modal (#302). Lazy panel computes only when opened,
+           so a page of cards doesn't run N fingerprint computations on load. --%>
+      <.phx_modal
+        :if={@peer_user_id}
+        id={"verify-connection-modal-#{@connection_id}"}
+        on_cancel={JS.dispatch("verification:close", to: "#kv-panel-#{@connection_id}")}
+      >
+        <div class="w-[20rem] sm:w-[34rem] max-w-full pt-3 pr-10">
+          <.key_verification_panel
+            id={"kv-panel-#{@connection_id}"}
+            peer_user_id={@peer_user_id}
+            peer_public_key={@peer_public_key}
+            peer_pq_public_key={@peer_pq_public_key}
+            sealed_peer_pin={@sealed_peer_pin}
+            lazy={true}
+            flat={true}
+          />
+        </div>
+      </.phx_modal>
     </div>
     """
   end
@@ -1725,7 +1759,7 @@ defmodule MossletWeb.ConnectionComponents do
         "hover:border-cyan-300/50 dark:hover:border-cyan-600/50",
         "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
         "hover:shadow-xl hover:shadow-cyan-500/10 dark:hover:shadow-cyan-400/10",
-        "transition-all duration-300 ease-out transform-gpu will-change-transform",
+        "transition-all duration-300 ease-out transform-gpu hover:will-change-transform",
         "hover:-translate-y-0.5",
         @class
       ]}
@@ -1738,7 +1772,7 @@ defmodule MossletWeb.ConnectionComponents do
 
       <div class="relative p-4 sm:p-5">
         <div class="flex gap-4">
-          <div class="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-hidden transition-all duration-200 ease-out transform-gpu will-change-transform bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 group-hover/card:from-cyan-100 group-hover/card:via-teal-50 group-hover/card:to-emerald-100 dark:group-hover/card:from-cyan-900/30 dark:group-hover/card:via-teal-900/25 dark:group-hover/card:to-emerald-900/30 shadow-sm">
+          <div class="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-hidden transition-all duration-200 ease-out transform-gpu hover:will-change-transform bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 group-hover/card:from-cyan-100 group-hover/card:via-teal-50 group-hover/card:to-emerald-100 dark:group-hover/card:from-cyan-900/30 dark:group-hover/card:via-teal-900/25 dark:group-hover/card:to-emerald-900/30 shadow-sm">
             <.phx_icon
               name="hero-globe-alt"
               class={[
@@ -1943,7 +1977,7 @@ defmodule MossletWeb.ConnectionComponents do
         ),
         "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
         "hover:shadow-xl hover:shadow-teal-500/10 dark:hover:shadow-teal-400/10",
-        "transition-all duration-300 ease-out transform-gpu will-change-transform",
+        "transition-all duration-300 ease-out transform-gpu hover:will-change-transform",
         "hover:-translate-y-0.5",
         @class
       ]}
@@ -1968,7 +2002,7 @@ defmodule MossletWeb.ConnectionComponents do
       <div class="relative z-10 p-4 sm:p-5 pointer-events-none">
         <div class="flex gap-4">
           <div class={[
-            "relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-visible transition-all duration-200 ease-out transform-gpu will-change-transform shadow-sm",
+            "relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-visible transition-all duration-200 ease-out transform-gpu hover:will-change-transform shadow-sm",
             cond do
               @business? ->
                 "bg-gradient-to-br from-teal-100 via-emerald-50 to-emerald-100 dark:from-teal-900/40 dark:via-emerald-900/25 dark:to-emerald-900/40"
@@ -2176,7 +2210,7 @@ defmodule MossletWeb.ConnectionComponents do
         "hover:border-emerald-300/50 dark:hover:border-emerald-600/50",
         "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
         "hover:shadow-xl hover:shadow-emerald-500/10 dark:hover:shadow-emerald-400/10",
-        "transition-all duration-300 ease-out transform-gpu will-change-transform",
+        "transition-all duration-300 ease-out transform-gpu hover:will-change-transform",
         "hover:-translate-y-0.5",
         @class
       ]}
@@ -2188,7 +2222,7 @@ defmodule MossletWeb.ConnectionComponents do
 
       <div class="relative p-4 sm:p-5">
         <div class="flex flex-col sm:flex-row gap-4">
-          <div class="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-hidden transition-all duration-200 ease-out transform-gpu will-change-transform bg-gradient-to-br from-emerald-100 via-teal-50 to-emerald-100 dark:from-emerald-900/30 dark:via-teal-900/25 dark:to-emerald-900/30 shadow-sm">
+          <div class="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-hidden transition-all duration-200 ease-out transform-gpu hover:will-change-transform bg-gradient-to-br from-emerald-100 via-teal-50 to-emerald-100 dark:from-emerald-900/30 dark:via-teal-900/25 dark:to-emerald-900/30 shadow-sm">
             <.phx_icon
               name="hero-gift"
               class="h-6 w-6 text-emerald-600 dark:text-emerald-400 transition-transform duration-200 group-hover/card:scale-110"
@@ -2388,25 +2422,67 @@ defmodule MossletWeb.ConnectionComponents do
   """
   attr :id, :string, required: true
   attr :peer_user, :map, default: nil
+
+  attr :peer_user_id, :string,
+    default: nil,
+    doc: "Explicit peer user id (alternative to passing peer_user)"
+
+  attr :peer_public_key, :string,
+    default: nil,
+    doc: "Explicit peer X25519 public key (alternative to peer_user)"
+
+  attr :peer_pq_public_key, :string,
+    default: nil,
+    doc: "Explicit peer ML-KEM public key (alternative to peer_user)"
+
   attr :sealed_peer_pin, :string, default: nil
 
+  attr :lazy, :boolean,
+    default: false,
+    doc: "Defer fingerprint compute until a verification:open event (modal usage)"
+
+  attr :flat, :boolean,
+    default: false,
+    doc: "Drop the card chrome (bg/border/shadow/rounding) when nested in a modal"
+
   def key_verification_panel(assigns) do
+    peer = assigns[:peer_user]
+
     assigns =
       assigns
-      |> assign(:peer_public_key, kv_peer_public_key(assigns[:peer_user]))
-      |> assign(:peer_pq_public_key, kv_peer_pq_public_key(assigns[:peer_user]))
+      |> assign(:resolved_peer_user_id, assigns[:peer_user_id] || (peer && peer.id))
+      |> assign(:peer_public_key, assigns[:peer_public_key] || kv_peer_public_key(peer))
+      |> assign(:peer_pq_public_key, assigns[:peer_pq_public_key] || kv_peer_pq_public_key(peer))
 
     ~H"""
     <div
-      :if={@peer_user}
+      :if={@resolved_peer_user_id}
       id={@id}
       phx-hook="KeySafetyNumber"
-      data-peer-user-id={@peer_user.id}
+      data-peer-user-id={@resolved_peer_user_id}
       data-peer-public-key={@peer_public_key}
       data-peer-pq-public-key={@peer_pq_public_key}
       data-sealed-pin={@sealed_peer_pin}
-      class="bg-white dark:bg-slate-800 px-4 py-5 shadow dark:shadow-emerald-500/30 sm:rounded-2xl sm:px-6 border border-slate-200/60 dark:border-slate-700/60"
+      data-lazy={to_string(@lazy)}
+      class={[
+        !@flat &&
+          "bg-white dark:bg-slate-800 px-4 py-5 shadow dark:shadow-emerald-500/30 sm:rounded-2xl sm:px-6 border border-slate-200/60 dark:border-slate-700/60"
+      ]}
     >
+      <.kv_panel_body />
+    </div>
+    """
+  end
+
+  @doc false
+  # Inner body of the key-verification panel, split out so it can be reused both
+  # by `key_verification_panel/1` (standalone card) and inside the modal rendered
+  # by `key_verification_compact/1`. Contains only the `data-state`/`data-action`/
+  # `data-qr*`/`data-safety-number` markup the `KeySafetyNumber` hook drives — it
+  # carries no hook attrs itself, so it must always live inside a hook element.
+  def kv_panel_body(assigns) do
+    ~H"""
+    <div>
       <div class="flex items-center justify-between gap-3">
         <h2 class="text-lg font-medium text-slate-900 dark:text-slate-100 inline-flex items-center gap-2">
           <.phx_icon name="hero-finger-print" class="h-5 w-5 text-teal-500 dark:text-teal-400" />
@@ -2474,13 +2550,20 @@ defmodule MossletWeb.ConnectionComponents do
       </div>
 
       <%!-- Unverified actions --%>
-      <div data-state="unverified" hidden class="mt-4">
+      <div data-state="unverified" hidden class="mt-4 flex flex-wrap items-center gap-3">
         <button
           type="button"
           data-action="verify"
           class="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:from-teal-600 hover:to-emerald-600 transition-all duration-200"
         >
           <.phx_icon name="hero-check-badge" class="h-4 w-4" /> Mark as verified
+        </button>
+        <button
+          type="button"
+          data-action="qr-toggle"
+          class="inline-flex items-center justify-center gap-2 rounded-full border border-teal-300/60 dark:border-teal-600/40 bg-teal-50/60 dark:bg-teal-900/20 px-5 py-2.5 text-sm font-semibold text-teal-700 dark:text-teal-300 hover:bg-teal-100/60 dark:hover:bg-teal-900/30 transition-all duration-200"
+        >
+          <.phx_icon name="hero-qr-code" class="h-4 w-4" /> Verify by QR
         </button>
       </div>
 
@@ -2515,14 +2598,128 @@ defmodule MossletWeb.ConnectionComponents do
               Compare the safety number above out-of-band. If it matches on both devices, choose
               "Re-verify &amp; re-pin" to trust the new key.
             </p>
-            <button
-              type="button"
-              data-action="repin"
-              data-confirm="Only do this after comparing the new safety number with your contact over a trusted channel. Re-verify and re-pin this contact's new key?"
-              class="mt-1 inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:from-amber-600 hover:to-orange-600 transition-all duration-200"
+            <div class="mt-1 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                data-action="repin"
+                data-confirm="Only do this after comparing the new safety number with your contact over a trusted channel. Re-verify and re-pin this contact's new key?"
+                class="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:from-amber-600 hover:to-orange-600 transition-all duration-200"
+              >
+                <.phx_icon name="hero-arrow-path" class="h-4 w-4" /> Re-verify &amp; re-pin
+              </button>
+              <button
+                type="button"
+                data-action="qr-toggle"
+                class="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/60 dark:border-amber-600/40 bg-amber-50/60 dark:bg-amber-900/20 px-5 py-2.5 text-sm font-semibold text-amber-700 dark:text-amber-300 hover:bg-amber-100/60 dark:hover:bg-amber-900/30 transition-all duration-200"
+              >
+                <.phx_icon name="hero-qr-code" class="h-4 w-4" /> Verify by QR
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <%!-- QR show / scan-to-verify region (toggled by the hook). Encodes ONLY
+           the viewer's locally-computed safety number (public-key-derived). --%>
+      <div
+        data-qr-region
+        hidden
+        class="mt-4 rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-slate-50/60 dark:bg-slate-900/30 p-4"
+      >
+        <div class="grid gap-5 sm:grid-cols-2">
+          <%!-- Show my code --%>
+          <div>
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100 inline-flex items-center gap-2">
+              <.phx_icon name="hero-qr-code" class="h-4 w-4 text-teal-500 dark:text-teal-400" />
+              Your safety code
+            </h3>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Have your contact scan this with their MOSSLET app, in person or over a video call
+              you trust.
+            </p>
+            <div
+              data-qr-target
+              class="mt-3 mx-auto w-44 h-44 rounded-lg bg-white p-2 shadow-inner [&>svg]:w-full [&>svg]:h-full"
             >
-              <.phx_icon name="hero-arrow-path" class="h-4 w-4" /> Re-verify &amp; re-pin
-            </button>
+            </div>
+          </div>
+
+          <%!-- Scan their code --%>
+          <div>
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100 inline-flex items-center gap-2">
+              <.phx_icon name="hero-camera" class="h-4 w-4 text-teal-500 dark:text-teal-400" />
+              Scan their code
+            </h3>
+
+            <%!-- Supported: camera scanner --%>
+            <div data-scan-supported hidden>
+              <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Point your camera at your contact's safety code to compare automatically.
+              </p>
+
+              <div data-scan-state="idle" class="mt-3">
+                <button
+                  type="button"
+                  data-action="scan-start"
+                  class="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:from-teal-600 hover:to-emerald-600 transition-all duration-200"
+                >
+                  <.phx_icon name="hero-camera" class="h-4 w-4" /> Start camera
+                </button>
+              </div>
+
+              <div data-scan-state="scanning" hidden class="mt-3 space-y-2">
+                <video
+                  data-qr-video
+                  muted
+                  playsinline
+                  class="w-full max-w-xs rounded-lg bg-black aspect-square object-cover"
+                ></video>
+                <button
+                  type="button"
+                  data-action="scan-stop"
+                  class="inline-flex items-center justify-center gap-2 rounded-full border border-slate-300/60 dark:border-slate-600/40 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100/60 dark:hover:bg-slate-700/40 transition-all duration-200"
+                >
+                  <.phx_icon name="hero-x-mark" class="h-4 w-4" /> Stop
+                </button>
+              </div>
+
+              <div data-scan-state="match" hidden class="mt-3">
+                <p class="text-sm text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1">
+                  <.phx_icon name="hero-check-badge" class="h-4 w-4" /> Codes match — verifying…
+                </p>
+              </div>
+
+              <div data-scan-state="mismatch" hidden class="mt-3">
+                <p class="text-sm text-amber-700 dark:text-amber-300 inline-flex items-center gap-1">
+                  <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4" /> Codes do not match
+                </p>
+                <button
+                  type="button"
+                  data-action="scan-start"
+                  class="mt-2 inline-flex items-center justify-center gap-2 rounded-full border border-slate-300/60 dark:border-slate-600/40 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100/60 dark:hover:bg-slate-700/40 transition-all duration-200"
+                >
+                  <.phx_icon name="hero-arrow-path" class="h-4 w-4" /> Scan again
+                </button>
+              </div>
+
+              <div data-scan-state="error" hidden class="mt-3">
+                <button
+                  type="button"
+                  data-action="scan-start"
+                  class="inline-flex items-center justify-center gap-2 rounded-full border border-slate-300/60 dark:border-slate-600/40 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100/60 dark:hover:bg-slate-700/40 transition-all duration-200"
+                >
+                  <.phx_icon name="hero-arrow-path" class="h-4 w-4" /> Try again
+                </button>
+              </div>
+
+              <p data-scan-status class="mt-2 text-xs text-slate-500 dark:text-slate-400"></p>
+            </div>
+
+            <%!-- Unsupported: graceful fallback to manual compare --%>
+            <p data-scan-unsupported hidden class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Your browser can't scan QR codes here. Compare the digits above with your contact
+              instead — it's just as secure.
+            </p>
           </div>
         </div>
       </div>
@@ -2535,4 +2732,85 @@ defmodule MossletWeb.ConnectionComponents do
 
   defp kv_peer_pq_public_key(%Mosslet.Accounts.User{} = peer), do: peer.pq_public_key
   defp kv_peer_pq_public_key(_), do: nil
+
+  @doc """
+  Compact key-verification trigger + modal (EPIC #291 / #302 follow-up).
+
+  Designed for dense surfaces like the profile header where the full
+  `key_verification_panel/1` card is too heavy. Renders a single
+  `KeySafetyNumber` hook element (NON-lazy, so it computes state on mount and the
+  inline verified badge is correct on page load WITHOUT opening the modal). The
+  hook's subtree contains BOTH the inline controls (a "View verification" button,
+  a verified badge, and a key-changed chip) and a `<.phx_modal>` wrapping
+  `kv_panel_body/1`. Because the hook toggles every `[data-state]` within its
+  element, the inline badge and the modal body stay in sync. The button opens the
+  modal and (idempotently) dispatches `verification:open`; closing dispatches
+  `verification:close` (stopping the camera).
+
+  Accepts the same peer inputs as `key_verification_panel/1`. Renders nothing
+  when no peer is resolved.
+  """
+  attr :id, :string, required: true
+  attr :peer_user, :map, default: nil
+  attr :peer_user_id, :string, default: nil
+  attr :peer_public_key, :string, default: nil
+  attr :peer_pq_public_key, :string, default: nil
+  attr :sealed_peer_pin, :string, default: nil
+
+  def key_verification_compact(assigns) do
+    peer = assigns[:peer_user]
+
+    assigns =
+      assigns
+      |> assign(:resolved_peer_user_id, assigns[:peer_user_id] || (peer && peer.id))
+      |> assign(:peer_public_key, assigns[:peer_public_key] || kv_peer_public_key(peer))
+      |> assign(:peer_pq_public_key, assigns[:peer_pq_public_key] || kv_peer_pq_public_key(peer))
+      |> assign(:modal_id, "#{assigns.id}-modal")
+
+    ~H"""
+    <span
+      :if={@resolved_peer_user_id}
+      id={@id}
+      phx-hook="KeySafetyNumber"
+      data-peer-user-id={@resolved_peer_user_id}
+      data-peer-public-key={@peer_public_key}
+      data-peer-pq-public-key={@peer_pq_public_key}
+      data-sealed-pin={@sealed_peer_pin}
+      data-lazy="false"
+      class="inline-flex items-center gap-1.5"
+    >
+      <span
+        data-state="verified"
+        hidden
+        class="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300 ring-1 ring-inset ring-emerald-600/20 dark:ring-emerald-400/30"
+      >
+        <.phx_icon name="hero-check-badge" class="h-3.5 w-3.5" /> Verified
+      </span>
+
+      <span
+        data-state="mismatch"
+        hidden
+        class="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-900/30 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300 ring-1 ring-inset ring-amber-600/30"
+      >
+        <.phx_icon name="hero-exclamation-triangle" class="h-3.5 w-3.5" /> Key changed
+      </span>
+
+      <button
+        type="button"
+        phx-click={
+          phx_show_modal(%JS{}, @modal_id) |> JS.dispatch("verification:open", to: "##{@id}")
+        }
+        class="inline-flex items-center gap-1 rounded-full border border-teal-300/60 dark:border-teal-600/40 bg-teal-50/60 dark:bg-teal-900/20 px-2.5 py-1 text-xs font-semibold text-teal-700 dark:text-teal-300 hover:bg-teal-100/60 dark:hover:bg-teal-900/30 transition-all duration-200"
+      >
+        <.phx_icon name="hero-finger-print" class="h-3.5 w-3.5" /> View verification
+      </button>
+
+      <.phx_modal id={@modal_id} on_cancel={JS.dispatch("verification:close", to: "##{@id}")}>
+        <div class="w-[20rem] sm:w-[34rem] max-w-full pt-3 pr-10">
+          <.kv_panel_body />
+        </div>
+      </.phx_modal>
+    </span>
+    """
+  end
 end

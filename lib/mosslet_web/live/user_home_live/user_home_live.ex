@@ -3129,6 +3129,7 @@ defmodule MossletWeb.UserHomeLive do
             profile_user={@profile_user}
             current_scope={@current_scope}
             user_connection={@user_connection}
+            sealed_peer_pin={@sealed_peer_pin}
           />
         </div>
 
@@ -3147,14 +3148,6 @@ defmodule MossletWeb.UserHomeLive do
                 profile={@profile}
                 profile_user={@profile_user}
                 current_scope={@current_scope}
-              />
-
-              <%!-- Key verification (safety number + TOFU pin state) — connections only --%>
-              <MossletWeb.ConnectionComponents.key_verification_panel
-                :if={@user_connection}
-                id={"key-verification-profile-#{@profile_user.id}"}
-                peer_user={@profile_user}
-                sealed_peer_pin={@sealed_peer_pin}
               />
 
               <%!-- Posts Section --%>
@@ -3475,6 +3468,7 @@ defmodule MossletWeb.UserHomeLive do
             profile_user={@profile_user}
             current_scope={@current_scope}
             user_connection={@user_connection}
+            sealed_peer_pin={@sealed_peer_pin}
           />
         </div>
 
@@ -3503,14 +3497,6 @@ defmodule MossletWeb.UserHomeLive do
                 profile={@profile}
                 profile_user={@profile_user}
                 current_scope={@current_scope}
-              />
-
-              <%!-- Key verification (safety number + TOFU pin state) — connections only --%>
-              <MossletWeb.ConnectionComponents.key_verification_panel
-                :if={@user_connection}
-                id={"key-verification-profile-#{@profile_user.id}"}
-                peer_user={@profile_user}
-                sealed_peer_pin={@sealed_peer_pin}
               />
 
               <%!-- Posts Section --%>

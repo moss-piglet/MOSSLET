@@ -1123,7 +1123,7 @@ defmodule MossletWeb.TimelineComponents do
         "shadow-sm shadow-slate-900/5 dark:shadow-slate-900/15",
         "hover:shadow-md hover:shadow-slate-900/8 dark:hover:shadow-slate-900/25",
         "hover:border-slate-200/60 dark:hover:border-slate-600/50",
-        "transform-gpu will-change-transform",
+        "transform-gpu hover:will-change-transform",
         if(@unread?,
           do:
             "ring-1 ring-teal-400/30 dark:ring-cyan-500/40 shadow-md shadow-teal-500/15 dark:shadow-cyan-400/20 border-teal-200/50 dark:border-cyan-700/50",
@@ -4268,7 +4268,7 @@ defmodule MossletWeb.TimelineComponents do
         "shadow-lg shadow-orange-900/5 dark:shadow-orange-900/20",
         "hover:shadow-xl hover:shadow-orange-900/10 dark:hover:shadow-orange-900/30",
         "hover:border-orange-300/60 dark:hover:border-orange-700/60",
-        "transform-gpu will-change-transform",
+        "transform-gpu hover:will-change-transform",
         @class
       ]}
     >
