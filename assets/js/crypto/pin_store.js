@@ -51,6 +51,14 @@ export const PIN_STATUS = {
 
 export const PEER_KEY_CHANGED_EVENT = "mosslet:peer-key-changed";
 
+// Fired on EVERY status verdict (not just mismatch), so any surface — the
+// connection-card badges, the connections-page key-change banner (#296), and the
+// timeline verified badge — can live-update without a server round-trip or page
+// reload. detail: { peerUserId, status, verified, fingerprint }. Stays ZK-safe:
+// it carries only the client-computed verdict + a public-key-derived fingerprint,
+// never secret material, and never leaves the browser.
+export const PEER_PIN_STATUS_EVENT = "mosslet:peer-pin-status";
+
 // ---------------------------------------------------------------------------
 // Versioned pin record (EPIC #291 / Phase 3 — #295).
 // ---------------------------------------------------------------------------
@@ -131,6 +139,22 @@ function recordStatus(peerUserId, status, fingerprint, extra = {}) {
     verifiedAt: extra.verifiedAt || null,
   };
   _statusByPeer.set(peerUserId, entry);
+  if (peerUserId) {
+    try {
+      window.dispatchEvent(
+        new CustomEvent(PEER_PIN_STATUS_EVENT, {
+          detail: {
+            peerUserId,
+            status,
+            verified: entry.verified,
+            fingerprint: entry.fingerprint,
+          },
+        }),
+      );
+    } catch {
+      // best-effort: a failed dispatch must never break the caller
+    }
+  }
   if (status === PIN_STATUS.MISMATCH) {
     try {
       window.dispatchEvent(

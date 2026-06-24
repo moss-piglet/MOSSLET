@@ -1047,6 +1047,15 @@ defmodule MossletWeb.TimelineComponents do
   attr :can_bookmark?, :boolean, default: false
   attr :post, :map, required: true
 
+  attr :peer_user_id, :string,
+    default: nil,
+    doc:
+      "post author's user id, for the client-side TOFU verified badge (#296). nil for own posts/non-connections"
+
+  attr :peer_public_key, :string, default: nil
+  attr :peer_pq_public_key, :string, default: nil
+  attr :sealed_peer_pin, :string, default: nil
+
   attr :post_shared_users, :list,
     default: [],
     doc: "the list of Post.SharedUser structs mapped from the current_user's user_connections"
@@ -1178,6 +1187,10 @@ defmodule MossletWeb.TimelineComponents do
           author_profile_visibility={@author_profile_visibility}
           timestamp={@timestamp}
           verified={@verified}
+          peer_user_id={@peer_user_id}
+          peer_public_key={@peer_public_key}
+          peer_pq_public_key={@peer_pq_public_key}
+          sealed_peer_pin={@sealed_peer_pin}
         />
 
         <.liquid_post_content_warning_bar
@@ -2108,6 +2121,10 @@ defmodule MossletWeb.TimelineComponents do
   attr :author_profile_visibility, :atom, default: nil
   attr :timestamp, :string, required: true
   attr :verified, :boolean, default: false
+  attr :peer_user_id, :string, default: nil
+  attr :peer_public_key, :string, default: nil
+  attr :peer_pq_public_key, :string, default: nil
+  attr :sealed_peer_pin, :string, default: nil
 
   def liquid_post_header(assigns) do
     ~H"""
@@ -2193,6 +2210,25 @@ defmodule MossletWeb.TimelineComponents do
             name="hero-check-badge"
             class="h-5 w-5 text-emerald-500 flex-shrink-0"
           />
+          <%!-- Client-side TOFU verified badge (#296). Mirrors the out-of-band
+               verification state for the post author (a connection), driven
+               entirely browser-side — the server never reports this. Read-only:
+               pinning/verifying happens on the connections surface. --%>
+          <span
+            :if={@peer_user_id && @sealed_peer_pin}
+            id={"post-author-verified-#{@post.id}"}
+            phx-hook="PeerVerifiedBadge"
+            phx-update="ignore"
+            data-peer-user-id={@peer_user_id}
+            data-peer-public-key={@peer_public_key}
+            data-peer-pq-public-key={@peer_pq_public_key}
+            data-sealed-pin={@sealed_peer_pin}
+            hidden
+            class="shrink-0 inline-flex items-center text-emerald-500"
+            title="Encryption key verified"
+          >
+            <.phx_icon name="hero-check-badge" class="h-5 w-5" />
+          </span>
           <%!-- Interaction controls indicators --%>
           <div class="flex items-center gap-1 ml-2">
             <%!-- Ephemeral indicator with countdown --%>

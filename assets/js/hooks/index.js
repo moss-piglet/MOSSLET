@@ -18,6 +18,8 @@ import DecryptAvatar from "./decrypt-avatar";
 import DecryptBookmarkNote from "./decrypt-bookmark-note";
 import DecryptConnectionCard from "./decrypt-connection-card";
 import KeySafetyNumber from "./key-safety-number";
+import KeyChangeBanner from "./key-change-banner";
+import PeerVerifiedBadge from "./peer-verified-badge";
 import DecryptInviterName from "./decrypt-inviter-name";
 import DecryptPost from "./decrypt-post";
 import DecryptProfileFields from "./decrypt-profile-fields";
@@ -140,6 +142,8 @@ export default {
   DecryptBookmarkNote,
   DecryptConnectionCard,
   KeySafetyNumber,
+  KeyChangeBanner,
+  PeerVerifiedBadge,
   DecryptInviterName,
   DecryptGroupMessage,
   DecryptGroupMetadata,

@@ -37,7 +37,11 @@ defmodule MossletWeb.TimelineLive.PostViewModel do
           author_profile_slug: String.t() | nil,
           author_profile_visibility: atom() | nil,
           bookmarked?: boolean(),
-          unread?: boolean()
+          unread?: boolean(),
+          peer_user_id: String.t() | nil,
+          peer_public_key: String.t() | nil,
+          peer_pq_public_key: String.t() | nil,
+          sealed_peer_pin: String.t() | nil
         }
 
   defstruct user_name: "...",
@@ -47,7 +51,11 @@ defmodule MossletWeb.TimelineLive.PostViewModel do
             author_profile_slug: nil,
             author_profile_visibility: nil,
             bookmarked?: false,
-            unread?: false
+            unread?: false,
+            peer_user_id: nil,
+            peer_public_key: nil,
+            peer_pq_public_key: nil,
+            sealed_peer_pin: nil
 
   @doc """
   Builds the post view-model for a given post and viewing user.
@@ -59,6 +67,8 @@ defmodule MossletWeb.TimelineLive.PostViewModel do
   """
   @spec build(post :: struct(), current_user :: struct(), key :: binary()) :: t()
   def build(post, current_user, key) do
+    verification = verification(post, current_user)
+
     %__MODULE__{
       user_name: author_name(post, current_user),
       encrypted_author_name_data: encrypted_author_name_data(post, current_user),
@@ -67,8 +77,51 @@ defmodule MossletWeb.TimelineLive.PostViewModel do
       author_profile_slug: author_profile_slug(post, current_user),
       author_profile_visibility: author_profile_visibility(post, current_user),
       bookmarked?: bookmarked?(post, current_user),
-      unread?: unread?(post, current_user)
+      unread?: unread?(post, current_user),
+      peer_user_id: verification.peer_user_id,
+      peer_public_key: verification.peer_public_key,
+      peer_pq_public_key: verification.peer_pq_public_key,
+      sealed_peer_pin: verification.sealed_peer_pin
     }
+  end
+
+  # --- client-side TOFU verified badge inputs (EPIC #291 / #296) -------------
+  #
+  # Resolves the post author's served public keys + the viewer's sealed key-pin
+  # blob, so the browser `PeerVerifiedBadge` hook can MIRROR the out-of-band
+  # verification state on the timeline card. Returns all-nil (no badge) for the
+  # viewer's own posts and for authors who aren't connections (no pin can exist).
+  # ZK-safe: the sealed pin is opaque to the server; the verdict is computed only
+  # in the browser.
+  defp verification(post, current_user) do
+    empty = %{
+      peer_user_id: nil,
+      peer_public_key: nil,
+      peer_pq_public_key: nil,
+      sealed_peer_pin: nil
+    }
+
+    cond do
+      post.user_id == current_user.id ->
+        empty
+
+      is_nil(Helpers.get_uconn_for_shared_item(post, current_user)) ->
+        empty
+
+      true ->
+        case Accounts.get_user_with_preloads(post.user_id) do
+          %Mosslet.Accounts.User{} = author ->
+            %{
+              peer_user_id: post.user_id,
+              peer_public_key: get_in(author.key_pair, ["public"]),
+              peer_pq_public_key: author.pq_public_key,
+              sealed_peer_pin: Helpers.sealed_pin_for(current_user.id, post.user_id)
+            }
+
+          _ ->
+            empty
+        end
+    end
   end
 
   # --- author display name ---------------------------------------------------

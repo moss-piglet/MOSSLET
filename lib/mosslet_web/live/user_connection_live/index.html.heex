@@ -13,6 +13,49 @@
       class="space-y-6 sm:space-y-8 pt-6 sm:pt-8"
     >
       <MossletWeb.ConnectionComponents.liquid_connections_header id="user-connections-liquid-header" />
+      <%!-- Key-change alert banner (#296). Hidden until the client-side TOFU
+           check flags one or more contacts whose encryption key changed. The
+           server never learns this state — the banner is driven entirely by the
+           browser via PEER_PIN_STATUS_EVENT. --%>
+      <div
+        id="key-change-alert"
+        phx-hook="KeyChangeBanner"
+        phx-update="ignore"
+        hidden
+        class="rounded-2xl border border-amber-300/60 dark:border-amber-600/40 bg-amber-50/80 dark:bg-amber-900/20 p-4 sm:p-5 shadow-sm"
+      >
+        <div class="flex items-start gap-3">
+          <.phx_icon
+            name="hero-exclamation-triangle"
+            class="h-6 w-6 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5"
+          />
+          <div class="text-sm text-amber-800 dark:text-amber-200 space-y-1.5">
+            <p class="font-semibold">
+              The encryption key changed for
+              <span data-key-change-count class="tabular-nums">0</span>
+              <span>contact<span data-key-change-plural hidden>s</span>.</span>
+            </p>
+            <p>
+              This can be innocent — they reinstalled MOSSLET, recovered their account, or set up
+              a new device. But it can <span class="font-medium">also</span>
+              mean someone is trying to intercept your encrypted content. We can't tell which from
+              here, because the key is served by our server, and our security assumes the server
+              itself could be compromised or compelled.
+            </p>
+            <p>
+              To stay safe, sealing new content to a flagged contact is
+              <span class="font-medium">paused</span>
+              until you re-verify. Open the contact marked
+              <.phx_icon
+                name="hero-exclamation-triangle"
+                class="inline-block h-4 w-4 align-text-bottom text-amber-600 dark:text-amber-400"
+              />
+              below, compare the safety number out-of-band (in person or over a call you trust),
+              then re-verify to trust the new key.
+            </p>
+          </div>
+        </div>
+      </div>
       <%!-- Modern tab navigation with proper responsive behavior --%>
       <div class="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl border border-slate-200/40 dark:border-slate-700/40 shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20 relative z-0 overflow-visible">
         <%!-- Responsive layout optimized for all screen sizes --%>

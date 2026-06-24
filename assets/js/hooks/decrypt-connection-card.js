@@ -1,5 +1,5 @@
 import { unsealContextKey, decryptWithKey, getPublicKey, unwrapKey } from "../crypto/session";
-import { verifyOrPin } from "../crypto/pin_store";
+import { verifyOrPin, PIN_STATUS, PEER_PIN_STATUS_EVENT } from "../crypto/pin_store";
 
 const DecryptConnectionCard = {
   async mounted() {
@@ -7,6 +7,17 @@ const DecryptConnectionCard = {
     this._cachedAttrs = null;
     this._onKeysReady = null;
     this._pinnedFor = null;
+
+    // Live-sync the card badges when the verdict for THIS peer changes anywhere
+    // this session — e.g. the user marks the peer verified (or re-pins after a
+    // key change) inside the verification modal. pin_store fires this on every
+    // verdict, so the card updates without a page reload (EPIC #291 / #296).
+    this._onPinStatus = (e) => {
+      if (e && e.detail && e.detail.peerUserId === this.el.dataset.peerUserId) {
+        this._applyBadges(e.detail);
+      }
+    };
+    window.addEventListener(PEER_PIN_STATUS_EVENT, this._onPinStatus);
 
     if (!await this._decrypt()) {
       this._onKeysReady = () => this._decrypt();
@@ -35,6 +46,7 @@ const DecryptConnectionCard = {
       window.removeEventListener("mosslet:keys-ready", this._onKeysReady);
       this._onKeysReady = null;
     }
+    window.removeEventListener(PEER_PIN_STATUS_EVENT, this._onPinStatus);
   },
 
   // TOFU key pinning (EPIC #291 / #293, REVISED — unified key_pins). Compute
@@ -80,14 +92,29 @@ const DecryptConnectionCard = {
   // actions live on the connection show page; the card only mirrors the state.
   // The badge element (if present) lives in the card scope, keyed by peer id.
   _applyVerifiedBadge(result) {
+    this._applyBadges({
+      status: result && result.status,
+      verified: !!(result && result.verified),
+    });
+  },
+
+  // Toggle BOTH the verified (emerald) and key-changed (amber) badges from a
+  // verdict, so a card always shows at most one. A mismatch wins over a stale
+  // verified flag — a changed key is never "verified" until re-pinned (#296).
+  _applyBadges({ status, verified }) {
     const peerUserId = this.el.dataset.peerUserId;
     if (!peerUserId) return;
-    const badge = document.querySelector(
+    const mismatch = status === PIN_STATUS.MISMATCH;
+
+    const verifiedBadge = document.querySelector(
       `[data-conn-verified-badge="${peerUserId}"]`,
     );
-    if (!badge) return;
-    const verified = !!(result && result.verified);
-    badge.hidden = !verified;
+    if (verifiedBadge) verifiedBadge.hidden = mismatch || !verified;
+
+    const changedBadge = document.querySelector(
+      `[data-conn-keychanged-badge="${peerUserId}"]`,
+    );
+    if (changedBadge) changedBadge.hidden = !mismatch;
   },
 
   _attrFingerprint() {

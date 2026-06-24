@@ -297,6 +297,10 @@
                   author_profile_visibility={post_vm.author_profile_visibility}
                   timestamp={format_post_timestamp(post.inserted_at)}
                   verified={false}
+                  peer_user_id={post_vm.peer_user_id}
+                  peer_public_key={post_vm.peer_public_key}
+                  peer_pq_public_key={post_vm.peer_pq_public_key}
+                  sealed_peer_pin={post_vm.sealed_peer_pin}
                   content_warning?={post.content_warning?}
                   content_warning={post.decrypted[:content_warning]}
                   content_warning_category={post.decrypted[:content_warning_category]}
@@ -395,6 +399,10 @@
                     author_profile_visibility={post_vm.author_profile_visibility}
                     timestamp={format_post_timestamp(post.inserted_at)}
                     verified={false}
+                    peer_user_id={post_vm.peer_user_id}
+                    peer_public_key={post_vm.peer_public_key}
+                    peer_pq_public_key={post_vm.peer_pq_public_key}
+                    sealed_peer_pin={post_vm.sealed_peer_pin}
                     content_warning?={post.content_warning?}
                     content_warning={post.decrypted[:content_warning]}
                     content_warning_category={post.decrypted[:content_warning_category]}

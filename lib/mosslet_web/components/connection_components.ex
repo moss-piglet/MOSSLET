@@ -853,6 +853,19 @@ defmodule MossletWeb.ConnectionComponents do
                     >
                       <.phx_icon name="hero-check-badge" class="h-4 w-4" />
                     </span>
+                    <%!-- Key-changed badge (#296) — toggled client-side on a TOFU
+                         mismatch. Mutually exclusive with the verified badge. --%>
+                    <span
+                      :if={@peer_user_id}
+                      id={"conn-keychanged-#{@connection_id}"}
+                      data-conn-keychanged-badge={@peer_user_id}
+                      hidden
+                      class="shrink-0 inline-flex items-center text-amber-600 dark:text-amber-400"
+                      data-tippy-content="Encryption key changed — re-verify this contact"
+                      phx-hook="TippyHook"
+                    >
+                      <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4" />
+                    </span>
                   </div>
 
                   <%!-- Connection indicators (similar to timeline post indicators) --%>

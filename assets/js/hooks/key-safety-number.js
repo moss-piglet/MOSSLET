@@ -110,9 +110,11 @@ const KeySafetyNumber = {
     });
   },
 
-  // BarcodeDetector is the only supported scanner (Chrome/Android, Safari 17+).
-  // Without it (or without a camera) we keep the manual safety-number compare;
-  // the scan affordance simply stays hidden.
+  // BarcodeDetector is the only supported scanner. It's a Chromium-only API
+  // (Chrome/Edge on Android, ChromeOS, and macOS); Safari, Firefox, and
+  // WebKit-shell browsers like DuckDuckGo don't expose it. Without it (or
+  // without a camera) we keep the manual safety-number compare, which is exactly
+  // as secure; the scan affordance simply stays hidden.
   _initScanSupport() {
     const supported =
       typeof window.BarcodeDetector !== "undefined" &&
