@@ -29,6 +29,13 @@ defmodule MossletWeb.PublicLive.Blog.Index do
             <%!-- Blog entries --%>
             <div class="space-y-8">
               <.blog_entry
+                id="blog_19"
+                date="June 24, 2026"
+                title="Make Sure It's Really Them: Closing an Authenticity Gap"
+                preview="Last month we shipped browser-side, post-quantum encryption for everything. Your data is locked down tight. I feel good about it. So this prompted the question — when you share something privately with a friend, how do you actually know the key we handed your browser belongs to your friend, and not an impostor?"
+                link={~p"/blog/articles/19"}
+              />
+              <.blog_entry
                 id="blog_18"
                 date="June 22, 2026"
                 title="Bring Your People With You: Family and Business Plans Are Here"

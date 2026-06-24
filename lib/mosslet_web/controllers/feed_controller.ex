@@ -8,6 +8,14 @@ defmodule MossletWeb.FeedController do
 
   @blog_entries [
     %{
+      id: "19",
+      date: "June 24, 2026",
+      title: "Make Sure It's Really Them: Closing an Authenticity Gap",
+      preview:
+        "Strong encryption keeps your private content unreadable, but it doesn't, by itself, prove that a connection's key really belongs to them. We found that authenticity gap in our own end-to-end encryption and closed it — with safety numbers, scan-to-verify, trust-on-first-use, and friendly key-change alerts. Here's how it works, and an honest word about what comes next.",
+      path: "/blog/articles/19"
+    },
+    %{
       id: "18",
       date: "June 22, 2026",
       title: "Bring Your People With You: Family and Business Plans Are Here",
