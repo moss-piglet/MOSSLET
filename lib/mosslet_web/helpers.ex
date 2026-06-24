@@ -394,6 +394,41 @@ defmodule MossletWeb.Helpers do
 
   def store_connection_peer_pins(_viewer, _pins), do: :ok
 
+  @doc """
+  Persists an EXPLICIT out-of-band verification (EPIC #291 / Phase 3 / #295).
+
+  Unlike `store_connection_peer_pins/2` (passive TOFU, insert-only), this is the
+  user-initiated "Mark as verified" / "Re-verify & re-pin" action: it
+  CREATES-or-OVERWRITES the viewer-sealed pin record (a v1 record with
+  `verified:true`), authorized by a CONFIRMED `user_connection` between viewer
+  and peer. The blob remains opaque; the server never reads or forges it.
+
+  Returns `:ok` (and silently no-ops) when the viewer has no confirmed
+  connection to the peer, or on a malformed payload.
+  """
+  def verify_connection_peer_pin(%{id: viewer_id}, peer_user_id, sealed_pin)
+      when is_binary(peer_user_id) and is_binary(sealed_pin) and sealed_pin != "" do
+    viewer_id = to_string(viewer_id)
+    uconn = Accounts.get_user_connection_between_users(peer_user_id, viewer_id)
+
+    if uconn && not is_nil(uconn.confirmed_at) do
+      case Accounts.update_key_pin(viewer_id, peer_user_id, sealed_pin) do
+        {:error, :not_found} ->
+          # No prior TOFU pin (e.g. verifying from a profile/DM before the
+          # connections card ever pinned): create it now — the user is
+          # explicitly asserting trust in the served key.
+          _ = Accounts.upsert_key_pin(viewer_id, peer_user_id, sealed_pin)
+
+        _ ->
+          :ok
+      end
+    end
+
+    :ok
+  end
+
+  def verify_connection_peer_pin(_viewer, _peer_user_id, _sealed_pin), do: :ok
+
   # Extracts the `user_id` (as a string) from a recipient/shared_user map,
   # tolerating either atom or string keys by normalizing once.
   defp recipient_user_id(map) do

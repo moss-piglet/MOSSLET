@@ -774,9 +774,16 @@ defmodule MossletWeb.GroupLive.Index do
 
   @impl true
   def handle_info({_ref, {"get_user_avatar", user_id}}, socket) do
-    user = Accounts.get_user_with_preloads(user_id)
-    current_scope = %{socket.assigns.current_scope | user: user}
-    {:noreply, assign(socket, :current_scope, current_scope)}
+    case Accounts.get_user_with_preloads(user_id) do
+      nil ->
+        # Never overwrite current_scope.user with nil — a missing/invalid id
+        # would otherwise crash the next render at @current_scope.user.id.
+        {:noreply, socket}
+
+      user ->
+        current_scope = %{socket.assigns.current_scope | user: user}
+        {:noreply, assign(socket, :current_scope, current_scope)}
+    end
   end
 
   @impl true

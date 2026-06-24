@@ -509,6 +509,23 @@ defmodule Mosslet.Accounts do
   end
 
   @doc """
+  Overwrites the viewer's EXISTING browser-sealed pin record for a peer
+  (EPIC #291 / Phase 3 / #295).
+
+  Unlike `upsert_key_pin/3` (insert-only), this rewrites the opaque blob on the
+  existing (viewer, peer) row — used when the viewer marks the current key
+  out-of-band verified, or re-verifies & re-pins after a key change. The blob
+  remains a viewer-sealed v1 record the server cannot read or forge. Returns
+  `{:error, :not_found}` when no pin exists yet.
+
+  Callers MUST verify the viewer has a confirmed relationship to `peer_user_id`
+  before invoking this (prevents unbounded writes).
+  """
+  def update_key_pin(viewer_id, peer_user_id, sealed_fingerprint) do
+    adapter().update_key_pin(viewer_id, peer_user_id, sealed_fingerprint)
+  end
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for tracking user changes.
 
   ## Examples

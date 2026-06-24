@@ -683,6 +683,26 @@ defmodule Mosslet.Accounts.Adapters.Web do
   end
 
   @impl true
+  def update_key_pin(viewer_id, peer_user_id, sealed_fingerprint) do
+    case Repo.one(
+           from kp in KeyPin,
+             where: kp.user_id == ^viewer_id and kp.peer_user_id == ^peer_user_id
+         ) do
+      nil ->
+        {:error, :not_found}
+
+      %KeyPin{} = key_pin ->
+        changeset = KeyPin.update_changeset(key_pin, sealed_fingerprint)
+
+        case Repo.transaction_on_primary(fn -> Repo.update(changeset) end) do
+          {:ok, {:ok, updated}} -> {:ok, updated}
+          {:ok, {:error, changeset}} -> {:error, changeset}
+          _rest -> {:error, "error"}
+        end
+    end
+  end
+
+  @impl true
   def update_user_profile(_user, _conn, changeset) do
     case Ecto.Multi.new()
          |> Ecto.Multi.update(:update_connection, fn _ -> changeset end)

@@ -51,6 +51,63 @@ export const PIN_STATUS = {
 
 export const PEER_KEY_CHANGED_EVENT = "mosslet:peer-key-changed";
 
+// ---------------------------------------------------------------------------
+// Versioned pin record (EPIC #291 / Phase 3 — #295).
+// ---------------------------------------------------------------------------
+// The sealed pin blob is a single opaque, viewer-sealed JSON record — NOT a
+// bare fingerprint. This keeps the server unable to distinguish a merely-pinned
+// pair from an out-of-band-VERIFIED one (no plaintext/null-column targeting
+// oracle): every key_pins row is one identical ciphertext. The record is
+// versioned so it can evolve toward signed key-history / transparency-log proof
+// references (mosskeys / metamorphic-log) without a schema migration.
+//
+//   v1 = { v: 1, fingerprint: "<b64>", verified: bool, verified_at: "<iso>"|null }
+//
+// BACKWARD COMPAT: pins written before #295 sealed a bare fingerprint STRING.
+// decodePinRecord tolerates that (treats it as { fingerprint, verified: false }).
+const PIN_RECORD_VERSION = 1;
+
+/**
+ * Decode an unsealed pin payload into a normalized record.
+ * Accepts a v1 JSON record or a legacy bare-fingerprint string.
+ * @param {string} plaintext - unsealed pin payload
+ * @returns {{fingerprint: string, verified: boolean, verifiedAt: string|null}|null}
+ */
+export function decodePinRecord(plaintext) {
+  if (!plaintext || typeof plaintext !== "string") return null;
+  const trimmed = plaintext.trim();
+  if (trimmed.startsWith("{")) {
+    try {
+      const rec = JSON.parse(trimmed);
+      if (rec && typeof rec.fingerprint === "string") {
+        return {
+          fingerprint: rec.fingerprint,
+          verified: rec.verified === true,
+          verifiedAt: typeof rec.verified_at === "string" ? rec.verified_at : null,
+        };
+      }
+    } catch {
+      // fall through to legacy handling
+    }
+  }
+  // Legacy: the whole payload is the bare fingerprint.
+  return { fingerprint: plaintext, verified: false, verifiedAt: null };
+}
+
+/**
+ * Encode a normalized pin record to the canonical v1 JSON payload (to be sealed).
+ * @param {{fingerprint: string, verified?: boolean, verifiedAt?: string|null}} record
+ * @returns {string}
+ */
+export function encodePinRecord({ fingerprint, verified = false, verifiedAt = null }) {
+  return JSON.stringify({
+    v: PIN_RECORD_VERSION,
+    fingerprint,
+    verified: verified === true,
+    verified_at: verified ? verifiedAt || new Date().toISOString() : null,
+  });
+}
+
 // In-memory verdict map keyed by peerUserId, queryable by later phases without a
 // server round-trip. Cleared on logout.
 const _statusByPeer = new Map();
@@ -60,14 +117,19 @@ const _statusByPeer = new Map();
  * evaluated this session.
  *
  * @param {string} peerUserId
- * @returns {{status: string, fingerprint: string|null} | null}
+ * @returns {{status: string, fingerprint: string|null, verified: boolean, verifiedAt: string|null} | null}
  */
 export function getPinStatus(peerUserId) {
   return _statusByPeer.get(peerUserId) || null;
 }
 
-function recordStatus(peerUserId, status, fingerprint) {
-  const entry = { status, fingerprint: fingerprint || null };
+function recordStatus(peerUserId, status, fingerprint, extra = {}) {
+  const entry = {
+    status,
+    fingerprint: fingerprint || null,
+    verified: extra.verified === true,
+    verifiedAt: extra.verifiedAt || null,
+  };
   _statusByPeer.set(peerUserId, entry);
   if (status === PIN_STATUS.MISMATCH) {
     try {
@@ -125,21 +187,30 @@ export async function verifyOrPin({
 
   // --- Existing server-side pin: unseal and compare -----------------------
   if (sealedPin) {
-    let pinned;
+    let plaintext;
     try {
-      pinned = await decryptWithKey(sealedPin, userKey);
+      plaintext = await decryptWithKey(sealedPin, userKey);
     } catch (e) {
       console.error("pin_store: pin unseal failed:", e);
       return recordStatus(peerUserId, PIN_STATUS.ERROR, fingerprint);
     }
-    if (!pinned) {
+    if (!plaintext) {
       return recordStatus(peerUserId, PIN_STATUS.ERROR, fingerprint);
     }
 
-    const matches = pinned === fingerprint && (!shadow || shadow === fingerprint);
+    const record = decodePinRecord(plaintext);
+    if (!record) {
+      return recordStatus(peerUserId, PIN_STATUS.ERROR, fingerprint);
+    }
+
+    const matches =
+      record.fingerprint === fingerprint && (!shadow || shadow === fingerprint);
     if (matches) {
       await putShadow(peerUserId, fingerprint);
-      return recordStatus(peerUserId, PIN_STATUS.MATCH, fingerprint);
+      return recordStatus(peerUserId, PIN_STATUS.MATCH, fingerprint, {
+        verified: record.verified,
+        verifiedAt: record.verifiedAt,
+      });
     }
     return recordStatus(peerUserId, PIN_STATUS.MISMATCH, fingerprint);
   }
@@ -151,11 +222,15 @@ export async function verifyOrPin({
     return recordStatus(peerUserId, PIN_STATUS.MISMATCH, fingerprint);
   }
 
-  // TOFU (or benign re-pin of the same key the shadow already trusts): seal the
-  // fingerprint under the viewer's user_key and hand it back to the caller.
+  // TOFU (or benign re-pin of the same key the shadow already trusts): seal a
+  // v1 record (verified:false) under the viewer's user_key and hand it back to
+  // the caller for server persistence.
   let sealedPinToStore;
   try {
-    sealedPinToStore = await encryptWithKey(fingerprint, userKey);
+    sealedPinToStore = await encryptWithKey(
+      encodePinRecord({ fingerprint, verified: false }),
+      userKey,
+    );
   } catch (e) {
     console.error("pin_store: pin seal failed:", e);
     return recordStatus(peerUserId, PIN_STATUS.ERROR, fingerprint);
@@ -166,6 +241,65 @@ export async function verifyOrPin({
 
   await putShadow(peerUserId, fingerprint);
   const entry = recordStatus(peerUserId, PIN_STATUS.PINNED, fingerprint);
+  return { ...entry, sealedPinToStore };
+}
+
+/**
+ * Mark a peer's CURRENT served key as out-of-band verified, or re-verify and
+ * re-pin after a key change. Both are explicit, user-initiated actions gated by
+ * an out-of-band safety-number comparison in the UI (#295), so they bypass the
+ * mismatch/shadow guards: the user is asserting trust in the key the server is
+ * serving RIGHT NOW.
+ *
+ * Recomputes the fingerprint from the served keys, seals a v1 record with
+ * verified:true, refreshes the per-device shadow (critical — otherwise a stale
+ * shadow would keep flagging MISMATCH after a legitimate rotation), and returns
+ * the sealed record for the caller to persist server-side.
+ *
+ * @param {Object} args
+ * @param {string} args.peerUserId
+ * @param {string} args.peerPublicKey - peer X25519 public key (base64)
+ * @param {string} args.peerPqPublicKey - peer ML-KEM public key (base64)
+ * @returns {Promise<{status: string, fingerprint: string|null, verified: boolean, verifiedAt: string|null, sealedPinToStore?: string}>}
+ */
+export async function markVerified({ peerUserId, peerPublicKey, peerPqPublicKey }) {
+  if (!peerUserId || !peerPublicKey || !peerPqPublicKey) {
+    return recordStatus(peerUserId, PIN_STATUS.UNAVAILABLE, null);
+  }
+
+  let fingerprint;
+  try {
+    fingerprint = await computeFingerprint(peerPublicKey, peerPqPublicKey);
+  } catch (e) {
+    console.error("pin_store: fingerprint compute failed:", e);
+    return recordStatus(peerUserId, PIN_STATUS.ERROR, null);
+  }
+
+  const userKey = await getUserKey(getSealedUserKey());
+  if (!userKey) {
+    return recordStatus(peerUserId, PIN_STATUS.UNAVAILABLE, fingerprint);
+  }
+
+  const verifiedAt = new Date().toISOString();
+  let sealedPinToStore;
+  try {
+    sealedPinToStore = await encryptWithKey(
+      encodePinRecord({ fingerprint, verified: true, verifiedAt }),
+      userKey,
+    );
+  } catch (e) {
+    console.error("pin_store: verified record seal failed:", e);
+    return recordStatus(peerUserId, PIN_STATUS.ERROR, fingerprint);
+  }
+  if (!sealedPinToStore) {
+    return recordStatus(peerUserId, PIN_STATUS.ERROR, fingerprint);
+  }
+
+  await putShadow(peerUserId, fingerprint);
+  const entry = recordStatus(peerUserId, PIN_STATUS.MATCH, fingerprint, {
+    verified: true,
+    verifiedAt,
+  });
   return { ...entry, sealedPinToStore };
 }
 

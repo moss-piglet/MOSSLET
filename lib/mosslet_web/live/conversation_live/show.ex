@@ -61,6 +61,25 @@ defmodule MossletWeb.ConversationLive.Show do
 
           <div class="flex items-center gap-1">
             <button
+              :if={@partner_user}
+              id="dm-verify-key-toggle"
+              type="button"
+              phx-click="toggle_key_verification"
+              phx-hook="TippyHook"
+              data-tippy-content="Verify encryption key (safety number)"
+              class={[
+                "p-2 rounded-lg transition-all duration-200",
+                if(@show_key_verification,
+                  do:
+                    "text-teal-500 dark:text-teal-400 bg-teal-50/60 dark:bg-teal-900/20 hover:bg-teal-100/60 dark:hover:bg-teal-900/30",
+                  else:
+                    "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                )
+              ]}
+            >
+              <.phx_icon name="hero-finger-print" class="size-5" />
+            </button>
+            <button
               id="dm-link-preview-toggle"
               type="button"
               phx-click="toggle_dm_link_previews"
@@ -92,6 +111,19 @@ defmodule MossletWeb.ConversationLive.Show do
             >
               <.phx_icon name="hero-no-symbol" class="size-5" />
             </button>
+          </div>
+        </div>
+
+        <div
+          :if={@show_key_verification && @partner_user}
+          class="flex-shrink-0 px-4 sm:px-6 py-3 border-b border-slate-200/60 dark:border-slate-700/60 bg-slate-50/60 dark:bg-slate-900/40"
+        >
+          <div class="max-w-4xl mx-auto">
+            <MossletWeb.ConnectionComponents.key_verification_panel
+              id={"key-verification-dm-#{@partner_user_id}"}
+              peer_user={@partner_user}
+              sealed_peer_pin={@sealed_peer_pin}
+            />
           </div>
         </div>
 
@@ -713,6 +745,17 @@ defmodule MossletWeb.ConversationLive.Show do
 
       partner_user_id = get_partner_user_id(conversation, current_user.id)
 
+      # Key-verification panel (#295): only for a real personal connection (not a
+      # guardian co-read where there's no UserConnection). Load the partner's
+      # keys + the viewer-sealed pin blob.
+      partner_user =
+        if my_user_connection, do: Accounts.get_user(partner_user_id), else: nil
+
+      sealed_peer_pin =
+        if my_user_connection,
+          do: peer_pin_blob(Accounts.get_key_pin(current_user.id, partner_user_id)),
+          else: nil
+
       partner_allows_download =
         case Accounts.get_user_connection_between_users(current_user.id, partner_user_id) do
           %{photos?: true} -> true
@@ -757,6 +800,9 @@ defmodule MossletWeb.ConversationLive.Show do
        |> assign(:partner_org_name_data, partner_org_name_data)
        |> assign(:partner_encrypted_avatar, partner_encrypted_avatar)
        |> assign(:partner_user_id, partner_user_id)
+       |> assign(:partner_user, partner_user)
+       |> assign(:sealed_peer_pin, sealed_peer_pin)
+       |> assign(:show_key_verification, false)
        |> assign(:is_blocked, is_blocked)
        |> assign(:blocked_by_me, blocked_by_me)
        |> assign(:messages_empty?, messages == [])
@@ -1196,6 +1242,24 @@ defmodule MossletWeb.ConversationLive.Show do
     {:noreply, assign(socket, :show_dm_link_previews, new_value)}
   end
 
+  def handle_event("toggle_key_verification", _params, socket) do
+    {:noreply, assign(socket, :show_key_verification, !socket.assigns.show_key_verification)}
+  end
+
+  # Out-of-band key verification (EPIC #291 / Phase 3 / #295). Pushed by the
+  # KeySafetyNumber panel in the DM. Creates-or-overwrites the viewer-sealed pin
+  # record, gated by a CONFIRMED connection.
+  def handle_event(event, %{"peer_user_id" => peer_user_id, "sealed_pin" => sealed_pin}, socket)
+      when event in ["verify_peer_key", "repin_peer_key"] do
+    MossletWeb.Helpers.verify_connection_peer_pin(
+      socket.assigns.current_scope.user,
+      peer_user_id,
+      sealed_pin
+    )
+
+    {:noreply, socket}
+  end
+
   def handle_info(
         {:upload_ready, entry_ref, %{processed_binary: binary, trix_key: trix_key} = upload_data},
         socket
@@ -1468,6 +1532,10 @@ defmodule MossletWeb.ConversationLive.Show do
         end
     end
   end
+
+  # Extract the opaque viewer-sealed pin blob from a KeyPin row (or nil) (#295).
+  defp peer_pin_blob(%Mosslet.Accounts.KeyPin{pinned_fingerprint: blob}), do: blob
+  defp peer_pin_blob(_), do: nil
 
   defp check_block_status(current_user, partner_user_id) when is_binary(partner_user_id) do
     my_block = Accounts.get_user_block(current_user, partner_user_id)

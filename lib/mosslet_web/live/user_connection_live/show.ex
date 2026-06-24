@@ -53,6 +53,16 @@ defmodule MossletWeb.UserConnectionLive.Show do
 
     user_connection = Accounts.get_user_connection!(id)
 
+    # Peer identity + hybrid public keys for the key-verification UI (#295). The
+    # base get_user_connection!/1 doesn't preload the reverse_user, so fetch the
+    # peer and its existing viewer-sealed pin record (opaque blob).
+    peer = user_connection.reverse_user_id && Accounts.get_user(user_connection.reverse_user_id)
+
+    sealed_peer_pin =
+      if peer,
+        do: Accounts.get_key_pin(current_user.id, peer.id) |> key_pin_blob(),
+        else: nil
+
     post_page = param_to_integer(params["post_page"], @post_page_default)
 
     post_per_page =
@@ -88,6 +98,8 @@ defmodule MossletWeb.UserConnectionLive.Show do
       |> assign(:return_url, url)
       |> assign(:options, options)
       |> assign(:user_connection, user_connection)
+      |> assign(:peer_user, peer)
+      |> assign(:sealed_peer_pin, sealed_peer_pin)
       |> assign(:profile_fields, profile_fields)
       |> assign(:conn_fields, encrypted_connection_fields(user_connection))
       |> assign(:post_form, socket.assigns[:post_form])
@@ -712,6 +724,28 @@ defmodule MossletWeb.UserConnectionLive.Show do
     MossletWeb.Helpers.store_connection_peer_pins(socket.assigns.current_user, pins)
     {:noreply, socket}
   end
+
+  # Out-of-band verification (EPIC #291 / Phase 3 / #295). The browser re-sealed
+  # the v1 pin record with verified:true (after the user compared the safety
+  # number out-of-band) and pushed the opaque blob. "verify_peer_key" marks the
+  # current key verified; "repin_peer_key" re-verifies & re-pins a CHANGED key.
+  # Both rewrite the same opaque blob on the existing (viewer, peer) row, gated
+  # by a CONFIRMED connection. The server cannot read or forge the record.
+  def handle_event(event, %{"peer_user_id" => peer_user_id, "sealed_pin" => sealed_pin}, socket)
+      when event in ["verify_peer_key", "repin_peer_key"] and
+             is_binary(peer_user_id) and is_binary(sealed_pin) and sealed_pin != "" do
+    MossletWeb.Helpers.verify_connection_peer_pin(
+      socket.assigns.current_user,
+      peer_user_id,
+      sealed_pin
+    )
+
+    {:noreply, socket}
+  end
+
+  def handle_event(event, _params, socket)
+      when event in ["verify_peer_key", "repin_peer_key"],
+      do: {:noreply, socket}
 
   def handle_event("repost_encrypted", params, socket) do
     user = socket.assigns.current_user
@@ -1711,4 +1745,8 @@ defmodule MossletWeb.UserConnectionLive.Show do
   defp non_empty_list([]), do: nil
   defp non_empty_list(list) when is_list(list), do: list
   defp non_empty_list(_), do: nil
+
+  # Extract the opaque viewer-sealed pin blob from a KeyPin row (or nil).
+  defp key_pin_blob(%Mosslet.Accounts.KeyPin{pinned_fingerprint: blob}), do: blob
+  defp key_pin_blob(_), do: nil
 end

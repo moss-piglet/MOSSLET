@@ -828,18 +828,34 @@ defmodule MossletWeb.ConnectionComponents do
                       id={"conn-name-#{@connection_id}"}
                       phx-update={if @sealed_uconn_key, do: "ignore"}
                       data-decrypt-conn-name
-                    >{if @sealed_uconn_key, do: "", else: @name}</span>
+                    >
+                      {if @sealed_uconn_key, do: "", else: @name}
+                    </span>
                   </.dynamic_heading>
-                  <p class="text-sm text-slate-600 dark:text-slate-400 truncate">
-                    @<span
-                      id={"conn-username-#{@connection_id}"}
-                      phx-update={if @sealed_uconn_key, do: "ignore"}
-                      data-decrypt-conn-username
-                    >{if @sealed_uconn_key, do: "", else: @username}</span>
-                  </p>
+                  <div class="flex items-center gap-1">
+                    <p class="text-sm text-slate-600 dark:text-slate-400 truncate min-w-0">
+                      @<span
+                        id={"conn-username-#{@connection_id}"}
+                        phx-update={if @sealed_uconn_key, do: "ignore"}
+                        data-decrypt-conn-username
+                      >{if @sealed_uconn_key, do: "", else: @username}</span>
+                    </p>
+                    <%!-- Verified key badge (#295) — toggled client-side by DecryptConnectionCard --%>
+                    <span
+                      :if={@peer_user_id}
+                      id={"conn-verified-#{@connection_id}"}
+                      data-conn-verified-badge={@peer_user_id}
+                      hidden
+                      class="shrink-0 inline-flex items-center text-emerald-600 dark:text-emerald-400"
+                      data-tippy-content="Encryption key verified"
+                      phx-hook="TippyHook"
+                    >
+                      <.phx_icon name="hero-check-badge" class="h-4 w-4" />
+                    </span>
+                  </div>
 
                   <%!-- Connection indicators (similar to timeline post indicators) --%>
-                  <div class="flex items-center gap-1 mt-1">
+                  <div :if={@zen? || @photos?} class="flex items-center gap-1 mt-1">
                     <%!-- Muted indicator --%>
                     <.phx_icon
                       :if={@zen?}
@@ -872,7 +888,9 @@ defmodule MossletWeb.ConnectionComponents do
                     id={"conn-label-#{@connection_id}"}
                     phx-update={if @sealed_uconn_key, do: "ignore"}
                     data-decrypt-conn-label
-                  >{if @sealed_uconn_key, do: "", else: @label}</span>
+                  >
+                    {if @sealed_uconn_key, do: "", else: @label}
+                  </span>
                 </.liquid_badge>
               </div>
 
@@ -1163,7 +1181,9 @@ defmodule MossletWeb.ConnectionComponents do
                       id={"arrival-name-#{@arrival_id}"}
                       phx-update={if @sealed_uconn_key, do: "ignore"}
                       data-decrypt-arrival-name
-                    >{if @sealed_uconn_key, do: "", else: @name}</span>
+                    >
+                      {if @sealed_uconn_key, do: "", else: @name}
+                    </span>
                   </.dynamic_heading>
                 </div>
 
@@ -1191,7 +1211,9 @@ defmodule MossletWeb.ConnectionComponents do
                   id={"arrival-email-#{@arrival_id}"}
                   phx-update={if @sealed_uconn_key, do: "ignore"}
                   data-decrypt-arrival-email
-                >{if @sealed_uconn_key, do: "", else: @email}</span>
+                >
+                  {if @sealed_uconn_key, do: "", else: @email}
+                </span>
               </p>
 
               <%!-- Timestamp with enhanced visual treatment --%>
@@ -2344,4 +2366,173 @@ defmodule MossletWeb.ConnectionComponents do
         }
     end
   end
+
+  @doc """
+  Key verification panel (EPIC #291 / Phase 3 / #295).
+
+  Renders the Signal-style safety number for the (viewer, peer) pair plus the
+  TOFU pin state, driven entirely client-side by the `KeySafetyNumber` hook. The
+  server can neither read nor forge the viewer-sealed pin record, so it cannot
+  fake a "verified" badge. States: unverified (pinned, not yet compared),
+  verified (out-of-band confirmed), mismatch (served key changed), unavailable
+  (legacy peer with no PQ key yet).
+
+  Used on every surface where a viewer can verify a confirmed connection's key:
+  the connection show page, the connection's public profile, and the DM. Pass a
+  context-unique `id`, the `peer_user` (%Accounts.User{}), and the viewer-sealed
+  `sealed_peer_pin` blob (or nil). Renders nothing when `peer_user` is nil.
+
+  The verify/repin actions push `verify_peer_key` / `repin_peer_key` events
+  (`%{peer_user_id, sealed_pin}`); the host LiveView persists them via
+  `MossletWeb.Helpers.verify_connection_peer_pin/3`.
+  """
+  attr :id, :string, required: true
+  attr :peer_user, :map, default: nil
+  attr :sealed_peer_pin, :string, default: nil
+
+  def key_verification_panel(assigns) do
+    assigns =
+      assigns
+      |> assign(:peer_public_key, kv_peer_public_key(assigns[:peer_user]))
+      |> assign(:peer_pq_public_key, kv_peer_pq_public_key(assigns[:peer_user]))
+
+    ~H"""
+    <div
+      :if={@peer_user}
+      id={@id}
+      phx-hook="KeySafetyNumber"
+      data-peer-user-id={@peer_user.id}
+      data-peer-public-key={@peer_public_key}
+      data-peer-pq-public-key={@peer_pq_public_key}
+      data-sealed-pin={@sealed_peer_pin}
+      class="bg-white dark:bg-slate-800 px-4 py-5 shadow dark:shadow-emerald-500/30 sm:rounded-2xl sm:px-6 border border-slate-200/60 dark:border-slate-700/60"
+    >
+      <div class="flex items-center justify-between gap-3">
+        <h2 class="text-lg font-medium text-slate-900 dark:text-slate-100 inline-flex items-center gap-2">
+          <.phx_icon name="hero-finger-print" class="h-5 w-5 text-teal-500 dark:text-teal-400" />
+          Key verification
+        </h2>
+
+        <%!-- Verified badge --%>
+        <span
+          data-state="verified"
+          hidden
+          class="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300 ring-1 ring-inset ring-emerald-600/20 dark:ring-emerald-400/30"
+        >
+          <.phx_icon name="hero-check-badge" class="h-4 w-4" /> Verified
+        </span>
+
+        <%!-- Pinned, not verified --%>
+        <span
+          data-state="unverified"
+          hidden
+          class="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-700 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300 ring-1 ring-inset ring-slate-500/20"
+        >
+          <.phx_icon name="hero-lock-closed" class="h-4 w-4" /> Pinned · not verified
+        </span>
+
+        <%!-- Key changed --%>
+        <span
+          data-state="mismatch"
+          hidden
+          class="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-900/30 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300 ring-1 ring-inset ring-amber-600/30"
+        >
+          <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4" /> Key changed
+        </span>
+      </div>
+
+      <%!-- Loading --%>
+      <div data-state="loading" class="mt-4 text-sm text-slate-500 dark:text-slate-400">
+        <div class="flex items-center gap-2">
+          <div class="h-2 w-2 rounded-full bg-teal-400 animate-pulse"></div>
+          Computing safety number…
+        </div>
+      </div>
+
+      <%!-- Unavailable (legacy peer, no PQ key) --%>
+      <div data-state="unavailable" hidden class="mt-4">
+        <p class="text-sm text-slate-500 dark:text-slate-400">
+          This contact hasn't upgraded to a post-quantum key yet, so their key can't be
+          verified. Verification will become available once they sign in again.
+        </p>
+      </div>
+
+      <%!-- Shared safety-number display (visible for unverified/verified/mismatch) --%>
+      <div class="mt-4">
+        <p class="text-sm text-slate-600 dark:text-slate-400">
+          Compare these digits with
+          <span class="font-medium text-slate-900 dark:text-slate-100">your contact in person</span>
+          or over a channel you already trust. If they match on both devices, this contact's
+          encryption key is authentic.
+        </p>
+        <p
+          data-safety-number
+          phx-no-curly-interpolation
+          class="mt-3 font-mono text-base sm:text-lg leading-relaxed tracking-wide text-slate-900 dark:text-slate-100 break-words select-all"
+        >
+        </p>
+      </div>
+
+      <%!-- Unverified actions --%>
+      <div data-state="unverified" hidden class="mt-4">
+        <button
+          type="button"
+          data-action="verify"
+          class="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:from-teal-600 hover:to-emerald-600 transition-all duration-200"
+        >
+          <.phx_icon name="hero-check-badge" class="h-4 w-4" /> Mark as verified
+        </button>
+      </div>
+
+      <%!-- Verified footer --%>
+      <div data-state="verified" hidden class="mt-4">
+        <p class="text-sm text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1">
+          <.phx_icon name="hero-shield-check" class="h-4 w-4" />
+          Verified on <span data-verified-at class="font-medium"></span>.
+        </p>
+      </div>
+
+      <%!-- Mismatch alert --%>
+      <div
+        data-state="mismatch"
+        hidden
+        class="mt-4 rounded-xl border border-amber-300/60 dark:border-amber-600/40 bg-amber-50 dark:bg-amber-900/20 p-4"
+      >
+        <div class="flex items-start gap-3">
+          <.phx_icon
+            name="hero-exclamation-triangle"
+            class="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5"
+          />
+          <div class="text-sm text-amber-800 dark:text-amber-200 space-y-2">
+            <p class="font-semibold">This contact's encryption key has changed.</p>
+            <p>
+              This can happen for an innocent reason — they reinstalled the app or set up a new
+              device. But it can <span class="font-medium">also</span>
+              mean someone is trying to intercept your encrypted content. To stay safe, sealing
+              new content to this contact is paused until you confirm the new key.
+            </p>
+            <p>
+              Compare the safety number above out-of-band. If it matches on both devices, choose
+              "Re-verify &amp; re-pin" to trust the new key.
+            </p>
+            <button
+              type="button"
+              data-action="repin"
+              data-confirm="Only do this after comparing the new safety number with your contact over a trusted channel. Re-verify and re-pin this contact's new key?"
+              class="mt-1 inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:from-amber-600 hover:to-orange-600 transition-all duration-200"
+            >
+              <.phx_icon name="hero-arrow-path" class="h-4 w-4" /> Re-verify &amp; re-pin
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  defp kv_peer_public_key(%Mosslet.Accounts.User{} = peer), do: get_in(peer.key_pair, ["public"])
+  defp kv_peer_public_key(_), do: nil
+
+  defp kv_peer_pq_public_key(%Mosslet.Accounts.User{} = peer), do: peer.pq_public_key
+  defp kv_peer_pq_public_key(_), do: nil
 end

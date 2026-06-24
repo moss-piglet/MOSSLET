@@ -66,6 +66,13 @@ defmodule MossletWeb.UserHomeLive do
     profile_user_block =
       if profile_owner?, do: nil, else: Accounts.get_user_block(current_user, profile_user.id)
 
+    # Viewer-sealed key-pin blob for the key-verification panel (#295), only for
+    # an actual connection (not own profile / strangers).
+    sealed_peer_pin =
+      if profile_owner?,
+        do: nil,
+        else: peer_pin_blob(Accounts.get_key_pin(current_user.id, profile_user.id))
+
     key = socket.assigns.current_scope.key
     user_connections = Accounts.get_all_confirmed_user_connections(current_user.id)
 
@@ -83,6 +90,7 @@ defmodule MossletWeb.UserHomeLive do
       |> assign(:trix_key, nil)
       |> assign(:profile_user, profile_user)
       |> assign(:user_connection, user_connection)
+      |> assign(:sealed_peer_pin, sealed_peer_pin)
       |> assign(:user_connections, user_connections)
       |> assign(:post_shared_users, post_shared_users)
       |> assign(:removing_shared_user_id, nil)
@@ -1095,6 +1103,20 @@ defmodule MossletWeb.UserHomeLive do
 
   def handle_event("store_peer_pins", %{"pins" => pins}, socket) do
     MossletWeb.Helpers.store_connection_peer_pins(socket.assigns.current_user, pins)
+    {:noreply, socket}
+  end
+
+  # Out-of-band key verification (EPIC #291 / Phase 3 / #295). Pushed by the
+  # KeySafetyNumber panel on a connection's profile. Creates-or-overwrites the
+  # viewer-sealed pin record, gated by a CONFIRMED connection.
+  def handle_event(event, %{"peer_user_id" => peer_user_id, "sealed_pin" => sealed_pin}, socket)
+      when event in ["verify_peer_key", "repin_peer_key"] do
+    MossletWeb.Helpers.verify_connection_peer_pin(
+      socket.assigns.current_scope.user,
+      peer_user_id,
+      sealed_pin
+    )
+
     {:noreply, socket}
   end
 
@@ -3127,6 +3149,14 @@ defmodule MossletWeb.UserHomeLive do
                 current_scope={@current_scope}
               />
 
+              <%!-- Key verification (safety number + TOFU pin state) — connections only --%>
+              <MossletWeb.ConnectionComponents.key_verification_panel
+                :if={@user_connection}
+                id={"key-verification-profile-#{@profile_user.id}"}
+                peer_user={@profile_user}
+                sealed_peer_pin={@sealed_peer_pin}
+              />
+
               <%!-- Posts Section --%>
               <MossletWeb.DesignSystem.liquid_card heading_level={2}>
                 <:title>
@@ -3473,6 +3503,14 @@ defmodule MossletWeb.UserHomeLive do
                 profile={@profile}
                 profile_user={@profile_user}
                 current_scope={@current_scope}
+              />
+
+              <%!-- Key verification (safety number + TOFU pin state) — connections only --%>
+              <MossletWeb.ConnectionComponents.key_verification_panel
+                :if={@user_connection}
+                id={"key-verification-profile-#{@profile_user.id}"}
+                peer_user={@profile_user}
+                sealed_peer_pin={@sealed_peer_pin}
               />
 
               <%!-- Posts Section --%>
@@ -4814,4 +4852,8 @@ defmodule MossletWeb.UserHomeLive do
   defp non_empty_list([]), do: nil
   defp non_empty_list(list) when is_list(list), do: list
   defp non_empty_list(_), do: nil
+
+  # Extract the opaque viewer-sealed pin blob from a KeyPin row (or nil) (#295).
+  defp peer_pin_blob(%Mosslet.Accounts.KeyPin{pinned_fingerprint: blob}), do: blob
+  defp peer_pin_blob(_), do: nil
 end

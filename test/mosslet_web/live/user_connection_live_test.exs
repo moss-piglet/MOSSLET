@@ -154,6 +154,84 @@ defmodule MossletWeb.UserConnectionLiveTest do
     end
   end
 
+  describe "User Connection Show — key verification (#295)" do
+    setup [:create_users_with_connection]
+
+    test "renders the safety-number / key-verification panel with peer key data", %{
+      conn: conn,
+      user: user,
+      key: key,
+      reverse_user: reverse_user
+    } do
+      [uconn] = Accounts.filter_user_connections(%{}, user)
+
+      {:ok, _lv, html} =
+        conn
+        |> log_in_user(user, key)
+        |> live(~p"/app/users/connections/#{uconn.id}")
+
+      assert html =~ "KeySafetyNumber"
+      assert html =~ "Key verification"
+      assert html =~ "data-safety-number"
+      assert html =~ ~s(data-peer-user-id="#{reverse_user.id}")
+      # The peer's served public keys reach the panel for client-side fingerprinting.
+      assert html =~ reverse_user.pq_public_key
+    end
+
+    test "verify_peer_key OVERWRITES an existing pin for a confirmed peer (#295)", %{
+      conn: conn,
+      user: user,
+      key: key,
+      reverse_user: reverse_user
+    } do
+      [uconn] = Accounts.filter_user_connections(%{}, user)
+
+      {:ok, lv, _html} =
+        conn
+        |> log_in_user(user, key)
+        |> live(~p"/app/users/connections/#{uconn.id}")
+
+      pinned = Base.encode64(:crypto.strong_rand_bytes(96))
+      verified = Base.encode64(:crypto.strong_rand_bytes(120))
+
+      assert {:ok, _} = Accounts.upsert_key_pin(user.id, reverse_user.id, pinned)
+
+      render_hook(lv, "verify_peer_key", %{
+        "peer_user_id" => reverse_user.id,
+        "sealed_pin" => verified
+      })
+
+      assert Accounts.get_key_pin(user.id, reverse_user.id).pinned_fingerprint == verified
+    end
+
+    test "repin_peer_key rejects a peer the viewer has no confirmed connection to (#295)", %{
+      conn: conn,
+      user: user,
+      key: key
+    } do
+      [uconn] = Accounts.filter_user_connections(%{}, user)
+
+      {:ok, lv, _html} =
+        conn
+        |> log_in_user(user, key)
+        |> live(~p"/app/users/connections/#{uconn.id}")
+
+      stranger =
+        user_fixture(%{
+          username: "repin_stranger",
+          email: "repin_stranger@example.com",
+          password: @valid_password
+        })
+
+      render_hook(lv, "repin_peer_key", %{
+        "peer_user_id" => stranger.id,
+        "sealed_pin" => Base.encode64(:crypto.strong_rand_bytes(96))
+      })
+
+      assert is_nil(Accounts.get_key_pin(user.id, stranger.id))
+    end
+  end
+
   describe "New Connection Form" do
     setup [:create_user]
 

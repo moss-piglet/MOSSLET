@@ -323,6 +323,21 @@ defmodule Mosslet.Accounts.Adapter do
             ) :: {:ok, Mosslet.Accounts.KeyPin.t()} | {:error, term()}
 
   @doc """
+  Rewrites the viewer's existing browser-sealed pin record for a peer
+  (EPIC #291 / Phase 3 / #295). Unlike `upsert_key_pin/3` (insert-only,
+  first-write-wins), this OVERWRITES the opaque blob on the existing
+  (viewer, peer) row — used when the user re-seals the record to mark the
+  current key out-of-band verified, or re-verifies & re-pins after a key
+  change. The blob remains opaque (a viewer-sealed v1 record); the server
+  cannot read or forge it. Returns `{:error, :not_found}` if no pin exists.
+  """
+  @callback update_key_pin(
+              viewer_id :: String.t(),
+              peer_user_id :: String.t(),
+              sealed_fingerprint :: binary()
+            ) :: {:ok, Mosslet.Accounts.KeyPin.t()} | {:error, term()}
+
+  @doc """
   Updates user profile on their connection.
   Thin wrapper - only handles Repo transaction, business logic stays in context.
   """

@@ -68,9 +68,26 @@ const DecryptConnectionCard = {
           sealed_pin: result.sealedPinToStore,
         });
       }
+
+      this._applyVerifiedBadge(result);
     } catch (e) {
       console.error("DecryptConnectionCard: TOFU pin failed:", e);
     }
+  },
+
+  // Reflect the client-determined out-of-band verified state as a read-only
+  // badge on the card (EPIC #291 / Phase 3 / #295). The full compare/verify
+  // actions live on the connection show page; the card only mirrors the state.
+  // The badge element (if present) lives in the card scope, keyed by peer id.
+  _applyVerifiedBadge(result) {
+    const peerUserId = this.el.dataset.peerUserId;
+    if (!peerUserId) return;
+    const badge = document.querySelector(
+      `[data-conn-verified-badge="${peerUserId}"]`,
+    );
+    if (!badge) return;
+    const verified = !!(result && result.verified);
+    badge.hidden = !verified;
   },
 
   _attrFingerprint() {

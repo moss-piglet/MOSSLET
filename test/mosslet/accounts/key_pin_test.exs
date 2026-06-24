@@ -157,6 +157,41 @@ defmodule Mosslet.Accounts.KeyPinTest do
       assert map == %{reverse_user.id => blob}
     end
 
+    test "update_key_pin/3 OVERWRITES the existing blob (re-verify & re-pin)", %{
+      user: user,
+      reverse_user: reverse_user
+    } do
+      first = Base.encode64(:crypto.strong_rand_bytes(96))
+      verified = Base.encode64(:crypto.strong_rand_bytes(120))
+      refute first == verified
+
+      # No row yet => not_found (update never creates).
+      assert {:error, :not_found} = Accounts.update_key_pin(user.id, reverse_user.id, verified)
+
+      assert {:ok, _} = Accounts.upsert_key_pin(user.id, reverse_user.id, first)
+
+      # Unlike upsert (insert-only), update rewrites the opaque record.
+      assert {:ok, %KeyPin{} = updated} =
+               Accounts.update_key_pin(user.id, reverse_user.id, verified)
+
+      assert updated.pinned_fingerprint == verified
+      assert Accounts.get_key_pin(user.id, reverse_user.id).pinned_fingerprint == verified
+    end
+
+    test "update_changeset/2 only rewrites the blob, never the (viewer, peer) identity", %{
+      user: user,
+      reverse_user: reverse_user
+    } do
+      blob = Base.encode64(:crypto.strong_rand_bytes(96))
+      assert {:ok, pin} = Accounts.upsert_key_pin(user.id, reverse_user.id, blob)
+
+      changeset = KeyPin.update_changeset(pin, "new-blob")
+      assert changeset.valid?
+      assert Ecto.Changeset.get_change(changeset, :pinned_fingerprint) == "new-blob"
+      refute Ecto.Changeset.get_change(changeset, :user_id)
+      refute Ecto.Changeset.get_change(changeset, :peer_user_id)
+    end
+
     test "confirmed connections preload :reverse_user with peer public keys", %{
       user: user,
       reverse_user: reverse_user

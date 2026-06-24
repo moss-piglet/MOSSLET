@@ -26,6 +26,15 @@
           />
         </section>
 
+        <%!-- Key verification (safety number + TOFU pin state) --%>
+        <section aria-labelledby="key-verification-title">
+          <.key_verification_panel
+            id={"key-verification-#{@user_connection.id}"}
+            peer_user={@peer_user}
+            sealed_peer_pin={@sealed_peer_pin}
+          />
+        </section>
+
         <%!-- Groups --%>
         <section aria-labelledby="groups-title">
           <%!-- groups async result --%>

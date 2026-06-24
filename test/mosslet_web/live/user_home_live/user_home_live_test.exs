@@ -81,6 +81,40 @@ defmodule MossletWeb.UserHomeLiveTest do
       assert has_element?(lv, "#decrypt-conn-profile-fields")
       refute has_element?(lv, "#decrypt-own-profile-fields")
     end
+
+    test "renders the key-verification panel for a connected profile (#295)", %{
+      conn: conn,
+      owner: owner,
+      owner_key: key,
+      connections_user: connections_user
+    } do
+      {:ok, lv, html} = visit_profile(conn, owner, key, connections_user.connection.profile.slug)
+
+      assert has_element?(lv, "#key-verification-profile-#{connections_user.id}")
+      assert html =~ "Key verification"
+      assert html =~ "data-safety-number"
+      assert html =~ ~s(data-peer-user-id="#{connections_user.id}")
+    end
+
+    test "verify_peer_key persists a verified pin for the connected peer (#295)", %{
+      conn: conn,
+      owner: owner,
+      owner_key: key,
+      connections_user: connections_user
+    } do
+      {:ok, lv, _html} =
+        visit_profile(conn, owner, key, connections_user.connection.profile.slug)
+
+      blob = Base.encode64(:crypto.strong_rand_bytes(120))
+
+      render_hook(lv, "verify_peer_key", %{
+        "peer_user_id" => connections_user.id,
+        "sealed_pin" => blob
+      })
+
+      pin = Mosslet.Accounts.get_key_pin(owner.id, connections_user.id)
+      assert pin && pin.pinned_fingerprint == blob
+    end
   end
 
   describe "private profile (non-owner, :private, not connected)" do

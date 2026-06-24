@@ -53,4 +53,19 @@ defmodule Mosslet.Accounts.KeyPin do
     |> foreign_key_constraint(:peer_user_id)
     |> unique_constraint([:user_id, :peer_user_id])
   end
+
+  @doc """
+  Rewrites the opaque sealed pin record on an EXISTING (viewer, peer) row
+  (EPIC #291 / Phase 3 / #295).
+
+  Used when the viewer re-seals the record to mark the current key out-of-band
+  verified, or re-verifies & re-pins after a key change. Only the opaque blob
+  changes; the (viewer, peer) identity is never reassigned.
+  """
+  def update_changeset(%__MODULE__{} = key_pin, sealed_fingerprint)
+      when is_binary(sealed_fingerprint) do
+    key_pin
+    |> change(%{pinned_fingerprint: sealed_fingerprint})
+    |> validate_required([:pinned_fingerprint])
+  end
 end
