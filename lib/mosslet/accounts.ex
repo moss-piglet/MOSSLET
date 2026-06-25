@@ -526,6 +526,39 @@ defmodule Mosslet.Accounts do
   end
 
   @doc """
+  Sets a user's hybrid PQ signing keypair (#290 step 4 / #315).
+
+  The `signing_public_key` is the public key peers pin; the
+  `encrypted_signing_private_key` is the secret key sealed BROWSER-SIDE under the
+  user's `user_key` (the server stores an opaque blob it cannot read). Used for
+  progressive generation when an existing user logs in without signing keys.
+  Both values are set explicitly (never cast from arbitrary params).
+  """
+  def set_user_signing_keys(user, signing_public_key, encrypted_signing_private_key) do
+    adapter().set_user_signing_keys(user, signing_public_key, encrypted_signing_private_key)
+  end
+
+  @doc """
+  Appends one signed PUBLIC leaf to a user's key history (#315).
+
+  `entry` is the opaque serialized `mosslet/key-history/v1` leaf, built and
+  signed in the browser. Append-only and first-write-wins on `(user_id, seq)`:
+  a duplicate/replayed append is silently a no-op. The server never signs or
+  verifies — authenticity lives in the client-validated signature chain.
+  """
+  def append_key_history_entry(user_id, seq, entry, signing_public_key \\ nil) do
+    adapter().append_key_history_entry(user_id, seq, entry, signing_public_key)
+  end
+
+  @doc """
+  Lists a user's serialized key-history leaves ordered ascending by seq (#315).
+  Public material the browser fetches to monitor a peer's chain.
+  """
+  def list_key_history_entries(user_id) do
+    adapter().list_key_history_entries(user_id)
+  end
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for tracking user changes.
 
   ## Examples

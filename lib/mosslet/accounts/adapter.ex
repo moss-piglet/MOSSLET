@@ -338,6 +338,36 @@ defmodule Mosslet.Accounts.Adapter do
             ) :: {:ok, Mosslet.Accounts.KeyPin.t()} | {:error, term()}
 
   @doc """
+  Sets a user's hybrid PQ signing keypair (#290 step 4 / #315). Progressive
+  generation for existing users (and the registration write path) — the public
+  key peers pin, the secret sealed under the user's user_key. Set explicitly,
+  never cast from user params.
+  """
+  @callback set_user_signing_keys(
+              user :: Mosslet.Accounts.User.t(),
+              signing_public_key :: binary(),
+              encrypted_signing_private_key :: binary()
+            ) :: {:ok, Mosslet.Accounts.User.t()} | {:error, term()}
+
+  @doc """
+  Appends one signed PUBLIC leaf to a user's key history (#315). Append-only,
+  first-write-wins on the unique (user_id, seq) pair (`on_conflict: :nothing`),
+  so a replayed append is a no-op. The server never signs or verifies.
+  """
+  @callback append_key_history_entry(
+              user_id :: String.t(),
+              seq :: non_neg_integer(),
+              entry :: binary(),
+              signing_public_key :: binary() | nil
+            ) :: {:ok, Mosslet.Accounts.KeyHistoryEntry.t()} | {:error, term()}
+
+  @doc """
+  Lists a user's serialized key-history leaves ordered ascending by seq (#315).
+  Public material served to connections for client-side monitoring.
+  """
+  @callback list_key_history_entries(user_id :: String.t()) :: [binary()]
+
+  @doc """
   Updates user profile on their connection.
   Thin wrapper - only handles Repo transaction, business logic stays in context.
   """

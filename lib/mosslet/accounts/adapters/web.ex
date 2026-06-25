@@ -21,6 +21,7 @@ defmodule Mosslet.Accounts.Adapters.Web do
 
   alias Mosslet.Accounts.{
     Connection,
+    KeyHistoryEntry,
     KeyPin,
     User,
     UserBlock,
@@ -700,6 +701,49 @@ defmodule Mosslet.Accounts.Adapters.Web do
           _rest -> {:error, "error"}
         end
     end
+  end
+
+  # --- Signed key history (#290 step 4 / #315) ------------------------------
+
+  @impl true
+  def set_user_signing_keys(%User{} = user, signing_public_key, encrypted_signing_private_key) do
+    changeset =
+      User.changeset_for_signing_keys(user, %{
+        signing_public_key: signing_public_key,
+        encrypted_signing_private_key: encrypted_signing_private_key
+      })
+
+    case Repo.transaction_on_primary(fn -> Repo.update(changeset) end) do
+      {:ok, {:ok, updated}} -> {:ok, updated}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      _rest -> {:error, "error"}
+    end
+  end
+
+  @impl true
+  def append_key_history_entry(user_id, seq, entry, signing_public_key) do
+    changeset = KeyHistoryEntry.append_changeset(user_id, seq, entry, signing_public_key)
+
+    case Repo.transaction_on_primary(fn ->
+           Repo.insert(changeset,
+             on_conflict: :nothing,
+             conflict_target: [:user_id, :seq]
+           )
+         end) do
+      {:ok, {:ok, appended}} -> {:ok, appended}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      _rest -> {:error, "error"}
+    end
+  end
+
+  @impl true
+  def list_key_history_entries(user_id) do
+    Repo.all(
+      from khe in KeyHistoryEntry,
+        where: khe.user_id == ^user_id,
+        order_by: [asc: khe.seq],
+        select: khe.entry
+    )
   end
 
   @impl true

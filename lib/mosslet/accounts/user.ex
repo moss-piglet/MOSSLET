@@ -38,6 +38,13 @@ defmodule Mosslet.Accounts.User do
     field :key_pair, {:map, Encrypted.Binary}, redact: true
     field :pq_public_key, Encrypted.Binary, redact: true
     field :encrypted_pq_private_key, Encrypted.Binary, redact: true
+    # Hybrid PQ signing keypair (ML-DSA-87 + Ed25519, Cat-5) for signed key
+    # history (#290 step 4 / #315). Public key is what peers pin; secret key is
+    # sealed under user_key (like encrypted_pq_private_key). Both Cloak-wrapped
+    # at-rest. Generated client-side; nil for users predating the feature until
+    # progressive generation runs on next login.
+    field :signing_public_key, Encrypted.Binary, redact: true
+    field :encrypted_signing_private_key, Encrypted.Binary, redact: true
     field :user_key, Encrypted.Binary, redact: true
     field :conn_key, Encrypted.Binary, redact: true
     # ZK recovery key fields (browser-generated, server stores opaque blobs)
@@ -1277,6 +1284,7 @@ defmodule Mosslet.Accounts.User do
         |> put_change(:key_pair, %{public: zk.public_key, private: zk.encrypted_private_key})
         |> put_change(:pq_public_key, zk.pq_public_key)
         |> put_change(:encrypted_pq_private_key, zk.encrypted_pq_private_key)
+        |> maybe_put_signing_keys(zk)
         |> put_change(:username, zk.encrypted_username)
         |> put_change(:user_key, zk.encrypted_user_key)
         |> put_change(:conn_key, zk.encrypted_conn_key)
@@ -1290,6 +1298,23 @@ defmodule Mosslet.Accounts.User do
         {:error, field, message} ->
           add_error(changeset, field, message)
       end
+    end
+  end
+
+  # Optionally apply the browser-generated hybrid PQ signing keypair (#315).
+  # Additive + backward-compatible: only sets the columns when BOTH blobs are
+  # present and well-formed base64; otherwise leaves them nil for progressive
+  # generation on next login. Set explicitly (never cast), per AGENTS.md.
+  defp maybe_put_signing_keys(changeset, zk) do
+    spk = Map.get(zk, :signing_public_key)
+    esk = Map.get(zk, :encrypted_signing_private_key)
+
+    if valid_base64?(spk) and valid_base64?(esk) do
+      changeset
+      |> put_change(:signing_public_key, spk)
+      |> put_change(:encrypted_signing_private_key, esk)
+    else
+      changeset
     end
   end
 
@@ -1315,7 +1340,13 @@ defmodule Mosslet.Accounts.User do
       |> Enum.map(fn {k, _v} -> k end)
 
     if missing == [] do
-      {:ok, zk}
+      # Signing keys are OPTIONAL (additive #315): older clients omit them, and
+      # progressive generation fills them in on next login. Pass through when present.
+      {:ok,
+       Map.merge(zk, %{
+         signing_public_key: attrs["zk_signing_public_key"],
+         encrypted_signing_private_key: attrs["zk_encrypted_signing_private_key"]
+       })}
     else
       {:error, :email, "encryption setup incomplete — please try again"}
     end
@@ -2185,5 +2216,17 @@ defmodule Mosslet.Accounts.User do
     user
     |> cast(attrs, [:pq_public_key, :encrypted_pq_private_key, :user_key, :conn_key])
     |> validate_required([:pq_public_key, :encrypted_pq_private_key, :user_key, :conn_key])
+  end
+
+  @doc """
+  Changeset for setting the hybrid PQ signing keypair (#290 step 4 / #315),
+  used by progressive generation when an existing user logs in. The blobs are
+  browser-generated public material / a secret sealed under user_key — opaque to
+  the server. Validated structurally only.
+  """
+  def changeset_for_signing_keys(user, attrs) do
+    user
+    |> cast(attrs, [:signing_public_key, :encrypted_signing_private_key])
+    |> validate_required([:signing_public_key, :encrypted_signing_private_key])
   end
 end
