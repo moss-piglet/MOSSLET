@@ -1,5 +1,47 @@
 # Changelog
 
+## v1.20.1 (2026-06-23)
+
+### Bug fixes
+
+  * [Plug.Conn] Fix `inform`/`inform!` when atoms are given as header keys
+
+## v1.20.0 (2026-06-23)
+
+This release requires Elixir v1.15+.
+
+### Enhancements
+
+  * [Plug.RequestId] Make request ID generation configurable
+  * [Plug.Test] Support `:sign` and `:encrypt` options in `put_req_cookie/4`
+
+### Bug fixes
+
+  * [Plug.Conn] Run `before_send` callbacks before `upgrade_adapter/3`
+  * [Plug.Debugger] Raise if Elixir is compiled without source information
+  * [Plug.RewriteOn] Rewrite the protocol to HTTPS when `x-forwarded-proto` is `wss`
+  * [Plug.Static] Return 416 for invalid range requests
+  * [Plug.Static] Fix `:raise_on_missing_only` raising on non-matching paths with colons
+
+### Optimizations
+
+  * [Plug.Conn.Cookies] Optimize cookie parsing
+  * [Plug.Conn.Cookies] Optimize cookie encoding
+  * [Plug.Conn.Utils] Optimize `validate_utf8!/3`
+  * [Plug.Conn.Utils] Optimize splitting by semicolons
+  * [Plug.Router] Optimize host matching
+
+## v1.19.3 (2026-06-23)
+
+### Security
+
+  * [Plug.Conn.Query] Force a maximum depth when decoding queries (CVE-2026-54892)
+
+### Bug fixes
+
+  * [Plug.Conn] Validate headers on `inform`
+  * [Plug.Static] Enforce size on range requests
+
 ## v1.19.2 (2026-05-14)
 
 ### Security
@@ -29,6 +71,23 @@ This release requires Elixir v1.14+ and it bumps the recommended :strong and :co
 
   * [Plug.Conn.Adapter] Deprecate `:owner` field
 
+## v1.18.3 (2026-06-23)
+
+### Security
+
+  * [Plug.Conn.Query] Force a maximum depth when decoding queries (CVE-2026-54892)
+
+### Bug fixes
+
+  * [Plug.Conn] Validate headers on `inform`
+  * [Plug.Static] Enforce size on range requests
+
+## v1.18.2 (2026-05-14)
+
+### Security
+
+  * [Plug.Parsers.MULTIPART] Consider overall length when decoding multipart headers
+
 ## v1.18.1 (2025-07-01)
 
 ### Enhancements
@@ -43,6 +102,23 @@ This release requires Elixir v1.14+ and it bumps the recommended :strong and :co
   * [Plug.Conn] Define optional `get_sock_data/1` and `get_ssl_data/1` callbacks
   * [Plug.RequestID] Allow metadata key to be customizable
   * [Plug.Router] Allow match to dispatch to function plugs
+
+## v1.17.2 (2026-06-23)
+
+### Security
+
+  * [Plug.Conn.Query] Force a maximum depth when decoding queries (CVE-2026-54892)
+
+### Bug fixes
+
+  * [Plug.Conn] Validate headers on `inform`
+  * [Plug.Static] Enforce size on range requests
+
+## v1.17.1 (2026-05-14)
+
+### Security
+
+  * [Plug.Parsers.MULTIPART] Consider overall length when decoding multipart headers
 
 ## v1.17.0 (2025-03-14)
 
@@ -59,6 +135,23 @@ This release requires Elixir v1.14+ and it bumps the recommended :strong and :co
   * [Plug.Conn] Deprecate `req_cookies`, `cookies`, and `resp_cookies` fields in favor of functions
   * [Plug.Conn] Deprecate `owner` field. Tracking responses is now part of adapters
   * [Plug.Test] Deprecate `use Plug.Test` in favor of imports
+
+## v1.16.4 (2026-06-23)
+
+### Security
+
+  * [Plug.Conn.Query] Force a maximum depth when decoding queries (CVE-2026-54892)
+
+### Bug fixes
+
+  * [Plug.Conn] Validate headers on `inform`
+  * [Plug.Static] Enforce size on range requests
+
+## v1.16.3 (2026-05-14)
+
+### Security
+
+  * [Plug.Parsers.MULTIPART] Consider overall length when decoding multipart headers
 
 ## v1.16.2 (2025-03-14)
 
@@ -86,6 +179,23 @@ This release requires Elixir v1.14+ and it bumps the recommended :strong and :co
   * Fix bug with discarded connection state in `Plug.Debugger`
   * Parse media types with underscores in them
   * Do not crash on `max_age` set to nil (for consistency)
+
+## v1.15.5 (2026-06-23)
+
+### Security
+
+  * [Plug.Conn.Query] Force a maximum depth when decoding queries (CVE-2026-54892)
+
+### Bug fixes
+
+  * [Plug.Conn] Validate headers on `inform`
+  * [Plug.Static] Enforce size on range requests
+
+## v1.15.4 (2026-05-14)
+
+### Security
+
+  * [Plug.Parsers.MULTIPART] Consider overall length when decoding multipart headers
 
 ## v1.15.3 (2024-01-16)
 

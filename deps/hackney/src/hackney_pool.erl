@@ -453,6 +453,11 @@ start_link(Name, Options0) ->
 %%====================================================================
 
 init([Name, Options]) ->
+    %% Trap exits so a supervisor shutdown (stop_pool -> terminate_child) runs
+    %% terminate/2 instead of killing the pool outright. terminate/2 releases the
+    %% load_regulation slots of in_use connections; without trapping exits it
+    %% would be skipped and those per-host slots would leak.
+    process_flag(trap_exit, true),
     MaxConn = case proplists:get_value(pool_size, Options) of
                   undefined ->
                       proplists:get_value(max_connections, Options, ?DEFAULT_MAX_CONNECTIONS);
@@ -801,7 +806,7 @@ handle_info(_Info, State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-terminate(_Reason, #state{available=Available,
+terminate(_Reason, #state{available=Available, in_use=InUse,
                          h2_connections=H2Conns, h3_connections=H3Conns,
                          pid_monitors=PidMonitors}) ->
     %% Stop all available connections
@@ -812,6 +817,20 @@ terminate(_Reason, #state{available=Available,
             end, Pids)
         end,
         Available
+    ),
+
+    %% Release the load_regulation slot of every checked-out connection and stop
+    %% it. Without this, stopping a pool while requests are in flight orphans the
+    %% in_use conns: the pool's DOWN handler (which would release) is gone, so the
+    %% global per-host slots leak and that host's concurrency cap is starved
+    %% node-wide. Each Key carries the conn's host/port.
+    maps:foreach(
+        fun(Pid, Key) ->
+            {Host, Port} = key_host_port(Key),
+            hackney_load_regulation:release(Host, Port),
+            stop_conn(Pid)
+        end,
+        InUse
     ),
 
     %% Stop all HTTP/2 connections
@@ -874,17 +893,12 @@ h3_connection_key(Host0, Port, Transport, Options) ->
 stop_conn(Pid) ->
     try hackney_conn:stop(Pid) catch _:_ -> ok end.
 
+%% @private Find a reusable idle connection for `Key', discarding any that are
+%% no longer keepalive-ready. Only a conn that is_ready reports `{ok, connected}'
+%% is handed out; a closed conn is stopped and dropped (never reanimated). Fresh
+%% dialing for an empty bucket is the caller's `none' branch, off the pool's hot
+%% path. The SSL alias exists only to mark intent at the SSL checkout site.
 find_available(Key, Available) ->
-    find_available(Key, Available, true).
-
-%% @private Like find_available/2 but never redials a closed connection.
-%% Used for SSL buckets: hackney_conn:connect/1 on an upgraded conn would
-%% reconnect the raw transport without the upgrade handshake options, so a
-%% closed conn is stopped and dropped instead.
-find_available_ssl(Key, Available) ->
-    find_available(Key, Available, false).
-
-find_available(Key, Available, Redial) ->
     case maps:find(Key, Available) of
         {ok, [Pid | Rest]} ->
             Available2 = case Rest of
@@ -896,33 +910,35 @@ find_available(Key, Available, Redial) ->
                 true ->
                     %% is_ready checks both state and socket health in one call.
                     %% The connection can die between is_process_alive/1 above
-                    %% and these gen_statem calls (flaky network); the resulting
+                    %% and this gen_statem call (flaky network); the resulting
                     %% noproc exit must not crash the pool, so skip and move on.
                     try hackney_conn:is_ready(Pid) of
-                        {ok, connected} -> {ok, Pid, Available2};
-                        {ok, closed} when Redial ->
-                            %% Connection closed, try reconnect
-                            try hackney_conn:connect(Pid) of
-                                ok -> {ok, Pid, Available2};
-                                _ -> find_available(Key, Available2, Redial)
-                            catch
-                                _:_ -> find_available(Key, Available2, Redial)
-                            end;
-                        {ok, closed} ->
+                        {ok, connected} ->
+                            {ok, Pid, Available2};
+                        _ ->
+                            %% Closed or unusable: discard it rather than redial
+                            %% from inside the pool. Reanimating a closed pid would
+                            %% break the "only keepalive conns are reused" invariant
+                            %% and a redial here would block the pool on connect.
                             stop_conn(Pid),
-                            find_available(Key, Available2, Redial);
-                        _ -> find_available(Key, Available2, Redial)
+                            find_available(Key, Available2)
                     catch
-                        _:_ -> find_available(Key, Available2, Redial)
+                        _:_ -> find_available(Key, Available2)
                     end;
                 false ->
-                    find_available(Key, Available2, Redial)
+                    find_available(Key, Available2)
             end;
         {ok, []} ->
             none;
         error ->
             none
     end.
+
+%% @private SSL-bucket variant. Now identical to find_available/2 (closed conns
+%% are always dropped, never redialed); kept as a named alias to mark intent at
+%% the SSL checkout site.
+find_available_ssl(Key, Available) ->
+    find_available(Key, Available).
 
 %% @private SSL checkout miss: reuse or dial a TCP connection for the caller
 %% to upgrade. It is recorded in in_use under the SSL key so the checkin
@@ -1031,9 +1047,14 @@ do_checkin(Pid, State) ->
             %% Check if connection is still alive
             case is_process_alive(Pid) of
                 true ->
-                    %% One call fetches every flag the decision needs
-                    Info = try hackney_conn:checkin_info(Pid) catch _:_ -> #{} end,
-                    case checkin_poolable(Key, Info) andalso pool_has_idle_room(State) of
+                    %% One call fetches every flag the decision needs. A failed
+                    %% checkin_info means we cannot prove the conn keepalive/ready,
+                    %% so treat it as not poolable (close) rather than pooling blind.
+                    Poolable = case checkin_info(Pid) of
+                        {ok, Info} -> checkin_poolable(Key, Info);
+                        error -> false
+                    end,
+                    case Poolable andalso pool_has_idle_room(State) of
                         true ->
                             checkin_pool(Pid, Key, InUse2, State);
                         false ->
@@ -1060,10 +1081,27 @@ do_checkin(Pid, State) ->
 checkin_poolable({_Host, _Port, hackney_ssl, _TlsKey}, Info) ->
     maps:get(no_reuse, Info, true) =:= false andalso
         maps:get(upgraded_ssl, Info, false) =:= true andalso
-        maps:get(protocol, Info, undefined) =:= http1;
+        maps:get(protocol, Info, undefined) =:= http1 andalso
+        keepalive_ready(Info);
 checkin_poolable(_TcpKey, Info) ->
     maps:get(no_reuse, Info, false) =:= false andalso
-        maps:get(upgraded_ssl, Info, false) =:= false.
+        maps:get(upgraded_ssl, Info, false) =:= false andalso
+        keepalive_ready(Info).
+
+%% @private Fetch the conn's checkin flags, or `error' if the call fails (the
+%% conn died between is_process_alive/1 and here). Caller treats `error' as
+%% not poolable.
+checkin_info(Pid) ->
+    try {ok, hackney_conn:checkin_info(Pid)}
+    catch _:_ -> error
+    end.
+
+%% @private Shared keepalive/readiness gate for checkin: only pool a conn whose
+%% response left it reusable and whose socket is proven ready. Defaults are the
+%% safe side so an unknown flag closes rather than pools.
+keepalive_ready(Info) ->
+    maps:get(should_close, Info, true) =:= false andalso
+        maps:get(ready, Info, false) =:= true.
 
 %% @private Close branch of a checkin: drop the monitor and keep the host's
 %% TCP prewarm warm (the replacement for a closed conn is a TCP conn that

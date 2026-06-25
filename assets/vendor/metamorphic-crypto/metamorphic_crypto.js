@@ -250,6 +250,38 @@ export function deriveSessionKey(password, salt_b64) {
 }
 
 /**
+ * Re-derive the base64 public key from a base64 hybrid secret key.
+ * @param {string} secret_key_b64
+ * @returns {string}
+ */
+export function deriveSigningPublicKey(secret_key_b64) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passStringToWasm0(secret_key_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.deriveSigningPublicKey(retptr, ptr0, len0);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+        var ptr2 = r0;
+        var len2 = r1;
+        if (r3) {
+            ptr2 = 0; len2 = 0;
+            throw takeObject(r2);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+        wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
  * Encrypt a base64 private key with a session key. Returns base64 ciphertext.
  * @param {string} private_key_b64
  * @param {string} session_key_b64
@@ -408,6 +440,41 @@ export function generateHybridKeyPair1024() {
 }
 
 /**
+ * Generate a ML-KEM-512 + X25519 keypair (Cat-1). Returns JSON: `{ publicKey, secretKey }`.
+ * @returns {any}
+ */
+export function generateHybridKeyPair512() {
+    const ret = wasm.generateHybridKeyPair512();
+    return takeObject(ret);
+}
+
+/**
+ * Generate a keypair for `(suite, level)`. Returns JSON: `{ publicKey, secretKey }`.
+ * @param {string} suite
+ * @param {string} level
+ * @returns {any}
+ */
+export function generateHybridKeyPairSuite(suite, level) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passStringToWasm0(suite, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(level, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len1 = WASM_VECTOR_LEN;
+        wasm.generateHybridKeyPairSuite(retptr, ptr0, len0, ptr1, len1);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return takeObject(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
  * Generate a random 32-byte symmetric key (base64).
  * @returns {string}
  */
@@ -475,6 +542,190 @@ export function generateSalt() {
     } finally {
         wasm.__wbindgen_add_to_stack_pointer(16);
         wasm.__wbindgen_export4(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
+ * Generate a hybrid signing keypair. Returns JSON: `{ publicKey, secretKey }`.
+ *
+ * `level` is `"cat2"` (ML-DSA-44), `"cat3"` (ML-DSA-65, default), or `"cat5"`
+ * (ML-DSA-87). Empty/null defaults to Cat-3.
+ * @param {string} level
+ * @returns {any}
+ */
+export function generateSigningKeyPair(level) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passStringToWasm0(level, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.generateSigningKeyPair(retptr, ptr0, len0);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return takeObject(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * Generate a signing keypair for a full CNSA-2.0 `(suite, level)`.
+ *
+ * `suite` is `"hybrid"` (default), `"hybridMatched"` (Cat-3→Ed448,
+ * Cat-5→ECDSA-P-521), or `"pureCnsa2"` (ML-DSA-87 only, Cat-5). `level` is
+ * `"cat2"`/`"cat3"`/`"cat5"`. `sign` / `verify` / `deriveSigningPublicKey`
+ * auto-detect the suite from the key/signature version tag, so no suite
+ * argument is needed there. Returns JSON: `{ publicKey, secretKey }`.
+ * @param {string} suite
+ * @param {string} level
+ * @returns {any}
+ */
+export function generateSigningKeyPairSuite(suite, level) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passStringToWasm0(suite, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(level, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len1 = WASM_VECTOR_LEN;
+        wasm.generateSigningKeyPairSuite(retptr, ptr0, len0, ptr1, len1);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return takeObject(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * Open a CNSA-2.0 (or legacy) hybrid ciphertext, supplying the context label
+ * used at seal time for the new suites. Returns base64-encoded plaintext.
+ * @param {string} ciphertext_b64
+ * @param {string} seed_b64
+ * @param {string} context_label
+ * @returns {string}
+ */
+export function hybridOpenWithContext(ciphertext_b64, seed_b64, context_label) {
+    let deferred5_0;
+    let deferred5_1;
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passStringToWasm0(ciphertext_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(seed_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(context_label, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len2 = WASM_VECTOR_LEN;
+        wasm.hybridOpenWithContext(retptr, ptr0, len0, ptr1, len1, ptr2, len2);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+        var ptr4 = r0;
+        var len4 = r1;
+        if (r3) {
+            ptr4 = 0; len4 = 0;
+            throw takeObject(r2);
+        }
+        deferred5_0 = ptr4;
+        deferred5_1 = len4;
+        return getStringFromWasm0(ptr4, len4);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+        wasm.__wbindgen_export4(deferred5_0, deferred5_1, 1);
+    }
+}
+
+/**
+ * Seal plaintext (base64) to a `(suite, level)` combined public key, binding
+ * the default `"metamorphic/seal/v1"` context label. Returns base64 ciphertext.
+ * @param {string} plaintext_b64
+ * @param {string} combined_pk_b64
+ * @param {string} suite
+ * @param {string} level
+ * @returns {string}
+ */
+export function hybridSealSuite(plaintext_b64, combined_pk_b64, suite, level) {
+    let deferred6_0;
+    let deferred6_1;
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passStringToWasm0(plaintext_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(combined_pk_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(suite, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len2 = WASM_VECTOR_LEN;
+        const ptr3 = passStringToWasm0(level, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len3 = WASM_VECTOR_LEN;
+        wasm.hybridSealSuite(retptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+        var ptr5 = r0;
+        var len5 = r1;
+        if (r3) {
+            ptr5 = 0; len5 = 0;
+            throw takeObject(r2);
+        }
+        deferred6_0 = ptr5;
+        deferred6_1 = len5;
+        return getStringFromWasm0(ptr5, len5);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+        wasm.__wbindgen_export4(deferred6_0, deferred6_1, 1);
+    }
+}
+
+/**
+ * Seal plaintext (base64) to a `(suite, level)` combined public key, binding a
+ * custom `context_label`. Returns base64 ciphertext.
+ * @param {string} plaintext_b64
+ * @param {string} combined_pk_b64
+ * @param {string} suite
+ * @param {string} level
+ * @param {string} context_label
+ * @returns {string}
+ */
+export function hybridSealSuiteWithContext(plaintext_b64, combined_pk_b64, suite, level, context_label) {
+    let deferred7_0;
+    let deferred7_1;
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passStringToWasm0(plaintext_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(combined_pk_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(suite, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len2 = WASM_VECTOR_LEN;
+        const ptr3 = passStringToWasm0(level, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len3 = WASM_VECTOR_LEN;
+        const ptr4 = passStringToWasm0(context_label, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len4 = WASM_VECTOR_LEN;
+        wasm.hybridSealSuiteWithContext(retptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+        var ptr6 = r0;
+        var len6 = r1;
+        if (r3) {
+            ptr6 = 0; len6 = 0;
+            throw takeObject(r2);
+        }
+        deferred7_0 = ptr6;
+        deferred7_1 = len6;
+        return getStringFromWasm0(ptr6, len6);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+        wasm.__wbindgen_export4(deferred7_0, deferred7_1, 1);
     }
 }
 
@@ -595,7 +846,8 @@ export function sealForUser(plaintext_b64, public_key_b64, pq_public_key_b64) {
 /**
  * Seal plaintext bytes (base64) to a user's key(s) at a specific security level.
  *
- * `level` must be `"cat3"` (ML-KEM-768, default) or `"cat5"` (ML-KEM-1024).
+ * `level` must be `"cat1"` (ML-KEM-512), `"cat3"` (ML-KEM-768, default), or
+ * `"cat5"` (ML-KEM-1024).
  * If `pq_public_key_b64` is absent or empty, falls back to legacy X25519.
  * @param {string} plaintext_b64
  * @param {string} public_key_b64
@@ -633,6 +885,51 @@ export function sealForUserWithLevel(plaintext_b64, public_key_b64, pq_public_ke
     } finally {
         wasm.__wbindgen_add_to_stack_pointer(16);
         wasm.__wbindgen_export4(deferred6_0, deferred6_1, 1);
+    }
+}
+
+/**
+ * Seal plaintext (base64) to a user's key(s) under a full `(suite, level)`.
+ * Falls back to legacy X25519 if `pq_public_key_b64` is absent/empty.
+ * @param {string} plaintext_b64
+ * @param {string} public_key_b64
+ * @param {string | null | undefined} pq_public_key_b64
+ * @param {string} suite
+ * @param {string} level
+ * @returns {string}
+ */
+export function sealForUserWithSuite(plaintext_b64, public_key_b64, pq_public_key_b64, suite, level) {
+    let deferred7_0;
+    let deferred7_1;
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passStringToWasm0(plaintext_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(public_key_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len1 = WASM_VECTOR_LEN;
+        var ptr2 = isLikeNone(pq_public_key_b64) ? 0 : passStringToWasm0(pq_public_key_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        var len2 = WASM_VECTOR_LEN;
+        const ptr3 = passStringToWasm0(suite, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len3 = WASM_VECTOR_LEN;
+        const ptr4 = passStringToWasm0(level, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len4 = WASM_VECTOR_LEN;
+        wasm.sealForUserWithSuite(retptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+        var ptr6 = r0;
+        var len6 = r1;
+        if (r3) {
+            ptr6 = 0; len6 = 0;
+            throw takeObject(r2);
+        }
+        deferred7_0 = ptr6;
+        deferred7_1 = len6;
+        return getStringFromWasm0(ptr6, len6);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+        wasm.__wbindgen_export4(deferred7_0, deferred7_1, 1);
     }
 }
 
@@ -808,6 +1105,45 @@ export function sha512(data_b64) {
 }
 
 /**
+ * Sign base64 `message` under `context` with a base64 hybrid `secret_key`.
+ * Returns the composite signature as base64.
+ * @param {string} message_b64
+ * @param {string} context
+ * @param {string} secret_key_b64
+ * @returns {string}
+ */
+export function sign(message_b64, context, secret_key_b64) {
+    let deferred5_0;
+    let deferred5_1;
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passStringToWasm0(message_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(context, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(secret_key_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len2 = WASM_VECTOR_LEN;
+        wasm.sign(retptr, ptr0, len0, ptr1, len1, ptr2, len2);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+        var ptr4 = r0;
+        var len4 = r1;
+        if (r3) {
+            ptr4 = 0; len4 = 0;
+            throw takeObject(r2);
+        }
+        deferred5_0 = ptr4;
+        deferred5_1 = len4;
+        return getStringFromWasm0(ptr4, len4);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+        wasm.__wbindgen_export4(deferred5_0, deferred5_1, 1);
+    }
+}
+
+/**
  * Unseal ciphertext using the user's keys. Auto-detects format.
  * Returns base64-encoded plaintext.
  * @param {string} ciphertext_b64
@@ -846,6 +1182,40 @@ export function unsealFromUser(ciphertext_b64, public_key_b64, private_key_b64, 
     } finally {
         wasm.__wbindgen_add_to_stack_pointer(16);
         wasm.__wbindgen_export4(deferred6_0, deferred6_1, 1);
+    }
+}
+
+/**
+ * Verify a base64 composite `signature` over base64 `message`/`context`
+ * against a base64 `public_key`. Returns `true` only if **both** the Ed25519
+ * and ML-DSA components verify (strict AND).
+ * @param {string} message_b64
+ * @param {string} context
+ * @param {string} signature_b64
+ * @param {string} public_key_b64
+ * @returns {boolean}
+ */
+export function verify(message_b64, context, signature_b64, public_key_b64) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passStringToWasm0(message_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(context, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(signature_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len2 = WASM_VECTOR_LEN;
+        const ptr3 = passStringToWasm0(public_key_b64, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len3 = WASM_VECTOR_LEN;
+        wasm.verify(retptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return r0 !== 0;
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
     }
 }
 function __wbg_get_imports() {

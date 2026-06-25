@@ -90,7 +90,7 @@ case Application.get_env(:mosslet, :billing_products) do
 
               overrides ->
                 Enum.reduce(overrides, item, fn {key, value}, acc ->
-                  if is_binary(value), do: Map.put(acc, key, value), else: acc
+                  if is_binary(value) and value != "", do: Map.put(acc, key, value), else: acc
                 end)
             end
           end)

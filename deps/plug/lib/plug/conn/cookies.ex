@@ -3,6 +3,35 @@ defmodule Plug.Conn.Cookies do
   Conveniences for encoding and decoding cookies.
   """
 
+  @doc false
+  def sign_or_encrypt(%Plug.Conn{} = conn, key, value, opts) do
+    {sign?, opts} = Keyword.pop(opts, :sign, false)
+    {encrypt?, opts} = Keyword.pop(opts, :encrypt, false)
+
+    case {sign?, encrypt?} do
+      {true, true} ->
+        raise ArgumentError,
+              ":encrypt automatically implies :sign. Please pass only one or the other"
+
+      {true, false} ->
+        {Plug.Crypto.sign(conn.secret_key_base, key <> "_cookie", value, max_age(opts)), opts}
+
+      {false, true} ->
+        {Plug.Crypto.encrypt(conn.secret_key_base, key <> "_cookie", value, max_age(opts)), opts}
+
+      {false, false} when is_binary(value) ->
+        {value, opts}
+
+      {false, false} ->
+        raise ArgumentError, "cookie value must be a binary unless the cookie is signed/encrypted"
+    end
+  end
+
+  defp max_age(opts) do
+    max_age = Keyword.get(opts, :max_age) || 86400
+    [keys: Plug.Keys, max_age: max_age]
+  end
+
   @doc """
   Decodes the given cookies as given in either a request or response header.
 
@@ -20,39 +49,48 @@ defmodule Plug.Conn.Cookies do
 
   defp decode_kv("", acc), do: acc
   defp decode_kv(<<h, t::binary>>, acc) when h in [?\s, ?\t], do: decode_kv(t, acc)
-  defp decode_kv(kv, acc) when is_binary(kv), do: decode_key(kv, "", acc)
+  defp decode_kv(kv, acc) when is_binary(kv), do: decode_key(kv, kv, 0, acc)
 
-  defp decode_key(<<h, t::binary>>, _key, acc) when h in [?\s, ?\t, ?\r, ?\n, ?\v, ?\f],
-    do: skip_until_cc(t, acc)
+  defp decode_key(<<h, t::binary>>, _key_rest, _len, acc)
+       when h in [?\s, ?\t, ?\r, ?\n, ?\v, ?\f],
+       do: skip_until_cc(t, acc)
 
-  defp decode_key(<<?;, t::binary>>, _key, acc), do: decode_kv(t, acc)
-  defp decode_key(<<?=, t::binary>>, "", acc), do: skip_until_cc(t, acc)
-  defp decode_key(<<?=, t::binary>>, key, acc), do: decode_value(t, "", 0, key, acc)
-  defp decode_key(<<h, t::binary>>, key, acc), do: decode_key(t, <<key::binary, h>>, acc)
-  defp decode_key(<<>>, _key, acc), do: acc
+  defp decode_key(<<?;, t::binary>>, _key_rest, _len, acc), do: decode_kv(t, acc)
+  defp decode_key(<<?=, t::binary>>, _key_rest, 0, acc), do: skip_until_cc(t, acc)
 
-  defp decode_value(<<?;, t::binary>>, value, spaces, key, acc),
-    do: decode_kv(t, [{key, trim_spaces(value, spaces)} | acc])
+  defp decode_key(<<?=, t::binary>>, key_rest, len, acc) do
+    key = binary_part(key_rest, 0, len)
+    decode_value(t, t, 0, 0, key, acc)
+  end
 
-  defp decode_value(<<?\s, t::binary>>, value, spaces, key, acc),
-    do: decode_value(t, <<value::binary, ?\s>>, spaces + 1, key, acc)
+  defp decode_key(<<_, t::binary>>, key_rest, len, acc), do: decode_key(t, key_rest, len + 1, acc)
+  defp decode_key(<<>>, _key_rest, _len, acc), do: acc
 
-  defp decode_value(<<h, t::binary>>, _value, _spaces, _key, acc)
+  defp decode_value(<<?;, t::binary>>, val_rest, len, spaces, key, acc) do
+    value = binary_part(val_rest, 0, len - spaces)
+    decode_kv(t, [{key, value} | acc])
+  end
+
+  defp decode_value(<<?\s, t::binary>>, val_rest, len, spaces, key, acc) do
+    decode_value(t, val_rest, len + 1, spaces + 1, key, acc)
+  end
+
+  defp decode_value(<<h, t::binary>>, _val_rest, _len, _spaces, _key, acc)
        when h in [?\t, ?\r, ?\n, ?\v, ?\f],
        do: skip_until_cc(t, acc)
 
-  defp decode_value(<<h, t::binary>>, value, _spaces, key, acc),
-    do: decode_value(t, <<value::binary, h>>, 0, key, acc)
+  defp decode_value(<<_, t::binary>>, val_rest, len, _spaces, key, acc) do
+    decode_value(t, val_rest, len + 1, 0, key, acc)
+  end
 
-  defp decode_value(<<>>, value, spaces, key, acc),
-    do: [{key, trim_spaces(value, spaces)} | acc]
+  defp decode_value(<<>>, val_rest, len, spaces, key, acc) do
+    value = binary_part(val_rest, 0, len - spaces)
+    [{key, value} | acc]
+  end
 
   defp skip_until_cc(<<?;, t::binary>>, acc), do: decode_kv(t, acc)
   defp skip_until_cc(<<_, t::binary>>, acc), do: skip_until_cc(t, acc)
   defp skip_until_cc(<<>>, acc), do: acc
-
-  defp trim_spaces(value, 0), do: value
-  defp trim_spaces(value, spaces), do: binary_part(value, 0, byte_size(value) - spaces)
 
   @doc """
   Encodes the given cookies as expected in a response header.
@@ -69,15 +107,22 @@ defmodule Plug.Conn.Cookies do
     value = Map.get(opts, :value)
     path = Map.get(opts, :path, "/")
 
-    IO.iodata_to_binary([
-      "#{key}=#{value}; path=#{path}",
-      emit_if(opts[:domain], &["; domain=", &1]),
-      emit_if(opts[:max_age], &encode_max_age(&1, opts)),
-      emit_if(Map.get(opts, :secure, false), "; secure"),
-      emit_if(Map.get(opts, :http_only, true), "; HttpOnly"),
-      emit_if(Map.get(opts, :same_site, nil), &encode_same_site/1),
-      emit_if(opts[:extra], &["; ", &1])
-    ])
+    key = to_string(key)
+    value = to_string(value)
+    path = to_string(path)
+
+    acc = [key, ?=, value, "; path=", path]
+    acc = if domain = opts[:domain], do: [acc, "; domain=", domain], else: acc
+    acc = if max_age = opts[:max_age], do: [acc | encode_max_age(max_age, opts)], else: acc
+    acc = if Map.get(opts, :secure, false), do: [acc | "; secure"], else: acc
+    acc = if Map.get(opts, :http_only, true), do: [acc | "; HttpOnly"], else: acc
+
+    acc =
+      if same_site = Map.get(opts, :same_site), do: [acc | encode_same_site(same_site)], else: acc
+
+    acc = if extra = opts[:extra], do: [acc, "; ", extra], else: acc
+
+    IO.iodata_to_binary(acc)
   end
 
   defp encode_max_age(max_age, opts) do
@@ -86,23 +131,10 @@ defmodule Plug.Conn.Cookies do
     ["; expires=", rfc2822(time), "; max-age=", Integer.to_string(max_age)]
   end
 
-  defp encode_same_site(value) when is_binary(value), do: "; SameSite=#{value}"
+  defp encode_same_site(value) when is_binary(value), do: ["; SameSite=", value]
 
-  defp emit_if(value, fun_or_string) do
-    cond do
-      !value ->
-        []
-
-      is_function(fun_or_string) ->
-        fun_or_string.(value)
-
-      is_binary(fun_or_string) ->
-        fun_or_string
-    end
-  end
-
-  defp pad(number) when number in 0..9, do: <<?0, ?0 + number>>
-  defp pad(number), do: Integer.to_string(number)
+  defp pad(n) when n < 10, do: <<?0, ?0 + n>>
+  defp pad(n), do: <<?0 + div(n, 10), ?0 + rem(n, 10)>>
 
   defp rfc2822({{year, month, day} = date, {hour, minute, second}}) do
     # Sat, 17 Apr 2010 14:00:00 GMT

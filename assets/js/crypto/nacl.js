@@ -39,6 +39,10 @@ import wasmInit, {
   sha3_256 as _sha3_256,
   sha256 as _sha256,
   sha512 as _sha512,
+  generateSigningKeyPair as _generateSigningKeyPair,
+  deriveSigningPublicKey as _deriveSigningPublicKey,
+  sign as _sign,
+  verify as _verify,
 } from "../../vendor/metamorphic-crypto/metamorphic_crypto.js";
 
 // --- WASM initialization ---
@@ -391,6 +395,87 @@ export async function sha256(dataBase64) {
 export async function sha512(dataBase64) {
   await ensureReady();
   return _sha512(dataBase64);
+}
+
+// --- Hybrid PQ signatures (ML-DSA + Ed25519 composite, strict-AND) ---
+//
+// Thin wrappers over the same audited Rust crate that powers the server-side
+// NIF (MetamorphicCrypto.Sign), guaranteeing byte-for-byte parity between
+// browser and server. The composite signature requires BOTH the Ed25519 and
+// ML-DSA components to verify (strict AND) — a server cannot strip the PQ half.
+//
+// Mosslet stays Cat-5 hybrid by default; the CNSA-2.0 suite axis exists in the
+// WASM (generateSigningKeyPairSuite) but is intentionally NOT surfaced here —
+// we do not switch postures in this layer. sign/verify/deriveSigningPublicKey
+// auto-detect the suite from the key/signature version tag.
+//
+// This is the foundation for a signed key history (board #290 step 4): the
+// piece that lets a client distinguish legitimate key rotation from a server
+// key-substitution attack — something TOFU pinning alone cannot do.
+
+/**
+ * Default domain-separation context for Mosslet signatures.
+ * Versioned so the meaning of a signature is unambiguous and future-proof.
+ */
+export const DEFAULT_SIGN_CONTEXT = "metamorphic/sign/v1";
+
+/**
+ * Generate a hybrid PQ signing keypair (ML-DSA + Ed25519 composite).
+ *
+ * @param {"cat2"|"cat3"|"cat5"} [level="cat5"] - ML-DSA level (Mosslet defaults
+ *   to Cat-5 / ML-DSA-87 to match its Cat-5 hybrid KEM posture).
+ * @returns {Promise<{publicKey: string, secretKey: string}>} base64 keypair
+ */
+export async function generateSigningKeyPair(level = "cat5") {
+  await ensureReady();
+  const kp = _generateSigningKeyPair(level);
+  return { publicKey: kp.publicKey, secretKey: kp.secretKey };
+}
+
+/**
+ * Re-derive the base64 public key from a base64 hybrid signing secret key.
+ *
+ * @param {string} secretKeyBase64 - base64 hybrid signing secret key
+ * @returns {Promise<string>} base64 public key
+ */
+export async function deriveSigningPublicKey(secretKeyBase64) {
+  await ensureReady();
+  return _deriveSigningPublicKey(secretKeyBase64);
+}
+
+/**
+ * Sign raw-binary message bytes under a domain-separation context.
+ *
+ * @param {Uint8Array} messageBytes - raw message bytes
+ * @param {string} secretKeyBase64 - base64 hybrid signing secret key
+ * @param {string} [context=DEFAULT_SIGN_CONTEXT] - versioned UTF-8 domain separator
+ * @returns {Promise<string>} base64 composite signature
+ */
+export async function sign(messageBytes, secretKeyBase64, context = DEFAULT_SIGN_CONTEXT) {
+  await ensureReady();
+  const msgB64 = b64Encode(messageBytes);
+  return _sign(msgB64, context, secretKeyBase64);
+}
+
+/**
+ * Verify a composite signature over raw-binary message bytes. Returns true only
+ * if BOTH the Ed25519 and ML-DSA components verify (strict AND).
+ *
+ * @param {Uint8Array} messageBytes - raw message bytes
+ * @param {string} signatureBase64 - base64 composite signature
+ * @param {string} publicKeyBase64 - base64 hybrid signing public key
+ * @param {string} [context=DEFAULT_SIGN_CONTEXT] - versioned UTF-8 domain separator
+ * @returns {Promise<boolean>} true if the signature is valid
+ */
+export async function verify(
+  messageBytes,
+  signatureBase64,
+  publicKeyBase64,
+  context = DEFAULT_SIGN_CONTEXT,
+) {
+  await ensureReady();
+  const msgB64 = b64Encode(messageBytes);
+  return _verify(msgB64, context, signatureBase64, publicKeyBase64);
 }
 
 // --- Utility ---

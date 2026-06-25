@@ -65,7 +65,7 @@ defmodule Plug.Conn do
 
   More can be stored in a session cookie, but be careful: this makes requests
   and responses heavier, and clients may reject cookies beyond a certain size.
-  Also, session cookie are not shared between a user's different browsers or devices.
+  Also, session cookies are not shared between a user's different browsers or devices.
   If the session is stored elsewhere, such as a database, the browser only has to
   store the session key and therefore more data can be stored in the session.
 
@@ -125,7 +125,7 @@ defmodule Plug.Conn do
 
   ## Custom status codes
 
-  `Plug` allows status codes to be overridden or added and allow new codes not directly
+  `Plug` allows status codes to be overridden or added and allows new codes not directly
   specified by `Plug` or its adapters. The `:plug` application's Mix config can add or
   override a status code.
 
@@ -1215,6 +1215,11 @@ defmodule Plug.Conn do
     * `:read_timeout` - sets the timeout for each socket read, defaults to
       `5_000` milliseconds
 
+  > #### Request length {: .warning}
+  >
+  > The `:length` option tracks the maximum length within a single call.
+  > When doing multiple calls to `read_part_headers/2` and `read_part_body/2`,
+  > it is your responsibility to track the overall response length.
   """
   @spec read_part_headers(t, Keyword.t()) ::
           {:ok, headers, t} | {:error, :too_large, t} | {:done, t}
@@ -1258,6 +1263,21 @@ defmodule Plug.Conn do
   if there is no more body.
 
   It accepts the same options as `read_body/2`.
+
+  ## Options
+
+    * `:length` - sets the maximum number of bytes to read from the body on
+      every call, defaults to `8_000_000` bytes
+    * `:read_length` - sets the amount of bytes to read at one time from the
+      underlying socket to fill the chunk, defaults to `1_000_000` bytes
+    * `:read_timeout` - sets the timeout for each socket read, defaults to
+      `15_000` milliseconds
+
+  > #### Request length {: .warning}
+  >
+  > The `:length` option tracks the maximum length within a single call.
+  > When doing multiple calls to `read_part_headers/2` and `read_part_body/2`,
+  > it is your responsibility to track the overall response length.
   """
   @spec read_part_body(t, Keyword.t()) :: {:ok, binary, t} | {:more, binary, t} | {:done, t}
   def read_part_body(%Conn{adapter: {adapter, state}} = conn, opts) do
@@ -1366,7 +1386,7 @@ defmodule Plug.Conn do
   proxies require it to support server push for HTTP/2. You can call
   `get_http_protocol/1` to retrieve the protocol and version.
   """
-  @spec inform(t, status, Keyword.t()) :: t
+  @spec inform(t, status, [{atom() | binary(), binary()}]) :: t
   def inform(%Conn{adapter: {adapter, _}} = conn, status, headers \\ []) do
     status_code = Plug.Conn.Status.code(status)
 
@@ -1387,7 +1407,7 @@ defmodule Plug.Conn do
 
   See `inform/3` for more information.
   """
-  @spec inform!(t, status, Keyword.t()) :: t
+  @spec inform!(t, status, [{atom() | binary(), binary()}]) :: t
   def inform!(%Conn{adapter: {adapter, _}} = conn, status, headers \\ []) do
     status_code = Plug.Conn.Status.code(status)
 
@@ -1416,6 +1436,10 @@ defmodule Plug.Conn do
   end
 
   defp adapter_inform(%Conn{adapter: {adapter, payload}}, status, headers) do
+    for {key, value} <- headers do
+      validate_header_key_value!(to_string(key), value)
+    end
+
     adapter.inform(payload, status, headers)
   end
 
@@ -1436,7 +1460,7 @@ defmodule Plug.Conn do
   If the upgrade is accepted by the adapter, the returned `Plug.Conn` will have a `state` of
   `:upgraded`. This state is considered equivalently to a 'sent' state, and is subject to the same
   limitation on subsequent mutating operations. Note that there is no guarantee or expectation
-  that the actual upgrade process has succeeded, or event that it is undertaken within this
+  that the actual upgrade process has succeeded, or even that it is undertaken within this
   function; it is entirely possible (likely, even) that the server will only do the actual upgrade
   later in the connection lifecycle.
 
@@ -1449,7 +1473,8 @@ defmodule Plug.Conn do
       when state in @unsent do
     case adapter.upgrade(payload, protocol, args) do
       {:ok, payload} ->
-        %{conn | adapter: {adapter, payload}, state: :upgraded}
+        conn = run_before_send(conn, :upgraded)
+        %{conn | adapter: {adapter, payload}}
 
       {:error, :not_supported} ->
         raise ArgumentError, "upgrade to #{protocol} not supported by #{inspect(adapter)}"
@@ -1685,38 +1710,10 @@ defmodule Plug.Conn do
   def put_resp_cookie(%Conn{} = conn, key, value, opts \\ [])
       when is_binary(key) and is_list(opts) do
     %{resp_cookies: resp_cookies, scheme: scheme} = conn
-    {to_send_value, opts} = maybe_sign_or_encrypt_cookie(conn, key, value, opts)
+    {to_send_value, opts} = Plug.Conn.Cookies.sign_or_encrypt(conn, key, value, opts)
     cookie = [{:value, to_send_value} | opts] |> Map.new() |> maybe_secure_cookie(scheme)
     resp_cookies = Map.put(resp_cookies, key, cookie)
     update_cookies(%{conn | resp_cookies: resp_cookies}, &Map.put(&1, key, value))
-  end
-
-  defp maybe_sign_or_encrypt_cookie(conn, key, value, opts) do
-    {sign?, opts} = Keyword.pop(opts, :sign, false)
-    {encrypt?, opts} = Keyword.pop(opts, :encrypt, false)
-
-    case {sign?, encrypt?} do
-      {true, true} ->
-        raise ArgumentError,
-              ":encrypt automatically implies :sign. Please pass only one or the other"
-
-      {true, false} ->
-        {Plug.Crypto.sign(conn.secret_key_base, key <> "_cookie", value, max_age(opts)), opts}
-
-      {false, true} ->
-        {Plug.Crypto.encrypt(conn.secret_key_base, key <> "_cookie", value, max_age(opts)), opts}
-
-      {false, false} when is_binary(value) ->
-        {value, opts}
-
-      {false, false} ->
-        raise ArgumentError, "cookie value must be a binary unless the cookie is signed/encrypted"
-    end
-  end
-
-  defp max_age(opts) do
-    max_age = Keyword.get(opts, :max_age) || 86400
-    [keys: Plug.Keys, max_age: max_age]
   end
 
   defp maybe_secure_cookie(cookie, :https), do: Map.put_new(cookie, :secure, true)

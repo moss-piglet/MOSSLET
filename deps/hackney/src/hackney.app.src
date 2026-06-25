@@ -1,6 +1,6 @@
 {application,hackney,
              [{description,"Simple HTTP client with HTTP/1.1, HTTP/2, and HTTP/3 support"},
-              {vsn,"4.4.3"},
+              {vsn,"4.4.5"},
               {registered,[hackney_pool]},
               {applications,[kernel,stdlib,crypto,asn1,public_key,ssl,idna,
                              mimerl,certifi,ssl_verify_fun,h2,quic,

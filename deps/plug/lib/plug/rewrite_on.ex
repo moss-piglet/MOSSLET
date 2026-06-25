@@ -96,7 +96,13 @@ defmodule Plug.RewriteOn do
   defp put_scheme(%{scheme: :http, port: 80} = conn, ["https"]),
     do: %{conn | scheme: :https, port: 443}
 
+  defp put_scheme(%{scheme: :http, port: 80} = conn, ["wss"]),
+    do: %{conn | scheme: :https, port: 443}
+
   defp put_scheme(conn, ["https"]),
+    do: %{conn | scheme: :https}
+
+  defp put_scheme(conn, ["wss"]),
     do: %{conn | scheme: :https}
 
   defp put_scheme(%{scheme: :https, port: 443} = conn, ["http"]),
@@ -116,6 +122,7 @@ defmodule Plug.RewriteOn do
 
   defp put_port(conn, headers) do
     with [header] <- headers,
+         true <- byte_size(header) <= 5,
          {port, ""} <- Integer.parse(header) do
       %{conn | port: port}
     else

@@ -2,7 +2,7 @@ defmodule Swoosh.Mixfile do
   use Mix.Project
 
   @source_url "https://github.com/swoosh/swoosh"
-  @version "1.26.1"
+  @version "1.26.2"
 
   def project do
     [
@@ -25,9 +25,9 @@ defmodule Swoosh.Mixfile do
       homepage_url: @source_url,
       docs: &docs/0,
 
-      # Suppress warnings
-      xref: [
-        exclude: [
+      # Suppress warnings for optional dependencies
+      elixirc_options: [
+        no_warn_undefined: [
           :hackney,
           :gen_smtp_client,
           :mimemail,
@@ -85,7 +85,7 @@ defmodule Swoosh.Mixfile do
       {:ex_aws, "~> 2.1", optional: true},
       {:bypass, "~> 2.1", only: :test},
       {:ex_doc, "~> 0.26", only: :docs, runtime: false},
-      {:tailwind, "~> 0.4.0", only: [:docs, :dev], runtime: false}
+      {:tailwind, "~> 0.5.0", only: [:docs, :dev], runtime: false}
     ]
   end
 

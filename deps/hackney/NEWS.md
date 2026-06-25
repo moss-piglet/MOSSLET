@@ -1,5 +1,51 @@
 # NEWS
 
+4.4.5 - 2026-06-18
+------------------
+
+### Fixed
+
+- HTTPS: a connection reused over a resumed TLS 1.3 session is no longer
+  mislabeled as HTTP/1 when it negotiated HTTP/2. `ssl:negotiated_protocol/1`
+  reports nothing on a resumed session, so hackney now remembers the protocol
+  learned on the full handshake (per host and advertised ALPN) and offers
+  resumption only once that protocol is known, resolving a resumed session
+  against that snapshot. Reused h2 connections take the h2 path instead of
+  feeding h2 frames to the HTTP/1 parser.
+- HTTP/1.1: a response that cannot begin an HTTP/1 status line (for example an
+  HTTP/2 frame on a mislabeled connection) now fails fast with
+  `{error, {bad_response, not_http}}` instead of spinning the CPU in the
+  status-line parser.
+- Connection pooling: `Connection: close` responses are no longer returned to
+  the pool on the sync body path; checkin only pools connections proven
+  keep-alive and socket-ready (unknown defaults to close); and a closed pooled
+  entry is discarded at checkout instead of being redialed inside the pool
+  process (#888).
+- Connection pooling: stopping a pool while requests are in flight no longer
+  leaks the per-host concurrency (`load_regulation`) slots of the checked-out
+  connections. The pool now traps exits so its shutdown releases those slots and
+  stops the in-use connections, instead of orphaning them and starving the host's
+  concurrency cap node-wide (#892).
+
+4.4.4 - 2026-06-17
+------------------
+
+### Fixed
+
+- HTTP/2: a connection is no longer reused after the peer sends `GOAWAY` while
+  keeping the socket open (as AWS ALB does to recycle connections). The
+  connection is retired so the pool dials a fresh one, instead of being handed
+  out again with new streams the peer ignores until `recv_timeout`.
+- HTTP/2: when the per-stream `recv_timeout` watchdog fires, the stalled stream
+  is cancelled (`RST_STREAM`) so the peer stops sending and the connection is not
+  reused with an orphaned stream.
+- HTTP/1.1: bytes that issue #544's idle `{active, once}` delivers to the
+  connection mailbox on a reused connection are now buffered and fed to the next
+  request instead of dropping the connection (refines the 4.4.3 behavior below),
+  so a reused request no longer blocks to `recv_timeout` while the response sits
+  stranded as an unread message. The idle buffer is bounded, and a server close
+  still refuses reuse (#544).
+
 4.4.3 - 2026-06-17
 ------------------
 

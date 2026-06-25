@@ -54,6 +54,12 @@ defmodule Plug.RequestId do
 
           plug Plug.RequestId, logger_metadata_key: :my_request_id
 
+    * `:generator` - The function used to generate the request ID, defaults to
+      `Plug.RequestId.generate/0`. When setting up a custom function, it is recommended
+      to be in the `&MyApp.custom_request_id/0` format, so it can be stored at compile-time.
+      The generated value must also have size between 20 and 200 bytes.
+
+          plug Plug.RequestId, generator: &MyApp.custom_request_id/0
   """
 
   alias Plug.Conn
@@ -64,13 +70,14 @@ defmodule Plug.RequestId do
     {
       Keyword.get(opts, :http_header, "x-request-id"),
       Keyword.get(opts, :assign_as),
-      Keyword.get(opts, :logger_metadata_key, :request_id)
+      Keyword.get(opts, :logger_metadata_key, :request_id),
+      Keyword.get(opts, :generator, &__MODULE__.generate/0)
     }
   end
 
   @impl true
-  def call(conn, {header, assign_as, logger_metadata_key}) do
-    request_id = get_request_id(conn, header)
+  def call(conn, {header, assign_as, logger_metadata_key, generator}) do
+    request_id = get_request_id(conn, header, generator)
 
     Logger.metadata([{logger_metadata_key, request_id}])
     conn = if assign_as, do: Conn.assign(conn, assign_as, request_id), else: conn
@@ -78,14 +85,18 @@ defmodule Plug.RequestId do
     Conn.put_resp_header(conn, header, request_id)
   end
 
-  defp get_request_id(conn, header) do
+  defp get_request_id(conn, header, generator) do
     case Conn.get_req_header(conn, header) do
-      [] -> generate_request_id()
-      [val | _] -> if valid_request_id?(val), do: val, else: generate_request_id()
+      [val | _] when byte_size(val) in 20..200 -> val
+      _ -> generator.()
     end
   end
 
-  defp generate_request_id do
+  @doc """
+  Generates a random Base64 encoded request ID.
+  """
+  @spec generate :: binary()
+  def generate do
     binary = <<
       System.system_time(:nanosecond)::64,
       :erlang.phash2({node(), self()}, 16_777_216)::24,
@@ -94,6 +105,4 @@ defmodule Plug.RequestId do
 
     Base.url_encode64(binary)
   end
-
-  defp valid_request_id?(s), do: byte_size(s) in 20..200
 end

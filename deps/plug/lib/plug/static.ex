@@ -66,7 +66,7 @@ defmodule Plug.Static do
       that use etags. Defaults to `"public"`.
 
     * `:etag_generation` - specify a `{module, function, args}` to be used
-      to generate   an etag. The `path` of the resource will be passed to
+      to generate an etag. The `path` of the resource will be passed to
       the function, as well as the `args`. If this option is not supplied,
       etags will be generated based off of file size and modification time.
       Note it is [recommended for the etag value to be quoted](https://tools.ietf.org/html/rfc7232#section-2.3),
@@ -204,7 +204,7 @@ defmodule Plug.Static do
       :forbidden ->
         conn
 
-      status ->
+      :allowed ->
         segments = Enum.map(segments, &URI.decode/1)
 
         if invalid_path?(segments) do
@@ -215,17 +215,19 @@ defmodule Plug.Static do
         range = get_req_header(conn, "range")
 
         case file_encoding(conn, path, range, encodings) do
-          :error ->
-            conn
+          :error -> conn
+          triplet -> serve_static(triplet, conn, segments, range, options)
+        end
 
-          triplet ->
-            if status == :raise do
-              raise InvalidPathError,
-                    "static file exists but is not in the :only list: #{Enum.join(segments, "/")}. " <>
-                      "Add it to the :only list or use :only_matching for prefix matching"
-            end
+      :raise ->
+        segments = Enum.map(segments, &URI.decode/1)
 
-            serve_static(triplet, conn, segments, range, options)
+        if not invalid_path?(segments) and regular_file_info(path(from, segments)) do
+          raise InvalidPathError,
+                "static file exists but is not in the :only list: #{Enum.join(segments, "/")}. " <>
+                  "Add it to the :only list or use :only_matching for prefix matching"
+        else
+          conn
         end
     end
   end
@@ -284,9 +286,12 @@ defmodule Plug.Static do
     file_info(size: file_size) = file_info
 
     with %{"bytes" => bytes} <- Plug.Conn.Utils.params(range),
+         # 41 bytes covers two 64 bit byte offsets, enough to address files up to 16 EiB.
+         true <- byte_size(bytes) <= 41,
          {range_start, range_end} <- start_and_end(bytes, file_size) do
       send_range(conn, path, range_start, range_end, file_size, options)
     else
+      :unsatisfiable -> send_unsatisfiable_range(conn, file_size, options)
       _ -> send_entire_file(conn, path, options)
     end
   end
@@ -294,6 +299,8 @@ defmodule Plug.Static do
   defp serve_range(conn, _file_info, path, _range, options) do
     send_entire_file(conn, path, options)
   end
+
+  defp start_and_end(_range, 0), do: :error
 
   defp start_and_end("-" <> rest, file_size) do
     case Integer.parse(rest) do
@@ -304,14 +311,17 @@ defmodule Plug.Static do
 
   defp start_and_end(range, file_size) do
     case Integer.parse(range) do
-      {first, "-"} when first >= 0 ->
+      {first, "-"} when first >= 0 and first < file_size ->
         {first, file_size - 1}
 
-      {first, "-" <> rest} when first >= 0 ->
+      {first, "-" <> rest} when first >= 0 and first < file_size ->
         case Integer.parse(rest) do
           {last, ""} when last >= first -> {first, min(last, file_size - 1)}
           _ -> :error
         end
+
+      {first, "-" <> _} when first >= file_size ->
+        :unsatisfiable
 
       _ ->
         :error
@@ -328,6 +338,14 @@ defmodule Plug.Static do
     conn
     |> put_resp_header("content-range", "bytes #{range_start}-#{range_end}/#{file_size}")
     |> send_file(206, path, range_start, length)
+    |> halt()
+  end
+
+  defp send_unsatisfiable_range(conn, file_size, options) do
+    conn
+    |> maybe_add_vary(options)
+    |> put_resp_header("content-range", "bytes */#{file_size}")
+    |> send_resp(416, "")
     |> halt()
   end
 

@@ -138,7 +138,6 @@ defmodule Mosslet.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:dns_cluster, "~> 0.1.3"},
       {:db_connection, github: "elixir-ecto/db_connection", override: true},
-      {:earmark, "~> 1.4"},
       {:ecto_sql, "~> 3.12"},
       {:email_checker, "~> 0.2.4"},
       {:eqrcode, "~> 0.1.10"},

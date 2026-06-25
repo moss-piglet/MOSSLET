@@ -7,6 +7,18 @@
 # General application configuration
 import Config
 
+# Treat empty `STRIPE_PRICE_*` env vars as ABSENT so the committed placeholder
+# fallbacks below apply. CI (and any environment that references a secret that
+# was never set) passes such vars through as empty strings, and the
+# `System.get_env(name) || fallback` idiom does NOT catch `""` (it is truthy in
+# Elixir), which would otherwise collapse every price to "" and break billing
+# line-item tests. Only non-empty values (real Stripe IDs in prod) are kept.
+for {key, value} <- System.get_env(),
+    String.starts_with?(key, "STRIPE_PRICE_"),
+    value == "" do
+  System.delete_env(key)
+end
+
 config :mosslet,
   ecto_repos: [Mosslet.Repo],
   generators: [binary_id: true]
