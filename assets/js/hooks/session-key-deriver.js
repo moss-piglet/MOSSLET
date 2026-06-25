@@ -30,7 +30,10 @@
 import {
   decryptPrivateKey,
   decryptSecretboxToString,
+  encryptSecretboxString,
+  generateSigningKeyPair,
 } from "../crypto/nacl";
+import { buildGenesisEntry } from "../crypto/key_history";
 import { cacheKeys, getCachedKeys, clearKeyCache } from "../crypto/key_cache";
 import { TEMP_USER_KEY } from "./login-hook";
 
@@ -41,7 +44,14 @@ export const SK = {
   PRIVATE_KEY: "_mosslet_private_key",
   PQ_PUBLIC_KEY: "_mosslet_pq_public_key",
   PQ_PRIVATE_KEY: "_mosslet_pq_private_key",
+  SIGNING_PUBLIC_KEY: "_mosslet_signing_public_key",
+  SIGNING_PRIVATE_KEY: "_mosslet_signing_private_key",
 };
+
+// Per-session guard so the genesis leaf is pushed at most once per tab session.
+// Cross-session re-push is a harmless no-op (server append is idempotent on
+// (user_id, seq)), but this avoids the needless round-trip on every navigation.
+const KH_GENESIS_FLAG = "_mosslet_kh_genesis_pushed";
 
 /**
  * Validate that a trial decryption succeeds (keys aren't stale).
@@ -80,6 +90,7 @@ const SessionKeyDeriver = {
       const pk = await tryDecrypt(encryptedPrivateKey, existingUserKey);
       if (pk) {
         window.dispatchEvent(new CustomEvent("mosslet:keys-ready"));
+        void this._ensureSigningKeys(existingUserKey);
         return; // Keys are valid, nothing to do
       }
       // Stale keys (password changed?) — clear and re-derive
@@ -159,6 +170,82 @@ const SessionKeyDeriver = {
     }
     sessionStorage.removeItem("_mosslet_unlock_redirect");
     window.dispatchEvent(new CustomEvent("mosslet:keys-ready"));
+    void this._ensureSigningKeys(userKey);
+  },
+
+  /**
+   * Signed key history (#290 step 4 / #315): ensure the user has a hybrid PQ
+   * signing keypair available in-browser, then ensure their genesis leaf (seq 0)
+   * is recorded server-side.
+   *
+   *   - Existing keys (registration or a prior login generated them): decrypt the
+   *     signing secret under user_key and cache it in sessionStorage.
+   *   - No keys yet (legacy user): generate a Cat-5 signing keypair in-browser,
+   *     seal the secret under user_key, and push `store_signing_keys`. This is
+   *     the CLIENT-side progressive generation — signing MUST happen in the
+   *     browser, so it cannot mirror the server-side PQ keygen (#11).
+   *
+   * Either way, builds + pushes the genesis leaf once per session. Fully
+   * best-effort: any failure (WASM unavailable, missing enc keys) is logged and
+   * never blocks login/registration or any other feature.
+   */
+  async _ensureSigningKeys(userKey) {
+    if (!userKey) return;
+    const el = this.el;
+    const encX25519 = el.dataset.publicKey;
+    const encPq = el.dataset.pqPublicKey || null;
+    // The genesis leaf pins BOTH encryption public keys; without them we cannot
+    // build a byte-reproducible leaf, so defer (a later load with PQ keys will).
+    if (!encX25519 || !encPq) return;
+
+    let signingPublicKey = el.dataset.signingPublicKey || null;
+    const encryptedSigningPrivateKey = el.dataset.encryptedSigningPrivateKey || null;
+    let signingSecret = null;
+
+    try {
+      if (signingPublicKey && encryptedSigningPrivateKey) {
+        signingSecret = await decryptSecretboxToString(encryptedSigningPrivateKey, userKey);
+      } else {
+        const kp = await generateSigningKeyPair("cat5");
+        signingPublicKey = kp.publicKey;
+        signingSecret = kp.secretKey;
+        const sealed = await encryptSecretboxString(signingSecret, userKey);
+        this.pushEvent("store_signing_keys", {
+          signing_public_key: signingPublicKey,
+          encrypted_signing_private_key: sealed,
+        });
+      }
+    } catch (e) {
+      console.warn("SessionKeyDeriver: signing key setup failed (non-fatal):", e);
+      return;
+    }
+
+    if (!signingPublicKey || !signingSecret) return;
+
+    sessionStorage.setItem(SK.SIGNING_PUBLIC_KEY, signingPublicKey);
+    sessionStorage.setItem(SK.SIGNING_PRIVATE_KEY, signingSecret);
+
+    await this._ensureGenesis({ signingPublicKey, signingSecret, encX25519, encPq });
+  },
+
+  async _ensureGenesis({ signingPublicKey, signingSecret, encX25519, encPq }) {
+    if (sessionStorage.getItem(KH_GENESIS_FLAG) === signingPublicKey) return;
+    try {
+      const genesis = await buildGenesisEntry({
+        encX25519,
+        encPq,
+        signingPublicKey,
+        signingSecretKey: signingSecret,
+      });
+      this.pushEvent("append_key_history", {
+        seq: 0,
+        entry: JSON.stringify(genesis),
+        signing_public_key: signingPublicKey,
+      });
+      sessionStorage.setItem(KH_GENESIS_FLAG, signingPublicKey);
+    } catch (e) {
+      console.warn("SessionKeyDeriver: genesis build/push failed (non-fatal):", e);
+    }
   },
 
   /**

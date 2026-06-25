@@ -46,7 +46,7 @@
  * A recipient with no X25519 public key at all is skipped (not sealable by any
  * path regardless) and never treated as an attack.
  */
-import { verifyOrPin, PIN_STATUS } from "./pin_store";
+import { monitorPeerKey, PIN_STATUS } from "./pin_store";
 import { getPublicKey, getSealedUserKey } from "./session";
 
 const KEYS_READY_EVENT = "mosslet:keys-ready";
@@ -89,11 +89,12 @@ async function classify(recipient) {
   const peerPublicKey = recipient.public_key;
   const peerPqPublicKey = recipient.pq_public_key;
 
-  const verdict = await verifyOrPin({
+  const verdict = await monitorPeerKey({
     peerUserId,
     sealedPin: recipient.sealed_pin || null,
     peerPublicKey,
     peerPqPublicKey,
+    keyHistory: recipient.key_history || null,
   });
 
   switch (verdict.status) {

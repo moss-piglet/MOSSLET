@@ -1,5 +1,5 @@
 import { unsealContextKey, decryptWithKey, getPublicKey, unwrapKey } from "../crypto/session";
-import { verifyOrPin, PIN_STATUS, PEER_PIN_STATUS_EVENT } from "../crypto/pin_store";
+import { monitorPeerKey, PIN_STATUS, PEER_PIN_STATUS_EVENT } from "../crypto/pin_store";
 
 const DecryptConnectionCard = {
   async mounted() {
@@ -62,16 +62,21 @@ const DecryptConnectionCard = {
     const peerPqPublicKey = d.peerPqPublicKey;
     if (!peerUserId || !peerPublicKey || !peerPqPublicKey) return;
 
-    const guard = [peerUserId, peerPublicKey, peerPqPublicKey, d.sealedPeerPin || ""].join("|");
+    const guard = [peerUserId, peerPublicKey, peerPqPublicKey, d.sealedPeerPin || "", d.keyHistory || ""].join("|");
     if (this._pinnedFor === guard) return;
     this._pinnedFor = guard;
 
     try {
-      const result = await verifyOrPin({
+      // Signed key-history MONITOR (#315): when the peer has a chain, this
+      // chain-validates it against the pinned root signing key (legitimate
+      // rotation auto-accepts; substitution → MISMATCH alert). With no chain it
+      // transparently falls back to plain fingerprint TOFU (#293).
+      const result = await monitorPeerKey({
         peerUserId,
         sealedPin: d.sealedPeerPin || null,
         peerPublicKey,
         peerPqPublicKey,
+        keyHistory: d.keyHistory || null,
       });
 
       if (result && result.sealedPinToStore) {

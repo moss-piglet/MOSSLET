@@ -43,6 +43,7 @@ import {
   generateKeyPair,
   generateSalt,
   generateHybridKeyPair,
+  generateSigningKeyPair,
   deriveSessionKey,
   encryptSecretboxString,
   encryptPrivateKey,
@@ -131,6 +132,25 @@ const RegistrationHook = {
         const encryptedPrivateKeyBlob = await encryptPrivateKey(keypair.privateKey, userKey);
         const encryptedPqPrivateKeyBlob = await encryptPrivateKey(pqKeypair.secretKey, userKey);
 
+        // 5b. Generate the hybrid PQ SIGNING keypair (ML-DSA-87 + Ed25519, Cat-5)
+        // for the signed key history (#290 step 4 / #315). The signing secret is
+        // sealed under user_key exactly like the encryption private keys; the
+        // genesis leaf itself is built later in the progressive/login path
+        // (SessionKeyDeriver), so new + existing users share ONE genesis code
+        // path. Best-effort: a signing-keygen failure must never block signup.
+        let signingPublicKey = null;
+        let encryptedSigningPrivateKeyBlob = null;
+        try {
+          const signingKeypair = await generateSigningKeyPair("cat5");
+          signingPublicKey = signingKeypair.publicKey;
+          encryptedSigningPrivateKeyBlob = await encryptSecretboxString(
+            signingKeypair.secretKey,
+            userKey,
+          );
+        } catch (sigErr) {
+          console.warn("RegistrationHook: signing keypair generation failed (non-fatal):", sigErr);
+        }
+
         // 6. Seal user_attributes_key and conn_key to the user's public key (hybrid PQ)
         const encryptedUserAttributesKey = await sealForUser(
           b64Decode(userAttributesKey),
@@ -166,6 +186,17 @@ const RegistrationHook = {
         setHidden(form, "user[zk_encrypted_username]", encryptedUsernameUser);
         setHidden(form, "user[zk_c_encrypted_email]", encryptedEmailConn);
         setHidden(form, "user[zk_c_encrypted_username]", encryptedUsernameConn);
+
+        // Hybrid PQ signing keypair (#315) — server passthrough is already wired
+        // in User.extract_zk_params/1 + maybe_put_signing_keys/2.
+        if (signingPublicKey && encryptedSigningPrivateKeyBlob) {
+          setHidden(form, "user[zk_signing_public_key]", signingPublicKey);
+          setHidden(
+            form,
+            "user[zk_encrypted_signing_private_key]",
+            encryptedSigningPrivateKeyBlob,
+          );
+        }
       } catch (err) {
         // WASM not loaded or crypto failure — fall through to server-side path.
         // Clear any partial temp key to avoid confusion.

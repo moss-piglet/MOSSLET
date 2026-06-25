@@ -327,14 +327,50 @@ defmodule MossletWeb.Helpers do
       |> Enum.uniq()
 
     pins = Accounts.list_key_pins_for(viewer_id, peer_ids)
+    histories = key_histories_for(peer_ids)
 
     Enum.map(recipient_keys, fn recipient ->
       pid = recipient_user_id(recipient)
-      Map.put(recipient, :sealed_pin, Map.get(pins, pid))
+
+      recipient
+      |> Map.put(:sealed_pin, Map.get(pins, pid))
+      |> Map.put(:key_history, Map.get(histories, pid))
     end)
   end
 
   def hydrate_sealed_pins(recipient_keys, _viewer_id), do: recipient_keys
+
+  @doc """
+  Returns a peer's serialized signed key-history chain as a JSON array string
+  (EPIC #291 / #290 step 4 / #315), or `nil` when the peer has no history yet
+  (pre-signing-key users — the monitor then falls back to plain TOFU).
+
+  Each stored entry is already an opaque, byte-reproducible public leaf
+  (`mosslet/key-history/v1`, built + signed in the browser; see
+  `assets/js/crypto/key_history.js`). The server is a DUMB store: it concatenates
+  the ascending-by-seq leaves into a JSON array and never signs/verifies. The
+  browser monitor (`pin_store.js`) runs `parseHistory` → `verifyChain` against the
+  TOFU-pinned root signing key to distinguish a legitimate rotation from a server
+  key-substitution attack.
+  """
+  def key_history_for(peer_id) do
+    key_histories_for([to_string(peer_id)]) |> Map.get(to_string(peer_id))
+  end
+
+  # Batched (per-user) hydration of serialized key histories for the given peer
+  # ids. The per-user table stays small (#299), so a per-peer query is cheap.
+  # Returns a map of peer_id => JSON array string (only for peers that have at
+  # least one entry); peers with no history are omitted (=> nil downstream).
+  defp key_histories_for(peer_ids) when is_list(peer_ids) do
+    peer_ids
+    |> Enum.uniq()
+    |> Enum.reduce(%{}, fn pid, acc ->
+      case Accounts.list_key_history_entries(pid) do
+        [] -> acc
+        [_ | _] = entries -> Map.put(acc, to_string(pid), "[" <> Enum.join(entries, ",") <> "]")
+      end
+    end)
+  end
 
   @doc """
   Returns the viewer's sealed key-pin blob for a single peer, or `nil` (#294).

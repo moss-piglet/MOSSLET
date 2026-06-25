@@ -742,6 +742,11 @@ defmodule MossletWeb.ConnectionComponents do
     default: nil,
     doc: "Viewer-sealed TOFU pin of the peer fingerprint, or nil if not yet pinned"
 
+  attr :key_history, :string,
+    default: nil,
+    doc:
+      "Peer's serialized signed key-history chain (JSON array, #315), or nil — the monitor chain-validates it against the pinned root signing key"
+
   attr :color, :atom, required: true
   attr :avatar_src, :string, default: nil
   attr :encrypted_avatar_data, :map, default: nil, doc: "ZK encrypted avatar blob + sealed key"
@@ -784,6 +789,7 @@ defmodule MossletWeb.ConnectionComponents do
           data-peer-public-key={@peer_public_key}
           data-peer-pq-public-key={@peer_pq_public_key}
           data-sealed-peer-pin={@sealed_peer_pin}
+          data-key-history={@key_history}
           class="hidden"
         >
         </div>

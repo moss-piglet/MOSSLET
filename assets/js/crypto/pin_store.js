@@ -40,6 +40,12 @@ import {
   encryptWithKey,
   decryptWithKey,
 } from "./session";
+import {
+  parseHistory,
+  verifyChain,
+  headMatchesServedKeys,
+  CHAIN_STATUS,
+} from "./key_history";
 
 export const PIN_STATUS = {
   PINNED: "pinned", // newly pinned this encounter (TOFU)
@@ -71,15 +77,28 @@ export const PEER_PIN_STATUS_EVENT = "mosslet:peer-pin-status";
 //
 //   v1 = { v: 1, fingerprint: "<b64>", verified: bool, verified_at: "<iso>"|null }
 //
-// BACKWARD COMPAT: pins written before #295 sealed a bare fingerprint STRING.
-// decodePinRecord tolerates that (treats it as { fingerprint, verified: false }).
-const PIN_RECORD_VERSION = 1;
+// v2 (EPIC #291 / #290 step 4 — #315) ADDS signed-key-history monitoring fields:
+//
+//   v2 = { v: 2, fingerprint, verified, verified_at,
+//          root_signing_pub: "<b64>"|null,   // genesis signing key pinned at TOFU
+//          head_seq: <int>|null }            // last accepted chain head seq
+//
+// The root_signing_pub is the cryptographic anchor: once pinned at first
+// contact, EVERY later key the server serves must be reachable as a signed,
+// hash-chained rotation FROM that root. A valid chain to the served key is a
+// legitimate rotation (auto-accept, update head_seq); an invalid/forked chain or
+// a head that does not match the served key is a substitution attempt (MISMATCH
+// → #296 alert). head_seq lets us recognise forward progress vs. replay.
+//
+// BACKWARD COMPAT: decodePinRecord tolerates a v1 JSON record (root_signing_pub
+// /head_seq absent → null) and a legacy bare-fingerprint STRING (pre-#295).
+const PIN_RECORD_VERSION = 2;
 
 /**
  * Decode an unsealed pin payload into a normalized record.
- * Accepts a v1 JSON record or a legacy bare-fingerprint string.
+ * Accepts a v2/v1 JSON record or a legacy bare-fingerprint string.
  * @param {string} plaintext - unsealed pin payload
- * @returns {{fingerprint: string, verified: boolean, verifiedAt: string|null}|null}
+ * @returns {{fingerprint: string, verified: boolean, verifiedAt: string|null, rootSigningPub: string|null, headSeq: number|null}|null}
  */
 export function decodePinRecord(plaintext) {
   if (!plaintext || typeof plaintext !== "string") return null;
@@ -92,6 +111,9 @@ export function decodePinRecord(plaintext) {
           fingerprint: rec.fingerprint,
           verified: rec.verified === true,
           verifiedAt: typeof rec.verified_at === "string" ? rec.verified_at : null,
+          rootSigningPub:
+            typeof rec.root_signing_pub === "string" ? rec.root_signing_pub : null,
+          headSeq: Number.isSafeInteger(rec.head_seq) ? rec.head_seq : null,
         };
       }
     } catch {
@@ -99,20 +121,34 @@ export function decodePinRecord(plaintext) {
     }
   }
   // Legacy: the whole payload is the bare fingerprint.
-  return { fingerprint: plaintext, verified: false, verifiedAt: null };
+  return {
+    fingerprint: plaintext,
+    verified: false,
+    verifiedAt: null,
+    rootSigningPub: null,
+    headSeq: null,
+  };
 }
 
 /**
- * Encode a normalized pin record to the canonical v1 JSON payload (to be sealed).
- * @param {{fingerprint: string, verified?: boolean, verifiedAt?: string|null}} record
+ * Encode a normalized pin record to the canonical v2 JSON payload (to be sealed).
+ * @param {{fingerprint: string, verified?: boolean, verifiedAt?: string|null, rootSigningPub?: string|null, headSeq?: number|null}} record
  * @returns {string}
  */
-export function encodePinRecord({ fingerprint, verified = false, verifiedAt = null }) {
+export function encodePinRecord({
+  fingerprint,
+  verified = false,
+  verifiedAt = null,
+  rootSigningPub = null,
+  headSeq = null,
+}) {
   return JSON.stringify({
     v: PIN_RECORD_VERSION,
     fingerprint,
     verified: verified === true,
     verified_at: verified ? verifiedAt || new Date().toISOString() : null,
+    root_signing_pub: rootSigningPub || null,
+    head_seq: Number.isSafeInteger(headSeq) ? headSeq : null,
   });
 }
 
@@ -137,6 +173,8 @@ function recordStatus(peerUserId, status, fingerprint, extra = {}) {
     fingerprint: fingerprint || null,
     verified: extra.verified === true,
     verifiedAt: extra.verifiedAt || null,
+    rootSigningPub: extra.rootSigningPub || null,
+    headSeq: Number.isSafeInteger(extra.headSeq) ? extra.headSeq : null,
   };
   _statusByPeer.set(peerUserId, entry);
   if (peerUserId) {
@@ -266,6 +304,191 @@ export async function verifyOrPin({
   await putShadow(peerUserId, fingerprint);
   const entry = recordStatus(peerUserId, PIN_STATUS.PINNED, fingerprint);
   return { ...entry, sealedPinToStore };
+}
+
+/**
+ * MONITOR: chain-validate a peer's signed key history (#290 step 4 / #315) and
+ * derive a trust verdict — the real security win over plain TOFU.
+ *
+ * Given the peer's served encryption keys AND their serialized key-history chain
+ * (hydrated server-side; see `MossletWeb.Helpers.hydrate_sealed_pins/2`), this:
+ *
+ *   - No history available  -> falls back to plain fingerprint TOFU
+ *     (`verifyOrPin`), so every existing #293/#295/#302 path keeps working.
+ *   - First contact + valid chain to served keys -> TOFU-PIN the genesis ROOT
+ *     signing key (+ head_seq). Status PINNED (caller persists the v2 pin).
+ *   - Existing v2 pin -> `verifyChain(entries, pinnedRootSigningPub)`:
+ *       VALID && head == served keys -> LEGITIMATE ROTATION: auto-accept,
+ *         update tracked fingerprint + head_seq, keep the pinned root, status
+ *         MATCH, NO alarm (reseals the pin only when something changed).
+ *       INVALID / ROOT_MISMATCH / head != served -> SUBSTITUTION: status
+ *         MISMATCH, which fires PEER_KEY_CHANGED_EVENT for the #296 alert UI.
+ *   - Pre-#315 (v1/legacy) pin + history now present -> opportunistically
+ *     upgrade to a v2 pin (adopt the root) IFF the served key matches the
+ *     already-trusted fingerprint; a differing fingerprint stays a #293 mismatch.
+ *
+ * The verdict is computed entirely client-side; the server is never trusted to
+ * report it. Returns the same shape as `verifyOrPin` (+ `sealedPinToStore` when
+ * a new/updated v2 pin should be persisted).
+ *
+ * @param {Object} args
+ * @param {string} args.peerUserId
+ * @param {string|null} args.sealedPin
+ * @param {string} args.peerPublicKey - served X25519 pubkey (base64)
+ * @param {string} args.peerPqPublicKey - served ML-KEM pubkey (base64)
+ * @param {string|Object[]|null} args.keyHistory - serialized chain (JSON array)
+ * @returns {Promise<{status: string, fingerprint: string|null, sealedPinToStore?: string}>}
+ */
+export async function monitorPeerKey({
+  peerUserId,
+  sealedPin,
+  peerPublicKey,
+  peerPqPublicKey,
+  keyHistory,
+}) {
+  const entries = parseHistory(keyHistory);
+  if (entries.length === 0) {
+    // No signed history → preserve plain TOFU exactly (additive, never a
+    // regression for peers who have not generated signing keys yet).
+    return verifyOrPin({ peerUserId, sealedPin, peerPublicKey, peerPqPublicKey });
+  }
+
+  if (!peerUserId || !peerPublicKey || !peerPqPublicKey) {
+    return recordStatus(peerUserId, PIN_STATUS.UNAVAILABLE, null);
+  }
+
+  let fingerprint;
+  try {
+    fingerprint = await computeFingerprint(peerPublicKey, peerPqPublicKey);
+  } catch (e) {
+    console.error("pin_store: fingerprint compute failed:", e);
+    return recordStatus(peerUserId, PIN_STATUS.ERROR, null);
+  }
+
+  const userKey = await getUserKey(getSealedUserKey());
+  if (!userKey) {
+    return recordStatus(peerUserId, PIN_STATUS.UNAVAILABLE, fingerprint);
+  }
+
+  let record = null;
+  if (sealedPin) {
+    let plaintext;
+    try {
+      plaintext = await decryptWithKey(sealedPin, userKey);
+    } catch (e) {
+      console.error("pin_store: pin unseal failed:", e);
+      return recordStatus(peerUserId, PIN_STATUS.ERROR, fingerprint);
+    }
+    record = plaintext ? decodePinRecord(plaintext) : null;
+  }
+
+  // --- Existing v2 pin with a pinned root: full chain monitoring ----------
+  if (record && record.rootSigningPub) {
+    const chain = await verifyChain(entries, record.rootSigningPub);
+    if (chain.valid && headMatchesServedKeys(chain.headEntry, peerPublicKey, peerPqPublicKey)) {
+      const headSeq = chain.headEntry.seq;
+      const changed = record.fingerprint !== fingerprint || record.headSeq !== headSeq;
+      await putShadow(peerUserId, fingerprint);
+      const entry = recordStatus(peerUserId, PIN_STATUS.MATCH, fingerprint, {
+        verified: record.verified,
+        verifiedAt: record.verifiedAt,
+        rootSigningPub: record.rootSigningPub,
+        headSeq,
+      });
+      if (changed) {
+        const resealed = await tryReseal(userKey, {
+          fingerprint,
+          verified: record.verified,
+          verifiedAt: record.verifiedAt,
+          rootSigningPub: record.rootSigningPub,
+          headSeq,
+        });
+        if (resealed) return { ...entry, sealedPinToStore: resealed };
+      }
+      return entry;
+    }
+    // Invalid chain / root mismatch / head != served key => substitution.
+    return recordStatus(peerUserId, PIN_STATUS.MISMATCH, fingerprint, {
+      rootSigningPub: record.rootSigningPub,
+      headSeq: record.headSeq,
+    });
+  }
+
+  // --- First contact OR upgrading a pre-#315 (v1/legacy) pin --------------
+  // Validate the chain INTERNALLY and confirm it leads to the served keys
+  // before trusting/pinning the root.
+  const chain = await verifyChain(entries, null);
+  const leadsToServed =
+    chain.valid && headMatchesServedKeys(chain.headEntry, peerPublicKey, peerPqPublicKey);
+
+  if (!leadsToServed) {
+    if (record) {
+      return record.fingerprint === fingerprint
+        ? recordStatus(peerUserId, PIN_STATUS.MATCH, fingerprint, {
+            verified: record.verified,
+            verifiedAt: record.verifiedAt,
+          })
+        : recordStatus(peerUserId, PIN_STATUS.MISMATCH, fingerprint);
+    }
+    return verifyOrPin({ peerUserId, sealedPin, peerPublicKey, peerPqPublicKey });
+  }
+
+  const rootSigningPub = entries[0].sign_pub;
+  const headSeq = chain.headEntry.seq;
+  const shadow = await getShadow(peerUserId);
+
+  if (record) {
+    // Upgrade a v1/legacy pin only if the served key matches what we trusted.
+    if (record.fingerprint !== fingerprint || (shadow && shadow !== fingerprint)) {
+      return recordStatus(peerUserId, PIN_STATUS.MISMATCH, fingerprint);
+    }
+    await putShadow(peerUserId, fingerprint);
+    const entry = recordStatus(peerUserId, PIN_STATUS.MATCH, fingerprint, {
+      verified: record.verified,
+      verifiedAt: record.verifiedAt,
+      rootSigningPub,
+      headSeq,
+    });
+    const resealed = await tryReseal(userKey, {
+      fingerprint,
+      verified: record.verified,
+      verifiedAt: record.verifiedAt,
+      rootSigningPub,
+      headSeq,
+    });
+    return resealed ? { ...entry, sealedPinToStore: resealed } : entry;
+  }
+
+  // True first contact with a valid chain: TOFU-pin the genesis root + head.
+  if (shadow && shadow !== fingerprint) {
+    return recordStatus(peerUserId, PIN_STATUS.MISMATCH, fingerprint);
+  }
+  const sealedPinToStore = await tryReseal(userKey, {
+    fingerprint,
+    verified: false,
+    rootSigningPub,
+    headSeq,
+  });
+  if (!sealedPinToStore) {
+    return recordStatus(peerUserId, PIN_STATUS.ERROR, fingerprint);
+  }
+  await putShadow(peerUserId, fingerprint);
+  const entry = recordStatus(peerUserId, PIN_STATUS.PINNED, fingerprint, {
+    rootSigningPub,
+    headSeq,
+  });
+  return { ...entry, sealedPinToStore };
+}
+
+// Seal a v2 pin record under the viewer's user_key; null on failure.
+async function tryReseal(userKey, record) {
+  try {
+    const sealed = await encryptWithKey(encodePinRecord(record), userKey);
+    return sealed || null;
+  } catch (e) {
+    console.error("pin_store: pin reseal failed:", e);
+    return null;
+  }
 }
 
 /**

@@ -555,6 +555,88 @@ defmodule MossletWeb.UserConnectionLiveTest do
     })
   end
 
+  describe "Signed key history — global write handlers (#315)" do
+    setup [:create_users_with_connection]
+
+    test "store_signing_keys persists the signing keypair for the current user", %{
+      conn: conn,
+      user: user,
+      key: key
+    } do
+      {:ok, lv, _html} =
+        conn
+        |> log_in_user(user, key)
+        |> live(~p"/app/users/connections")
+
+      assert is_nil(Accounts.get_user!(user.id).signing_public_key)
+
+      signing_pub = Base.encode64(:crypto.strong_rand_bytes(64))
+      sealed_secret = Base.encode64(:crypto.strong_rand_bytes(128))
+
+      render_hook(lv, "store_signing_keys", %{
+        "signing_public_key" => signing_pub,
+        "encrypted_signing_private_key" => sealed_secret
+      })
+
+      reloaded = Accounts.get_user!(user.id)
+      assert reloaded.signing_public_key == signing_pub
+      assert reloaded.encrypted_signing_private_key == sealed_secret
+    end
+
+    test "append_key_history is append-only — a duplicate seq is a no-op", %{
+      conn: conn,
+      user: user,
+      key: key
+    } do
+      {:ok, lv, _html} =
+        conn
+        |> log_in_user(user, key)
+        |> live(~p"/app/users/connections")
+
+      assert Accounts.list_key_history_entries(user.id) == []
+
+      signing_pub = Base.encode64(:crypto.strong_rand_bytes(64))
+      genesis = ~s({"v":1,"seq":0,"sign_pub":"#{signing_pub}","entry_hash":"abc"})
+      dup = ~s({"v":1,"seq":0,"sign_pub":"#{signing_pub}","entry_hash":"DIFFERENT"})
+
+      render_hook(lv, "append_key_history", %{
+        "seq" => 0,
+        "entry" => genesis,
+        "signing_public_key" => signing_pub
+      })
+
+      # Same seq, different bytes: must be dropped (first-write-wins).
+      render_hook(lv, "append_key_history", %{
+        "seq" => 0,
+        "entry" => dup,
+        "signing_public_key" => signing_pub
+      })
+
+      assert Accounts.list_key_history_entries(user.id) == [genesis]
+    end
+
+    test "append_key_history serves entries ascending by seq", %{
+      conn: conn,
+      user: user,
+      key: key
+    } do
+      {:ok, lv, _html} =
+        conn
+        |> log_in_user(user, key)
+        |> live(~p"/app/users/connections")
+
+      signing_pub = Base.encode64(:crypto.strong_rand_bytes(64))
+      genesis = ~s({"v":1,"seq":0,"sign_pub":"#{signing_pub}"})
+      rotation = ~s({"v":1,"seq":1,"sign_pub":"#{signing_pub}"})
+
+      # Push out of order; the store + serve order must still be ascending.
+      render_hook(lv, "append_key_history", %{"seq" => 1, "entry" => rotation})
+      render_hook(lv, "append_key_history", %{"seq" => 0, "entry" => genesis})
+
+      assert Accounts.list_key_history_entries(user.id) == [genesis, rotation]
+    end
+  end
+
   defp get_key(user, password) do
     case Accounts.User.valid_key_hash?(user, password) do
       {:ok, key} -> key

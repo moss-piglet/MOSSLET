@@ -1638,6 +1638,16 @@ defmodule MossletWeb.UserConnectionLive.Index do
 
   defp peer_sealed_pin(_connection, _key_pins), do: nil
 
+  # The peer's serialized signed key-history chain (JSON array, #315), or nil.
+  # The DecryptConnectionCard monitor chain-validates it against the pinned root
+  # signing key to distinguish a legitimate rotation from a key substitution.
+  defp peer_key_history(connection) do
+    case peer_user_id(connection) do
+      nil -> nil
+      pid -> MossletWeb.Helpers.key_history_for(pid)
+    end
+  end
+
   # Status helper functions moved to MossletWeb.Helpers.StatusHelpers
 
   # Status message functions have been moved to MossletWeb.Helpers.StatusHelpers

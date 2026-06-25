@@ -351,6 +351,7 @@
                 peer_public_key={peer_public_key(connection)}
                 peer_pq_public_key={peer_pq_public_key(connection)}
                 sealed_peer_pin={peer_sealed_pin(connection, @key_pins)}
+                key_history={peer_key_history(connection)}
                 color={connection.color}
                 encrypted_avatar_data={get_encrypted_avatar_data(connection, @key)}
                 connected_at={connection.confirmed_at}
