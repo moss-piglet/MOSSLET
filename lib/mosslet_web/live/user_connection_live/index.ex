@@ -164,6 +164,14 @@ defmodule MossletWeb.UserConnectionLive.Index do
       Accounts.get_user_visibility_groups_with_connections(current_user)
       |> validate_and_clean_visibility_groups(connections, current_user, key)
 
+    # Warm the ETS avatar cache for every on-screen connection so the ZK
+    # `DecryptAvatar` hook has an encrypted blob to decrypt. Display
+    # (`get_encrypted_avatar_data/2`) is read-only and never fetches, so this is
+    # the single place that populates the cache for the connections grid. Cache
+    # hits and avatar-less connections short-circuit (no task, no re-stream);
+    # each cold fetch re-streams just that card via the callback below.
+    ensure_connection_avatars_cached(connections, current_user, key)
+
     socket =
       socket
       |> assign(arrivals_options: arrivals_options)
@@ -473,6 +481,16 @@ defmodule MossletWeb.UserConnectionLive.Index do
       {:noreply, socket |> push_patch(to: socket.assigns.return_to)}
     else
       {:noreply, socket}
+    end
+  end
+
+  # A cold connection avatar finished caching in ETS — re-stream just that card
+  # so it re-renders in ZK mode with the now-available encrypted blob.
+  @impl true
+  def handle_info({_ref, {"get_user_avatar", :connection, uconn_id}}, socket) do
+    case Accounts.get_user_connection(uconn_id) do
+      nil -> {:noreply, socket}
+      uconn -> {:noreply, stream_insert(socket, :user_connections, uconn)}
     end
   end
 
@@ -1637,6 +1655,22 @@ defmodule MossletWeb.UserConnectionLive.Index do
   end
 
   defp peer_sealed_pin(_connection, _key_pins), do: nil
+
+  # Triggers async fetch of each connection's ENCRYPTED avatar blob into the
+  # shared ETS cache (the image is never decrypted server-side — only the
+  # storage path is). `filter_user_connections/2` preloads `:reverse_user` but
+  # not `:user`, and `ensure_avatar_cached/3` needs the conn owner (== the
+  # current user, since the query scopes `user_id` to them) to unseal the
+  # storage path, so we set it explicitly rather than pay for an extra preload.
+  defp ensure_connection_avatars_cached(connections, current_user, key) do
+    Enum.each(connections, fn uconn ->
+      ensure_avatar_cached(
+        %{uconn | user: current_user},
+        key,
+        {"get_user_avatar", :connection, uconn.id}
+      )
+    end)
+  end
 
   # The peer's serialized signed key-history chain (JSON array, #315), or nil.
   # The DecryptConnectionCard monitor chain-validates it against the pinned root
