@@ -463,6 +463,17 @@ defmodule MossletWeb.ConversationLive.Index do
     if connected?(socket) do
       Conversations.subscribe_to_user(current_user.id)
       Accounts.block_subscribe(current_user)
+
+      # Warm the ETS avatar cache for every DM partner so the ZK `DecryptAvatar`
+      # hook has an encrypted blob to decrypt. `get_encrypted_conv_avatar/2` is
+      # read-only and never fetches, so this is the only place that populates the
+      # cache for the conversations list; each cold fetch re-renders the list via
+      # the `handle_info` callback below.
+      ensure_conversation_avatars_cached(
+        conversations,
+        current_user,
+        socket.assigns.current_scope.key
+      )
     end
 
     archived_conversations = Conversations.list_archived_conversations(current_user)
@@ -770,8 +781,36 @@ defmodule MossletWeb.ConversationLive.Index do
     {:noreply, refresh_conversations(socket)}
   end
 
+  # A cold DM-partner avatar finished caching in ETS — force the conversations
+  # list to re-render (new list reference, no DB round-trip) so
+  # `get_encrypted_conv_avatar/2` picks up the now-available encrypted blob.
+  def handle_info({_ref, {"get_user_avatar", :connection, _uconn_id}}, socket) do
+    {:noreply, update(socket, :conversations, &Enum.map(&1, fn conv -> conv end))}
+  end
+
   def handle_info(_msg, socket) do
     {:noreply, socket}
+  end
+
+  # Triggers async fetch of each DM partner's ENCRYPTED avatar blob into the
+  # shared ETS cache (the image is never decrypted server-side — only the storage
+  # path is). We set `:user` to the current user explicitly because the conn
+  # owner (== current user, who owns the sealed storage path) may not be
+  # preloaded on `conv.user_connection`, mirroring the connections index fix.
+  defp ensure_conversation_avatars_cached(conversations, current_user, key) do
+    Enum.each(conversations, fn conv ->
+      case conv.user_connection do
+        nil ->
+          :ok
+
+        uconn ->
+          ensure_avatar_cached(
+            %{uconn | user: current_user},
+            key,
+            {"get_user_avatar", :connection, uconn.id}
+          )
+      end
+    end)
   end
 
   defp get_name(conv, scope) do

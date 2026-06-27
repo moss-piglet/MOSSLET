@@ -789,6 +789,18 @@ defmodule MossletWeb.ConversationLive.Show do
         Conversations.subscribe_to_conversation(conversation_id)
         Conversations.mark_conversation_read(conversation_id, current_user.id)
         Accounts.block_subscribe(current_user)
+
+        # Warm the ETS avatar cache for the DM partner so the ZK `DecryptAvatar`
+        # hook has an encrypted blob to decrypt. `get_encrypted_avatar_data/2` is
+        # read-only and never fetches; the `handle_info` callback below re-renders
+        # the header/messages once the cold blob lands.
+        if my_user_connection do
+          ensure_avatar_cached(
+            %{my_user_connection | user: current_user},
+            key,
+            {"get_user_avatar", :connection, my_user_connection.id}
+          )
+        end
       end
 
       {:ok,
@@ -1400,6 +1412,24 @@ defmodule MossletWeb.ConversationLive.Show do
     user_id = socket.assigns.current_scope.user.id
     Conversations.broadcast_typing(conversation_id, user_id, false)
     {:noreply, assign(socket, :typing_timer, nil)}
+  end
+
+  # The cold DM-partner avatar finished caching in ETS — recompute the encrypted
+  # avatar assign (now a cache hit) so the header and partner messages re-render.
+  def handle_info({_ref, {"get_user_avatar", :connection, _uconn_id}}, socket) do
+    current_user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    avatar =
+      case Accounts.get_user_connection_between_users(
+             current_user.id,
+             socket.assigns.partner_user_id
+           ) do
+        nil -> socket.assigns.partner_encrypted_avatar
+        uconn -> get_encrypted_avatar_data(uconn, key)
+      end
+
+    {:noreply, assign(socket, :partner_encrypted_avatar, avatar)}
   end
 
   def handle_info(_msg, socket) do

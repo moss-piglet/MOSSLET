@@ -21,6 +21,8 @@ defmodule MossletWeb.UserDashLive do
   use MossletWeb, :live_view
 
   alias Mosslet.Accounts
+  alias Mosslet.Conversations
+  alias Mosslet.GroupMessages
   alias Mosslet.Groups
   alias Mosslet.Journal
   alias Mosslet.Orgs
@@ -40,6 +42,17 @@ defmodule MossletWeb.UserDashLive do
       Groups.private_subscribe(current_user)
       Timeline.private_subscribe(current_user)
       Timeline.connections_subscribe(current_user)
+
+      # Surface unread DMs + circle @mentions on the dashboard pulse. Subscribe to
+      # the viewer's conversation topic (new/read DMs) and to each confirmed
+      # circle's `group:` topic (new mentions or reads elsewhere), mirroring the
+      # mention indicator (Task #281). Any of these refreshes the cheap COUNT
+      # stats via `handle_info/2`. ZK-safe: payloads carry only UUIDs.
+      Conversations.subscribe_to_user(current_user.id)
+
+      Enum.each(confirmed_user_group_ids(current_user), fn {_ug_id, group_id} ->
+        Phoenix.PubSub.subscribe(Mosslet.PubSub, "group:#{group_id}")
+      end)
     end
 
     socket =
@@ -120,6 +133,7 @@ defmodule MossletWeb.UserDashLive do
 
   defp assign_dashboard_stats(socket) do
     user = socket.assigns.current_scope.user
+    user_group_ids = confirmed_user_group_ids(user) |> Enum.map(&elem(&1, 0))
 
     stats = %{
       connections: length(Accounts.get_all_confirmed_user_connections(user.id)),
@@ -128,10 +142,22 @@ defmodule MossletWeb.UserDashLive do
       pending_circles: length(Groups.list_unconfirmed_groups(user)),
       timeline_total: Timeline.count_home_timeline(user),
       timeline_unread: Timeline.count_unread_home_timeline(user),
-      journal_entries: Journal.count_entries(user)
+      journal_entries: Journal.count_entries(user),
+      unread_dms: Conversations.count_unread_messages(user.id),
+      unread_mentions: GroupMessages.count_unread_mentions(user_group_ids)
     }
 
     assign(socket, :stats, stats)
+  end
+
+  # The viewer's CONFIRMED circle memberships as `{user_group_id, group_id}`
+  # tuples — used both to subscribe to each circle's realtime topic and to count
+  # unread @mentions. Server-authoritative; carries no ciphertext.
+  defp confirmed_user_group_ids(user) do
+    user
+    |> Groups.list_user_groups_for_user()
+    |> Enum.filter(& &1.confirmed_at)
+    |> Enum.map(&{&1.id, &1.group_id})
   end
 
   defp assign_org_spaces(socket) do
@@ -246,7 +272,10 @@ defmodule MossletWeb.UserDashLive do
       <.liquid_container class="py-10 space-y-10">
         <%!-- Smart nudges --%>
         <div
-          :if={@stats.pending_connections > 0 || @stats.pending_circles > 0}
+          :if={
+            @stats.pending_connections > 0 || @stats.pending_circles > 0 ||
+              @stats.unread_dms > 0 || @stats.unread_mentions > 0
+          }
           class="grid gap-4 sm:grid-cols-2"
         >
           <.link
@@ -294,6 +323,54 @@ defmodule MossletWeb.UserDashLive do
             <.phx_icon
               name="hero-chevron-right"
               class="size-5 text-violet-500 transition-transform duration-300 group-hover:translate-x-0.5"
+            />
+          </.link>
+
+          <%!-- Unread DMs --%>
+          <.link
+            :if={@stats.unread_dms > 0}
+            navigate={~p"/app/conversations"}
+            id="nudge-unread-dms"
+            class="group flex items-center gap-4 rounded-2xl border border-teal-200/70 dark:border-teal-800/50 bg-gradient-to-br from-teal-50 to-emerald-50 dark:from-teal-950/40 dark:to-emerald-950/30 p-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-teal-500/10"
+          >
+            <div class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-400 to-emerald-500 shadow-md shadow-teal-500/30">
+              <.phx_icon name="hero-chat-bubble-left-right" class="size-5 text-white" />
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-semibold text-teal-900 dark:text-teal-100">
+                {pluralize(@stats.unread_dms, "unread message", "unread messages")}
+              </p>
+              <p class="text-xs text-teal-700/80 dark:text-teal-300/70">
+                Tap to open your conversations
+              </p>
+            </div>
+            <.phx_icon
+              name="hero-chevron-right"
+              class="size-5 text-teal-500 transition-transform duration-300 group-hover:translate-x-0.5"
+            />
+          </.link>
+
+          <%!-- Unread @mentions across circles --%>
+          <.link
+            :if={@stats.unread_mentions > 0}
+            navigate={~p"/app/circles"}
+            id="nudge-unread-mentions"
+            class="group flex items-center gap-4 rounded-2xl border border-indigo-200/70 dark:border-indigo-800/50 bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-950/40 dark:to-violet-950/30 p-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/10"
+          >
+            <div class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-400 to-violet-500 shadow-md shadow-indigo-500/30">
+              <.phx_icon name="hero-at-symbol" class="size-5 text-white" />
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-semibold text-indigo-900 dark:text-indigo-100">
+                {pluralize(@stats.unread_mentions, "new mention", "new mentions")}
+              </p>
+              <p class="text-xs text-indigo-700/80 dark:text-indigo-300/70">
+                Someone tagged you in a circle
+              </p>
+            </div>
+            <.phx_icon
+              name="hero-chevron-right"
+              class="size-5 text-indigo-500 transition-transform duration-300 group-hover:translate-x-0.5"
             />
           </.link>
         </div>

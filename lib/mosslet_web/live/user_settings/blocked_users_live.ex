@@ -8,27 +8,35 @@ defmodule MossletWeb.BlockedUsersLive do
   alias MossletWeb.DesignSystem
 
   def mount(_params, _session, socket) do
+    blocked_users =
+      list_blocked_users_with_details(
+        socket.assigns.current_scope.user,
+        socket.assigns.current_scope.key
+      )
+
     {:ok,
-     assign(socket,
+     socket
+     |> maybe_warm_blocked_avatars(blocked_users)
+     |> assign(
        page_title: "Settings",
-       blocked_users:
-         list_blocked_users_with_details(
-           socket.assigns.current_scope.user,
-           socket.assigns.current_scope.key
-         ),
+       blocked_users: blocked_users,
        show_blocked_users: false
      )}
   end
 
   def handle_params(_params, _url, socket) do
+    blocked_users =
+      list_blocked_users_with_details(
+        socket.assigns.current_scope.user,
+        socket.assigns.current_scope.key
+      )
+
     {:noreply,
-     assign(socket,
+     socket
+     |> maybe_warm_blocked_avatars(blocked_users)
+     |> assign(
        page_title: "Settings",
-       blocked_users:
-         list_blocked_users_with_details(
-           socket.assigns.current_scope.user,
-           socket.assigns.current_scope.key
-         ),
+       blocked_users: blocked_users,
        show_blocked_users: false
      )}
   end
@@ -408,6 +416,44 @@ defmodule MossletWeb.BlockedUsersLive do
          socket
          |> put_flash(:error, "Unable to unblock user. Please try again.")}
     end
+  end
+
+  # A cold blocked-user avatar finished caching in ETS — force the list to
+  # re-render (new list reference, no DB round-trip) so the read path picks up
+  # the now-available encrypted blob.
+  def handle_info({_ref, {"get_user_avatar", :connection, _uconn_id}}, socket) do
+    {:noreply, update(socket, :blocked_users, &Enum.map(&1, fn bu -> bu end))}
+  end
+
+  def handle_info(_message, socket) do
+    {:noreply, socket}
+  end
+
+  # Warms the ETS avatar cache for each blocked user that still has a personal
+  # connection, so the ZK `DecryptAvatar` read path has a blob to decrypt. Only
+  # runs on the connected mount/params. `:user` is set to the current user (conn
+  # owner) since `get_user_connection_between_users/2` doesn't preload it.
+  defp maybe_warm_blocked_avatars(socket, blocked_users) do
+    if connected?(socket) do
+      current_user = socket.assigns.current_scope.user
+      key = socket.assigns.current_scope.key
+
+      Enum.each(blocked_users, fn blocked_user ->
+        case blocked_user.user_connection do
+          %Accounts.UserConnection{} = uconn ->
+            ensure_avatar_cached(
+              %{uconn | user: current_user},
+              key,
+              {"get_user_avatar", :connection, uconn.id}
+            )
+
+          _ ->
+            :ok
+        end
+      end)
+    end
+
+    socket
   end
 
   # Returns blocked users with encrypted data for browser-side ZK decryption.

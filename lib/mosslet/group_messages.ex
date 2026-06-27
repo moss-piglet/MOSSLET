@@ -232,6 +232,24 @@ defmodule Mosslet.GroupMessages do
   end
 
   @doc """
+  Total number of unread @mentions across the given `user_group_ids`
+  (server-authoritative, ZK-safe — derived only from mention UUIDs the server
+  already holds). Returns an integer. Used by the personal dashboard pulse.
+  """
+  def count_unread_mentions(user_group_ids) when is_list(user_group_ids) do
+    if user_group_ids == [] do
+      0
+    else
+      from(m in GroupMessageMention,
+        where: m.mentioned_user_group_id in ^user_group_ids,
+        where: is_nil(m.read_at),
+        select: count(m.id)
+      )
+      |> Repo.one() || 0
+    end
+  end
+
+  @doc """
   Marks all mentions as read for a user_group in a specific group.
   Called when user views the circle chat.
 

@@ -57,6 +57,19 @@ defmodule MossletWeb.EditStatusLive do
     # Subscribe to user's own status updates to refresh the sidebar avatar
     if connected?(socket) do
       Accounts.subscribe_user_status(user)
+
+      # Warm the ETS avatar cache for every listed connection so the ZK
+      # `DecryptAvatar` hook has a blob to decrypt. Display is read-only and never
+      # fetches; the `handle_info` callback below re-renders once a cold blob
+      # lands. `:user` is set to the conn owner (current user) — not preloaded by
+      # `filter_user_connections/2` — to unseal the storage path.
+      Enum.each(user_connections, fn uconn ->
+        ensure_avatar_cached(
+          %{uconn | user: user},
+          key,
+          {"get_user_avatar", :connection, uconn.id}
+        )
+      end)
     end
 
     {:ok,
@@ -799,11 +812,16 @@ defmodule MossletWeb.EditStatusLive do
     end
   end
 
+  # A cold connection avatar finished caching in ETS — force the connections list
+  # to re-render (new list reference, no DB round-trip) so the read path picks up
+  # the now-available encrypted blob.
+  def handle_info({_ref, {"get_user_avatar", :connection, _uconn_id}}, socket) do
+    {:noreply, update(socket, :user_connections, &Enum.map(&1, fn uconn -> uconn end))}
+  end
+
   def handle_info(_message, socket) do
     {:noreply, socket}
   end
-
-  # Event handlers
 
   def handle_event("toggle_auto_status_explanation", _params, socket) do
     current_state = socket.assigns.show_auto_status_explanation

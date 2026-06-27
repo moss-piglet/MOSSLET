@@ -81,6 +81,19 @@ defmodule MossletWeb.UserConnectionLive.Show do
 
     key = socket.assigns.current_scope.key
 
+    # Warm the ETS avatar cache for the peer connection so the ZK `DecryptAvatar`
+    # hook (via get_encrypted_avatar_data in the components) has a blob to
+    # decrypt. Display is read-only and never fetches; the `handle_info` callback
+    # below re-renders once the cold blob lands. `:user` is set explicitly to the
+    # conn owner (current user) which `get_user_connection!/1` doesn't preload.
+    if connected?(socket) do
+      ensure_avatar_cached(
+        %{user_connection | user: current_user},
+        key,
+        {"get_user_avatar", :connection, user_connection.id}
+      )
+    end
+
     profile_fields =
       if user_connection.connection && user_connection.connection.profile do
         decrypt_profile_fields(
@@ -389,6 +402,13 @@ defmodule MossletWeb.UserConnectionLive.Show do
       true ->
         {:noreply, socket}
     end
+  end
+
+  def handle_info({_ref, {"get_user_avatar", :connection, _uconn_id}}, socket) do
+    # The cold peer avatar finished caching in ETS — re-fetch the user_connection
+    # (new struct reference) so the profile header re-renders with the blob.
+    uconn = Accounts.get_user_connection!(socket.assigns.user_connection.id)
+    {:noreply, assign(socket, :user_connection, uconn)}
   end
 
   def handle_info({_ref, {"get_user_avatar", user_id}}, socket) do
