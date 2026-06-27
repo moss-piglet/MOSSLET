@@ -146,7 +146,7 @@ defmodule MossletWeb.UserHomeLive do
     socket =
       if connected?(socket) do
         socket
-        |> maybe_fetch_website_preview(profile_user, current_user, profile_owner?)
+        |> maybe_fetch_website_preview(profile_user, current_user, user_connection)
         |> load_profile_posts(profile_user, current_user, user_connection)
       else
         socket
@@ -2610,64 +2610,77 @@ defmodule MossletWeb.UserHomeLive do
   end
 
   defp get_profile_key_for_preview(socket) do
-    profile_user = socket.assigns.profile_user
+    profile = socket.assigns.profile_user.connection.profile
     current_user = socket.assigns.current_scope.user
     session_key = socket.assigns.current_scope.key
-    encrypted_profile_key = profile_user.connection.profile.profile_key
+    user_connection = socket.assigns.user_connection
 
-    if encrypted_profile_key && profile_user.visibility != :public do
-      {:ok, key} =
-        URLPreviewHelpers.get_private_profile_key(
-          encrypted_profile_key,
-          current_user,
-          session_key
-        )
+    # Resolve the same raw profile key used in `maybe_fetch_website_preview/4`
+    # so the cached preview/image decrypts for every viewer (owner, connection,
+    # public). Returns nil when the key cannot be unsealed.
+    case socket.assigns.profile.access do
+      :own ->
+        unseal_private_profile_key(profile.profile_key, current_user, session_key)
 
-      key
-    else
-      URLPreviewHelpers.get_public_profile_key(encrypted_profile_key)
+      :connections when not is_nil(user_connection) ->
+        unseal_private_profile_key(user_connection.key, current_user, session_key)
+
+      :public ->
+        URLPreviewHelpers.get_public_profile_key(profile.profile_key)
+
+      _ ->
+        nil
     end
   end
 
-  defp maybe_fetch_website_preview(socket, profile_user, current_user, _profile_owner?) do
+  defp unseal_private_profile_key(sealed_profile_key, current_user, session_key) do
+    case URLPreviewHelpers.get_private_profile_key(sealed_profile_key, current_user, session_key) do
+      {:ok, raw_key} -> raw_key
+      _error -> nil
+    end
+  end
+
+  defp maybe_fetch_website_preview(socket, profile_user, current_user, user_connection) do
     profile = profile_user.connection.profile
     session_key = socket.assigns.current_scope.key
 
+    # Which sealed key unwraps the raw profile key depends on *who is viewing*,
+    # mirroring `ProfileViewModel`/`decrypt_profile_fields`:
+    #   * owner       — `profile.profile_key` sealed to the owner's attrs key
+    #   * connection  — `user_connection.key` sealed to the viewer's attrs key
+    #   * public      — `profile.profile_key` sealed to the server keypair
     {website_url, profile_key} =
-      if profile.website_url do
-        encrypted_profile_key = profile.profile_key
+      case socket.assigns.profile.access do
+        _ when is_nil(profile.website_url) ->
+          {nil, nil}
 
-        if encrypted_profile_key && profile_user.visibility != :public do
-          decrypted_url =
-            decr_item(
-              profile.website_url,
-              current_user,
-              encrypted_profile_key,
-              session_key,
-              profile
-            )
+        :own ->
+          decrypt_private_website_url(profile, profile.profile_key, current_user, session_key)
 
-          {:ok, decrypted_key} =
-            URLPreviewHelpers.get_private_profile_key(
-              encrypted_profile_key,
-              current_user,
-              session_key
-            )
+        :connections when not is_nil(user_connection) ->
+          decrypt_private_website_url(profile, user_connection.key, current_user, session_key)
 
-          {decrypted_url, decrypted_key}
-        else
-          decrypted_url =
-            URLPreviewHelpers.decrypt_public_field(profile.website_url, profile.profile_key)
+        :public ->
+          url = URLPreviewHelpers.decrypt_public_field(profile.website_url, profile.profile_key)
+          {url, URLPreviewHelpers.get_public_profile_key(profile.profile_key)}
 
-          decrypted_key = URLPreviewHelpers.get_public_profile_key(profile.profile_key)
-          {decrypted_url, decrypted_key}
-        end
-      else
-        {nil, nil}
+        _ ->
+          {nil, nil}
       end
 
     connection_id = profile_user.connection.id
     URLPreviewHelpers.maybe_start_preview_fetch(socket, website_url, profile_key, connection_id)
+  end
+
+  # Unseals the raw profile key from the appropriate sealed key and decrypts the
+  # website URL with it. The same raw symmetric key is reused as the cache
+  # encryption key, keeping the preview cache consistent across owner and
+  # connection viewers. Returns `{nil, nil}` if the key cannot be unsealed.
+  defp decrypt_private_website_url(profile, sealed_profile_key, current_user, session_key) do
+    case unseal_private_profile_key(sealed_profile_key, current_user, session_key) do
+      nil -> {nil, nil}
+      raw_key -> {MossletWeb.Helpers.decrypt_field(profile.website_url, raw_key, nil), raw_key}
+    end
   end
 
   defp apply_action(socket, :show, _params) do
