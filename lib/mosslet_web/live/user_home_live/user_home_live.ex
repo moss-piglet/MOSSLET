@@ -4115,11 +4115,15 @@ defmodule MossletWeb.UserHomeLive do
         "..."
       end
     else
-      # Public posts: server-side decryption
+      # Public posts: the author's username is decrypted server-side in
+      # decrypt_post_fields (post.decrypted[:username]). Use it as the display
+      # name so connections (and everyone) see the author instead of a generic
+      # "Private Author" placeholder.
       if post.user_id == current_user.id do
-        current_user.decrypted[:name] || current_user.decrypted[:username] || "Private Author"
+        current_user.decrypted[:name] || current_user.decrypted[:username] ||
+          post.decrypted[:username] || "Author"
       else
-        "Private Author"
+        post.decrypted[:username] || "Author"
       end
     end
   end

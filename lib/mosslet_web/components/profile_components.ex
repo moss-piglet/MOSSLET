@@ -313,6 +313,8 @@ defmodule MossletWeb.ProfileComponents do
       <div class="space-y-1">
         <h1
           :if={@profile.show_name?}
+          id={"connection-profile-name-#{@profile_user.id}"}
+          phx-update="ignore"
           class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
           data-decrypt-profile="name"
         >
@@ -327,7 +329,11 @@ defmodule MossletWeb.ProfileComponents do
         <div class="flex items-center justify-center sm:justify-start gap-2 flex-wrap text-lg text-slate-600 dark:text-slate-400">
           <%!-- username badge --%>
           <.liquid_badge variant="soft" color={visibility_badge_color(@profile.visibility)} size="sm">
-            @<span data-decrypt-profile="username">{@profile.identity.username || "..."}</span>
+            @<span
+              id={"connection-profile-username-#{@profile_user.id}"}
+              phx-update="ignore"
+              data-decrypt-profile="username"
+            >{@profile.identity.username || "..."}</span>
           </.liquid_badge>
 
           <%!-- Email badge if show_email? is true --%>
@@ -338,7 +344,11 @@ defmodule MossletWeb.ProfileComponents do
             size="sm"
           >
             <.phx_icon name="hero-envelope" class="size-3 mr-1" />
-            <span data-decrypt-profile="email">
+            <span
+              id={"connection-profile-email-#{@profile_user.id}"}
+              phx-update="ignore"
+              data-decrypt-profile="email"
+            >
               {@profile.identity.email || "..."}
             </span>
           </.liquid_badge>

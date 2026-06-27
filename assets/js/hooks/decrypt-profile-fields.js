@@ -60,13 +60,19 @@ const DecryptProfileFields = {
     if (!sealedKey) return;
 
     if (!getPublicKey()) {
-      window.addEventListener("mosslet:keys-ready", () => this.decrypt(), { once: true });
+      this._retryWhenKeysReady();
       return;
     }
 
     try {
       const rawKey = await unsealContextKey(sealedKey);
-      if (!rawKey) return;
+      if (!rawKey) {
+        // The viewer's session/private key may not be derived yet
+        // (SessionKeyDeriver runs asynchronously). Retry once keys land so the
+        // fields decrypt without a manual page refresh.
+        this._retryWhenKeysReady();
+        return;
+      }
 
       const profileKey = unwrapConnKey(rawKey);
       const decrypted = {};
@@ -82,8 +88,23 @@ const DecryptProfileFields = {
       this._cache = decrypted;
       this._applyAll();
     } catch (e) {
-      // Browser-side decryption failed — server-rendered fallback values are preserved.
+      // Browser-side decryption failed — server-rendered fallback values are
+      // preserved. Retry when keys become ready in case this was a timing race.
+      this._retryWhenKeysReady();
     }
+  },
+
+  _retryWhenKeysReady() {
+    if (this._keysReadyBound) return;
+    this._keysReadyBound = true;
+    window.addEventListener(
+      "mosslet:keys-ready",
+      () => {
+        this._keysReadyBound = false;
+        this.decrypt();
+      },
+      { once: true },
+    );
   },
 
   _applyAll() {
