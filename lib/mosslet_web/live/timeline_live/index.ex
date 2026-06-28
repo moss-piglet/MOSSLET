@@ -583,62 +583,13 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, assign(socket, :current_scope, current_scope)}
   end
 
-  def handle_info({_ref, {"get_user_avatar", post_id, post_list, _user_id}}, socket) do
-    post_loading_count = socket.assigns.post_loading_count
-    post_finished_loading_list = socket.assigns.post_finished_loading_list
-
-    cond do
-      post_loading_count < Enum.count(post_list) - 1 ->
-        socket =
-          socket
-          |> assign(:post_loading, true)
-          |> assign(:post_loading_count, post_loading_count + 1)
-          |> assign(
-            :post_finished_loading_list,
-            [post_id | post_finished_loading_list] |> Enum.uniq()
-          )
-
-        post = Timeline.get_post!(post_id)
-
-        {:noreply, stream_insert_post(socket, post, socket.assigns.current_user, at: -1)}
-
-      post_loading_count == Enum.count(post_list) - 1 ->
-        post_finished_loading_list = [post_id | post_finished_loading_list] |> Enum.uniq()
-
-        socket =
-          socket
-          |> assign(:post_loading, false)
-          |> assign(
-            :post_finished_loading_list,
-            [post_id | post_finished_loading_list] |> Enum.uniq()
-          )
-
-        if Enum.count(post_finished_loading_list) == Enum.count(post_list) do
-          post = Timeline.get_post!(post_id)
-
-          socket =
-            socket
-            |> assign(:post_loading_count, 0)
-            |> assign(:post_loading, false)
-            |> assign(:post_loading_done, true)
-            |> assign(:post_finished_loading_list, [])
-
-          {:noreply, stream_insert_post(socket, post, socket.assigns.current_user, at: -1)}
-        else
-          {:noreply, socket}
-        end
-
-      true ->
-        socket =
-          socket
-          |> assign(:post_loading, true)
-          |> assign(
-            :post_finished_loading_list,
-            [post_id | post_finished_loading_list] |> Enum.uniq()
-          )
-
-        {:noreply, socket}
-    end
+  # A cold post-author avatar finished caching in ETS — re-stream JUST that post
+  # so it re-renders in ZK mode with the now-available encrypted blob. We re-use
+  # the post struct already held in the cached unread/read lists (it carries the
+  # date-separator context), and use `update_only: true` so we never insert,
+  # reorder, or double-count — display is the only thing that changes.
+  def handle_info({_ref, {"get_user_avatar", :post, post_id}}, socket) do
+    {:noreply, restream_post_for_avatar(socket, post_id)}
   end
 
   def handle_info({:create_reply, reply_params, post_id, visibility}, socket) do
@@ -7482,6 +7433,27 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
+  # Re-stream a single already-loaded post purely to refresh its display after
+  # its author avatar warmed into ETS. Uses the cached post struct (which carries
+  # the date-separator context) and `update_only: true` so position, ordering,
+  # pagination, and the unread/read counts are untouched. No-op if the post is
+  # not currently on the client.
+  defp restream_post_for_avatar(socket, post_id) do
+    cached_unread = socket.assigns[:cached_unread_posts] || []
+    cached_read = socket.assigns[:cached_read_posts] || []
+
+    cond do
+      post = Enum.find(cached_unread, &(&1.id == post_id)) ->
+        stream_insert(socket, :posts, post, update_only: true)
+
+      post = Enum.find(cached_read, &(&1.id == post_id)) ->
+        stream_insert(socket, :read_posts, post, update_only: true)
+
+      true ->
+        socket
+    end
+  end
+
   defp stream_insert_post(socket, post, current_user, opts) do
     # Ensure the post has its .decrypted map populated before streaming.
     # Some callers (e.g. reply handlers) fetch a fresh post from the DB
@@ -7730,6 +7702,12 @@ defmodule MossletWeb.TimelineLive.Index do
   # Prepares posts for streaming: adds date separators and pre-decrypts all
   # encrypted fields in a single pass (unsealing each post_key only once).
   defp prepare_posts_for_stream(posts, current_user, session_key) do
+    # Warm the node-global ETS avatar cache for each post author so the ZK
+    # DecryptAvatar hook has an encrypted blob to decrypt on first render.
+    # Cache hits / avatar-less authors short-circuit; each cold fetch re-streams
+    # just that post via the {"get_user_avatar", :post, id} callback below.
+    Enum.each(posts, &ensure_post_author_avatar_cached(&1, current_user, session_key))
+
     posts
     |> add_date_grouping_context()
     |> pre_decrypt_posts(current_user, session_key)

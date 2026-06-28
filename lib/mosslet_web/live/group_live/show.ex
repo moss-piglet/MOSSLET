@@ -259,6 +259,13 @@ defmodule MossletWeb.GroupLive.Show do
     end
   end
 
+  # A cold message-author avatar finished caching in ETS (Task #342) — re-stream
+  # just that message so it re-renders with the now-available encrypted blob.
+  @impl true
+  def handle_info({_ref, {"get_user_avatar", :group_message, message_id}}, socket) do
+    {:noreply, ChatSupport.restream_message_for_avatar(socket, message_id)}
+  end
+
   @impl true
   def handle_info(_msg, socket) do
     {:noreply, socket}

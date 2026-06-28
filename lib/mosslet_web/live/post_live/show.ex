@@ -33,6 +33,12 @@ defmodule MossletWeb.PostLive.Show do
 
     post = pre_decrypt_post(post, current_user, socket.assigns.key)
 
+    # Warm the post author's avatar into the node-global ETS cache so the ZK
+    # DecryptAvatar hook can render it without a hard refresh on a cold cache.
+    if connected?(socket) do
+      ensure_post_author_avatar_cached(post, current_user, socket.assigns.key)
+    end
+
     {:ok,
      socket
      |> assign(:post, post)
@@ -70,6 +76,15 @@ defmodule MossletWeb.PostLive.Show do
     }
 
     replies = Timeline.list_replies(post, options)
+
+    # Warm each reply author's avatar into the node-global ETS cache so the ZK
+    # DecryptAvatar hook can render them without a hard refresh on a cold cache.
+    if connected?(socket) do
+      Enum.each(
+        replies,
+        &ensure_post_author_avatar_cached(&1, current_user, socket.assigns.key, :reply)
+      )
+    end
 
     loading_list = Enum.with_index(replies, fn element, index -> {index, element} end)
 
@@ -369,14 +384,23 @@ defmodule MossletWeb.PostLive.Show do
     {:noreply, assign(socket, :current_scope, current_scope)}
   end
 
-  def handle_info({_ref, {"get_user_avatar", post_id, _post_list, _user_id}}, socket) do
-    post = Timeline.get_post!(post_id)
+  # A cold post-author avatar finished caching — re-fetch + re-decrypt the post
+  # so its card re-renders in ZK mode with the now-available encrypted blob.
+  def handle_info({_ref, {"get_user_avatar", :post, post_id}}, socket) do
+    post =
+      Timeline.get_post!(post_id)
+      |> pre_decrypt_post(socket.assigns.current_user, socket.assigns.key)
 
-    socket =
-      socket
-      |> assign(:post, post)
+    {:noreply, assign(socket, :post, post)}
+  end
 
-    {:noreply, socket}
+  # A cold reply-author avatar finished caching — re-stream JUST that reply so it
+  # re-renders with the now-available encrypted blob, without reordering.
+  def handle_info({_ref, {"get_user_avatar", :reply, reply_id}}, socket) do
+    case Timeline.get_reply(reply_id) do
+      nil -> {:noreply, socket}
+      reply -> {:noreply, stream_insert(socket, :replies, reply, update_only: true)}
+    end
   end
 
   def handle_info({_ref, {"get_user_avatar_reply", reply_id, reply_list, _user_id}}, socket) do

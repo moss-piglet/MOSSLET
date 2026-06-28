@@ -24,7 +24,11 @@ defmodule MossletWeb.GroupLive.ChatSupport do
   alias Mosslet.Groups
 
   import MossletWeb.Helpers,
-    only: [pre_decrypt_group_message: 5, pre_decrypt_group_messages: 5]
+    only: [
+      pre_decrypt_group_message: 5,
+      pre_decrypt_group_messages: 5,
+      ensure_group_message_author_avatar_cached: 3
+    ]
 
   @grouping_window_minutes 5
 
@@ -64,6 +68,17 @@ defmodule MossletWeb.GroupLive.ChatSupport do
 
     messages = GroupMessages.last_ten_messages_for(group.id)
     messages_with_context = add_initial_grouping_context(messages, unread_message_ids)
+
+    # Warm each message author's avatar into the node-global ETS cache so the ZK
+    # DecryptAvatar hook can render them without a hard refresh on a cold cache.
+    # Self-authored / avatar-less / unconnected authors short-circuit; each cold
+    # fetch re-streams just that message via {"get_user_avatar", :group_message, id}.
+    if Phoenix.LiveView.connected?(socket) and user_group do
+      Enum.each(
+        messages,
+        &ensure_group_message_author_avatar_cached(&1, current_scope.user, current_scope.key)
+      )
+    end
 
     pre_decrypted =
       if user_group do
@@ -170,6 +185,13 @@ defmodule MossletWeb.GroupLive.ChatSupport do
           GroupMessages.get_previous_n_messages(oldest.inserted_at, socket.assigns.group.id, 5)
       end
 
+    current_scope = socket.assigns.current_scope
+
+    Enum.each(
+      messages,
+      &ensure_group_message_author_avatar_cached(&1, current_scope.user, current_scope.key)
+    )
+
     socket
     |> stream_batch_insert(:messages, pre_decrypt_messages(messages, socket), at: 0)
     |> assign_oldest_message_id(List.first(messages))
@@ -192,6 +214,12 @@ defmodule MossletWeb.GroupLive.ChatSupport do
         |> assign(:last_message_info, extract_message_info(message))
         |> assign_last_user_message(message)
       else
+        ensure_group_message_author_avatar_cached(
+          message,
+          socket.assigns.current_scope.user,
+          socket.assigns.current_scope.key
+        )
+
         socket
         |> insert_new_message(message, is_new: true)
         |> assign(:last_message_info, extract_message_info(message))
@@ -218,6 +246,12 @@ defmodule MossletWeb.GroupLive.ChatSupport do
     {:halt, update(socket, :total_messages_count, &(&1 + 1))}
   end
 
+  # A cold message-author avatar finished caching in ETS (Task #342) — re-stream
+  # just that message so it re-renders with the now-available encrypted blob.
+  def handle_chat_info({_ref, {"get_user_avatar", :group_message, message_id}}, socket) do
+    {:halt, restream_message_for_avatar(socket, message_id)}
+  end
+
   def handle_chat_info(_msg, _socket), do: :cont
 
   ## Stream helpers ----------------------------------------------------------
@@ -234,6 +268,57 @@ defmodule MossletWeb.GroupLive.ChatSupport do
   def insert_updated_message(socket, message) do
     preloaded = GroupMessages.preload_message_sender(message)
     stream_insert(socket, :messages, pre_decrypt_message(preloaded, socket), at: -1)
+  end
+
+  @doc """
+  A cold message-author avatar finished caching in ETS (Task #342) — re-stream
+  JUST that message so it re-renders with the now-available encrypted blob.
+
+  Grouping context (is_grouped / date separator) and unread-mention state are
+  recomputed deterministically from the message's actual predecessor and the
+  live unread set — mirroring the initial-load logic — so position, ordering,
+  and the unread highlight are preserved. Uses `update_only: true` so a message
+  that scrolled out of the client window is never re-inserted.
+  """
+  def restream_message_for_avatar(socket, message_id) do
+    group = socket.assigns.group
+    user_group = socket.assigns.current_user_group
+
+    case safe_get_message(message_id) do
+      nil ->
+        socket
+
+      message ->
+        message = GroupMessages.preload_message_sender(message)
+
+        prev_message =
+          case GroupMessages.get_previous_n_messages(message.inserted_at, group.id, 1) do
+            [prev | _] -> prev
+            _ -> nil
+          end
+
+        unread_ids =
+          if user_group && user_group.confirmed_at do
+            GroupMessages.get_unread_mention_message_ids(user_group.id, group.id)
+          else
+            MapSet.new()
+          end
+
+        message_with_context = put_single_grouping_context(message, prev_message, unread_ids)
+
+        stream_insert(
+          socket,
+          :messages,
+          pre_decrypt_message(message_with_context, socket),
+          update_only: true
+        )
+    end
+  end
+
+  defp safe_get_message(message_id) do
+    GroupMessages.get_message!(message_id)
+  rescue
+    Ecto.NoResultsError -> nil
   end
 
   defp stream_batch_insert(socket, name, items, opts) do
@@ -372,27 +457,34 @@ defmodule MossletWeb.GroupLive.ChatSupport do
     |> Enum.with_index()
     |> Enum.map(fn {message, index} ->
       prev_message = if index > 0, do: Enum.at(messages, index - 1)
-      message_date = get_message_date(message.inserted_at)
-
-      {is_grouped, show_date_separator} =
-        if prev_message do
-          prev_date = get_message_date(prev_message.inserted_at)
-          same_sender = prev_message.sender_id == message.sender_id
-          same_date = prev_date == message_date
-          within_window = within_grouping_window?(prev_message.inserted_at, message.inserted_at)
-
-          {same_sender && same_date && within_window, !same_date}
-        else
-          {false, true}
-        end
-
-      message
-      |> Map.put(:is_grouped, is_grouped)
-      |> Map.put(:show_date_separator, show_date_separator)
-      |> Map.put(:message_date, message_date)
-      |> Map.put(:is_new_message, MapSet.member?(unread_message_ids, message.id))
-      |> Map.put(:is_new_mention, MapSet.member?(unread_message_ids, message.id))
+      put_single_grouping_context(message, prev_message, unread_message_ids)
     end)
+  end
+
+  # Computes a single message's grouping + unread context relative to its
+  # predecessor. Shared by the initial load and the avatar re-stream (Task #342)
+  # so both paths produce identical is_grouped / date-separator / unread flags.
+  defp put_single_grouping_context(message, prev_message, unread_message_ids) do
+    message_date = get_message_date(message.inserted_at)
+
+    {is_grouped, show_date_separator} =
+      if prev_message do
+        prev_date = get_message_date(prev_message.inserted_at)
+        same_sender = prev_message.sender_id == message.sender_id
+        same_date = prev_date == message_date
+        within_window = within_grouping_window?(prev_message.inserted_at, message.inserted_at)
+
+        {same_sender && same_date && within_window, !same_date}
+      else
+        {false, true}
+      end
+
+    message
+    |> Map.put(:is_grouped, is_grouped)
+    |> Map.put(:show_date_separator, show_date_separator)
+    |> Map.put(:message_date, message_date)
+    |> Map.put(:is_new_message, MapSet.member?(unread_message_ids, message.id))
+    |> Map.put(:is_new_mention, MapSet.member?(unread_message_ids, message.id))
   end
 
   defp get_message_date(datetime) when is_struct(datetime, NaiveDateTime),

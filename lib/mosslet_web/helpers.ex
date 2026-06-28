@@ -2774,6 +2774,86 @@ defmodule MossletWeb.Helpers do
     :ok
   end
 
+  @doc """
+  Warms the ETS avatar cache for the AUTHOR of a stream item (post, reply, or
+  group message) so the ZK `DecryptAvatar` hook has an encrypted blob to decrypt
+  on first render — without a hard refresh on a cold cache.
+
+  Display (`get_encrypted_avatar_data_for_item/2`) is read-only and never
+  fetches, so this is the single place that populates the cache for stream-heavy
+  LiveViews. Cache hits and avatar-less authors short-circuit inside
+  `ensure_avatar_cached/3` (no task, no re-render).
+
+  For the author's own item we warm `current_user` directly. Otherwise we resolve
+  the author's connection to the current user via `get_uconn_for_shared_item/2`
+  and set `%{uconn | user: current_user}` (the conn owner == current user since
+  the query scopes `uc.user_id` to them, but the in-memory `current_user` carries
+  the session key context needed to unseal the storage path).
+
+  The `tag` (e.g. `:post` or `:group_message`) is embedded in the
+  `{"get_user_avatar", tag, item.id}` callback so each LiveView can re-stream
+  just that single item when its avatar finishes caching.
+  """
+  def ensure_post_author_avatar_cached(item, current_user, key, tag \\ :post)
+
+  def ensure_post_author_avatar_cached(
+        %{user_id: user_id, id: id} = item,
+        %User{} = current_user,
+        key,
+        tag
+      ) do
+    callback = {"get_user_avatar", tag, id}
+
+    if user_id == current_user.id do
+      ensure_avatar_cached(current_user, key, callback)
+    else
+      case get_uconn_for_shared_item(item, current_user) do
+        %UserConnection{} = uconn ->
+          ensure_avatar_cached(%{uconn | user: current_user}, key, callback)
+
+        _ ->
+          :ok
+      end
+    end
+
+    :ok
+  end
+
+  def ensure_post_author_avatar_cached(_item, _current_user, _key, _tag), do: :ok
+
+  @doc """
+  Warms the ETS avatar cache for the AUTHOR of a group chat message so the ZK
+  `DecryptAvatar` hook can render their avatar without a hard refresh on a cold
+  cache (Task #342).
+
+  Group messages identify their author by `sender_id` (a user_group id), so we
+  resolve it to a `%User{}` and then to the viewer's connection via
+  `get_uconn_for_users/2` — mirroring the display path in
+  `group_messages.ex`. Self-authored messages render no avatar, so they
+  short-circuit. The `{"get_user_avatar", :group_message, message.id}` callback
+  lets the host LiveView re-stream just that message when the blob lands.
+  """
+  def ensure_group_message_author_avatar_cached(
+        %{sender_id: sender_id, id: id},
+        %User{} = current_user,
+        key
+      )
+      when is_binary(sender_id) do
+    with %User{} = author <- get_user_from_user_group_id(sender_id),
+         false <- author.id == current_user.id,
+         %UserConnection{} = uconn <- get_uconn_for_users(author, current_user) do
+      ensure_avatar_cached(
+        %{uconn | user: current_user},
+        key,
+        {"get_user_avatar", :group_message, id}
+      )
+    end
+
+    :ok
+  end
+
+  def ensure_group_message_author_avatar_cached(_message, _current_user, _key), do: :ok
+
   defp fetch_and_cache_avatar(connection, user, sealed_key, key, callback_tuple) do
     avatars_bucket = Encrypted.Session.avatars_bucket()
     connection_id = connection.id
