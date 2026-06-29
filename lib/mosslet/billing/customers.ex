@@ -20,6 +20,10 @@ defmodule Mosslet.Billing.Customers do
     Repo.get_by!(Customer, provider_customer_id_hash: id)
   end
 
+  def get_customer_by_provider_customer_id(id) do
+    Repo.get_by(Customer, provider_customer_id_hash: id)
+  end
+
   def get_customer_by_source(source, source_id) do
     source
     |> CustomerQuery.by_source(source_id)

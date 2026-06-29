@@ -86,10 +86,12 @@ defmodule Mosslet.Orgs.NameReclaimTest do
       assert Orgs.org_reclaim_state(org) == :pending
     end
 
-    test ":pending for an org customer with no subscription" do
+    test ":checkout_pending for an org customer (Stripe customer) with no subscription" do
+      # A Stripe customer exists (checkout was initiated) but the subscription
+      # has not synced yet — the owner may still be on the checkout page (#348).
       org = confirmed_user("cust-no-sub") |> family_org()
       _customer = org_customer(org)
-      assert Orgs.org_reclaim_state(org) == :pending
+      assert Orgs.org_reclaim_state(org) == :checkout_pending
     end
 
     test ":protected for a fresh trialing sub (trial not elapsed)" do
@@ -188,6 +190,24 @@ defmodule Mosslet.Orgs.NameReclaimTest do
       refute Orgs.get_org_by_id(org.id) == nil
     end
 
+    test "retains a checkout-pending org by default (owner may be mid-checkout, #348)" do
+      org = confirmed_user("retain-checkout") |> family_org()
+      _customer = org_customer(org)
+
+      assert {:ok, :retained} = Orgs.reclaim_org_by_id(org.id)
+      refute Orgs.get_org_by_id(org.id) == nil
+    end
+
+    test "reclaims a checkout-pending org when include_checkout_pending? (backstop sweep)" do
+      org = confirmed_user("reclaim-checkout") |> family_org()
+      _customer = org_customer(org)
+
+      assert {:ok, :reclaimed} =
+               Orgs.reclaim_org_by_id(org.id, include_checkout_pending?: true)
+
+      assert Orgs.get_org_by_id(org.id) == nil
+    end
+
     test "is a safe no-op for an already-deleted org" do
       org = confirmed_user("gone") |> family_org()
       {:ok, _} = Orgs.delete_org(org)
@@ -221,6 +241,20 @@ defmodule Mosslet.Orgs.NameReclaimTest do
       org = confirmed_user("perform-activated") |> family_org()
       # Simulate activation between enqueue and run.
       org |> org_customer() |> org_subscription("trialing", future())
+
+      assert :ok =
+               perform_job(OrgNameReclaimJob, %{"action" => "reclaim_org", "org_id" => org.id})
+
+      refute Orgs.get_org_by_id(org.id) == nil
+    end
+
+    test "perform reclaim_org no-ops for a checkout-pending org (#348)" do
+      # Stripe customer created (checkout initiated) but subscription not synced
+      # yet — the targeted session-end job must NOT delete it, otherwise the
+      # subsequent customer.subscription.created webhook orphans on a missing
+      # customer.
+      org = confirmed_user("perform-checkout") |> family_org()
+      _customer = org_customer(org)
 
       assert :ok =
                perform_job(OrgNameReclaimJob, %{"action" => "reclaim_org", "org_id" => org.id})

@@ -172,5 +172,25 @@ defmodule Mosslet.Billing.OrgCheckoutTest do
       # Org now reads as active (trialing counts).
       assert Orgs.org_active?(Orgs.get_org_by_id(org.id))
     end
+
+    test "returns {:error, :customer_not_found} when no local customer exists (#348)" do
+      # Models the orphaned-webhook case: the local billing customer was removed
+      # (e.g. org reclaimed mid-checkout) before the subscription webhook lands.
+      # SyncSubscription must NOT raise so the worker can snooze/cancel cleanly.
+      now = System.system_time(:second)
+
+      stripe_subscription = %Stripe.Subscription{
+        id: "sub_#{System.unique_integer([:positive])}",
+        customer: "cus_missing_#{System.unique_integer([:positive])}",
+        status: "trialing",
+        cancel_at_period_end: false,
+        cancel_at: nil,
+        trial_end: now + 14 * 86_400,
+        start_date: now,
+        items: %{data: []}
+      }
+
+      assert {:error, :customer_not_found} = SyncSubscription.call(stripe_subscription)
+    end
   end
 end

@@ -1877,10 +1877,15 @@ defmodule Mosslet.Orgs do
   @doc """
   Classifies an org for the name-reclaim engine (Task #236). Returns:
 
-    * `:pending` — INERT: the org has no `:org`-source subscription at all (no
-      `:org` customer, or a customer with no sub). A name a user created but
-      never took to checkout. Reclaimable via the session-end / abandonment path
-      once older than the abandonment window.
+    * `:pending` — INERT: the org has no `:org`-source subscription at all and no
+      Stripe customer has been created. A name a user created but never took to
+      checkout. Reclaimable via the session-end / abandonment path once older
+      than the abandonment window.
+    * `:checkout_pending` — the org's billing customer has a Stripe customer id
+      (checkout was initiated) but no subscription has synced yet. The owner may
+      still be on the Stripe-hosted checkout page, so the FAST session-end
+      reclaim must NEVER delete it (Task #348); only the age-floored backstop
+      sweep may reclaim a genuinely abandoned checkout.
     * `:protected` — a live `active`/`trialing` sub (trial not yet elapsed).
       The name is reserved; NEVER reclaim.
     * `:trial_expired` — a `trialing` sub whose trial period
@@ -1897,28 +1902,39 @@ defmodule Mosslet.Orgs do
       nil ->
         :pending
 
-      %Customer{id: customer_id} ->
+      %Customer{id: customer_id} = customer ->
         customer_id
         |> Subscriptions.list_subscriptions_by_customer_id()
-        |> classify_reclaim_state()
+        |> classify_reclaim_state(checkout_initiated?(customer))
     end
   end
 
   # Single classifier shared by the per-org path and the (preloaded) bulk sweep.
-  # Takes the FULL list of the org-customer's subscriptions so we can tell an
-  # org that NEVER had a sub (inert) apart from one whose sub has lapsed:
+  # Takes the FULL list of the org-customer's subscriptions PLUS whether a Stripe
+  # customer has already been created (checkout initiated) so we can tell apart:
   #
-  #   * no subs at all            -> never activated (inert)        -> :pending
-  #   * any active sub            -> paid + live                    -> :protected
-  #   * any fresh trialing sub    -> inside the protected trial     -> :protected
-  #   * only an elapsed trialing  -> trial ended, no active paid    -> :trial_expired
-  #   * has sub(s), none live     -> previously live, now lapsed    -> :lapsed
+  #   * no subs, no Stripe customer  -> never took to checkout (inert) -> :pending
+  #   * no subs, Stripe customer set -> checkout in progress           -> :checkout_pending
+  #   * any active sub               -> paid + live                    -> :protected
+  #   * any fresh trialing sub       -> inside the protected trial     -> :protected
+  #   * only an elapsed trialing     -> trial ended, no active paid     -> :trial_expired
+  #   * has sub(s), none live        -> previously live, now lapsed     -> :lapsed
+  #
+  # `:checkout_pending` exists to STOP the fast session-end reclaim from
+  # hard-deleting an org (and FK-cascading its billing customer) while the owner
+  # is still on the Stripe-hosted checkout page — a window that can easily exceed
+  # the 60s navigation grace. Deleting the customer there orphans the subsequent
+  # `customer.subscription.created` webhook, which then loops on a missing
+  # customer. The age-floored backstop sweep may still reclaim a genuinely
+  # abandoned checkout (see `reclaimable?/2`).
   #
   # An `active` sub always wins (a converted trial), so a stale trialing row
   # alongside it never downgrades the org to `:trial_expired`.
-  defp classify_reclaim_state([]), do: :pending
+  defp classify_reclaim_state([], checkout_initiated?) do
+    if checkout_initiated?, do: :checkout_pending, else: :pending
+  end
 
-  defp classify_reclaim_state(subs) when is_list(subs) do
+  defp classify_reclaim_state(subs, _checkout_initiated?) when is_list(subs) do
     cond do
       Enum.any?(subs, &(&1.status == "active")) ->
         :protected
@@ -1930,6 +1946,10 @@ defmodule Mosslet.Orgs do
         :lapsed
     end
   end
+
+  # A Stripe customer id on the billing customer means checkout was initiated
+  # (the customer is created right before the Stripe-hosted checkout session).
+  defp checkout_initiated?(%Customer{provider_customer_id: id}), do: is_binary(id) and id != ""
 
   # The trialing sub's `current_period_end_at` is the Stripe trial-end timestamp
   # (see SubscriptionAdapter.current_period_end_at/1). Trial has elapsed once
@@ -1969,8 +1989,11 @@ defmodule Mosslet.Orgs do
   end
 
   defp reclaimable?(%Org{} = org, cutoff) do
-    case org |> reclaim_subscriptions_from_preload() |> classify_reclaim_state() do
+    case org
+         |> reclaim_subscriptions_from_preload()
+         |> classify_reclaim_state(checkout_initiated_from_preload?(org)) do
       :pending -> NaiveDateTime.compare(org.inserted_at, cutoff) == :lt
+      :checkout_pending -> NaiveDateTime.compare(org.inserted_at, cutoff) == :lt
       :trial_expired -> true
       _ -> false
     end
@@ -1978,13 +2001,18 @@ defmodule Mosslet.Orgs do
 
   # The FULL subscription list from the PRELOADED `customer` + `subscriptions`
   # association (loaded once by `list_orgs_with_billing/0`), so the bulk sweep
-  # classifies with the same `classify_reclaim_state/1` as the per-org path —
+  # classifies with the same `classify_reclaim_state/2` as the per-org path —
   # without per-org queries (no N+1). No customer (or none preloaded) => no subs.
   defp reclaim_subscriptions_from_preload(%Org{customer: %Customer{subscriptions: subs}})
        when is_list(subs),
        do: subs
 
   defp reclaim_subscriptions_from_preload(_), do: []
+
+  defp checkout_initiated_from_preload?(%Org{customer: %Customer{} = customer}),
+    do: checkout_initiated?(customer)
+
+  defp checkout_initiated_from_preload?(_), do: false
 
   @doc """
   Re-validates and reclaims a single org by id (Task #236).
@@ -1995,36 +2023,49 @@ defmodule Mosslet.Orgs do
   activated. Hard-deletes via the safe `delete_org/1` path (FK-cascades
   membership/invitation/customer), freeing `name_hash` + slug.
 
+  `opts`:
+
+    * `:include_checkout_pending?` — when `true` (the age-floored BACKSTOP
+      sweep), an org whose billing customer has a Stripe customer but no synced
+      subscription (`:checkout_pending`) is also reclaimable. Defaults to
+      `false` so the FAST session-end path NEVER deletes an org while its owner
+      may still be on the Stripe-hosted checkout page (Task #348) — doing so
+      orphans the subsequent `customer.subscription.created` webhook.
+
   Returns:
 
     * `{:ok, :reclaimed}` — the org was inert/trial-expired and was deleted.
-    * `{:ok, :retained}` — the org is protected/active/lapsed/already-gone; left
-      untouched (lapsed orgs are routed to #227, never deleted here).
+    * `{:ok, :retained}` — the org is protected/active/lapsed/checkout-pending/
+      already-gone; left untouched (lapsed orgs are routed to #227, never
+      deleted here).
     * `{:error, term}` — the delete failed.
   """
-  def reclaim_org_by_id(org_id) when is_binary(org_id) do
+  def reclaim_org_by_id(org_id, opts \\ []) when is_binary(org_id) do
+    reclaim_states =
+      if Keyword.get(opts, :include_checkout_pending?, false),
+        do: [:pending, :trial_expired, :checkout_pending],
+        else: [:pending, :trial_expired]
+
     case get_org_by_id(org_id) do
       nil ->
         {:ok, :retained}
 
       %Org{} = org ->
-        case org_reclaim_state(org) do
-          state when state in [:pending, :trial_expired] ->
-            case delete_org(org) do
-              {:ok, _org} ->
-                # Best-effort: drop the brand-logo blob (Task #228) if one exists
-                # so the reclaim path never orphans ciphertext. Fire-and-forget.
-                if is_binary(org.logo_url),
-                  do: Mosslet.FileUploads.SharedFileStorage.delete_blob(org.logo_url)
+        if org_reclaim_state(org) in reclaim_states do
+          case delete_org(org) do
+            {:ok, _org} ->
+              # Best-effort: drop the brand-logo blob (Task #228) if one exists
+              # so the reclaim path never orphans ciphertext. Fire-and-forget.
+              if is_binary(org.logo_url),
+                do: Mosslet.FileUploads.SharedFileStorage.delete_blob(org.logo_url)
 
-                {:ok, :reclaimed}
+              {:ok, :reclaimed}
 
-              {:error, _} = error ->
-                error
-            end
-
-          _ ->
-            {:ok, :retained}
+            {:error, _} = error ->
+              error
+          end
+        else
+          {:ok, :retained}
         end
     end
   end

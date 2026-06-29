@@ -18,7 +18,7 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.SyncSubscription do
   def call(%Stripe.Subscription{} = stripe_subscription) do
     with {:customer, %Customer{} = customer} <-
            {:customer,
-            Customers.get_customer_by_provider_customer_id!(stripe_subscription.customer)},
+            Customers.get_customer_by_provider_customer_id(stripe_subscription.customer)},
          {:source, _source} <-
            {:source, get_source(customer)} do
       subscription_attrs =
@@ -64,6 +64,7 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.SyncSubscription do
           end
       end
     else
+      {:customer, nil} -> {:error, :customer_not_found}
       error -> {:error, error}
     end
   end

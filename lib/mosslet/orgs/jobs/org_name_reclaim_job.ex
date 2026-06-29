@@ -86,8 +86,8 @@ defmodule Mosslet.Orgs.Jobs.OrgNameReclaimJob do
 
   ## Implementation
 
-  defp reclaim_one(org_id) do
-    case Orgs.reclaim_org_by_id(org_id) do
+  defp reclaim_one(org_id, opts \\ []) do
+    case Orgs.reclaim_org_by_id(org_id, opts) do
       {:ok, :reclaimed} ->
         Logger.info("[OrgNameReclaimJob] Reclaimed org #{org_id}")
         :ok
@@ -111,7 +111,7 @@ defmodule Mosslet.Orgs.Jobs.OrgNameReclaimJob do
       # Low volume (abandoned/expired orgs only); bounded concurrency keeps DB
       # pressure light. Each delete re-validates via reclaim_org_by_id/1.
       reclaimable
-      |> Task.async_stream(fn org -> reclaim_one(org.id) end,
+      |> Task.async_stream(fn org -> reclaim_one(org.id, include_checkout_pending?: true) end,
         timeout: 30_000,
         max_concurrency: 3
       )
