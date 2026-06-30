@@ -106,11 +106,11 @@ defmodule MossletWeb.FamilyLive.CircleShow do
           >
             <.phx_icon name="hero-arrow-left" class="size-5" />
           </.link>
-          <div class="flex items-center gap-3 min-w-0">
+          <div class="flex items-start gap-3 min-w-0">
             <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 shadow-lg shadow-emerald-500/25">
               <.phx_icon name="hero-home-modern" class="h-6 w-6 text-white" />
             </div>
-            <div class="min-w-0">
+            <div class="min-w-0 space-y-1">
               <h1
                 id="circle-name"
                 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate"
@@ -125,16 +125,30 @@ defmodule MossletWeb.FamilyLive.CircleShow do
               <p class="text-xs text-slate-500 dark:text-slate-400">
                 {@member_count} member{if @member_count != 1, do: "s"} · {@org.name}
               </p>
+              <%!-- Circle description (ZK): decrypted browser-side via the
+                   DecryptGroupMetadata hook below. phx-update="ignore" keeps a
+                   LiveView patch from clobbering the decrypted text. --%>
+              <p
+                :if={@group.description not in [nil, ""]}
+                id={"circle-description-#{@group.id}"}
+                phx-update="ignore"
+                class="text-sm leading-relaxed text-slate-600 dark:text-slate-400"
+                data-decrypt-group-description
+              >
+                Decrypting description…
+              </p>
             </div>
           </div>
         </header>
 
-        <%!-- Decrypt the circle name browser-side (ZK) via the existing hook. --%>
+        <%!-- Decrypt the circle name + description browser-side (ZK) via the
+             existing hook. --%>
         <div
           id={"decrypt-circle-#{@group.id}"}
           phx-hook="DecryptGroupMetadata"
           data-sealed-group-key={@sealed_group_key}
           data-encrypted-name={@group.name}
+          data-encrypted-description={@group.description}
           data-scope-id={"family-circle-#{@group.id}"}
         >
         </div>

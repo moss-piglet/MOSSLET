@@ -57,7 +57,7 @@ defmodule MossletWeb.PinComponents do
             <.phx_icon name="hero-bookmark" class="size-4 text-teal-500 dark:text-teal-400" /> Pinned
           </h2>
           <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-            Quick access to your circles, files, and links. Link names are encrypted on your device.
+            Quick access to your circles, files, and links.
           </p>
         </div>
         <div class="flex shrink-0 items-center gap-2">

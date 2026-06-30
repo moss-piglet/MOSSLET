@@ -75,6 +75,8 @@ defmodule MossletWeb.BusinessLive.Show do
        |> assign(:logo_upload_stage, nil)
        |> assign(:pending_logo_preview, nil)
        |> assign(:manage_open?, false)
+       |> assign(:files_open?, true)
+       |> assign(:audit_open?, true)
        |> assign(:file_sort, :newest)
        |> allow_upload(:org_logo,
          accept: ~w(.jpg .jpeg .png .webp .heic .heif),
@@ -122,7 +124,7 @@ defmodule MossletWeb.BusinessLive.Show do
           <div class="flex items-center gap-3 min-w-0">
             <.org_logo
               id="org-header-logo"
-              logo_url={@org_logo_url}
+              encrypted_blob={@org_logo_blob}
               sealed_org_key={@viewer_sealed_org_key}
               frame_class="h-12 w-12 rounded-2xl"
               alt={@org.name <> " logo"}
@@ -823,134 +825,170 @@ defmodule MossletWeb.BusinessLive.Show do
             <%!-- Org-wide files overview (Task #221): every file the viewer can read
              across this org's circles, grouped by circle. Names stay encrypted
              and decrypt browser-side (ZK). Tap a circle to open it. --%>
-            <section
+            <%!-- The whole files overview is wrapped in `SharedFileHook` so the
+                 per-row Download buttons (`data-download-shared-file`) drive the
+                 same ZK read path used inside a circle: the server hands back a
+                 presigned URL + the viewer's sealed file_key, and the browser
+                 fetches, decrypts, verifies the checksum (I7), and saves — the
+                 plaintext never touches the server. --%>
+            <div
               :if={@org_file_circles != []}
-              id="org-files-overview"
-              phx-hook="OrgFileSearch"
-              class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
+              id="org-files-download-scope"
+              phx-hook="SharedFileHook"
             >
-              <div class="flex items-start gap-3">
-                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-300">
-                  <.phx_icon name="hero-folder" class="size-5" />
-                </span>
-                <div class="min-w-0">
-                  <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
-                    Files across your circles
-                  </h2>
-                  <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                    Everything shared with circles you're in. Encrypted on each member's device —
-                    Mosslet can't read them.
-                  </p>
-                </div>
-              </div>
+              <section
+                id="org-files-overview"
+                phx-hook="OrgFileSearch"
+                class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
+              >
+                <%!-- Collapsible header (whole row toggles the body). Files are
+                     everyday work, so the card defaults open. --%>
+                <button
+                  type="button"
+                  id="org-files-toggle"
+                  phx-click="toggle_files"
+                  aria-expanded={to_string(@files_open?)}
+                  aria-controls="org-files-panel"
+                  class="group flex w-full items-start gap-3 text-left"
+                >
+                  <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-300">
+                    <.phx_icon name="hero-folder" class="size-5" />
+                  </span>
+                  <div class="min-w-0 flex-1">
+                    <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                      Files across your circles
+                    </h2>
+                    <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                      Everything shared with circles you're in. Encrypted on each member's device —
+                      Mosslet can't read them.
+                    </p>
+                  </div>
+                  <.phx_icon
+                    name="hero-chevron-down"
+                    class={[
+                      "size-5 shrink-0 text-slate-400 transition-transform duration-200",
+                      @files_open? && "rotate-180"
+                    ]}
+                  />
+                </button>
 
-              <%!-- Find-things-fast toolbar (#229a). Filename SEARCH is client-side
+                <div
+                  id="org-files-panel"
+                  role="region"
+                  aria-labelledby="org-files-toggle"
+                  class={["space-y-4", !@files_open? && "hidden"]}
+                >
+                  <%!-- Find-things-fast toolbar (#229a). Filename SEARCH is client-side
                    (ZK — names only exist decrypted in the browser, via the
                    DecryptSharedFileName hook); the OrgFileSearch hook filters rows
                    by their decrypted text. SORT uses only server-visible metadata
                    (upload time / size) and is handled server-side. --%>
-              <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <div id="org-file-search-bar" phx-update="ignore" class="relative flex-1">
-                  <.phx_icon
-                    name="hero-magnifying-glass"
-                    class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 dark:text-slate-500"
-                  />
-                  <input
-                    type="text"
-                    data-file-search
-                    id="org-file-search-input"
-                    autocomplete="off"
-                    spellcheck="false"
-                    placeholder="Search files by name…"
-                    aria-label="Search files by name"
-                    class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 py-2 pl-9 pr-9 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-teal-500 focus:ring-teal-500"
-                  />
-                  <button
-                    type="button"
-                    data-file-search-clear
+                  <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <div id="org-file-search-bar" phx-update="ignore" class="relative flex-1">
+                      <.phx_icon
+                        name="hero-magnifying-glass"
+                        class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 dark:text-slate-500"
+                      />
+                      <input
+                        type="text"
+                        data-file-search
+                        id="org-file-search-input"
+                        autocomplete="off"
+                        spellcheck="false"
+                        placeholder="Search files by name…"
+                        aria-label="Search files by name"
+                        class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 py-2 pl-9 pr-9 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-teal-500 focus:ring-teal-500"
+                      />
+                      <button
+                        type="button"
+                        data-file-search-clear
+                        hidden
+                        aria-label="Clear search"
+                        class="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                      >
+                        <.phx_icon name="hero-x-mark" class="size-4" />
+                      </button>
+                    </div>
+                    <form phx-change="sort_files" class="shrink-0">
+                      <label for="org-file-sort" class="sr-only">Sort files</label>
+                      <select
+                        id="org-file-sort"
+                        name="sort"
+                        class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 py-2 pl-3 pr-8 text-sm text-slate-700 dark:text-slate-200 focus:border-teal-500 focus:ring-teal-500"
+                      >
+                        <option value="newest" selected={@file_sort == :newest}>Newest first</option>
+                        <option value="oldest" selected={@file_sort == :oldest}>Oldest first</option>
+                        <option value="largest" selected={@file_sort == :largest}>
+                          Largest first
+                        </option>
+                        <option value="smallest" selected={@file_sort == :smallest}>
+                          Smallest first
+                        </option>
+                      </select>
+                    </form>
+                  </div>
+
+                  <p class="text-xs text-slate-500 dark:text-slate-400">
+                    <span data-file-count></span>
+                  </p>
+
+                  <div
+                    data-file-empty
                     hidden
-                    aria-label="Clear search"
-                    class="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                    class="rounded-xl border border-dashed border-slate-300 dark:border-slate-600 px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400"
                   >
-                    <.phx_icon name="hero-x-mark" class="size-4" />
-                  </button>
-                </div>
-                <form phx-change="sort_files" class="shrink-0">
-                  <label for="org-file-sort" class="sr-only">Sort files</label>
-                  <select
-                    id="org-file-sort"
-                    name="sort"
-                    class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 py-2 pl-3 pr-8 text-sm text-slate-700 dark:text-slate-200 focus:border-teal-500 focus:ring-teal-500"
-                  >
-                    <option value="newest" selected={@file_sort == :newest}>Newest first</option>
-                    <option value="oldest" selected={@file_sort == :oldest}>Oldest first</option>
-                    <option value="largest" selected={@file_sort == :largest}>Largest first</option>
-                    <option value="smallest" selected={@file_sort == :smallest}>
-                      Smallest first
-                    </option>
-                  </select>
-                </form>
-              </div>
+                    No files match “<span data-file-empty-query class="font-medium"></span>”.
+                  </div>
 
-              <p class="text-xs text-slate-500 dark:text-slate-400">
-                <span data-file-count></span>
-              </p>
-
-              <div
-                data-file-empty
-                hidden
-                class="rounded-xl border border-dashed border-slate-300 dark:border-slate-600 px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400"
-              >
-                No files match “<span data-file-empty-query class="font-medium"></span>”.
-              </div>
-
-              <%!-- Files grouped by circle, split into the two #229b tiers so
+                  <%!-- Files grouped by circle, split into the two #229b tiers so
                official department files read distinctly from community ones.
                Each tier wrapper carries `data-file-tier` so the OrgFileSearch
                hook can hide an entire empty tier (heading included) while a
                filename query is active. --%>
-              <div :if={@team_file_circles != []} data-file-tier class="space-y-3">
-                <div class="flex items-center gap-2">
-                  <.phx_icon
-                    name="hero-building-office-2"
-                    class="size-4 text-teal-600 dark:text-teal-400"
-                  />
-                  <h3 class="text-xs font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">
-                    Departments &amp; Teams
-                  </h3>
-                </div>
-                <.file_circle_block
-                  :for={entry <- @team_file_circles}
-                  entry={entry}
-                  tier={:team}
-                  org={@org}
-                  can_manage_org_pins?={@can_manage_org_pins?}
-                  personal_pinned_file_ids={@personal_pinned_file_ids}
-                  org_pinned_file_ids={@org_pinned_file_ids}
-                />
-              </div>
+                  <div :if={@team_file_circles != []} data-file-tier class="space-y-3">
+                    <div class="flex items-center gap-2">
+                      <.phx_icon
+                        name="hero-building-office-2"
+                        class="size-4 text-teal-600 dark:text-teal-400"
+                      />
+                      <h3 class="text-xs font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">
+                        Departments &amp; Teams
+                      </h3>
+                    </div>
+                    <.file_circle_block
+                      :for={entry <- @team_file_circles}
+                      entry={entry}
+                      tier={:team}
+                      org={@org}
+                      can_manage_org_pins?={@can_manage_org_pins?}
+                      personal_pinned_file_ids={@personal_pinned_file_ids}
+                      org_pinned_file_ids={@org_pinned_file_ids}
+                    />
+                  </div>
 
-              <div :if={@community_file_circles != []} data-file-tier class="space-y-3">
-                <div class="flex items-center gap-2">
-                  <.phx_icon
-                    name="hero-user-group"
-                    class="size-4 text-slate-400 dark:text-slate-500"
-                  />
-                  <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    Community circles
-                  </h3>
+                  <div :if={@community_file_circles != []} data-file-tier class="space-y-3">
+                    <div class="flex items-center gap-2">
+                      <.phx_icon
+                        name="hero-user-group"
+                        class="size-4 text-slate-400 dark:text-slate-500"
+                      />
+                      <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        Community circles
+                      </h3>
+                    </div>
+                    <.file_circle_block
+                      :for={entry <- @community_file_circles}
+                      entry={entry}
+                      tier={:community}
+                      org={@org}
+                      can_manage_org_pins?={@can_manage_org_pins?}
+                      personal_pinned_file_ids={@personal_pinned_file_ids}
+                      org_pinned_file_ids={@org_pinned_file_ids}
+                    />
+                  </div>
                 </div>
-                <.file_circle_block
-                  :for={entry <- @community_file_circles}
-                  entry={entry}
-                  tier={:community}
-                  org={@org}
-                  can_manage_org_pins?={@can_manage_org_pins?}
-                  personal_pinned_file_ids={@personal_pinned_file_ids}
-                  org_pinned_file_ids={@org_pinned_file_ids}
-                />
-              </div>
-            </section>
+              </section>
+            </div>
           </div>
         </div>
 
@@ -1002,7 +1040,14 @@ defmodule MossletWeb.BusinessLive.Show do
               >
                 <div class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm overflow-hidden">
                   <header class="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-700/60">
-                    <div class="flex items-center gap-3 min-w-0">
+                    <button
+                      type="button"
+                      id="org-audit-toggle"
+                      phx-click="toggle_audit"
+                      aria-expanded={to_string(@audit_open?)}
+                      aria-controls="org-audit-panel"
+                      class="flex items-center gap-3 min-w-0 flex-1 text-left"
+                    >
                       <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400">
                         <.phx_icon name="hero-shield-check" class="size-5" />
                       </span>
@@ -1014,21 +1059,45 @@ defmodule MossletWeb.BusinessLive.Show do
                           A tamper-proof, zero-knowledge record of admin actions — visible only to owners and admins.
                         </p>
                       </div>
+                    </button>
+                    <div class="flex items-center gap-2 shrink-0">
+                      <.liquid_button
+                        :if={@audit_events != []}
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        icon="hero-arrow-down-tray"
+                        id="org-audit-export"
+                        data-audit-export
+                      >
+                        Download
+                      </.liquid_button>
+                      <button
+                        type="button"
+                        phx-click="toggle_audit"
+                        aria-label={
+                          if @audit_open?, do: "Collapse activity log", else: "Expand activity log"
+                        }
+                        class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700/60 dark:hover:text-slate-300"
+                      >
+                        <.phx_icon
+                          name="hero-chevron-down"
+                          class={[
+                            "size-5 transition-transform duration-200",
+                            @audit_open? && "rotate-180"
+                          ]}
+                        />
+                      </button>
                     </div>
-                    <.liquid_button
-                      :if={@audit_events != []}
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      icon="hero-arrow-down-tray"
-                      id="org-audit-export"
-                      data-audit-export
-                    >
-                      Download
-                    </.liquid_button>
                   </header>
 
-                  <ol id="org-audit-events" class="divide-y divide-slate-100 dark:divide-slate-700/60">
+                  <ol
+                    id="org-audit-events"
+                    class={[
+                      "divide-y divide-slate-100 dark:divide-slate-700/60",
+                      !@audit_open? && "hidden"
+                    ]}
+                  >
                     <li
                       :if={@audit_events == []}
                       id="org-audit-empty"
@@ -1159,10 +1228,10 @@ defmodule MossletWeb.BusinessLive.Show do
                               alt="Logo preview"
                               class="h-full w-full object-contain"
                             />
-                          <% @org.logo_url && @org_logo_url && @viewer_sealed_org_key -> %>
+                          <% @org.logo_url && @org_logo_blob && @viewer_sealed_org_key -> %>
                             <.org_logo
                               id="org-logo-preview-current"
-                              logo_url={@org_logo_url}
+                              encrypted_blob={@org_logo_blob}
                               sealed_org_key={@viewer_sealed_org_key}
                               frame_class="h-full w-full border-0 bg-transparent"
                               icon_class="h-8 w-8 text-slate-300 dark:text-slate-600"
@@ -1536,16 +1605,17 @@ defmodule MossletWeb.BusinessLive.Show do
         phx-hook="DecryptGroupMetadata"
         data-sealed-group-key={@circle.sealed_group_key}
         data-encrypted-name={@circle.encrypted_name}
+        data-encrypted-description={@circle.encrypted_description}
         data-scope-id={"business-circle-#{@circle.group.id}"}
       >
       </div>
       <div class="flex items-center">
         <.link
           navigate={~p"/app/business/#{@org.slug}/circles/#{@circle.group.id}"}
-          class="flex flex-1 min-w-0 items-center gap-3 p-3"
+          class="flex flex-1 min-w-0 items-center gap-3.5 p-4"
         >
           <div class={[
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg relative",
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg relative",
             @tier == :team &&
               "bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-sm",
             @tier != :team &&
@@ -1563,11 +1633,23 @@ defmodule MossletWeb.BusinessLive.Show do
               variant={:business}
             />
           </div>
-          <div class="min-w-0 flex-1">
-            <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+          <div class="min-w-0 flex-1 space-y-0.5">
+            <p class="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
               <span data-decrypt-group-name>Business circle</span>
             </p>
-            <p class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <%!-- Circle description (ZK): decrypted browser-side via the hook
+                 above. Kept to a single line on the card for a clean scan; the
+                 full text shows on the circle page. --%>
+            <p
+              :if={@circle.encrypted_description not in [nil, ""]}
+              id={"circle-card-desc-#{@circle.group.id}"}
+              phx-update="ignore"
+              class="text-xs leading-snug text-slate-500 dark:text-slate-400 truncate"
+              data-decrypt-group-description
+            >
+              Decrypting…
+            </p>
+            <p class="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
               {@circle.member_count} member{if @circle.member_count != 1, do: "s"}
               <span
                 :if={@circle.unread_announcements > 0}
@@ -1704,11 +1786,11 @@ defmodule MossletWeb.BusinessLive.Show do
           data-file-row
           class="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800/40"
         >
+          <% viewer_row = List.first(file.user_shared_files) %>
           <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-300">
             <.phx_icon name="hero-document" class="size-4" />
           </span>
           <div class="min-w-0 flex-1">
-            <% viewer_row = List.first(file.user_shared_files) %>
             <div
               :if={viewer_row && file.encrypted_filename}
               id={"decrypt-org-filename-#{file.id}"}
@@ -1734,6 +1816,21 @@ defmodule MossletWeb.BusinessLive.Show do
               {format_size(file.size_bytes)}
             </p>
           </div>
+          <%!-- Download (ZK read path): only shown when the viewer holds a
+               sealed file_key (`viewer_row`) — i.e. they can actually decrypt
+               it. The click is caught by the SharedFileHook wrapping the
+               overview, which requests a presigned URL + sealed key, then
+               decrypts and verifies browser-side. --%>
+          <button
+            :if={viewer_row}
+            type="button"
+            data-download-shared-file={file.id}
+            aria-label="Download file"
+            title="Download"
+            class="shrink-0 rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-teal-50 hover:text-teal-600 dark:hover:bg-teal-900/30 dark:hover:text-teal-400"
+          >
+            <.phx_icon name="hero-arrow-down-tray" class="size-4" />
+          </button>
           <.pin_toggle_buttons
             pin_type={:file}
             target_id={file.id}
@@ -3096,6 +3193,55 @@ defmodule MossletWeb.BusinessLive.Show do
     {:noreply, assign(socket, :manage_open?, !socket.assigns.manage_open?)}
   end
 
+  # Collapse/expand the org-wide files overview and the admin activity log.
+  # Pure UI state — children stay in the DOM and toggle via a CSS class so the
+  # ZK hooks (DecryptSharedFileName / AuditLog) keep working while collapsed.
+  def handle_event("toggle_files", _params, socket) do
+    {:noreply, assign(socket, :files_open?, !socket.assigns.files_open?)}
+  end
+
+  def handle_event("toggle_audit", _params, socket) do
+    {:noreply, assign(socket, :audit_open?, !socket.assigns.audit_open?)}
+  end
+
+  # Shared-file download (ZK read path), mirroring OrgCircleSupport but scoped to
+  # the org dashboard's files overview. We hand back a presigned URL + the
+  # viewer's own sealed file_key only after confirming they actually hold a
+  # sealed key for this file (I1 authority gate); the browser does the rest.
+  def handle_event("request_shared_file", %{"shared_file_id" => file_id}, socket) do
+    current_user = socket.assigns.current_scope.user
+
+    with shared_file when not is_nil(shared_file) <- Files.get_shared_file(file_id),
+         %{key: sealed_key} <- Files.get_user_shared_file(shared_file, current_user),
+         {:ok, url} <- Files.presigned_download_url(shared_file, current_user) do
+      {:noreply,
+       push_event(socket, "shared_file_ready", %{
+         shared_file_id: file_id,
+         sealed_key: sealed_key,
+         presigned_url: url,
+         encrypted_filename: shared_file.encrypted_filename,
+         checksum: shared_file.checksum
+       })}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "You can't download that file.")}
+    end
+  end
+
+  def handle_event("shared_file_downloaded", %{"verified" => false}, socket) do
+    {:noreply,
+     put_flash(
+       socket,
+       :warning,
+       "This file downloaded, but its integrity check did not match. Treat it with caution."
+     )}
+  end
+
+  def handle_event("shared_file_downloaded", _params, socket), do: {:noreply, socket}
+
+  def handle_event("shared_file_download_failed", _params, socket) do
+    {:noreply, put_flash(socket, :error, "Couldn't open that file. Please try again.")}
+  end
+
   # Open the Manage disclosure (used by the seat-full notice's "Add more seats"
   # link, which deep-links to the relocated #org-seat-management control).
   def handle_event("open_manage", _params, socket) do
@@ -3261,18 +3407,6 @@ defmodule MossletWeb.BusinessLive.Show do
 
   ## Data loading
 
-  # Org brand logo (Task #228): a short-lived presigned GET URL for the opaque
-  # (org_key-encrypted) blob, or nil when no logo is set. The browser fetches the
-  # ciphertext and decrypts it with the org_key (OrgLogoDisplay hook).
-  defp org_logo_presigned_url(%{logo_url: path}) when is_binary(path) do
-    case Mosslet.FileUploads.SharedFileStorage.presigned_url(path) do
-      {:ok, url} -> url
-      _ -> nil
-    end
-  end
-
-  defp org_logo_presigned_url(_), do: nil
-
   # The org's branded address for display (Task #240). The subdomain label is
   # non-sensitive plaintext; the base host comes from the canonical-host config
   # (apex the subdomain hangs off), falling back to the production apex.
@@ -3435,6 +3569,7 @@ defmodule MossletWeb.BusinessLive.Show do
         %{
           group: group,
           encrypted_name: group.name,
+          encrypted_description: group.description,
           org_circle_type: group.org_circle_type,
           sealed_group_key: user_group && user_group.key,
           # The viewer's user_group id drives the server-authoritative, ZK-safe
@@ -3544,7 +3679,7 @@ defmodule MossletWeb.BusinessLive.Show do
     )
     |> assign_subdomain_state(org)
     |> assign(:subdomain_form, to_form(Org.subdomain_changeset(org, %{}), as: :branding))
-    |> assign(:org_logo_url, org_logo_presigned_url(org))
+    |> assign(:org_logo_blob, Orgs.org_logo_blob_b64(org))
     |> assign_pending_transfer(org, current_user)
     |> assign_manage_circle(members)
     |> maybe_request_org_key_seal()

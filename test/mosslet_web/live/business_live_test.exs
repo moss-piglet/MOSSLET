@@ -310,6 +310,13 @@ defmodule MossletWeb.BusinessLiveTest do
       {:ok, _org} = Orgs.set_org_logo(org, "uploads/files/#{Ecto.UUID.generate()}.bin")
       seal_org_key(org, user)
 
+      :sys.get_state(Mosslet.Extensions.OrgLogoProcessor)
+
+      Mosslet.Extensions.OrgLogoProcessor.put(
+        Mosslet.Extensions.OrgLogoProcessor.key(org.id),
+        <<1, 2, 3, 4>>
+      )
+
       conn = log_in(conn, user, key)
       {:ok, lv, _html} = live(conn, ~p"/app/business")
 
@@ -464,6 +471,13 @@ defmodule MossletWeb.BusinessLiveTest do
       # just an opaque blob — the real value is browser-generated).
       seal_org_key(ctx.org, ctx.admin)
 
+      :sys.get_state(Mosslet.Extensions.OrgLogoProcessor)
+
+      Mosslet.Extensions.OrgLogoProcessor.put(
+        Mosslet.Extensions.OrgLogoProcessor.key(ctx.org.id),
+        <<1, 2, 3, 4>>
+      )
+
       {:ok, lv, _html} =
         ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")
 
@@ -475,6 +489,13 @@ defmodule MossletWeb.BusinessLiveTest do
     test "removing the logo clears it and reverts to the fallback", ctx do
       {:ok, _org} = Orgs.set_org_logo(ctx.org, "uploads/files/#{Ecto.UUID.generate()}.bin")
       seal_org_key(ctx.org, ctx.admin)
+
+      :sys.get_state(Mosslet.Extensions.OrgLogoProcessor)
+
+      Mosslet.Extensions.OrgLogoProcessor.put(
+        Mosslet.Extensions.OrgLogoProcessor.key(ctx.org.id),
+        <<1, 2, 3, 4>>
+      )
 
       {:ok, lv, _html} =
         ctx.conn |> log_in(ctx.admin, ctx.admin_key) |> live(~p"/app/business/#{ctx.org.slug}")

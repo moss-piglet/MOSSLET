@@ -581,22 +581,27 @@ defmodule MossletWeb.OrgComponents do
   Renders an org's brand logo (Task #228) wherever the generic org/building icon
   would otherwise appear (dashboard header, business list cards, branding
   preview). Zero-knowledge: the logo blob is encrypted with the per-org
-  `org_key`, so we hand the browser a short-lived presigned GET URL + the
-  viewer's sealed org_key and the `OrgLogoDisplay` hook fetches + decrypts it.
+  `org_key`, so the server delivers the opaque CIPHERTEXT inline (base64) + the
+  viewer's sealed org_key and the `OrgLogoDisplay` hook decrypts it client-side.
+  Delivering it inline (rather than via a cross-origin presigned URL) means it
+  renders identically on the apex and on a branded subdomain (Task #349).
 
   Loading/error states (so there's never an ugly broken-image flash):
 
-    * No logo / no presigned URL / viewer lacks the org_key — renders the
+    * No logo / no blob / viewer lacks the org_key — renders the
       `:fallback` slot (the building icon) immediately.
     * Logo present but still decrypting — renders a spinner; the `<img>` is
       hidden (`data-state="loading"`) until the hook sets its `src`.
     * Decrypt succeeded — the hook flips `data-state="ready"`, revealing the
       `<img>` and hiding the spinner.
-    * Decrypt/fetch failed — the hook flips `data-state="error"`, hiding the
+    * Decrypt failed — the hook flips `data-state="error"`, hiding the
       spinner and revealing the building icon fallback.
 
   * `id` — unique DOM id for the hook element (tests + LiveView diffing).
-  * `logo_url` — short-lived presigned GET URL for the opaque blob, or nil.
+  * `encrypted_blob` — base64 org_key-secretbox CIPHERTEXT of the logo, delivered
+    inline (server-fetched via `Orgs.org_logo_blob_b64/1`), or nil. Decrypted
+    client-side — no cross-origin fetch, so it works on branded subdomains too
+    (Task #349).
   * `sealed_org_key` — the viewer's `Membership.key` (org_key sealed for them).
   * `frame_class` — sizing/shape classes for the logo frame.
   * `img_class` — classes for the inner `<img>`.
@@ -604,7 +609,7 @@ defmodule MossletWeb.OrgComponents do
   * `alt` — accessible image alt text.
   """
   attr :id, :string, required: true
-  attr :logo_url, :string, default: nil
+  attr :encrypted_blob, :string, default: nil
   attr :sealed_org_key, :string, default: nil
   attr :frame_class, :string, default: "h-12 w-12 rounded-2xl"
   attr :img_class, :string, default: "h-full w-full object-contain"
@@ -614,12 +619,12 @@ defmodule MossletWeb.OrgComponents do
 
   def org_logo(assigns) do
     ~H"""
-    <%= if @logo_url && @sealed_org_key do %>
+    <%= if @encrypted_blob && @sealed_org_key do %>
       <span
         id={@id}
         phx-hook="OrgLogoDisplay"
         phx-update="ignore"
-        data-logo-url={@logo_url}
+        data-encrypted-blob={@encrypted_blob}
         data-sealed-org-key={@sealed_org_key}
         data-state="loading"
         class={[

@@ -627,14 +627,15 @@ defmodule MossletWeb.FamilyLive.Show do
                 phx-hook="DecryptGroupMetadata"
                 data-sealed-group-key={circle.sealed_group_key}
                 data-encrypted-name={circle.encrypted_name}
+                data-encrypted-description={circle.encrypted_description}
                 data-scope-id={"family-circle-#{circle.group.id}"}
               >
               </div>
               <.link
                 navigate={~p"/app/family/#{@org.slug}/circles/#{circle.group.id}"}
-                class="flex items-center gap-3 p-3"
+                class="flex items-center gap-3.5 p-4"
               >
-                <div class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/40 dark:to-emerald-900/40 text-teal-600 dark:text-teal-300 group-hover:text-teal-700">
+                <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/40 dark:to-emerald-900/40 text-teal-600 dark:text-teal-300 group-hover:text-teal-700">
                   <.phx_icon name="hero-home-modern" class="size-4" />
                   <.mention_badge
                     id={"family-circle-#{circle.group.id}-mentions"}
@@ -642,13 +643,25 @@ defmodule MossletWeb.FamilyLive.Show do
                     variant={:family}
                   />
                 </div>
-                <div class="min-w-0 flex-1">
-                  <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                <div class="min-w-0 flex-1 space-y-0.5">
+                  <p class="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
                     <span id={"family-circle-name-#{circle.group.id}"} phx-update="ignore">
                       <span data-decrypt-group-name>Family circle</span>
                     </span>
                   </p>
-                  <p class="text-xs text-slate-500 dark:text-slate-400">
+                  <%!-- Circle description (ZK): decrypted browser-side via the
+                       hook above; single line on the card, full text on the
+                       circle page. --%>
+                  <p
+                    :if={circle.encrypted_description not in [nil, ""]}
+                    id={"family-circle-card-desc-#{circle.group.id}"}
+                    phx-update="ignore"
+                    class="text-xs leading-snug text-slate-500 dark:text-slate-400 truncate"
+                    data-decrypt-group-description
+                  >
+                    Decrypting…
+                  </p>
+                  <p class="text-xs text-slate-400 dark:text-slate-500">
                     {circle.member_count} member{if circle.member_count != 1, do: "s"}
                   </p>
                 </div>
@@ -1561,6 +1574,7 @@ defmodule MossletWeb.FamilyLive.Show do
       %{
         group: group,
         encrypted_name: group.name,
+        encrypted_description: group.description,
         sealed_group_key: ug && ug.key,
         # The viewer's user_group id drives the server-authoritative, ZK-safe
         # unread-@mention count (Task #280); never derived from ciphertext.

@@ -148,7 +148,7 @@ defmodule MossletWeb.BusinessLive.Index do
             >
               <.org_logo
                 id={"business-logo-#{business.org.id}"}
-                logo_url={business.logo_url}
+                encrypted_blob={business.logo_blob}
                 sealed_org_key={business.sealed_org_key}
                 frame_class="h-11 w-11 rounded-xl"
                 alt={business.org.name <> " logo"}
@@ -346,10 +346,10 @@ defmodule MossletWeb.BusinessLive.Index do
           member_count: length(members),
           active?: Orgs.org_active?(org),
           owner?: Orgs.owner?(org, current_user.id),
-          # Brand logo (Task #228): the viewer decrypts it browser-side with the
-          # org_key sealed for them in their membership row. A short-lived
-          # presigned URL + that sealed key drive the OrgLogoDisplay hook.
-          logo_url: org_logo_presigned_url(org),
+          # Brand logo (Task #228, #349): the viewer decrypts it browser-side with
+          # the org_key sealed for them in their membership row. The encrypted blob
+          # is delivered inline (no cross-origin fetch) to the OrgLogoDisplay hook.
+          logo_blob: Orgs.org_logo_blob_b64(org),
           sealed_org_key: membership.key
         }
       end)
@@ -404,18 +404,6 @@ defmodule MossletWeb.BusinessLive.Index do
 
   defp page_title(:new), do: "New business"
   defp page_title(_), do: "Business"
-
-  # Brand logo (Task #228): a short-lived presigned GET URL for the opaque
-  # (org_key-encrypted) blob, or nil when no logo is set. The browser fetches
-  # the ciphertext and decrypts it with the org_key (OrgLogoDisplay hook).
-  defp org_logo_presigned_url(%{logo_url: path}) when is_binary(path) do
-    case Mosslet.FileUploads.SharedFileStorage.presigned_url(path) do
-      {:ok, url} -> url
-      _ -> nil
-    end
-  end
-
-  defp org_logo_presigned_url(_), do: nil
 
   # Tailors the "can't create" message: a member-seat (owns no business) is told
   # starting their own is a separate paid plan; an owner is told to put their

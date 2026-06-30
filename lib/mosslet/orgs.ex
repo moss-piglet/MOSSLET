@@ -1291,6 +1291,9 @@ defmodule Mosslet.Orgs do
         if is_binary(previous_path) and previous_path != storage_path,
           do: Mosslet.FileUploads.SharedFileStorage.delete_blob(previous_path)
 
+        # Drop the cached (old) logo ciphertext everywhere so the next render
+        # fetches the freshly-uploaded blob (Task #349).
+        Mosslet.Extensions.OrgLogoProcessor.invalidate(updated.id)
         broadcast_org_update(updated.id)
         ok
 
@@ -1313,6 +1316,7 @@ defmodule Mosslet.Orgs do
         if is_binary(previous_path),
           do: Mosslet.FileUploads.SharedFileStorage.delete_blob(previous_path)
 
+        Mosslet.Extensions.OrgLogoProcessor.invalidate(updated.id)
         broadcast_org_update(updated.id)
         ok
 
@@ -1320,6 +1324,41 @@ defmodule Mosslet.Orgs do
         error
     end
   end
+
+  @doc """
+  Returns the org's brand-logo CIPHERTEXT as base64 for inline (server-delivered)
+  ZK display (Task #228, #349), or `nil` when no logo is set / the blob can't be
+  fetched.
+
+  The bytes are the org_key-secretbox ciphertext stored in object storage — the
+  server never decrypts them. The member's browser (which already holds the
+  `org_key`) decrypts the inline base64 via the `OrgLogoDisplay` hook, so there is
+  NO cross-origin presigned fetch (and thus no Tigris CORS dependency): the logo
+  renders identically on the apex and on a branded subdomain.
+
+  Cached (per org) in `OrgLogoProcessor` and invalidated on set/clear, so repeat
+  renders never re-hit object storage.
+  """
+  def org_logo_blob_b64(%Org{logo_url: path} = org) when is_binary(path) do
+    cache_key = Mosslet.Extensions.OrgLogoProcessor.key(org.id)
+
+    case Mosslet.Extensions.OrgLogoProcessor.get(cache_key) do
+      blob when is_binary(blob) ->
+        Base.encode64(blob)
+
+      _ ->
+        case Mosslet.FileUploads.SharedFileStorage.get_encrypted_blob(path) do
+          {:ok, blob} ->
+            Mosslet.Extensions.OrgLogoProcessor.put(cache_key, blob)
+            Base.encode64(blob)
+
+          :error ->
+            nil
+        end
+    end
+  end
+
+  def org_logo_blob_b64(_), do: nil
 
   @doc """
   Claims/sets the org's custom subdomain (Task #240, Phase B). `attrs` is the

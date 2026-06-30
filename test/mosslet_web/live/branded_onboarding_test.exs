@@ -80,6 +80,15 @@ defmodule MossletWeb.BrandedOnboardingTest do
     # Org has a logo (org_key-encrypted blob) and the viewer holds the sealed key.
     {:ok, _org} = Orgs.set_org_logo(org, "uploads/files/#{Ecto.UUID.generate()}.bin")
 
+    # Seed the inline-blob cache so rendering doesn't hit object storage (Task #349).
+    # Drain set_org_logo's async cache-invalidation first so it can't race-delete the seed.
+    :sys.get_state(Mosslet.Extensions.OrgLogoProcessor)
+
+    Mosslet.Extensions.OrgLogoProcessor.put(
+      Mosslet.Extensions.OrgLogoProcessor.key(org.id),
+      <<1, 2, 3, 4>>
+    )
+
     {:ok, _count} =
       Orgs.seal_org_key_for_members(org, [
         %{user_id: owner.id, sealed_key: "sealed-org-key-#{System.unique_integer([:positive])}"}

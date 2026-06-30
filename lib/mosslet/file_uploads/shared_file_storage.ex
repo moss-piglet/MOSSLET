@@ -59,6 +59,26 @@ defmodule Mosslet.FileUploads.SharedFileStorage do
   end
 
   @doc """
+  Fetches an opaque (already-encrypted) blob from object storage, SERVER-SIDE.
+
+  Returns `{:ok, ciphertext_binary}` or `:error`. The bytes are the NaCl-secretbox
+  ciphertext (under the per-file/per-org key) — the server never decrypts them; it
+  only relays the opaque blob so the browser can deliver it inline and decrypt
+  client-side (avoids a cross-origin presigned fetch / Tigris CORS — Task #349).
+  Authorization is enforced by the caller BEFORE this runs.
+  """
+  def get_encrypted_blob(storage_path) when is_binary(storage_path) do
+    bucket = Encrypted.Session.memories_bucket()
+
+    case ExAws.S3.get_object(bucket, storage_path) |> ExAws.request() do
+      {:ok, %{body: body}} when is_binary(body) -> {:ok, body}
+      _ -> :error
+    end
+  end
+
+  def get_encrypted_blob(_), do: :error
+
+  @doc """
   Deletes an opaque blob (revocation — I5). Runs on the StorjTask supervisor so
   a slow object-store call never blocks the LiveView process.
   """

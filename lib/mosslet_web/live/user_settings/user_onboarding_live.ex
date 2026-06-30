@@ -34,11 +34,11 @@ defmodule MossletWeb.UserOnboardingLive do
 
     if socket.assigns[:subdomain_org_live?] && org && viewer do
       socket
-      |> assign(:subdomain_logo_url, org_logo_presigned_url(org))
+      |> assign(:subdomain_logo_blob, Orgs.org_logo_blob_b64(org))
       |> assign(:subdomain_sealed_org_key, viewer_sealed_org_key(org, viewer))
     else
       socket
-      |> assign(:subdomain_logo_url, nil)
+      |> assign(:subdomain_logo_blob, nil)
       |> assign(:subdomain_sealed_org_key, nil)
     end
   end
@@ -53,18 +53,6 @@ defmodule MossletWeb.UserOnboardingLive do
       if membership.user_id == viewer.id, do: membership.key
     end)
   end
-
-  # Short-lived presigned GET URL for the org's logo (org_key-encrypted) blob, or
-  # nil when no logo is set. The browser decrypts it with the org_key
-  # (OrgLogoDisplay hook) — the server never sees the plaintext image.
-  defp org_logo_presigned_url(%{logo_url: path}) when is_binary(path) do
-    case Mosslet.FileUploads.SharedFileStorage.presigned_url(path) do
-      {:ok, url} -> url
-      _ -> nil
-    end
-  end
-
-  defp org_logo_presigned_url(_), do: nil
 
   # Plan-aware signup intent persisted at sign-in (UserAuth.maybe_put_plan_intent).
   # Drives where the user lands after onboarding (Task #214/#215). All plans land
@@ -162,9 +150,9 @@ defmodule MossletWeb.UserOnboardingLive do
                     class="mb-6 flex flex-col items-center gap-3"
                   >
                     <.org_logo
-                      :if={@subdomain_logo_url && @subdomain_sealed_org_key}
+                      :if={@subdomain_logo_blob && @subdomain_sealed_org_key}
                       id="org-branded-onboarding-logo"
-                      logo_url={@subdomain_logo_url}
+                      encrypted_blob={@subdomain_logo_blob}
                       sealed_org_key={@subdomain_sealed_org_key}
                       frame_class="h-16 w-16 rounded-2xl"
                       alt={"#{@subdomain_org.name} logo"}
