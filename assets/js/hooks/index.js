@@ -44,7 +44,8 @@ import GroupMetadataFormHook from "./group-metadata-form-hook";
 import CircleAddMembersHook from "./circle-add-members-hook";
 import CircleMetadataEditHook from "./circle-metadata-edit-hook";
 import CircleAuditLabel from "./circle-audit-label-hook";
-import CircleCatchUpHook from "./circle-catch-up-hook";
+import OrgRoleAuditLabel from "./org-role-audit-label-hook";
+import InviteAuditLabel from "./invite-audit-label-hook";import CircleCatchUpHook from "./circle-catch-up-hook";
 import ClearFlashHook from "./clear-flash-hook";
 import LiquidFlash from "./liquid-flash";
 import LoginHook from "./login-hook";
@@ -167,6 +168,8 @@ export default {
   CircleAddMembersHook,
   CircleMetadataEditHook,
   CircleAuditLabel,
+  OrgRoleAuditLabel,
+  InviteAuditLabel,
   CircleCatchUpHook,
   ClearFlashHook,
   LiquidFlash,

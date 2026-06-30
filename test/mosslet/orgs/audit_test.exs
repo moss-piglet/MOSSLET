@@ -125,11 +125,15 @@ defmodule Mosslet.Orgs.AuditTest do
         )
 
       # The persisted columns are exactly: ids + a non-sensitive category +
-      # timestamp. There is no name/label/content field on the schema at all.
+      # timestamp + an OPAQUE org_key-encrypted label (browser-supplied
+      # ciphertext the server can never read — invariant I6; here nil since no
+      # label was supplied). There is no readable name/content field.
       stored = Repo.get!(AuditEvent, event.id)
 
       assert Map.keys(Map.from_struct(stored)) |> Enum.sort() ==
-               ~w(__meta__ action actor actor_id id inserted_at org org_id target_id target_type)a
+               ~w(__meta__ action actor actor_id encrypted_label id inserted_at org org_id target_id target_type)a
+
+      assert is_nil(stored.encrypted_label)
     end
   end
 

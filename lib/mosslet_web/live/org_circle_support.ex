@@ -118,7 +118,8 @@ defmodule MossletWeb.OrgCircleSupport do
           socket.assigns.current_scope.user,
           "file_shared",
           target_id: shared_file.id,
-          target_type: "shared_file"
+          target_type: "shared_file",
+          encrypted_label: params["encrypted_label"]
         )
 
         {:halt,
@@ -179,6 +180,21 @@ defmodule MossletWeb.OrgCircleSupport do
 
   # --- Revocation (I5) ---
 
+  # The browser decrypted a file's name (with the per-file key) and re-encrypted
+  # it under the org_key as an opaque AUDIT label (Task #353), keyed by file id.
+  # Cache it so a subsequent `delete_shared_file` (a plain phx-click) can name the
+  # removed file in the org activity log. Opaque ciphertext only — the server
+  # never reads the plaintext filename (I6).
+  def handle_circle_event(
+        "cache_shared_file_label",
+        %{"file_id" => file_id, "label" => label},
+        socket
+      )
+      when is_binary(file_id) and is_binary(label) do
+    labels = Map.put(socket.assigns[:shared_file_labels] || %{}, file_id, label)
+    {:halt, assign(socket, :shared_file_labels, labels)}
+  end
+
   def handle_circle_event("delete_shared_file", %{"id" => file_id}, socket) do
     current_user = socket.assigns.current_scope.user
 
@@ -191,7 +207,8 @@ defmodule MossletWeb.OrgCircleSupport do
           {:ok, :revoked} ->
             Audit.record_audit_event(socket.assigns.org, current_user, "file_revoked",
               target_id: shared_file.id,
-              target_type: "shared_file"
+              target_type: "shared_file",
+              encrypted_label: (socket.assigns[:shared_file_labels] || %{})[file_id]
             )
 
             {:halt,

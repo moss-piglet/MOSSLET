@@ -249,6 +249,20 @@ defmodule MossletWeb.BusinessLive.Show do
               </a>
               to invite another teammate.
             </p>
+            <%!-- Precompute org_key-encrypted AUDIT labels for the org roles
+                 ("Admin"/"Member") once (Task #353), so a role-change (a plain
+                 phx-click with no plaintext to encrypt at click time) can name
+                 the NEW role in the activity log. The server never sees the
+                 plaintext (I6) — though the role itself is non-sensitive, we keep
+                 the label channel uniform (always org_key ciphertext). --%>
+            <div
+              :if={@can_manage? && @viewer_sealed_org_key}
+              id="org-role-audit-labels"
+              phx-hook="OrgRoleAuditLabel"
+              data-sealed-org-key={@viewer_sealed_org_key}
+              hidden
+            >
+            </div>
             <ul
               role="list"
               class="divide-y divide-slate-100 dark:divide-slate-700/60"
@@ -566,6 +580,8 @@ defmodule MossletWeb.BusinessLive.Show do
                 for={@invite_form}
                 id="invite-form"
                 phx-submit="invite_member"
+                phx-hook="InviteAuditLabel"
+                data-sealed-org-key={@viewer_sealed_org_key}
                 class="flex items-end gap-2"
               >
                 <div class="flex-1">
@@ -2158,7 +2174,7 @@ defmodule MossletWeb.BusinessLive.Show do
   end
 
   @impl true
-  def handle_event("invite_member", %{"invite" => %{"email" => email}}, socket) do
+  def handle_event("invite_member", %{"invite" => %{"email" => email}} = params, socket) do
     case Orgs.create_invitation(socket.assigns.org, %{"sent_to" => email}) do
       {:ok, invitation} ->
         flash = invitation_sent_flash(invitation, socket.assigns.org)
@@ -2168,7 +2184,8 @@ defmodule MossletWeb.BusinessLive.Show do
           socket.assigns.current_scope.user,
           "member_invited",
           target_id: invitation.user_id,
-          target_type: invitation.user_id && "user"
+          target_type: invitation.user_id && "user",
+          encrypted_label: params["encrypted_label"]
         )
 
         {:noreply,
@@ -2238,7 +2255,8 @@ defmodule MossletWeb.BusinessLive.Show do
             socket.assigns.current_scope.user,
             "role_changed",
             target_id: user_id,
-            target_type: "user"
+            target_type: "user",
+            encrypted_label: socket.assigns[:org_role_labels][role]
           )
 
           {:noreply,
@@ -2409,6 +2427,22 @@ defmodule MossletWeb.BusinessLive.Show do
     {:noreply, assign(socket, :manage_circle_audit_label, label)}
   end
 
+  # The browser precomputed org_key-encrypted labels for the org roles
+  # ("Admin"/"Member") (Task #353). Cache them so a `change_role` (a plain
+  # phx-click) can name the NEW role in the activity log. Opaque ciphertext only
+  # — the server never reads the plaintext (I6).
+  @impl true
+  def handle_event("cache_org_role_labels", %{"labels" => labels}, socket)
+      when is_map(labels) do
+    clean =
+      labels
+      |> Map.take(["admin", "member"])
+      |> Enum.filter(fn {_k, v} -> is_binary(v) end)
+      |> Map.new()
+
+    {:noreply, assign(socket, :org_role_labels, clean)}
+  end
+
   # Change a member's per-circle role (Task #352). Server-authoritative: the
   # actor's circle UserGroup must strictly outrank the target (`can_moderate?/2`)
   # and may only assign roles below its own level (owner grant is owner-only —
@@ -2443,7 +2477,7 @@ defmodule MossletWeb.BusinessLive.Show do
               metadata: %{"group_id" => manage.group.id, "target_id" => user_id}
             })
 
-            Audit.record_audit_event(org, user, "role_changed",
+            Audit.record_audit_event(org, user, "circle_role_changed",
               target_id: user_id,
               target_type: "user",
               encrypted_label: socket.assigns.manage_circle_audit_label
@@ -2564,6 +2598,7 @@ defmodule MossletWeb.BusinessLive.Show do
              |> put_flash(:success, "Circle deleted")
              |> assign(:manage_circle_id, nil)
              |> assign(:manage_circle, nil)
+             |> assign(:org_role_labels, %{})
              |> assign(:manage_circle_audit_label, nil)
              |> assign(:edit_circle_meta?, false)
              |> assign_business_data()}
@@ -4129,6 +4164,7 @@ defmodule MossletWeb.BusinessLive.Show do
   defp audit_action_label("member_added"), do: "A teammate joined the organization"
   defp audit_action_label("member_removed"), do: "A teammate was removed from the organization"
   defp audit_action_label("role_changed"), do: "A teammate's role was changed"
+  defp audit_action_label("circle_role_changed"), do: "A teammate's circle role was changed"
   defp audit_action_label("display_name_changed"), do: "A teammate's display name was changed"
   defp audit_action_label("circle_created"), do: "A circle was created"
   defp audit_action_label("circle_updated"), do: "A circle was updated"
@@ -4141,6 +4177,7 @@ defmodule MossletWeb.BusinessLive.Show do
   defp audit_action_icon("member_added"), do: "hero-user-plus"
   defp audit_action_icon("member_removed"), do: "hero-user-minus"
   defp audit_action_icon("role_changed"), do: "hero-adjustments-horizontal"
+  defp audit_action_icon("circle_role_changed"), do: "hero-adjustments-horizontal"
   defp audit_action_icon("display_name_changed"), do: "hero-pencil-square"
   defp audit_action_icon("circle_created"), do: "hero-user-group"
   defp audit_action_icon("circle_updated"), do: "hero-pencil-square"

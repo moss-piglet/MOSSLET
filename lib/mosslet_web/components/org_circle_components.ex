@@ -72,6 +72,7 @@ defmodule MossletWeb.OrgCircleComponents do
   attr :viewer_missing_files?, :boolean, required: true
   attr :current_user, :map, required: true
   attr :membership, :map, required: true
+  attr :viewer_sealed_org_key, :string, default: nil
 
   def circle_files_panel(assigns) do
     ~H"""
@@ -79,6 +80,7 @@ defmodule MossletWeb.OrgCircleComponents do
       id="shared-files-panel"
       phx-hook="SharedFileHook"
       data-max-bytes={Files.max_size_bytes()}
+      data-sealed-org-key={@viewer_sealed_org_key}
       class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm p-5 space-y-4"
     >
       <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -142,6 +144,8 @@ defmodule MossletWeb.OrgCircleComponents do
                 phx-update="ignore"
                 data-sealed-file-key={file.viewer_sealed_key}
                 data-encrypted-filename={file.encrypted_filename}
+                data-sealed-org-key={@viewer_sealed_org_key}
+                data-file-id={file.id}
               >
                 <p
                   data-shared-filename

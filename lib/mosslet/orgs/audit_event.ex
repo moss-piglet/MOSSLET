@@ -34,6 +34,7 @@ defmodule Mosslet.Orgs.AuditEvent do
     member_added
     member_removed
     role_changed
+    circle_role_changed
     display_name_changed
     circle_created
     circle_updated

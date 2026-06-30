@@ -460,6 +460,40 @@ Non-admins never receive a `UserOrgAuditKey` and cannot read the log.
   `Membership role == :admin`).
 - Demotion/removal stops future audit access; past entries stay (honest).
 
+### 12.5 Implemented label model (Tasks #212 / #352 / #353)
+
+The shipped implementation simplifies §12.1's `org_audit_key` to **reuse the
+org's existing `org_key`** as the audit read key — the same per-org key the
+OrgMembers roster, org announcements, and org display-names already seal for
+every member. This avoids a second key-generation/sealing handshake while
+preserving I6: the `org_key` exists only as per-user sealed copies, never in
+plaintext server-side, and is held by org members/admins (the audit panel is
+gated to owner/admin viewers).
+
+- **`Orgs.AuditEvent.encrypted_label`** (`:string`, nullable, **not**
+  Cloak-wrapped — it is *already* `org_key` ciphertext produced by the actor's
+  browser). The server stores it opaquely and can never read it (I6). One
+  generic slot, reused per action; the UI falls back to a generic, name-free
+  server-side phrase (`audit_action_label/1`) when absent.
+
+- **Per-action label source** (all client-encrypted under `org_key`; never
+  plaintext to the server):
+
+  | Action | Label | ZK source (producer) |
+  |--------|-------|----------------------|
+  | `circle_created` / `circle_updated` / `circle_deleted` | circle name | group_key→org_key re-encrypt in `GroupMetadataFormHook` / `CircleMetadataEditHook` / `CircleAuditLabel` |
+  | `circle_role_changed` (per-circle role) | circle name | `CircleAuditLabel` (cached on the open manage panel) |
+  | `role_changed` (org-level role) | new role (`"Admin"`/`"Member"`) | `OrgRoleAuditLabel` precomputes both, server picks by role |
+  | `file_shared` | filename | `SharedFileHook` re-encrypts the filename under org_key at upload, carried through `finalize_shared_file` |
+  | `file_revoked` | filename | `DecryptSharedFileName` re-encrypts the (already-decrypted) filename under org_key, cached by file id; the `delete_shared_file` producer attaches it |
+  | `member_invited` | invited email | `InviteAuditLabel` encrypts the email on submit (email is non-secret to the server, but the label channel stays uniform) |
+  | `member_added` / `member_removed` / `display_name_changed` | — (no label) | the audit panel's member directory resolves the actor/target name from each membership's `org_key`-encrypted display name |
+
+  Per-circle role changes use a distinct `circle_role_changed` category (vs the
+  org-level `role_changed`) so the client can render the right sentence
+  ("…role in the circle 'X'" vs "…role to Admin") from the same single label
+  slot without ambiguity.
+
 ## 13. Implementation plan
 
 1. **Schema & migrations (no UI):**

@@ -115,6 +115,12 @@ const SharedFileHook = {
       const encryptedChecksum = await encryptWithKey(checksumHex, this._fileKey);
       const encryptedFilename = await encryptWithKey(file.name, this._fileKey);
 
+      // Re-encrypt the (plaintext) filename under the org_key as an opaque AUDIT
+      // label (Task #353), so the org activity log can name the shared file
+      // without holding the per-file key. Best-effort + zero-knowledge: the
+      // server stores only this ciphertext (I6); falls back to a generic phrase.
+      const auditLabel = await this._encryptAuditLabel(file.name);
+
       // Opaque ciphertext of the file bytes.
       const cipherB64 = await encryptSecretbox(bytes, this._fileKey);
 
@@ -125,6 +131,7 @@ const SharedFileHook = {
         encrypted_filename: encryptedFilename,
         checksum: encryptedChecksum,
         size_bytes: file.size,
+        audit_label: auditLabel,
       };
 
       this.pushEvent("create_shared_file", {
@@ -183,6 +190,7 @@ const SharedFileHook = {
       this.pushEvent("finalize_shared_file", {
         shared_file_id,
         sealed_recipients,
+        encrypted_label: this._pending ? this._pending.audit_label : null,
       });
     } catch (err) {
       console.error("SharedFileHook: sealing failed:", err);
@@ -244,6 +252,22 @@ const SharedFileHook = {
   },
 
   // --- Helpers ---
+
+  // Encrypt a plaintext filename under the org_key (the audit panel's read key)
+  // into an opaque AUDIT label (Task #353). Best-effort: returns null when the
+  // org_key isn't sealed for the viewer (the log then falls back to a generic
+  // "shared a file" phrase). The plaintext never reaches the server.
+  async _encryptAuditLabel(name) {
+    const sealedOrgKey = this.el.dataset.sealedOrgKey;
+    if (!sealedOrgKey || !name) return null;
+    try {
+      const raw = await unsealContextKey(sealedOrgKey);
+      if (!raw) return null;
+      return await encryptWithKey(name, unwrapKey(raw));
+    } catch (_e) {
+      return null;
+    }
+  },
 
   _triggerDownload(bytes, filename) {
     const blob = new Blob([bytes], { type: "application/octet-stream" });
@@ -347,12 +371,34 @@ const DecryptSharedFileName = {
       if (name) {
         target.textContent = name;
         target.setAttribute("title", name);
+        this._cacheAuditLabel(name);
       } else {
         target.textContent = "Encrypted file";
       }
     } catch (err) {
       console.error("DecryptSharedFileName: failed:", err);
       target.textContent = "Encrypted file";
+    }
+  },
+
+  // Re-encrypt the decrypted filename under the org_key as an opaque AUDIT label
+  // (Task #353) and hand it to the server, keyed by file id, so a `delete`
+  // (a plain phx-click, after which the per-file key is gone for the actor) can
+  // name the removed file in the org activity log. Best-effort + zero-knowledge:
+  // the server caches only this ciphertext (I6).
+  async _cacheAuditLabel(name) {
+    const sealedOrgKey = this.el.dataset.sealedOrgKey;
+    const fileId = this.el.dataset.fileId;
+    if (!sealedOrgKey || !fileId || !name) return;
+    try {
+      const raw = await unsealContextKey(sealedOrgKey);
+      if (!raw) return;
+      const label = await encryptWithKey(name, unwrapKey(raw));
+      if (label) {
+        this.pushEvent("cache_shared_file_label", { file_id: fileId, label });
+      }
+    } catch (_e) {
+      // best-effort — the log falls back to a generic "removed a file" phrase
     }
   },
 

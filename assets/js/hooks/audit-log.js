@@ -176,33 +176,39 @@ const AuditLog = {
     const actor = this._names[d.auditActorId] || "A former teammate";
     const targetName =
       d.auditTargetType === "user" ? this._names[d.auditTargetId] || "a former teammate" : null;
-    const circle = label ? `'${label}'` : null;
+    // The opaque org_key-encrypted label is action-specific: a circle name, a
+    // filename, an invited email, or a new role. Decrypted client-side above.
+    const quoted = label ? `'${label}'` : null;
 
     switch (d.auditAction) {
       case "member_invited":
-        return `${actor} invited a new teammate`;
+        return label ? `${actor} invited ${label}` : `${actor} invited a new teammate`;
       case "member_added":
         return `${actor} joined the organization`;
       case "member_removed":
         return `${actor} removed ${targetName} from the organization`;
       case "role_changed":
-        return circle
-          ? `${actor} changed ${targetName}'s role in the circle ${circle}`
+        return label
+          ? `${actor} changed ${targetName}'s role to ${label}`
           : `${actor} changed ${targetName}'s role`;
+      case "circle_role_changed":
+        return quoted
+          ? `${actor} changed ${targetName}'s role in the circle ${quoted}`
+          : `${actor} changed ${targetName}'s role in a circle`;
       case "display_name_changed":
         return d.auditActorId && d.auditActorId === d.auditTargetId
           ? `${actor} updated their display name`
           : `${actor} changed ${targetName}'s display name`;
       case "circle_created":
-        return circle ? `${actor} created the circle ${circle}` : `${actor} created a circle`;
+        return quoted ? `${actor} created the circle ${quoted}` : `${actor} created a circle`;
       case "circle_updated":
-        return circle ? `${actor} updated the circle ${circle}` : `${actor} updated a circle`;
+        return quoted ? `${actor} updated the circle ${quoted}` : `${actor} updated a circle`;
       case "circle_deleted":
-        return circle ? `${actor} deleted the circle ${circle}` : `${actor} deleted a circle`;
+        return quoted ? `${actor} deleted the circle ${quoted}` : `${actor} deleted a circle`;
       case "file_shared":
-        return circle ? `${actor} shared a file in ${circle}` : `${actor} shared a file`;
+        return quoted ? `${actor} shared the file ${quoted}` : `${actor} shared a file`;
       case "file_revoked":
-        return circle ? `${actor} removed a file in ${circle}` : `${actor} removed a file`;
+        return quoted ? `${actor} removed the file ${quoted}` : `${actor} removed a file`;
       default:
         return `${actor} performed an action`;
     }

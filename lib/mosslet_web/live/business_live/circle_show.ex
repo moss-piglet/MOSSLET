@@ -173,6 +173,7 @@ defmodule MossletWeb.BusinessLive.CircleShow do
           viewer_missing_files?={@viewer_missing_files?}
           current_user={@current_scope.user}
           membership={@membership}
+          viewer_sealed_org_key={@viewer_sealed_org_key}
         />
 
         <.circle_members_roster
