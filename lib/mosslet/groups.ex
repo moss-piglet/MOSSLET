@@ -873,6 +873,72 @@ defmodule Mosslet.Groups do
     end
   end
 
+  @doc """
+  Authority check for managing a **business** circle's lifecycle (delete) and
+  metadata (name/description edit). Server-authoritative — never trusts the
+  client — honoring the team/community permission model (see
+  `docs/BUSINESS_CIRCLES_DESIGN.md`):
+
+    * `:team` circles (official departments) — org OWNER or org ADMIN only
+      (`Orgs.can_create_team_circle?/2`).
+    * `:community` circles (member-made) — org ADMIN, or the viewer's per-circle
+      role is `:owner`/`:admin`.
+
+  `group.user_groups` must be preloaded (it is via `get_group!/1` and
+  `list_business_circles/2`). `membership` is the caller's `Orgs.Membership` for
+  the org (or `nil`). Returns a boolean.
+  """
+  def can_manage_business_circle?(
+        %Mosslet.Orgs.Org{} = org,
+        %Group{} = group,
+        %User{} = user,
+        membership
+      ) do
+    cond do
+      is_nil(group.org_id) or group.org_id != org.id ->
+        false
+
+      group.org_circle_type == :team ->
+        Mosslet.Orgs.can_create_team_circle?(org, user.id)
+
+      true ->
+        org_admin? = is_struct(membership) and membership.role == :admin
+
+        user_group = Enum.find(group.user_groups || [], &(&1.user_id == user.id))
+
+        org_admin? or (is_struct(user_group) and user_group.role in [:owner, :admin])
+    end
+  end
+
+  def can_manage_business_circle?(_, _, _, _), do: false
+
+  @doc """
+  Deletes a business circle after RE-CHECKING management authority
+  server-side (`can_manage_business_circle?/4`). Delegates to `delete_group/1`
+  (tears down ZK shared files + broadcasts `:group_deleted`). Returns
+  `{:error, :unauthorized}` if the caller may not manage the circle.
+  """
+  def delete_business_circle(org, %Group{} = group, %User{} = user, membership) do
+    if can_manage_business_circle?(org, group, user, membership) do
+      delete_group(group)
+    else
+      {:error, :unauthorized}
+    end
+  end
+
+  @doc """
+  Updates a business circle's ZK metadata (browser-encrypted name/description)
+  after RE-CHECKING management authority server-side. Delegates to
+  `update_group_metadata_zk/2`. Returns `{:error, :unauthorized}` otherwise.
+  """
+  def update_business_circle_metadata_zk(org, %Group{} = group, %User{} = user, membership, attrs) do
+    if can_manage_business_circle?(org, group, user, membership) do
+      update_group_metadata_zk(group, attrs)
+    else
+      {:error, :unauthorized}
+    end
+  end
+
   def maybe_update_name_for_user_groups(%User{} = user, attrs \\ %{}, opts \\ []) do
     user_groups = list_user_groups_for_user(user)
 

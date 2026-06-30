@@ -67,6 +67,7 @@ defmodule MossletWeb.BusinessLive.Show do
        |> assign(:pending_zk_circle_type, :community)
        |> assign(:manage_circle_id, nil)
        |> assign(:manage_circle, nil)
+       |> assign(:edit_circle_meta?, false)
        |> assign(:pending_add_member_ids, [])
        |> assign(:transfer_modal_open, false)
        |> assign(:transfer_form, to_form(%{"password" => "", "to_user_id" => ""}, as: :transfer))
@@ -779,6 +780,7 @@ defmodule MossletWeb.BusinessLive.Show do
                     circle={circle}
                     tier={:team}
                     manage_circle={@manage_circle}
+                    edit_circle_meta?={@edit_circle_meta?}
                     org={@org}
                     current_user_id={@current_scope.user.id}
                     viewer_sealed_org_key={@viewer_sealed_org_key}
@@ -805,6 +807,7 @@ defmodule MossletWeb.BusinessLive.Show do
                     circle={circle}
                     tier={:community}
                     manage_circle={@manage_circle}
+                    edit_circle_meta?={@edit_circle_meta?}
                     org={@org}
                     current_user_id={@current_scope.user.id}
                     viewer_sealed_org_key={@viewer_sealed_org_key}
@@ -1580,6 +1583,7 @@ defmodule MossletWeb.BusinessLive.Show do
   attr :circle, :map, required: true
   attr :tier, :atom, required: true
   attr :manage_circle, :map, default: nil
+  attr :edit_circle_meta?, :boolean, default: false
   attr :org, :map, required: true
   attr :current_user_id, :string, required: true
   attr :viewer_sealed_org_key, :string, default: nil
@@ -1706,6 +1710,7 @@ defmodule MossletWeb.BusinessLive.Show do
           org={@org}
           viewer_sealed_org_key={@viewer_sealed_org_key}
           current_user_id={@current_user_id}
+          edit_circle_meta?={@edit_circle_meta?}
         />
       </div>
     </li>
@@ -1855,6 +1860,7 @@ defmodule MossletWeb.BusinessLive.Show do
   attr :org, :map, required: true
   attr :viewer_sealed_org_key, :string, default: nil
   attr :current_user_id, :string, required: true
+  attr :edit_circle_meta?, :boolean, default: false
 
   defp circle_manage_panel(assigns) do
     ~H"""
@@ -1879,6 +1885,93 @@ defmodule MossletWeb.BusinessLive.Show do
         >
           Done
         </.liquid_button>
+      </div>
+
+      <%!-- Circle metadata management (Task #351): the circle creator (circle
+           role :owner/:admin) and org admins/owners can edit the circle's ZK
+           description (and name) and delete the circle. Authority is re-checked
+           server-side (Groups.can_manage_business_circle?/4) on every write,
+           honoring the team vs community tier. --%>
+      <div
+        :if={@manage.can_manage_meta?}
+        class="rounded-lg border border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/30 p-3 space-y-3"
+      >
+        <div :if={!@edit_circle_meta?} class="flex flex-wrap items-center gap-2">
+          <.liquid_button
+            type="button"
+            variant="ghost"
+            color="teal"
+            size="sm"
+            icon="hero-pencil-square"
+            phx-click="edit_circle_meta"
+            id={"edit-circle-meta-#{@manage.group.id}"}
+          >
+            Edit description
+          </.liquid_button>
+          <.liquid_button
+            type="button"
+            variant="ghost"
+            color="rose"
+            size="sm"
+            icon="hero-trash"
+            phx-click="delete_circle"
+            phx-value-circle_id={@manage.group.id}
+            id={"delete-circle-#{@manage.group.id}"}
+            data-confirm="Delete this circle for everyone? Its chat, announcements, and shared files will be removed. This can't be undone."
+          >
+            Delete circle
+          </.liquid_button>
+        </div>
+
+        <form
+          :if={@edit_circle_meta?}
+          id={"edit-circle-meta-form-#{@manage.group.id}"}
+          phx-hook="CircleMetadataEditHook"
+          data-sealed-group-key={@manage.sealed_group_key}
+          data-encrypted-name={@manage.group.name}
+          data-encrypted-description={@manage.group.description}
+          data-circle-id={@manage.group.id}
+          class="space-y-3"
+        >
+          <.phx_input
+            name="circle[name]"
+            value=""
+            type="text"
+            label="Circle name"
+            id={"edit-circle-name-#{@manage.group.id}"}
+            placeholder="Decrypting…"
+          />
+          <.phx_input
+            name="circle[description]"
+            value=""
+            type="textarea"
+            label="Description"
+            id={"edit-circle-desc-#{@manage.group.id}"}
+            placeholder="What is this circle about?"
+          />
+          <div class="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+            <.liquid_button
+              type="button"
+              variant="ghost"
+              color="slate"
+              size="sm"
+              phx-click="cancel_edit_circle_meta"
+              id={"cancel-edit-circle-meta-#{@manage.group.id}"}
+            >
+              Cancel
+            </.liquid_button>
+            <.liquid_button
+              type="submit"
+              color="emerald"
+              size="sm"
+              icon="hero-check"
+              phx-disable-with="Saving…"
+              id={"save-circle-meta-#{@manage.group.id}"}
+            >
+              Save changes
+            </.liquid_button>
+          </div>
+        </form>
       </div>
 
       <ul
@@ -2223,7 +2316,129 @@ defmodule MossletWeb.BusinessLive.Show do
     {:noreply,
      socket
      |> assign(:manage_circle_id, nil)
-     |> assign(:manage_circle, nil)}
+     |> assign(:manage_circle, nil)
+     |> assign(:edit_circle_meta?, false)}
+  end
+
+  @impl true
+  def handle_event("edit_circle_meta", _params, socket) do
+    {:noreply, assign(socket, :edit_circle_meta?, true)}
+  end
+
+  @impl true
+  def handle_event("cancel_edit_circle_meta", _params, socket) do
+    {:noreply, assign(socket, :edit_circle_meta?, false)}
+  end
+
+  # ZK edit (Task #351): the browser re-encrypted the circle name/description
+  # with the per-group key and pushed the ciphertext. Authority is re-checked
+  # server-side (team vs community) before the write. The raw group_key +
+  # plaintext NEVER reach the server.
+  @impl true
+  def handle_event("save_circle_metadata_zk", params, socket) do
+    manage = socket.assigns.manage_circle
+    user = socket.assigns.current_scope.user
+    org = socket.assigns.org
+
+    cond do
+      is_nil(manage) ->
+        {:noreply, socket}
+
+      not manage.can_manage_meta? ->
+        {:noreply, put_flash(socket, :error, "You don't have permission to edit this circle.")}
+
+      true ->
+        attrs = %{
+          encrypted_name: params["encrypted_name"],
+          encrypted_description: params["encrypted_description"],
+          name_blind_index: params["name_blind_index"]
+        }
+
+        case Groups.update_business_circle_metadata_zk(
+               org,
+               manage.group,
+               user,
+               socket.assigns.membership,
+               attrs
+             ) do
+          {:ok, group} ->
+            Mosslet.Logs.log("orgs.update_business_circle", %{
+              user: user,
+              org_id: org.id,
+              metadata: %{"group_id" => group.id}
+            })
+
+            Audit.record_audit_event(org, user, "circle_updated",
+              target_id: group.id,
+              target_type: "group"
+            )
+
+            Orgs.broadcast_org_update(org)
+
+            {:noreply,
+             socket
+             |> put_flash(:success, "Circle updated")
+             |> assign(:edit_circle_meta?, false)
+             |> assign_business_data()}
+
+          {:error, :unauthorized} ->
+            {:noreply,
+             put_flash(socket, :error, "You don't have permission to edit this circle.")}
+
+          {:error, _reason} ->
+            {:noreply, put_flash(socket, :error, "Failed to update circle")}
+        end
+    end
+  end
+
+  # Delete a business circle (Task #351). Server-authoritative: the team vs
+  # community management authority is re-checked before the delete tears down
+  # the circle's ZK chat, announcements, and shared files.
+  @impl true
+  def handle_event("delete_circle", %{"circle_id" => circle_id}, socket) do
+    manage = socket.assigns.manage_circle
+    user = socket.assigns.current_scope.user
+    org = socket.assigns.org
+
+    cond do
+      is_nil(manage) or manage.group.id != circle_id ->
+        {:noreply, socket}
+
+      not manage.can_manage_meta? ->
+        {:noreply, put_flash(socket, :error, "You don't have permission to delete this circle.")}
+
+      true ->
+        case Groups.delete_business_circle(org, manage.group, user, socket.assigns.membership) do
+          {:ok, group} ->
+            Mosslet.Logs.log("orgs.delete_business_circle", %{
+              user: user,
+              org_id: org.id,
+              metadata: %{"group_id" => group.id}
+            })
+
+            Audit.record_audit_event(org, user, "circle_deleted",
+              target_id: group.id,
+              target_type: "group"
+            )
+
+            Orgs.broadcast_org_update(org)
+
+            {:noreply,
+             socket
+             |> put_flash(:success, "Circle deleted")
+             |> assign(:manage_circle_id, nil)
+             |> assign(:manage_circle, nil)
+             |> assign(:edit_circle_meta?, false)
+             |> assign_business_data()}
+
+          {:error, :unauthorized} ->
+            {:noreply,
+             put_flash(socket, :error, "You don't have permission to delete this circle.")}
+
+          {:error, _reason} ->
+            {:noreply, put_flash(socket, :error, "Failed to delete circle")}
+        end
+    end
   end
 
   # Phase 1 (ZK add): the browser sent the selected org-member ids for the circle
@@ -3705,6 +3920,8 @@ defmodule MossletWeb.BusinessLive.Show do
   defp audit_action_label("role_changed"), do: "A teammate's role was changed"
   defp audit_action_label("display_name_changed"), do: "A teammate's display name was changed"
   defp audit_action_label("circle_created"), do: "A circle was created"
+  defp audit_action_label("circle_updated"), do: "A circle was updated"
+  defp audit_action_label("circle_deleted"), do: "A circle was deleted"
   defp audit_action_label("file_shared"), do: "A file was shared"
   defp audit_action_label("file_revoked"), do: "A file was removed"
   defp audit_action_label(_), do: "An action was performed"
@@ -3715,6 +3932,8 @@ defmodule MossletWeb.BusinessLive.Show do
   defp audit_action_icon("role_changed"), do: "hero-adjustments-horizontal"
   defp audit_action_icon("display_name_changed"), do: "hero-pencil-square"
   defp audit_action_icon("circle_created"), do: "hero-user-group"
+  defp audit_action_icon("circle_updated"), do: "hero-pencil-square"
+  defp audit_action_icon("circle_deleted"), do: "hero-trash"
   defp audit_action_icon("file_shared"), do: "hero-document-arrow-up"
   defp audit_action_icon("file_revoked"), do: "hero-document-minus"
   defp audit_action_icon(_), do: "hero-clock"
@@ -3778,7 +3997,14 @@ defmodule MossletWeb.BusinessLive.Show do
               sealed_group_key: user_group && user_group.key,
               members: circle_members,
               addable_members: addable,
-              member_count: MapSet.size(circle_member_ids)
+              member_count: MapSet.size(circle_member_ids),
+              can_manage_meta?:
+                Groups.can_manage_business_circle?(
+                  socket.assigns.org,
+                  group,
+                  current_user,
+                  socket.assigns.membership
+                )
             }
           end
       end

@@ -467,15 +467,30 @@ defmodule MossletWeb.OrgCircleSupport do
   def handle_circle_info({:org_updated, _org_id}, socket) do
     current_user = socket.assigns.current_scope.user
 
-    # Realtime membership change (Task #231): if the viewer is no longer a
-    # confirmed member of this circle, bounce them back to the org surface.
-    if member_of_circle?(socket.assigns.group, current_user.id) do
-      {:halt, refresh_circle(socket)}
-    else
-      {:halt,
-       socket
-       |> put_flash(:info, "You're no longer a member of this circle.")
-       |> push_navigate(to: socket.assigns.circle_org_path)}
+    # Re-fetch the circle (non-raising). It may have been DELETED by an org
+    # admin / circle owner since this viewer loaded the page (Task #351): the
+    # `:group_deleted` broadcast only reaches per-user topics, so a teammate
+    # actively viewing the circle learns of the delete via this org broadcast.
+    # Bounce cleanly rather than crashing on a stale, now-missing group.
+    group = Groups.get_group(socket.assigns.group.id)
+
+    cond do
+      is_nil(group) ->
+        {:halt,
+         socket
+         |> put_flash(:info, "This circle no longer exists.")
+         |> push_navigate(to: socket.assigns.circle_org_path)}
+
+      # Realtime membership change (Task #231): if the viewer is no longer a
+      # confirmed member of this circle, bounce them back to the org surface.
+      not member_of_circle?(group, current_user.id) ->
+        {:halt,
+         socket
+         |> put_flash(:info, "You're no longer a member of this circle.")
+         |> push_navigate(to: socket.assigns.circle_org_path)}
+
+      true ->
+        {:halt, refresh_circle(socket)}
     end
   end
 
