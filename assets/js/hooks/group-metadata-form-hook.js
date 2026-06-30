@@ -159,6 +159,10 @@ const GroupMetadataFormHook = {
       require_password: requirePassword?.checked ? "true" : "false",
       password: passwordInput?.value || "",
       circle_type: circleTypeEl?.value || "community",
+      // Opaque org_key-encrypted AUDIT label (Task #353): lets the business
+      // activity log name the created circle without holding the group_key.
+      // Null for non-business groups (no sealed org_key present).
+      encrypted_label: await this._encryptAuditLabel(name),
     };
 
     if (target) {
@@ -358,6 +362,21 @@ const GroupMetadataFormHook = {
       this.pushEventTo(target, event, payload);
     } else {
       this.pushEvent(event, payload);
+    }
+  },
+
+  // Re-encrypt the (plaintext) circle name under the org_key as an opaque AUDIT
+  // label (Task #353), used only by business circles (the form then carries a
+  // sealed org_key). Best-effort: returns null when there's no org_key.
+  async _encryptAuditLabel(name) {
+    const sealedOrgKey = this.el.dataset.sealedOrgKey;
+    if (!sealedOrgKey || !name) return null;
+    try {
+      const raw = await unsealContextKey(sealedOrgKey);
+      if (!raw) return null;
+      return await encryptWithKey(name, unwrapKey(raw));
+    } catch (_e) {
+      return null;
     }
   },
 };

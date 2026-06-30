@@ -55,6 +55,15 @@ defmodule Mosslet.Orgs.AuditEvent do
     field :target_id, :binary_id
     field :target_type, :string
 
+    # Opaque, browser-supplied label (Task #353): the action's human-readable
+    # target (e.g. a circle name) re-encrypted under the org's `org_key` by the
+    # ACTOR's browser. The server stores only this ciphertext and can never read
+    # it (invariant I6) — only org members/admins who hold the org_key decrypt it
+    # client-side. Already org_key-sealed, so NOT Cloak-wrapped; nullable, since
+    # most actions/clients won't (or can't) supply one and the UI falls back to a
+    # generic server-side label.
+    field :encrypted_label, :string
+
     belongs_to :org, Org
     belongs_to :actor, User
 
@@ -69,7 +78,7 @@ defmodule Mosslet.Orgs.AuditEvent do
   """
   def insert_changeset(%Org{} = org, actor_id, attrs) when is_map(attrs) do
     %__MODULE__{org_id: org.id, actor_id: actor_id}
-    |> cast(attrs, [:action, :target_id, :target_type])
+    |> cast(attrs, [:action, :target_id, :target_type, :encrypted_label])
     |> validate_required([:action])
     |> validate_inclusion(:action, @actions)
     |> validate_inclusion(:target_type, @target_types)

@@ -43,6 +43,7 @@ import GroupMessageFormHook from "./group-message-form-hook";
 import GroupMetadataFormHook from "./group-metadata-form-hook";
 import CircleAddMembersHook from "./circle-add-members-hook";
 import CircleMetadataEditHook from "./circle-metadata-edit-hook";
+import CircleAuditLabel from "./circle-audit-label-hook";
 import CircleCatchUpHook from "./circle-catch-up-hook";
 import ClearFlashHook from "./clear-flash-hook";
 import LiquidFlash from "./liquid-flash";
@@ -165,6 +166,7 @@ export default {
   GroupMetadataFormHook,
   CircleAddMembersHook,
   CircleMetadataEditHook,
+  CircleAuditLabel,
   CircleCatchUpHook,
   ClearFlashHook,
   LiquidFlash,

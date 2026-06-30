@@ -11,6 +11,10 @@
  *
  * Data attributes on the form:
  *   data-sealed-group-key      — base64 sealed group_key (per-user copy)
+ *   data-sealed-org-key        — base64 sealed org_key (per-user copy), used to
+ *                                re-encrypt the name as an opaque AUDIT label
+ *                                (Task #353) so the activity log can name the
+ *                                circle without holding the group_key
  *   data-encrypted-name        — current ciphertext name
  *   data-encrypted-description — current ciphertext description
  *   data-circle-id             — the circle (group) id
@@ -104,12 +108,32 @@ const CircleMetadataEditHook = {
         : Promise.resolve(null),
     ]);
 
+    // Re-encrypt the (plaintext) circle name under the org_key as an opaque
+    // AUDIT label (Task #353) so the activity log can name this circle. The
+    // org_key — not the group_key — is the audit-panel's read key, so this is
+    // what an admin can decrypt. Best-effort: skip if the org_key isn't sealed
+    // for the viewer (the log then falls back to a generic label).
+    const encryptedLabel = await this._encryptAuditLabel(name);
+
     this.pushEvent("save_circle_metadata_zk", {
       circle_id: this.el.dataset.circleId,
       encrypted_name: encryptedName,
       encrypted_description: encryptedDescription,
+      encrypted_label: encryptedLabel,
       name_blind_index: name.toLowerCase(),
     });
+  },
+
+  async _encryptAuditLabel(name) {
+    const sealedOrgKey = this.el.dataset.sealedOrgKey;
+    if (!sealedOrgKey) return null;
+    try {
+      const raw = await unsealContextKey(sealedOrgKey);
+      if (!raw) return null;
+      return await encryptWithKey(name, unwrapKey(raw));
+    } catch (_e) {
+      return null;
+    }
   },
 };
 

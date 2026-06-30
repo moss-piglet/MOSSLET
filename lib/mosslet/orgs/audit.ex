@@ -91,6 +91,9 @@ defmodule Mosslet.Orgs.Audit do
   `opts`:
     * `:target_id`   — the polymorphic target's id (a user/group/shared_file uuid)
     * `:target_type` — `"user"` | `"group"` | `"shared_file"`
+    * `:encrypted_label` — an OPAQUE, browser-supplied ciphertext (the action's
+      human-readable target, e.g. a circle name, re-encrypted under the org's
+      `org_key`). Stored as-is; the server never reads it (I6). Optional.
 
   Best-effort: returns `{:ok, event}` on success, `{:error, reason}` otherwise,
   but callers should ignore the result (the action it describes has already
@@ -103,7 +106,8 @@ defmodule Mosslet.Orgs.Audit do
     attrs = %{
       "action" => action,
       "target_id" => opts[:target_id],
-      "target_type" => opts[:target_type]
+      "target_type" => opts[:target_type],
+      "encrypted_label" => opts[:encrypted_label]
     }
 
     changeset = AuditEvent.insert_changeset(org, actor.id, attrs)

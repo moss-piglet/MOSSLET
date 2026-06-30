@@ -1124,6 +1124,14 @@ defmodule Mosslet.Groups do
   @role_levels %{owner: 4, admin: 3, moderator: 2, member: 1}
 
   @doc """
+  The circle-role hierarchy levels (`owner: 4` … `member: 1`). Exposed so callers
+  (e.g. the business UI) can compute which roles a given actor may assign, while
+  the authoritative checks still live in `update_user_group_role/3` and
+  `can_moderate?/2`.
+  """
+  def role_levels, do: @role_levels
+
+  @doc """
   Checks if the actor role can moderate the target role.
 
   Role hierarchy (highest to lowest):

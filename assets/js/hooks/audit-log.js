@@ -20,6 +20,8 @@
  *   data-audit-actor-id     — who performed it
  *   data-audit-target-id    — polymorphic target (may be empty)
  *   data-audit-target-type  — "user" | "group" | "shared_file" | ""
+ *   data-audit-label        — OPAQUE org_key-encrypted label (e.g. the circle
+ *                             name), decrypted here with the org_key, or empty
  *   data-audit-at           — ISO timestamp (naive UTC)
  *   [data-audit-text]       — element filled with the enriched description
  *
@@ -80,7 +82,7 @@ const AuditLog = {
 
     await this._ensureOrgKey();
     await this._buildNameMap();
-    this._renderRows();
+    await this._renderRows();
   },
 
   async _ensureOrgKey() {
@@ -123,15 +125,29 @@ const AuditLog = {
     this._directoryRaw = raw;
   },
 
-  _renderRows() {
+  async _renderRows() {
     if (this._rendered) return;
     const rows = this.el.querySelectorAll("[data-audit-row]");
     for (const row of rows) {
+      const label = await this._decryptLabel(row.dataset.auditLabel);
       const target = row.querySelector("[data-audit-text]");
-      if (target) target.textContent = this._describe(row.dataset);
+      if (target) target.textContent = this._describe(row.dataset, label);
       this._renderLocalTime(row);
     }
     this._rendered = true;
+  },
+
+  // Decrypt a row's opaque org_key-encrypted label (e.g. a circle name) into
+  // plaintext for the description. Best-effort: returns null when there's no
+  // label or the org_key is unavailable, so the caller falls back to a generic
+  // phrase. The label NEVER round-trips to the server in the clear.
+  async _decryptLabel(ciphertext) {
+    if (!ciphertext || !this._orgKey) return null;
+    try {
+      return await decryptWithKey(ciphertext, this._orgKey);
+    } catch (_e) {
+      return null;
+    }
   },
 
   // Show the viewer's LOCAL time next to the (server-rendered) UTC time. The
@@ -156,10 +172,11 @@ const AuditLog = {
     el.classList.remove("hidden");
   },
 
-  _describe(d) {
+  _describe(d, label) {
     const actor = this._names[d.auditActorId] || "A former teammate";
     const targetName =
       d.auditTargetType === "user" ? this._names[d.auditTargetId] || "a former teammate" : null;
+    const circle = label ? `'${label}'` : null;
 
     switch (d.auditAction) {
       case "member_invited":
@@ -169,17 +186,23 @@ const AuditLog = {
       case "member_removed":
         return `${actor} removed ${targetName} from the organization`;
       case "role_changed":
-        return `${actor} changed ${targetName}'s role`;
+        return circle
+          ? `${actor} changed ${targetName}'s role in the circle ${circle}`
+          : `${actor} changed ${targetName}'s role`;
       case "display_name_changed":
         return d.auditActorId && d.auditActorId === d.auditTargetId
           ? `${actor} updated their display name`
           : `${actor} changed ${targetName}'s display name`;
       case "circle_created":
-        return `${actor} created a circle`;
+        return circle ? `${actor} created the circle ${circle}` : `${actor} created a circle`;
+      case "circle_updated":
+        return circle ? `${actor} updated the circle ${circle}` : `${actor} updated a circle`;
+      case "circle_deleted":
+        return circle ? `${actor} deleted the circle ${circle}` : `${actor} deleted a circle`;
       case "file_shared":
-        return `${actor} shared a file`;
+        return circle ? `${actor} shared a file in ${circle}` : `${actor} shared a file`;
       case "file_revoked":
-        return `${actor} removed a file`;
+        return circle ? `${actor} removed a file in ${circle}` : `${actor} removed a file`;
       default:
         return `${actor} performed an action`;
     }

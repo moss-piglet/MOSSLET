@@ -204,14 +204,19 @@ defmodule MossletWeb.OrgCircleComponents do
         </li>
       </ul>
 
-      <div class="rounded-xl border border-teal-200/60 dark:border-teal-800/50 bg-gradient-to-br from-teal-50/80 to-emerald-50/50 dark:from-teal-900/20 dark:to-emerald-900/10 p-4">
-        <div class="flex items-center gap-2">
-          <.phx_icon name="hero-shield-check" class="size-4 text-teal-600 dark:text-teal-400" />
-          <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-            Who can open these files
-          </p>
-        </div>
-        <ul class="mt-2.5 space-y-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+      <details class="group/info rounded-xl border border-teal-200/60 dark:border-teal-800/50 bg-gradient-to-br from-teal-50/80 to-emerald-50/50 dark:from-teal-900/20 dark:to-emerald-900/10 open:shadow-sm transition-shadow duration-200">
+        <summary class="flex cursor-pointer list-none select-none items-center gap-2 rounded-xl p-4 text-sm font-semibold text-slate-900 dark:text-slate-100 outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40 [&::-webkit-details-marker]:hidden">
+          <.phx_icon
+            name="hero-shield-check"
+            class="size-4 shrink-0 text-teal-600 dark:text-teal-400"
+          />
+          <span class="flex-1">Who can open these files</span>
+          <.phx_icon
+            name="hero-chevron-down"
+            class="size-4 shrink-0 text-teal-500/70 dark:text-teal-400/70 transition-transform duration-200 group-open/info:rotate-180"
+          />
+        </summary>
+        <ul class="space-y-2.5 px-4 pb-4 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
           <li class="flex items-start gap-2">
             <.phx_icon
               name="hero-users"
@@ -222,11 +227,12 @@ defmodule MossletWeb.OrgCircleComponents do
             <.phx_icon
               name="hero-clock"
               class="mt-0.5 size-3.5 shrink-0 text-teal-500 dark:text-teal-400"
-            /> New members see files shared after they join. Use the
-            <span class="inline-flex items-center gap-1 rounded-md border border-teal-200/80 dark:border-teal-700/60 bg-teal-50 dark:bg-teal-900/40 px-1.5 py-0.5 align-baseline text-[11px] font-semibold text-teal-700 dark:text-teal-300">
-              <.phx_icon name="hero-sparkles" class="size-3" /> Catch up
+            />
+            <span>
+              New members see files shared after they join — use
+              <span class="font-semibold text-teal-700 dark:text-teal-300">Catch up</span>
+              to share earlier ones too.
             </span>
-            button to share earlier ones too.
           </li>
           <li class="flex items-start gap-2">
             <.phx_icon
@@ -235,7 +241,7 @@ defmodule MossletWeb.OrgCircleComponents do
             /> Removing a file revokes it for everyone — you can't recall copies already downloaded.
           </li>
         </ul>
-      </div>
+      </details>
     </section>
     """
   end

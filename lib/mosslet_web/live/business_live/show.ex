@@ -640,6 +640,7 @@ defmodule MossletWeb.BusinessLive.Show do
                   phx-hook="GroupMetadataFormHook"
                   data-action="new"
                   data-public="false"
+                  data-sealed-org-key={@viewer_sealed_org_key}
                   class="space-y-4"
                 >
                   <input type="hidden" name="group[user_id]" value={@current_scope.user.id} />
@@ -1117,6 +1118,7 @@ defmodule MossletWeb.BusinessLive.Show do
                       data-audit-actor-id={event.actor_id}
                       data-audit-target-id={event.target_id}
                       data-audit-target-type={event.target_type}
+                      data-audit-label={event.encrypted_label}
                       data-audit-at={NaiveDateTime.to_iso8601(event.inserted_at)}
                     >
                       <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400">
@@ -1871,6 +1873,20 @@ defmodule MossletWeb.BusinessLive.Show do
       data-current-user-id={@current_user_id}
       class="mt-2 rounded-xl border border-teal-200/60 dark:border-teal-800/50 bg-gradient-to-br from-teal-50/60 to-emerald-50/40 dark:from-teal-900/15 dark:to-emerald-900/10 p-4 space-y-3"
     >
+      <%!-- Precompute the org_key-encrypted AUDIT label (Task #353) for this
+           circle once, so delete/role-change events (plain phx-clicks) can name
+           the circle in the activity log without the server ever seeing the
+           plaintext name. Best-effort, zero-knowledge. --%>
+      <div
+        :if={@manage.sealed_group_key}
+        id={"circle-audit-label-#{@manage.group.id}"}
+        phx-hook="CircleAuditLabel"
+        data-sealed-group-key={@manage.sealed_group_key}
+        data-sealed-org-key={@viewer_sealed_org_key}
+        data-encrypted-name={@manage.group.name}
+        hidden
+      >
+      </div>
       <div class="flex items-center justify-between gap-2">
         <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
           Members ({@manage.member_count})
@@ -1928,6 +1944,7 @@ defmodule MossletWeb.BusinessLive.Show do
           id={"edit-circle-meta-form-#{@manage.group.id}"}
           phx-hook="CircleMetadataEditHook"
           data-sealed-group-key={@manage.sealed_group_key}
+          data-sealed-org-key={@viewer_sealed_org_key}
           data-encrypted-name={@manage.group.name}
           data-encrypted-description={@manage.group.description}
           data-circle-id={@manage.group.id}
@@ -1983,7 +2000,7 @@ defmodule MossletWeb.BusinessLive.Show do
           id={"manage-member-#{@manage.group.id}-#{member.user.id}"}
           data-org-member-row
           data-encrypted-display-name={member.encrypted_display_name}
-          class="flex items-center gap-3 px-3 py-2.5"
+          class="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5"
         >
           <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/40 dark:to-emerald-900/40 text-teal-600 dark:text-teal-300">
             <.phx_icon name="hero-user" class="size-3.5" />
@@ -1993,12 +2010,61 @@ defmodule MossletWeb.BusinessLive.Show do
               {MossletWeb.OrgIdentity.placeholder_label(member)}
             </span>
           </span>
+          <.circle_role_badge role={member.circle_role} />
           <span
             :if={member.self?}
             class="shrink-0 rounded-full bg-slate-100 dark:bg-slate-700/60 px-2 py-0.5 text-[11px] font-medium text-slate-500 dark:text-slate-400"
           >
             You
           </span>
+
+          <%!-- Per-circle role controls (Task #352). Only shown when the viewer
+               strictly outranks this member (`can_moderate?/2`); the write path
+               re-checks server-authoritatively, so a tampered client gains
+               nothing. Roles available are capped to those below the viewer's
+               own. Owner grant ("Make owner") is owner-only. The circle role is
+               distinct from the org role (design §2 — never auto-synced). --%>
+          <form
+            :if={
+              !member.self? && member.circle_role != :owner &&
+                Groups.can_moderate?(@manage.viewer_role, member.circle_role)
+            }
+            id={"circle-role-form-#{@manage.group.id}-#{member.user.id}"}
+            phx-change="change_circle_role"
+            class="shrink-0"
+          >
+            <input type="hidden" name="user_id" value={member.user.id} />
+            <select
+              name="role"
+              aria-label="Circle role"
+              class="rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900/40 py-1 pl-2 pr-7 text-xs font-medium text-slate-700 dark:text-slate-200 focus:border-teal-500 focus:ring-teal-500"
+            >
+              <option
+                :for={role <- assignable_circle_roles(@manage.viewer_role)}
+                value={role}
+                selected={role == member.circle_role}
+              >
+                {circle_role_label(role)}
+              </option>
+            </select>
+          </form>
+
+          <.liquid_button
+            :if={!member.self? && member.circle_role != :owner && @manage.viewer_role == :owner}
+            type="button"
+            variant="ghost"
+            color="amber"
+            size="sm"
+            icon="hero-star"
+            phx-click="change_circle_role"
+            phx-value-user_id={member.user.id}
+            phx-value-role="owner"
+            id={"make-owner-#{@manage.group.id}-#{member.user.id}"}
+            data-confirm="Make this person a circle owner? Owners can manage everyone, including other admins."
+          >
+            Make owner
+          </.liquid_button>
+
           <.liquid_button
             :if={!member.self? && member.user.id != @manage.group.user_id}
             type="button"
@@ -2307,6 +2373,7 @@ defmodule MossletWeb.BusinessLive.Show do
     {:noreply,
      socket
      |> assign(:manage_circle_id, circle_id)
+     |> assign(:manage_circle_audit_label, nil)
      |> assign(:show_circle_form?, false)
      |> assign_business_data()}
   end
@@ -2317,6 +2384,7 @@ defmodule MossletWeb.BusinessLive.Show do
      socket
      |> assign(:manage_circle_id, nil)
      |> assign(:manage_circle, nil)
+     |> assign(:manage_circle_audit_label, nil)
      |> assign(:edit_circle_meta?, false)}
   end
 
@@ -2329,6 +2397,72 @@ defmodule MossletWeb.BusinessLive.Show do
   def handle_event("cancel_edit_circle_meta", _params, socket) do
     {:noreply, assign(socket, :edit_circle_meta?, false)}
   end
+
+  # The browser precomputed the org_key-encrypted AUDIT label (the circle name)
+  # for the open circle (Task #353) and pushed the opaque ciphertext. Cache it so
+  # role-change/delete events can name the circle in the activity log. The server
+  # never sees the plaintext name (I6). We only trust it as a label for the
+  # currently-managed circle.
+  @impl true
+  def handle_event("cache_circle_audit_label", %{"label" => label}, socket)
+      when is_binary(label) do
+    {:noreply, assign(socket, :manage_circle_audit_label, label)}
+  end
+
+  # Change a member's per-circle role (Task #352). Server-authoritative: the
+  # actor's circle UserGroup must strictly outrank the target (`can_moderate?/2`)
+  # and may only assign roles below its own level (owner grant is owner-only —
+  # `"Make owner"`). `update_user_group_role/3` re-checks the owner rules and the
+  # "at least one owner" invariant. The circle role is DISTINCT from the org role
+  # (design §2 — never auto-synced). Records a `role_changed` audit event with
+  # the org_key-encrypted circle label (Task #353) for context.
+  @impl true
+  def handle_event("change_circle_role", %{"user_id" => user_id, "role" => role}, socket)
+      when role in ~w(owner admin moderator member) do
+    manage = socket.assigns.manage_circle
+    user = socket.assigns.current_scope.user
+    org = socket.assigns.org
+
+    actor_ug = manage && manage.user_group
+    target_ug = manage && Enum.find(manage.group.user_groups, &(&1.user_id == user_id))
+
+    cond do
+      is_nil(manage) or is_nil(actor_ug) or is_nil(target_ug) ->
+        {:noreply, socket}
+
+      not authorized_circle_role_change?(actor_ug, target_ug, role) ->
+        {:noreply,
+         put_flash(socket, :error, "You don't have permission to change this member's role.")}
+
+      true ->
+        case Groups.update_user_group_role(target_ug, %{role: role}, actor: actor_ug) do
+          {:ok, _updated} ->
+            Mosslet.Logs.log("orgs.circle_role_changed", %{
+              user: user,
+              org_id: org.id,
+              metadata: %{"group_id" => manage.group.id, "target_id" => user_id}
+            })
+
+            Audit.record_audit_event(org, user, "role_changed",
+              target_id: user_id,
+              target_type: "user",
+              encrypted_label: socket.assigns.manage_circle_audit_label
+            )
+
+            Orgs.broadcast_org_update(org)
+
+            {:noreply,
+             socket
+             |> put_flash(:success, "Circle role updated")
+             |> assign_business_data()}
+
+          {:error, reason} ->
+            {:noreply, put_flash(socket, :error, circle_role_error(reason))}
+        end
+    end
+  end
+
+  def handle_event("change_circle_role", _params, socket), do: {:noreply, socket}
 
   # ZK edit (Task #351): the browser re-encrypted the circle name/description
   # with the per-group key and pushed the ciphertext. Authority is re-checked
@@ -2370,7 +2504,8 @@ defmodule MossletWeb.BusinessLive.Show do
 
             Audit.record_audit_event(org, user, "circle_updated",
               target_id: group.id,
-              target_type: "group"
+              target_type: "group",
+              encrypted_label: params["encrypted_label"]
             )
 
             Orgs.broadcast_org_update(org)
@@ -2418,7 +2553,8 @@ defmodule MossletWeb.BusinessLive.Show do
 
             Audit.record_audit_event(org, user, "circle_deleted",
               target_id: group.id,
-              target_type: "group"
+              target_type: "group",
+              encrypted_label: socket.assigns.manage_circle_audit_label
             )
 
             Orgs.broadcast_org_update(org)
@@ -2428,6 +2564,7 @@ defmodule MossletWeb.BusinessLive.Show do
              |> put_flash(:success, "Circle deleted")
              |> assign(:manage_circle_id, nil)
              |> assign(:manage_circle, nil)
+             |> assign(:manage_circle_audit_label, nil)
              |> assign(:edit_circle_meta?, false)
              |> assign_business_data()}
 
@@ -2630,6 +2767,7 @@ defmodule MossletWeb.BusinessLive.Show do
        |> assign(:pending_zk_circle_attrs, zk_attrs)
        |> assign(:pending_zk_circle_users, users)
        |> assign(:pending_zk_circle_type, circle_type)
+       |> assign(:pending_zk_circle_label, params["encrypted_label"])
        |> push_event("seal_group_key_for_members", %{
          members: members,
          owner_moniker: FriendlyID.generate(3),
@@ -2649,6 +2787,7 @@ defmodule MossletWeb.BusinessLive.Show do
     zk_attrs = socket.assigns.pending_zk_circle_attrs
     users = socket.assigns.pending_zk_circle_users || []
     circle_type = socket.assigns.pending_zk_circle_type || :community
+    encrypted_label = socket.assigns[:pending_zk_circle_label]
 
     if is_nil(zk_attrs) do
       {:noreply, put_flash(socket, :error, "No pending circle to finalize. Please try again.")}
@@ -2665,6 +2804,9 @@ defmodule MossletWeb.BusinessLive.Show do
         |> assign(:pending_zk_circle_attrs, nil)
         |> assign(:pending_zk_circle_users, nil)
         |> assign(:pending_zk_circle_type, :community)
+        |> assign(:pending_zk_circle_label, nil)
+        |> assign(:manage_circle_audit_label, nil)
+        |> assign(:pending_zk_circle_label, nil)
 
       case Groups.create_business_circle_zk(
              org,
@@ -2683,7 +2825,8 @@ defmodule MossletWeb.BusinessLive.Show do
 
           Audit.record_audit_event(org, user, "circle_created",
             target_id: group.id,
-            target_type: "group"
+            target_type: "group",
+            encrypted_label: encrypted_label
           )
 
           {:noreply,
@@ -3914,6 +4057,74 @@ defmodule MossletWeb.BusinessLive.Show do
   # Generic, name-free server-rendered fallback for an audit row (shown before the
   # AuditLog hook enriches it with client-decrypted names, or if decryption is
   # unavailable). NEVER contains sensitive content.
+  # Per-circle role badge (Task #352). Visual hierarchy for the circle's own
+  # role system (distinct from the org role — design §2).
+  attr :role, :atom, required: true
+
+  defp circle_role_badge(assigns) do
+    ~H"""
+    <span class={[
+      "shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
+      circle_role_badge_class(@role)
+    ]}>
+      <.phx_icon :if={@role == :owner} name="hero-star" class="size-3" />
+      {circle_role_label(@role)}
+    </span>
+    """
+  end
+
+  defp circle_role_badge_class(:owner),
+    do: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+
+  defp circle_role_badge_class(:admin),
+    do: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300"
+
+  defp circle_role_badge_class(:moderator),
+    do: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300"
+
+  defp circle_role_badge_class(_),
+    do: "bg-slate-100 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300"
+
+  defp circle_role_label(:owner), do: "Owner"
+  defp circle_role_label(:admin), do: "Admin"
+  defp circle_role_label(:moderator), do: "Moderator"
+  defp circle_role_label(_), do: "Member"
+
+  # The non-owner roles a viewer may assign: those strictly below the viewer's
+  # own circle-role level. Owner grant is handled separately ("Make owner",
+  # owner-only). The write path re-checks server-authoritatively.
+  defp assignable_circle_roles(viewer_role) do
+    levels = Groups.role_levels()
+    viewer_level = Map.get(levels, viewer_role, 0)
+
+    Enum.filter([:member, :moderator, :admin], &(Map.get(levels, &1, 0) < viewer_level))
+  end
+
+  # Server-authoritative gate for a circle role change: the actor must strictly
+  # outrank the target, and may only assign a role below its own level (the owner
+  # role is owner-grantable only). `Groups.update_user_group_role/3` adds the
+  # owner-specific rules + "at least one owner" invariant on top (defense in
+  # depth).
+  defp authorized_circle_role_change?(actor_ug, target_ug, new_role) do
+    levels = Groups.role_levels()
+    new_role_atom = String.to_existing_atom(new_role)
+    actor_level = Map.get(levels, actor_ug.role, 0)
+
+    Groups.can_moderate?(actor_ug.role, target_ug.role) and
+      (actor_ug.role == :owner or Map.get(levels, new_role_atom, 0) < actor_level)
+  end
+
+  defp circle_role_error(:only_owner_can_grant_owner),
+    do: "Only a circle owner can grant the owner role."
+
+  defp circle_role_error(:only_owner_can_change_owner),
+    do: "Only a circle owner can change another owner's role."
+
+  defp circle_role_error(:must_have_at_least_one_owner),
+    do: "A circle must always have at least one owner."
+
+  defp circle_role_error(_), do: "Couldn't update the circle role."
+
   defp audit_action_label("member_invited"), do: "A teammate was invited"
   defp audit_action_label("member_added"), do: "A teammate joined the organization"
   defp audit_action_label("member_removed"), do: "A teammate was removed from the organization"
@@ -3978,13 +4189,20 @@ defmodule MossletWeb.BusinessLive.Show do
           else
             user_group = Enum.find(group.user_groups, &(&1.user_id == current_user.id))
 
+            # Per-circle role lookup (Task #352): the circle's UserGroup.role —
+            # distinct from the org Membership.role (design §2, kept separate).
+            role_by_user =
+              Map.new(group.user_groups, &{&1.user_id, &1.role})
+
             circle_member_ids =
               group.user_groups
               |> Enum.filter(&(not is_nil(&1.confirmed_at)))
               |> MapSet.new(& &1.user_id)
 
             circle_members =
-              Enum.filter(members, &MapSet.member?(circle_member_ids, &1.user.id))
+              members
+              |> Enum.filter(&MapSet.member?(circle_member_ids, &1.user.id))
+              |> Enum.map(&Map.put(&1, :circle_role, Map.get(role_by_user, &1.user.id, :member)))
 
             addable =
               Enum.filter(members, fn m ->
@@ -3994,6 +4212,7 @@ defmodule MossletWeb.BusinessLive.Show do
             %{
               group: group,
               user_group: user_group,
+              viewer_role: user_group && user_group.role,
               sealed_group_key: user_group && user_group.key,
               members: circle_members,
               addable_members: addable,
