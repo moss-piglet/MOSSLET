@@ -209,6 +209,14 @@ const AuditLog = {
         return quoted ? `${actor} shared the file ${quoted}` : `${actor} shared a file`;
       case "file_revoked":
         return quoted ? `${actor} removed the file ${quoted}` : `${actor} removed a file`;
+      case "announcement_created":
+        return quoted
+          ? `${actor} posted the announcement ${quoted}`
+          : `${actor} posted an announcement`;
+      case "announcement_deleted":
+        return quoted
+          ? `${actor} removed the announcement ${quoted}`
+          : `${actor} removed an announcement`;
       default:
         return `${actor} performed an action`;
     }

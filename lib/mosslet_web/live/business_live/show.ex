@@ -611,6 +611,7 @@ defmodule MossletWeb.BusinessLive.Show do
             <.announcements_panel
               tier={:org}
               sealed_key={@viewer_sealed_org_key}
+              viewer_sealed_org_key={@viewer_sealed_org_key}
               can_post?={@can_post_announcement?}
               show_form?={@show_announcement_form?}
               form={@announcement_form}
@@ -3096,6 +3097,15 @@ defmodule MossletWeb.BusinessLive.Show do
       {:ok, announcement} ->
         Announcements.mark_read(announcement, user)
 
+        # ZK audit (Task #355): the title is already org_key ciphertext (the audit
+        # read key for an org-tier announcement), so pass it straight through as
+        # the opaque label. The server stores only ciphertext + ids (I6).
+        Audit.record_audit_event(org, user, "announcement_created",
+          target_id: announcement.id,
+          target_type: "announcement",
+          encrypted_label: params["encrypted_title"]
+        )
+
         {:noreply,
          socket
          |> put_flash(:success, "Announcement posted")
@@ -3141,6 +3151,15 @@ defmodule MossletWeb.BusinessLive.Show do
       true ->
         case Announcements.delete_announcement(announcement, user) do
           {:ok, :deleted} ->
+            # ZK audit (Task #355): reuse the announcement's org_key-encrypted
+            # title as the opaque label (org-tier titles are already org_key
+            # ciphertext — the audit read key). I6: ciphertext + ids only.
+            Audit.record_audit_event(socket.assigns.org, user, "announcement_deleted",
+              target_id: announcement.id,
+              target_type: "announcement",
+              encrypted_label: announcement.encrypted_title
+            )
+
             {:noreply,
              socket |> put_flash(:info, "Announcement deleted") |> assign_business_data()}
 
@@ -4171,6 +4190,8 @@ defmodule MossletWeb.BusinessLive.Show do
   defp audit_action_label("circle_deleted"), do: "A circle was deleted"
   defp audit_action_label("file_shared"), do: "A file was shared"
   defp audit_action_label("file_revoked"), do: "A file was removed"
+  defp audit_action_label("announcement_created"), do: "An announcement was posted"
+  defp audit_action_label("announcement_deleted"), do: "An announcement was removed"
   defp audit_action_label(_), do: "An action was performed"
 
   defp audit_action_icon("member_invited"), do: "hero-envelope"
@@ -4184,6 +4205,8 @@ defmodule MossletWeb.BusinessLive.Show do
   defp audit_action_icon("circle_deleted"), do: "hero-trash"
   defp audit_action_icon("file_shared"), do: "hero-document-arrow-up"
   defp audit_action_icon("file_revoked"), do: "hero-document-minus"
+  defp audit_action_icon("announcement_created"), do: "hero-megaphone"
+  defp audit_action_icon("announcement_deleted"), do: "hero-megaphone"
   defp audit_action_icon(_), do: "hero-clock"
 
   # Recomputes the four subdomain/add-on-derived assigns from the org's current

@@ -20,6 +20,7 @@ import {
   decryptWithKey,
   getPublicKey,
   unwrapKey,
+  encryptWithKey,
 } from "../crypto/session";
 
 const DecryptAnnouncement = {
@@ -73,6 +74,7 @@ const DecryptAnnouncement = {
             .forEach((el) => {
               el.textContent = title;
             });
+          await this._cacheAuditLabel(title);
         }
       }
 
@@ -92,6 +94,35 @@ const DecryptAnnouncement = {
     } catch (e) {
       console.error("DecryptAnnouncement: decryption failed:", e);
       return true;
+    }
+  },
+
+  // Re-encrypt the (just-decrypted) announcement title under the org_key as an
+  // opaque AUDIT label (Task #355) and hand it to the server, keyed by
+  // announcement id, so a later `delete_announcement` (a plain phx-click, after
+  // which the actor no longer re-derives the plaintext) can name the removed
+  // announcement in the org activity log. ORG-tier titles are already org_key
+  // ciphertext (the delete producer reuses `encrypted_title` directly), so only
+  // CIRCLE-tier needs this group_key→org_key re-encryption. Best-effort + ZK:
+  // the server caches only this ciphertext (I6); absent → generic fallback.
+  async _cacheAuditLabel(title) {
+    if (this.el.dataset.keyTier !== "group") return;
+
+    const sealedOrgKey = this.el.dataset.sealedOrgKey;
+    const announcementId = this.el.dataset.announcementId;
+    if (!sealedOrgKey || !announcementId || !title) return;
+    try {
+      const raw = await unsealContextKey(sealedOrgKey);
+      if (!raw) return;
+      const label = await encryptWithKey(title, unwrapKey(raw));
+      if (label) {
+        this.pushEvent("cache_announcement_label", {
+          id: announcementId,
+          label,
+        });
+      }
+    } catch (_e) {
+      // best-effort — the log falls back to a generic "removed an announcement"
     }
   },
 };

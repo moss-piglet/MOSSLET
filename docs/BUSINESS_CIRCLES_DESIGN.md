@@ -487,6 +487,8 @@ gated to owner/admin viewers).
   | `file_shared` | filename | `SharedFileHook` re-encrypts the filename under org_key at upload, carried through `finalize_shared_file` |
   | `file_revoked` | filename | `DecryptSharedFileName` re-encrypts the (already-decrypted) filename under org_key, cached by file id; the `delete_shared_file` producer attaches it |
   | `member_invited` | invited email | `InviteAuditLabel` encrypts the email on submit (email is non-secret to the server, but the label channel stays uniform) |
+  | `announcement_created` / `announcement_deleted` (org tier) | announcement title | the title is already org_key ciphertext — the producer reuses `encrypted_title` directly (create) / `announcement.encrypted_title` (delete); no new hook |
+  | `announcement_created` / `announcement_deleted` (circle tier) | announcement title | `AnnouncementFormHook` re-encrypts the title group_key→org_key on submit (create); `DecryptAnnouncement` re-encrypts the decrypted title under org_key and caches it by announcement id (`cache_announcement_label`), which the `delete_announcement` producer attaches (delete) |
   | `member_added` / `member_removed` / `display_name_changed` | — (no label) | the audit panel's member directory resolves the actor/target name from each membership's `org_key`-encrypted display name |
 
   Per-circle role changes use a distinct `circle_role_changed` category (vs the

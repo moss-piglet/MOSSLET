@@ -30,6 +30,7 @@ defmodule MossletWeb.AnnouncementComponents do
   """
   attr :tier, :atom, required: true
   attr :sealed_key, :string, default: nil
+  attr :viewer_sealed_org_key, :string, default: nil
   attr :can_post?, :boolean, default: false
   attr :show_form?, :boolean, default: false
   attr :form, :map, required: true
@@ -102,7 +103,7 @@ defmodule MossletWeb.AnnouncementComponents do
         phx-submit="create_announcement"
         phx-hook="AnnouncementFormHook"
         data-key-tier={key_tier(@tier)}
-        data-sealed-org-key={@tier == :org && @sealed_key}
+        data-sealed-org-key={if @tier == :org, do: @sealed_key, else: @viewer_sealed_org_key}
         data-sealed-group-key={@tier == :circle && @sealed_key}
         class="rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-gradient-to-br from-slate-50/80 to-slate-100/50 dark:from-slate-800/50 dark:to-slate-900/30 p-4 space-y-4"
       >
@@ -188,6 +189,7 @@ defmodule MossletWeb.AnnouncementComponents do
         announcement={@banner}
         tier={@tier}
         sealed_key={@sealed_key}
+        viewer_sealed_org_key={@viewer_sealed_org_key}
         can_manage={@can_post? || @banner.author_id == @current_user_id}
         variant={:banner}
       />
@@ -202,6 +204,7 @@ defmodule MossletWeb.AnnouncementComponents do
             announcement={announcement}
             tier={@tier}
             sealed_key={@sealed_key}
+            viewer_sealed_org_key={@viewer_sealed_org_key}
             can_manage={@can_post? || announcement.author_id == @current_user_id}
             variant={:recent}
           />
@@ -225,6 +228,7 @@ defmodule MossletWeb.AnnouncementComponents do
   attr :announcement, :map, required: true
   attr :tier, :atom, required: true
   attr :sealed_key, :string, default: nil
+  attr :viewer_sealed_org_key, :string, default: nil
   attr :can_manage, :boolean, default: false
   attr :variant, :atom, default: :recent
 
@@ -239,6 +243,7 @@ defmodule MossletWeb.AnnouncementComponents do
         announcement={@announcement}
         tier={@tier}
         sealed_key={@sealed_key}
+        viewer_sealed_org_key={@viewer_sealed_org_key}
         can_manage={@can_manage}
         pinned={false}
       />
@@ -252,6 +257,7 @@ defmodule MossletWeb.AnnouncementComponents do
         announcement={@announcement}
         tier={@tier}
         sealed_key={@sealed_key}
+        viewer_sealed_org_key={@viewer_sealed_org_key}
         can_manage={@can_manage}
         pinned={true}
       />
@@ -262,6 +268,7 @@ defmodule MossletWeb.AnnouncementComponents do
   attr :announcement, :map, required: true
   attr :tier, :atom, required: true
   attr :sealed_key, :string, default: nil
+  attr :viewer_sealed_org_key, :string, default: nil
   attr :can_manage, :boolean, default: false
   attr :pinned, :boolean, default: false
 
@@ -272,7 +279,8 @@ defmodule MossletWeb.AnnouncementComponents do
       phx-hook="DecryptAnnouncement"
       phx-update="ignore"
       data-key-tier={key_tier(@tier)}
-      data-sealed-org-key={@tier == :org && @sealed_key}
+      data-announcement-id={@announcement.id}
+      data-sealed-org-key={if @tier == :org, do: @sealed_key, else: @viewer_sealed_org_key}
       data-sealed-group-key={@tier == :circle && @sealed_key}
       data-encrypted-title={@announcement.encrypted_title}
       data-encrypted-body={@announcement.encrypted_body}

@@ -109,12 +109,37 @@ const AnnouncementFormHook = {
       return;
     }
 
+    const encryptedLabel = await this._auditLabel(title, encryptedTitle);
+
     this._push("save_announcement", {
       encrypted_title: encryptedTitle,
       encrypted_body: encryptedBody,
+      encrypted_label: encryptedLabel,
       priority: priority,
       expires_at: expiresAt,
     });
+  },
+
+  // The activity log's read key is the org_key (Task #355). For an ORG-tier
+  // announcement the title is ALREADY org_key ciphertext (this._key IS the
+  // org_key), so we pass it straight through. For a CIRCLE-tier announcement the
+  // title was sealed with the group_key, so we re-encrypt the plaintext title
+  // under the org_key (mirrors SharedFileHook's file_key→org_key) and send that
+  // opaque ciphertext as the audit label. Best-effort + ZK: never plaintext to
+  // the server; absent → generic server-side fallback phrase.
+  async _auditLabel(title, encryptedTitle) {
+    if (!title) return null;
+    if (this.el.dataset.keyTier === "org") return encryptedTitle;
+
+    const sealedOrgKey = this.el.dataset.sealedOrgKey;
+    if (!sealedOrgKey) return null;
+    try {
+      const raw = await unsealContextKey(sealedOrgKey);
+      if (!raw) return null;
+      return await encryptWithKey(title, unwrapKey(raw));
+    } catch (_e) {
+      return null;
+    }
   },
 
   // Converts a `datetime-local` value (interpreted in the member's LOCAL

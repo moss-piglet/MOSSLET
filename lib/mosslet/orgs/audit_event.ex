@@ -41,10 +41,12 @@ defmodule Mosslet.Orgs.AuditEvent do
     circle_deleted
     file_shared
     file_revoked
+    announcement_created
+    announcement_deleted
   )
 
   # What `target_id` points at (no hard FK because it is polymorphic).
-  @target_types ~w(user group shared_file)
+  @target_types ~w(user group shared_file announcement)
 
   def actions, do: @actions
   def target_types, do: @target_types

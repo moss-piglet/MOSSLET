@@ -19,6 +19,7 @@ defmodule MossletWeb.BusinessLive.CircleShow do
   alias Mosslet.Announcements
   alias Mosslet.Groups
   alias Mosslet.Orgs
+  alias Mosslet.Orgs.Audit
   alias MossletWeb.GroupLive.ChatSupport
   alias MossletWeb.OrgCircleSupport
 
@@ -158,6 +159,7 @@ defmodule MossletWeb.BusinessLive.CircleShow do
         <.announcements_panel
           tier={:circle}
           sealed_key={@sealed_group_key}
+          viewer_sealed_org_key={@viewer_sealed_org_key}
           can_post?={@can_post_announcement?}
           show_form?={@show_announcement_form?}
           form={@announcement_form}
@@ -243,6 +245,15 @@ defmodule MossletWeb.BusinessLive.CircleShow do
       {:ok, announcement} ->
         Announcements.mark_read(announcement, user)
 
+        # ZK audit (Task #355): a circle-tier title is group_key ciphertext, so the
+        # AnnouncementFormHook re-encrypted the plaintext under the org_key (the
+        # audit read key) and sent it as `encrypted_label`. Opaque to the server.
+        Audit.record_audit_event(socket.assigns.org, user, "announcement_created",
+          target_id: announcement.id,
+          target_type: "announcement",
+          encrypted_label: params["encrypted_label"]
+        )
+
         {:noreply,
          socket
          |> put_flash(:success, "Announcement posted")
@@ -285,6 +296,15 @@ defmodule MossletWeb.BusinessLive.CircleShow do
       true ->
         case Announcements.delete_announcement(announcement, user) do
           {:ok, :deleted} ->
+            # ZK audit (Task #355): a circle-tier title is group_key ciphertext, so
+            # DecryptAnnouncement cached the org_key-re-encrypted title by id (see
+            # "cache_announcement_label"); attach it as the opaque label. I6.
+            Audit.record_audit_event(socket.assigns.org, user, "announcement_deleted",
+              target_id: announcement.id,
+              target_type: "announcement",
+              encrypted_label: (socket.assigns[:announcement_labels] || %{})[id]
+            )
+
             {:noreply, socket |> put_flash(:info, "Announcement deleted") |> assign_circle_data()}
 
           {:error, :unauthorized} ->
@@ -294,6 +314,18 @@ defmodule MossletWeb.BusinessLive.CircleShow do
             {:noreply, put_flash(socket, :error, "Could not delete that announcement.")}
         end
     end
+  end
+
+  # ZK audit (Task #355): the DecryptAnnouncement read hook decrypted a circle
+  # announcement's title (group_key), re-encrypted it under the org_key (the audit
+  # read key), and cached it here keyed by announcement id so a later
+  # `delete_announcement` (a plain phx-click) can name the removed announcement in
+  # the org activity log. Opaque ciphertext only — the server never reads it (I6).
+  @impl true
+  def handle_event("cache_announcement_label", %{"id" => id, "label" => label}, socket)
+      when is_binary(id) and is_binary(label) do
+    labels = Map.put(socket.assigns[:announcement_labels] || %{}, id, label)
+    {:noreply, assign(socket, :announcement_labels, labels)}
   end
 
   @impl true
