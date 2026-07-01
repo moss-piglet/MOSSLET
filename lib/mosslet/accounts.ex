@@ -19,6 +19,7 @@ defmodule Mosslet.Accounts do
     User,
     UserBlock,
     UserConnection,
+    UserKeyWrap,
     UserToken,
     UserNotifier
   }
@@ -812,6 +813,165 @@ defmodule Mosslet.Accounts do
         {:error, :invalid_recovery_key}
     end
   end
+
+  ## user_key wraps (WebAuthn PRF device-bound factor — board #362) ##########
+
+  @doc """
+  Lists a user's `user_key` unlock-door wraps, newest first.
+
+  Every `wrapped_user_key` is opaque to the server (invariant I6). See
+  `docs/WEBAUTHN_PRF_DESIGN.md`.
+  """
+  def list_user_key_wraps(%User{id: user_id}), do: list_user_key_wraps(user_id)
+
+  def list_user_key_wraps(user_id) when is_binary(user_id) do
+    UserKeyWrap
+    |> where(user_id: ^user_id)
+    |> order_by(desc: :inserted_at)
+    |> Mosslet.Repo.all()
+  end
+
+  @doc """
+  True once a user has at least one `:prf` (device-bound) wrap — i.e. they have
+  opted in to the password-AND-device gate.
+  """
+  def prf_enrolled?(%User{} = user), do: prf_enrolled?(user.id)
+
+  def prf_enrolled?(user_id) when is_binary(user_id) do
+    Mosslet.Repo.exists?(where(UserKeyWrap, kind: :prf, user_id: ^user_id))
+  end
+
+  @doc """
+  Enrolls a new `:prf` (device-bound) wrap and flips the account OR → AND.
+
+  In a single primary-DB transaction this:
+
+    1. **Gates on a confirmed recovery key** — enrollment is refused unless the
+       user already has a ZK recovery key set up (`recovery_key_hash` present).
+       Once the password-only door is deleted, the 256-bit recovery code is the
+       only device-loss fallback (design §3-4, board #364).
+    2. Inserts the `:prf` wrap (`wrapping_key = HKDF(password_key ‖ prf_output)`).
+    3. **Deletes every `:password` wrap** for the user — the OR→AND flip. After
+       this, `user_key` is unlockable ONLY by password+device or recovery code.
+
+  `attrs` is the browser-produced payload: `wrapped_user_key`, `wrap_salt`,
+  `credential_id`, `prf_salt`, and optional `label` / `ecosystem_hint`. All
+  blobs are opaque to the server.
+
+  Returns `{:ok, %UserKeyWrap{}}`, `{:error, :recovery_key_required}`, or
+  `{:error, changeset}`.
+  """
+  def enroll_prf_wrap(%User{} = user, attrs) do
+    if is_binary(user.recovery_key_hash) and user.recovery_key_hash != "" do
+      do_enroll_prf_wrap(user, attrs)
+    else
+      {:error, :recovery_key_required}
+    end
+  end
+
+  defp do_enroll_prf_wrap(%User{id: user_id}, attrs) do
+    multi =
+      Ecto.Multi.new()
+      |> Ecto.Multi.insert(:prf_wrap, UserKeyWrap.prf_changeset(user_id, attrs))
+      |> Ecto.Multi.delete_all(
+        :drop_password_wraps,
+        where(UserKeyWrap, kind: :password, user_id: ^user_id)
+      )
+
+    case Mosslet.Repo.transaction_on_primary(fn -> Mosslet.Repo.transaction(multi) end) do
+      {:ok, {:ok, %{prf_wrap: wrap}}} -> {:ok, wrap}
+      {:ok, {:error, :prf_wrap, changeset, _}} -> {:error, changeset}
+      {:ok, {:error, _step, reason, _}} -> {:error, reason}
+      error -> error
+    end
+  end
+
+  @doc """
+  Removes a `:prf` wrap and guarantees the user can never brick themselves.
+
+  If the removed wrap was the LAST `:prf` wrap, the account is flipped back
+  AND → OR by re-materializing the single `:password` wrap from the
+  browser-supplied `password_wrap` payload (`wrapped_user_key` + `wrap_salt`),
+  restoring the plain password door (design §4, wrinkle 3).
+
+  When other `:prf` wraps remain (multi-device), no `:password` wrap is written —
+  the account stays enrolled. In that case `password_wrap` may be `nil`.
+
+  Returns `{:ok, :unenrolled}` (last device removed, password door restored),
+  `{:ok, :still_enrolled}` (other devices remain), or `{:error, reason}`.
+  """
+  def unenroll_prf_wrap(%User{id: user_id}, wrap_id, password_wrap \\ nil) do
+    # Decide BEFORE mutating so we never delete the last device and leave the
+    # account without any door (no rollback needed — see design §4 wrinkle 3).
+    prf_count = Mosslet.Repo.aggregate(where(UserKeyWrap, kind: :prf, user_id: ^user_id), :count)
+    last_device? = prf_count <= 1
+
+    cond do
+      last_device? and not is_map(password_wrap) ->
+        {:error, :password_wrap_required}
+
+      last_device? ->
+        multi =
+          Ecto.Multi.new()
+          |> Ecto.Multi.delete_all(
+            :drop_prf,
+            where(UserKeyWrap, id: ^wrap_id, user_id: ^user_id, kind: :prf)
+          )
+          |> Ecto.Multi.insert(
+            :password_wrap,
+            UserKeyWrap.password_changeset(user_id, normalize_wrap_attrs(password_wrap))
+          )
+
+        run_wrap_multi(multi, :unenrolled)
+
+      true ->
+        multi =
+          Ecto.Multi.delete_all(
+            Ecto.Multi.new(),
+            :drop_prf,
+            where(UserKeyWrap, id: ^wrap_id, user_id: ^user_id, kind: :prf)
+          )
+
+        run_wrap_multi(multi, :still_enrolled)
+    end
+  end
+
+  defp run_wrap_multi(multi, ok_result) do
+    case Mosslet.Repo.transaction_on_primary(fn -> Mosslet.Repo.transaction(multi) end) do
+      {:ok, {:ok, _changes}} -> {:ok, ok_result}
+      {:ok, {:error, _step, reason, _}} -> {:error, reason}
+      error -> error
+    end
+  end
+
+  @doc """
+  Backfills the single `:password` wrap for a non-enrolled user from the
+  browser-supplied payload, if (and only if) the user has no wraps yet.
+
+  Used to migrate the legacy `users.key_hash` into the `user_key_wraps` table
+  without a flag day. Idempotent and a no-op for already-enrolled users.
+  """
+  def backfill_password_wrap(%User{id: user_id}, password_wrap) do
+    if Mosslet.Repo.exists?(where(UserKeyWrap, user_id: ^user_id)) do
+      {:ok, :already_present}
+    else
+      Mosslet.Repo.transaction_on_primary(fn ->
+        user_id
+        |> UserKeyWrap.password_changeset(normalize_wrap_attrs(password_wrap))
+        |> Mosslet.Repo.insert()
+      end)
+      |> case do
+        {:ok, {:ok, wrap}} -> {:ok, wrap}
+        {:ok, {:error, changeset}} -> {:error, changeset}
+        error -> error
+      end
+    end
+  end
+
+  defp normalize_wrap_attrs(%{"wrapped_user_key" => wuk, "wrap_salt" => salt}),
+    do: %{wrapped_user_key: wuk, wrap_salt: salt}
+
+  defp normalize_wrap_attrs(%{wrapped_user_key: _, wrap_salt: _} = attrs), do: attrs
 
   @doc """
   Returns an `%Ecto.Changeset{}` for changing the user's notifications boolean.
