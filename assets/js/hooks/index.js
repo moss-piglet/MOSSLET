@@ -70,6 +70,7 @@ import OrgLogoUpload from "./org-logo-upload";
 import OrgLogoDisplay from "./org-logo-display";
 import RegistrationHook from "./registration-hook";
 import RecoveryKeySetupHook from "./recovery-key-setup-hook";
+import RecoveryKeyConfirmHook from "./recovery-key-confirm-hook";
 import PrfEnrollmentHook from "./prf-enrollment-hook";
 import PrfPasswordChangeHook from "./prf-password-change-hook";
 import ReplyComposer from "./reply-composer";
@@ -201,6 +202,7 @@ export default {
   ProfileAboutFormHook,
   ProfileFieldsFormHook,
   RecoveryKeySetupHook,
+  RecoveryKeyConfirmHook,
   PrfEnrollmentHook,
   PrfPasswordChangeHook,
   RegistrationHook,

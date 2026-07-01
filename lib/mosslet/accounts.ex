@@ -731,6 +731,69 @@ defmodule Mosslet.Accounts do
     end
   end
 
+  # Short-lived, HMAC-signed proof that the user demonstrated possession of their
+  # recovery secret *this session* (board #364, design §4/§8). ZK-safe: the token
+  # wraps only the user id — no secret/PII — and expires after
+  # `@recovery_confirmation_max_age` seconds. It gates PRF enrollment both in the
+  # LiveView CTA and server-side in `enroll_prf_wrap/3`.
+  @recovery_confirmation_salt "prf recovery confirmation"
+  @recovery_confirmation_max_age 900
+
+  @doc "Max age (seconds) a recovery-confirmation token stays fresh."
+  def recovery_confirmation_max_age_seconds, do: @recovery_confirmation_max_age
+
+  @doc """
+  True once a user has a recovery key set up (its Argon2 hash is present).
+
+  This is the *outer* gate for PRF enrollment (design §4, hard prereq 1). It says
+  a recovery key exists — not that the user can currently produce it. Freshness
+  (`recovery_confirmation_fresh?/2`) is the *inner* gate.
+  """
+  def has_recovery_key?(%User{recovery_key_hash: hash}), do: is_binary(hash) and hash != ""
+  def has_recovery_key?(_), do: false
+
+  @doc """
+  Timing-safe verification of a raw recovery secret against the user's stored
+  Argon2 hash. Returns `:ok` or `:error`.
+
+  Preserves I6: the server only ever Argon2-verifies the secret (exactly the
+  existing recovery model) — it never persists or otherwise learns it.
+  """
+  def verify_recovery_secret(%User{recovery_key_hash: hash}, secret)
+      when is_binary(hash) and hash != "" and is_binary(secret) do
+    if Argon2.verify_pass(secret, hash), do: :ok, else: :error
+  end
+
+  def verify_recovery_secret(_user, _secret) do
+    # Timing-normalize the no-hash / bad-input path (no user enumeration).
+    Argon2.no_user_verify()
+    :error
+  end
+
+  @doc """
+  Mints a short-lived recovery-confirmation token for a user who has just proven
+  possession of their recovery secret this session (freshly generated it, or
+  verified an existing one via `verify_recovery_secret/2`).
+  """
+  def sign_recovery_confirmation(%User{id: id}) do
+    Phoenix.Token.sign(MossletWeb.Endpoint, @recovery_confirmation_salt, id)
+  end
+
+  @doc """
+  True iff `token` is a valid, unexpired recovery-confirmation token for `user`.
+  Constant-time via `Phoenix.Token` HMAC verification.
+  """
+  def recovery_confirmation_fresh?(%User{id: id}, token) when is_binary(token) do
+    case Phoenix.Token.verify(MossletWeb.Endpoint, @recovery_confirmation_salt, token,
+           max_age: @recovery_confirmation_max_age
+         ) do
+      {:ok, ^id} -> true
+      _ -> false
+    end
+  end
+
+  def recovery_confirmation_fresh?(_user, _token), do: false
+
   @doc """
   Verifies a recovery secret against the stored hash.
   Returns the user's recovery data if valid, or error if not.
@@ -844,28 +907,40 @@ defmodule Mosslet.Accounts do
   @doc """
   Enrolls a new `:prf` (device-bound) wrap and flips the account OR → AND.
 
-  In a single primary-DB transaction this:
+  The recovery gate is TWO-LAYERED (design §4 / board #364):
 
-    1. **Gates on a confirmed recovery key** — enrollment is refused unless the
-       user already has a ZK recovery key set up (`recovery_key_hash` present).
-       Once the password-only door is deleted, the 256-bit recovery code is the
-       only device-loss fallback (design §3-4, board #364).
-    2. Inserts the `:prf` wrap (`wrapping_key = HKDF(password_key ‖ prf_output)`).
-    3. **Deletes every `:password` wrap** for the user — the OR→AND flip. After
+    * **Outer:** a recovery key must be present (`has_recovery_key?/1`), else
+      `{:error, :recovery_key_required}`.
+    * **Inner:** the user must have **freshly confirmed** possession of that
+      recovery secret this session — proven by a valid `recovery_confirmation`
+      token (`recovery_confirmation_fresh?/2`), else
+      `{:error, :recovery_not_confirmed}`. A recovery code set up long ago that
+      the user can no longer produce is not a real device-loss fallback once the
+      password-only door is deleted.
+
+  On both gates passing, in a single primary-DB transaction this:
+
+    1. Inserts the `:prf` wrap (`wrapping_key = HKDF(password_key ‖ prf_output)`).
+    2. **Deletes every `:password` wrap** for the user — the OR→AND flip. After
        this, `user_key` is unlockable ONLY by password+device or recovery code.
 
   `attrs` is the browser-produced payload: `wrapped_user_key`, `wrap_salt`,
   `credential_id`, `prf_salt`, and optional `label` / `ecosystem_hint`. All
   blobs are opaque to the server.
 
-  Returns `{:ok, %UserKeyWrap{}}`, `{:error, :recovery_key_required}`, or
-  `{:error, changeset}`.
+  Returns `{:ok, %UserKeyWrap{}}`, `{:error, :recovery_key_required}`,
+  `{:error, :recovery_not_confirmed}`, or `{:error, changeset}`.
   """
-  def enroll_prf_wrap(%User{} = user, attrs) do
-    if is_binary(user.recovery_key_hash) and user.recovery_key_hash != "" do
-      do_enroll_prf_wrap(user, attrs)
-    else
-      {:error, :recovery_key_required}
+  def enroll_prf_wrap(%User{} = user, attrs, recovery_confirmation) do
+    cond do
+      not has_recovery_key?(user) ->
+        {:error, :recovery_key_required}
+
+      not recovery_confirmation_fresh?(user, recovery_confirmation) ->
+        {:error, :recovery_not_confirmed}
+
+      true ->
+        do_enroll_prf_wrap(user, attrs)
     end
   end
 

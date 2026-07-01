@@ -81,6 +81,31 @@ The change **never weakens anyone**.
    wrap is deleted, the confirmed recovery code is the *only* device-loss
    fallback. Enrollment MUST be gated on `recovery_key_hash` being present and
    **freshly confirmed** in this session.
+
+   > **Status (board #364): implemented.** The gate is two-layered:
+   > - **Outer (present):** `Accounts.has_recovery_key?/1` — a recovery key
+   >   exists. Enforced in `enroll_prf_wrap/3` (→ `{:error,
+   >   :recovery_key_required}`) and in the LiveView CTA.
+   > - **Inner (fresh):** the user must have *proven possession of the recovery
+   >   secret this session*. Mechanism: a **short-lived, HMAC-signed
+   >   `Phoenix.Token`** ("recovery freshness token"), bound to the user id, with
+   >   a 15-minute `max_age` (`Accounts.sign_recovery_confirmation/1` /
+   >   `recovery_confirmation_fresh?/2`). It is ZK-safe (wraps only the user id —
+   >   no secret/PII), timing-safe (constant-time HMAC verify), needs no DB
+   >   column, and is enforced BOTH in `enroll_prf_wrap/3` (→ `{:error,
+   >   :recovery_not_confirmed}`) and in the LiveView CTA gating (mount verifies
+   >   the token from the `?rc=` param).
+   > - **Proof-of-possession moments that mint the token:** (a) the user *freshly
+   >   generates/regenerates* a recovery key and clicks "I've saved my recovery
+   >   key" (`EditForgotPasswordLive`), or (b) the user *verifies an existing*
+   >   recovery key in the authenticated confirm step
+   >   (`RecoveryKeyConfirmHook` → `verify_recovery_secret/2`, Argon2 verify —
+   >   I6-preserving, the server only ever verifies, never stores the secret).
+   >   Both then `push_navigate` to `/app/users/device-unlock?rc=<token>`.
+   > - **Chosen "session vs. scope vs. token":** a signed token, because
+   >   LiveViews cannot write the session cookie and a token survives the
+   >   `push_navigate` between the recovery and device-unlock LiveViews while
+   >   staying server-verifiable and self-expiring.
 2. **Multi-device = multiple AND-wraps.** Each authenticator gets its **own**
    `KDF(password ‖ prf)` wrap of the *same* `user_key`. A new device unlocks via
    the recovery code **or** an already-enrolled **synced** passkey, then enrolls
@@ -242,7 +267,11 @@ flowchart TD
 - **(a) DONE — this doc.** Design, threat model, storage schema, AND-gate
   constraint captured in-repo.
 - **(b) Recovery-code-mandatory gate.** Block PRF enrollment unless recovery is
-  confirmed fresh. Tests: gate enforced, timing-safe.
+  confirmed fresh. Tests: gate enforced, timing-safe. **DONE (board #364):**
+  two-layered gate (present + freshly-confirmed via a short-lived signed
+  `Phoenix.Token`), enforced server-side in `enroll_prf_wrap/3` and in the
+  `EditDeviceUnlockLive` three-state CTA (absent → recovery setup; present-stale
+  → recovery-confirm step; fresh → enroll). See §4 hard prereq 1.
 - **(c) Single-device happy path.** Migration + `user_key_wraps` schema +
   `Accounts` functions + enroll/unlock/un-enroll LiveView + JS PRF glue.
   Enrollment deletes password wrap; un-enroll restores it.

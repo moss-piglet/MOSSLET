@@ -40,6 +40,78 @@ defmodule Mosslet.Accounts.UserKeyWrapsTest do
     user
   end
 
+  # Enroll helper that supplies a fresh recovery-confirmation token (#364). These
+  # tests exercise the OR→AND / anti-brick invariants, not the freshness gate
+  # itself (that gate is covered in its own describe block below).
+  defp enroll_prf(user, attrs) do
+    Accounts.enroll_prf_wrap(user, attrs, Accounts.sign_recovery_confirmation(user))
+  end
+
+  describe "recovery-confirmation gate (board #364)" do
+    test "verify_recovery_secret/2 is :ok for the right secret, :error otherwise" do
+      user = user_fixture() |> with_recovery()
+
+      assert :ok = Accounts.verify_recovery_secret(user, "recovery-secret-256bit")
+      assert :error = Accounts.verify_recovery_secret(user, "wrong-secret")
+    end
+
+    test "verify_recovery_secret/2 is :error (timing-safe) when no recovery key" do
+      user = user_fixture()
+      assert :error = Accounts.verify_recovery_secret(user, "anything")
+    end
+
+    test "recovery_confirmation_fresh?/2 accepts our own fresh token, rejects others" do
+      user = user_fixture()
+      other = user_fixture(%{email: "other-rc@example.com"})
+
+      token = Accounts.sign_recovery_confirmation(user)
+      assert Accounts.recovery_confirmation_fresh?(user, token)
+
+      # token bound to the user id — another user's token is not fresh
+      refute Accounts.recovery_confirmation_fresh?(other, token)
+      refute Accounts.recovery_confirmation_fresh?(user, "garbage")
+      refute Accounts.recovery_confirmation_fresh?(user, nil)
+    end
+
+    test "enroll refused when recovery present but NOT freshly confirmed" do
+      user = user_fixture() |> with_recovery()
+      {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
+
+      # nil / stale token → inner gate blocks the OR→AND flip
+      assert {:error, :recovery_not_confirmed} =
+               Accounts.enroll_prf_wrap(user, prf_wrap_attrs(), nil)
+
+      assert {:error, :recovery_not_confirmed} =
+               Accounts.enroll_prf_wrap(user, prf_wrap_attrs(), "not-a-real-token")
+
+      # unchanged — password door still the only door
+      assert [%UserKeyWrap{kind: :password}] = Accounts.list_user_key_wraps(user)
+      refute Accounts.prf_enrolled?(user)
+    end
+
+    test "enroll accepted with a fresh confirmation token" do
+      user = user_fixture() |> with_recovery()
+      {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
+
+      token = Accounts.sign_recovery_confirmation(user)
+
+      assert {:ok, %UserKeyWrap{kind: :prf}} =
+               Accounts.enroll_prf_wrap(user, prf_wrap_attrs(), token)
+
+      assert Accounts.prf_enrolled?(user)
+    end
+
+    test "absent recovery is refused even with a (meaningless) token — outer gate first" do
+      user = user_fixture()
+      {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
+
+      token = Accounts.sign_recovery_confirmation(user)
+
+      assert {:error, :recovery_key_required} =
+               Accounts.enroll_prf_wrap(user, prf_wrap_attrs(), token)
+    end
+  end
+
   describe "backfill_password_wrap/2" do
     test "writes exactly one password wrap for a fresh user" do
       user = user_fixture()
@@ -80,7 +152,7 @@ defmodule Mosslet.Accounts.UserKeyWrapsTest do
       {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
 
       assert {:error, :recovery_key_required} =
-               Accounts.enroll_prf_wrap(user, prf_wrap_attrs())
+               enroll_prf(user, prf_wrap_attrs())
 
       # nothing changed — password door still the only door
       assert [%UserKeyWrap{kind: :password}] = Accounts.list_user_key_wraps(user)
@@ -91,7 +163,7 @@ defmodule Mosslet.Accounts.UserKeyWrapsTest do
       {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
 
       assert {:ok, %UserKeyWrap{kind: :prf}} =
-               Accounts.enroll_prf_wrap(user, prf_wrap_attrs())
+               enroll_prf(user, prf_wrap_attrs())
 
       wraps = Accounts.list_user_key_wraps(user)
       assert Enum.all?(wraps, &(&1.kind == :prf))
@@ -109,7 +181,7 @@ defmodule Mosslet.Accounts.UserKeyWrapsTest do
 
       invalid_attrs = %{wrapped_user_key: "opaque-prf-wrap-blob", wrap_salt: "cHJmc2FsdA=="}
 
-      assert {:error, %Ecto.Changeset{}} = Accounts.enroll_prf_wrap(user, invalid_attrs)
+      assert {:error, %Ecto.Changeset{}} = enroll_prf(user, invalid_attrs)
 
       # password door intact, no orphan :prf wrap, account NOT bricked
       assert [%UserKeyWrap{kind: :password}] = Accounts.list_user_key_wraps(user)
@@ -120,13 +192,10 @@ defmodule Mosslet.Accounts.UserKeyWrapsTest do
       user = user_fixture() |> with_recovery()
       {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
 
-      {:ok, _} = Accounts.enroll_prf_wrap(user, prf_wrap_attrs(%{credential_id: "cred-1"}))
+      {:ok, _} = enroll_prf(user, prf_wrap_attrs(%{credential_id: "cred-1"}))
 
       {:ok, _} =
-        Accounts.enroll_prf_wrap(
-          user,
-          prf_wrap_attrs(%{credential_id: "cred-2", ecosystem_hint: "apple"})
-        )
+        enroll_prf(user, prf_wrap_attrs(%{credential_id: "cred-2", ecosystem_hint: "apple"}))
 
       wraps = Accounts.list_user_key_wraps(user)
       assert length(wraps) == 2
@@ -146,7 +215,7 @@ defmodule Mosslet.Accounts.UserKeyWrapsTest do
       wraps =
         for cid <- credential_ids do
           {:ok, wrap} =
-            Accounts.enroll_prf_wrap(
+            enroll_prf(
               user,
               prf_wrap_attrs(%{
                 credential_id: cid,
@@ -274,7 +343,7 @@ defmodule Mosslet.Accounts.UserKeyWrapsTest do
       {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
       assert is_binary(user.key_hash) and user.key_hash != ""
 
-      {:ok, _prf} = Accounts.enroll_prf_wrap(user, prf_wrap_attrs())
+      {:ok, _prf} = enroll_prf(user, prf_wrap_attrs())
 
       reloaded = Accounts.get_user!(user.id)
       assert reloaded.key_hash in [nil, ""]
@@ -291,7 +360,7 @@ defmodule Mosslet.Accounts.UserKeyWrapsTest do
       key_hash_before = user.key_hash
 
       invalid_attrs = %{wrapped_user_key: "opaque-prf-wrap-blob", wrap_salt: "cHJmc2FsdA=="}
-      assert {:error, %Ecto.Changeset{}} = Accounts.enroll_prf_wrap(user, invalid_attrs)
+      assert {:error, %Ecto.Changeset{}} = enroll_prf(user, invalid_attrs)
 
       assert Accounts.get_user!(user.id).key_hash == key_hash_before
     end
@@ -299,7 +368,7 @@ defmodule Mosslet.Accounts.UserKeyWrapsTest do
     test "un-enrolling the last device restores key_hash from the password wrap" do
       user = user_fixture() |> with_recovery()
       {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
-      {:ok, prf} = Accounts.enroll_prf_wrap(user, prf_wrap_attrs())
+      {:ok, prf} = enroll_prf(user, prf_wrap_attrs())
       assert Accounts.get_user!(user.id).key_hash in [nil, ""]
 
       pw = password_wrap_attrs()
@@ -312,8 +381,8 @@ defmodule Mosslet.Accounts.UserKeyWrapsTest do
     test "removing a non-last device does NOT restore key_hash (still enrolled)" do
       user = user_fixture() |> with_recovery()
       {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
-      {:ok, prf1} = Accounts.enroll_prf_wrap(user, prf_wrap_attrs(%{credential_id: "cred-1"}))
-      {:ok, _prf2} = Accounts.enroll_prf_wrap(user, prf_wrap_attrs(%{credential_id: "cred-2"}))
+      {:ok, prf1} = enroll_prf(user, prf_wrap_attrs(%{credential_id: "cred-1"}))
+      {:ok, _prf2} = enroll_prf(user, prf_wrap_attrs(%{credential_id: "cred-2"}))
 
       assert {:ok, :still_enrolled} = Accounts.unenroll_prf_wrap(user, prf1.id, nil)
       assert Accounts.get_user!(user.id).key_hash in [nil, ""]
@@ -324,7 +393,7 @@ defmodule Mosslet.Accounts.UserKeyWrapsTest do
     test "removing the last device restores the password door" do
       user = user_fixture() |> with_recovery()
       {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
-      {:ok, prf} = Accounts.enroll_prf_wrap(user, prf_wrap_attrs())
+      {:ok, prf} = enroll_prf(user, prf_wrap_attrs())
 
       assert {:ok, :unenrolled} =
                Accounts.unenroll_prf_wrap(user, prf.id, password_wrap_attrs())
@@ -336,7 +405,7 @@ defmodule Mosslet.Accounts.UserKeyWrapsTest do
     test "refuses to remove the last device without a replacement password wrap" do
       user = user_fixture() |> with_recovery()
       {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
-      {:ok, prf} = Accounts.enroll_prf_wrap(user, prf_wrap_attrs())
+      {:ok, prf} = enroll_prf(user, prf_wrap_attrs())
 
       assert {:error, :password_wrap_required} =
                Accounts.unenroll_prf_wrap(user, prf.id, nil)
@@ -348,8 +417,8 @@ defmodule Mosslet.Accounts.UserKeyWrapsTest do
     test "removing one of several devices keeps the account enrolled" do
       user = user_fixture() |> with_recovery()
       {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
-      {:ok, prf1} = Accounts.enroll_prf_wrap(user, prf_wrap_attrs(%{credential_id: "cred-1"}))
-      {:ok, _prf2} = Accounts.enroll_prf_wrap(user, prf_wrap_attrs(%{credential_id: "cred-2"}))
+      {:ok, prf1} = enroll_prf(user, prf_wrap_attrs(%{credential_id: "cred-1"}))
+      {:ok, _prf2} = enroll_prf(user, prf_wrap_attrs(%{credential_id: "cred-2"}))
 
       assert {:ok, :still_enrolled} = Accounts.unenroll_prf_wrap(user, prf1.id, nil)
 

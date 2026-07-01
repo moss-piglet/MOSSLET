@@ -66,12 +66,16 @@ defmodule MossletWeb.API.AuthControllerTest do
         })
 
       {:ok, _} =
-        Mosslet.Accounts.enroll_prf_wrap(user, %{
-          wrapped_user_key: "opaque-prf-blob",
-          wrap_salt: "cHJmc2FsdA==",
-          credential_id: "cred-abc",
-          prf_salt: "cHJmZXZhbA=="
-        })
+        Mosslet.Accounts.enroll_prf_wrap(
+          user,
+          %{
+            wrapped_user_key: "opaque-prf-blob",
+            wrap_salt: "cHJmc2FsdA==",
+            credential_id: "cred-abc",
+            prf_salt: "cHJmZXZhbA=="
+          },
+          Mosslet.Accounts.sign_recovery_confirmation(user)
+        )
 
       user
     end

@@ -13,11 +13,16 @@ defmodule MossletWeb.EditForgotPasswordLive do
   alias Mosslet.Accounts
   alias MossletWeb.DesignSystem
 
-  def mount(_params, _session, socket) do
+  def mount(params, _session, socket) do
     user = socket.assigns.current_scope.user
 
     has_recovery_key? =
       is_binary(user.recovery_key_hash) and user.recovery_key_hash != ""
+
+    # When the user is routed here to enroll a device (board #364), we must prove
+    # they can still produce their recovery key BEFORE letting them delete the
+    # password-only door. `confirm_for` carries the enrollment return target.
+    confirm_for = if params["confirm_for"] == "device-unlock", do: "device-unlock", else: nil
 
     {:ok,
      assign(socket,
@@ -27,6 +32,8 @@ defmodule MossletWeb.EditForgotPasswordLive do
        recovery_key_display: nil,
        recovery_key_confirmed?: false,
        generating?: false,
+       confirm_for: confirm_for,
+       confirming?: false,
        error_message: nil
      )}
   end
@@ -67,6 +74,72 @@ defmodule MossletWeb.EditForgotPasswordLive do
               />
               <p class="text-sm text-rose-700 dark:text-rose-300">{@error_message}</p>
             </div>
+          </div>
+
+          <%!-- Confirm existing recovery key (routed from device-unlock, #364) --%>
+          <div :if={@confirm_for == "device-unlock" && @has_recovery_key? && !@recovery_key_display}>
+            <DesignSystem.liquid_card>
+              <:title>
+                <div class="flex items-center gap-3">
+                  <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-amber-100 via-orange-50 to-amber-100 dark:from-amber-900/30 dark:via-orange-900/25 dark:to-amber-900/30">
+                    <.phx_icon
+                      name="hero-lock-closed"
+                      class="h-4 w-4 text-amber-600 dark:text-amber-400"
+                    />
+                  </div>
+                  <span>Confirm your recovery key</span>
+                </div>
+              </:title>
+
+              <div class="space-y-6">
+                <p class="text-sm text-slate-600 dark:text-slate-400">
+                  Enabling device unlock deletes your password-only door, so your recovery
+                  key becomes your only fallback if you lose this device. Enter it below to
+                  confirm you can still produce it, then continue to enrollment.
+                </p>
+
+                <form
+                  id="recovery-key-confirm-form"
+                  phx-hook="RecoveryKeyConfirmHook"
+                  class="space-y-4"
+                >
+                  <div>
+                    <label
+                      for="confirm-recovery-key"
+                      class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5"
+                    >
+                      Recovery Key
+                    </label>
+                    <input
+                      type="text"
+                      id="confirm-recovery-key"
+                      name="recovery_key"
+                      required
+                      autocomplete="off"
+                      placeholder="XXXXX-XXXXX-XXXXX-XXXXX-..."
+                      class="block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 font-mono shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    id="confirm-recovery-key-btn"
+                    disabled={@confirming?}
+                    class={[
+                      "rounded-xl py-3 px-6 text-sm font-semibold",
+                      "bg-gradient-to-r from-teal-500 to-emerald-500",
+                      "hover:from-teal-600 hover:to-emerald-600",
+                      "text-white shadow-lg shadow-emerald-500/25",
+                      "transition-all duration-200 ease-out transform-gpu",
+                      "hover:scale-[1.02] active:scale-[0.98]",
+                      "disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    ]}
+                  >
+                    <span :if={@confirming?}>Confirming...</span>
+                    <span :if={!@confirming?}>Confirm and continue</span>
+                  </button>
+                </form>
+              </div>
+            </DesignSystem.liquid_card>
           </div>
 
           <%!-- Recovery key display (shown once after generation) --%>
@@ -348,12 +421,57 @@ defmodule MossletWeb.EditForgotPasswordLive do
     {:noreply, assign(socket, generating?: false, error_message: error)}
   end
 
+  # --- Confirm existing recovery key (routed from device-unlock, #364) ------
+
+  # RecoveryKeyConfirmHook converted the typed recovery key to its raw secret.
+  # We Argon2-verify it against the stored hash (I6: server only ever verifies,
+  # never persists the secret), and on success mint a short-lived confirmation
+  # token and continue to device-unlock enrollment.
+  def handle_event("verify_recovery_secret", %{"recovery_secret" => secret}, socket) do
+    user = socket.assigns.current_scope.user
+
+    case Accounts.verify_recovery_secret(user, secret) do
+      :ok ->
+        token = Accounts.sign_recovery_confirmation(user)
+
+        {:noreply,
+         socket
+         |> assign(confirming?: false, error_message: nil)
+         |> push_navigate(to: ~p"/app/users/device-unlock?#{[rc: token]}")}
+
+      :error ->
+        {:noreply,
+         assign(socket,
+           confirming?: false,
+           error_message: "That recovery key didn't match. Please check it and try again."
+         )}
+    end
+  end
+
+  def handle_event("recovery_confirm_error", %{"error" => error}, socket) do
+    {:noreply, assign(socket, confirming?: false, error_message: error)}
+  end
+
   # User confirms they've saved the recovery key
   def handle_event("confirm_recovery_key", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(recovery_key_confirmed?: true, recovery_key_display: nil)
-     |> put_flash(:success, "Recovery key has been set up successfully.")}
+    user = socket.assigns.current_scope.user
+
+    # A freshly-generated key was just shown to (and saved by) the user this
+    # session — possession is proven. If they were routed here to enroll a
+    # device (#364), mint the confirmation token and continue to enrollment.
+    if socket.assigns.confirm_for == "device-unlock" do
+      token = Accounts.sign_recovery_confirmation(user)
+
+      {:noreply,
+       socket
+       |> assign(recovery_key_confirmed?: true, recovery_key_display: nil)
+       |> push_navigate(to: ~p"/app/users/device-unlock?#{[rc: token]}")}
+    else
+      {:noreply,
+       socket
+       |> assign(recovery_key_confirmed?: true, recovery_key_display: nil)
+       |> put_flash(:success, "Recovery key has been set up successfully.")}
+    end
   end
 
   # User wants to disable recovery

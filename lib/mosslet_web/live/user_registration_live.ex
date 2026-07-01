@@ -410,7 +410,7 @@ defmodule MossletWeb.UserRegistrationLive do
                         Recovery is optional but recommended
                       </p>
                       <p class="text-amber-600 dark:text-amber-400">
-                        You can enable "Forgot Password?" recovery later in settings. Without it, losing your password means losing access forever.
+                        You can generate a recovery key in your settings that unlock your account. Make sure to store your recovery key in a safe place, we do not have access to it.
                       </p>
                     </div>
                   </div>

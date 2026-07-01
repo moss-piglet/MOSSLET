@@ -23,12 +23,16 @@ defmodule MossletWeb.UnlockSessionControllerTest do
       })
 
     {:ok, _} =
-      Accounts.enroll_prf_wrap(user, %{
-        wrapped_user_key: "opaque-prf-blob",
-        wrap_salt: "cHJmc2FsdA==",
-        credential_id: "cred-abc",
-        prf_salt: "cHJmZXZhbA=="
-      })
+      Accounts.enroll_prf_wrap(
+        user,
+        %{
+          wrapped_user_key: "opaque-prf-blob",
+          wrap_salt: "cHJmc2FsdA==",
+          credential_id: "cred-abc",
+          prf_salt: "cHJmZXZhbA=="
+        },
+        Accounts.sign_recovery_confirmation(user)
+      )
 
     Accounts.get_user!(user.id)
   end

@@ -43,24 +43,57 @@ defmodule MossletWeb.EditDeviceUnlockLiveTest do
     user
   end
 
-  describe "recovery-key gate" do
+  # Path carrying a fresh recovery-confirmation token (#364) — simulates arriving
+  # from the recovery-confirm step.
+  defp fresh_path(user) do
+    @path <> "?rc=" <> Accounts.sign_recovery_confirmation(user)
+  end
+
+  describe "recovery-key gate (three states, #364)" do
     setup :onboarded_user
 
-    test "hides/disables enroll and shows the gate notice without a recovery key", %{conn: conn} do
+    test "absent: shows the setup gate and disables enroll", %{conn: conn} do
       {:ok, view, _html} = live(conn, @path)
 
       assert has_element?(view, "#prf-recovery-gate")
+      assert has_element?(view, "#prf-recovery-setup-link")
+      refute has_element?(view, "#prf-recovery-confirm-gate")
       assert has_element?(view, "#prf-enroll-btn[disabled]")
     end
 
-    test "enables the enroll CTA once a recovery key exists", %{conn: conn, user: user} do
+    test "present but not fresh: shows the confirm gate and disables enroll", %{
+      conn: conn,
+      user: user
+    } do
       with_recovery(user)
 
       {:ok, view, _html} = live(conn, @path)
 
       refute has_element?(view, "#prf-recovery-gate")
-      refute has_element?(view, "#prf-enroll-btn[disabled]")
+      assert has_element?(view, "#prf-recovery-confirm-gate")
+      assert has_element?(view, "#prf-recovery-confirm-link")
+      assert has_element?(view, "#prf-enroll-btn[disabled]")
+    end
+
+    test "fresh: enables the enroll CTA", %{conn: conn, user: user} do
+      user = with_recovery(user)
+
+      {:ok, view, _html} = live(conn, fresh_path(user))
+
+      refute has_element?(view, "#prf-recovery-gate")
+      refute has_element?(view, "#prf-recovery-confirm-gate")
+      assert has_element?(view, "#prf-recovery-fresh")
       assert has_element?(view, "#prf-enroll-btn")
+      refute has_element?(view, "#prf-enroll-btn[disabled]")
+    end
+
+    test "a bad/expired token is treated as not fresh", %{conn: conn, user: user} do
+      with_recovery(user)
+
+      {:ok, view, _html} = live(conn, @path <> "?rc=garbage")
+
+      assert has_element?(view, "#prf-recovery-confirm-gate")
+      assert has_element?(view, "#prf-enroll-btn[disabled]")
     end
   end
 
@@ -68,8 +101,8 @@ defmodule MossletWeb.EditDeviceUnlockLiveTest do
     setup :onboarded_user
 
     test "storing the pushed prf blob enrolls the device", %{conn: conn, user: user} do
-      with_recovery(user)
-      {:ok, view, _html} = live(conn, @path)
+      user = with_recovery(user)
+      {:ok, view, _html} = live(conn, fresh_path(user))
 
       render_hook(view, "prf_enrolled", prf_params())
 
@@ -86,14 +119,27 @@ defmodule MossletWeb.EditDeviceUnlockLiveTest do
       refute Accounts.prf_enrolled?(user)
       assert has_element?(view, "#prf-error")
     end
+
+    test "refuses enrollment when recovery present but not freshly confirmed", %{
+      conn: conn,
+      user: user
+    } do
+      with_recovery(user)
+      {:ok, view, _html} = live(conn, @path)
+
+      render_hook(view, "prf_enrolled", prf_params())
+
+      refute Accounts.prf_enrolled?(user)
+      assert has_element?(view, "#prf-error")
+    end
   end
 
   describe "un-enroll (no bricking)" do
     setup :onboarded_user
 
     test "removing the last device restores the password door", %{conn: conn, user: user} do
-      with_recovery(user)
-      {:ok, view, _html} = live(conn, @path)
+      user = with_recovery(user)
+      {:ok, view, _html} = live(conn, fresh_path(user))
 
       render_hook(view, "prf_enrolled", prf_params())
       assert Accounts.prf_enrolled?(user)
@@ -114,8 +160,8 @@ defmodule MossletWeb.EditDeviceUnlockLiveTest do
       conn: conn,
       user: user
     } do
-      with_recovery(user)
-      {:ok, view, _html} = live(conn, @path)
+      user = with_recovery(user)
+      {:ok, view, _html} = live(conn, fresh_path(user))
 
       render_hook(view, "prf_enrolled", prf_params())
       [wrap] = Accounts.list_user_key_wraps(user)

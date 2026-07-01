@@ -19,15 +19,20 @@ defmodule MossletWeb.EditDeviceUnlockLive do
   alias Mosslet.Accounts
   alias MossletWeb.DesignSystem
 
-  def mount(_params, _session, socket) do
+  def mount(params, _session, socket) do
     user = socket.assigns.current_scope.user
+
+    recovery_token = params["rc"]
+    recovery_fresh? = Accounts.recovery_confirmation_fresh?(user, recovery_token)
 
     {:ok,
      socket
      |> assign(
        page_title: "Settings",
        error_message: nil,
-       working?: false
+       working?: false,
+       recovery_fresh?: recovery_fresh?,
+       recovery_confirmation_token: if(recovery_fresh?, do: recovery_token, else: nil)
      )
      |> assign_wrap_state(user)}
   end
@@ -89,7 +94,7 @@ defmodule MossletWeb.EditDeviceUnlockLive do
             </div>
           </div>
 
-          <%!-- Recovery-key gate notice --%>
+          <%!-- Recovery-key gate notice (absent) --%>
           <div
             :if={!@has_recovery_key?}
             id="prf-recovery-gate"
@@ -110,12 +115,61 @@ defmodule MossletWeb.EditDeviceUnlockLive do
                   before enabling device unlock.
                 </p>
                 <.link
-                  navigate={~p"/app/users/change-forgot-password"}
+                  navigate={~p"/app/users/change-forgot-password?confirm_for=device-unlock"}
+                  id="prf-recovery-setup-link"
                   class="inline-flex font-semibold text-amber-800 dark:text-amber-200 underline"
                 >
-                  Go to Account Recovery
+                  Set up a recovery key
                 </.link>
               </div>
+            </div>
+          </div>
+
+          <%!-- Recovery-key gate notice (present but not freshly confirmed) --%>
+          <div
+            :if={@has_recovery_key? && !@recovery_fresh?}
+            id="prf-recovery-confirm-gate"
+            class="p-4 rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800/50"
+          >
+            <div class="flex items-start gap-3">
+              <.phx_icon
+                name="hero-lock-closed"
+                class="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0"
+              />
+              <div class="space-y-2 text-sm text-amber-700 dark:text-amber-300">
+                <p class="font-medium text-amber-800 dark:text-amber-200">
+                  Confirm your recovery key to continue
+                </p>
+                <p>
+                  Enabling device unlock deletes your password-only door, so your
+                  recovery key becomes your only device-loss fallback. Confirm you can
+                  still produce it before you enroll a device.
+                </p>
+                <.link
+                  navigate={~p"/app/users/change-forgot-password?confirm_for=device-unlock"}
+                  id="prf-recovery-confirm-link"
+                  class="inline-flex font-semibold text-amber-800 dark:text-amber-200 underline"
+                >
+                  Confirm my recovery key
+                </.link>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Recovery freshly confirmed --%>
+          <div
+            :if={@has_recovery_key? && @recovery_fresh?}
+            id="prf-recovery-fresh"
+            class="p-4 rounded-xl bg-emerald-50 border border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800/50"
+          >
+            <div class="flex items-start gap-3">
+              <.phx_icon
+                name="hero-shield-check"
+                class="w-5 h-5 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0"
+              />
+              <p class="text-sm text-emerald-700 dark:text-emerald-300">
+                Recovery key confirmed for this session — you can enable device unlock.
+              </p>
             </div>
           </div>
 
@@ -231,7 +285,7 @@ defmodule MossletWeb.EditDeviceUnlockLive do
                     type="button"
                     id="prf-enroll-btn"
                     phx-click="start_enroll"
-                    disabled={!@has_recovery_key? || @working?}
+                    disabled={!@recovery_fresh? || @working?}
                     class={[
                       "rounded-xl py-3 px-6 text-sm font-semibold",
                       "bg-gradient-to-r from-teal-500 to-emerald-500",
@@ -251,7 +305,7 @@ defmodule MossletWeb.EditDeviceUnlockLive do
                     type="button"
                     id="prf-add-device-btn"
                     phx-click="start_enroll"
-                    disabled={@working?}
+                    disabled={!@recovery_fresh? || @working?}
                     class={[
                       "rounded-xl py-3 px-6 text-sm font-semibold",
                       "bg-gradient-to-r from-teal-500 to-emerald-500",
@@ -323,18 +377,27 @@ defmodule MossletWeb.EditDeviceUnlockLive do
   # --- Enroll ---------------------------------------------------------------
 
   def handle_event("start_enroll", _params, socket) do
-    if socket.assigns.has_recovery_key? do
-      user = socket.assigns.current_scope.user
+    cond do
+      not socket.assigns.has_recovery_key? ->
+        {:noreply,
+         assign(socket,
+           error_message: "Set up a recovery key before enabling device unlock."
+         )}
 
-      {:noreply,
-       socket
-       |> assign(working?: true, error_message: nil)
-       |> push_event("prf_enroll", %{user_id: user.id, user_name: "Mosslet account"})}
-    else
-      {:noreply,
-       assign(socket,
-         error_message: "Set up a recovery key before enabling device unlock."
-       )}
+      not socket.assigns.recovery_fresh? ->
+        {:noreply,
+         assign(socket,
+           error_message:
+             "Confirm your recovery key first so you have a fallback if you lose this device."
+         )}
+
+      true ->
+        user = socket.assigns.current_scope.user
+
+        {:noreply,
+         socket
+         |> assign(working?: true, error_message: nil)
+         |> push_event("prf_enroll", %{user_id: user.id, user_name: "Mosslet account"})}
     end
   end
 
@@ -349,7 +412,7 @@ defmodule MossletWeb.EditDeviceUnlockLive do
       ecosystem_hint: params["ecosystem_hint"]
     }
 
-    case Accounts.enroll_prf_wrap(user, attrs) do
+    case Accounts.enroll_prf_wrap(user, attrs, socket.assigns.recovery_confirmation_token) do
       {:ok, _wrap} ->
         {:noreply,
          socket
@@ -362,6 +425,17 @@ defmodule MossletWeb.EditDeviceUnlockLive do
          assign(socket,
            working?: false,
            error_message: "Set up a recovery key before enabling device unlock."
+         )}
+
+      {:error, :recovery_not_confirmed} ->
+        {:noreply,
+         socket
+         |> assign(
+           working?: false,
+           recovery_fresh?: false,
+           recovery_confirmation_token: nil,
+           error_message:
+             "Your recovery confirmation expired. Please confirm your recovery key again."
          )}
 
       {:error, _reason} ->
