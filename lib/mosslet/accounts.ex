@@ -869,14 +869,20 @@ defmodule Mosslet.Accounts do
     end
   end
 
-  defp do_enroll_prf_wrap(%User{id: user_id}, attrs) do
+  defp do_enroll_prf_wrap(%User{id: user_id} = user, attrs) do
     # ORDERING INVARIANT (anti-brick, design §8): insert the :prf wrap FIRST,
-    # delete the :password wrap SECOND, both inside ONE transaction. If the
-    # :prf insert fails the transaction rolls back and the :password door
-    # SURVIVES — a failed enroll can never leave the account with zero doors.
+    # delete the :password wrap SECOND, retire the legacy `key_hash` door LAST,
+    # all inside ONE transaction. If the :prf insert fails the transaction rolls
+    # back and BOTH the :password wrap AND `key_hash` SURVIVE — a failed enroll
+    # can never leave the account with zero doors.
     # (The client separately proves the :prf wrap actually unlocks user_key
     # BEFORE calling this — see prf-enrollment-hook.js verify-before-delete —
     # since the server holds no keys to check it, per I6.)
+    #
+    # Retiring `key_hash` (board #370) is what ACTUALLY enforces OR→AND on a DB
+    # dump: after this, no server-stored blob decrypts `user_key` from the
+    # password alone. Without it the OR→AND flip only exists in the wraps table
+    # while `users.key_hash` stays a live password-only door (design §5/§7).
     multi =
       Ecto.Multi.new()
       |> Ecto.Multi.insert(:prf_wrap, UserKeyWrap.prf_changeset(user_id, attrs))
@@ -884,6 +890,7 @@ defmodule Mosslet.Accounts do
         :drop_password_wraps,
         where(UserKeyWrap, kind: :password, user_id: ^user_id)
       )
+      |> Ecto.Multi.update(:retire_key_hash, User.clear_key_hash_changeset(user))
 
     case Mosslet.Repo.transaction_on_primary(fn -> Mosslet.Repo.transaction(multi) end) do
       {:ok, {:ok, %{prf_wrap: wrap}}} -> {:ok, wrap}
@@ -907,7 +914,7 @@ defmodule Mosslet.Accounts do
   Returns `{:ok, :unenrolled}` (last device removed, password door restored),
   `{:ok, :still_enrolled}` (other devices remain), or `{:error, reason}`.
   """
-  def unenroll_prf_wrap(%User{id: user_id}, wrap_id, password_wrap \\ nil) do
+  def unenroll_prf_wrap(%User{id: user_id} = user, wrap_id, password_wrap \\ nil) do
     # Decide BEFORE mutating so we never delete the last device and leave the
     # account without any door (no rollback needed — see design §4 wrinkle 3).
     prf_count = Mosslet.Repo.aggregate(where(UserKeyWrap, kind: :prf, user_id: ^user_id), :count)
@@ -918,6 +925,13 @@ defmodule Mosslet.Accounts do
         {:error, :password_wrap_required}
 
       last_device? ->
+        # AND→OR restore: re-materialize BOTH the single `:password` wrap AND the
+        # legacy `key_hash` door (board #370) so a plain-password login works
+        # again. `key_hash` is byte-identical to `wrap_salt <> "$" <>
+        # wrapped_user_key` (design §5) — reconstruct it from the opaque blob.
+        attrs = normalize_wrap_attrs(password_wrap)
+        restored_key_hash = attrs.wrap_salt <> "$" <> attrs.wrapped_user_key
+
         multi =
           Ecto.Multi.new()
           |> Ecto.Multi.delete_all(
@@ -926,7 +940,11 @@ defmodule Mosslet.Accounts do
           )
           |> Ecto.Multi.insert(
             :password_wrap,
-            UserKeyWrap.password_changeset(user_id, normalize_wrap_attrs(password_wrap))
+            UserKeyWrap.password_changeset(user_id, attrs)
+          )
+          |> Ecto.Multi.update(
+            :restore_key_hash,
+            User.restore_key_hash_changeset(user, restored_key_hash)
           )
 
         run_wrap_multi(multi, :unenrolled)

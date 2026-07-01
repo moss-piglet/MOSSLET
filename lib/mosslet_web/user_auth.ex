@@ -121,17 +121,7 @@ defmodule MossletWeb.UserAuth do
   def put_user_into_session(conn, user, params) do
     token = Accounts.generate_user_session_token(user)
 
-    key =
-      case Accounts.User.valid_key_hash?(user, params["password"]) do
-        {:ok, key} ->
-          key
-
-        {:error, _} ->
-          nil
-
-        false ->
-          nil
-      end
+    key = resolve_session_key(user, params)
 
     Accounts.user_lifecycle_action("after_sign_in", user, %{ip: get_ip(conn), key: key})
 
@@ -974,6 +964,36 @@ defmodule MossletWeb.UserAuth do
   defp put_key_in_session(conn, key) do
     conn
     |> put_session(:key, key)
+  end
+
+  # Resolves the encryption session key (`:key`) at login (board #370).
+  #
+  # PRF-enrolled accounts have NO `key_hash` password-only door (it is retired on
+  # enroll), so the server cannot derive `user_key` from the password. Instead
+  # the browser unlocks `user_key` via `KDF(password ‖ prf)` and submits the
+  # (already-decrypted) session-key STRING alongside the login form. This is the
+  # SAME value `valid_key_hash?/2` would have returned, so the session cookie is
+  # populated identically. Password auth still happens server-side
+  # (`get_user_by_email_and_password`) — the client key only fills the session.
+  #
+  # Non-enrolled accounts are BYTE-FOR-BYTE unchanged: the client sends no
+  # `user_key`, and the server derives it from `key_hash` exactly as before. A
+  # client-supplied `user_key` is only trusted for enrolled accounts (defense in
+  # depth), never as a substitute for the retired password door.
+  defp resolve_session_key(user, params) do
+    client_key = params["user_key"]
+
+    cond do
+      is_binary(client_key) and client_key != "" and Accounts.prf_enrolled?(user) ->
+        client_key
+
+      true ->
+        case Accounts.User.valid_key_hash?(user, params["password"]) do
+          {:ok, key} -> key
+          {:error, _} -> nil
+          false -> nil
+        end
+    end
   end
 
   defp maybe_store_return_to(%{method: "GET"} = conn) do

@@ -54,6 +54,80 @@ defmodule MossletWeb.API.AuthControllerTest do
     end
   end
 
+  describe "POST /api/auth/salt (board #370)" do
+    defp enroll_device(user) do
+      {:ok, user} =
+        Mosslet.Accounts.setup_recovery_key(user, "recovery-secret-256bit", "enc-recovery-blob")
+
+      {:ok, _} =
+        Mosslet.Accounts.backfill_password_wrap(user, %{
+          wrapped_user_key: "opaque-pw-blob",
+          wrap_salt: "cGFzc3NhbHQ="
+        })
+
+      {:ok, _} =
+        Mosslet.Accounts.enroll_prf_wrap(user, %{
+          wrapped_user_key: "opaque-prf-blob",
+          wrap_salt: "cHJmc2FsdA==",
+          credential_id: "cred-abc",
+          prf_salt: "cHJmZXZhbA=="
+        })
+
+      user
+    end
+
+    test "non-enrolled user gets their real key_hash and enrolled:false", %{conn: conn} do
+      email = unique_user_email()
+      user = user_fixture(%{email: email, password: @valid_password})
+
+      conn = post(conn, ~p"/api/auth/salt", %{email: email})
+      assert %{"key_hash" => key_hash, "prf" => prf} = json_response(conn, 200)
+
+      assert key_hash == user.key_hash
+      assert String.contains?(key_hash, "$")
+      assert prf == %{"enrolled" => false, "wraps" => []}
+    end
+
+    test "enrolled user exposes NO usable password door (fake key_hash) but real prf wraps", %{
+      conn: conn
+    } do
+      email = unique_user_email()
+      user = user_fixture(%{email: email, password: @valid_password})
+      real_key_hash = user.key_hash
+      enroll_device(user)
+
+      conn = post(conn, ~p"/api/auth/salt", %{email: email})
+      assert %{"key_hash" => key_hash, "prf" => prf} = json_response(conn, 200)
+
+      # The served key_hash is a timing-consistent fake, NOT the (now blanked)
+      # real one — the human-password brute-force door is gone.
+      assert key_hash != real_key_hash
+      assert String.contains?(key_hash, "$")
+
+      assert %{"enrolled" => true, "wraps" => [wrap]} = prf
+      assert wrap["credential_id"] == "cred-abc"
+      assert wrap["wrapped_user_key"] == "opaque-prf-blob"
+    end
+
+    test "un-enrolling the last device makes salt serve a real key_hash again", %{conn: conn} do
+      email = unique_user_email()
+      user = user_fixture(%{email: email, password: @valid_password})
+      enroll_device(user)
+
+      [prf] = Enum.filter(Mosslet.Accounts.list_user_key_wraps(user), &(&1.kind == :prf))
+
+      {:ok, :unenrolled} =
+        Mosslet.Accounts.unenroll_prf_wrap(user, prf.id, %{
+          wrapped_user_key: "restored-pw-blob",
+          wrap_salt: "cmVzdG9yZQ=="
+        })
+
+      conn = post(conn, ~p"/api/auth/salt", %{email: email})
+      assert %{"key_hash" => key_hash, "prf" => %{"enrolled" => false}} = json_response(conn, 200)
+      assert key_hash == "cmVzdG9yZQ==$restored-pw-blob"
+    end
+  end
+
   describe "POST /api/auth/register" do
     test "creates user and returns token", %{conn: conn} do
       email = unique_user_email()

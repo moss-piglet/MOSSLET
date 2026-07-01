@@ -21,10 +21,32 @@ defmodule MossletWeb.UnlockSessionLive do
            page_title: "Unlock Session",
            user: user,
            key_hash: user.key_hash,
+           prf_payload: prf_payload(user),
            form: to_form(%{}, as: :unlock),
            trigger_submit: false
          )}
     end
+  end
+
+  # OPAQUE per-authenticator unlock doors for enrolled accounts (board #370).
+  # Same shape the /api/auth/salt endpoint serves — every field is a blob the
+  # browser produced (I6). Non-enrolled users get an empty payload and the
+  # legacy key_hash password path is used unchanged.
+  defp prf_payload(user) do
+    wraps =
+      user
+      |> Accounts.list_user_key_wraps()
+      |> Enum.filter(&(&1.kind == :prf))
+      |> Enum.map(fn wrap ->
+        %{
+          credential_id: wrap.credential_id,
+          prf_salt: wrap.prf_salt,
+          wrap_salt: wrap.wrap_salt,
+          wrapped_user_key: wrap.wrapped_user_key
+        }
+      end)
+
+    Jason.encode!(%{enrolled: wraps != [], wraps: wraps})
   end
 
   @impl true
@@ -92,6 +114,7 @@ defmodule MossletWeb.UnlockSessionLive do
             phx-trigger-action={@trigger_submit}
             phx-submit="unlock"
             data-key-hash={@key_hash}
+            data-prf={@prf_payload}
             data-encrypted-private-key={@user.key_pair["private"]}
             data-encrypted-pq-private-key={@user.encrypted_pq_private_key}
             class="space-y-6"

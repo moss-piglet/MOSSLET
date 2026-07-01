@@ -128,6 +128,30 @@ Invariants (enforced server-side + partial unique index):
 > Phase (c) either (i) reads it as the implicit `:password` wrap, or (ii)
 > backfills a `:password` row. Keep `key_hash` authoritative until backfill is
 > proven; do not delete it until the wraps table is the single source of truth.
+>
+> **Status (board #370): `key_hash` is RETIRED-FOR-ENROLLED.** Enrollment
+> (`Accounts.do_enroll_prf_wrap/2`) now clears `User.key_hash` (→ `""`, the
+> column is `NOT NULL`) inside
+> the same transaction that inserts the `:prf` wrap and deletes the `:password`
+> wrap. This is what ACTUALLY enforces OR→AND on a **DB dump**: an enrolled
+> account has NO server-stored blob that decrypts `user_key` from the password
+> alone (previously the wraps table flipped OR→AND but `users.key_hash` stayed a
+> live password-only door, so §7's "ceiling removed" claim was not yet true). On
+> un-enroll of the LAST device, `key_hash` is re-materialized from the
+> browser-supplied `:password` wrap (`wrap_salt <> "$" <> wrapped_user_key`,
+> byte-identical to the legacy format), restoring the plain password door
+> (anti-brick, §4 wrinkle 3).
+>
+> Because the server can no longer derive `user_key` from `key_hash` for enrolled
+> accounts, the **session key is fed from the browser** at login/unlock: after a
+> successful `KDF(password ‖ prf)` unlock the client submits the (already
+> decrypted) session-key string, which the server trusts ONLY for
+> `prf_enrolled?/1` accounts and only to fill the encrypted session cookie
+> (never persisted). Password auth still happens server-side; **I6 preserved** —
+> nothing brute-forceable is stored at rest. `/api/auth/salt` naturally serves a
+> timing-consistent fake `key_hash` for enrolled users (their real `key_hash` is
+> blanked to `""`), and `login-hook.js` / `unlock-hook.js` never fall back to a
+> password-only door for enrolled accounts (PRF or recovery only).
 
 The server remains a **dumb store**: every `wrapped_user_key`, `prf_salt`, and
 `wrap_salt` is opaque. The server enforces *invariants and gates* (recovery

@@ -268,6 +268,58 @@ defmodule Mosslet.Accounts.UserKeyWrapsTest do
     end
   end
 
+  describe "key_hash retirement (board #370)" do
+    test "enrolling retires User.key_hash (no password-only door on a DB dump)" do
+      user = user_fixture() |> with_recovery()
+      {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
+      assert is_binary(user.key_hash) and user.key_hash != ""
+
+      {:ok, _prf} = Accounts.enroll_prf_wrap(user, prf_wrap_attrs())
+
+      reloaded = Accounts.get_user!(user.id)
+      assert reloaded.key_hash in [nil, ""]
+
+      refute match?(
+               {:ok, _},
+               Mosslet.Accounts.User.valid_key_hash?(reloaded, valid_user_password())
+             )
+    end
+
+    test "a failed prf insert leaves key_hash intact (anti-brick)" do
+      user = user_fixture() |> with_recovery()
+      {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
+      key_hash_before = user.key_hash
+
+      invalid_attrs = %{wrapped_user_key: "opaque-prf-wrap-blob", wrap_salt: "cHJmc2FsdA=="}
+      assert {:error, %Ecto.Changeset{}} = Accounts.enroll_prf_wrap(user, invalid_attrs)
+
+      assert Accounts.get_user!(user.id).key_hash == key_hash_before
+    end
+
+    test "un-enrolling the last device restores key_hash from the password wrap" do
+      user = user_fixture() |> with_recovery()
+      {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
+      {:ok, prf} = Accounts.enroll_prf_wrap(user, prf_wrap_attrs())
+      assert Accounts.get_user!(user.id).key_hash in [nil, ""]
+
+      pw = password_wrap_attrs()
+      assert {:ok, :unenrolled} = Accounts.unenroll_prf_wrap(user, prf.id, pw)
+
+      restored = Accounts.get_user!(user.id).key_hash
+      assert restored == pw.wrap_salt <> "$" <> pw.wrapped_user_key
+    end
+
+    test "removing a non-last device does NOT restore key_hash (still enrolled)" do
+      user = user_fixture() |> with_recovery()
+      {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
+      {:ok, prf1} = Accounts.enroll_prf_wrap(user, prf_wrap_attrs(%{credential_id: "cred-1"}))
+      {:ok, _prf2} = Accounts.enroll_prf_wrap(user, prf_wrap_attrs(%{credential_id: "cred-2"}))
+
+      assert {:ok, :still_enrolled} = Accounts.unenroll_prf_wrap(user, prf1.id, nil)
+      assert Accounts.get_user!(user.id).key_hash in [nil, ""]
+    end
+  end
+
   describe "unenroll_prf_wrap/3 — no bricking" do
     test "removing the last device restores the password door" do
       user = user_fixture() |> with_recovery()

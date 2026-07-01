@@ -57,6 +57,64 @@ defmodule MossletWeb.UserAuthTest do
       assert signed_token != get_session(conn, :user_token)
       assert max_age == 5_184_000
     end
+
+    test "non-enrolled: session :key is derived from key_hash and a client user_key is ignored",
+         %{conn: conn, user: user} do
+      # byte-for-byte unchanged: server derives from password, and a stray
+      # user_key param is NOT trusted for a non-enrolled account.
+      {:ok, expected_key} = Accounts.User.valid_key_hash?(user, @valid_password)
+
+      params = %{
+        "email" => @valid_email,
+        "password" => @valid_password,
+        "user_key" => "attacker-supplied-key"
+      }
+
+      conn = UserAuth.log_in_user(conn, user, params)
+      assert get_session(conn, :key) == expected_key
+      refute get_session(conn, :key) == "attacker-supplied-key"
+    end
+
+    test "enrolled: session :key comes from the client-supplied user_key (key_hash retired)", %{
+      conn: conn,
+      user: user
+    } do
+      # The client submits the REAL user_key it unlocked via KDF(password‖prf);
+      # grab it before enroll (which blanks key_hash) so the lifecycle encryption
+      # round-trips as it would in production.
+      {:ok, real_user_key} = Accounts.User.valid_key_hash?(user, @valid_password)
+
+      {:ok, user} =
+        Accounts.setup_recovery_key(user, "recovery-secret-256bit", "enc-recovery-blob")
+
+      {:ok, _} =
+        Accounts.backfill_password_wrap(user, %{
+          wrapped_user_key: "opaque-pw-blob",
+          wrap_salt: "cGFzc3NhbHQ="
+        })
+
+      {:ok, _} =
+        Accounts.enroll_prf_wrap(user, %{
+          wrapped_user_key: "opaque-prf-blob",
+          wrap_salt: "cHJmc2FsdA==",
+          credential_id: "cred-abc",
+          prf_salt: "cHJmZXZhbA=="
+        })
+
+      user = Accounts.get_user!(user.id)
+      # key_hash is retired, so the server can no longer derive it from password.
+      refute match?({:ok, _}, Accounts.User.valid_key_hash?(user, @valid_password))
+
+      params = %{
+        "email" => @valid_email,
+        "password" => @valid_password,
+        "user_key" => real_user_key
+      }
+
+      conn = UserAuth.log_in_user(conn, user, params)
+      # The ONLY way the session key is populated is the browser-supplied user_key.
+      assert get_session(conn, :key) == real_user_key
+    end
   end
 
   describe "logout_user/1" do

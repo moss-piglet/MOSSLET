@@ -2066,6 +2066,37 @@ defmodule Mosslet.Accounts.User do
     false
   end
 
+  @doc """
+  Retires the legacy password-only `key_hash` door (board #362 / #370).
+
+  Called inside the PRF-enroll transaction to flip OR→AND at the *storage*
+  layer: after enrollment there is NO server-stored blob that decrypts
+  `user_key` from the password alone, so a DB dump no longer exposes the
+  human-password brute-force ceiling (design §3/§7). `user_key` remains
+  recoverable only via `KDF(password ‖ prf)` (the `:prf` wraps) or the 256-bit
+  ZK recovery code. **I6 preserved** — the server holds no key material either
+  way; it merely stops storing a weak door.
+
+  `key_hash` is blanked to `""` (not `nil`) because the column is `NOT NULL`;
+  both `/api/auth/salt` (`kh != ""`) and `valid_key_hash?/2`
+  (`byte_size(key_hash) > 0`) already treat an empty value as "no door".
+  """
+  def clear_key_hash_changeset(%__MODULE__{} = user) do
+    change(user, %{key_hash: ""})
+  end
+
+  @doc """
+  Restores the password-only `key_hash` door when the LAST enrolled device is
+  removed (AND→OR restore, anti-brick — design §4 wrinkle 3).
+
+  `key_hash` is re-materialized from the browser-supplied `:password` wrap
+  (`wrap_salt <> "$" <> wrapped_user_key`), which is byte-identical to the
+  legacy `key_hash` format. The blob stays opaque to the server (I6).
+  """
+  def restore_key_hash_changeset(%__MODULE__{} = user, key_hash) when is_binary(key_hash) do
+    change(user, %{key_hash: key_hash})
+  end
+
   defp generate_user_registration_keys() do
     user_key = Encrypted.Utils.generate_key()
     user_attributes_key = Encrypted.Utils.generate_key()

@@ -101,15 +101,23 @@ const LoginHook = {
         const prf = data.prf || { enrolled: false, wraps: [] };
 
         // Enrolled-account unlock branch (password AND enrolled device).
-        // Progressive enhancement: any failure (device unavailable, user
-        // cancels, PRF unsupported) falls through to the password path below.
+        // The account has NO password-only door (key_hash is retired on enroll,
+        // board #370), so we NEVER fall back to the password path here. We only
+        // unlock via PRF; if that isn't possible on this device the user is still
+        // signed in (server verifies the password) but the session stays locked
+        // and /auth/unlock offers PRF or recovery.
         if (prf.enrolled && Array.isArray(prf.wraps) && prf.wraps.length > 0) {
           const userKey = await tryPrfUnlock(prf.wraps, password);
           if (userKey) {
+            // The decrypted user_key IS the server session-key string; hand it
+            // to the server so it can fill the session cookie (no key_hash to
+            // derive from). I6: it only lands in the encrypted session, never a
+            // brute-forceable at-rest blob.
             sessionStorage.setItem(TEMP_USER_KEY, userKey);
-            form.submit();
-            return;
+            setUserKeyField(form, userKey);
           }
+          form.submit();
+          return;
         }
 
         if (!keyHash || !keyHash.includes("$")) {
@@ -145,6 +153,27 @@ const LoginHook = {
 
 export default LoginHook;
 export { TEMP_USER_KEY };
+
+/**
+ * Attach the browser-derived user_key to the login form so the server can fill
+ * the encrypted session cookie for PRF-enrolled accounts (which have no
+ * key_hash to derive from). Uses a hidden `user[user_key]` input; only ever
+ * called on the enrolled PRF-unlock path, so non-enrolled submissions are
+ * byte-for-byte unchanged.
+ *
+ * @param {HTMLFormElement} form
+ * @param {string} userKey
+ */
+function setUserKeyField(form, userKey) {
+  let input = form.querySelector('input[name="user[user_key]"]');
+  if (!input) {
+    input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "user[user_key]";
+    form.appendChild(input);
+  }
+  input.value = userKey;
+}
 
 /**
  * Attempt to unlock user_key from one of the enrolled :prf wraps by evaluating

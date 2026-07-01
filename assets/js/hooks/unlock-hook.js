@@ -29,6 +29,7 @@ import {
 
 import { cacheKeys } from "../crypto/key_cache";
 import { decryptPrivateKey } from "../crypto/nacl";
+import { combineSecrets, evaluatePrf, unwrapUserKey } from "../crypto/prf";
 
 const TEMP_USER_KEY = "_mosslet_user_key_temp";
 
@@ -58,6 +59,28 @@ const UnlockHook = {
       const password = passwordInput.value;
       if (!password) {
         this.pushEvent("unlock", { unlock: { password: "" } });
+        return;
+      }
+
+      // Enrolled-account unlock (board #370): the account has NO key_hash
+      // password-only door, so unlock via PRF (password AND enrolled device).
+      // On success we hand the server the decrypted session-key string via a
+      // hidden `unlock[user_key]` field; the controller trusts it only for
+      // enrolled accounts. We NEVER fall back to a password-only door here.
+      const prf = parsePrf(form.dataset.prf);
+      if (prf.enrolled && prf.wraps.length > 0) {
+        const userKey = await tryPrfUnlock(prf.wraps, password);
+        if (userKey) {
+          sessionStorage.setItem(TEMP_USER_KEY, userKey);
+          setUserKeyField(form, userKey);
+          // Trigger the form action POST; the hidden user_key field rides along
+          // and the controller uses it (enrolled → key_hash retired).
+          this.pushEvent("unlock", { unlock: { password } });
+          return;
+        }
+        // PRF unavailable on this device — let the LiveView surface the retry;
+        // do not attempt the (nonexistent) password door.
+        this.pushEvent("unlock", { unlock: { password } });
         return;
       }
 
@@ -100,3 +123,52 @@ const UnlockHook = {
 };
 
 export default UnlockHook;
+
+function parsePrf(raw) {
+  if (!raw) return { enrolled: false, wraps: [] };
+  try {
+    const parsed = JSON.parse(raw);
+    return {
+      enrolled: !!parsed.enrolled,
+      wraps: Array.isArray(parsed.wraps) ? parsed.wraps : [],
+    };
+  } catch {
+    return { enrolled: false, wraps: [] };
+  }
+}
+
+/**
+ * Attempt to unlock user_key from one of the enrolled :prf wraps by evaluating
+ * the device PRF and combining it with the password-derived key. Returns the
+ * recovered user_key string, or null if no enrolled device can unlock here.
+ */
+async function tryPrfUnlock(wraps, password) {
+  for (const wrap of wraps) {
+    try {
+      const prfOutput = await evaluatePrf({
+        credentialIdB64: wrap.credential_id,
+        prfSaltB64: wrap.prf_salt,
+      });
+      if (!prfOutput) continue;
+
+      const passwordKey = await deriveSessionKey(password, wrap.wrap_salt);
+      const wrappingKey = await combineSecrets(passwordKey, prfOutput, wrap.wrap_salt);
+      const userKey = await unwrapUserKey(wrap.wrapped_user_key, wrappingKey);
+      if (userKey) return userKey;
+    } catch {
+      // Wrong device / wrong password / cancelled — try the next wrap.
+    }
+  }
+  return null;
+}
+
+function setUserKeyField(form, userKey) {
+  let input = form.querySelector('input[name="unlock[user_key]"]');
+  if (!input) {
+    input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "unlock[user_key]";
+    form.appendChild(input);
+  }
+  input.value = userKey;
+}

@@ -595,6 +595,10 @@ defmodule MossletWeb.API.AuthController do
 
     key_hash =
       case user do
+        # Enrolled accounts have a blanked `key_hash` (retired on enroll, board
+        # #370), so they fall through to the fake — the server exposes NO usable
+        # password-only door. The `prf` payload below carries their real (opaque)
+        # unlock doors. Non-enrolled users get their real key_hash unchanged.
         %User{key_hash: kh} when is_binary(kh) and kh != "" -> kh
         _ -> generate_fake_key_hash(email)
       end
