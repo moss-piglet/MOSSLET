@@ -26,6 +26,7 @@ import {
   deriveSessionKey,
   decryptSecretboxToString,
 } from "../crypto/nacl";
+import { combineSecrets, evaluatePrf, unwrapUserKey } from "../crypto/prf";
 import { clearKeyCache } from "../crypto/key_cache";
 
 const TEMP_USER_KEY = "_mosslet_user_key_temp";
@@ -95,7 +96,21 @@ const LoginHook = {
           return;
         }
 
-        const { key_hash: keyHash } = await resp.json();
+        const data = await resp.json();
+        const keyHash = data.key_hash;
+        const prf = data.prf || { enrolled: false, wraps: [] };
+
+        // Enrolled-account unlock branch (password AND enrolled device).
+        // Progressive enhancement: any failure (device unavailable, user
+        // cancels, PRF unsupported) falls through to the password path below.
+        if (prf.enrolled && Array.isArray(prf.wraps) && prf.wraps.length > 0) {
+          const userKey = await tryPrfUnlock(prf.wraps, password);
+          if (userKey) {
+            sessionStorage.setItem(TEMP_USER_KEY, userKey);
+            form.submit();
+            return;
+          }
+        }
 
         if (!keyHash || !keyHash.includes("$")) {
           form.submit();
@@ -130,3 +145,33 @@ const LoginHook = {
 
 export default LoginHook;
 export { TEMP_USER_KEY };
+
+/**
+ * Attempt to unlock user_key from one of the enrolled :prf wraps by evaluating
+ * the device PRF and combining it with the password-derived key. Returns the
+ * recovered user_key string, or null if no enrolled device can unlock here
+ * (caller then falls through to the password path).
+ *
+ * @param {Array<{credential_id: string, prf_salt: string, wrap_salt: string, wrapped_user_key: string}>} wraps
+ * @param {string} password
+ * @returns {Promise<string|null>}
+ */
+async function tryPrfUnlock(wraps, password) {
+  for (const wrap of wraps) {
+    try {
+      const prfOutput = await evaluatePrf({
+        credentialIdB64: wrap.credential_id,
+        prfSaltB64: wrap.prf_salt,
+      });
+      if (!prfOutput) continue;
+
+      const passwordKey = await deriveSessionKey(password, wrap.wrap_salt);
+      const wrappingKey = await combineSecrets(passwordKey, prfOutput, wrap.wrap_salt);
+      const userKey = await unwrapUserKey(wrap.wrapped_user_key, wrappingKey);
+      if (userKey) return userKey;
+    } catch {
+      // Wrong device / wrong password / cancelled — try the next wrap.
+    }
+  }
+  return null;
+}

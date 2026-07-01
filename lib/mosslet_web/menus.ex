@@ -294,6 +294,15 @@ defmodule MossletWeb.Menus do
     }
   end
 
+  def get_link(:edit_device_unlock = name, _current_user) do
+    %{
+      name: name,
+      label: gettext("Device unlock"),
+      path: ~p"/app/users/device-unlock",
+      icon: "hero-finger-print"
+    }
+  end
+
   def get_link(:delete_account = name, _current_user) do
     %{
       name: name,
@@ -754,6 +763,13 @@ defmodule MossletWeb.Menus do
         description: gettext("Two-factor authentication security"),
         path: ~p"/app/users/two-factor-authentication",
         icon: "hero-shield-check"
+      },
+      %{
+        name: :edit_device_unlock,
+        label: gettext("Device unlock"),
+        description: gettext("Bind unlock to this device with a passkey (PRF)"),
+        path: ~p"/app/users/device-unlock",
+        icon: "hero-finger-print"
       },
       %{
         name: :blocked_users,

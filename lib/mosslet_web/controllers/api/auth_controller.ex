@@ -599,13 +599,38 @@ defmodule MossletWeb.API.AuthController do
         _ -> generate_fake_key_hash(email)
       end
 
+    prf = prf_payload(user)
+
     enforce_min_duration(start, @min_salt_response_ms)
-    json(conn, %{key_hash: key_hash})
+    json(conn, %{key_hash: key_hash, prf: prf})
   end
 
   def salt(conn, _params) do
     conn |> put_status(:bad_request) |> json(%{error: "email is required"})
   end
+
+  # PRF (device-bound) unlock doors for the login flow. Every field returned is
+  # an OPAQUE blob the browser itself produced (invariant I6) — the server never
+  # sees prf_output, the password, or user_key. Unknown users get an empty,
+  # not-enrolled payload so the enrolled/non-enrolled shape is identical.
+  defp prf_payload(%User{} = user) do
+    wraps =
+      user
+      |> Accounts.list_user_key_wraps()
+      |> Enum.filter(&(&1.kind == :prf))
+      |> Enum.map(fn wrap ->
+        %{
+          credential_id: wrap.credential_id,
+          prf_salt: wrap.prf_salt,
+          wrap_salt: wrap.wrap_salt,
+          wrapped_user_key: wrap.wrapped_user_key
+        }
+      end)
+
+    %{enrolled: wraps != [], wraps: wraps}
+  end
+
+  defp prf_payload(_), do: %{enrolled: false, wraps: []}
 
   # Deterministic fake key_hash for unknown emails.
   # Same email always produces the same fake so timing is consistent.

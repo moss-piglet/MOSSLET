@@ -99,6 +99,23 @@ defmodule Mosslet.Accounts.UserKeyWrapsTest do
       assert Accounts.prf_enrolled?(user)
     end
 
+    test "a failed prf insert never deletes the password door (anti-brick ordering)" do
+      # design §8: insert-:prf-then-delete-:password is atomic in ONE
+      # transaction. Force the :prf insert to fail with invalid attrs (missing
+      # required credential_id/prf_salt) and assert the :password wrap SURVIVES —
+      # the account is never left with zero unlock doors.
+      user = user_fixture() |> with_recovery()
+      {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
+
+      invalid_attrs = %{wrapped_user_key: "opaque-prf-wrap-blob", wrap_salt: "cHJmc2FsdA=="}
+
+      assert {:error, %Ecto.Changeset{}} = Accounts.enroll_prf_wrap(user, invalid_attrs)
+
+      # password door intact, no orphan :prf wrap, account NOT bricked
+      assert [%UserKeyWrap{kind: :password}] = Accounts.list_user_key_wraps(user)
+      refute Accounts.prf_enrolled?(user)
+    end
+
     test "supports multiple prf wraps (multi-device)" do
       user = user_fixture() |> with_recovery()
       {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())

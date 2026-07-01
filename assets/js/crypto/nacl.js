@@ -36,6 +36,7 @@ import wasmInit, {
   sealForUserWithLevel as _sealForUserWithLevel,
   sha3_512 as _sha3_512,
   sha3_512WithContext as _sha3_512WithContext,
+  hkdfSha512 as _hkdfSha512,
   sha3_256 as _sha3_256,
   sha256 as _sha256,
   sha512 as _sha512,
@@ -365,6 +366,26 @@ export async function sha3_512(dataBase64) {
 export async function sha3_512WithContext(context, dataBase64) {
   await ensureReady();
   return _sha3_512WithContext(context, dataBase64);
+}
+
+/**
+ * HKDF-SHA512 (RFC 5869 Extract-then-Expand, HMAC-SHA-2-SHA512).
+ *
+ * Thin wrapper over the same audited Rust crate that powers the server NIF,
+ * byte-identical to `@noble/hashes` / WebCrypto HKDF-SHA-512. Not SHA3.
+ *
+ *   PRK  = HKDF-Extract(salt, ikm)
+ *   OKM  = HKDF-Expand(PRK, info, length)
+ *
+ * @param {string} saltB64 - base64 salt (the Extract salt).
+ * @param {string} ikmB64 - base64 input keying material.
+ * @param {string} info - UTF-8 domain-separation label (Expand info).
+ * @param {number} length - output key length in bytes.
+ * @returns {Promise<string>} base64 OKM of `length` bytes.
+ */
+export async function hkdfSha512(saltB64, ikmB64, info, length) {
+  await ensureReady();
+  return _hkdfSha512(saltB64, ikmB64, info, length);
 }
 
 /**

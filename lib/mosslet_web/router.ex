@@ -461,6 +461,7 @@ defmodule MossletWeb.Router do
       live "/users/bluesky", BlueskySettingsLive
       live "/users/change-password", EditPasswordLive
       live "/users/change-forgot-password", EditForgotPasswordLive
+      live "/users/device-unlock", EditDeviceUnlockLive
       live "/users/edit-notifications", EditNotificationsLive
       live "/users/org-invitations", UserOrgInvitationsLive
       live "/users/two-factor-authentication", EditTotpLive

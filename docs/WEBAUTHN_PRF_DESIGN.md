@@ -137,25 +137,25 @@ present, don't-brick), never key material (**I6** preserved).
 
 PRF returns raw bytes (`prf_output`). We must combine them with the
 password-derived key into **one** wrapping key with **auditable domain
-separation**. Rather than naive concatenation into Argon2, use an
-**HKDF-extract** over `password_key ‖ prf_secret`:
+separation**. We use **RFC 5869 HKDF-SHA512** (Extract-then-Expand, HMAC over
+**SHA-2**-SHA512 — *not* SHA3) over `password_key ‖ prf_output`:
 
 ```
-wrapping_key = HKDF-Extract(
-  salt = wrap_salt,
-  ikm  = password_key ‖ prf_secret,
-  info = "mosslet/user_key-wrap/v1"   # domain separation
+wrapping_key = HKDF-SHA512(
+  salt = wrap_salt,                 # Extract
+  ikm  = password_key ‖ prf_output,
+  info = "mosslet/user_key-wrap/v1", # Expand (domain separation)
+  L    = 32,                         # secretbox key length, no truncation
 )
 user_key_wrap = secretbox(user_key, wrapping_key)
 ```
 
 - `password_key = Argon2id(password, wrap_salt)` — reuses the existing WASM KDF.
-- `prf_secret` = WebAuthn PRF output (32 bytes) from
+- `prf_output` = WebAuthn PRF output (32 bytes) from
   `navigator.credentials.get({ publicKey: { extensions: { prf: { eval: { first: prf_salt }}}}})`.
-- The combine step is **expressible with existing primitives** (`sha3_512` /
-  secretbox already vendored in `assets/js/crypto/nacl.js`). Optionally add a
-  clearly-named `combineSecrets(a, b, info)` helper to metamorphic-crypto for a
-  single audited HKDF-extract call — a small ergonomics win, not a blocker.
+- The combine is a single audited `hkdfSha512(salt, ikm, info, length)` call
+  from metamorphic-crypto (v0.10.0), byte-identical to `@noble/hashes` /
+  WebCrypto HKDF-SHA-512, and shared by the browser WASM and the server NIF.
 
 `prf_output` bytes never leave the browser; only the resulting opaque
 `wrapped_user_key` is persisted.
@@ -189,6 +189,21 @@ flowchart TD
   H --> I[DELETE :password wrap  ← OR→AND flip]
 ```
 
+**Ordered anti-brick invariant (MUST hold):**
+
+1. **Client proves round-trip BEFORE enroll.** After building `wrapped_user_key`,
+   the client does a **second** PRF `get()` with the stored `prf_salt`, re-derives
+   the wrapping key, and asserts `unwrap(wrapped_user_key) == user_key`. This
+   proves the credential deterministically reproduces the PRF across ceremonies
+   (the real unlock path). Only then does it call `prf_enrolled`. If the proof
+   fails, it mutates **nothing** server-side. The server **cannot** perform this
+   check (**I6** — it holds no keys).
+2. **Server insert-:prf-then-delete-:password is atomic.** `enroll_prf_wrap`
+   inserts the `:prf` wrap and deletes the `:password` wrap inside **one**
+   transaction, in that order. A failed `:prf` insert rolls back the whole
+   transaction, so the `:password` door **always survives** a failed enroll —
+   the account can never end up with zero unlock doors.
+
 ```mermaid
 %% title: Unlock on an enrolled account
 flowchart TD
@@ -216,13 +231,17 @@ flowchart TD
 
 - **ExUnit (`Accounts`):** wrap invariants (enrolled ⇒ no password wrap;
   un-enroll restores it), recovery-gate enforcement, don't-brick guarantees,
-  `transaction_on_primary` wrapping.
+  `transaction_on_primary` wrapping. **Anti-brick ordering:** a failed `:prf`
+  insert (invalid `prf_changeset` attrs) leaves the existing `:password` wrap
+  intact (account not bricked).
 - **LiveViewTest:** settings enroll/un-enroll flows keyed off DOM IDs; CTA hidden
-  when recovery absent.
-- **JS unit:** `HKDF-Extract` combine determinism + domain separation; wrap /
-  unwrap round-trip; PRF-unavailable fallback.
+  when recovery absent. A client "verification failed" path leaves the password
+  door intact (server never receives a `prf_enrolled` event).
+- **JS unit:** RFC 5869 HKDF-SHA512 combine determinism + domain separation;
+  wrap / unwrap round-trip; PRF-unavailable fallback.
 - **`browser_eval`:** capability gating visible/invisible; enroll happy path
-  where the platform authenticator is virtualized.
+  (incl. the verify-before-delete second PRF ceremony) where the platform
+  authenticator is virtualized via a CDP virtual authenticator.
 
 ## 10a. Password change (MUST handle — enrolled users)
 

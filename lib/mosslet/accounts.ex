@@ -870,6 +870,13 @@ defmodule Mosslet.Accounts do
   end
 
   defp do_enroll_prf_wrap(%User{id: user_id}, attrs) do
+    # ORDERING INVARIANT (anti-brick, design §8): insert the :prf wrap FIRST,
+    # delete the :password wrap SECOND, both inside ONE transaction. If the
+    # :prf insert fails the transaction rolls back and the :password door
+    # SURVIVES — a failed enroll can never leave the account with zero doors.
+    # (The client separately proves the :prf wrap actually unlocks user_key
+    # BEFORE calling this — see prf-enrollment-hook.js verify-before-delete —
+    # since the server holds no keys to check it, per I6.)
     multi =
       Ecto.Multi.new()
       |> Ecto.Multi.insert(:prf_wrap, UserKeyWrap.prf_changeset(user_id, attrs))

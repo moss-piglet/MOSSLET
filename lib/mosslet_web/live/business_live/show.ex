@@ -27,9 +27,35 @@ defmodule MossletWeb.BusinessLive.Show do
   @impl true
   def mount(%{"slug" => slug}, _session, socket) do
     current_user = socket.assigns.current_scope.user
-    org = Orgs.get_org!(current_user, slug)
-    membership = Orgs.get_membership!(current_user, slug)
 
+    with org when not is_nil(org) <- safe_get_org(current_user, slug),
+         membership when not is_nil(membership) <- safe_get_membership(current_user, slug) do
+      mount_business(org, membership, current_user, socket)
+    else
+      _ ->
+        # Stale URL/session, revoked membership, or a reseeded/reset database:
+        # the org no longer resolves for this user. Never 500 — redirect to the
+        # business index with a friendly message instead.
+        {:ok,
+         socket
+         |> put_flash(:error, "That organization is no longer available.")
+         |> push_navigate(to: ~p"/app/business")}
+    end
+  end
+
+  defp safe_get_org(current_user, slug) do
+    Orgs.get_org!(current_user, slug)
+  rescue
+    Ecto.NoResultsError -> nil
+  end
+
+  defp safe_get_membership(current_user, slug) do
+    Orgs.get_membership!(current_user, slug)
+  rescue
+    Ecto.NoResultsError -> nil
+  end
+
+  defp mount_business(org, membership, current_user, socket) do
     if org.type == :business do
       if connected?(socket) do
         Orgs.subscribe_org(org)
