@@ -1992,7 +1992,12 @@ async function __wbg_init(module_or_path) {
     }
 
     if (module_or_path === undefined) {
-        module_or_path = new URL('metamorphic_crypto_bg.wasm', import.meta.url);
+        // Mosslet re-vendor patch: wasm-bindgen's default here is
+        //   new URL('metamorphic_crypto_bg.wasm', import.meta.url)
+        // which esbuild's iife bundle cannot resolve (import.meta is empty →
+        // build warning). We serve the WASM from Phoenix static instead, matching
+        // nacl.js's _wasmSource default. RE-APPLY THIS PATCH on every re-vendor.
+        module_or_path = "/wasm/metamorphic_crypto_bg.wasm";
     }
     const imports = __wbg_get_imports();
 
