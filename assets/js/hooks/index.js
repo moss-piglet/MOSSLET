@@ -71,6 +71,7 @@ import OrgLogoDisplay from "./org-logo-display";
 import RegistrationHook from "./registration-hook";
 import RecoveryKeySetupHook from "./recovery-key-setup-hook";
 import PrfEnrollmentHook from "./prf-enrollment-hook";
+import PrfPasswordChangeHook from "./prf-password-change-hook";
 import ReplyComposer from "./reply-composer";
 import ReplyEmojiPicker from "./reply-emoji-picker";
 import ReplyFormHook from "./reply-form-hook";
@@ -201,6 +202,7 @@ export default {
   ProfileFieldsFormHook,
   RecoveryKeySetupHook,
   PrfEnrollmentHook,
+  PrfPasswordChangeHook,
   RegistrationHook,
   ReplyComposer,
   ReplyEmojiPicker,

@@ -271,6 +271,23 @@ browser-supplied re-wrapped `:prf` blobs instead.
 > users re-wrap on-device (or via recovery), never falling back to a weak
 > password-only door.
 
+> **Status (board #368): implemented.**
+> - Server: `User.put_new_key_hash_and_key_pair/3` skips the `key_hash`
+>   re-derivation whenever `opts[:prf_enrolled]` is true (both `:change_password`
+>   and `:reset_password`). `Accounts.update_user_password/4` detects enrollment,
+>   sets that flag, and routes to an atomic path
+>   (`update_user_password_prf_enrolled/3`) that — in one `transaction_on_primary`
+>   — updates `hashed_password`, replaces EVERY `:prf` wrap's opaque
+>   `wrapped_user_key`, and drops tokens. It refuses a partial re-wrap
+>   (`{:error, :prf_rewraps_mismatch}`) so no device is left wrapped under the old
+>   password. `Accounts.list_prf_rewrap_params/1` serves the (opaque) per-wrap
+>   params. `reset_user_password/3` sets the same flag defensively.
+> - Client: `assets/js/hooks/prf-password-change-hook.js` re-wraps each `:prf`
+>   wrap under the new password on-device (`evaluatePrf` → `Argon2id(new_pw,
+>   wrap_salt)` → `combineSecrets` → `secretbox`), reusing `prf.js` helpers, and
+>   pushes only opaque blobs (I6). `MossletWeb.EditPasswordLive` validates the
+>   current password first, then drives the re-wrap before the atomic write.
+
 ## 10b. Microsoft Edge & cross-device (answer: yes, with ecosystem nuance)
 
 Edge is Chromium — WebAuthn PRF is **supported**. The subtlety is *not* the

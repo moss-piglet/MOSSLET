@@ -1949,12 +1949,116 @@ defmodule Mosslet.Accounts do
 
   """
   def update_user_password(user, password, attrs, opts) do
+    # PRF-enrolled hazard (board #362, design §10a): for enrolled users the
+    # legacy path must NOT re-derive a password-only `key_hash` door. We flag
+    # the changeset so `User.put_new_key_hash_and_key_pair/3` skips it, and route
+    # to the atomic enrolled path that re-wraps the `:prf` wraps under the new
+    # password (browser-supplied opaque blobs) in a single transaction.
+    enrolled? = prf_enrolled?(user)
+    opts = Keyword.put(opts, :prf_enrolled, enrolled?)
+
     changeset =
       user
       |> User.password_changeset(attrs, opts)
       |> User.validate_current_password(password)
 
-    adapter().update_user_password(user, changeset)
+    if enrolled? do
+      update_user_password_prf_enrolled(user, changeset, Keyword.get(opts, :prf_rewraps, []))
+    else
+      adapter().update_user_password(user, changeset)
+    end
+  end
+
+  # Atomic enrolled password change (design §10a). In ONE primary-DB
+  # transaction: update the user (hashed_password only — no `key_hash` door,
+  # thanks to `prf_enrolled: true`), replace EVERY `:prf` wrap's opaque
+  # `wrapped_user_key` with its browser re-wrapped blob, and invalidate all
+  # tokens. Every re-wrapped blob is `secretbox(user_key, HKDF(new_password_key
+  # ‖ prf_output))` produced on-device (I6). We refuse to proceed unless the
+  # supplied re-wraps cover EXACTLY the account's current `:prf` wraps — a
+  # partial re-wrap would brick any device still wrapped under the old password.
+  defp update_user_password_prf_enrolled(%User{} = user, changeset, rewraps) do
+    existing_ids =
+      UserKeyWrap
+      |> where(user_id: ^user.id, kind: :prf)
+      |> select([w], w.id)
+      |> Mosslet.Repo.all()
+      |> MapSet.new()
+
+    rewrap_map =
+      for r <- rewraps, into: %{} do
+        {normalize_wrap_id(r), normalize_rewrap_blob(r)}
+      end
+
+    supplied_ids = MapSet.new(Map.keys(rewrap_map))
+
+    cond do
+      changeset.valid? == false ->
+        # Surface current-password / strength errors without mutating anything.
+        {:error, apply_action_error(changeset)}
+
+      not MapSet.equal?(existing_ids, supplied_ids) ->
+        {:error, :prf_rewraps_mismatch}
+
+      Enum.any?(rewrap_map, fn {_id, blob} -> not is_binary(blob) or blob == "" end) ->
+        {:error, :prf_rewraps_mismatch}
+
+      true ->
+        multi =
+          Ecto.Multi.new()
+          |> Ecto.Multi.update(:user, changeset)
+          |> Ecto.Multi.delete_all(
+            :tokens,
+            Mosslet.Accounts.UserToken.user_and_contexts_query(user, :all)
+          )
+
+        multi =
+          Enum.reduce(rewrap_map, multi, fn {id, blob}, m ->
+            Ecto.Multi.update(m, {:rewrap, id}, fn _changes ->
+              wrap = Mosslet.Repo.get_by!(UserKeyWrap, id: id, user_id: user.id, kind: :prf)
+              Ecto.Changeset.change(wrap, wrapped_user_key: blob)
+            end)
+          end)
+
+        case Mosslet.Repo.transaction_on_primary(fn -> Mosslet.Repo.transaction(multi) end) do
+          {:ok, {:ok, %{user: user}}} -> {:ok, user}
+          {:ok, {:error, :user, changeset, _}} -> {:error, changeset}
+          {:ok, {:error, _step, reason, _}} -> {:error, reason}
+          error -> error
+        end
+    end
+  end
+
+  defp apply_action_error(changeset), do: Map.put(changeset, :action, :update)
+
+  defp normalize_wrap_id(%{"id" => id}), do: id
+  defp normalize_wrap_id(%{id: id}), do: id
+
+  defp normalize_rewrap_blob(%{"wrapped_user_key" => blob}), do: blob
+  defp normalize_rewrap_blob(%{wrapped_user_key: blob}), do: blob
+  defp normalize_rewrap_blob(_), do: nil
+
+  @doc """
+  Public parameters a browser needs to re-wrap each `:prf` wrap on a password
+  change: the wrap `id`, `credential_id`, `prf_salt`, and `wrap_salt`. Every
+  field is an opaque blob the browser itself produced (I6). Returns `[]` for
+  non-enrolled users.
+  """
+  def list_prf_rewrap_params(%User{} = user), do: list_prf_rewrap_params(user.id)
+
+  def list_prf_rewrap_params(user_id) when is_binary(user_id) do
+    UserKeyWrap
+    |> where(user_id: ^user_id, kind: :prf)
+    |> order_by(desc: :inserted_at)
+    |> Mosslet.Repo.all()
+    |> Enum.map(fn wrap ->
+      %{
+        id: wrap.id,
+        credential_id: wrap.credential_id,
+        prf_salt: wrap.prf_salt,
+        wrap_salt: wrap.wrap_salt
+      }
+    end)
   end
 
   ## 2FA / TOTP (Time based One Time Password)
@@ -2211,6 +2315,13 @@ defmodule Mosslet.Accounts do
 
   """
   def reset_user_password(user, attrs, opts \\ []) do
+    # Defensive PRF guard (board #362, design §10a): for enrolled users the
+    # reset path must NOT re-create a password-only `key_hash` door either.
+    # (In practice enrolled users can't reach the legacy email-reset flow —
+    # setting up recovery clears `users.key`, gating it — and instead re-key via
+    # the recovery-code path, which is the sanctioned door-restoring flow. This
+    # flag makes the invariant hold even if that assumption ever changes.)
+    opts = Keyword.put_new(opts, :prf_enrolled, prf_enrolled?(user))
     adapter().reset_user_password(user, attrs, opts)
   end
 

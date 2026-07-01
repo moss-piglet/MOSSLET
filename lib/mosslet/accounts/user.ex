@@ -1172,6 +1172,18 @@ defmodule Mosslet.Accounts.User do
 
   defp put_new_key_hash_and_key_pair(changeset, password, opts) do
     cond do
+      (opts[:change_password] || opts[:reset_password]) && opts[:prf_enrolled] ->
+        # PRF-enrolled users (board #362, design §10a): `user_key` is IMMUTABLE
+        # across a password change — only its wraps change. The account has NO
+        # `:password` wrap by design (OR→AND flip). Re-deriving `key_hash` here
+        # would SILENTLY re-create a password-only door, reopening the weak OR
+        # gate and un-enrolling the user without consent. So we skip it entirely:
+        # the browser re-wraps each `:prf` wrap under the new password and
+        # `Accounts` replaces them atomically. `key_pair`/`encrypted_pq_private_key`
+        # are sealed under the (unchanged) `user_key`, so they need no rewrite.
+        # Only `hashed_password` (session auth) is updated. See I6.
+        changeset
+
       opts[:change_password] || opts[:reset_password] ->
         %{user_key: user_key, private_key: private_key, pq_private_key: pq_private_key} =
           decrypt_user_keys(opts[:user].user_key, opts[:user], opts[:key])

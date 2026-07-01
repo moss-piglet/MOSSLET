@@ -16,6 +16,8 @@ defmodule MossletWeb.EditPasswordLive do
        trigger_submit: false,
        current_password: "",
        current_email: current_email || "",
+       prf_enrolled?: Accounts.prf_enrolled?(user),
+       pending_password_params: nil,
        form: to_form(Accounts.change_user_password(user))
      )}
   end
@@ -104,6 +106,8 @@ defmodule MossletWeb.EditPasswordLive do
               phx-change="validate_password"
               phx-submit="update_password"
               phx-trigger-action={@trigger_submit}
+              id="change-password-form"
+              phx-hook="PrfPasswordChangeHook"
               class="space-y-8"
             >
               <%!-- Hidden email field for form submission --%>
@@ -470,24 +474,53 @@ defmodule MossletWeb.EditPasswordLive do
     user_params = Map.get(params, "user", %{})
     current_password = Map.get(user_params, "current_password", "")
     user = socket.assigns.current_scope.user
+
+    if socket.assigns.prf_enrolled? do
+      # PRF-enrolled (design §10a): never re-derive a password-only door.
+      # Validate the current password FIRST (so we don't launch a device
+      # ceremony on a typo), then ask the browser to re-wrap each :prf wrap
+      # under the new password. The actual DB write happens in
+      # "prf_rewrap_ready" once the opaque blobs come back.
+      changeset =
+        user
+        |> Accounts.change_user_password(user_params, change_password: true)
+        |> Mosslet.Accounts.User.validate_current_password(current_password)
+        |> Map.put(:action, :validate)
+
+      if changeset.valid? do
+        wraps = Accounts.list_prf_rewrap_params(user)
+
+        {:noreply,
+         socket
+         |> assign(pending_password_params: user_params, current_password: current_password)
+         |> push_event("prf_rewrap", %{wraps: wraps})}
+      else
+        {:noreply, assign(socket, form: to_form(changeset), current_password: current_password)}
+      end
+    else
+      do_update_password(socket, user, current_password, user_params, [])
+    end
+  end
+
+  def handle_event("prf_rewrap_ready", %{"rewraps" => rewraps}, socket) do
+    user = socket.assigns.current_scope.user
+    user_params = socket.assigns.pending_password_params || %{}
+    current_password = socket.assigns.current_password
     key = socket.assigns.current_scope.key
 
-    case Accounts.update_user_password(user, current_password, user_params,
-           change_password: true,
-           key: key,
-           user: user
-         ) do
-      {:ok, user} ->
-        form =
-          user
-          |> Accounts.change_user_password(user_params)
-          |> to_form()
+    do_update_password(socket, user, current_password, user_params,
+      change_password: true,
+      key: key,
+      user: user,
+      prf_rewraps: rewraps
+    )
+  end
 
-        {:noreply, assign(socket, trigger_submit: true, form: form)}
-
-      {:error, changeset} ->
-        {:noreply, assign(socket, form: to_form(changeset))}
-    end
+  def handle_event("prf_rewrap_error", %{"error" => error}, socket) do
+    {:noreply,
+     socket
+     |> assign(pending_password_params: nil)
+     |> put_flash(:error, error)}
   end
 
   def handle_event("send_password_reset_email", _params, socket) do
@@ -506,5 +539,36 @@ defmodule MossletWeb.EditPasswordLive do
        :info,
        gettext("You will receive instructions to reset your password shortly.")
      )}
+  end
+
+  defp do_update_password(socket, user, current_password, user_params, opts) do
+    opts =
+      if opts == [] do
+        [change_password: true, key: socket.assigns.current_scope.key, user: user]
+      else
+        opts
+      end
+
+    case Accounts.update_user_password(user, current_password, user_params, opts) do
+      {:ok, user} ->
+        form =
+          user
+          |> Accounts.change_user_password(user_params)
+          |> to_form()
+
+        {:noreply, assign(socket, trigger_submit: true, form: form, pending_password_params: nil)}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply, assign(socket, form: to_form(changeset), pending_password_params: nil)}
+
+      {:error, _reason} ->
+        {:noreply,
+         socket
+         |> assign(pending_password_params: nil)
+         |> put_flash(
+           :error,
+           "Could not update your password. Please try again, or use your recovery key."
+         )}
+    end
   end
 end
