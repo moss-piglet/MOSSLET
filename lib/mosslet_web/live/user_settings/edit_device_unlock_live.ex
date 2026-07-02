@@ -31,6 +31,8 @@ defmodule MossletWeb.EditDeviceUnlockLive do
        page_title: "Settings",
        error_message: nil,
        working?: false,
+       webauthn: :checking,
+       webauthn_reason: nil,
        recovery_fresh?: recovery_fresh?,
        recovery_confirmation_token: if(recovery_fresh?, do: recovery_token, else: nil)
      )
@@ -83,6 +85,8 @@ defmodule MossletWeb.EditDeviceUnlockLive do
           <div
             :if={@error_message}
             id="prf-error"
+            role="alert"
+            aria-live="assertive"
             class="p-4 rounded-xl bg-rose-50 border border-rose-200 dark:bg-rose-900/20 dark:border-rose-800/50"
           >
             <div class="flex items-start gap-3">
@@ -94,9 +98,37 @@ defmodule MossletWeb.EditDeviceUnlockLive do
             </div>
           </div>
 
+          <%!-- Capability notice (PRF/WebAuthn unavailable in this browser/device) --%>
+          <div
+            :if={@webauthn == :unavailable}
+            id="prf-capability-gate"
+            role="status"
+            aria-live="polite"
+            class="p-4 rounded-xl bg-slate-50 border border-slate-200 dark:bg-slate-800/50 dark:border-slate-700/60"
+          >
+            <div class="flex items-start gap-3">
+              <.phx_icon
+                name="hero-information-circle"
+                class="w-5 h-5 text-slate-500 dark:text-slate-400 mt-0.5 flex-shrink-0"
+              />
+              <div class="space-y-2 text-sm text-slate-600 dark:text-slate-400">
+                <p class="font-medium text-slate-800 dark:text-slate-200">
+                  Device unlock isn't available here
+                </p>
+                <p>{capability_reason_text(@webauthn_reason)}</p>
+                <p class="text-xs text-slate-500 dark:text-slate-500">
+                  Device unlock works in Chrome, Edge, and Safari 18+ on a device with a
+                  passkey-capable secure enclave (Touch ID, Face ID, Windows Hello). Firefox
+                  support is partial. Your account is unchanged and still unlocks with your
+                  password.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <%!-- Recovery-key gate notice (absent) --%>
           <div
-            :if={!@has_recovery_key?}
+            :if={!@has_recovery_key? && @webauthn != :unavailable}
             id="prf-recovery-gate"
             class="p-4 rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800/50"
           >
@@ -127,7 +159,7 @@ defmodule MossletWeb.EditDeviceUnlockLive do
 
           <%!-- Recovery-key gate notice (present but not freshly confirmed) --%>
           <div
-            :if={@has_recovery_key? && !@recovery_fresh?}
+            :if={@has_recovery_key? && !@recovery_fresh? && @webauthn != :unavailable}
             id="prf-recovery-confirm-gate"
             class="p-4 rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800/50"
           >
@@ -158,7 +190,7 @@ defmodule MossletWeb.EditDeviceUnlockLive do
 
           <%!-- Recovery freshly confirmed --%>
           <div
-            :if={@has_recovery_key? && @recovery_fresh?}
+            :if={@has_recovery_key? && @recovery_fresh? && @webauthn != :unavailable}
             id="prf-recovery-fresh"
             class="p-4 rounded-xl bg-emerald-50 border border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800/50"
           >
@@ -232,11 +264,16 @@ defmodule MossletWeb.EditDeviceUnlockLive do
                       />
                       <div>
                         <p class="text-sm font-medium text-slate-800 dark:text-slate-200">
-                          {ecosystem_label(wrap.ecosystem_hint)}
+                          {device_name(wrap)}
                         </p>
-                        <p class="text-xs text-slate-500 dark:text-slate-500">
-                          Enrolled {Calendar.strftime(wrap.inserted_at, "%B %d, %Y")}
-                        </p>
+                        <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-600 dark:text-slate-400">
+                          <span class="inline-flex items-center rounded-md bg-slate-100 dark:bg-slate-700/60 px-1.5 py-0.5 font-medium text-slate-600 dark:text-slate-300">
+                            {ecosystem_badge(wrap.ecosystem_hint)}
+                          </span>
+                          <span>Enrolled {Calendar.strftime(wrap.inserted_at, "%B %d, %Y")}</span>
+                          <span aria-hidden="true">·</span>
+                          <span>{last_used_text(wrap)}</span>
+                        </div>
                       </div>
                     </div>
                     <button
@@ -245,13 +282,28 @@ defmodule MossletWeb.EditDeviceUnlockLive do
                       phx-click="start_unenroll"
                       phx-value-id={wrap.id}
                       disabled={@working?}
-                      data-confirm="Remove this device? If it's the last one, your account returns to password-only unlock."
+                      data-confirm="Remove this device? Enter your password below first — it's required to confirm. If it's the last one, your account returns to password-only unlock."
                       class="rounded-lg py-1.5 px-3 text-xs font-semibold text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors disabled:opacity-50"
                     >
                       Remove
                     </button>
                   </li>
                 </ul>
+                <div
+                  id="prf-synced-note"
+                  class="flex items-start gap-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 p-3 text-xs text-slate-500 dark:text-slate-400"
+                >
+                  <.phx_icon name="hero-information-circle" class="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span>
+                    Only devices listed here can unlock with your password. A synced
+                    passkey (iCloud Keychain or Google Password Manager) may already
+                    cover your other devices in the <em>same</em>
+                    ecosystem — you don't need to enroll each one. Devices in a
+                    different ecosystem (Apple vs. Google), or that don't sync, must
+                    be enrolled separately. Lost every device? Your recovery key
+                    always gets you back in.
+                  </span>
+                </div>
               </div>
 
               <div :if={!@prf_enrolled?}>
@@ -264,20 +316,40 @@ defmodule MossletWeb.EditDeviceUnlockLive do
 
               <%!-- Password confirm + CTA --%>
               <div class="space-y-3 pt-2">
-                <label
-                  for="prf_password"
-                  class="block text-sm font-medium text-slate-700 dark:text-slate-300"
-                >
-                  Confirm your password
-                </label>
-                <input
-                  type="password"
-                  name="prf_password"
-                  id="prf_password"
-                  autocomplete="current-password"
-                  placeholder="Your account password"
-                  class="block w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                />
+                <%!-- Uncontrolled inputs: phx-update="ignore" preserves the
+                     typed password/nickname across the working?/error re-renders
+                     that fire before PrfEnrollmentHook reads them (otherwise a
+                     patch resets them to empty → false "enter your password").
+                     The <.phx_input type="password"> reveal/hide toggle is pure
+                     client-side JS, so it works fine inside the ignored subtree. --%>
+                <div id="prf-input-group" phx-update="ignore" class="space-y-4">
+                  <.phx_input
+                    type="password"
+                    name="prf_password"
+                    id="prf_password"
+                    value=""
+                    label="Confirm your password"
+                    help={
+                      if(@prf_enrolled?,
+                        do: "Required to enroll another device or remove one.",
+                        else: nil
+                      )
+                    }
+                    autocomplete="current-password"
+                    placeholder="Your account password"
+                  />
+
+                  <.phx_input
+                    type="text"
+                    name="prf_device_label"
+                    id="prf_device_label"
+                    value=""
+                    label="Device nickname (optional)"
+                    maxlength="60"
+                    autocomplete="off"
+                    placeholder="e.g. My laptop, Work phone"
+                  />
+                </div>
 
                 <div class="flex flex-col sm:flex-row gap-3 pt-2">
                   <button
@@ -285,7 +357,7 @@ defmodule MossletWeb.EditDeviceUnlockLive do
                     type="button"
                     id="prf-enroll-btn"
                     phx-click="start_enroll"
-                    disabled={!@recovery_fresh? || @working?}
+                    disabled={!@recovery_fresh? || @working? || @webauthn == :unavailable}
                     class={[
                       "rounded-xl py-3 px-6 text-sm font-semibold",
                       "bg-gradient-to-r from-teal-500 to-emerald-500",
@@ -305,7 +377,7 @@ defmodule MossletWeb.EditDeviceUnlockLive do
                     type="button"
                     id="prf-add-device-btn"
                     phx-click="start_enroll"
-                    disabled={!@recovery_fresh? || @working?}
+                    disabled={!@recovery_fresh? || @working? || @webauthn == :unavailable}
                     class={[
                       "rounded-xl py-3 px-6 text-sm font-semibold",
                       "bg-gradient-to-r from-teal-500 to-emerald-500",
@@ -378,6 +450,13 @@ defmodule MossletWeb.EditDeviceUnlockLive do
 
   def handle_event("start_enroll", _params, socket) do
     cond do
+      socket.assigns.webauthn == :unavailable ->
+        {:noreply,
+         assign(socket,
+           error_message:
+             "Device unlock isn't available in this browser or on this device. Your account is unchanged."
+         )}
+
       not socket.assigns.has_recovery_key? ->
         {:noreply,
          assign(socket,
@@ -409,6 +488,7 @@ defmodule MossletWeb.EditDeviceUnlockLive do
       wrap_salt: params["wrap_salt"],
       credential_id: params["credential_id"],
       prf_salt: params["prf_salt"],
+      label: normalize_label(params["label"]),
       ecosystem_hint: params["ecosystem_hint"]
     }
 
@@ -471,7 +551,7 @@ defmodule MossletWeb.EditDeviceUnlockLive do
           nil
       end
 
-    case Accounts.unenroll_prf_wrap(user, params["wrap_id"], password_wrap) do
+    case Accounts.unenroll_prf_wrap(user, params["wrap_id"], params["password"], password_wrap) do
       {:ok, result} ->
         message =
           case result do
@@ -484,6 +564,13 @@ defmodule MossletWeb.EditDeviceUnlockLive do
          |> assign(working?: false, error_message: nil)
          |> assign_wrap_state(user)
          |> put_flash(:success, message)}
+
+      {:error, :invalid_password} ->
+        {:noreply,
+         assign(socket,
+           working?: false,
+           error_message: "That password is incorrect. Please try again."
+         )}
 
       {:error, :password_wrap_required} ->
         {:noreply,
@@ -505,7 +592,60 @@ defmodule MossletWeb.EditDeviceUnlockLive do
     {:noreply, assign(socket, working?: false, error_message: error)}
   end
 
+  # Advisory capability report from the browser (PrfEnrollmentHook). Drives the
+  # proactive "can I even enable this here?" messaging and CTA gating BEFORE the
+  # user clicks. Never affects correctness or key material — PRF remains a
+  # progressive enhancement confirmed only at ceremony time (design §4 / #367).
+  def handle_event("prf_capability", %{"status" => status} = params, socket) do
+    webauthn =
+      case status do
+        "available" -> :available
+        _ -> :unavailable
+      end
+
+    {:noreply, assign(socket, webauthn: webauthn, webauthn_reason: params["reason"])}
+  end
+
   defp ecosystem_label("apple"), do: "Apple device"
   defp ecosystem_label("google"), do: "Google / Android device"
   defp ecosystem_label(_), do: "This device"
+
+  # A device nickname is optional UX metadata (encrypted at rest via Cloak, not
+  # key material). Trim, cap length, and treat blank as nil.
+  defp normalize_label(label) when is_binary(label) do
+    case String.trim(label) do
+      "" -> nil
+      trimmed -> String.slice(trimmed, 0, 60)
+    end
+  end
+
+  defp normalize_label(_), do: nil
+
+  # Best-effort ecosystem badge for the roster (advisory only — never relied on
+  # for correctness; design §4/§10b).
+  defp ecosystem_badge("apple"), do: "Apple"
+  defp ecosystem_badge("google"), do: "Google / Android"
+  defp ecosystem_badge("cross-platform"), do: "Cross-platform"
+  defp ecosystem_badge(_), do: "Unknown"
+
+  defp device_name(%{label: label}) when is_binary(label) and label != "", do: label
+  defp device_name(%{ecosystem_hint: hint}), do: ecosystem_label(hint)
+
+  defp last_used_text(%{last_used_at: nil}), do: "Not used yet"
+
+  defp last_used_text(%{last_used_at: dt}),
+    do: "Last used " <> Calendar.strftime(dt, "%B %d, %Y")
+
+  # Honest, browser-specific copy for why device unlock can't be enabled here.
+  defp capability_reason_text("no_webauthn"),
+    do:
+      "This browser doesn't support passkeys (WebAuthn), which device unlock needs. Try a recent Chrome, Edge, or Safari."
+
+  defp capability_reason_text("no_platform_authenticator"),
+    do:
+      "This device doesn't have a built-in passkey authenticator available (like Touch ID, Face ID, or Windows Hello), which device unlock needs."
+
+  defp capability_reason_text(_),
+    do:
+      "Your browser or device doesn't currently support the passkey features device unlock needs."
 end

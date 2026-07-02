@@ -624,6 +624,7 @@ defmodule MossletWeb.API.AuthController do
       |> Enum.filter(&(&1.kind == :prf))
       |> Enum.map(fn wrap ->
         %{
+          id: wrap.id,
           credential_id: wrap.credential_id,
           prf_salt: wrap.prf_salt,
           wrap_salt: wrap.wrap_salt,

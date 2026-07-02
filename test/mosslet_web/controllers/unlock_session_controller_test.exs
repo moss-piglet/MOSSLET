@@ -66,4 +66,57 @@ defmodule MossletWeb.UnlockSessionControllerTest do
       refute get_session(conn, :key) == "attacker-key"
     end
   end
+
+  describe "POST /auth/unlock new-device recovery bootstrap (board #366)" do
+    test "with a fresh rc token: unlocks and routes to device-unlock to enroll", %{conn: conn} do
+      user = user_fixture(%{password: @password})
+      {:ok, real_user_key} = Accounts.User.valid_key_hash?(user, @password)
+      user = enroll(user)
+      rc = Accounts.sign_recovery_confirmation(user)
+
+      conn =
+        conn
+        |> log_in_user(user)
+        |> post(~p"/auth/unlock", %{
+          "unlock" => %{"user_key" => real_user_key, "rc" => rc}
+        })
+
+      assert redirected_to(conn) == ~p"/app/users/device-unlock?#{[rc: rc]}"
+      assert get_session(conn, :key) == real_user_key
+    end
+
+    test "with a bogus rc token: still unlocks but routes to the app", %{conn: conn} do
+      user = user_fixture(%{password: @password})
+      {:ok, real_user_key} = Accounts.User.valid_key_hash?(user, @password)
+      user = enroll(user)
+
+      conn =
+        conn
+        |> log_in_user(user)
+        |> post(~p"/auth/unlock", %{
+          "unlock" => %{"user_key" => real_user_key, "rc" => "not-a-token"}
+        })
+
+      assert redirected_to(conn) == ~p"/app"
+      assert get_session(conn, :key) == real_user_key
+    end
+
+    test "reported wrap_id updates the device roster last_used_at", %{conn: conn} do
+      user = user_fixture(%{password: @password})
+      {:ok, real_user_key} = Accounts.User.valid_key_hash?(user, @password)
+      user = enroll(user)
+
+      [wrap] = Accounts.list_user_key_wraps(user)
+      assert is_nil(wrap.last_used_at)
+
+      conn
+      |> log_in_user(user)
+      |> post(~p"/auth/unlock", %{
+        "unlock" => %{"user_key" => real_user_key, "wrap_id" => wrap.id}
+      })
+
+      [reloaded] = Accounts.list_user_key_wraps(user)
+      assert %DateTime{} = reloaded.last_used_at
+    end
+  end
 end

@@ -69,10 +69,11 @@ const UnlockHook = {
       // enrolled accounts. We NEVER fall back to a password-only door here.
       const prf = parsePrf(form.dataset.prf);
       if (prf.enrolled && prf.wraps.length > 0) {
-        const userKey = await tryPrfUnlock(prf.wraps, password);
-        if (userKey) {
-          sessionStorage.setItem(TEMP_USER_KEY, userKey);
-          setUserKeyField(form, userKey);
+        const result = await tryPrfUnlock(prf.wraps, password);
+        if (result) {
+          sessionStorage.setItem(TEMP_USER_KEY, result.userKey);
+          setUserKeyField(form, result.userKey);
+          setWrapIdField(form, result.wrapId);
           // Trigger the form action POST; the hidden user_key field rides along
           // and the controller uses it (enrolled → key_hash retired).
           this.pushEvent("unlock", { unlock: { password } });
@@ -139,8 +140,9 @@ function parsePrf(raw) {
 
 /**
  * Attempt to unlock user_key from one of the enrolled :prf wraps by evaluating
- * the device PRF and combining it with the password-derived key. Returns the
- * recovered user_key string, or null if no enrolled device can unlock here.
+ * the device PRF and combining it with the password-derived key. Returns
+ * `{ userKey, wrapId }` for the wrap that unlocked, or null if no enrolled
+ * device can unlock here.
  */
 async function tryPrfUnlock(wraps, password) {
   for (const wrap of wraps) {
@@ -154,7 +156,7 @@ async function tryPrfUnlock(wraps, password) {
       const passwordKey = await deriveSessionKey(password, wrap.wrap_salt);
       const wrappingKey = await combineSecrets(passwordKey, prfOutput, wrap.wrap_salt);
       const userKey = await unwrapUserKey(wrap.wrapped_user_key, wrappingKey);
-      if (userKey) return userKey;
+      if (userKey) return { userKey, wrapId: wrap.id || "" };
     } catch {
       // Wrong device / wrong password / cancelled — try the next wrap.
     }
@@ -171,4 +173,16 @@ function setUserKeyField(form, userKey) {
     form.appendChild(input);
   }
   input.value = userKey;
+}
+
+function setWrapIdField(form, wrapId) {
+  if (!wrapId) return;
+  let input = form.querySelector('input[name="unlock[wrap_id]"]');
+  if (!input) {
+    input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "unlock[wrap_id]";
+    form.appendChild(input);
+  }
+  input.value = wrapId;
 }

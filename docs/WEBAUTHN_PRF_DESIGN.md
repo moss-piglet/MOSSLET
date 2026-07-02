@@ -277,8 +277,56 @@ flowchart TD
   Enrollment deletes password wrap; un-enroll restores it.
 - **(d) Multi-device + synced-passkey.** Multiple `:prf` wraps; new-device
   bootstrap via recovery or synced passkey; ecosystem-hint handling.
+  **DONE (board #366):**
+  - *Multi-device* already held at the Accounts layer (N `:prf` wraps coexist;
+    partial unique index only constrains the single `:password` wrap) — now
+    explicitly covered by tests (independent removal, additive enroll, advisory
+    ecosystem-hint).
+  - *New-device bootstrap* (design §8): the `/auth/unlock` page now offers a
+    **recovery-key unlock** for enrolled accounts with no local passkey
+    (`RecoveryUnlockHook`). It recovers `user_key` on-device from the recovery
+    key (I6 — `user_key`/private key/secret never leave the browser), the
+    LiveView Argon2-verifies the secret and mints a fresh recovery-confirmation
+    token, and `UnlockSessionController` routes the user to Device Unlock
+    settings (`?rc=…`) to **enroll this device** (an additional `:prf` wrap of
+    the same `user_key`; no password door re-materialized).
+  - *Device roster UX*: `EditDeviceUnlockLive` shows per-device label
+    (nickname), ecosystem badge, enrolled date, and last-used (`last_used_at`
+    stamped best-effort via `Accounts.touch_prf_wrap_last_used/2` from the
+    unlock controller), plus honest synced-passkey / cross-ecosystem messaging.
+    `label` is optional UX metadata (Cloak-encrypted at rest, not key material).
+  - *Ecosystem-hint* stays strictly advisory — correctness never depends on it
+    (test-asserted).
+
 - **(e) UX, honest disclosure copy, tests, `browser_eval`.** Settings UI,
-  device list, capability messaging.
+  device list, capability messaging. **DONE (board #367 — closes epic #362):**
+  - *Proactive capability messaging*: `PrfEnrollmentHook.mounted()` now probes
+    `detectPrfCapability()` (WebAuthn + platform-authenticator presence) and
+    pushes an advisory `prf_capability` event. `EditDeviceUnlockLive` renders a
+    `#prf-capability-gate` notice with honest, reason-specific copy
+    (`no_webauthn` vs `no_platform_authenticator`) and disables the enroll CTA
+    *before* the user clicks — instead of only failing at ceremony time. It
+    remains strictly advisory UX (PRF is still confirmed only after a ceremony;
+    the `start_enroll` handler also hard-guards on `:unavailable`), so
+    correctness/I6 never depend on it. Verified end-to-end via `browser_eval`
+    (`webauthn: :available` round-trip on dev).
+  - *A11y / polish*: status banners carry `role`/`aria-live`; recovery-gate
+    notices are suppressed once capability is the hard blocker to avoid noise.
+  - *Tests*: capability-gating LiveView tests added (checking/available/
+    unavailable + guarded enroll); full suite green (`mix precommit`, 1014
+    passing).
+  - *Deferred — JS unit tests*: the repo has no JS test runner
+    (`assets/package.json` has none). The HKDF/wrap round-trip determinism
+    checks the design §10 calls for are **deferred** rather than standing up a
+    runner in this phase; the crypto is already exercised via the shared audited
+    Rust crate + server-side ExUnit and browser_eval. Flagged for a follow-up if
+    a JS harness is later warranted.
+  - *Manual-only verification* (cannot be driven by `browser_eval` — no CDP
+    virtual-authenticator PRF): actual Touch ID / Face ID / Windows Hello enroll
+    + verify-before-delete second ceremony, synced-passkey cross-ecosystem
+    behaviour, new-device recovery bootstrap enroll, and enrolled-user
+    password-change on-device re-wrap. To be confirmed by a human on dev.
+
 
 ## 10. Test coverage plan
 

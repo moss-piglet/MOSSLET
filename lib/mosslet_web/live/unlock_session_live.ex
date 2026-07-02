@@ -21,9 +21,15 @@ defmodule MossletWeb.UnlockSessionLive do
            page_title: "Unlock Session",
            user: user,
            key_hash: user.key_hash,
+           prf_enrolled?: Accounts.prf_enrolled?(user),
+           has_recovery_key?: Accounts.has_recovery_key?(user),
            prf_payload: prf_payload(user),
            form: to_form(%{}, as: :unlock),
-           trigger_submit: false
+           trigger_submit: false,
+           recovery_trigger?: false,
+           recovery_rc: nil,
+           recovery_error: nil,
+           recovery_working?: false
          )}
     end
   end
@@ -39,6 +45,7 @@ defmodule MossletWeb.UnlockSessionLive do
       |> Enum.filter(&(&1.kind == :prf))
       |> Enum.map(fn wrap ->
         %{
+          id: wrap.id,
           credential_id: wrap.credential_id,
           prf_salt: wrap.prf_salt,
           wrap_salt: wrap.wrap_salt,
@@ -169,6 +176,70 @@ defmodule MossletWeb.UnlockSessionLive do
             </button>
           </.form>
 
+          <%!-- New-device bootstrap (board #366, design §8): an enrolled account
+                on a device with no local passkey can't unlock via PRF above.
+                Offer a recovery-key unlock, then invite enrolling this device. --%>
+          <div :if={@prf_enrolled? && @has_recovery_key?} class="mt-6">
+            <details id="recovery-unlock-details" class="group">
+              <summary class="cursor-pointer list-none text-center text-sm font-medium text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors">
+                New device? Unlock with your recovery key
+              </summary>
+
+              <div class="mt-4 space-y-4">
+                <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  This account requires an enrolled device to unlock with your password.
+                  If this device isn't enrolled yet, unlock with your recovery key — then
+                  you can add this device from Device Unlock settings.
+                </p>
+
+                <div
+                  :if={@recovery_error}
+                  id="recovery-unlock-error"
+                  class="p-3 rounded-lg bg-rose-50 border border-rose-200 dark:bg-rose-900/20 dark:border-rose-800/50 text-sm text-rose-700 dark:text-rose-300"
+                >
+                  {@recovery_error}
+                </div>
+
+                <.form
+                  for={@form}
+                  id="recovery_unlock_form"
+                  action={~p"/auth/unlock"}
+                  phx-hook="RecoveryUnlockHook"
+                  phx-trigger-action={@recovery_trigger?}
+                  data-encrypted-recovery-private-key={@user.encrypted_recovery_private_key}
+                  data-public-key={@user.key_pair["public"]}
+                  data-encrypted-user-key={@user.user_key}
+                  class="space-y-3"
+                >
+                  <input type="hidden" name="unlock[user_key]" />
+                  <input type="hidden" name="unlock[rc]" value={@recovery_rc} />
+                  <input type="hidden" name="unlock[wrap_id]" value="recovery" />
+
+                  <label for="recovery-key-input" class="sr-only">Recovery key</label>
+                  <input
+                    type="text"
+                    name="recovery_key"
+                    id="recovery-key-input"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="Enter your recovery key"
+                    class="block w-full rounded-xl border-0 py-3 px-4 text-slate-900 dark:text-white bg-white/80 dark:bg-slate-700/80 ring-1 ring-inset ring-slate-300/50 dark:ring-slate-600/50 focus:ring-2 focus:ring-inset focus:ring-emerald-500/50 text-sm"
+                  />
+
+                  <button
+                    type="submit"
+                    id="recovery-unlock-btn"
+                    disabled={@recovery_working?}
+                    class="w-full px-6 py-3 rounded-xl font-semibold text-teal-700 dark:text-teal-300 border border-teal-300 dark:border-teal-700 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors disabled:opacity-50"
+                  >
+                    <span :if={@recovery_working?}>Unlocking…</span>
+                    <span :if={!@recovery_working?}>Unlock with recovery key</span>
+                  </button>
+                </.form>
+              </div>
+            </details>
+          </div>
+
           <%!-- Footer --%>
           <div class="space-y-3 pt-6 mt-6 border-t border-slate-200 dark:border-slate-700/50">
             <p class="text-center text-sm text-slate-600 dark:text-slate-400">
@@ -211,5 +282,42 @@ defmodule MossletWeb.UnlockSessionLive do
     # We just trigger the form submission (which the UnlockHook has already
     # intercepted to derive the user_key before submitting).
     {:noreply, assign(socket, trigger_submit: true)}
+  end
+
+  # New-device recovery unlock (board #366). The hook has already recovered
+  # `user_key` on-device (never sent here — I6) and placed it in the hidden
+  # `unlock[user_key]` field. We only Argon2-verify the recovery secret (exactly
+  # the existing recovery model — never stored), and on success mint a fresh
+  # recovery-confirmation token so the user can immediately enroll THIS device
+  # after unlocking, then trigger the form POST to the unlock controller.
+  @impl true
+  def handle_event("recovery_unlock_verify", %{"recovery_secret" => secret}, socket)
+      when is_binary(secret) do
+    user = socket.assigns.user
+
+    case Accounts.verify_recovery_secret(user, secret) do
+      :ok ->
+        rc = Accounts.sign_recovery_confirmation(user)
+
+        {:reply, %{ok: true},
+         socket
+         |> assign(recovery_rc: rc, recovery_error: nil, recovery_working?: true)}
+
+      :error ->
+        {:reply, %{ok: false},
+         assign(socket,
+           recovery_working?: false,
+           recovery_error: "That recovery key wasn't recognized. Please check it and try again."
+         )}
+    end
+  end
+
+  def handle_event("recovery_unlock_ready", _params, socket) do
+    # Hook has populated the hidden user_key field and is ready to POST.
+    {:noreply, assign(socket, recovery_trigger?: true)}
+  end
+
+  def handle_event("recovery_unlock_error", %{"error" => error}, socket) do
+    {:noreply, assign(socket, recovery_working?: false, recovery_error: error)}
   end
 end

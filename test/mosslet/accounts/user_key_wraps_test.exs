@@ -372,7 +372,9 @@ defmodule Mosslet.Accounts.UserKeyWrapsTest do
       assert Accounts.get_user!(user.id).key_hash in [nil, ""]
 
       pw = password_wrap_attrs()
-      assert {:ok, :unenrolled} = Accounts.unenroll_prf_wrap(user, prf.id, pw)
+
+      assert {:ok, :unenrolled} =
+               Accounts.unenroll_prf_wrap(user, prf.id, valid_user_password(), pw)
 
       restored = Accounts.get_user!(user.id).key_hash
       assert restored == pw.wrap_salt <> "$" <> pw.wrapped_user_key
@@ -384,22 +386,41 @@ defmodule Mosslet.Accounts.UserKeyWrapsTest do
       {:ok, prf1} = enroll_prf(user, prf_wrap_attrs(%{credential_id: "cred-1"}))
       {:ok, _prf2} = enroll_prf(user, prf_wrap_attrs(%{credential_id: "cred-2"}))
 
-      assert {:ok, :still_enrolled} = Accounts.unenroll_prf_wrap(user, prf1.id, nil)
+      assert {:ok, :still_enrolled} =
+               Accounts.unenroll_prf_wrap(user, prf1.id, valid_user_password(), nil)
+
       assert Accounts.get_user!(user.id).key_hash in [nil, ""]
     end
   end
 
-  describe "unenroll_prf_wrap/3 — no bricking" do
+  describe "unenroll_prf_wrap/4 — no bricking" do
     test "removing the last device restores the password door" do
       user = user_fixture() |> with_recovery()
       {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
       {:ok, prf} = enroll_prf(user, prf_wrap_attrs())
 
       assert {:ok, :unenrolled} =
-               Accounts.unenroll_prf_wrap(user, prf.id, password_wrap_attrs())
+               Accounts.unenroll_prf_wrap(
+                 user,
+                 prf.id,
+                 valid_user_password(),
+                 password_wrap_attrs()
+               )
 
       assert [%UserKeyWrap{kind: :password}] = Accounts.list_user_key_wraps(user)
       refute Accounts.prf_enrolled?(user)
+    end
+
+    test "refuses to remove a device with the wrong password (sudo gate)" do
+      user = user_fixture() |> with_recovery()
+      {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
+      {:ok, prf} = enroll_prf(user, prf_wrap_attrs())
+
+      assert {:error, :invalid_password} =
+               Accounts.unenroll_prf_wrap(user, prf.id, "wrong-password", password_wrap_attrs())
+
+      # unchanged — still enrolled, nothing removed
+      assert Accounts.prf_enrolled?(user)
     end
 
     test "refuses to remove the last device without a replacement password wrap" do
@@ -408,7 +429,7 @@ defmodule Mosslet.Accounts.UserKeyWrapsTest do
       {:ok, prf} = enroll_prf(user, prf_wrap_attrs())
 
       assert {:error, :password_wrap_required} =
-               Accounts.unenroll_prf_wrap(user, prf.id, nil)
+               Accounts.unenroll_prf_wrap(user, prf.id, valid_user_password(), nil)
 
       # rolled back — still enrolled, not bricked
       assert Accounts.prf_enrolled?(user)
@@ -420,10 +441,75 @@ defmodule Mosslet.Accounts.UserKeyWrapsTest do
       {:ok, prf1} = enroll_prf(user, prf_wrap_attrs(%{credential_id: "cred-1"}))
       {:ok, _prf2} = enroll_prf(user, prf_wrap_attrs(%{credential_id: "cred-2"}))
 
-      assert {:ok, :still_enrolled} = Accounts.unenroll_prf_wrap(user, prf1.id, nil)
+      assert {:ok, :still_enrolled} =
+               Accounts.unenroll_prf_wrap(user, prf1.id, valid_user_password(), nil)
 
       wraps = Accounts.list_user_key_wraps(user)
       assert length(wraps) == 1
+      assert Accounts.prf_enrolled?(user)
+    end
+  end
+
+  describe "multi-device roster metadata (board #366)" do
+    test "enroll persists an optional device label and ecosystem_hint" do
+      user = user_fixture() |> with_recovery()
+      {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
+
+      {:ok, wrap} =
+        enroll_prf(
+          user,
+          prf_wrap_attrs(%{
+            credential_id: "cred-labeled",
+            label: "My laptop",
+            ecosystem_hint: "apple"
+          })
+        )
+
+      assert wrap.label == "My laptop"
+      assert wrap.ecosystem_hint == "apple"
+      assert is_nil(wrap.last_used_at)
+    end
+
+    test "touch_prf_wrap_last_used/2 stamps last_used_at for the matching wrap only" do
+      user = user_fixture() |> with_recovery()
+      {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
+      {:ok, prf1} = enroll_prf(user, prf_wrap_attrs(%{credential_id: "cred-1"}))
+      {:ok, prf2} = enroll_prf(user, prf_wrap_attrs(%{credential_id: "cred-2"}))
+
+      assert {:ok, 1} = Accounts.touch_prf_wrap_last_used(user, prf1.id)
+
+      by_id = Map.new(Accounts.list_user_key_wraps(user), &{&1.id, &1})
+      assert %DateTime{} = by_id[prf1.id].last_used_at
+      assert is_nil(by_id[prf2.id].last_used_at)
+    end
+
+    test "touch_prf_wrap_last_used/2 is a safe no-op for unknown / blank ids" do
+      user = user_fixture() |> with_recovery()
+      {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
+      {:ok, _prf} = enroll_prf(user, prf_wrap_attrs())
+
+      assert {:ok, 0} = Accounts.touch_prf_wrap_last_used(user, Ecto.UUID.generate())
+      assert {:ok, 0} = Accounts.touch_prf_wrap_last_used(user, "")
+      assert {:ok, 0} = Accounts.touch_prf_wrap_last_used(user, nil)
+    end
+
+    test "ecosystem_hint is advisory only — correctness never depends on it" do
+      # Two wraps sharing an ecosystem hint coexist and unlock independently; the
+      # hint carries no invariant. A nil / unusual hint is equally valid.
+      user = user_fixture() |> with_recovery()
+      {:ok, _} = Accounts.backfill_password_wrap(user, password_wrap_attrs())
+
+      {:ok, _} =
+        enroll_prf(user, prf_wrap_attrs(%{credential_id: "a1", ecosystem_hint: "apple"}))
+
+      {:ok, _} =
+        enroll_prf(user, prf_wrap_attrs(%{credential_id: "a2", ecosystem_hint: "apple"}))
+
+      {:ok, _} =
+        enroll_prf(user, prf_wrap_attrs(%{credential_id: "n1", ecosystem_hint: nil}))
+
+      wraps = Accounts.list_user_key_wraps(user)
+      assert length(wraps) == 3
       assert Accounts.prf_enrolled?(user)
     end
   end

@@ -121,7 +121,7 @@ defmodule MossletWeb.API.AuthControllerTest do
       [prf] = Enum.filter(Mosslet.Accounts.list_user_key_wraps(user), &(&1.kind == :prf))
 
       {:ok, :unenrolled} =
-        Mosslet.Accounts.unenroll_prf_wrap(user, prf.id, %{
+        Mosslet.Accounts.unenroll_prf_wrap(user, prf.id, @valid_password, %{
           wrapped_user_key: "restored-pw-blob",
           wrap_salt: "cmVzdG9yZQ=="
         })

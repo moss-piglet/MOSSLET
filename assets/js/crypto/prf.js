@@ -134,6 +134,41 @@ export async function isWebAuthnAvailable() {
   return true;
 }
 
+/**
+ * Proactive capability report for the settings UI. Unlike `isWebAuthnAvailable`
+ * (a single boolean used at ceremony time), this returns a structured status so
+ * the page can message honestly *before* the user clicks — "why can't I enable
+ * this here?" — without ever promising PRF (which can only be confirmed after a
+ * ceremony; callers still handle a null PRF result as a fallback).
+ *
+ * @returns {Promise<{status: "available"|"unavailable", reason: string|null}>}
+ *   reason ∈ "no_webauthn" | "no_platform_authenticator" | null.
+ */
+export async function detectPrfCapability() {
+  if (
+    typeof window === "undefined" ||
+    !window.PublicKeyCredential ||
+    typeof navigator === "undefined" ||
+    !navigator.credentials
+  ) {
+    return { status: "unavailable", reason: "no_webauthn" };
+  }
+
+  try {
+    if (typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === "function") {
+      const ok = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+      return ok
+        ? { status: "available", reason: null }
+        : { status: "unavailable", reason: "no_platform_authenticator" };
+    }
+  } catch {
+    return { status: "unavailable", reason: "no_platform_authenticator" };
+  }
+
+  // WebAuthn present but no platform-authenticator probe — allow an attempt.
+  return { status: "available", reason: null };
+}
+
 // ---------------------------------------------------------------------------
 // WebAuthn ceremony glue
 // ---------------------------------------------------------------------------

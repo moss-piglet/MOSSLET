@@ -34,6 +34,7 @@
 import { deriveSessionKey, encryptSecretboxString } from "../crypto/nacl";
 import {
   isWebAuthnAvailable,
+  detectPrfCapability,
   createPrfCredential,
   evaluatePrf,
   combineSecrets,
@@ -51,8 +52,19 @@ function getPasswordInput(el) {
   return el.querySelector('input[name="prf_password"]');
 }
 
+function getLabelInput(el) {
+  return el.querySelector('input[name="prf_device_label"]');
+}
+
 const PrfEnrollmentHook = {
   mounted() {
+    // Proactively report device/browser capability so the settings page can
+    // message honestly ("why can't I enable this here?") and hide/disable the
+    // enroll CTA BEFORE the user clicks — instead of only failing at ceremony
+    // time. PRF itself is still a progressive enhancement (confirmed only after
+    // a ceremony), so the server treats this as advisory UX only.
+    this.reportCapability();
+
     this.handleEvent("prf_enroll", async (payload) => {
       await this.enroll(payload);
     });
@@ -60,6 +72,19 @@ const PrfEnrollmentHook = {
     this.handleEvent("prf_unenroll", async (payload) => {
       await this.unenroll(payload);
     });
+  },
+
+  async reportCapability() {
+    try {
+      const { status, reason } = await detectPrfCapability();
+      this.pushEvent("prf_capability", { status, reason });
+    } catch (err) {
+      console.error("PrfEnrollmentHook: capability probe failed:", err);
+      this.pushEvent("prf_capability", {
+        status: "unavailable",
+        reason: "no_webauthn",
+      });
+    }
   },
 
   async enroll({ user_id, user_name }) {
@@ -140,11 +165,16 @@ const PrfEnrollmentHook = {
 
       if (passwordInput) passwordInput.value = "";
 
+      const labelInput = getLabelInput(this.el);
+      const label = labelInput ? labelInput.value.trim() : "";
+      if (labelInput) labelInput.value = "";
+
       this.pushEvent("prf_enrolled", {
         wrapped_user_key: wrappedUserKey,
         wrap_salt: wrapSalt,
         credential_id: credentialIdB64,
         prf_salt: prfSalt,
+        label: label || null,
         ecosystem_hint: detectEcosystemHint(),
         prf_enabled: prfEnabled,
       });
@@ -158,25 +188,28 @@ const PrfEnrollmentHook = {
   },
 
   async unenroll({ wrap_id, last_device }) {
-    // Removing a non-last device needs no password wrap — server keeps the
-    // account enrolled. Only the last device must re-materialize the password
-    // door so the user is never bricked.
+    // Sudo gate: removing an unlock door always re-verifies the account
+    // password server-side, so the plaintext password is required here for
+    // EVERY removal (not just the last device). The password is an auth check
+    // only — never key material (I6). For the LAST device we also re-materialize
+    // the password-only wrap on-device so the user is never bricked.
+    const passwordInput = getPasswordInput(this.el);
+    const password = passwordInput ? passwordInput.value : "";
+    if (!password) {
+      return this.pushEvent("prf_error", {
+        error: "Please enter your password to remove this device.",
+      });
+    }
+
     if (!last_device) {
-      return this.pushEvent("prf_unenrolled", { wrap_id });
+      if (passwordInput) passwordInput.value = "";
+      return this.pushEvent("prf_unenrolled", { wrap_id, password });
     }
 
     const userKey = getUserKey();
     if (!userKey) {
       return this.pushEvent("prf_error", {
         error: "Session keys not available. Please refresh the page and try again.",
-      });
-    }
-
-    const passwordInput = getPasswordInput(this.el);
-    const password = passwordInput ? passwordInput.value : "";
-    if (!password) {
-      return this.pushEvent("prf_error", {
-        error: "Please enter your password to remove this device.",
       });
     }
 
@@ -189,6 +222,7 @@ const PrfEnrollmentHook = {
 
       this.pushEvent("prf_unenrolled", {
         wrap_id,
+        password,
         wrapped_user_key: wrappedUserKey,
         wrap_salt: wrapSalt,
       });

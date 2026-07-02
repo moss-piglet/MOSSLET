@@ -978,6 +978,10 @@ defmodule Mosslet.Accounts do
   @doc """
   Removes a `:prf` wrap and guarantees the user can never brick themselves.
 
+  Sudo-gated: `password` is re-verified against the account (server-side Argon2)
+  before any change, since removing an unlock door is sensitive. Returns
+  `{:error, :invalid_password}` on a wrong/blank password.
+
   If the removed wrap was the LAST `:prf` wrap, the account is flipped back
   AND → OR by re-materializing the single `:password` wrap from the
   browser-supplied `password_wrap` payload (`wrapped_user_key` + `wrap_salt`),
@@ -989,7 +993,19 @@ defmodule Mosslet.Accounts do
   Returns `{:ok, :unenrolled}` (last device removed, password door restored),
   `{:ok, :still_enrolled}` (other devices remain), or `{:error, reason}`.
   """
-  def unenroll_prf_wrap(%User{id: user_id} = user, wrap_id, password_wrap \\ nil) do
+  def unenroll_prf_wrap(%User{} = user, wrap_id, password, password_wrap \\ nil) do
+    # Sudo gate: removing an unlock door is a sensitive operation, so it always
+    # requires re-verifying the account password server-side (Argon2 vs
+    # hashed_password), mirroring delete-account / disable-2FA. This is an
+    # auth check only — the password is never key material (I6 preserved).
+    if not User.valid_password?(user, password) do
+      {:error, :invalid_password}
+    else
+      do_unenroll_prf_wrap(user, wrap_id, password_wrap)
+    end
+  end
+
+  defp do_unenroll_prf_wrap(%User{id: user_id} = user, wrap_id, password_wrap) do
     # Decide BEFORE mutating so we never delete the last device and leave the
     # account without any door (no rollback needed — see design §4 wrinkle 3).
     prf_count = Mosslet.Repo.aggregate(where(UserKeyWrap, kind: :prf, user_id: ^user_id), :count)
@@ -1067,6 +1083,34 @@ defmodule Mosslet.Accounts do
       end
     end
   end
+
+  @doc """
+  Records that a `:prf` wrap was just used to unlock `user_key`, for the device
+  roster's "last used" column (board #366).
+
+  Matches by wrap `id` (the browser reports which enrolled door unlocked, since
+  `credential_id` is opaque/encrypted at rest). Best-effort and non-fatal: a
+  no-match or a DB hiccup never blocks the unlock — this is display metadata,
+  not part of the security contract (I6 unaffected).
+
+  Returns `{:ok, count}` where `count` is the number of rows touched (0 or 1).
+  """
+  def touch_prf_wrap_last_used(%User{id: user_id}, wrap_id)
+      when is_binary(wrap_id) and wrap_id != "" do
+    now = DateTime.truncate(DateTime.utc_now(), :second)
+
+    Mosslet.Repo.transaction_on_primary(fn ->
+      UserKeyWrap
+      |> where(id: ^wrap_id, user_id: ^user_id, kind: :prf)
+      |> Mosslet.Repo.update_all(set: [last_used_at: now])
+    end)
+    |> case do
+      {:ok, {count, _}} -> {:ok, count}
+      _ -> {:ok, 0}
+    end
+  end
+
+  def touch_prf_wrap_last_used(_user, _wrap_id), do: {:ok, 0}
 
   defp normalize_wrap_attrs(%{"wrapped_user_key" => wuk, "wrap_salt" => salt}),
     do: %{wrapped_user_key: wuk, wrap_salt: salt}

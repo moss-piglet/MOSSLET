@@ -49,6 +49,55 @@ defmodule MossletWeb.EditDeviceUnlockLiveTest do
     @path <> "?rc=" <> Accounts.sign_recovery_confirmation(user)
   end
 
+  describe "capability messaging (#367)" do
+    setup :onboarded_user
+
+    test "no capability banner before the browser reports (checking state)", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+
+      refute has_element?(view, "#prf-capability-gate")
+    end
+
+    test "unavailable capability shows the gate and disables enroll", %{conn: conn, user: user} do
+      user = with_recovery(user)
+      {:ok, view, _html} = live(conn, fresh_path(user))
+
+      # Fresh recovery would otherwise enable the CTA.
+      refute has_element?(view, "#prf-enroll-btn[disabled]")
+
+      render_hook(view, "prf_capability", %{
+        "status" => "unavailable",
+        "reason" => "no_platform_authenticator"
+      })
+
+      assert has_element?(view, "#prf-capability-gate")
+      assert has_element?(view, "#prf-enroll-btn[disabled]")
+      # Moot recovery notices are suppressed once capability is the hard blocker.
+      refute has_element?(view, "#prf-recovery-fresh")
+    end
+
+    test "available capability keeps the enroll CTA usable", %{conn: conn, user: user} do
+      user = with_recovery(user)
+      {:ok, view, _html} = live(conn, fresh_path(user))
+
+      render_hook(view, "prf_capability", %{"status" => "available", "reason" => nil})
+
+      refute has_element?(view, "#prf-capability-gate")
+      refute has_element?(view, "#prf-enroll-btn[disabled]")
+    end
+
+    test "enroll attempt while unavailable errors and changes nothing", %{conn: conn, user: user} do
+      user = with_recovery(user)
+      {:ok, view, _html} = live(conn, fresh_path(user))
+
+      render_hook(view, "prf_capability", %{"status" => "unavailable", "reason" => "no_webauthn"})
+      render_hook(view, "start_enroll", %{})
+
+      refute Accounts.prf_enrolled?(user)
+      assert has_element?(view, "#prf-error")
+    end
+  end
+
   describe "recovery-key gate (three states, #364)" do
     setup :onboarded_user
 
@@ -111,6 +160,36 @@ defmodule MossletWeb.EditDeviceUnlockLiveTest do
       assert has_element?(view, "#prf-add-device-btn")
     end
 
+    test "enrolls another device with a label without disturbing existing wraps (board #366)", %{
+      conn: conn,
+      user: user
+    } do
+      user = with_recovery(user)
+      {:ok, view, _html} = live(conn, fresh_path(user))
+
+      render_hook(view, "prf_enrolled", prf_params(%{"credential_id" => "cred-1"}))
+      assert Accounts.prf_enrolled?(user)
+
+      render_hook(
+        view,
+        "prf_enrolled",
+        prf_params(%{
+          "credential_id" => "cred-2",
+          "label" => "Work phone",
+          "ecosystem_hint" => "google"
+        })
+      )
+
+      wraps = Accounts.list_user_key_wraps(user)
+      assert length(wraps) == 2
+      assert Enum.all?(wraps, &(&1.kind == :prf))
+
+      labeled = Enum.find(wraps, &(&1.credential_id == "cred-2"))
+      assert labeled.label == "Work phone"
+      assert labeled.ecosystem_hint == "google"
+      assert has_element?(view, "#prf-synced-note")
+    end
+
     test "refuses enrollment without a recovery key", %{conn: conn, user: user} do
       {:ok, view, _html} = live(conn, @path)
 
@@ -148,12 +227,34 @@ defmodule MossletWeb.EditDeviceUnlockLiveTest do
 
       render_hook(view, "prf_unenrolled", %{
         "wrap_id" => wrap.id,
+        "password" => valid_user_password(),
         "wrapped_user_key" => "opaque-password-wrap-blob",
         "wrap_salt" => "cGFzc3NhbHQ="
       })
 
       refute Accounts.prf_enrolled?(user)
       assert [%{kind: :password}] = Accounts.list_user_key_wraps(user)
+    end
+
+    test "removing a device with the wrong password errors and stays enrolled (sudo gate)", %{
+      conn: conn,
+      user: user
+    } do
+      user = with_recovery(user)
+      {:ok, view, _html} = live(conn, fresh_path(user))
+
+      render_hook(view, "prf_enrolled", prf_params())
+      [wrap] = Accounts.list_user_key_wraps(user)
+
+      render_hook(view, "prf_unenrolled", %{
+        "wrap_id" => wrap.id,
+        "password" => "wrong-password",
+        "wrapped_user_key" => "opaque-password-wrap-blob",
+        "wrap_salt" => "cGFzc3NhbHQ="
+      })
+
+      assert Accounts.prf_enrolled?(user)
+      assert has_element?(view, "#prf-error")
     end
 
     test "removing the last device without a password wrap errors and stays enrolled", %{
@@ -166,7 +267,10 @@ defmodule MossletWeb.EditDeviceUnlockLiveTest do
       render_hook(view, "prf_enrolled", prf_params())
       [wrap] = Accounts.list_user_key_wraps(user)
 
-      render_hook(view, "prf_unenrolled", %{"wrap_id" => wrap.id})
+      render_hook(view, "prf_unenrolled", %{
+        "wrap_id" => wrap.id,
+        "password" => valid_user_password()
+      })
 
       assert Accounts.prf_enrolled?(user)
       assert has_element?(view, "#prf-error")
