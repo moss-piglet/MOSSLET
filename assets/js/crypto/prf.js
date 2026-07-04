@@ -244,14 +244,17 @@ export async function createPrfCredential({ userId, userName, prfSaltB64, rpId, 
       // Face ID, Windows Hello) AND cross-platform providers (1Password, phones
       // via hybrid, security keys) are eligible.
       //
-      // `residentKey: "required"` requests a DISCOVERABLE passkey. This matters
-      // for provider choice on macOS/iOS: with "preferred", Safari shortcuts
-      // straight to iCloud Keychain and never surfaces third-party passkey
-      // managers; with "required" the system sheet offers ALL installed
-      // providers (1Password, etc.). Discoverable is also what a passkey is
-      // supposed to be, and it enables cross-device/hybrid use later. Our unlock
-      // path always passes `allowCredentials`, so discoverability is orthogonal
-      // to how we evaluate the PRF.
+      // `residentKey: "required"` requests a DISCOVERABLE passkey. This is
+      // standard WebAuthn and behaves identically on every platform (macOS/iOS,
+      // Windows, Android, Linux). It matters for PROVIDER CHOICE: with
+      // "preferred", some OSes shortcut to the built-in provider (Safari →
+      // iCloud Keychain, Chrome/Android → Google Password Manager) and never
+      // surface third-party managers; with "required" the system passkey sheet
+      // offers ALL installed providers (1Password, iCloud, Google, Windows
+      // Hello, security keys, a phone via hybrid). Discoverable is also what a
+      // passkey is supposed to be, and it enables cross-device/hybrid use. Our
+      // unlock path always passes `allowCredentials`, so discoverability is
+      // orthogonal to how we evaluate the PRF.
       residentKey: "required",
       requireResidentKey: true,
       userVerification: "required",

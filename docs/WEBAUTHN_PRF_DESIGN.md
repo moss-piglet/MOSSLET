@@ -368,7 +368,10 @@ flowchart TD
     now requests a DISCOVERABLE passkey (`residentKey: "required"`). With
     "preferred", Safari shortcut straight to iCloud Keychain and never offered
     installed third-party providers; "required" makes the system sheet list all of
-    them (1Password, iCloud, security keys).
+    them (1Password, iCloud, security keys). This is standard WebAuthn and works
+    identically on Windows (Windows Hello / 1Password / security keys), Android
+    (Google Password Manager / 1Password), and Linux — no platform branching. The
+    macOS/iOS wording only reflects where the "only Apple shown" symptom surfaced.
   - *Relying-Party ID scoping across org subdomains.* Passkeys are bound to an
     `rpId`. Using the bare request host meant a passkey enrolled on the apex
     (`mosslet.com`) could NOT be used on a branded org subdomain
