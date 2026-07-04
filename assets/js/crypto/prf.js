@@ -179,11 +179,22 @@ function randomBytes(n) {
 }
 
 /**
- * The effective relying-party id. Passkeys are scoped to this. Using the bare
- * host (no scheme/port) keeps a credential usable across the site.
+ * The effective relying-party id. Passkeys are scoped to this.
+ *
+ * We use the app's registrable BASE domain (from the server-rendered
+ * `<meta name="webauthn-rp-id">`, e.g. `mosslet.com` in prod / `localhost` in
+ * dev) rather than the bare request host. A credential's rpId must be equal to,
+ * or a registrable parent of, the current origin's host — the base domain holds
+ * for the apex AND every branded org subdomain (`acme.mosslet.com`), so a
+ * passkey enrolled once works everywhere in the app. Falling back to the bare
+ * hostname keeps this safe if the meta tag is ever absent. Any accidental
+ * `:port` is stripped (rpId is a domain, never host:port).
  */
 function defaultRpId() {
-  return window.location.hostname;
+  const meta = document.querySelector('meta[name="webauthn-rp-id"]');
+  const configured = meta && meta.content ? meta.content.trim() : "";
+  const host = configured || window.location.hostname;
+  return host.split(":")[0];
 }
 
 /**
@@ -231,10 +242,18 @@ export async function createPrfCredential({ userId, userName, prfSaltB64, rpId, 
     authenticatorSelection: {
       // No `authenticatorAttachment` → both platform authenticators (Touch ID,
       // Face ID, Windows Hello) AND cross-platform providers (1Password, phones
-      // via hybrid, security keys) are eligible. A discoverable (resident)
-      // credential is preferred so cross-platform managers can hold it.
-      residentKey: "preferred",
-      requireResidentKey: false,
+      // via hybrid, security keys) are eligible.
+      //
+      // `residentKey: "required"` requests a DISCOVERABLE passkey. This matters
+      // for provider choice on macOS/iOS: with "preferred", Safari shortcuts
+      // straight to iCloud Keychain and never surfaces third-party passkey
+      // managers; with "required" the system sheet offers ALL installed
+      // providers (1Password, etc.). Discoverable is also what a passkey is
+      // supposed to be, and it enables cross-device/hybrid use later. Our unlock
+      // path always passes `allowCredentials`, so discoverability is orthogonal
+      // to how we evaluate the PRF.
+      residentKey: "required",
+      requireResidentKey: true,
       userVerification: "required",
     },
     timeout: 60000,

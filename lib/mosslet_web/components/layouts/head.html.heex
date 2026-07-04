@@ -2,6 +2,14 @@
   <.live_title suffix={" 🌿 " <> app_name()}>{title(@conn)}</.live_title>
   <meta name="csrf-token" content={get_csrf_token()} />
 
+  <%!-- WebAuthn Relying Party ID for Device Unlock passkeys. This is the app's
+       registrable base domain (e.g. `mosslet.com` in prod, `localhost` in dev),
+       NOT the request host — so a passkey enrolled on the apex works on branded
+       org subdomains (`acme.mosslet.com`) too. A credential's rpId must be equal
+       to, or a registrable parent of, the current origin's host, which holds for
+       the apex and every subdomain under it. --%>
+  <meta name="webauthn-rp-id" content={Application.get_env(:mosslet, :canonical_host)} />
+
   <meta charset="utf-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
