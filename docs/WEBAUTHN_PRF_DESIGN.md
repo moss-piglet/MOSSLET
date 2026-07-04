@@ -364,6 +364,23 @@ flowchart TD
     only door). `UnlockHook` pushes `prf_unlock_unavailable`; the LiveView shows
     honest guidance (`#prf-unlock-error`) and auto-opens the recovery-key unlock so
     the user can get in and then add this device.
+  - *Third-party passkey managers (1Password) on macOS/iOS.* `createPrfCredential`
+    now requests a DISCOVERABLE passkey (`residentKey: "required"`). With
+    "preferred", Safari shortcut straight to iCloud Keychain and never offered
+    installed third-party providers; "required" makes the system sheet list all of
+    them (1Password, iCloud, security keys).
+  - *Relying-Party ID scoping across org subdomains.* Passkeys are bound to an
+    `rpId`. Using the bare request host meant a passkey enrolled on the apex
+    (`mosslet.com`) could NOT be used on a branded org subdomain
+    (`acme.mosslet.com`) — and since enrolled accounts have no password-only door,
+    the user was locked out on the subdomain. Fix: scope passkeys to the app's
+    registrable BASE domain via a server-rendered `<meta name="webauthn-rp-id">`
+    (from `:canonical_host`, e.g. `mosslet.com` in prod / `localhost` in dev), used
+    by BOTH `createPrfCredential` and `evaluatePrf`. An rpId must be equal to or a
+    registrable parent of the current origin's host, which holds for the apex and
+    every subdomain under it, so one enrollment now works app-wide. Existing apex
+    credentials are unaffected (identical value).
+
 
 
 ## 10. Test coverage plan
