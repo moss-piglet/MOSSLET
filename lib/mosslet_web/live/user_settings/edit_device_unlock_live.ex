@@ -31,6 +31,7 @@ defmodule MossletWeb.EditDeviceUnlockLive do
        page_title: "Settings",
        error_message: nil,
        working?: false,
+       enroll_progress: nil,
        webauthn: :checking,
        webauthn_reason: nil,
        recovery_fresh?: recovery_fresh?,
@@ -98,6 +99,39 @@ defmodule MossletWeb.EditDeviceUnlockLive do
             </div>
           </div>
 
+          <%!-- Enrollment step banner. Enrolling a device deliberately asks for
+                MORE THAN ONE passkey confirmation (create + a verify-before-delete
+                check). Without context the repeat prompts feel like a bug, so the
+                hook announces each step just before its native prompt opens. --%>
+          <div
+            :if={@working? && @enroll_progress}
+            id="prf-enroll-progress"
+            role="status"
+            aria-live="polite"
+            class="p-4 rounded-xl bg-teal-50 border border-teal-200 dark:bg-teal-900/20 dark:border-teal-800/50"
+          >
+            <div class="flex items-start gap-3">
+              <span class="relative flex h-5 w-5 shrink-0 mt-0.5">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-60"></span>
+                <span class="relative inline-flex rounded-full h-5 w-5 items-center justify-center bg-teal-500 text-[10px] font-bold text-white">
+                  {@enroll_progress.step}
+                </span>
+              </span>
+              <div class="space-y-1">
+                <p class="text-sm font-semibold text-teal-800 dark:text-teal-200">
+                  {@enroll_progress.title}
+                </p>
+                <p class="text-sm text-teal-700 dark:text-teal-300">
+                  {@enroll_progress.detail}
+                </p>
+                <p class="text-xs text-teal-600/80 dark:text-teal-400/80">
+                  You may be asked to confirm your passkey more than once — that's a normal
+                  security check, not an error.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <%!-- Capability notice (PRF/WebAuthn unavailable in this browser/device) --%>
           <div
             :if={@webauthn == :unavailable}
@@ -117,12 +151,34 @@ defmodule MossletWeb.EditDeviceUnlockLive do
                 </p>
                 <p>{capability_reason_text(@webauthn_reason)}</p>
                 <p class="text-xs text-slate-500 dark:text-slate-500">
-                  Device unlock works in Chrome, Edge, and Safari 18+ on a device with a
-                  passkey-capable secure enclave (Touch ID, Face ID, Windows Hello). Firefox
-                  support is partial. Your account is unchanged and still unlocks with your
-                  password.
+                  Device unlock works in Chrome, Edge, and Safari 18+ with either a
+                  built-in authenticator (Touch ID, Face ID, Windows Hello) or a
+                  passkey manager like 1Password. Firefox support is partial. Your
+                  account is unchanged and still unlocks with your password.
                 </p>
               </div>
+            </div>
+          </div>
+
+          <%!-- Advisory (available, but only a cross-platform passkey provider
+                like 1Password is present — enrollment still works). --%>
+          <div
+            :if={@webauthn == :available && @webauthn_reason == "cross_platform_only"}
+            id="prf-cross-platform-note"
+            role="status"
+            aria-live="polite"
+            class="p-4 rounded-xl bg-slate-50 border border-slate-200 dark:bg-slate-800/50 dark:border-slate-700/60"
+          >
+            <div class="flex items-start gap-3">
+              <.phx_icon
+                name="hero-key"
+                class="w-5 h-5 text-slate-500 dark:text-slate-400 mt-0.5 flex-shrink-0"
+              />
+              <p class="text-sm text-slate-600 dark:text-slate-400">
+                No built-in authenticator (Touch ID, Face ID, Windows Hello) was detected
+                here, but you can still enable device unlock with a passkey manager like
+                1Password or a security key. You'll be prompted to choose one when you enroll.
+              </p>
             </div>
           </div>
 
@@ -475,9 +531,22 @@ defmodule MossletWeb.EditDeviceUnlockLive do
 
         {:noreply,
          socket
-         |> assign(working?: true, error_message: nil)
+         |> assign(working?: true, error_message: nil, enroll_progress: nil)
          |> push_event("prf_enroll", %{user_id: user.id, user_name: "Mosslet account"})}
     end
+  end
+
+  # Per-step enrollment progress from PrfEnrollmentHook, shown just before each
+  # native passkey prompt so the multi-confirmation flow reads as deliberate
+  # steps rather than a loop. Advisory UX only — never affects correctness/I6.
+  def handle_event("prf_progress", params, socket) do
+    progress = %{
+      step: params["step"] || 1,
+      title: params["title"] || "Setting up your passkey",
+      detail: params["detail"] || ""
+    }
+
+    {:noreply, assign(socket, working?: true, enroll_progress: progress)}
   end
 
   def handle_event("prf_enrolled", params, socket) do
@@ -496,7 +565,7 @@ defmodule MossletWeb.EditDeviceUnlockLive do
       {:ok, _wrap} ->
         {:noreply,
          socket
-         |> assign(working?: false, error_message: nil)
+         |> assign(working?: false, error_message: nil, enroll_progress: nil)
          |> assign_wrap_state(user)
          |> put_flash(:success, "Device unlock enabled for this device.")}
 
@@ -589,7 +658,7 @@ defmodule MossletWeb.EditDeviceUnlockLive do
   end
 
   def handle_event("prf_error", %{"error" => error}, socket) do
-    {:noreply, assign(socket, working?: false, error_message: error)}
+    {:noreply, assign(socket, working?: false, error_message: error, enroll_progress: nil)}
   end
 
   # Advisory capability report from the browser (PrfEnrollmentHook). Drives the
@@ -640,10 +709,6 @@ defmodule MossletWeb.EditDeviceUnlockLive do
   defp capability_reason_text("no_webauthn"),
     do:
       "This browser doesn't support passkeys (WebAuthn), which device unlock needs. Try a recent Chrome, Edge, or Safari."
-
-  defp capability_reason_text("no_platform_authenticator"),
-    do:
-      "This device doesn't have a built-in passkey authenticator available (like Touch ID, Face ID, or Windows Hello), which device unlock needs."
 
   defp capability_reason_text(_),
     do:

@@ -67,13 +67,31 @@ defmodule MossletWeb.EditDeviceUnlockLiveTest do
 
       render_hook(view, "prf_capability", %{
         "status" => "unavailable",
-        "reason" => "no_platform_authenticator"
+        "reason" => "no_webauthn"
       })
 
       assert has_element?(view, "#prf-capability-gate")
       assert has_element?(view, "#prf-enroll-btn[disabled]")
       # Moot recovery notices are suppressed once capability is the hard blocker.
       refute has_element?(view, "#prf-recovery-fresh")
+    end
+
+    test "cross-platform-only keeps enroll usable with an advisory (#373)", %{
+      conn: conn,
+      user: user
+    } do
+      user = with_recovery(user)
+      {:ok, view, _html} = live(conn, fresh_path(user))
+
+      render_hook(view, "prf_capability", %{
+        "status" => "available",
+        "reason" => "cross_platform_only"
+      })
+
+      # No built-in authenticator, but a passkey manager (1Password) can enroll.
+      assert has_element?(view, "#prf-cross-platform-note")
+      refute has_element?(view, "#prf-capability-gate")
+      refute has_element?(view, "#prf-enroll-btn[disabled]")
     end
 
     test "available capability keeps the enroll CTA usable", %{conn: conn, user: user} do
@@ -148,6 +166,40 @@ defmodule MossletWeb.EditDeviceUnlockLiveTest do
 
   describe "enroll (OR → AND flip)" do
     setup :onboarded_user
+
+    test "step progress banner surfaces multi-prompt context during enroll", %{
+      conn: conn,
+      user: user
+    } do
+      user = with_recovery(user)
+      {:ok, view, _html} = live(conn, fresh_path(user))
+
+      # Kick off enrollment (sets working?), then simulate the hook announcing a
+      # step just before a native passkey prompt.
+      render_hook(view, "start_enroll", %{})
+
+      render_hook(view, "prf_progress", %{
+        "step" => 1,
+        "title" => "Set up your passkey",
+        "detail" => "Confirm with Touch ID, Face ID, Windows Hello, or 1Password."
+      })
+
+      assert has_element?(view, "#prf-enroll-progress", "Set up your passkey")
+      assert has_element?(view, "#prf-enroll-progress", "more than once")
+
+      # A subsequent step replaces the banner content.
+      render_hook(view, "prf_progress", %{
+        "step" => 2,
+        "title" => "Confirm it works",
+        "detail" => "One last confirmation."
+      })
+
+      assert has_element?(view, "#prf-enroll-progress", "Confirm it works")
+
+      # Cleared once enrollment finishes.
+      render_hook(view, "prf_enrolled", prf_params())
+      refute has_element?(view, "#prf-enroll-progress")
+    end
 
     test "storing the pushed prf blob enrolls the device", %{conn: conn, user: user} do
       user = with_recovery(user)

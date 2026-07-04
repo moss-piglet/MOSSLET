@@ -79,9 +79,13 @@ const UnlockHook = {
           this.pushEvent("unlock", { unlock: { password } });
           return;
         }
-        // PRF unavailable on this device — let the LiveView surface the retry;
-        // do not attempt the (nonexistent) password door.
-        this.pushEvent("unlock", { unlock: { password } });
+        // PRF unlock didn't succeed on this device. This is either a wrong
+        // password OR a device whose passkey isn't enrolled / can't produce the
+        // PRF (a different ecosystem, a not-yet-enrolled phone, or 1Password
+        // declining). There is NO password-only door for enrolled accounts, so
+        // posting the password would only yield a misleading "Invalid password".
+        // Surface honest guidance instead and reveal the recovery-key unlock.
+        this.pushEvent("prf_unlock_unavailable", {});
         return;
       }
 

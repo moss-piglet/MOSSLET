@@ -327,6 +327,44 @@ flowchart TD
     behaviour, new-device recovery bootstrap enroll, and enrolled-user
     password-change on-device re-wrap. To be confirmed by a human on dev.
 
+- **(f) Production hardening — 500 fix, fewer prompts, cross-platform.**
+  **DONE (board #371–#374):**
+  - *500 on sign-in with an unresolvable session key (#371).* A PRF-enrolled
+    account has no server-derivable `key_hash`. When the browser could NOT unlock
+    `user_key` on this device (a not-yet-enrolled phone, a different passkey
+    ecosystem, or a manager like 1Password declining), `resolve_session_key/2`
+    returns `nil`, and the sign-in lifecycle ran `encrypt_user_data(ip, user, nil)`,
+    which returns the atom `:failed_verification` (not a binary). Writing that into
+    the `Encrypted.Binary` `last_signed_in_ip` field raised `Ecto.ChangeError` → a
+    **500 right after a correct password**. `User.last_signed_in_changeset/3` now
+    only stamps the encrypted IP when encryption yields a binary; otherwise it just
+    records the sign-in time. Sign-in completes with a **locked** session and the
+    user is routed to `/auth/unlock` (I6 preserved). Regression test in
+    `user_key_wraps_test.exs`.
+  - *Three biometric prompts → two on enroll (#372).* Enrollment used
+    create() + get() (obtain) + get() (verify-before-delete) = three prompts.
+    `createPrfCredential` now evaluates the PRF **at creation time**
+    (`extensions.prf.eval.first`); when the authenticator returns a create-time
+    PRF output (Chrome/Edge, Safari 18+, 1Password, synced providers) we skip the
+    obtain `get()` and do only the one verify `get()`. The anti-brick invariant is
+    preserved (two independent ceremonies still compared). Authenticators without
+    create-time PRF transparently fall back to the original three-prompt path.
+  - *1Password / cross-platform passkeys (#373).* Capability detection no longer
+    treats "no platform authenticator" as a blocker. `isWebAuthnAvailable()` only
+    checks WebAuthn presence, and `detectPrfCapability()` returns
+    `{available, "cross_platform_only"}` when only a cross-platform provider is
+    present (1Password, a security key, or a phone via hybrid). `createPrfCredential`
+    omits `authenticatorAttachment` (both platform and cross-platform eligible) and
+    prefers a discoverable credential so managers can hold it. `EditDeviceUnlockLive`
+    keeps the CTA enabled with an advisory `#prf-cross-platform-note` and only hard-
+    blocks on `no_webauthn`.
+  - *Honest unlock UX when a device can't PRF-unlock (#374).* On `/auth/unlock`,
+    an enrolled account whose device can't produce the PRF no longer POSTs a doomed
+    password (which showed a misleading "Invalid password" — there is no password-
+    only door). `UnlockHook` pushes `prf_unlock_unavailable`; the LiveView shows
+    honest guidance (`#prf-unlock-error`) and auto-opens the recovery-key unlock so
+    the user can get in and then add this device.
+
 
 ## 10. Test coverage plan
 

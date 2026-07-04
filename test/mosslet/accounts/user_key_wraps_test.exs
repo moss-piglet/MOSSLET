@@ -513,4 +513,30 @@ defmodule Mosslet.Accounts.UserKeyWrapsTest do
       assert Accounts.prf_enrolled?(user)
     end
   end
+
+  describe "sign-in with an unresolvable session key (#371 — 500 regression)" do
+    # A PRF-enrolled account has no server-derivable key_hash. When the browser
+    # can't unlock user_key via KDF(password‖prf) on this device (a not-yet-
+    # enrolled phone, a different passkey ecosystem, or 1Password declining), the
+    # sign-in lifecycle runs with key == nil. Previously this crashed (500):
+    # encrypt_user_data returned the atom :failed_verification, which was written
+    # into the Encrypted.Binary last_signed_in_ip field -> Ecto.ChangeError.
+    test "last_signed_in_changeset with a nil key does not crash and skips the encrypted ip" do
+      user = user_fixture()
+
+      changeset = Mosslet.Accounts.User.last_signed_in_changeset(user, "1.2.3.4", nil)
+
+      assert changeset.valid?
+      # No non-binary sneaks into the encrypted fields; only the timestamp is set.
+      refute Map.has_key?(changeset.changes, :last_signed_in_ip)
+      refute Map.has_key?(changeset.changes, :last_signed_in_ip_hash)
+      assert Map.has_key?(changeset.changes, :last_signed_in_datetime)
+
+      # And it actually persists (the original crash was on Repo.update!).
+      assert {:ok, _} =
+               Mosslet.Repo.transaction_on_primary(fn ->
+                 Mosslet.Repo.update!(changeset)
+               end)
+    end
+  end
 end

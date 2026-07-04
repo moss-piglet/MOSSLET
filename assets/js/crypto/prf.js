@@ -111,8 +111,10 @@ export async function unwrapUserKey(wrappedUserKeyB64, wrappingKeyB64) {
 // ---------------------------------------------------------------------------
 
 /**
- * Best-effort check that this browser can even attempt a WebAuthn ceremony with
- * a platform authenticator. Actual PRF support can only be confirmed after a
+ * Best-effort check that this browser can even attempt a WebAuthn ceremony.
+ * This intentionally does NOT require a platform authenticator — cross-platform
+ * providers (1Password and other passkey managers, a phone via hybrid, or a
+ * security key) are valid too. Actual PRF support can only be confirmed after a
  * ceremony (via `getClientExtensionResults().prf`), so callers must always
  * treat PRF as a progressive enhancement and handle a `null` PRF result.
  *
@@ -122,15 +124,6 @@ export async function isWebAuthnAvailable() {
   if (typeof window === "undefined") return false;
   if (!window.PublicKeyCredential) return false;
   if (typeof navigator === "undefined" || !navigator.credentials) return false;
-
-  try {
-    if (typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === "function") {
-      return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-    }
-  } catch {
-    return false;
-  }
-  // No platform-authenticator probe available; allow an attempt anyway.
   return true;
 }
 
@@ -142,7 +135,7 @@ export async function isWebAuthnAvailable() {
  * ceremony; callers still handle a null PRF result as a fallback).
  *
  * @returns {Promise<{status: "available"|"unavailable", reason: string|null}>}
- *   reason ∈ "no_webauthn" | "no_platform_authenticator" | null.
+ *   reason ∈ "no_webauthn" | "cross_platform_only" | null.
  */
 export async function detectPrfCapability() {
   if (
@@ -154,15 +147,21 @@ export async function detectPrfCapability() {
     return { status: "unavailable", reason: "no_webauthn" };
   }
 
+  // A missing PLATFORM authenticator (Touch ID / Face ID / Windows Hello) is NOT
+  // a blocker: cross-platform passkey providers — 1Password and other managers,
+  // a phone via hybrid transport, or a security key — can still create a
+  // PRF-capable credential. So we only hard-block when WebAuthn is entirely
+  // absent; otherwise we allow the attempt, optionally with an advisory hint.
   try {
     if (typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === "function") {
-      const ok = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-      return ok
+      const platform = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+      return platform
         ? { status: "available", reason: null }
-        : { status: "unavailable", reason: "no_platform_authenticator" };
+        : { status: "available", reason: "cross_platform_only" };
     }
   } catch {
-    return { status: "unavailable", reason: "no_platform_authenticator" };
+    // Probe threw — WebAuthn is present, so still allow an attempt.
+    return { status: "available", reason: "cross_platform_only" };
   }
 
   // WebAuthn present but no platform-authenticator probe — allow an attempt.
@@ -194,14 +193,29 @@ function defaultRpId() {
  * returned `credentialId` is opaque and later used to select this credential
  * in `evaluatePrf`.
  *
+ * When `prfSaltB64` is supplied we ALSO request a PRF evaluation at creation
+ * time (`extensions.prf.eval.first`). Authenticators that support create-time
+ * PRF (Chrome/Edge, Safari 18+, most synced-passkey providers, 1Password)
+ * return the PRF output directly from `create()`, so the caller can skip the
+ * separate "obtain" `get()` — saving one biometric prompt during enrollment.
+ * When unsupported, `prfOutputB64` is `null` and the caller falls back to a
+ * follow-up `get()` via `evaluatePrf`. This is purely a UX optimization; it
+ * never changes the stored wrap (the PRF output is deterministic per salt).
+ *
  * @param {object} opts
  * @param {string} opts.userId - a stable per-user id (e.g. the user uuid).
  * @param {string} opts.userName - display name (e.g. the account email).
+ * @param {string} [opts.prfSaltB64] - base64 per-credential PRF eval salt; when
+ *   present, PRF is evaluated at creation time (progressive — may return null).
  * @param {string} [opts.rpId] - relying-party id; defaults to the host.
  * @param {string} [opts.rpName] - relying-party display name.
- * @returns {Promise<{credentialIdB64: string, prfEnabled: boolean}>}
+ * @returns {Promise<{credentialIdB64: string, prfEnabled: boolean, prfOutputB64: string|null}>}
  */
-export async function createPrfCredential({ userId, userName, rpId, rpName }) {
+export async function createPrfCredential({ userId, userName, prfSaltB64, rpId, rpName }) {
+  const prfExt = prfSaltB64
+    ? { prf: { eval: { first: b64Decode(prfSaltB64) } } }
+    : { prf: {} };
+
   const publicKey = {
     challenge: randomBytes(32),
     rp: { id: rpId || defaultRpId(), name: rpName || "Mosslet" },
@@ -215,13 +229,17 @@ export async function createPrfCredential({ userId, userName, rpId, rpName }) {
       { type: "public-key", alg: -257 }, // RS256
     ],
     authenticatorSelection: {
+      // No `authenticatorAttachment` → both platform authenticators (Touch ID,
+      // Face ID, Windows Hello) AND cross-platform providers (1Password, phones
+      // via hybrid, security keys) are eligible. A discoverable (resident)
+      // credential is preferred so cross-platform managers can hold it.
       residentKey: "preferred",
       requireResidentKey: false,
       userVerification: "required",
     },
     timeout: 60000,
     attestation: "none",
-    extensions: { prf: {} },
+    extensions: prfExt,
   };
 
   const cred = await navigator.credentials.create({ publicKey });
@@ -230,9 +248,17 @@ export async function createPrfCredential({ userId, userName, rpId, rpName }) {
   const ext = cred.getClientExtensionResults?.() || {};
   const prfEnabled = !!(ext.prf && ext.prf.enabled);
 
+  // Create-time PRF output, when the authenticator supports it. Shape mirrors
+  // the get()-time result (`ext.prf.results.first` is an ArrayBuffer).
+  const createTimeFirst = ext.prf && ext.prf.results && ext.prf.results.first;
+  const prfOutputB64 = createTimeFirst
+    ? b64Encode(new Uint8Array(createTimeFirst))
+    : null;
+
   return {
     credentialIdB64: b64Encode(new Uint8Array(cred.rawId)),
     prfEnabled,
+    prfOutputB64,
   };
 }
 

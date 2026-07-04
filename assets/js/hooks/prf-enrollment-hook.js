@@ -87,6 +87,28 @@ const PrfEnrollmentHook = {
     }
   },
 
+  // Push an enrollment step banner and WAIT for the server to acknowledge (which
+  // means the DOM patch has been sent) before we open the next blocking
+  // passkey/OS modal — otherwise the native prompt can appear before the user
+  // sees the step context. Bounded so a missed ack never hangs enrollment.
+  awaitProgress(payload) {
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (!done) {
+          done = true;
+          resolve();
+        }
+      };
+      try {
+        this.pushEvent("prf_progress", payload, finish);
+      } catch {
+        finish();
+      }
+      setTimeout(finish, 500);
+    });
+  },
+
   async enroll({ user_id, user_name }) {
     const userKey = getUserKey();
     if (!userKey) {
@@ -113,15 +135,45 @@ const PrfEnrollmentHook = {
       const wrapSalt = await freshSalt();
       const prfSalt = await freshSalt();
 
-      const { credentialIdB64, prfEnabled } = await createPrfCredential({
-        userId: user_id,
-        userName: user_name,
+      // Enrollment needs MORE THAN ONE passkey confirmation on purpose (a
+      // create + at least one verify-before-delete get). Without context that
+      // feels like a loop/bug to the user, so we announce each step BEFORE the
+      // OS/passkey-manager modal opens. We await the server round-trip
+      // (`awaitProgress`) so the step banner is actually painted before the
+      // native prompt appears.
+      await this.awaitProgress({
+        step: 1,
+        title: "Set up your passkey",
+        detail:
+          "Confirm with Touch ID, Face ID, Windows Hello, or your passkey manager (like 1Password).",
       });
 
-      const prfOutput = await evaluatePrf({
-        credentialIdB64,
-        prfSaltB64: prfSalt,
-      });
+      // Pass prfSalt so the authenticator can evaluate the PRF AT CREATION time
+      // (Chrome/Edge, Safari 18+, 1Password, synced-passkey providers). When it
+      // does, `createTimePrfOutput` is non-null and we skip the separate
+      // "obtain" get() — cutting enrollment from three biometric prompts to two
+      // (create + one verify get()). Authenticators without create-time PRF
+      // return null and we fall back to a get() to obtain the output.
+      const { credentialIdB64, prfEnabled, prfOutputB64: createTimePrfOutput } =
+        await createPrfCredential({
+          userId: user_id,
+          userName: user_name,
+          prfSaltB64: prfSalt,
+        });
+
+      let prfOutput = createTimePrfOutput;
+      if (!prfOutput) {
+        // Fallback path (authenticator didn't evaluate PRF at creation): one
+        // extra confirmation to READ the device secret. Announce it so the
+        // repeat prompt reads as an expected step.
+        await this.awaitProgress({
+          step: 2,
+          title: "Read your passkey",
+          detail:
+            "Confirm once more so we can read this device's secret. This is expected — not an error.",
+        });
+        prfOutput = await evaluatePrf({ credentialIdB64, prfSaltB64: prfSalt });
+      }
 
       if (!prfOutput) {
         return this.pushEvent("prf_error", {
@@ -139,6 +191,13 @@ const PrfEnrollmentHook = {
       // real unlock path — and that the freshly-written wrap actually recovers
       // user_key, BEFORE the server deletes the password door. The server
       // cannot check this (I6: it holds no keys), so the proof MUST be here.
+      await this.awaitProgress({
+        step: createTimePrfOutput ? 2 : 3,
+        title: "Confirm it works",
+        detail:
+          "One last confirmation to make sure this device can reliably unlock you. This safety check is why you're asked more than once.",
+      });
+
       const prfOutput2 = await evaluatePrf({
         credentialIdB64,
         prfSaltB64: prfSalt,

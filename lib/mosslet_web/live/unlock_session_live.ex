@@ -29,7 +29,8 @@ defmodule MossletWeb.UnlockSessionLive do
            recovery_trigger?: false,
            recovery_rc: nil,
            recovery_error: nil,
-           recovery_working?: false
+           recovery_working?: false,
+           prf_unlock_error: nil
          )}
     end
   end
@@ -112,6 +113,25 @@ defmodule MossletWeb.UnlockSessionLive do
             </p>
           </div>
 
+          <%!-- PRF unlock couldn't complete on this device (enrolled account).
+                Honest guidance — no password-only door exists here, so a wrong
+                password and a not-enrolled device look the same. --%>
+          <div
+            :if={@prf_unlock_error}
+            id="prf-unlock-error"
+            role="alert"
+            aria-live="assertive"
+            class="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800/50"
+          >
+            <div class="flex items-start gap-3">
+              <.phx_icon
+                name="hero-exclamation-triangle"
+                class="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0"
+              />
+              <p class="text-sm text-amber-700 dark:text-amber-300">{@prf_unlock_error}</p>
+            </div>
+          </div>
+
           <%!-- Unlock form with UnlockHook for browser-side key derivation --%>
           <.form
             for={@form}
@@ -180,7 +200,7 @@ defmodule MossletWeb.UnlockSessionLive do
                 on a device with no local passkey can't unlock via PRF above.
                 Offer a recovery-key unlock, then invite enrolling this device. --%>
           <div :if={@prf_enrolled? && @has_recovery_key?} class="mt-6">
-            <details id="recovery-unlock-details" class="group">
+            <details id="recovery-unlock-details" class="group" open={@prf_unlock_error != nil}>
               <summary class="cursor-pointer list-none text-center text-sm font-medium text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors">
                 New device? Unlock with your recovery key
               </summary>
@@ -282,6 +302,24 @@ defmodule MossletWeb.UnlockSessionLive do
     # We just trigger the form submission (which the UnlockHook has already
     # intercepted to derive the user_key before submitting).
     {:noreply, assign(socket, trigger_submit: true)}
+  end
+
+  # Enrolled account, but the browser couldn't unlock `user_key` via
+  # KDF(password‖prf) on this device (board #370/#371): wrong password, or this
+  # device's passkey isn't enrolled / can't produce the PRF (different ecosystem,
+  # a not-yet-enrolled phone, or a passkey manager like 1Password declining).
+  # There is NO password-only door to fall back to, so we DON'T POST (that would
+  # only yield a misleading "Invalid password"). Show honest guidance and reveal
+  # the recovery-key unlock, from which the user can add this device.
+  def handle_event("prf_unlock_unavailable", _params, socket) do
+    message =
+      if socket.assigns.has_recovery_key? do
+        "We couldn't unlock on this device. Double-check your password. If this device isn't set up yet, unlock with your recovery key below — then you can add it from Device Unlock settings."
+      else
+        "We couldn't unlock on this device. Double-check your password, or unlock on a device you've already enrolled."
+      end
+
+    {:noreply, assign(socket, prf_unlock_error: message)}
   end
 
   # New-device recovery unlock (board #366). The hook has already recovered

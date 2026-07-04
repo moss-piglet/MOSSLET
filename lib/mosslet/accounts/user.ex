@@ -2029,13 +2029,31 @@ defmodule Mosslet.Accounts.User do
   end
 
   def last_signed_in_changeset(user, ip, session_key) do
+    # PRF-enrolled accounts have no server-derivable `key_hash` (board #370), so
+    # a sign-in where the browser could NOT unlock `user_key` via KDF(password‖prf)
+    # (e.g. a not-yet-enrolled device, a different passkey ecosystem, or 1Password
+    # declining) arrives here with `session_key == nil`. In that case
+    # `encrypt_user_data/3` returns a decrypt-failure atom (e.g. `:failed_verification`),
+    # NOT a binary — and putting a non-binary into the `Encrypted.Binary`
+    # `last_signed_in_ip` field raised `Ecto.ChangeError` (a 500 on login). The
+    # session is simply left locked and the user is routed to `/auth/unlock`, so
+    # we only stamp the encrypted IP when we actually have a usable key; otherwise
+    # we just record the sign-in time. I6 preserved — nothing brute-forceable is
+    # stored either way.
+    base = %{last_signed_in_datetime: DateTime.truncate(DateTime.utc_now(), :second)}
+
+    changes =
+      case Encrypted.Users.Utils.encrypt_user_data(ip, user, session_key) do
+        encrypted_ip when is_binary(encrypted_ip) ->
+          Map.merge(base, %{last_signed_in_ip: encrypted_ip, last_signed_in_ip_hash: ip})
+
+        _not_encrypted ->
+          base
+      end
+
     user
     |> cast(%{}, [])
-    |> change(%{
-      last_signed_in_ip: Encrypted.Users.Utils.encrypt_user_data(ip, user, session_key),
-      last_signed_in_ip_hash: ip,
-      last_signed_in_datetime: DateTime.truncate(DateTime.utc_now(), :second)
-    })
+    |> change(changes)
   end
 
   @doc """
