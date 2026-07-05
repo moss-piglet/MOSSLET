@@ -90,11 +90,11 @@ defmodule MossletWeb.UnlockSessionLive do
             <div class="mb-6">
               <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/20 dark:to-emerald-900/20 border border-teal-200/50 dark:border-teal-700/30 mb-4">
                 <.phx_icon
-                  name="hero-lock-closed"
+                  name={if @prf_enrolled?, do: "hero-finger-print", else: "hero-lock-closed"}
                   class="w-5 h-5 text-teal-600 dark:text-teal-400"
                 />
                 <span class="text-sm font-medium text-teal-700 dark:text-teal-300">
-                  Session Locked
+                  {if @prf_enrolled?, do: "Device Unlock", else: "Session Locked"}
                 </span>
               </div>
             </div>
@@ -110,7 +110,9 @@ defmodule MossletWeb.UnlockSessionLive do
 
             <p class="text-base text-slate-600 dark:text-slate-300">
               <%= if @prf_enrolled? do %>
-                Enter your password, then confirm with this device to unlock
+                This account uses <span class="font-semibold">Device Unlock</span>. Enter your
+                password <span class="font-semibold">and</span>
+                confirm with this device — you need both.
               <% else %>
                 Enter your password to unlock your encrypted content
               <% end %>

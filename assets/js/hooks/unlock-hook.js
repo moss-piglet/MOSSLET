@@ -69,6 +69,7 @@ const UnlockHook = {
       // enrolled accounts. We NEVER fall back to a password-only door here.
       const prf = parsePrf(form.dataset.prf);
       if (prf.enrolled && prf.wraps.length > 0) {
+        const restoreButton = setSubmitBusy(form, "Confirming with your device…");
         const result = await tryPrfUnlock(prf.wraps, password);
         if (result) {
           sessionStorage.setItem(TEMP_USER_KEY, result.userKey);
@@ -84,6 +85,7 @@ const UnlockHook = {
           form.submit();
           return;
         }
+        restoreButton();
         // PRF unlock didn't succeed on this device. This is either a wrong
         // password OR a device whose passkey isn't enrolled / can't produce the
         // PRF (a different ecosystem, a not-yet-enrolled phone, or 1Password
@@ -194,4 +196,27 @@ function setWrapIdField(form, wrapId) {
     form.appendChild(input);
   }
   input.value = wrapId;
+}
+
+/**
+ * Put the submit button into a busy state while the device PRF ceremony runs,
+ * so the user understands a Face ID / Touch ID / security-key prompt is coming
+ * (and can't double-submit). Returns a function that restores the original
+ * label/enabled state (call it if the ceremony fails and we stay on the page).
+ */
+function setSubmitBusy(form, label) {
+  const button = form.querySelector('button[type="submit"]');
+  if (!button) return () => {};
+
+  const originalHtml = button.innerHTML;
+  const wasDisabled = button.disabled;
+  button.disabled = true;
+  button.setAttribute("aria-busy", "true");
+  button.textContent = label;
+
+  return () => {
+    button.disabled = wasDisabled;
+    button.removeAttribute("aria-busy");
+    button.innerHTML = originalHtml;
+  };
 }
