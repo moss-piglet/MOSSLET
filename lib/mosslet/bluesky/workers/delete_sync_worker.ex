@@ -164,11 +164,7 @@ defmodule Mosslet.Bluesky.Workers.DeleteSyncWorker do
         do_delete(post, updated_account, new_signing_key)
 
       {:error, reason} ->
-        Logger.error(
-          "[BlueskyDelete] Token refresh failed for @#{account.handle}: #{inspect(reason)}"
-        )
-
-        {:error, :token_refresh_failed}
+        handle_refresh_failure(account, reason)
     end
   end
 
@@ -185,11 +181,25 @@ defmodule Mosslet.Bluesky.Workers.DeleteSyncWorker do
         do_delete_by_uri(external_uri, updated_account, new_signing_key)
 
       {:error, reason} ->
-        Logger.error(
-          "[BlueskyDelete] Token refresh failed for @#{account.handle}: #{inspect(reason)}"
-        )
+        handle_refresh_failure(account, reason)
+    end
+  end
 
-        {:error, :token_refresh_failed}
+  defp handle_refresh_failure(account, reason) do
+    if Bluesky.permanent_auth_failure?(reason) do
+      Bluesky.mark_needs_reauth(account)
+
+      Logger.warning(
+        "[BlueskyDelete] Refresh token invalid for @#{account.handle}, flagged for re-authentication: #{inspect(reason)}"
+      )
+
+      {:cancel, :needs_reauth}
+    else
+      Logger.error(
+        "[BlueskyDelete] Token refresh failed for @#{account.handle}: #{inspect(reason)}"
+      )
+
+      {:error, :token_refresh_failed}
     end
   end
 

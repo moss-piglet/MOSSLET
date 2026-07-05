@@ -76,6 +76,22 @@ defmodule Mosslet.Bluesky do
   end
 
   @doc """
+  Reconnects an existing Bluesky account after a fresh OAuth flow.
+
+  Updates the stored credentials in place (rather than inserting a new row,
+  which would violate the per-user unique index) and clears the `needs_reauth`
+  flag now that the account has valid credentials again.
+  """
+  def reconnect_account(%Account{} = account, attrs) do
+    Repo.transaction_on_primary(fn ->
+      account
+      |> Account.create_changeset(attrs)
+      |> Ecto.Changeset.put_change(:needs_reauth, false)
+      |> Repo.update!()
+    end)
+  end
+
+  @doc """
   Updates sync settings for a Bluesky account.
   """
   def update_sync_settings(%Account{} = account, attrs) do
@@ -88,6 +104,9 @@ defmodule Mosslet.Bluesky do
 
   @doc """
   Refreshes the access and refresh tokens for a Bluesky account.
+
+  Successfully refreshing tokens also clears any pending `needs_reauth` flag,
+  since the account credentials are once again valid.
   """
   def refresh_tokens(%Account{} = account, attrs) do
     Repo.transaction_on_primary(fn ->
@@ -96,6 +115,54 @@ defmodule Mosslet.Bluesky do
       |> Repo.update!()
     end)
   end
+
+  @doc """
+  Flags an account as requiring re-authentication.
+
+  This is used when a token refresh fails permanently (e.g. the OAuth refresh
+  token has been revoked or expired), so background sync jobs stop retrying and
+  the UI can prompt the user to reconnect.
+  """
+  def mark_needs_reauth(%Account{} = account) do
+    Repo.transaction_on_primary(fn ->
+      account
+      |> Account.reauth_changeset(%{needs_reauth: true})
+      |> Repo.update!()
+    end)
+  end
+
+  @doc """
+  Clears the `needs_reauth` flag after the user successfully reconnects.
+  """
+  def clear_needs_reauth(%Account{} = account) do
+    Repo.transaction_on_primary(fn ->
+      account
+      |> Account.reauth_changeset(%{needs_reauth: false})
+      |> Repo.update!()
+    end)
+  end
+
+  @doc """
+  Returns `true` when a token-refresh error indicates a *permanent* auth
+  failure (the refresh token is no longer valid) rather than a transient one.
+
+  In these cases retrying with the same credentials will never succeed; the
+  user must re-authenticate. Callers should stop retrying and flag the account
+  via `mark_needs_reauth/1`.
+  """
+  def permanent_auth_failure?(reason) do
+    case reason do
+      {:token_refresh_failed, inner} -> permanent_auth_failure?(inner)
+      {:token_refresh_failed, status, body} -> permanent_auth_status?(status, body)
+      _ -> false
+    end
+  end
+
+  defp permanent_auth_status?(status, %{"error" => error}) when status in [400, 401] do
+    error in ["invalid_grant", "invalid_token", "invalid_request"]
+  end
+
+  defp permanent_auth_status?(status, _body), do: status == 401
 
   @doc """
   Updates the sync cursor after a successful sync operation.

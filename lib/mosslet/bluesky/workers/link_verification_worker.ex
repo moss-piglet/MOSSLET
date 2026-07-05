@@ -34,8 +34,18 @@ defmodule Mosslet.Bluesky.Workers.LinkVerificationWorker do
     account = Bluesky.get_account!(account_id)
 
     if account.sync_enabled do
-      Logger.info("[BlueskyLinkVerify] Starting verification for @#{account.handle}")
-      do_verification(account)
+      cond do
+        account.needs_reauth ->
+          Logger.info(
+            "[BlueskyLinkVerify] Skipping verification for @#{account.handle} - account needs re-authentication"
+          )
+
+          {:cancel, :needs_reauth}
+
+        true ->
+          Logger.info("[BlueskyLinkVerify] Starting verification for @#{account.handle}")
+          do_verification(account)
+      end
     else
       Logger.info("[BlueskyLinkVerify] Sync disabled for @#{account.handle}, skipping")
       :ok
@@ -69,11 +79,21 @@ defmodule Mosslet.Bluesky.Workers.LinkVerificationWorker do
         :ok
 
       {:error, reason} ->
-        Logger.error(
-          "[BlueskyLinkVerify] Token refresh failed for @#{account.handle}: #{inspect(reason)}"
-        )
+        if Bluesky.permanent_auth_failure?(reason) do
+          Bluesky.mark_needs_reauth(account)
 
-        {:error, :token_refresh_failed}
+          Logger.warning(
+            "[BlueskyLinkVerify] Refresh token invalid for @#{account.handle}, flagged for re-authentication: #{inspect(reason)}"
+          )
+
+          {:cancel, :needs_reauth}
+        else
+          Logger.error(
+            "[BlueskyLinkVerify] Token refresh failed for @#{account.handle}: #{inspect(reason)}"
+          )
+
+          {:error, :token_refresh_failed}
+        end
     end
   end
 

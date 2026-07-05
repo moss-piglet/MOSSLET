@@ -124,7 +124,7 @@ defmodule MossletWeb.BlueskyOAuthController do
         access_jwt_expires_at: Bluesky.expires_at_from(tokens[:expires_in])
       }
 
-      case Bluesky.create_account(user, attrs) do
+      case upsert_bluesky_account(user, attrs) do
         {:ok, _account} ->
           conn
           |> delete_session(:bluesky_oauth_state)
@@ -145,6 +145,16 @@ defmodule MossletWeb.BlueskyOAuthController do
         |> delete_session(:bluesky_oauth_state)
         |> put_flash(:error, "Failed to fetch Bluesky profile: #{inspect(reason)}")
         |> redirect(to: ~p"/app/users/bluesky")
+    end
+  end
+
+  defp upsert_bluesky_account(user, attrs) do
+    case Bluesky.get_account_for_user(user.id) do
+      nil ->
+        Bluesky.create_account(user, attrs)
+
+      account ->
+        Bluesky.reconnect_account(account, attrs)
     end
   end
 

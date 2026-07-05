@@ -33,6 +33,8 @@ defmodule Mosslet.Bluesky.Account do
     field :sync_likes, :boolean, default: false
     field :sync_reposts, :boolean, default: false
 
+    field :needs_reauth, :boolean, default: false
+
     field :import_visibility, Ecto.Enum,
       values: [:public, :private, :connections],
       default: :private
@@ -106,6 +108,12 @@ defmodule Mosslet.Bluesky.Account do
     account
     |> cast(attrs, [:access_jwt, :refresh_jwt, :access_jwt_expires_at])
     |> validate_required([:access_jwt, :refresh_jwt])
+    |> put_change(:needs_reauth, false)
+  end
+
+  @doc false
+  def reauth_changeset(account, attrs) do
+    cast(account, attrs, [:needs_reauth])
   end
 
   @doc false

@@ -7780,7 +7780,7 @@ defmodule MossletWeb.TimelineLive.Index do
   defp maybe_enqueue_bluesky_export(post, user) do
     if post.visibility == :public && post.source == :mosslet do
       case Mosslet.Bluesky.get_account_for_user(user.id) do
-        %{sync_enabled: true, sync_posts_to_bsky: true} = account ->
+        %{sync_enabled: true, sync_posts_to_bsky: true, needs_reauth: false} = account ->
           Mosslet.Bluesky.Workers.ExportSyncWorker.enqueue_single_post_export(post.id, account.id)
 
         _ ->
@@ -7793,7 +7793,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
   defp bluesky_sync_enabled?(user) do
     case Mosslet.Bluesky.get_account_for_user(user.id) do
-      %{sync_enabled: true, sync_posts_to_bsky: true} -> true
+      %{sync_enabled: true, sync_posts_to_bsky: true, needs_reauth: false} -> true
       _ -> false
     end
   end

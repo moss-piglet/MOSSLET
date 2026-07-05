@@ -32,50 +32,95 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
     :ok
   end
 
-  def perform(%Oban.Job{args: %{"account_id" => account_id} = args}) do
-    account = Bluesky.get_account!(account_id) |> Mosslet.Repo.preload(:user)
-    limit = Map.get(args, "limit", 10)
-
-    if account.sync_enabled && account.sync_posts_to_bsky do
-      Logger.info("[BlueskyExport] Starting export for @#{account.handle}")
-      do_export(account, limit)
-    else
-      Logger.info("[BlueskyExport] Sync disabled for @#{account.handle}, skipping")
-      :ok
-    end
-  end
-
   def perform(%Oban.Job{args: %{"post_id" => post_id, "account_id" => account_id}}) do
     account = Bluesky.get_account!(account_id) |> Mosslet.Repo.preload(:user)
 
-    if account.sync_enabled && account.sync_posts_to_bsky do
-      case Timeline.get_post_for_export(post_id) do
-        nil ->
-          Logger.warning("[BlueskyExport] Post #{post_id} not found or not exportable")
-          :ok
+    cond do
+      account.needs_reauth ->
+        skip_needs_reauth(account)
 
-        post ->
-          export_single_post(post, account)
-      end
-    else
-      :ok
+      account.sync_enabled && account.sync_posts_to_bsky ->
+        case Timeline.get_post_for_export(post_id) do
+          nil ->
+            Logger.warning("[BlueskyExport] Post #{post_id} not found or not exportable")
+            :ok
+
+          post ->
+            export_single_post(post, account)
+        end
+
+      true ->
+        :ok
     end
   end
 
   def perform(%Oban.Job{args: %{"reply_id" => reply_id, "account_id" => account_id}}) do
     account = Bluesky.get_account!(account_id) |> Mosslet.Repo.preload(:user)
 
-    if account.sync_enabled && account.sync_posts_to_bsky do
-      case Timeline.get_reply_for_export(reply_id) do
-        nil ->
-          Logger.warning("[BlueskyExport] Reply #{reply_id} not found or not exportable")
-          :ok
+    cond do
+      account.needs_reauth ->
+        skip_needs_reauth(account)
 
-        reply ->
-          export_single_reply(reply, account)
-      end
+      account.sync_enabled && account.sync_posts_to_bsky ->
+        case Timeline.get_reply_for_export(reply_id) do
+          nil ->
+            Logger.warning("[BlueskyExport] Reply #{reply_id} not found or not exportable")
+            :ok
+
+          reply ->
+            export_single_reply(reply, account)
+        end
+
+      true ->
+        :ok
+    end
+  end
+
+  def perform(%Oban.Job{args: %{"account_id" => account_id} = args}) do
+    account = Bluesky.get_account!(account_id) |> Mosslet.Repo.preload(:user)
+    limit = Map.get(args, "limit", 10)
+
+    cond do
+      account.needs_reauth ->
+        skip_needs_reauth(account)
+
+      account.sync_enabled && account.sync_posts_to_bsky ->
+        Logger.info("[BlueskyExport] Starting export for @#{account.handle}")
+        do_export(account, limit)
+
+      true ->
+        Logger.info("[BlueskyExport] Sync disabled for @#{account.handle}, skipping")
+        :ok
+    end
+  end
+
+  defp skip_needs_reauth(account) do
+    Logger.info(
+      "[BlueskyExport] Skipping export for @#{account.handle} - account needs re-authentication"
+    )
+
+    {:cancel, :needs_reauth}
+  end
+
+  # A refresh failure that is permanent (e.g. the OAuth refresh token has been
+  # revoked/expired) is flagged on the account so future jobs are skipped and
+  # the UI can prompt a reconnect. We cancel (rather than error) so Oban does
+  # not log a job exception or burn retries.
+  defp handle_refresh_failure(account, reason) do
+    if Bluesky.permanent_auth_failure?(reason) do
+      Bluesky.mark_needs_reauth(account)
+
+      Logger.warning(
+        "[BlueskyExport] Refresh token invalid for @#{account.handle}, flagged for re-authentication: #{inspect(reason)}"
+      )
+
+      {:cancel, :needs_reauth}
     else
-      :ok
+      Logger.error(
+        "[BlueskyExport] Token refresh failed for @#{account.handle}: #{inspect(reason)}"
+      )
+
+      {:error, :token_refresh_failed}
     end
   end
 
@@ -102,11 +147,7 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
           :ok
 
         {:error, reason} ->
-          Logger.error(
-            "[BlueskyExport] Token refresh failed for @#{account.handle}: #{inspect(reason)}"
-          )
-
-          {:error, :token_refresh_failed}
+          handle_refresh_failure(account, reason)
       end
     end
   end
@@ -371,11 +412,7 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
         export_single_reply(reply, updated_account, true)
 
       {:error, reason} ->
-        Logger.error(
-          "[BlueskyExport] Token refresh failed for reply @#{account.handle}: #{inspect(reason)}"
-        )
-
-        {:error, :token_refresh_failed}
+        handle_refresh_failure(account, reason)
     end
   end
 
@@ -385,11 +422,7 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
         export_single_post(post, updated_account, true)
 
       {:error, reason} ->
-        Logger.error(
-          "[BlueskyExport] Token refresh failed for @#{account.handle}: #{inspect(reason)}"
-        )
-
-        {:error, :token_refresh_failed}
+        handle_refresh_failure(account, reason)
     end
   end
 

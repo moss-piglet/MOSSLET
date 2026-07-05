@@ -50,18 +50,24 @@ defmodule Mosslet.Bluesky.Workers.ImportSyncWorker do
     full_sync = Map.get(args, "full_sync", false)
 
     if account.sync_enabled && account.sync_posts_from_bsky do
-      Logger.info("[BlueskyImport] Starting import for @#{account.handle}")
-
-      case Bluesky.with_valid_session(account) do
-        {:ok, fresh_account} ->
-          do_import(fresh_account, limit, full_sync)
-
-        {:error, reason} ->
-          Logger.error(
-            "[BlueskyImport] Could not establish valid session for @#{account.handle}: #{inspect(reason)}"
+      cond do
+        account.needs_reauth ->
+          Logger.info(
+            "[BlueskyImport] Skipping import for @#{account.handle} - account needs re-authentication"
           )
 
-          {:error, :token_refresh_failed}
+          {:cancel, :needs_reauth}
+
+        true ->
+          Logger.info("[BlueskyImport] Starting import for @#{account.handle}")
+
+          case Bluesky.with_valid_session(account) do
+            {:ok, fresh_account} ->
+              do_import(fresh_account, limit, full_sync)
+
+            {:error, reason} ->
+              handle_refresh_failure(account, reason)
+          end
       end
     else
       Logger.info("[BlueskyImport] Sync disabled for @#{account.handle}, skipping")
@@ -226,11 +232,25 @@ defmodule Mosslet.Bluesky.Workers.ImportSyncWorker do
         do_import(updated_account, limit, full_sync, true)
 
       {:error, reason} ->
-        Logger.error(
-          "[BlueskyImport] Token refresh failed for @#{account.handle}: #{inspect(reason)}"
-        )
+        handle_refresh_failure(account, reason)
+    end
+  end
 
-        {:error, :token_refresh_failed}
+  defp handle_refresh_failure(account, reason) do
+    if Bluesky.permanent_auth_failure?(reason) do
+      Bluesky.mark_needs_reauth(account)
+
+      Logger.warning(
+        "[BlueskyImport] Refresh token invalid for @#{account.handle}, flagged for re-authentication: #{inspect(reason)}"
+      )
+
+      {:cancel, :needs_reauth}
+    else
+      Logger.error(
+        "[BlueskyImport] Token refresh failed for @#{account.handle}: #{inspect(reason)}"
+      )
+
+      {:error, :token_refresh_failed}
     end
   end
 

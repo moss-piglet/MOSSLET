@@ -552,6 +552,34 @@ defmodule MossletWeb.BlueskySettingsLive do
       </:title>
 
       <div class="space-y-6">
+        <div
+          :if={@account.needs_reauth}
+          id="bluesky-reauth-banner"
+          class="rounded-xl border border-amber-300 dark:border-amber-700/60 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/10 p-4"
+        >
+          <div class="flex items-start gap-3">
+            <.phx_icon
+              name="hero-exclamation-triangle"
+              class="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5"
+            />
+            <div class="flex-1">
+              <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                Reconnect required
+              </p>
+              <p class="mt-1 text-sm text-amber-700 dark:text-amber-300">
+                Your Bluesky session has expired, so syncing is paused. Reconnect to resume
+                importing and exporting posts.
+              </p>
+              <a
+                href={~p"/app/oauth/bluesky/authorize"}
+                class="mt-3 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.02]"
+              >
+                <.phx_icon name="hero-arrow-path" class="h-4 w-4" /> Reconnect to Bluesky
+              </a>
+            </div>
+          </div>
+        </div>
+
         <div class="flex items-center gap-4">
           <div class="h-12 w-12 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 flex items-center justify-center">
             <.phx_icon name="hero-cloud" class="h-6 w-6 text-white" />
@@ -1441,6 +1469,7 @@ defmodule MossletWeb.BlueskySettingsLive do
   defp build_dummy_account do
     %{
       handle: "preview.bsky.social",
+      needs_reauth: false,
       last_synced_at: DateTime.utc_now() |> DateTime.add(-3600, :second)
     }
   end
