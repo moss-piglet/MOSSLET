@@ -109,7 +109,11 @@ defmodule MossletWeb.UnlockSessionLive do
             </h1>
 
             <p class="text-base text-slate-600 dark:text-slate-300">
-              Enter your password to unlock your encrypted content
+              <%= if @prf_enrolled? do %>
+                Enter your password, then confirm with this device to unlock
+              <% else %>
+                Enter your password to unlock your encrypted content
+              <% end %>
             </p>
           </div>
 
@@ -146,6 +150,14 @@ defmodule MossletWeb.UnlockSessionLive do
             data-encrypted-pq-private-key={@user.encrypted_pq_private_key}
             class="space-y-6"
           >
+            <%!-- PRF unlock fields (board #370). Declared server-side so they
+                  survive LiveView DOM patches — the UnlockHook only sets their
+                  VALUE after a successful on-device KDF(password‖prf) unwrap,
+                  then submits the form directly. Empty for non-enrolled/password
+                  submits, so the legacy key_hash path is byte-for-byte unchanged. --%>
+            <input type="hidden" name="unlock[user_key]" />
+            <input type="hidden" name="unlock[wrap_id]" />
+
             <div>
               <label
                 for="unlock-password"
@@ -172,6 +184,13 @@ defmodule MossletWeb.UnlockSessionLive do
                   "text-base sm:text-sm sm:leading-6"
                 ]}
               />
+              <p
+                :if={@prf_enrolled?}
+                class="mt-2 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400"
+              >
+                <.phx_icon name="hero-finger-print" class="w-3.5 h-3.5 shrink-0" />
+                Device Unlock is on — you'll confirm with your passkey (Face ID, Touch ID, or security key).
+              </p>
             </div>
 
             <button
@@ -190,8 +209,11 @@ defmodule MossletWeb.UnlockSessionLive do
               ]}
             >
               <span class="flex items-center justify-center gap-2">
-                <.phx_icon name="hero-lock-open" class="h-5 w-5" />
-                <span>Unlock Session</span>
+                <.phx_icon
+                  name={if @prf_enrolled?, do: "hero-finger-print", else: "hero-lock-open"}
+                  class="h-5 w-5"
+                />
+                <span>{if @prf_enrolled?, do: "Unlock with your device", else: "Unlock Session"}</span>
               </span>
             </button>
           </.form>

@@ -74,9 +74,14 @@ const UnlockHook = {
           sessionStorage.setItem(TEMP_USER_KEY, result.userKey);
           setUserKeyField(form, result.userKey);
           setWrapIdField(form, result.wrapId);
-          // Trigger the form action POST; the hidden user_key field rides along
-          // and the controller uses it (enrolled → key_hash retired).
-          this.pushEvent("unlock", { unlock: { password } });
+          // Submit the form DIRECTLY (native submit, like LoginHook) rather than
+          // round-tripping through pushEvent("unlock") → trigger_action. That
+          // roundtrip re-renders the form and a LiveView DOM patch would strip
+          // the hidden `unlock[user_key]` value we just set (regression that
+          // yielded a misleading "Invalid password" for enrolled users). A
+          // native submit POSTs immediately with the hidden fields intact; the
+          // controller trusts unlock[user_key] only for enrolled accounts.
+          form.submit();
           return;
         }
         // PRF unlock didn't succeed on this device. This is either a wrong

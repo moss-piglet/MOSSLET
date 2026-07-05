@@ -67,6 +67,41 @@ defmodule MossletWeb.UnlockSessionControllerTest do
     end
   end
 
+  describe "POST /auth/unlock non-enrolled password path (board #375)" do
+    # The unlock form now always renders empty hidden `unlock[user_key]`/
+    # `unlock[wrap_id]` fields, so a normal password submit posts them empty.
+    # The controller's user_key clause is guarded by `user_key != ""`, so this
+    # must fall through to the legacy key_hash password path unchanged.
+    test "correct password unlocks via key_hash despite empty user_key field", %{conn: conn} do
+      user = user_fixture(%{password: @password})
+      {:ok, real_key} = Accounts.User.valid_key_hash?(user, @password)
+
+      conn =
+        conn
+        |> log_in_user(user)
+        |> post(~p"/auth/unlock", %{
+          "unlock" => %{"password" => @password, "user_key" => "", "wrap_id" => ""}
+        })
+
+      assert redirected_to(conn) == ~p"/app"
+      assert get_session(conn, :key) == real_key
+    end
+
+    test "wrong password is rejected", %{conn: conn} do
+      user = user_fixture(%{password: @password})
+
+      conn =
+        conn
+        |> log_in_user(user)
+        |> post(~p"/auth/unlock", %{
+          "unlock" => %{"password" => "nope nope nope nope!", "user_key" => ""}
+        })
+
+      assert redirected_to(conn) == ~p"/auth/unlock"
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "Invalid password"
+    end
+  end
+
   describe "POST /auth/unlock new-device recovery bootstrap (board #366)" do
     test "with a fresh rc token: unlocks and routes to device-unlock to enroll", %{conn: conn} do
       user = user_fixture(%{password: @password})

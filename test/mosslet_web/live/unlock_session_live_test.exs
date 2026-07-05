@@ -43,6 +43,31 @@ defmodule MossletWeb.UnlockSessionLiveTest do
     Accounts.get_user!(user.id)
   end
 
+  describe "unlock form (board #375)" do
+    test "enrolled account: passkey-first affordance + server-rendered hidden user_key field", %{
+      conn: conn
+    } do
+      user = user_fixture(%{password: @password}) |> enroll()
+
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/auth/unlock")
+
+      # The hidden field MUST be server-rendered (declared in HEEx) so it
+      # survives LiveView DOM patches — the previous JS-appended field was
+      # stripped by a morphdom patch, POSTing password-only → "Invalid password".
+      assert has_element?(view, "#unlock_form input[type=hidden][name='unlock[user_key]']")
+      assert has_element?(view, "#unlock_form button", "Unlock with your device")
+    end
+
+    test "non-enrolled account: standard password unlock button", %{conn: conn} do
+      user = user_fixture(%{password: @password})
+
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/auth/unlock")
+
+      assert has_element?(view, "#unlock_form button", "Unlock Session")
+      assert has_element?(view, "#unlock_form input[type=hidden][name='unlock[user_key]']")
+    end
+  end
+
   describe "recovery-unlock section" do
     test "enrolled account sees the recovery-key unlock affordance", %{conn: conn} do
       user = user_fixture(%{password: @password}) |> enroll()
