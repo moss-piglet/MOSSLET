@@ -25,7 +25,6 @@ defmodule MossletWeb.UnlockSessionLive do
            has_recovery_key?: Accounts.has_recovery_key?(user),
            prf_payload: prf_payload(user),
            form: to_form(%{}, as: :unlock),
-           trigger_submit: false,
            recovery_trigger?: false,
            recovery_rc: nil,
            recovery_error: nil,
@@ -139,13 +138,19 @@ defmodule MossletWeb.UnlockSessionLive do
           </div>
 
           <%!-- Unlock form with UnlockHook for browser-side key derivation --%>
+          <%!-- The UnlockHook OWNS submission (like LoginHook and the recovery
+                form below). We intentionally do NOT use `phx-submit` here: a
+                `phx-submit` fires the LiveView event REGARDLESS of the hook's
+                `preventDefault`, which raced the async PRF ceremony and POSTed
+                an EMPTY `user_key` — yielding a false "Invalid password" for
+                enrolled accounts (whose password door is retired). The hook
+                derives/unwraps the key, fills the hidden field, then submits the
+                form natively to the controller action. --%>
           <.form
             for={@form}
             id="unlock_form"
             action={~p"/auth/unlock"}
             phx-hook="UnlockHook"
-            phx-trigger-action={@trigger_submit}
-            phx-submit="unlock"
             data-key-hash={@key_hash}
             data-prf={@prf_payload}
             data-encrypted-private-key={@user.key_pair["private"]}
@@ -320,14 +325,6 @@ defmodule MossletWeb.UnlockSessionLive do
     """
   end
 
-  @impl true
-  def handle_event("unlock", %{"unlock" => %{"password" => _password}}, socket) do
-    # The actual password verification happens server-side via the form action.
-    # We just trigger the form submission (which the UnlockHook has already
-    # intercepted to derive the user_key before submitting).
-    {:noreply, assign(socket, trigger_submit: true)}
-  end
-
   # Enrolled account, but the browser couldn't unlock `user_key` via
   # KDF(password‖prf) on this device (board #370/#371): wrong password, or this
   # device's passkey isn't enrolled / can't produce the PRF (different ecosystem,
@@ -335,6 +332,7 @@ defmodule MossletWeb.UnlockSessionLive do
   # There is NO password-only door to fall back to, so we DON'T POST (that would
   # only yield a misleading "Invalid password"). Show honest guidance and reveal
   # the recovery-key unlock, from which the user can add this device.
+  @impl true
   def handle_event("prf_unlock_unavailable", _params, socket) do
     message =
       if socket.assigns.has_recovery_key? do

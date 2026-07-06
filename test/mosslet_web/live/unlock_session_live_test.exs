@@ -58,6 +58,26 @@ defmodule MossletWeb.UnlockSessionLiveTest do
       assert has_element?(view, "#unlock_form button", "Unlock with your device")
     end
 
+    test "unlock form has NO phx-submit (UnlockHook owns submission)", %{conn: conn} do
+      # Regression: a `phx-submit` on this form fires the LiveView event
+      # REGARDLESS of the hook's `preventDefault`, racing the async PRF ceremony
+      # and POSTing an EMPTY `user_key` — a false "Invalid password" for enrolled
+      # accounts (whose password door is retired). The UnlockHook must own
+      # submission end-to-end (native submit), like LoginHook and the recovery
+      # form. Enrolled accounts have an empty `key_hash`, so the PRF branch must
+      # run before any key_hash guard.
+      enrolled = user_fixture(%{password: @password}) |> enroll()
+      {:ok, enrolled_view, _} = live(log_in_user(conn, enrolled), ~p"/auth/unlock")
+
+      refute has_element?(enrolled_view, "#unlock_form[phx-submit]")
+      assert has_element?(enrolled_view, "#unlock_form[phx-hook='UnlockHook']")
+
+      non_enrolled = user_fixture(%{password: @password})
+      {:ok, plain_view, _} = live(log_in_user(conn, non_enrolled), ~p"/auth/unlock")
+
+      refute has_element?(plain_view, "#unlock_form[phx-submit]")
+    end
+
     test "non-enrolled account: standard password unlock button", %{conn: conn} do
       user = user_fixture(%{password: @password})
 

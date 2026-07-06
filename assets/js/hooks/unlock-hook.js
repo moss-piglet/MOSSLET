@@ -10,12 +10,19 @@
  * the correct password via Argon2id KDF).
  *
  * Flow:
- *   1. LiveView phx-submit fires "unlock" event
- *   2. Before LiveView processes, hook derives user_key from key_hash + password
+ *   1. User submits the unlock form (button click)
+ *   2. The hook intercepts (preventDefault) and derives/unwraps user_key from
+ *      key_hash + password (non-enrolled) or KDF(password‖prf) (enrolled)
  *   3. Stores user_key in sessionStorage as temp key
- *   4. LiveView sets trigger_submit=true → form POSTs to controller
- *   5. Controller verifies password, puts key in session, redirects
- *   6. SessionKeyDeriver picks up temp key on next authenticated page
+ *   4. Fills the hidden `unlock[user_key]` field (enrolled) and submits the
+ *      form NATIVELY to the controller (like LoginHook)
+ *   5. Controller fills the session key and redirects
+ *   6. SessionKeyDeriver picks up the temp key on next authenticated page
+ *
+ * The form intentionally has NO `phx-submit`: a LiveView `phx-submit` fires
+ * regardless of the hook's `preventDefault`, which raced the async PRF ceremony
+ * and POSTed an empty `user_key` (false "Invalid password" for enrolled users).
+ * The hook owns submission end-to-end instead.
  *
  * If WASM fails or derivation errors, the flow continues without browser keys.
  * Server-side unlock still works — browser crypto just won't be available
@@ -49,38 +56,32 @@ const UnlockHook = {
       e.preventDefault();
 
       const passwordInput = form.querySelector('input[name="unlock[password]"]');
-      const keyHash = form.dataset.keyHash;
+      const password = passwordInput ? passwordInput.value : "";
 
-      if (!passwordInput || !keyHash || !keyHash.includes("$")) {
-        this.pushEvent("unlock", { unlock: { password: passwordInput?.value || "" } });
-        return;
-      }
-
-      const password = passwordInput.value;
-      if (!password) {
-        this.pushEvent("unlock", { unlock: { password: "" } });
-        return;
-      }
-
-      // Enrolled-account unlock (board #370): the account has NO key_hash
-      // password-only door, so unlock via PRF (password AND enrolled device).
-      // On success we hand the server the decrypted session-key string via a
-      // hidden `unlock[user_key]` field; the controller trusts it only for
-      // enrolled accounts. We NEVER fall back to a password-only door here.
+      // Enrolled-account unlock (board #370) MUST be checked FIRST: enrolled
+      // accounts have NO `key_hash` password-only door (it's retired on enroll),
+      // so the `data-key-hash` attr is empty. Checking the key_hash guard first
+      // would short-circuit and POST the bare password — a false "Invalid
+      // password". Unlock via PRF instead (password AND enrolled device). On
+      // success we hand the server the decrypted session-key string via a hidden
+      // `unlock[user_key]` field; the controller trusts it only for enrolled
+      // accounts. We NEVER fall back to a password-only door here.
       const prf = parsePrf(form.dataset.prf);
       if (prf.enrolled && prf.wraps.length > 0) {
+        if (!password) {
+          // Empty password — let the required field / server surface the error.
+          form.submit();
+          return;
+        }
+
         const restoreButton = setSubmitBusy(form, "Confirming with your device…");
         const result = await tryPrfUnlock(prf.wraps, password);
         if (result) {
           sessionStorage.setItem(TEMP_USER_KEY, result.userKey);
           setUserKeyField(form, result.userKey);
           setWrapIdField(form, result.wrapId);
-          // Submit the form DIRECTLY (native submit, like LoginHook) rather than
-          // round-tripping through pushEvent("unlock") → trigger_action. That
-          // roundtrip re-renders the form and a LiveView DOM patch would strip
-          // the hidden `unlock[user_key]` value we just set (regression that
-          // yielded a misleading "Invalid password" for enrolled users). A
-          // native submit POSTs immediately with the hidden fields intact; the
+          // Submit the form DIRECTLY (native submit, like LoginHook). A native
+          // submit POSTs immediately with the hidden fields intact; the
           // controller trusts unlock[user_key] only for enrolled accounts.
           form.submit();
           return;
@@ -93,6 +94,15 @@ const UnlockHook = {
         // posting the password would only yield a misleading "Invalid password".
         // Surface honest guidance instead and reveal the recovery-key unlock.
         this.pushEvent("prf_unlock_unavailable", {});
+        return;
+      }
+
+      // Non-enrolled password path: requires a usable `key_hash`
+      // (salt$encrypted_user_key). Without it, submit natively and let the
+      // controller verify the password server-side.
+      const keyHash = form.dataset.keyHash;
+      if (!passwordInput || !password || !keyHash || !keyHash.includes("$")) {
+        form.submit();
         return;
       }
 
@@ -128,8 +138,10 @@ const UnlockHook = {
         sessionStorage.removeItem(TEMP_USER_KEY);
       }
 
-      // Let LiveView handle the rest (trigger_submit → POST to controller)
-      this.pushEvent("unlock", { unlock: { password } });
+      // Let the server verify the password and fill the session (native submit,
+      // like LoginHook). The derived user_key is already in sessionStorage for
+      // SessionKeyDeriver to pick up after the redirect.
+      form.submit();
     });
   },
 };
