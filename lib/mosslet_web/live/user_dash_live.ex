@@ -53,6 +53,10 @@ defmodule MossletWeb.UserDashLive do
       Enum.each(confirmed_user_group_ids(current_user), fn {_ug_id, group_id} ->
         Phoenix.PubSub.subscribe(Mosslet.PubSub, "group:#{group_id}")
       end)
+
+      # Shared ritual prompt (EPIC #377): a calm, network-wide prompt. Subscribe
+      # so a freshly broadcast prompt appears on the dashboard live.
+      Mosslet.Rituals.subscribe()
     end
 
     socket =
@@ -96,6 +100,25 @@ defmodule MossletWeb.UserDashLive do
   end
 
   @impl true
+  def handle_event("dismiss_ritual_prompt", _params, socket) do
+    {:noreply, assign(socket, :active_ritual_prompt, nil)}
+  end
+
+  @impl true
+  def handle_info({:ritual_prompt, broadcast}, socket) do
+    socket =
+      if socket.assigns[:has_profile?] and
+           socket.assigns.current_scope.user.ritual_prompts_enabled do
+        socket
+        |> assign(:active_ritual_prompt, broadcast)
+        |> assign(:ritual_prompt_answered?, false)
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
+
   def handle_info(_msg, socket) do
     # Our mount subscriptions are scoped to this user's connections, circles, and
     # timeline. Any of those events can change the at-a-glance counts, so refresh
@@ -129,6 +152,24 @@ defmodule MossletWeb.UserDashLive do
     |> maybe_load_custom_banner(current_user)
     |> assign_dashboard_stats()
     |> assign_org_spaces()
+    |> assign_dashboard_ritual_prompt(current_user)
+  end
+
+  # Shared ritual prompt (EPIC #377, task #384): surface the active prompt on the
+  # dashboard for opted-in users, plus whether they already answered it
+  # (metadata-only) so the card shows a warm acknowledgment. Tapping "Share your
+  # answer" routes to the timeline composer pre-seeded with the prompt.
+  defp assign_dashboard_ritual_prompt(socket, current_user) do
+    prompt =
+      if current_user.ritual_prompts_enabled do
+        Mosslet.Rituals.active_prompt()
+      end
+
+    answered? = prompt != nil and Mosslet.Rituals.answered?(current_user.id, prompt.id)
+
+    socket
+    |> assign(:active_ritual_prompt, prompt)
+    |> assign(:ritual_prompt_answered?, answered?)
   end
 
   defp assign_dashboard_stats(socket) do
@@ -231,6 +272,8 @@ defmodule MossletWeb.UserDashLive do
           stats={@stats}
           families={@families}
           businesses={@businesses}
+          active_ritual_prompt={@active_ritual_prompt}
+          ritual_prompt_answered?={@ritual_prompt_answered?}
         />
       <% else %>
         <.dashboard_onboarding current_scope={@current_scope} />
@@ -249,6 +292,8 @@ defmodule MossletWeb.UserDashLive do
   attr :stats, :map, required: true
   attr :families, :list, required: true
   attr :businesses, :list, required: true
+  attr :active_ritual_prompt, :map, default: nil
+  attr :ritual_prompt_answered?, :boolean, default: false
 
   defp dashboard_home(assigns) do
     ~H"""
@@ -270,6 +315,17 @@ defmodule MossletWeb.UserDashLive do
       </div>
 
       <.liquid_container class="py-10 space-y-10">
+        <%!-- Shared ritual prompt (EPIC #377, task #384): a calm, network-wide
+              prompt. Tapping through opens the timeline composer pre-seeded. --%>
+        <div :if={@active_ritual_prompt} id="dashboard-ritual-prompt">
+          <MossletWeb.TimelineComponents.liquid_ritual_prompt_card
+            id="dashboard-ritual-prompt-card"
+            prompt={@active_ritual_prompt.prompt}
+            prompt_id={@active_ritual_prompt.id}
+            theme={@active_ritual_prompt.theme}
+            answered={@ritual_prompt_answered?}
+          />
+        </div>
         <%!-- Smart nudges --%>
         <div
           :if={

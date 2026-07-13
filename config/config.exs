@@ -166,7 +166,13 @@ config :mosslet, Oban,
        # missed, and performs the 14-day trial-end release. The fast path handles
        # the common case; this only catches leaks, so the floor is deliberately
        # long (inert orgs older than 24h).
-       {"0 5 * * *", Mosslet.Orgs.Jobs.OrgNameReclaimJob, args: %{"action" => "sweep"}}
+       {"0 5 * * *", Mosslet.Orgs.Jobs.OrgNameReclaimJob, args: %{"action" => "sweep"}},
+       # Shared connection ritual prompt (EPIC #377, task #378): broadcast a calm,
+       # network-wide prompt 3x/week (Tue/Thu/Sat at 15:00 UTC). Deliberately NOT
+       # daily — this is a gentle "quiet Tuesday" coordination trigger, never a
+       # compulsive streak. The prompt is non-secret metadata; answers stay ZK.
+       {"0 15 * * 2,4,6", Mosslet.Rituals.Jobs.PromptBroadcastWorker,
+        args: %{"action" => "broadcast"}}
      ]}
   ],
   queues: [

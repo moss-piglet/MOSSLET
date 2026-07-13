@@ -37,6 +37,9 @@ defmodule MossletWeb.UserHomeLive do
         Timeline.connections_subscribe(current_user)
         Timeline.private_subscribe(current_user)
 
+        # Shared ritual prompt (EPIC #377, task #378): calm, network-wide prompt.
+        if profile_owner?, do: Mosslet.Rituals.subscribe()
+
         if profile_owner? do
           MossletWeb.Presence.track_activity(
             self(),
@@ -83,6 +86,7 @@ defmodule MossletWeb.UserHomeLive do
       socket
       |> assign(:slug, slug)
       |> assign(:page_title, if(profile_owner?, do: "Home", else: "Profile"))
+      |> assign_home_ritual_prompt(current_user, profile_owner?)
       |> assign(:image_urls, [])
       |> assign(:delete_post_from_cloud_message, nil)
       |> assign(:delete_reply_from_cloud_message, nil)
@@ -1068,8 +1072,40 @@ defmodule MossletWeb.UserHomeLive do
     {:noreply, socket}
   end
 
+  # Shared ritual prompt (EPIC #377, task #378): a new network-wide prompt went
+  # live. Calm swap-in for opted-in owners viewing their own home.
+  def handle_info({:ritual_prompt, broadcast}, socket) do
+    socket =
+      if socket.assigns[:active_ritual_prompt] != nil or
+           socket.assigns.current_scope.user.ritual_prompts_enabled do
+        socket
+        |> assign(:active_ritual_prompt, broadcast)
+        |> assign(:ritual_prompt_answered?, false)
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
+
   def handle_info(_message, socket) do
     {:noreply, socket}
+  end
+
+  # Shared ritual prompt (EPIC #377, task #378): load the active prompt for the
+  # opted-in profile owner, plus whether they already answered it (metadata-only)
+  # so the card shows a warm acknowledgment instead of re-asking.
+  defp assign_home_ritual_prompt(socket, current_user, profile_owner?) do
+    prompt =
+      if profile_owner? and current_user.ritual_prompts_enabled do
+        Mosslet.Rituals.active_prompt()
+      end
+
+    answered? = prompt != nil and Mosslet.Rituals.answered?(current_user.id, prompt.id)
+
+    socket
+    |> assign(:active_ritual_prompt, prompt)
+    |> assign(:ritual_prompt_answered?, answered?)
   end
 
   defp update_post_in_streams(socket, post) do
@@ -1251,6 +1287,11 @@ defmodule MossletWeb.UserHomeLive do
      |> assign(:pending_repost, nil)
      |> assign(:show_share_modal, false)
      |> put_flash(:error, "Encryption failed. Please refresh and try again.")}
+  end
+
+  # Shared ritual prompt (EPIC #377, task #378): gentle "maybe later" dismiss.
+  def handle_event("dismiss_ritual_prompt", _params, socket) do
+    {:noreply, assign(socket, :active_ritual_prompt, nil)}
   end
 
   def handle_event("open_markdown_guide", _params, socket) do
@@ -2718,6 +2759,18 @@ defmodule MossletWeb.UserHomeLive do
         <%!-- Main Content. Constrained to max-w-3xl so the new-post prompt aligns
         with the profile detail cards (contact/about/posts) below it. --%>
         <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
+          <%!-- Shared ritual prompt (EPIC #377, task #378): calm, opt-in card
+          that links to the timeline composer pre-seeded with the prompt. --%>
+          <div :if={@active_ritual_prompt} class="mb-8">
+            <MossletWeb.TimelineComponents.liquid_ritual_prompt_card
+              id="home-ritual-prompt"
+              prompt={@active_ritual_prompt.prompt}
+              prompt_id={@active_ritual_prompt.id}
+              theme={@active_ritual_prompt.theme}
+              answered={@ritual_prompt_answered?}
+            />
+          </div>
+
           <%!-- New Post Prompt --%>
           <div class="mb-8">
             <MossletWeb.TimelineComponents.liquid_new_post_prompt

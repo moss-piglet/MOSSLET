@@ -1361,6 +1361,10 @@ defmodule Mosslet.API.Client do
     request(:put, "/api/users/mood-insights", %{enabled: enabled}, auth: token)
   end
 
+  def update_ritual_prompts_enabled(token, enabled) do
+    request(:put, "/api/users/ritual-prompts", %{enabled: enabled}, auth: token)
+  end
+
   def update_user_mention_email_received_at(token, timestamp) do
     request(:put, "/api/users/mention-email-received-at", %{timestamp: timestamp}, auth: token)
   end

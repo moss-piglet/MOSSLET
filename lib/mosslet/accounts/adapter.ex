@@ -928,4 +928,10 @@ defmodule Mosslet.Accounts.Adapter do
   """
   @callback update_mood_insights_enabled(user :: User.t(), enabled :: boolean()) ::
               {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Updates the shared ritual prompt opt-in setting for a user.
+  """
+  @callback update_ritual_prompts_enabled(user :: User.t(), enabled :: boolean()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t()}
 end

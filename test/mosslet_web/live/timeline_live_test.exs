@@ -350,7 +350,135 @@ defmodule MossletWeb.TimelineLiveTest do
     end
   end
 
+  # Ritual prompt answer chip (EPIC #377, task #384). A post stamped with a
+  # ritual_prompt_id gets a quiet "answered a shared prompt" chip; unstamped
+  # posts do not. Also guards the ZK author-name sticky-decrypt fix.
+  describe "Ritual prompt answer chip" do
+    setup [:create_user_with_connection]
+
+    test "renders the answer chip (with prompt text) only on stamped posts", %{
+      conn: conn,
+      user: user,
+      key: key
+    } do
+      broadcast = ritual_broadcast_fixture("What's a small plan you're excited about?")
+
+      stamped =
+        post_fixture(
+          %{visibility: "connections", body: "My answer", ritual_prompt_id: broadcast.id},
+          user: user,
+          key: key
+        )
+
+      plain =
+        post_fixture(
+          %{visibility: "connections", body: "Just a normal post"},
+          user: user,
+          key: key
+        )
+
+      {:ok, lv, _html} =
+        conn
+        |> log_in_user(user, key)
+        |> live(~p"/app/timeline")
+
+      render_async(lv)
+
+      # The user's own posts land in the collapsed "read" section — expand it so
+      # the cards (and their chips) render.
+      lv |> element("button", "read posts") |> render_click()
+      render_async(lv)
+
+      # Chip present on the stamped post, absent on the plain one.
+      assert has_element?(lv, "#ritual-answer-chip-#{stamped.id}")
+      refute has_element?(lv, "#ritual-answer-chip-#{plain.id}")
+
+      # The non-secret prompt text rides along as the hover/tap tooltip.
+      html = render(lv)
+      assert html =~ "What&#39;s a small plan you&#39;re excited about?"
+      assert html =~ "Answered a shared prompt"
+    end
+
+    test "composer does not re-ask a prompt the viewer already answered", %{
+      conn: conn,
+      user: user,
+      key: key
+    } do
+      broadcast = ritual_broadcast_fixture("Already answered prompt?")
+
+      # Stamp an answering post so answered?/2 is true for this viewer.
+      post_fixture(
+        %{visibility: "public", body: "My answer", ritual_prompt_id: broadcast.id},
+        user: user,
+        key: key
+      )
+
+      # Arrive via a stale prompt link that tries to open the composer for it.
+      {:ok, lv, _html} =
+        conn
+        |> log_in_user(user, key)
+        |> live(~p"/app/timeline?compose=1&ritual=#{broadcast.id}")
+
+      render_async(lv)
+
+      # No "responding to" banner and no stamping input — it's already answered.
+      refute has_element?(lv, "input[name='post[ritual_prompt_id]']")
+      refute render(lv) =~ "Responding to today&#39;s prompt"
+    end
+
+    test "ZK author-name/handle spans render phx-update=ignore so patches don't revert them" do
+      # A browser-decrypted post has its author name/handle filled client-side by
+      # the DecryptPost hook. Those spans MUST carry phx-update="ignore" or a
+      # LiveView patch (e.g. the read/unread stream reset) reverts them to "..."
+      # and the hook never re-runs. Component-level guard for that fix (#384).
+      post = %Mosslet.Timeline.Post{
+        id: Ecto.UUID.generate(),
+        user_id: Ecto.UUID.generate(),
+        visibility: :connections,
+        is_ephemeral: false,
+        expires_at: nil,
+        mature_content: false,
+        source: :mosslet,
+        inserted_at: NaiveDateTime.utc_now(),
+        updated_at: NaiveDateTime.utc_now()
+      }
+
+      post = Map.put(post, :decrypted, %{browser_decrypt?: true})
+
+      html =
+        render_component(&MossletWeb.TimelineComponents.liquid_post_header/1,
+          post: post,
+          current_user_id: Ecto.UUID.generate(),
+          user_name: "...",
+          user_handle: "@...",
+          timestamp: "now"
+        )
+
+      assert html =~ ~s(data-decrypt-author-name-target="#{post.id}")
+      assert html =~ ~s(data-decrypt-handle-target="#{post.id}")
+      assert html =~ ~s(id="post-author-name-#{post.id}")
+      assert html =~ ~s(id="post-author-handle-#{post.id}")
+      assert html =~ ~s(phx-update="ignore")
+    end
+  end
+
   # Helper functions
+  defp ritual_broadcast_fixture(prompt) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    {:ok, broadcast} =
+      %Mosslet.Rituals.PromptBroadcast{}
+      |> Mosslet.Rituals.PromptBroadcast.changeset(%{
+        prompt: prompt,
+        theme: "looking forward",
+        broadcast_at: now,
+        expires_at: DateTime.add(now, 4, :day)
+      })
+      |> Mosslet.Repo.insert()
+
+    broadcast
+  end
+
   defp create_user(_) do
     user = user_fixture(%{email: @valid_email, password: @valid_password})
     user = Accounts.confirm_user!(user)

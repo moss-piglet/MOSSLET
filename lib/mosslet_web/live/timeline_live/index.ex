@@ -56,6 +56,9 @@ defmodule MossletWeb.TimelineLive.Index do
         # Subscribe to block events for real-time filtering
         Accounts.block_subscribe(current_user)
 
+        # Shared ritual prompt (EPIC #377, task #378): calm, network-wide prompt.
+        Mosslet.Rituals.subscribe()
+
         # PRIVACY-FIRST: Track user presence for cache optimization only
         # No usernames or identifying info shared - just for performance
         MossletWeb.Presence.track_activity(
@@ -159,6 +162,11 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:privacy_controls_expanded, false)
       # Composer collapsed state for scrolling convenience
       |> assign(:composer_collapsed, true)
+      # Shared ritual prompt (EPIC #377, task #378): the currently active prompt
+      # (nil unless the user opted in and a broadcast is live) and the prompt the
+      # composer is answering (set when arriving via ?ritual=<id>).
+      |> assign_active_ritual_prompt(current_user)
+      |> assign(:ritual_prompt, nil)
       # Store selected groups/users to preserve when privacy controls are collapsed
       |> assign(:selected_visibility_groups, [])
       |> assign(:selected_visibility_users, [])
@@ -308,6 +316,7 @@ defmodule MossletWeb.TimelineLive.Index do
       # Allow other surfaces (e.g. the dashboard "New post" action) to deep-link
       # straight into an open composer via `?compose=1`.
       |> maybe_open_composer(params)
+      |> maybe_assign_ritual_prompt(params)
 
     # Start async operation to load timeline data (posts and counts together)
     # This ensures data synchronization while providing loading UI
@@ -384,6 +393,72 @@ defmodule MossletWeb.TimelineLive.Index do
     do: assign(socket, :composer_collapsed, false)
 
   defp maybe_open_composer(socket, _params), do: socket
+
+  # Shared ritual prompt (EPIC #377, task #378). When arriving via
+  # `?ritual=<broadcast_id>` (from tapping the prompt card), load the non-secret
+  # prompt so the composer can show a gentle "responding to" banner and stamp
+  # the resulting post with the prompt id. Any other navigation clears it.
+  defp maybe_assign_ritual_prompt(socket, %{"ritual" => id}) when is_binary(id) and id != "" do
+    current_user = socket.assigns.current_user
+
+    # Don't re-ask a prompt the viewer has already answered — even if they arrive
+    # via a stale `?ritual=` link (task #384). Metadata-only check; the answer
+    # itself stays on the zero-knowledge path.
+    prompt =
+      if Mosslet.Rituals.answered?(current_user.id, id) do
+        nil
+      else
+        Mosslet.Rituals.get_prompt_broadcast(id)
+      end
+
+    assign(socket, :ritual_prompt, prompt)
+  end
+
+  defp maybe_assign_ritual_prompt(socket, _params), do: assign(socket, :ritual_prompt, nil)
+
+  # Load the currently active shared ritual prompt, but only for users who have
+  # opted in. Kept nil otherwise so the calm card never appears uninvited. Also
+  # tracks whether the viewer already answered it (metadata-only check) so the
+  # card shows a warm acknowledgment instead of re-asking.
+  defp assign_active_ritual_prompt(socket, current_user) do
+    prompt =
+      if current_user.ritual_prompts_enabled do
+        Mosslet.Rituals.active_prompt()
+      end
+
+    answered? = prompt != nil and Mosslet.Rituals.answered?(current_user.id, prompt.id)
+
+    socket
+    |> assign(:active_ritual_prompt, prompt)
+    |> assign(:ritual_prompt_answered?, answered?)
+  end
+
+  # Stamp an answering post with the non-secret ritual prompt id (metadata only)
+  # when the composer was opened from a prompt card.
+  defp maybe_put_ritual_prompt_id(post_params, socket) do
+    case socket.assigns[:ritual_prompt] do
+      %{id: id} -> Map.put(post_params, "ritual_prompt_id", id)
+      _ -> post_params
+    end
+  end
+
+  # After a successful post that answered the active ritual prompt, clear the
+  # composer banner and flip the card into its warm "you shared yours" state.
+  defp maybe_acknowledge_ritual_answer(socket, post) do
+    active = socket.assigns[:active_ritual_prompt]
+
+    if post.ritual_prompt_id && active && post.ritual_prompt_id == active.id do
+      socket
+      |> assign(:ritual_prompt, nil)
+      |> assign(:ritual_prompt_answered?, true)
+    else
+      if post.ritual_prompt_id do
+        assign(socket, :ritual_prompt, nil)
+      else
+        socket
+      end
+    end
+  end
 
   defp is_post_unread?(post, current_user, opts) do
     tab = Keyword.get(opts, :tab)
@@ -791,6 +866,22 @@ defmodule MossletWeb.TimelineLive.Index do
 
       {:noreply, socket}
     end
+  end
+
+  # Shared ritual prompt (EPIC #377, task #378): a new network-wide prompt went
+  # live. Batched, calm — we just swap in the new card for opted-in users. No
+  # toast, no ping.
+  def handle_info({:ritual_prompt, broadcast}, socket) do
+    socket =
+      if socket.assigns.current_user.ritual_prompts_enabled do
+        socket
+        |> assign(:active_ritual_prompt, broadcast)
+        |> assign(:ritual_prompt_answered?, false)
+      else
+        socket
+      end
+
+    {:noreply, socket}
   end
 
   def handle_info({:post_created, post}, socket) do
@@ -2967,6 +3058,7 @@ defmodule MossletWeb.TimelineLive.Index do
             "visibility_groups" => socket.assigns.selected_visibility_groups || [],
             "visibility_users" => socket.assigns.selected_visibility_users || []
           }
+          |> maybe_put_ritual_prompt_id(socket)
           |> maybe_put_url_preview(socket)
           |> Map.put(
             "url_preview_fetched_at",
@@ -3235,6 +3327,7 @@ defmodule MossletWeb.TimelineLive.Index do
             |> Map.put("user_id", current_user.id)
             |> Map.put("content_warning?", socket.assigns.content_warning_enabled?)
             |> Map.put("ai_generated", any_ai_generated)
+            |> maybe_put_ritual_prompt_id(socket)
             |> maybe_put_url_preview(socket)
             |> Map.put(
               "url_preview_fetched_at",
@@ -3311,6 +3404,17 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:post, %Post{})
 
     {:noreply, socket}
+  end
+
+  # Shared ritual prompt (EPIC #377, task #378): gently dismiss the calm prompt
+  # card for this session. No streaks, no penalty — an easy "maybe later".
+  def handle_event("dismiss_ritual_prompt", _params, socket) do
+    # Also clear the composer's "responding to" banner so a maybe-later/dismiss
+    # doesn't leave the prompt lingering in an open composer (task #384).
+    {:noreply,
+     socket
+     |> assign(:active_ritual_prompt, nil)
+     |> assign(:ritual_prompt, nil)}
   end
 
   # Content filtering event handlers
@@ -5450,6 +5554,7 @@ defmodule MossletWeb.TimelineLive.Index do
           |> assign(:url_preview, nil)
           |> assign(:url_preview_loading, false)
           |> assign(:current_preview_url, nil)
+          |> maybe_acknowledge_ritual_answer(post)
           |> put_flash(:success, "Post created successfully")
 
         current_tab = socket.assigns.active_tab || "home"

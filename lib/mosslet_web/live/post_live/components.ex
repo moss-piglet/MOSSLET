@@ -664,6 +664,11 @@ defmodule MossletWeb.PostLive.Components do
         get_encrypted_avatar_data_for_item(assigns.post, assigns.current_user)
       )
 
+    assigns =
+      assign_new(assigns, :ritual_prompt_text, fn ->
+        Mosslet.Rituals.cached_prompt_text(assigns.post.ritual_prompt_id)
+      end)
+
     ~H"""
     <div class="flex-1 max-w-full mt-4 justify-center items-center">
       <div
@@ -813,6 +818,19 @@ defmodule MossletWeb.PostLive.Components do
                   </span>
                 </span>
               </p>
+            </div>
+
+            <%!-- Quiet "answered a shared prompt" chip (EPIC #377, task #384) --%>
+            <div :if={@ritual_prompt_text} class="mt-2">
+              <span
+                id={"ritual-answer-chip-show-#{@post.id}"}
+                phx-hook="TippyHook"
+                data-tippy-content={"Shared prompt: “#{@ritual_prompt_text}”"}
+                class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium cursor-default select-none bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-950/50 dark:to-emerald-950/50 text-emerald-700 dark:text-emerald-300 ring-1 ring-inset ring-emerald-200/70 dark:ring-emerald-800/50"
+              >
+                <.phx_icon name="hero-sparkles" class="h-3.5 w-3.5 flex-shrink-0" />
+                <span>Answered a shared prompt</span>
+              </span>
             </div>
 
             <%!-- Post body: ZK browser-side decrypt for non-public, server-side for public --%>

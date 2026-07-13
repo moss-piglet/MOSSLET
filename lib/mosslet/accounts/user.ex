@@ -82,6 +82,9 @@ defmodule Mosslet.Accounts.User do
     field :journal_privacy_activated_at, :utc_datetime
     field :mood_insights_enabled, :boolean, default: false
 
+    # Shared ritual prompt opt-in (EPIC #377, task #378) — calm, non-secret.
+    field :ritual_prompts_enabled, :boolean, default: false
+
     # User Status System - Personal status (encrypted with user_key)
     field :status, Ecto.Enum, values: [:offline, :calm, :active, :busy, :away], default: :offline
     # User's custom status message (encrypted with user_key)
@@ -1875,6 +1878,16 @@ defmodule Mosslet.Accounts.User do
   def mood_insights_changeset(user, attrs) do
     user
     |> cast(attrs, [:mood_insights_enabled])
+  end
+
+  @doc """
+  A user changeset for toggling the shared ritual prompt opt-in (EPIC #377,
+  task #378). Calm, non-secret preference — whether the user receives gentle
+  network-wide ritual prompts.
+  """
+  def ritual_prompts_changeset(user, attrs \\ %{}) do
+    user
+    |> cast(attrs, [:ritual_prompts_enabled])
   end
 
   @doc """

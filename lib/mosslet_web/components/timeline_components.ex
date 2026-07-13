@@ -509,6 +509,189 @@ defmodule MossletWeb.TimelineComponents do
   end
 
   @doc """
+  A gentle, liquid "shared ritual prompt" card (EPIC #377, task #378).
+
+  The "quiet Tuesday" trigger: a calm, network-wide prompt that everyone in a
+  circle receives identically. Tapping it opens the normal post composer,
+  pre-seeded with the prompt, so the answer is a normal encrypted post shared
+  with connections — never a journal entry, never anything the server reads.
+
+  Deliberately low-pressure: no streaks, no counts, an easy "maybe later".
+  """
+  attr :prompt, :string, required: true, doc: "the non-secret prompt text to display"
+  attr :prompt_id, :string, required: true, doc: "the broadcast id used to stamp the answer"
+  attr :theme, :string, default: nil, doc: "optional theme label for a little warmth"
+
+  attr :answered, :boolean,
+    default: false,
+    doc: "the viewer already answered this prompt — show a warm thank-you instead of the CTA"
+
+  attr :class, :any, default: ""
+  attr :id, :string, default: "ritual-prompt-card"
+
+  def liquid_ritual_prompt_card(assigns) do
+    ~H"""
+    <div
+      id={@id}
+      class={[
+        "relative overflow-hidden rounded-2xl transition-all duration-300 ease-out",
+        "bg-gradient-to-br from-teal-50 via-emerald-50/80 to-cyan-50",
+        "dark:from-teal-950/40 dark:via-emerald-950/30 dark:to-cyan-950/40",
+        "border border-emerald-200/70 dark:border-emerald-800/50",
+        "shadow-lg shadow-emerald-500/5 dark:shadow-emerald-500/10",
+        @class
+      ]}
+    >
+      <%!-- Soft liquid glow accents --%>
+      <div class="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-emerald-400/10 blur-3xl">
+      </div>
+      <div class="pointer-events-none absolute -bottom-12 -left-8 h-32 w-32 rounded-full bg-teal-400/10 blur-3xl">
+      </div>
+
+      <div class="relative p-5 sm:p-6">
+        <%!-- Header: gentle label --%>
+        <div class="flex items-center gap-2 mb-3">
+          <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-teal-400/20 to-emerald-400/20 dark:from-teal-400/10 dark:to-emerald-400/10 ring-1 ring-emerald-300/40 dark:ring-emerald-700/40">
+            <.phx_icon
+              name="hero-sparkles"
+              class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+            />
+          </div>
+          <div class="flex flex-col">
+            <span class="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+              A gentle prompt for you and your connections
+            </span>
+            <span
+              :if={@theme}
+              class="text-[11px] text-emerald-600/80 dark:text-emerald-500/80 capitalize"
+            >
+              {@theme}
+            </span>
+          </div>
+        </div>
+
+        <%!-- The prompt itself --%>
+        <p class="text-lg sm:text-xl font-medium leading-snug text-slate-800 dark:text-slate-100">
+          {@prompt}
+        </p>
+
+        <%= if @answered do %>
+          <%!-- Warm, calm acknowledgment — no streaks, no metrics, just a smile --%>
+          <div class="mt-3 flex items-center gap-2.5 rounded-xl px-4 py-3 bg-white/60 dark:bg-slate-900/40 border border-emerald-200/60 dark:border-emerald-800/40">
+            <.phx_icon
+              name="hero-heart-solid"
+              class="h-4 w-4 text-rose-400 dark:text-rose-400/90 flex-shrink-0"
+            />
+            <p class="text-sm text-slate-600 dark:text-slate-300">
+              You shared your answer — your connections will love it.
+            </p>
+          </div>
+
+          <%!-- Let people tuck the card away once they've answered — no pressure
+                to keep it hanging around (task #384). --%>
+          <div class="mt-3 flex justify-end">
+            <button
+              type="button"
+              phx-click="dismiss_ritual_prompt"
+              id={"#{@id}-dismiss-answered"}
+              class={[
+                "inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium",
+                "text-slate-500 dark:text-slate-400",
+                "hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-800/50",
+                "focus:outline-none focus:ring-2 focus:ring-slate-400/40",
+                "transition-all duration-200 ease-out"
+              ]}
+            >
+              <.phx_icon name="hero-check" class="h-4 w-4" />
+              <span>Dismiss</span>
+            </button>
+          </div>
+        <% else %>
+          <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            Your connections see the same prompt. Answer if it feels good — no pressure.
+          </p>
+
+          <%!-- Actions --%>
+          <div class="mt-4 flex items-center gap-3">
+            <.link
+              navigate={~p"/app/timeline?compose=1&ritual=#{@prompt_id}"}
+              id={"#{@id}-answer"}
+              class={[
+                "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold",
+                "text-white bg-gradient-to-r from-teal-500 to-emerald-500",
+                "shadow-md shadow-emerald-500/25",
+                "hover:from-teal-600 hover:to-emerald-600 hover:shadow-lg hover:shadow-emerald-500/30",
+                "hover:scale-[1.02] active:scale-[0.98]",
+                "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 dark:focus:ring-offset-slate-900",
+                "transition-all duration-200 ease-out"
+              ]}
+            >
+              <.phx_icon name="hero-pencil-square" class="h-4 w-4" />
+              <span>Share your answer</span>
+            </.link>
+
+            <button
+              type="button"
+              phx-click="dismiss_ritual_prompt"
+              class={[
+                "inline-flex items-center rounded-xl px-3 py-2.5 text-sm font-medium",
+                "text-slate-500 dark:text-slate-400",
+                "hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-800/50",
+                "focus:outline-none focus:ring-2 focus:ring-slate-400/40",
+                "transition-all duration-200 ease-out"
+              ]}
+            >
+              Maybe later
+            </button>
+          </div>
+        <% end %>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  A quiet "answered a shared prompt" chip for post cards (EPIC #377, task #384).
+
+  When a post is stamped with a `ritual_prompt_id`, this subtle teal→emerald
+  chip lets a network SEE that the post is a response to the current shared
+  ritual prompt — the other half of the coordination signal. Deliberately calm:
+  no counts, no "3 friends answered", no leaderboards. Just quiet recognition.
+
+  The (non-secret) prompt text is surfaced on hover/tap via `TippyHook`. The
+  post's ANSWER is never touched here — it stays browser-encrypted as always.
+  """
+  attr :prompt_text, :string,
+    default: nil,
+    doc: "the resolved non-secret prompt text (nil renders nothing)"
+
+  attr :id, :string, required: true, doc: "unique id for the chip (per post)"
+  attr :class, :any, default: ""
+
+  def liquid_ritual_answer_chip(assigns) do
+    ~H"""
+    <span
+      :if={@prompt_text}
+      id={@id}
+      phx-hook="TippyHook"
+      data-tippy-content={"Shared prompt: “#{@prompt_text}”"}
+      class={[
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1",
+        "text-xs font-medium cursor-default select-none",
+        "bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-950/50 dark:to-emerald-950/50",
+        "text-emerald-700 dark:text-emerald-300",
+        "ring-1 ring-inset ring-emerald-200/70 dark:ring-emerald-800/50",
+        "transition-colors duration-200 hover:ring-emerald-300/80 dark:hover:ring-emerald-700/70",
+        @class
+      ]}
+    >
+      <.phx_icon name="hero-sparkles" class="h-3.5 w-3.5 flex-shrink-0" />
+      <span>Answered a shared prompt</span>
+    </span>
+    """
+  end
+
+  @doc """
   Timeline composer with enhanced liquid metal avatar and calm design focus.
   """
   attr :user_name, :string, required: true
@@ -1117,8 +1300,28 @@ defmodule MossletWeb.TimelineComponents do
     default: nil,
     doc: "The profile visibility of the post author (:private, :connections, :public)"
 
+  attr :ritual_prompt_text, :string,
+    default: nil,
+    doc:
+      "resolved non-secret text of the shared ritual prompt this post answers (nil = not a ritual answer). When omitted, resolved from post.ritual_prompt_id via a per-process cache."
+
   def liquid_timeline_post(assigns) do
     assigns = assign_scope_fields(assigns)
+
+    # Resolve the (non-secret) shared-prompt text for the "answered a shared
+    # prompt" chip when the caller didn't pass it. Declared attrs always exist
+    # in assigns (default nil), so `assign_new` won't fire here — resolve
+    # explicitly, memoized per-process to avoid N+1 across the timeline.
+    assigns =
+      if is_nil(assigns.ritual_prompt_text) do
+        assign(
+          assigns,
+          :ritual_prompt_text,
+          Mosslet.Rituals.cached_prompt_text(assigns.post.ritual_prompt_id)
+        )
+      else
+        assigns
+      end
 
     ~H"""
     <article
@@ -1198,6 +1401,14 @@ defmodule MossletWeb.TimelineComponents do
           content_warning?={@content_warning?}
           content_warning={@content_warning}
         />
+
+        <%!-- Quiet "answered a shared prompt" chip (EPIC #377, task #384) --%>
+        <div :if={@ritual_prompt_text} class="mb-3 -mt-1">
+          <.liquid_ritual_answer_chip
+            id={"ritual-answer-chip-#{@post.id}"}
+            prompt_text={@ritual_prompt_text}
+          />
+        </div>
 
         <%!-- Post content with markdown support --%>
         <div class="mb-4 flex-1">
@@ -2189,6 +2400,8 @@ defmodule MossletWeb.TimelineComponents do
             }
             navigate={~p"/app/profile/#{@author_profile_slug}"}
             class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+            id={"post-author-name-link-#{@post.id}"}
+            phx-update={if @post.decrypted[:browser_decrypt?], do: "ignore"}
             data-decrypt-author-name-target={@post.id}
           >
             {@user_name}
@@ -2201,6 +2414,8 @@ defmodule MossletWeb.TimelineComponents do
               )
             }
             class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate"
+            id={"post-author-name-#{@post.id}"}
+            phx-update={if @post.decrypted[:browser_decrypt?], do: "ignore"}
             data-decrypt-author-name-target={@post.id}
           >
             {@user_name}
@@ -2224,8 +2439,8 @@ defmodule MossletWeb.TimelineComponents do
             data-peer-pq-public-key={@peer_pq_public_key}
             data-sealed-pin={@sealed_peer_pin}
             hidden
-            class="shrink-0 inline-flex items-center text-emerald-500"
-            title="Encryption key verified"
+            class="shrink-0 inline-flex items-center text-emerald-500 cursor-help"
+            data-tippy-content="Encryption key verified"
           >
             <.phx_icon name="hero-check-badge" class="h-5 w-5" />
           </span>
@@ -2305,7 +2520,12 @@ defmodule MossletWeb.TimelineComponents do
           </div>
         </div>
         <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-          <span class="truncate" data-decrypt-handle-target={@post.id}>
+          <span
+            class="truncate"
+            id={"post-author-handle-#{@post.id}"}
+            phx-update={if @post.decrypted[:browser_decrypt?], do: "ignore"}
+            data-decrypt-handle-target={@post.id}
+          >
             {if(@post.decrypted[:browser_decrypt?], do: "@...", else: @user_handle)}
           </span>
           <span class="text-slate-400 dark:text-slate-500">•</span>

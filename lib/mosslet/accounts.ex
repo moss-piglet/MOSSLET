@@ -3348,4 +3348,11 @@ defmodule Mosslet.Accounts do
   def update_mood_insights_enabled(user, enabled) when is_boolean(enabled) do
     adapter().update_mood_insights_enabled(user, enabled)
   end
+
+  @doc """
+  Toggles the shared ritual prompt opt-in for a user (EPIC #377, task #378).
+  """
+  def update_ritual_prompts_enabled(user, enabled) when is_boolean(enabled) do
+    adapter().update_ritual_prompts_enabled(user, enabled)
+  end
 end

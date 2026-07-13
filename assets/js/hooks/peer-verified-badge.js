@@ -31,6 +31,17 @@ const PeerVerifiedBadge = {
   async mounted() {
     this._onKeysReady = null;
 
+    // Beautiful tooltip (matches TippyHook) instead of a native title. The badge
+    // starts hidden; tippy reads data-tippy-content and only shows on hover/focus
+    // once the hook unhides the element.
+    if (typeof tippy === "function") {
+      this._tippy = tippy(this.el, {
+        touch: ["hold", 500],
+        hideOnClick: true,
+        trigger: "mouseenter focus",
+      });
+    }
+
     this._onPinStatus = (e) => {
       if (e && e.detail && e.detail.peerUserId === this.el.dataset.peerUserId) {
         this._apply(e.detail);
@@ -50,6 +61,10 @@ const PeerVerifiedBadge = {
   },
 
   destroyed() {
+    if (this._tippy) {
+      this._tippy.destroy();
+      this._tippy = null;
+    }
     window.removeEventListener(PEER_PIN_STATUS_EVENT, this._onPinStatus);
     if (this._onKeysReady) {
       window.removeEventListener("mosslet:keys-ready", this._onKeysReady);

@@ -150,6 +150,13 @@ defmodule Mosslet.Timeline.Post do
     field :external_reply_parent_cid, Encrypted.Binary, redact: true
     field :bluesky_link_verified, :boolean, default: true
 
+    # Shared ritual prompt (EPIC #377, task #378). NON-SECRET metadata: when a
+    # post answers a server-broadcast ritual prompt, we stamp it with the
+    # broadcast id so a network can see "responses to this prompt". The ANSWER
+    # itself stays zero-knowledge (encrypted body/images) — only this reference
+    # is plaintext.
+    field :ritual_prompt_id, :binary_id
+
     timestamps()
   end
 
@@ -200,7 +207,9 @@ defmodule Mosslet.Timeline.Post do
       :external_reply_root_uri,
       :external_reply_root_cid,
       :external_reply_parent_uri,
-      :external_reply_parent_cid
+      :external_reply_parent_cid,
+      # Shared ritual prompt reference (non-secret metadata)
+      :ritual_prompt_id
     ])
     |> validate_required([:body, :username, :user_id])
     |> validate_length(:body, max: 10_000)

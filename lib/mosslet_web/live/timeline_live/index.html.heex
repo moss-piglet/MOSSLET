@@ -175,6 +175,17 @@
       </div>
       <%!-- End sticky header group --%>
 
+      <%!-- Shared ritual prompt (EPIC #377, task #378): calm, opt-in, network-wide --%>
+      <div :if={@active_ritual_prompt} class="max-w-2xl mx-auto w-full">
+        <MossletWeb.TimelineComponents.liquid_ritual_prompt_card
+          id="timeline-ritual-prompt"
+          prompt={@active_ritual_prompt.prompt}
+          prompt_id={@active_ritual_prompt.id}
+          theme={@active_ritual_prompt.theme}
+          answered={@ritual_prompt_answered?}
+        />
+      </div>
+
       <%!-- Timeline feed with calmer spacing --%>
       <div class="space-y-6 sm:space-y-8">
         <%!-- Async result wrapper for posts with beautiful loading states --%>
@@ -592,6 +603,31 @@
             phx-hook="PostFormHook"
             data-visibility={@selector}
           >
+            <%!-- Ritual prompt banner (EPIC #377, task #378): shows what this
+            post is gently responding to. The prompt id is non-secret metadata;
+            the answer itself stays end-to-end encrypted. --%>
+            <div
+              :if={@ritual_prompt}
+              class="mb-3 flex items-start gap-2.5 rounded-xl px-4 py-3 bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/25 dark:to-emerald-900/20 border border-emerald-200/70 dark:border-emerald-800/50"
+            >
+              <.phx_icon
+                name="hero-sparkles"
+                class="h-4 w-4 mt-0.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0"
+              />
+              <div class="min-w-0">
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+                  Responding to today's prompt
+                </p>
+                <p class="text-sm text-slate-700 dark:text-slate-200">
+                  {@ritual_prompt.prompt}
+                </p>
+              </div>
+              <input
+                type="hidden"
+                name="post[ritual_prompt_id]"
+                value={@ritual_prompt.id}
+              />
+            </div>
             <MossletWeb.TimelineComponents.liquid_timeline_composer_enhanced
               id={"timeline-composer-enhanced-#{@active_tab}"}
               user_name={user_name(@current_user, @key) || "Private Author"}

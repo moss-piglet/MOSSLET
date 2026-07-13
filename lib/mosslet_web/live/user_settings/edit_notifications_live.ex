@@ -216,6 +216,73 @@ defmodule MossletWeb.EditNotificationsLive do
             </div>
           </DesignSystem.liquid_card>
 
+          <%!-- Shared Ritual Prompts Card (EPIC #377, task #378) --%>
+          <DesignSystem.liquid_card class="bg-gradient-to-br from-teal-50/50 to-emerald-50/30 dark:from-teal-900/20 dark:to-emerald-900/10">
+            <:title>
+              <div class="flex items-center gap-3">
+                <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-teal-100 via-emerald-50 to-teal-100 dark:from-teal-900/30 dark:via-emerald-900/25 dark:to-teal-900/30">
+                  <.phx_icon
+                    name="hero-sparkles"
+                    class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+                  />
+                </div>
+                <span>Gentle Prompts</span>
+                <span class={[
+                  "inline-flex px-2.5 py-0.5 text-xs rounded-lg font-medium",
+                  if(@current_scope.user.ritual_prompts_enabled,
+                    do:
+                      "bg-gradient-to-r from-emerald-100 to-teal-200 text-emerald-800 dark:from-emerald-800 dark:to-teal-700 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-600",
+                    else:
+                      "bg-gradient-to-r from-slate-100 to-slate-200 text-slate-800 dark:from-slate-700 dark:to-slate-600 dark:text-slate-200 border border-slate-300 dark:border-slate-600"
+                  )
+                ]}>
+                  {if @current_scope.user.ritual_prompts_enabled, do: "On", else: "Off"}
+                </span>
+              </div>
+            </:title>
+
+            <div class="space-y-6">
+              <p class="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                A couple of times a week, MOSSLET offers a small, shared prompt — the same
+                gentle question for you and your connections, like "What's one small good thing
+                that happened today?" It's a light, no-pressure invitation to share a moment
+                with the people you care about. There are no streaks, no reminders that nag,
+                and nothing to keep up with. Answer if it feels good; skip it if it doesn't.
+              </p>
+
+              <div class="bg-teal-50 dark:bg-teal-900/20 rounded-lg p-4 border border-teal-200 dark:border-teal-700">
+                <div class="flex items-start gap-2 text-sm text-teal-700 dark:text-teal-300">
+                  <.phx_icon
+                    name="hero-lock-closed"
+                    class="h-4 w-4 mt-0.5 flex-shrink-0"
+                  />
+                  <span>
+                    The prompt is just a question — your answer is a normal post, encrypted
+                    end-to-end and shared only with the people you choose. We never see it.
+                  </span>
+                </div>
+              </div>
+
+              <.form
+                id="update_ritual_prompts_form"
+                for={@ritual_form}
+                phx-change="toggle_ritual_prompts"
+                class="space-y-6"
+              >
+                <DesignSystem.liquid_checkbox
+                  field={@ritual_form[:ritual_prompts_enabled]}
+                  label="Show me gentle shared prompts"
+                  help={
+                    if @current_scope.user.ritual_prompts_enabled,
+                      do: "Turn off to stop seeing shared prompts on your timeline and home.",
+                      else:
+                        "Turn on to see a calm, shared prompt on your timeline a couple of times a week."
+                  }
+                />
+              </.form>
+            </div>
+          </DesignSystem.liquid_card>
+
           <%!-- Email Notifications Card --%>
           <DesignSystem.liquid_card class="bg-gradient-to-br from-blue-50/50 to-cyan-50/30 dark:from-blue-900/20 dark:to-cyan-900/10">
             <:title>
@@ -588,7 +655,36 @@ defmodule MossletWeb.EditNotificationsLive do
     end
   end
 
+  def handle_event("toggle_ritual_prompts", %{"user" => user_params}, socket) do
+    enabled = user_params["ritual_prompts_enabled"] == "true"
+
+    case Accounts.update_ritual_prompts_enabled(socket.assigns.current_scope.user, enabled) do
+      {:ok, current_user} ->
+        socket =
+          socket
+          |> put_flash(
+            :success,
+            gettext("Your gentle prompt preference has been updated.")
+          )
+          |> assign(
+            current_scope: Scope.for_user(current_user, key: socket.assigns.current_scope.key)
+          )
+          |> assign_form(current_user)
+          |> push_navigate(to: "/app/users/edit-notifications")
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, gettext("Update failed. Please try again."))
+         |> push_navigate(to: "/app/users/edit-notifications")}
+    end
+  end
+
   defp assign_form(socket, user) do
-    assign(socket, page_title: "Settings", form: to_form(User.notifications_changeset(user)))
+    socket
+    |> assign(page_title: "Settings", form: to_form(User.notifications_changeset(user)))
+    |> assign(ritual_form: to_form(User.ritual_prompts_changeset(user)))
   end
 end
