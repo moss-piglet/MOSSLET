@@ -31,6 +31,12 @@ defmodule MossletWeb.UserDashLive do
 
   import MossletWeb.DesignSystem
 
+  # Slow, calm cadence for refreshing the content-free "connections are around"
+  # hint (EPIC #377, task #381). We deliberately do NOT react to the global
+  # presence join/leave stream (that would mean reacting to the whole online set
+  # and would flap on tab refreshes); instead we recompute on a gentle timer.
+  @around_refresh_ms 60_000
+
   @impl true
   def mount(_params, _session, socket) do
     current_user = socket.assigns.current_scope.user
@@ -57,6 +63,22 @@ defmodule MossletWeb.UserDashLive do
       # Shared ritual prompt (EPIC #377): a calm, network-wide prompt. Subscribe
       # so a freshly broadcast prompt appears on the dashboard live.
       Mosslet.Rituals.subscribe()
+
+      # Content-free presence (EPIC #377, task #381): track that this viewer is
+      # present in-app (write-free ETS presence — NOT last_activity_at / DB), so
+      # they count as "around" for their own connections too. Then, if they've
+      # opted in, kick off the slow refresh loop for the who's-around hint.
+      MossletWeb.Presence.track_activity(self(), %{
+        id: current_user.id,
+        live_view_name: "dashboard",
+        joined_at: System.system_time(:second),
+        user_id: current_user.id,
+        cache_optimization: false
+      })
+
+      if current_user.show_connections_presence do
+        Process.send_after(self(), :refresh_connections_around, @around_refresh_ms)
+      end
     end
 
     socket =
@@ -119,6 +141,23 @@ defmodule MossletWeb.UserDashLive do
     {:noreply, socket}
   end
 
+  # Content-free "connections are around" refresh (EPIC #377, task #381). Slow,
+  # idempotent recompute + reschedule. Never reacts to the global online set;
+  # never touches the DB / last_activity_at. Setting the same boolean on each
+  # tick is diff-free for LiveView, so there's no re-nag / flapping.
+  def handle_info(:refresh_connections_around, socket) do
+    socket =
+      if socket.assigns[:has_profile?] and
+           socket.assigns.current_scope.user.show_connections_presence do
+        Process.send_after(self(), :refresh_connections_around, @around_refresh_ms)
+        assign_connections_around(socket)
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
+
   def handle_info(_msg, socket) do
     # Our mount subscriptions are scoped to this user's connections, circles, and
     # timeline. Any of those events can change the at-a-glance counts, so refresh
@@ -153,6 +192,53 @@ defmodule MossletWeb.UserDashLive do
     |> assign_dashboard_stats()
     |> assign_org_spaces()
     |> assign_dashboard_ritual_prompt(current_user)
+    |> assign_connections_around()
+  end
+
+  # Content-free presence hint (EPIC #377, task #381). Computes a single boolean:
+  # "is at least one of the viewer's AUTHORIZED connections currently present
+  # in-app?" — nothing more. NO count, NO names, NO reacting to the global online
+  # set, and NO DB writes on this path.
+  #
+  # Privacy: reuses the write-free ETS presence signal
+  # (`Presence.user_active_in_app?/1`) and gates EVERY candidate through the
+  # existing consent check `Statuses.can_view_user_status?/3` (which already
+  # honors user.visibility × status_visibility × show_online_presence × ZK
+  # membership). The hint is strictly less information than the status the target
+  # already consented to share. `Enum.any?/2` short-circuits at the first match.
+  defp assign_connections_around(socket) do
+    current_user = socket.assigns.current_scope.user
+
+    around? =
+      if current_user.show_connections_presence do
+        key = socket.assigns.current_scope.key
+
+        current_user.id
+        |> Accounts.get_all_confirmed_user_connections()
+        |> Enum.map(fn uconn ->
+          if uconn.user_id == current_user.id,
+            do: uconn.reverse_user_id,
+            else: uconn.user_id
+        end)
+        |> Enum.uniq()
+        |> Enum.filter(&MossletWeb.Presence.user_active_in_app?/1)
+        |> Enum.any?(fn other_id ->
+          case Accounts.get_user_with_preloads(other_id) do
+            nil ->
+              false
+
+            target_user ->
+              match?(
+                {:ok, _},
+                Mosslet.Statuses.can_view_user_status?(target_user, current_user, key)
+              )
+          end
+        end)
+      else
+        false
+      end
+
+    assign(socket, :connections_around?, around?)
   end
 
   # Shared ritual prompt (EPIC #377, task #384): surface the active prompt on the
@@ -274,6 +360,7 @@ defmodule MossletWeb.UserDashLive do
           businesses={@businesses}
           active_ritual_prompt={@active_ritual_prompt}
           ritual_prompt_answered?={@ritual_prompt_answered?}
+          connections_around?={@connections_around?}
         />
       <% else %>
         <.dashboard_onboarding current_scope={@current_scope} />
@@ -294,6 +381,7 @@ defmodule MossletWeb.UserDashLive do
   attr :businesses, :list, required: true
   attr :active_ritual_prompt, :map, default: nil
   attr :ritual_prompt_answered?, :boolean, default: false
+  attr :connections_around?, :boolean, default: false
 
   defp dashboard_home(assigns) do
     ~H"""
@@ -325,6 +413,23 @@ defmodule MossletWeb.UserDashLive do
             theme={@active_ritual_prompt.theme}
             answered={@ritual_prompt_answered?}
           />
+        </div>
+        <%!-- Content-free "who's around" hint (EPIC #377, task #381). A quiet,
+              count-free, name-free affordance: just a soft sense that some of
+              your people are present. Only rendered for opted-in viewers when at
+              least one authorized connection is currently around. --%>
+        <div
+          :if={@connections_around?}
+          id="connections-around-hint"
+          class="flex items-center gap-3 rounded-2xl border border-emerald-200/60 dark:border-emerald-800/40 bg-gradient-to-br from-emerald-50/70 to-teal-50/50 dark:from-emerald-950/30 dark:to-teal-950/20 px-5 py-4"
+        >
+          <span class="relative flex size-3 shrink-0">
+            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/70 opacity-75"></span>
+            <span class="relative inline-flex size-3 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500"></span>
+          </span>
+          <p class="text-sm font-medium text-emerald-800 dark:text-emerald-200">
+            Some of your people are around right now.
+          </p>
         </div>
         <%!-- Smart nudges --%>
         <div

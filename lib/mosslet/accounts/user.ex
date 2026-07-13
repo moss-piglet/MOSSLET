@@ -85,6 +85,14 @@ defmodule Mosslet.Accounts.User do
     # Shared ritual prompt opt-in (EPIC #377, task #378) — calm, non-secret.
     field :ritual_prompts_enabled, :boolean, default: false
 
+    # Content-free "connections are around" affordance opt-in (EPIC #377,
+    # task #381) — VIEWER-side preference. When true, the dashboard shows a
+    # quiet, count-free, name-free hint that some of the viewer's authorized
+    # connections are currently present in the app. Gated per-connection by the
+    # target's existing status-visibility consent; strictly less info than the
+    # status the target already shares. Calm, non-secret preference.
+    field :show_connections_presence, :boolean, default: false
+
     # Personal RSS feed (task #385) — opt-in, PUBLIC posts only.
     # The token is a plaintext, unguessable random string used to address the
     # feed at /feeds/:token.xml without leaking user enumeration. It is NOT a
@@ -1906,6 +1914,17 @@ defmodule Mosslet.Accounts.User do
   def ritual_prompts_changeset(user, attrs \\ %{}) do
     user
     |> cast(attrs, [:ritual_prompts_enabled])
+  end
+
+  @doc """
+  A user changeset for toggling the content-free "connections are around"
+  affordance opt-in (EPIC #377, task #381). Viewer-side, calm, non-secret
+  preference — whether the dashboard surfaces a quiet hint that some of the
+  viewer's authorized connections are currently present.
+  """
+  def connections_presence_changeset(user, attrs \\ %{}) do
+    user
+    |> cast(attrs, [:show_connections_presence])
   end
 
   @doc """

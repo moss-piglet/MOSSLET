@@ -936,6 +936,12 @@ defmodule Mosslet.Accounts.Adapter do
               {:ok, User.t()} | {:error, Ecto.Changeset.t()}
 
   @doc """
+  Toggles the content-free "connections are around" affordance opt-in (task #381).
+  """
+  @callback update_connections_presence_enabled(user :: User.t(), enabled :: boolean()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
   Toggles the personal RSS feed opt-in for a user (task #385).
   """
   @callback update_rss_feed_enabled(user :: User.t(), enabled :: boolean()) ::

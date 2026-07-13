@@ -3357,6 +3357,14 @@ defmodule Mosslet.Accounts do
   end
 
   @doc """
+  Toggles the content-free "connections are around" affordance opt-in for a
+  user (EPIC #377, task #381). Viewer-side preference only.
+  """
+  def update_connections_presence_enabled(user, enabled) when is_boolean(enabled) do
+    adapter().update_connections_presence_enabled(user, enabled)
+  end
+
+  @doc """
   Toggles the personal RSS feed opt-in for a user (task #385). Generates an
   unguessable feed token on first enable. Public posts only.
   """

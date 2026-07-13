@@ -769,7 +769,7 @@ defmodule MossletWeb.Menus do
       %{
         name: :edit_notifications,
         label: gettext("Notifications"),
-        description: gettext("Manage email and push notifications"),
+        description: gettext("Manage email, push, prompt, and presence notifications"),
         path: ~p"/app/users/edit-notifications",
         icon: "hero-bell"
       },

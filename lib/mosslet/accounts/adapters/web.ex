@@ -1888,6 +1888,18 @@ defmodule Mosslet.Accounts.Adapters.Web do
   end
 
   @impl true
+  def update_connections_presence_enabled(user, enabled) when is_boolean(enabled) do
+    {:ok, result} =
+      Repo.transaction_on_primary(fn ->
+        user
+        |> User.connections_presence_changeset(%{show_connections_presence: enabled})
+        |> Repo.update()
+      end)
+
+    result
+  end
+
+  @impl true
   def update_rss_feed_enabled(user, enabled) when is_boolean(enabled) do
     {:ok, result} =
       Repo.transaction_on_primary(fn ->
