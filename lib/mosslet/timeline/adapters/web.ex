@@ -1963,6 +1963,25 @@ defmodule Mosslet.Timeline.Adapters.Web do
   end
 
   @impl true
+  def list_public_posts_by_user(user_id, limit) do
+    public_post_ids =
+      from(p in Post,
+        inner_join: up in UserPost,
+        on: up.post_id == p.id,
+        where: p.visibility == :public and p.user_id == ^user_id,
+        select: p.id
+      )
+
+    from(p in Post,
+      where: p.id in subquery(public_post_ids),
+      order_by: [desc: p.inserted_at],
+      limit: ^limit,
+      preload: [:user_posts, :user]
+    )
+    |> Repo.all()
+  end
+
+  @impl true
   def fetch_user_own_posts(current_user, options) do
     Post
     |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)

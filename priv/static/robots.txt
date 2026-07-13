@@ -46,13 +46,22 @@ Allow: /
 User-agent: redditbot
 Allow: /
 
-User-agent: AdsBot-Google
-Disallow: /
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
 
 User-agent: GPTBot
-Disallow: /
+Allow: /
 
 User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: AdsBot-Google
 Disallow: /
 
 User-agent: Google-Extended
@@ -64,19 +73,10 @@ Disallow: /
 User-agent: Amazonbot
 Disallow: /
 
-User-agent: ClaudeBot
-Disallow: /
-
 User-agent: Omgilibot
 Disallow: /
 
-User-agent: anthropic-ai
-Disallow: /
-
 User-agent: Bytespider
-Disallow: /
-
-User-agent: Claude-Web
 Disallow: /
 
 User-agent: Diffbot

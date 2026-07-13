@@ -160,6 +160,16 @@ defmodule MossletWeb.Plugs.PlugAttack do
     end
   end
 
+  rule "throttle personal RSS feed requests", conn do
+    if conn.method == "GET" and match?(["feeds", _], conn.path_info) and conn.remote_ip do
+      throttle("feed_personal:" <> hash_ip(@alg, convert_ip(conn.remote_ip)),
+        period: @minute,
+        limit: 20,
+        storage: {PlugAttack.Storage.Ets, MossletWeb.PlugAttack.Storage}
+      )
+    end
+  end
+
   rule "throttle public post image requests", conn do
     if conn.method == "GET" and
          match?(["feed", "public", "posts", _, "images", _], conn.path_info) and

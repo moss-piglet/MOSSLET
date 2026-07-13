@@ -278,4 +278,81 @@ defmodule Mosslet.TimelineTest do
         Enum.at(post.user_posts, 0).key
     end
   end
+
+  describe "list_public_posts_by_user/2 (personal RSS feed, task #385)" do
+    import Mosslet.TimelineFixtures
+
+    @valid_password "hello world hello world"
+
+    setup do
+      user =
+        Mosslet.AccountsFixtures.user_fixture(%{
+          username: "feeduser",
+          email: "feeduser@example.com",
+          password: @valid_password
+        })
+
+      key = get_session_key(user, @valid_password)
+      %{user: user, key: key}
+    end
+
+    test "returns only the user's public posts, newest first, respecting limit", %{
+      user: user,
+      key: key
+    } do
+      # A public post
+      public1 =
+        post_fixture(%{username: "feeduser", visibility: "public"}, user: user, key: key)
+
+      public2 =
+        post_fixture(%{username: "feeduser", visibility: "public"}, user: user, key: key)
+
+      # Non-public posts must be excluded
+      _private =
+        post_fixture(%{username: "feeduser", visibility: "private"}, user: user, key: key)
+
+      result = Timeline.list_public_posts_by_user(user.id, 25)
+      ids = Enum.map(result, & &1.id)
+
+      assert public1.id in ids
+      assert public2.id in ids
+      assert length(result) == 2
+      assert Enum.all?(result, &(&1.visibility == :public))
+
+      # newest first
+      [first, second] = result
+      assert NaiveDateTime.compare(first.inserted_at, second.inserted_at) in [:gt, :eq]
+    end
+
+    test "does not return another user's public posts", %{user: user, key: key} do
+      _mine = post_fixture(%{username: "feeduser", visibility: "public"}, user: user, key: key)
+
+      other =
+        Mosslet.AccountsFixtures.user_fixture(%{
+          username: "otherfeeduser",
+          email: "otherfeeduser@example.com",
+          password: @valid_password
+        })
+
+      other_key = get_session_key(other, @valid_password)
+
+      _theirs =
+        post_fixture(%{username: "otherfeeduser", visibility: "public"},
+          user: other,
+          key: other_key
+        )
+
+      result = Timeline.list_public_posts_by_user(user.id, 25)
+      assert length(result) == 1
+      assert Enum.all?(result, &(&1.user_id == user.id))
+    end
+
+    test "respects the limit", %{user: user, key: key} do
+      for _ <- 1..3 do
+        post_fixture(%{username: "feeduser", visibility: "public"}, user: user, key: key)
+      end
+
+      assert length(Timeline.list_public_posts_by_user(user.id, 2)) == 2
+    end
+  end
 end

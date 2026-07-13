@@ -18,6 +18,55 @@ defmodule MossletWeb.Helpers do
   @folder "uploads/trix"
   @url_expires_in 600_000
 
+  ## RSS feed discoverability (task #385)
+
+  @doc """
+  Returns the author's personal RSS feed URL if the given viewer should see a
+  "Follow via RSS" affordance on the author's public posts, otherwise `nil`.
+
+  The feed itself is always public-content-only; this only governs the *button*:
+
+    * `:public`      — everyone (including anonymous viewers) sees it
+    * `:connections` — only the author's confirmed connections (and the author)
+    * `:private`     — nobody (the author shares the link manually)
+  """
+  def rss_feed_url_for_viewer(author, current_user) do
+    cond do
+      is_nil(author) ->
+        nil
+
+      !author.rss_feed_enabled ->
+        nil
+
+      is_nil(author.rss_feed_token) ->
+        nil
+
+      author.rss_feed_visibility == :public ->
+        build_rss_feed_url(author)
+
+      author.rss_feed_visibility == :connections ->
+        maybe_connection_feed_url(author, current_user)
+
+      true ->
+        nil
+    end
+  end
+
+  defp maybe_connection_feed_url(author, current_user) do
+    if rss_viewer_connected?(author, current_user), do: build_rss_feed_url(author), else: nil
+  end
+
+  defp rss_viewer_connected?(_author, nil), do: false
+  defp rss_viewer_connected?(%{id: id}, %{id: id}), do: true
+
+  defp rss_viewer_connected?(author, current_user) do
+    not is_nil(Accounts.get_user_connection_between_users(author.id, current_user.id))
+  end
+
+  defp build_rss_feed_url(author) do
+    MossletWeb.Endpoint.url() <> "/feeds/#{author.rss_feed_token}.xml"
+  end
+
   ## AWS (s3)
 
   @doc """

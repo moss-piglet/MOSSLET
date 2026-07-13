@@ -1886,4 +1886,52 @@ defmodule Mosslet.Accounts.Adapters.Web do
 
     result
   end
+
+  @impl true
+  def update_rss_feed_enabled(user, enabled) when is_boolean(enabled) do
+    {:ok, result} =
+      Repo.transaction_on_primary(fn ->
+        user
+        |> User.rss_feed_changeset(%{rss_feed_enabled: enabled})
+        |> Repo.update()
+      end)
+
+    result
+  end
+
+  @impl true
+  def regenerate_rss_feed_token(user) do
+    {:ok, result} =
+      Repo.transaction_on_primary(fn ->
+        user
+        |> User.rss_feed_changeset(%{rss_feed_token: User.generate_rss_feed_token()})
+        |> Repo.update()
+      end)
+
+    result
+  end
+
+  @impl true
+  def update_rss_feed_visibility(user, visibility)
+      when visibility in [:private, :connections, :public] do
+    {:ok, result} =
+      Repo.transaction_on_primary(fn ->
+        user
+        |> User.rss_feed_changeset(%{rss_feed_visibility: visibility})
+        |> Repo.update()
+      end)
+
+    result
+  end
+
+  @impl true
+  def get_user_by_rss_feed_token(token) when is_binary(token) and token != "" do
+    Repo.one(
+      from u in User,
+        where: u.rss_feed_token == ^token and u.rss_feed_enabled == true,
+        preload: [:connection]
+    )
+  end
+
+  def get_user_by_rss_feed_token(_token), do: nil
 end

@@ -934,4 +934,27 @@ defmodule Mosslet.Accounts.Adapter do
   """
   @callback update_ritual_prompts_enabled(user :: User.t(), enabled :: boolean()) ::
               {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Toggles the personal RSS feed opt-in for a user (task #385).
+  """
+  @callback update_rss_feed_enabled(user :: User.t(), enabled :: boolean()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Regenerates the user's RSS feed token (task #385).
+  """
+  @callback regenerate_rss_feed_token(user :: User.t()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Updates the RSS feed link discoverability preference (task #385).
+  """
+  @callback update_rss_feed_visibility(user :: User.t(), visibility :: atom()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Fetches an RSS-feed-enabled user by their plaintext feed token (task #385).
+  """
+  @callback get_user_by_rss_feed_token(token :: String.t()) :: User.t() | nil
 end

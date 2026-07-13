@@ -345,6 +345,7 @@
                   unread_replies_count={Map.get(@unread_replies_by_post, post.id, 0)}
                   unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
                   calm_notifications={@current_user.calm_notifications}
+                  rss_feed_url={post_vm.rss_feed_url}
                   class="shadow-lg shadow-slate-900/6 dark:shadow-slate-900/20 hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30 transition-shadow duration-300"
                 />
               </div>
@@ -448,6 +449,7 @@
                     unread_replies_count={Map.get(@unread_replies_by_post, post.id, 0)}
                     unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
                     calm_notifications={@current_user.calm_notifications}
+                    rss_feed_url={post_vm.rss_feed_url}
                     class="shadow-lg shadow-slate-900/6 dark:shadow-slate-900/20 hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30 transition-shadow duration-300"
                   />
                 </div>

@@ -795,6 +795,15 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
+  Lists a single user's PUBLIC posts, newest first, for their personal RSS feed
+  (task #385). No authentication/session key required — only `:public` posts are
+  ever returned, which are decryptable server-side. `limit` defaults to 25.
+  """
+  def list_public_posts_by_user(user_id, limit \\ 25) do
+    adapter().list_public_posts_by_user(user_id, limit)
+  end
+
+  @doc """
   Gets the count of unread discover posts (for Discover tab unread indicator).
   Now applies content filters to ensure unread counts match filtered timeline display.
   """

@@ -71,6 +71,10 @@ defmodule MossletWeb.Router do
     get "/public/posts/:post_id/images/:index", PublicPostImageController, :show
   end
 
+  scope "/feeds", MossletWeb do
+    get "/:token", FeedController, :personal
+  end
+
   scope "/", MossletWeb do
     get "/health", HealthController, :index
     get "/api/health", HealthController, :index
@@ -463,6 +467,7 @@ defmodule MossletWeb.Router do
       live "/users/change-forgot-password", EditForgotPasswordLive
       live "/users/device-unlock", EditDeviceUnlockLive
       live "/users/edit-notifications", EditNotificationsLive
+      live "/users/edit-rss-feed", EditRssFeedLive
       live "/users/org-invitations", UserOrgInvitationsLive
       live "/users/two-factor-authentication", EditTotpLive
 

@@ -97,6 +97,9 @@ defmodule Mosslet.Timeline.Adapter do
 
   @callback fetch_connection_posts(current_user :: User.t(), options :: map()) :: [Post.t()]
   @callback fetch_discover_posts(current_user :: User.t() | nil, options :: map()) :: [Post.t()]
+  @callback list_public_posts_by_user(user_id :: binary(), limit :: non_neg_integer()) :: [
+              Post.t()
+            ]
   @callback fetch_user_own_posts(current_user :: User.t(), options :: map()) :: [Post.t()]
   @callback fetch_home_timeline(current_user :: User.t(), options :: map()) :: [Post.t()]
   @callback fetch_group_posts(current_user :: User.t(), options :: map()) :: [Post.t()]

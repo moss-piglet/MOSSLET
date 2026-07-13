@@ -285,6 +285,15 @@ defmodule MossletWeb.Menus do
     }
   end
 
+  def get_link(:edit_rss_feed = name, _current_user) do
+    %{
+      name: name,
+      label: gettext("RSS feed"),
+      path: ~p"/app/users/edit-rss-feed",
+      icon: "hero-rss"
+    }
+  end
+
   def get_link(:edit_forgot_password = name, _current_user) do
     %{
       name: name,
@@ -724,7 +733,7 @@ defmodule MossletWeb.Menus do
       %{
         name: :edit_visibility,
         label: gettext("Visibility"),
-        description: gettext("Control who can see your profile"),
+        description: gettext("Control who can see your profile and send you connection requests"),
         path: ~p"/app/users/edit-visibility",
         icon: "hero-eye"
       },
@@ -734,6 +743,13 @@ defmodule MossletWeb.Menus do
         description: gettext("Manage your online status and presence"),
         path: ~p"/app/users/edit-status",
         icon: "hero-signal"
+      },
+      %{
+        name: :edit_rss_feed,
+        label: gettext("RSS Feed"),
+        description: gettext("Manage your personal RSS feed for your public posts"),
+        path: ~p"/app/users/edit-rss-feed",
+        icon: "hero-rss"
       },
       %{type: :category, label: gettext("Security")},
       %{

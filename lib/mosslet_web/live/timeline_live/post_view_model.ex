@@ -41,7 +41,8 @@ defmodule MossletWeb.TimelineLive.PostViewModel do
           peer_user_id: String.t() | nil,
           peer_public_key: String.t() | nil,
           peer_pq_public_key: String.t() | nil,
-          sealed_peer_pin: String.t() | nil
+          sealed_peer_pin: String.t() | nil,
+          rss_feed_url: String.t() | nil
         }
 
   defstruct user_name: "...",
@@ -55,7 +56,8 @@ defmodule MossletWeb.TimelineLive.PostViewModel do
             peer_user_id: nil,
             peer_public_key: nil,
             peer_pq_public_key: nil,
-            sealed_peer_pin: nil
+            sealed_peer_pin: nil,
+            rss_feed_url: nil
 
   @doc """
   Builds the post view-model for a given post and viewing user.
@@ -81,8 +83,24 @@ defmodule MossletWeb.TimelineLive.PostViewModel do
       peer_user_id: verification.peer_user_id,
       peer_public_key: verification.peer_public_key,
       peer_pq_public_key: verification.peer_pq_public_key,
-      sealed_peer_pin: verification.sealed_peer_pin
+      sealed_peer_pin: verification.sealed_peer_pin,
+      rss_feed_url: rss_feed_url(post, current_user)
     }
+  end
+
+  # --- RSS feed discoverability (task #385) ----------------------------------
+  #
+  # Only public posts can carry a feed button (the feed is public-content-only).
+  # Resolution + connection-scoping lives in `Helpers.rss_feed_url_for_viewer/2`.
+  defp rss_feed_url(post, current_user) do
+    if post.visibility == :public do
+      author =
+        if post.user_id == current_user.id,
+          do: current_user,
+          else: Accounts.get_user_with_preloads(post.user_id)
+
+      Helpers.rss_feed_url_for_viewer(author, current_user)
+    end
   end
 
   # --- client-side TOFU verified badge inputs (EPIC #291 / #296) -------------

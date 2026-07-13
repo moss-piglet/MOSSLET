@@ -504,7 +504,8 @@ defmodule MossletWeb.PublicLive.PublicTimeline do
       content_warning: decrypt_with_key(post.content_warning, post_key),
       content_warning_category: decrypt_with_key(post.content_warning_category, post_key),
       timestamp: format_timestamp(post.inserted_at),
-      reply_count: length(post.replies || [])
+      reply_count: length(post.replies || []),
+      rss_feed_url: MossletWeb.Helpers.rss_feed_url_for_viewer(post.user, current_user)
     }
   end
 
@@ -851,6 +852,7 @@ defmodule MossletWeb.PublicLive.PublicTimeline do
                       source={item.post.source}
                       bluesky_link_verified={item.post.bluesky_link_verified}
                       stats={%{replies: item.reply_count, likes: item.post.favs_count || 0}}
+                      rss_feed_url={item[:rss_feed_url]}
                     />
                   </div>
                 </div>

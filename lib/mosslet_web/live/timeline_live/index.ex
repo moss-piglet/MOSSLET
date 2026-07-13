@@ -3623,14 +3623,22 @@ defmodule MossletWeb.TimelineLive.Index do
     current_user = socket.assigns.current_user
     current_tab = socket.assigns.active_tab || "home"
     current_options = socket.assigns.options
+    session_key = socket.assigns.key
 
     socket = assign(socket, :load_more_loading, true)
 
-    loaded_read_posts_count = socket.assigns[:loaded_read_posts_count] || 0
     posts_per_page = current_options.post_per_page
+    loaded_unread_count = socket.assigns[:loaded_posts_count] || 0
+    loaded_read_posts_count = socket.assigns[:loaded_read_posts_count] || 0
 
-    next_read_page = div(loaded_read_posts_count, posts_per_page) + 1
-    updated_options = Map.put(current_options, :post_page, next_read_page)
+    # Read posts live AFTER all unread posts in the combined, unread-first
+    # timeline ordering. So we must page by the TOTAL number of posts already
+    # loaded (unread + read), not just the read count — otherwise, when page 1
+    # is entirely unread, we'd refetch page 1 forever and never reach the read
+    # posts on later pages (bug: "Load 10 more" stuck, no posts shown).
+    total_loaded = loaded_unread_count + loaded_read_posts_count
+    next_page = div(total_loaded, posts_per_page) + 1
+    updated_options = Map.put(current_options, :post_page, next_page)
 
     content_filter_prefs = socket.assigns.content_filters
     updated_options_with_filters = Map.put(updated_options, :filter_prefs, content_filter_prefs)
@@ -3651,23 +3659,38 @@ defmodule MossletWeb.TimelineLive.Index do
           |> apply_tab_filtering(current_tab, current_user)
       end
 
-    {_new_unread, new_read_posts} =
+    {new_unread_posts, new_read_posts} =
       Enum.split_with(new_posts, fn post ->
         is_post_unread?(post, current_user, tab: current_tab)
       end)
 
-    session_key = socket.assigns.key
+    new_unread_decrypted =
+      prepare_posts_for_stream(new_unread_posts, current_user, session_key)
 
     new_read_posts_decrypted =
       prepare_posts_for_stream(new_read_posts, current_user, session_key)
 
+    new_loaded_unread_count = loaded_unread_count + length(new_unread_decrypted)
     new_loaded_read_count = loaded_read_posts_count + length(new_read_posts_decrypted)
 
     new_user_statuses =
-      build_user_statuses_map(new_read_posts_decrypted, current_user, session_key)
+      build_user_statuses_map(
+        new_unread_decrypted ++ new_read_posts_decrypted,
+        current_user,
+        session_key
+      )
 
     cached_read_posts = socket.assigns[:cached_read_posts] || []
     updated_cached_read_posts = cached_read_posts ++ new_read_posts_decrypted
+
+    cached_unread_posts = socket.assigns[:cached_unread_posts] || []
+    updated_cached_unread_posts = cached_unread_posts ++ new_unread_decrypted
+
+    socket =
+      new_unread_decrypted
+      |> Enum.reduce(socket, fn post, acc_socket ->
+        stream_insert(acc_socket, :posts, post, at: -1)
+      end)
 
     socket =
       new_read_posts_decrypted
@@ -3675,9 +3698,11 @@ defmodule MossletWeb.TimelineLive.Index do
         stream_insert(acc_socket, :read_posts, post, at: -1)
       end)
       |> assign(:options, updated_options)
+      |> assign(:loaded_posts_count, new_loaded_unread_count)
       |> assign(:loaded_read_posts_count, new_loaded_read_count)
       |> assign(:read_posts_count, length(updated_cached_read_posts))
       |> assign(:cached_read_posts, updated_cached_read_posts)
+      |> assign(:cached_unread_posts, updated_cached_unread_posts)
       |> assign(:user_statuses, Map.merge(socket.assigns.user_statuses, new_user_statuses))
       |> assign(:load_more_loading, false)
 
@@ -5165,6 +5190,11 @@ defmodule MossletWeb.TimelineLive.Index do
     unread_nested_replies_by_parent = socket.assigns.unread_nested_replies_by_parent
     updated_map = Map.delete(unread_nested_replies_by_parent, reply_id)
     {:noreply, assign(socket, :unread_nested_replies_by_parent, updated_map)}
+  end
+
+  # RSS feed link copied from a post's "Follow via RSS" button (task #385).
+  def handle_event("clipboard_copied", _params, socket) do
+    {:noreply, put_flash(socket, :success, "RSS feed link copied to your clipboard.")}
   end
 
   def handle_async(:load_timeline_data, {:ok, timeline_result}, socket) do

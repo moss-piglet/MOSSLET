@@ -1305,6 +1305,11 @@ defmodule MossletWeb.TimelineComponents do
     doc:
       "resolved non-secret text of the shared ritual prompt this post answers (nil = not a ritual answer). When omitted, resolved from post.ritual_prompt_id via a per-process cache."
 
+  attr :rss_feed_url, :string,
+    default: nil,
+    doc:
+      "author's personal RSS feed URL, when the viewer is allowed to see the 'Follow via RSS' affordance on this public post (task #385). nil = no button."
+
   def liquid_timeline_post(assigns) do
     assigns = assign_scope_fields(assigns)
 
@@ -1444,6 +1449,7 @@ defmodule MossletWeb.TimelineComponents do
           calm_notifications={@calm_notifications}
           bookmark_notes={@bookmark_notes}
           encrypted_bookmark_notes={@encrypted_bookmark_notes}
+          rss_feed_url={@rss_feed_url}
         />
       </div>
     </article>
@@ -2818,6 +2824,7 @@ defmodule MossletWeb.TimelineComponents do
   attr :calm_notifications, :boolean, default: false
   attr :bookmark_notes, :any, default: nil
   attr :encrypted_bookmark_notes, :any, default: nil
+  attr :rss_feed_url, :string, default: nil
 
   def liquid_post_actions(assigns) do
     ~H"""
@@ -3071,6 +3078,23 @@ defmodule MossletWeb.TimelineComponents do
           <span class="sr-only">
             {if @bookmarked, do: "Remove bookmark", else: "Bookmark this post"}
           </span>
+        </button>
+
+        <button
+          :if={@rss_feed_url}
+          id={"rss-follow-#{@post_id}"}
+          type="button"
+          phx-hook="ClipboardHook"
+          data-content={@rss_feed_url}
+          data-tippy-content="Copy this author's RSS feed link"
+          aria-label="Copy this author's RSS feed link"
+          class="p-1.5 sm:p-2 rounded-lg sm:rounded-xl transition-all duration-200 ease-out group/rss active:scale-95 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:ring-offset-1 sm:focus:ring-offset-2 text-slate-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50/50 dark:hover:bg-orange-900/20 cursor-pointer"
+        >
+          <.phx_icon
+            name="hero-rss"
+            class="h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform duration-200 group-hover/rss:scale-110"
+          />
+          <span class="sr-only">Copy this author's RSS feed link</span>
         </button>
       </div>
     </div>
@@ -4510,6 +4534,7 @@ defmodule MossletWeb.TimelineComponents do
   attr :external_uri, :any, default: nil
   attr :source, :atom, default: :mosslet
   attr :bluesky_link_verified, :boolean, default: true
+  attr :rss_feed_url, :string, default: nil
   attr :class, :any, default: ""
 
   def public_timeline_card(assigns) do
@@ -4646,6 +4671,19 @@ defmodule MossletWeb.TimelineComponents do
                 <.phx_icon name="hero-heart" class="h-4 w-4" />
                 <span>{soft_like_text(Map.get(@stats, :likes, 0), false)}</span>
               </div>
+
+              <button
+                :if={@rss_feed_url}
+                id={"rss-follow-#{@id}"}
+                type="button"
+                phx-hook="ClipboardHook"
+                data-content={@rss_feed_url}
+                aria-label="Copy this author's RSS feed link"
+                class="ml-auto inline-flex items-center gap-1.5 text-sm text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 transition-colors cursor-pointer"
+              >
+                <.phx_icon name="hero-rss" class="h-4 w-4" />
+                <span class="hidden sm:inline">Follow via RSS</span>
+              </button>
             </div>
           </div>
         </div>

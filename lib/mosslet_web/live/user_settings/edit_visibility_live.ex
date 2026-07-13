@@ -30,7 +30,7 @@ defmodule MossletWeb.EditVisibilityLive do
               Account Visibility
             </h1>
             <p class="mt-4 text-lg text-slate-600 dark:text-slate-400">
-              Control who can view your profile and send you connection requests on MOSSLET.
+              Control who can view your profile and send you connection requests.
             </p>
           </div>
           <%!-- Decorative accent line --%>

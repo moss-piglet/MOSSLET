@@ -85,6 +85,24 @@ defmodule Mosslet.Accounts.User do
     # Shared ritual prompt opt-in (EPIC #377, task #378) — calm, non-secret.
     field :ritual_prompts_enabled, :boolean, default: false
 
+    # Personal RSS feed (task #385) — opt-in, PUBLIC posts only.
+    # The token is a plaintext, unguessable random string used to address the
+    # feed at /feeds/:token.xml without leaking user enumeration. It is NOT a
+    # secret in the cryptographic sense (feeds only ever expose already-public
+    # posts) but is unguessable so feeds aren't silently discoverable.
+    field :rss_feed_enabled, :boolean, default: false
+    field :rss_feed_token, :string
+
+    # Discoverability of the feed link (task #385). NOT a content gate — the feed
+    # is always public-content-only. Controls who sees the "copy RSS feed link"
+    # affordance on this user's public posts:
+    #   :private     -> nobody (owner shares the link manually)
+    #   :connections -> only the user's connections
+    #   :public      -> everyone
+    field :rss_feed_visibility, Ecto.Enum,
+      values: [:private, :connections, :public],
+      default: :private
+
     # User Status System - Personal status (encrypted with user_key)
     field :status, Ecto.Enum, values: [:offline, :calm, :active, :busy, :away], default: :offline
     # User's custom status message (encrypted with user_key)
@@ -1888,6 +1906,39 @@ defmodule Mosslet.Accounts.User do
   def ritual_prompts_changeset(user, attrs \\ %{}) do
     user
     |> cast(attrs, [:ritual_prompts_enabled])
+  end
+
+  @doc """
+  A user changeset for toggling the personal RSS feed opt-in and (re)generating
+  its addressing token (task #385). Enabling the feed exposes only the user's
+  already-public posts. Disabling it makes the feed endpoint 404.
+  """
+  def rss_feed_changeset(user, attrs \\ %{}) do
+    user
+    |> cast(attrs, [:rss_feed_enabled, :rss_feed_token, :rss_feed_visibility])
+    |> maybe_generate_rss_feed_token()
+    |> unique_constraint(:rss_feed_token)
+  end
+
+  # Generate a stable, unguessable token the first time the feed is enabled and
+  # no token exists yet. We never clear it on disable so re-enabling keeps the
+  # same URL unless the user explicitly regenerates it.
+  defp maybe_generate_rss_feed_token(changeset) do
+    enabled? = get_field(changeset, :rss_feed_enabled)
+    token = get_field(changeset, :rss_feed_token)
+
+    if enabled? && is_nil(token) do
+      put_change(changeset, :rss_feed_token, generate_rss_feed_token())
+    else
+      changeset
+    end
+  end
+
+  @doc """
+  Generates a URL-safe, unguessable RSS feed token.
+  """
+  def generate_rss_feed_token do
+    :crypto.strong_rand_bytes(16) |> Base.url_encode64(padding: false)
   end
 
   @doc """

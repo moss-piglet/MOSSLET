@@ -1,10 +1,12 @@
 defmodule MossletWeb.FeedController do
   use MossletWeb, :controller
 
+  alias Mosslet.Accounts
   alias Mosslet.Timeline
   alias Mosslet.Encrypted
 
   @posts_limit 50
+  @personal_posts_limit 25
 
   @blog_entries [
     %{
@@ -177,6 +179,115 @@ defmodule MossletWeb.FeedController do
     |> send_resp(200, build_blog_rss_feed())
   end
 
+  @doc """
+  Serves a single user's personal RSS feed of their PUBLIC posts (task #385).
+
+  Public posts only — connections/private posts are browser-encrypted and can
+  never be rendered server-side, so they are never included. Returns 404 when
+  the token is unknown or the user has disabled their feed, so disabling the
+  toggle immediately takes the feed offline.
+  """
+  def personal(conn, %{"token" => raw_token}) do
+    token = String.replace_suffix(raw_token, ".xml", "")
+
+    case Accounts.get_user_by_rss_feed_token(token) do
+      nil ->
+        conn
+        |> put_resp_content_type("text/plain")
+        |> send_resp(404, "Feed not found")
+
+      user ->
+        posts = Timeline.list_public_posts_by_user(user.id, @personal_posts_limit)
+        etag = personal_etag(posts)
+
+        conn = put_resp_header(conn, "etag", etag)
+
+        if stale?(conn, etag) do
+          conn
+          |> put_resp_content_type("application/rss+xml")
+          |> put_resp_header("cache-control", "public, max-age=300")
+          |> send_resp(200, build_personal_rss_feed(user, posts))
+        else
+          send_resp(conn, 304, "")
+        end
+    end
+  end
+
+  defp stale?(conn, etag) do
+    case get_req_header(conn, "if-none-match") do
+      [^etag | _] -> false
+      _ -> true
+    end
+  end
+
+  defp personal_etag(posts) do
+    latest =
+      posts
+      |> Enum.map(& &1.inserted_at)
+      |> Enum.max(fn -> ~N[1970-01-01 00:00:00] end)
+
+    raw = "#{length(posts)}-#{NaiveDateTime.to_iso8601(latest)}"
+    "\"#{Base.encode16(:crypto.hash(:sha256, raw), case: :lower)}\""
+  end
+
+  defp build_personal_rss_feed(user, posts) do
+    base_url = MossletWeb.Endpoint.url()
+    display_name = personal_display_name(posts)
+    profile_url = personal_profile_url(user, display_name, base_url)
+
+    items =
+      posts
+      |> Enum.map(&build_item(&1, base_url, profile_url))
+      |> Enum.join("\n")
+
+    """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/">
+      <channel>
+        <title>#{escape_xml(display_name)} on MOSSLET</title>
+        <link>#{escape_xml(profile_url)}</link>
+        <description>Public posts by #{escape_xml(display_name)} on MOSSLET, a privacy-first social network.</description>
+        <language>en-us</language>
+        <lastBuildDate>#{format_rfc822(DateTime.utc_now())}</lastBuildDate>
+        <atom:link href="#{escape_xml(base_url)}/feeds/#{escape_xml(user.rss_feed_token)}.xml" rel="self" type="application/rss+xml"/>
+        <image>
+          <url>#{escape_xml(base_url)}/images/logo.svg</url>
+          <title>#{escape_xml(display_name)} on MOSSLET</title>
+          <link>#{escape_xml(profile_url)}</link>
+        </image>
+    #{items}
+      </channel>
+    </rss>
+    """
+  end
+
+  defp personal_profile_url(user, display_name, base_url) do
+    # Only link to the author's public profile when one actually exists and is
+    # public — otherwise (no profile yet, or a non-public profile) the link
+    # would 404, so we fall back to the discover page. The feed itself never
+    # depends on a profile; this only governs the human-facing <link>.
+    if has_public_profile?(user) and display_name not in [nil, "", "A MOSSLET user"] do
+      "#{base_url}/profile/#{URI.encode(display_name)}"
+    else
+      "#{base_url}/discover"
+    end
+  end
+
+  defp has_public_profile?(%{
+         visibility: :public,
+         connection: %{profile: %{visibility: :public}}
+       }),
+       do: true
+
+  defp has_public_profile?(_), do: false
+
+  defp personal_display_name([post | _]) do
+    post_key = decrypt_post_key(post)
+    decrypt_content(post.username, post_key) || "A MOSSLET user"
+  end
+
+  defp personal_display_name(_), do: "A MOSSLET user"
+
   defp build_blog_rss_feed do
     base_url = MossletWeb.Endpoint.url()
 
@@ -290,12 +401,12 @@ defmodule MossletWeb.FeedController do
     """
   end
 
-  defp build_item(post, base_url) do
+  defp build_item(post, base_url, link \\ nil) do
     post_key = decrypt_post_key(post)
     content = decrypt_content(post.body, post_key)
     username = decrypt_content(post.username, post_key) || "MOSSLET User"
     pub_date = format_rfc822(post.inserted_at)
-    guid = "#{escape_xml(base_url)}/post/#{escape_xml(to_string(post.id))}"
+    item_link = link || "#{base_url}/post/#{to_string(post.id)}"
     image_enclosures = build_image_enclosures(post, post_key, base_url)
     media_content = build_media_content(post, post_key, base_url)
 
@@ -311,7 +422,7 @@ defmodule MossletWeb.FeedController do
     """
         <item>
           <title>Post by #{escape_xml(username)}</title>
-          <link>#{guid}</link>
+          <link>#{escape_xml(item_link)}</link>
           <guid isPermaLink="false">#{escape_xml(post.id)}</guid>
           <pubDate>#{pub_date}</pubDate>
           <dc:creator>#{escape_xml(username)}</dc:creator>

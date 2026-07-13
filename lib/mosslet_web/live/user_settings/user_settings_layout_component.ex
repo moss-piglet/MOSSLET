@@ -457,6 +457,7 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
       MossletWeb.Menus.get_link(:edit_totp, current_user),
       %{type: :section, label: "Preferences"},
       MossletWeb.Menus.get_link(:edit_notifications, current_user),
+      MossletWeb.Menus.get_link(:edit_rss_feed, current_user),
       MossletWeb.Menus.get_link(:blocked_users, current_user),
       %{type: :section, label: "Integrations"},
       MossletWeb.Menus.get_link(:bluesky_settings, current_user)

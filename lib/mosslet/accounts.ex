@@ -3355,4 +3355,45 @@ defmodule Mosslet.Accounts do
   def update_ritual_prompts_enabled(user, enabled) when is_boolean(enabled) do
     adapter().update_ritual_prompts_enabled(user, enabled)
   end
+
+  @doc """
+  Toggles the personal RSS feed opt-in for a user (task #385). Generates an
+  unguessable feed token on first enable. Public posts only.
+  """
+  def update_rss_feed_enabled(user, enabled) when is_boolean(enabled) do
+    adapter().update_rss_feed_enabled(user, enabled)
+  end
+
+  @doc """
+  Regenerates the user's RSS feed token, invalidating the previous feed URL
+  (task #385).
+  """
+  def regenerate_rss_feed_token(user) do
+    adapter().regenerate_rss_feed_token(user)
+  end
+
+  @doc """
+  Updates the RSS feed link discoverability preference (task #385). Accepts
+  `:private`, `:connections`, or `:public`.
+  """
+  def update_rss_feed_visibility(user, visibility)
+      when visibility in [:private, :connections, :public] do
+    adapter().update_rss_feed_visibility(user, visibility)
+  end
+
+  @doc """
+  Fetches an active RSS feed user by their plaintext feed token. Returns `nil`
+  unless the token matches AND the feed is currently enabled, so disabling the
+  toggle makes the feed 404 (task #385).
+  """
+  def get_user_by_rss_feed_token(token) do
+    adapter().get_user_by_rss_feed_token(token)
+  end
+
+  @doc """
+  Builds a changeset for the RSS feed toggle form (task #385).
+  """
+  def change_user_rss_feed(user, attrs \\ %{}) do
+    Mosslet.Accounts.User.rss_feed_changeset(user, attrs)
+  end
 end
