@@ -170,7 +170,9 @@ defmodule MossletWeb.CapsuleLive.Compose do
         id="capsule-confirm-modal"
         show={@show_confirm}
         size="sm"
-        on_cancel={JS.push("cancel_seal")}
+        on_cancel={
+          MossletWeb.DesignSystem.liquid_hide_modal("capsule-confirm-modal") |> JS.push("cancel_seal")
+        }
       >
         <:title>
           <div class="flex items-center gap-3">
@@ -198,7 +200,15 @@ defmodule MossletWeb.CapsuleLive.Compose do
           </div>
 
           <div class="flex justify-end gap-3 pt-1">
-            <.liquid_button type="button" variant="ghost" color="slate" phx-click="cancel_seal">
+            <.liquid_button
+              type="button"
+              variant="ghost"
+              color="slate"
+              phx-click={
+                MossletWeb.DesignSystem.liquid_hide_modal("capsule-confirm-modal")
+                |> JS.push("cancel_seal")
+              }
+            >
               Keep writing
             </.liquid_button>
             <button
