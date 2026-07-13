@@ -213,19 +213,84 @@ defmodule Mosslet.Journal.AI do
 
   def prompt_themes, do: @prompt_themes
 
-  def fallback_prompts do
-    [
+  # Curated, private, introspective journaling prompts grouped by theme.
+  # Used as a graceful fallback when AI prompt generation is unavailable
+  # (see generate_prompt/1). These are SELF-directed — the answer is a private
+  # journal entry seen by no one — so the voice is reflective and inward.
+  #
+  # For the SOCIAL, connection-facing ritual prompts (answer = a post shared
+  # with your people), see Mosslet.Rituals.Prompts instead.
+  @fallback_prompts_by_theme %{
+    "gratitude" => [
       "What made you smile today, even if just for a moment?",
-      "What's something you're looking forward to?",
-      "Describe a recent moment when you felt truly present.",
-      "What's a small win you can celebrate today?",
       "Who in your life are you grateful for, and why?",
-      "What's something you'd like to let go of?",
+      "Name three small comforts you often overlook.",
+      "What's something your past self would be grateful you did?",
+      "What part of your body or health are you thankful for today?",
+      "Whose kindness are you still carrying with you?"
+    ],
+    "personal growth" => [
+      "What's a lesson you've learned recently?",
       "What would you tell your past self from a year ago?",
-      "What's giving you energy lately? What's draining it?",
+      "In what small way are you different than you were last year?",
+      "What belief have you outgrown?",
+      "What's something you're getting better at, slowly?",
+      "Where did you show up for yourself this week?"
+    ],
+    "relationships" => [
+      "Who did you think about today, and why?",
+      "When did you last feel truly understood?",
+      "Is there someone you owe a kind word to?",
+      "What does closeness feel like to you right now?",
+      "Who makes you feel most like yourself?",
+      "What's a conversation you're glad you had?"
+    ],
+    "goals and dreams" => [
+      "What's something you're looking forward to?",
       "Describe your ideal tomorrow. What would make it great?",
-      "What's a lesson you've learned recently?"
+      "If nothing were in the way, what would you start today?",
+      "What's one tiny step toward something that matters to you?",
+      "What does 'enough' look like for you right now?",
+      "What quietly excites you about the months ahead?"
+    ],
+    "challenges and resilience" => [
+      "What's something you'd like to let go of?",
+      "What's weighing on you, and what would lighten it?",
+      "When did you last surprise yourself with your own strength?",
+      "What's a hard thing you're handling better than you expected?",
+      "What do you need more of, and less of, right now?",
+      "What would 'being gentle with yourself' look like today?"
+    ],
+    "self-care" => [
+      "What's giving you energy lately? What's draining it?",
+      "What's a small win you can celebrate today?",
+      "How did you rest this week — and was it enough?",
+      "What does your body need that you've been ignoring?",
+      "What's one thing you can take off your plate?",
+      "When did you last do something purely because it felt good?"
+    ],
+    "creativity" => [
+      "What's an idea you can't stop thinking about?",
+      "If today were a color, which would it be, and why?",
+      "What would you make if no one would ever judge it?",
+      "Describe something ordinary as if you'd never seen it before.",
+      "What's a small thing you noticed today that others might miss?",
+      "What are you curious about right now?"
+    ],
+    "mindfulness" => [
+      "Describe a recent moment when you felt truly present.",
+      "What can you see, hear, and feel right now?",
+      "What's the mood you're carrying into this moment?",
+      "Where did your mind keep wandering today?",
+      "What's one thing you can slow down and savor?",
+      "How does 'right now' actually feel, underneath the noise?"
     ]
+  }
+
+  def fallback_prompts_by_theme, do: @fallback_prompts_by_theme
+
+  def fallback_prompts do
+    @fallback_prompts_by_theme |> Map.values() |> List.flatten()
   end
 
   def random_fallback_prompt do
