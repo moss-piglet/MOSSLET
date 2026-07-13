@@ -145,8 +145,7 @@ defmodule MossletWeb.CapsuleLive.Compose do
               />
             </div>
             <p class="text-sm text-slate-500 dark:text-slate-400">
-              This capsule will stay sealed for
-              <span id="capsule-seal-duration" class="font-medium">{@deliver_on_human}</span>.
+              This capsule will stay sealed for <span id="capsule-seal-duration" class="font-medium">{@deliver_on_human}</span>.
             </p>
           </div>
 
@@ -176,7 +175,10 @@ defmodule MossletWeb.CapsuleLive.Compose do
         <:title>
           <div class="flex items-center gap-3">
             <div class="p-2 rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/40 dark:to-emerald-900/30">
-              <.phx_icon name="hero-paper-airplane" class="size-5 text-emerald-600 dark:text-emerald-400" />
+              <.phx_icon
+                name="hero-paper-airplane"
+                class="size-5 text-emerald-600 dark:text-emerald-400"
+              />
             </div>
             <span>Ready to send your letter?</span>
           </div>
@@ -184,8 +186,7 @@ defmodule MossletWeb.CapsuleLive.Compose do
 
         <div class="space-y-5">
           <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-            Once you seal it, this letter stays locked away until
-            <span class="font-medium text-slate-800 dark:text-slate-200">{@deliver_on_display}</span>.
+            Once you seal it, this letter stays locked away until <span class="font-medium text-slate-800 dark:text-slate-200">{@deliver_on_display}</span>.
             You won't be able to read or edit it until then — that's the whole point. ✨
           </p>
 

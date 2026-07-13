@@ -368,6 +368,17 @@ defmodule MossletWeb.JournalLive.Book do
           phx-hook="JournalBookFormHook"
           data-sealed-user-key={@current_scope.user.user_key}
         >
+          <%!-- DecryptJournalBook (form mode) — prefill decrypted title/description --%>
+          <div
+            id={"decrypt-journal-book-edit-#{@book.id}"}
+            phx-hook="DecryptJournalBook"
+            data-book-id={@book.id}
+            data-sealed-user-key={@sealed_user_key}
+            data-encrypted-title={@book.title}
+            data-encrypted-description={@book.description}
+            data-form="true"
+            class="hidden"
+          />
           <div class="space-y-6">
             <div>
               <.phx_input
@@ -375,6 +386,7 @@ defmodule MossletWeb.JournalLive.Book do
                 type="text"
                 label="Title"
                 placeholder="My Travel Journal"
+                data-decrypt-journal-book-form-title={@book.id}
                 required
               />
             </div>
@@ -386,6 +398,7 @@ defmodule MossletWeb.JournalLive.Book do
                 label="Description (optional)"
                 placeholder="A collection of my travel memories..."
                 rows="2"
+                data-decrypt-journal-book-form-description={@book.id}
               />
             </div>
 

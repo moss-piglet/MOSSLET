@@ -33,28 +33,64 @@ const DecryptJournalBook = {
       const bookId = this.el.dataset.bookId;
       const encTitle = this.el.dataset.encryptedTitle;
       const encDescription = this.el.dataset.encryptedDescription;
+      const isForm = this.el.dataset.form === "true";
+
+      let decryptedTitle = null;
+      let decryptedDescription = null;
 
       if (encTitle) {
-        const title = await decryptWithKey(encTitle, userKey);
-        if (title) {
+        decryptedTitle = await decryptWithKey(encTitle, userKey);
+        if (decryptedTitle && !isForm) {
           this._applyToTargets(
             `[data-decrypt-journal-book-title="${bookId}"]`,
-            title
+            decryptedTitle
           );
         }
       }
 
       if (encDescription) {
-        const description = await decryptWithKey(encDescription, userKey);
-        if (description) {
+        decryptedDescription = await decryptWithKey(encDescription, userKey);
+        if (decryptedDescription && !isForm) {
           this._applyToTargets(
             `[data-decrypt-journal-book-description="${bookId}"]`,
-            description
+            decryptedDescription
           );
         }
       }
+
+      if (isForm) {
+        this._applyFormFields(bookId, decryptedTitle, decryptedDescription);
+      }
     } catch (e) {
       console.error("DecryptJournalBook: decryption failed:", e);
+    }
+  },
+
+  _applyFormFields(bookId, title, description) {
+    if (title) {
+      const titleInputs = document.querySelectorAll(
+        `[data-decrypt-journal-book-form-title="${bookId}"]`
+      );
+      for (const el of titleInputs) {
+        if (!el.dataset.decryptApplied) {
+          el.value = title;
+          el.dataset.decryptApplied = "1";
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      }
+    }
+
+    if (description) {
+      const descInputs = document.querySelectorAll(
+        `[data-decrypt-journal-book-form-description="${bookId}"]`
+      );
+      for (const el of descInputs) {
+        if (!el.dataset.decryptApplied) {
+          el.value = description;
+          el.dataset.decryptApplied = "1";
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      }
     }
   },
 

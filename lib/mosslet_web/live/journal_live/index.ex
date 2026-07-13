@@ -255,6 +255,7 @@ defmodule MossletWeb.JournalLive.Index do
           >
             <div
               :for={book <- @books}
+              id={"journal-book-card-#{book.id}"}
               data-book-id={book.id}
               data-drop-target-book={book.id}
               class="group relative bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:border-emerald-300 dark:hover:border-emerald-600 transition-all cursor-grab active:cursor-grabbing"
@@ -1577,6 +1578,7 @@ defmodule MossletWeb.JournalLive.Index do
 
   def handle_event("reorder_books", %{"order" => order}, socket) do
     user = socket.assigns.current_scope.user
+    order = Enum.uniq(order)
 
     case Journal.update_book_positions(user, order) do
       :ok ->

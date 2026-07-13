@@ -29,7 +29,7 @@ const SortableBooksHook = {
     const container = this.el;
     if (!container) return;
 
-    const items = container.querySelectorAll("[data-book-id]");
+    const items = container.querySelectorAll(":scope > [data-book-id]");
     if (items.length <= 1) return;
 
     this.sortable = new Sortable(container, {
@@ -38,7 +38,7 @@ const SortableBooksHook = {
       dragClass: "scale-105",
       draggable: "[data-book-id]",
       onEnd: () => {
-        const items = container.querySelectorAll("[data-book-id]");
+        const items = container.querySelectorAll(":scope > [data-book-id]");
         const order = Array.from(items).map((item) => item.dataset.bookId);
         this.pushEvent("reorder_books", { order });
       },
