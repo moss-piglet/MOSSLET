@@ -14,6 +14,7 @@ import DecryptGroupMessage from "./decrypt-group-message";
 import DecryptGroupMetadata from "./decrypt-group-metadata";
 import DecryptJournalBook from "./decrypt-journal-book";
 import DecryptJournalEntry from "./decrypt-journal-entry";
+import DecryptCapsule from "./decrypt-capsule";
 import DecryptAvatar from "./decrypt-avatar";
 import DecryptBookmarkNote from "./decrypt-bookmark-note";
 import DecryptConnectionCard from "./decrypt-connection-card";
@@ -105,6 +106,7 @@ import ImageCropHook from "./image-crop-hook";
 import JournalBookFormHook from "./journal-book-form-hook";
 import JournalDragDropHook from "./journal-drag-drop-hook";
 import JournalEntryFormHook from "./journal-entry-form-hook";
+import CapsuleLetterFormHook from "./capsule-letter-form-hook";
 import WordCounter from "./word-counter";
 import SessionKeyDeriver from "./session-key-deriver";
 import SyncStatusHook from "./sync-status-hook";
@@ -156,6 +158,7 @@ export default {
   DecryptGroupMetadata,
   DecryptJournalBook,
   DecryptJournalEntry,
+  DecryptCapsule,
   DecryptMessage,
   DecryptPost,
   DecryptProfileFields,
@@ -241,6 +244,7 @@ export default {
   JournalBookFormHook,
   JournalDragDropHook,
   JournalEntryFormHook,
+  CapsuleLetterFormHook,
   WordCounter,
   SyncStatusHook,
   BlockReasonFormHook,

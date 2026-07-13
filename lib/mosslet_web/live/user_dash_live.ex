@@ -21,6 +21,7 @@ defmodule MossletWeb.UserDashLive do
   use MossletWeb, :live_view
 
   alias Mosslet.Accounts
+  alias Mosslet.Capsules
   alias Mosslet.Conversations
   alias Mosslet.GroupMessages
   alias Mosslet.Groups
@@ -270,6 +271,7 @@ defmodule MossletWeb.UserDashLive do
       timeline_total: Timeline.count_home_timeline(user),
       timeline_unread: Timeline.count_unread_home_timeline(user),
       journal_entries: Journal.count_entries(user),
+      capsules_opening_today: Capsules.count_opening_today(user),
       unread_dms: Conversations.count_unread_messages(user.id),
       unread_mentions: GroupMessages.count_unread_mentions(user_group_ids)
     }
@@ -431,6 +433,32 @@ defmodule MossletWeb.UserDashLive do
             Some of your people are around right now.
           </p>
         </div>
+        <%!-- A letter to your future self has arrived. A calm return-reason,
+              gated purely on the plaintext deliver_on date — content stays ZK. --%>
+        <.link
+          :if={@stats.capsules_opening_today > 0}
+          navigate={~p"/app/capsules"}
+          id="nudge-capsule-opening"
+          class="group flex items-center gap-4 rounded-2xl border border-amber-200/70 dark:border-amber-800/50 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 px-5 py-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-amber-500/10"
+        >
+          <div class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-md shadow-amber-500/30">
+            <.phx_icon name="hero-envelope-open" class="size-5 text-white" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">
+              {if @stats.capsules_opening_today == 1,
+                do: "A letter to your future self is ready",
+                else: "#{@stats.capsules_opening_today} letters to your future self are ready"}
+            </p>
+            <p class="text-xs text-amber-700/80 dark:text-amber-300/70">
+              You sealed {if @stats.capsules_opening_today == 1, do: "it", else: "them"} for today — open when you're ready
+            </p>
+          </div>
+          <.phx_icon
+            name="hero-chevron-right"
+            class="size-5 text-amber-500 transition-transform duration-300 group-hover:translate-x-0.5"
+          />
+        </.link>
         <%!-- Smart nudges --%>
         <div
           :if={

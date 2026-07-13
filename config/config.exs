@@ -171,9 +171,15 @@ config :mosslet, Oban,
        # network-wide prompt 3x/week (Tue/Thu/Sat at 15:00 UTC). Deliberately NOT
        # daily — this is a gentle "quiet Tuesday" coordination trigger, never a
        # compulsive streak. The prompt is non-secret metadata; answers stay ZK.
-       {"0 15 * * 2,4,6", Mosslet.Rituals.Jobs.PromptBroadcastWorker,
-        args: %{"action" => "broadcast"}}
-     ]}
+        {"0 15 * * 2,4,6", Mosslet.Rituals.Jobs.PromptBroadcastWorker,
+         args: %{"action" => "broadcast"}},
+        # Time-capsule delivery (EPIC #377, task #382): once daily at 13:00 UTC,
+        # announce letters whose chosen delivery date has arrived. Rides purely
+        # on the plaintext deliver_on metadata — the worker never reads content.
+        # Calm: one quiet email per user, suppressed when they're already active.
+        {"0 13 * * *", Mosslet.Capsules.Jobs.DeliveryWorker,
+         args: %{"action" => "deliver_due"}}
+      ]}
   ],
   queues: [
     default: 10,

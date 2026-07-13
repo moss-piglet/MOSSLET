@@ -117,6 +117,7 @@ defmodule MossletWeb.Menus do
           [
             :home,
             :journal,
+            :capsules,
             :circles,
             :connections,
             :conversations,
@@ -526,6 +527,15 @@ defmodule MossletWeb.Menus do
       label: gettext("Journal"),
       path: ~p"/app/journal",
       icon: "hero-pencil-square"
+    }
+  end
+
+  def get_link(:capsules = name, _current_user) do
+    %{
+      name: name,
+      label: gettext("Time Capsule"),
+      path: ~p"/app/capsules",
+      icon: "hero-envelope"
     }
   end
 

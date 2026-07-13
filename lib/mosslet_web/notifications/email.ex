@@ -127,6 +127,26 @@ defmodule Mosslet.Notifications.Email do
     |> premail()
   end
 
+  @doc """
+  A calm, content-free "a letter is waiting" note for time-capsule delivery.
+
+  Carries only the mailbox URL and a coarse count — never a title, never a
+  word of the letter. Deliberately quiet: no urgency, no dopamine.
+  """
+  def capsule_ready_notification(email, count, capsules_url) do
+    new()
+    |> to(email)
+    |> from({"MOSSLET", "notifications@mosslet.com"})
+    |> subject(gettext("A letter to your future self has arrived 💌"))
+    |> text_body(
+      gettext(
+        "A letter you sealed to your future self is ready to open.\n\nYou have %{count} waiting in your time capsule. Whenever you're ready:\n%{url}\n\nWe only ever saw the date you chose — never a word you wrote.\n\n— MOSSLET",
+        count: count,
+        url: capsules_url
+      )
+    )
+  end
+
   # For when you don't need any HTML and just want to send text
   def text_only_email(to_email, subject, body, cc \\ []) do
     new()
