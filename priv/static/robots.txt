@@ -13,6 +13,11 @@ Allow: /
 User-agent: DuckDuckBot
 Allow: /
 
+User-agent: DuckAssistBot
+Allow: /
+
+
+
 User-agent: googlebot
 Allow: /
 
@@ -59,6 +64,15 @@ User-agent: ChatGPT-User
 Allow: /
 
 User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: Claude-Code
 Allow: /
 
 User-agent: AdsBot-Google
