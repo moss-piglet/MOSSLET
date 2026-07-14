@@ -233,6 +233,19 @@ const moodCategories = [
   },
 ];
 
+const moodById = {};
+for (const category of moodCategories) {
+  for (const mood of category.moods) moodById[mood.id] = mood;
+}
+
+window.moodPickerEmoji = function (moodId) {
+  return moodById[moodId] ? moodById[moodId].emoji : "";
+};
+
+window.moodPickerLabel = function (moodId) {
+  return moodById[moodId] ? moodById[moodId].label : "";
+};
+
 window.moodPickerFilterCategories = function (search) {
   if (!search || search.trim() === "") {
     return moodCategories;

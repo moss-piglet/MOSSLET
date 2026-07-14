@@ -4418,8 +4418,10 @@ defmodule MossletWeb.DesignSystem do
     ~H"""
     <div
       id={@id}
+      phx-hook="MoodPickerHook"
+      phx-update="ignore"
       class="mood-picker relative"
-      x-data="{ open: false, search: '' }"
+      data-value={@value || ""}
     >
       <input
         type="hidden"
@@ -4430,44 +4432,21 @@ defmodule MossletWeb.DesignSystem do
       />
       <button
         type="button"
-        @click="open = !open; $nextTick(() => open && $refs.searchInput.focus())"
-        aria-label={if @value, do: "Change mood: #{mood_label(@value)}", else: "Select mood"}
-        class={[
-          "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-all duration-200",
-          "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500/50",
-          "dark:focus:ring-offset-slate-800",
-          if(@value,
-            do: "bg-slate-100/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300",
-            else:
-              "bg-slate-100/50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50"
-          )
-        ]}
+        data-mp-trigger
+        aria-label="Select mood"
+        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500/50 dark:focus:ring-offset-slate-800 bg-slate-100/50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50"
       >
-        <span :if={@value} class="text-base leading-none">{mood_emoji(@value)}</span>
-        <span :if={!@value} class="text-base leading-none opacity-60">😊</span>
-        <span class="text-xs font-medium">
-          {if @value, do: mood_label(@value), else: "How are you feeling?"}
-        </span>
+        <span data-mp-emoji class="text-base leading-none opacity-60">😊</span>
+        <span data-mp-label class="text-xs font-medium">How are you feeling?</span>
         <.phx_icon
           name="hero-chevron-down"
-          class={[
-            "h-3.5 w-3.5 transition-transform duration-200",
-            "x-bind:class=\"open && 'rotate-180'\""
-          ]}
+          data-mp-chevron
+          class="h-3.5 w-3.5 transition-transform duration-200"
         />
       </button>
       <div
-        x-show="open"
-        x-transition:enter="transition ease-out duration-200"
-        x-transition:enter-start="opacity-0 -translate-y-2"
-        x-transition:enter-end="opacity-100 translate-y-0"
-        x-transition:leave="transition ease-in duration-150"
-        x-transition:leave-start="opacity-100 translate-y-0"
-        x-transition:leave-end="opacity-0 -translate-y-2"
-        @click.outside="open = false; search = ''"
-        @keydown.escape.window="open = false; search = ''"
-        class="absolute left-0 z-50 mt-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg w-72 sm:w-80"
-        style="display: none;"
+        data-mp-dropdown
+        class="hidden absolute left-0 z-50 mt-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg w-72 sm:w-80"
       >
         <div class="sticky top-0 p-2 sm:p-3 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-t-xl">
           <div class="relative">
@@ -4477,67 +4456,37 @@ defmodule MossletWeb.DesignSystem do
             />
             <input
               type="text"
-              x-ref="searchInput"
-              x-model="search"
+              data-mp-search
               placeholder="Search moods..."
               class="w-full pl-8 pr-8 py-2 text-sm bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg placeholder-slate-400 dark:placeholder-slate-500 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500/50"
             />
             <button
               type="button"
-              x-show="search.length > 0"
-              @click="search = ''; $refs.searchInput.focus()"
+              data-mp-search-clear
               aria-label="Clear search"
-              class="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors"
+              class="hidden absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors"
             >
               <.phx_icon name="hero-x-mark" class="h-4 w-4" />
             </button>
           </div>
         </div>
-        <div class="max-h-[50vh] sm:max-h-72 overflow-y-auto overscroll-contain p-3 sm:p-4">
-          <div class="space-y-3 sm:space-y-4">
-            <template
-              x-for="(category, categoryIndex) in window.moodPickerFilterCategories(search)"
-              x-bind:key="categoryIndex"
-            >
-              <div class="space-y-2">
-                <div
-                  class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1"
-                  x-text="category.name"
-                >
-                </div>
-                <div class="flex flex-wrap gap-1.5 sm:gap-2">
-                  <template x-for="(mood, moodIndex) in category.moods" x-bind:key="moodIndex">
-                    <button
-                      type="button"
-                      x-on:click={"$dispatch('mood:select', { mood: mood.id, input_id: '#{@id}-input' }); open = false; search = ''"}
-                      x-bind:class={"window.moodPickerGetButtonClasses(mood.id, '#{@value || ""}')"}
-                      x-bind:title="mood.label"
-                    >
-                      <span class="text-lg sm:text-xl leading-none flex-shrink-0" x-text="mood.emoji"></span>
-                      <span
-                        x-bind:class={"window.moodPickerGetLabelClasses(mood.id, '#{@value || ""}')"}
-                        x-text="mood.label"
-                      ></span>
-                    </button>
-                  </template>
-                </div>
-              </div>
-            </template>
-            <div
-              x-show="search.length > 0 && window.moodPickerFilterCategories(search).length === 0"
-              class="text-center py-6 text-slate-500 dark:text-slate-400"
-            >
-              <span class="text-3xl block mb-2">😌</span>
-              <p class="text-sm">No moods found</p>
-              <p class="text-xs mt-1">Try a different search term</p>
-            </div>
-          </div>
+        <div
+          data-mp-list
+          class="max-h-[50vh] sm:max-h-72 overflow-y-auto overscroll-contain p-3 sm:p-4"
+        >
         </div>
-        <div :if={@value} class="border-t border-slate-200 dark:border-slate-700 px-3 sm:px-4 py-2">
+        <div data-mp-empty class="hidden text-center py-6 text-slate-500 dark:text-slate-400">
+          <span class="text-3xl block mb-2">😌</span>
+          <p class="text-sm">No moods found</p>
+          <p class="text-xs mt-1">Try a different search term</p>
+        </div>
+        <div
+          data-mp-clear-wrap
+          class="hidden border-t border-slate-200 dark:border-slate-700 px-3 sm:px-4 py-2"
+        >
           <button
             type="button"
-            phx-click={JS.dispatch("mood:select", detail: %{mood: "", input_id: "#{@id}-input"})}
-            @click="open = false; search = ''"
+            data-mp-clear
             class="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
           >
             <.phx_icon name="hero-x-mark" class="h-3.5 w-3.5" /> Clear mood

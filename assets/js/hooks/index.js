@@ -109,6 +109,7 @@ import JournalBookFormHook from "./journal-book-form-hook";
 import JournalDragDropHook from "./journal-drag-drop-hook";
 import JournalEntryFormHook from "./journal-entry-form-hook";
 import CapsuleLetterFormHook from "./capsule-letter-form-hook";
+import MoodPickerHook from "./mood-picker-hook";
 import MarkdownToolbar from "./markdown-toolbar";
 import LetterPreview from "./letter-preview";
 import WordCounter from "./word-counter";
@@ -251,6 +252,7 @@ export default {
   JournalDragDropHook,
   JournalEntryFormHook,
   CapsuleLetterFormHook,
+  MoodPickerHook,
   MarkdownToolbar,
   LetterPreview,
   WordCounter,
