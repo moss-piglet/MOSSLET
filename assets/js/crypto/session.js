@@ -408,5 +408,23 @@ window.addEventListener("mosslet:logout", () => {
   Object.values(SK).forEach((key) => sessionStorage.removeItem(key));
   sessionStorage.removeItem("_mosslet_unlock_redirect");
   sessionStorage.removeItem("_mosslet_user_key_temp");
+
+  // Wipe any zero-knowledge client-side drafts (capsule letters, journal
+  // entries, …). These live under the `mosslet:draft:` prefix and hold
+  // ciphertext encrypted with the user_key. This must happen here — globally —
+  // rather than in the composer hook, because by logout time the composer has
+  // usually already unmounted (its own listener is gone), so the authoritative
+  // wipe cannot depend on any component being alive.
+  try {
+    const draftKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith("mosslet:draft:")) draftKeys.push(k);
+    }
+    draftKeys.forEach((k) => localStorage.removeItem(k));
+  } catch {
+    // best-effort
+  }
+
   void clearKeyCache();
 });

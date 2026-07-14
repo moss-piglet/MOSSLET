@@ -13,6 +13,7 @@ defmodule MossletWeb.CapsuleLive.Compose do
   alias Mosslet.Capsules.Capsule
   alias MossletWeb.CapsuleLive.Stationery
   alias MossletWeb.Helpers.JournalHelpers
+  alias MossletWeb.PrivacyComponents
 
   @impl true
   def render(assigns) do
@@ -23,6 +24,8 @@ defmodule MossletWeb.CapsuleLive.Compose do
       current_page={:capsules}
       back_path={~p"/app/capsules"}
       saving={@saving}
+      privacy_active={@privacy_active}
+      privacy_countdown={@privacy_countdown}
     >
       <:footer>
         <div class="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
@@ -350,6 +353,16 @@ defmodule MossletWeb.CapsuleLive.Compose do
         show={@show_markdown_guide}
         on_cancel={JS.push("close_markdown_guide")}
       />
+
+      <PrivacyComponents.privacy_screen
+        active={@privacy_active}
+        countdown={@privacy_countdown}
+        needs_password={@privacy_needs_password}
+        on_activate="activate_privacy"
+        on_reveal="reveal_content"
+        on_password_submit="verify_privacy_password"
+        privacy_form={@privacy_form}
+      />
     </.layout>
     """
   end
@@ -357,7 +370,6 @@ defmodule MossletWeb.CapsuleLive.Compose do
   @impl true
   def mount(_params, _session, socket) do
     local_today = JournalHelpers.get_local_today(socket)
-
     # Delivery is judged by the viewer's LOCAL today (their calendar), not UTC,
     # so "tomorrow" means tomorrow where they are. The server still only ever
     # sees a date. min = local tomorrow.
@@ -383,6 +395,7 @@ defmodule MossletWeb.CapsuleLive.Compose do
      |> assign(:min_date, Date.to_iso8601(min_date))
      |> assign(:deliver_on_human, humanize_until(default_deliver_on, local_today))
      |> assign(:deliver_on_display, format_display(default_deliver_on))
+     |> JournalHelpers.assign_privacy_state(socket.assigns.current_scope.user)
      |> assign(:form, to_form(changeset, as: :capsule))}
   end
 
@@ -446,6 +459,73 @@ defmodule MossletWeb.CapsuleLive.Compose do
   end
 
   @impl true
+  def handle_event("capsule_draft_restored", _params, socket) do
+    {:noreply,
+     put_flash(socket, :info, "We brought back your unsent letter. Pick up where you left off. ✍️")}
+  end
+
+  @impl true
+  def handle_event("activate_privacy", _params, socket) do
+    user = socket.assigns.current_scope.user
+
+    case Mosslet.Accounts.update_journal_privacy(user, true) do
+      {:ok, _user} ->
+        Mosslet.Journal.PrivacyTimer.activate(user.id)
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to enable privacy mode")}
+    end
+  end
+
+  @impl true
+  def handle_event("reveal_content", _params, socket) do
+    if socket.assigns.privacy_needs_password do
+      {:noreply, socket}
+    else
+      user = socket.assigns.current_scope.user
+
+      case Mosslet.Accounts.update_journal_privacy(user, false) do
+        {:ok, _user} ->
+          Mosslet.Journal.PrivacyTimer.deactivate(user.id)
+          {:noreply, socket}
+
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Failed to disable privacy mode")}
+      end
+    end
+  end
+
+  @impl true
+  def handle_event("verify_privacy_password", %{"privacy" => %{"password" => password}}, socket) do
+    user = socket.assigns.current_scope.user
+
+    if Mosslet.Accounts.User.valid_password?(user, password) do
+      case Mosslet.Accounts.update_journal_privacy(user, false) do
+        {:ok, _user} ->
+          Mosslet.Journal.PrivacyTimer.deactivate(user.id)
+
+          {:noreply,
+           socket
+           |> assign(:privacy_active, false)
+           |> assign(:privacy_countdown, 0)
+           |> assign(:privacy_needs_password, false)
+           |> push_event("restore-body-scroll", %{})}
+
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Failed to disable privacy mode")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Incorrect password")}
+    end
+  end
+
+  @impl true
+  def handle_event("restore-body-scroll", _params, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_event("save_capsule_zk", params, socket) do
     user = socket.assigns.current_scope.user
     socket = assign(socket, :show_confirm, false)
@@ -486,6 +566,11 @@ defmodule MossletWeb.CapsuleLive.Compose do
      socket
      |> assign(:show_confirm, false)
      |> put_flash(:error, "We couldn't seal your letter just now. Please try again.")}
+  end
+
+  @impl true
+  def handle_info({:privacy_timer_update, state}, socket) do
+    {:noreply, JournalHelpers.handle_privacy_timer_update(socket, state)}
   end
 
   @impl true

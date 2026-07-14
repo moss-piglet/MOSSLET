@@ -13,10 +13,12 @@
  * fields and is read server-side; only title/body are encrypted here.
  */
 import { encryptWithKey, getUserKey, getPublicKey } from "../crypto/session";
+import { createZkDraft } from "../utils/zk-draft";
 
 const CapsuleLetterFormHook = {
   mounted() {
     this._userKey = null;
+    this._draft = null;
     this._unsealKey();
     this.el.addEventListener("submit", (e) => this._onSubmit(e), true);
 
@@ -88,6 +90,7 @@ const CapsuleLetterFormHook = {
     if (this._sealBtn && this._onSealClick) {
       this._sealBtn.removeEventListener("click", this._onSealClick, true);
     }
+    if (this._draft) this._draft.stop();
   },
 
   _updateDurationPreview() {
@@ -144,9 +147,57 @@ const CapsuleLetterFormHook = {
 
     try {
       this._userKey = await getUserKey(sealedKey);
+      this._initDraft();
     } catch (e) {
       console.error("CapsuleLetterFormHook: failed to unseal user key:", e);
     }
+  },
+
+  // Wire up zero-knowledge client-side draft persistence: the in-progress
+  // letter is encrypted with the user_key and stashed (ciphertext-only) in
+  // localStorage so a refresh / navigation / dropped socket never loses it.
+  // The server never sees any of this — only the eventual sealed submit does.
+  //
+  // We persist title, body, and the delivery date (all encrypted). Stationery
+  // is server-owned UI state (the picker re-renders the hidden input), so we
+  // leave it out rather than fight morphdom — it's cosmetic metadata anyway.
+  _initDraft() {
+    if (this._draft || !this._userKey) return;
+
+    const title = this.el.querySelector('input[name="capsule[title]"]');
+    const body = this.el.querySelector('textarea[name="capsule[body]"]');
+    const deliverOn = this.el.querySelector(
+      'input[name="capsule[deliver_on]"]'
+    );
+
+    const fields = [];
+    if (title) fields.push({ name: "title", el: title });
+    if (body) fields.push({ name: "body", el: body });
+    if (deliverOn) fields.push({ name: "deliver_on", el: deliverOn });
+
+    if (fields.length === 0) return;
+
+    this._draft = createZkDraft({
+      key: this._userKey,
+      storageKey: "mosslet:draft:capsule",
+      fields,
+      // Only restore over an untouched letter. The delivery date always has a
+      // sensible default, so we gate purely on the words the user has written.
+      canRestore: (values) =>
+        !(values.title || "").trim() && !(values.body || "").trim(),
+    });
+
+    this._draft.start();
+
+    this._draft
+      .restore()
+      .then((restored) => {
+        if (restored) {
+          this._updateDurationPreview();
+          this.pushEvent("capsule_draft_restored", {});
+        }
+      })
+      .catch(() => {});
   },
 
   _onSubmit(e) {
@@ -199,6 +250,13 @@ const CapsuleLetterFormHook = {
       stationery: stationery,
       word_count: wordCount,
     });
+
+    // Clear the local draft optimistically. The confirmation modal is the
+    // intent gate and the body-empty check has passed, so a successful encrypt
+    // means the letter is committed. The only server-side rejection is a stale
+    // delivery date (rare — the picker is min-constrained and defaulted), and
+    // the inputs (phx-update="ignore") still hold the letter to re-seal if so.
+    if (this._draft) this._draft.clear();
   },
 };
 
