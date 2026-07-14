@@ -42,18 +42,21 @@ defmodule Mosslet.Capsules do
   # =====================
 
   @doc "Sealed capsules — not yet due (deliver_on in the future)."
-  def list_sealed(user), do: adapter().list_sealed(user)
+  def list_sealed(user, today \\ Date.utc_today()), do: adapter().list_sealed(user, today)
 
   @doc "Delivered capsules — due now or in the past (deliver_on <= today)."
-  def list_delivered(user), do: adapter().list_delivered(user)
+  def list_delivered(user, today \\ Date.utc_today()),
+    do: adapter().list_delivered(user, today)
 
   @doc "Capsules whose delivery date is exactly today."
-  def list_opening_today(user), do: adapter().list_opening_today(user)
+  def list_opening_today(user, today \\ Date.utc_today()),
+    do: adapter().list_opening_today(user, today)
 
-  def count_sealed(user), do: adapter().count_sealed(user)
+  def count_sealed(user, today \\ Date.utc_today()), do: adapter().count_sealed(user, today)
 
   @doc "Count of capsules opening today that the user has not yet opened."
-  def count_opening_today(user), do: adapter().count_opening_today(user)
+  def count_opening_today(user, today \\ Date.utc_today()),
+    do: adapter().count_opening_today(user, today)
 
   def get_capsule!(id, user), do: adapter().get_capsule!(id, user)
   def get_capsule(id, user), do: adapter().get_capsule(id, user)
@@ -69,8 +72,8 @@ defmodule Mosslet.Capsules do
   carries `encrypted_title`, `encrypted_body`, plus plaintext metadata
   (`deliver_on`, `stationery`, `word_count`).
   """
-  def create_capsule_zk(user, attrs) do
-    changeset = Capsule.changeset_zk(%Capsule{}, Map.put(attrs, "user_id", user.id))
+  def create_capsule_zk(user, attrs, today \\ Date.utc_today()) do
+    changeset = Capsule.changeset_zk(%Capsule{}, Map.put(attrs, "user_id", user.id), today)
     adapter().create_capsule(changeset)
   end
 
@@ -104,10 +107,12 @@ defmodule Mosslet.Capsules do
   Returns whether a capsule is currently deliverable (readable) based purely
   on its `deliver_on` metadata.
   """
-  def delivered?(%Capsule{deliver_on: nil}), do: false
+  def delivered?(capsule, today \\ Date.utc_today())
 
-  def delivered?(%Capsule{deliver_on: deliver_on}) do
-    Date.compare(deliver_on, Date.utc_today()) != :gt
+  def delivered?(%Capsule{deliver_on: nil}, _today), do: false
+
+  def delivered?(%Capsule{deliver_on: deliver_on}, today) do
+    Date.compare(deliver_on, today) != :gt
   end
 
   # =====================

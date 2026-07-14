@@ -109,6 +109,8 @@ import JournalBookFormHook from "./journal-book-form-hook";
 import JournalDragDropHook from "./journal-drag-drop-hook";
 import JournalEntryFormHook from "./journal-entry-form-hook";
 import CapsuleLetterFormHook from "./capsule-letter-form-hook";
+import MarkdownToolbar from "./markdown-toolbar";
+import LetterPreview from "./letter-preview";
 import WordCounter from "./word-counter";
 import SessionKeyDeriver from "./session-key-deriver";
 import SyncStatusHook from "./sync-status-hook";
@@ -249,6 +251,8 @@ export default {
   JournalDragDropHook,
   JournalEntryFormHook,
   CapsuleLetterFormHook,
+  MarkdownToolbar,
+  LetterPreview,
   WordCounter,
   SyncStatusHook,
   BlockReasonFormHook,

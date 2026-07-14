@@ -10,6 +10,7 @@ defmodule MossletWeb.CapsuleLive.Index do
   use MossletWeb, :live_view
 
   alias Mosslet.Capsules
+  alias MossletWeb.Helpers.JournalHelpers
 
   @impl true
   def render(assigns) do
@@ -111,7 +112,7 @@ defmodule MossletWeb.CapsuleLive.Index do
                   </span>
                 </div>
                 <time class="text-xs text-slate-500 dark:text-slate-400">
-                  {format_date(capsule.deliver_on)}
+                  {format_date(capsule.deliver_on, @local_today)}
                 </time>
               </div>
               <h3
@@ -150,10 +151,10 @@ defmodule MossletWeb.CapsuleLive.Index do
                 A sealed letter, waiting.
               </p>
               <p class={["mt-1 text-sm font-semibold", theme(capsule.stationery).accent]}>
-                Opens in {countdown(capsule.deliver_on)}
+                Opens in {countdown(capsule.deliver_on, @local_today)}
               </p>
               <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                {format_date(capsule.deliver_on)}
+                {format_date(capsule.deliver_on, @local_today)}
               </p>
             </div>
           </div>
@@ -167,13 +168,16 @@ defmodule MossletWeb.CapsuleLive.Index do
   def mount(_params, _session, socket) do
     user = socket.assigns.current_scope.user
 
-    delivered = Capsules.list_delivered(user)
-    sealed = Capsules.list_sealed(user)
-    opening_today_count = Capsules.count_opening_today(user)
+    local_today = JournalHelpers.get_local_today(socket)
+
+    delivered = Capsules.list_delivered(user, local_today)
+    sealed = Capsules.list_sealed(user, local_today)
+    opening_today_count = Capsules.count_opening_today(user, local_today)
 
     {:ok,
      socket
      |> assign(:page_title, "Time Capsule")
+     |> assign(:local_today, local_today)
      |> assign(:delivered, delivered)
      |> assign(:sealed, sealed)
      |> assign(:opening_today_count, opening_today_count)}
@@ -181,9 +185,7 @@ defmodule MossletWeb.CapsuleLive.Index do
 
   defp theme(stationery), do: MossletWeb.CapsuleLive.Stationery.theme(stationery)
 
-  defp format_date(date) do
-    today = Date.utc_today()
-
+  defp format_date(date, today) do
     cond do
       date == today -> "Today"
       date == Date.add(today, -1) -> "Yesterday"
@@ -191,8 +193,8 @@ defmodule MossletWeb.CapsuleLive.Index do
     end
   end
 
-  defp countdown(date) do
-    days = Date.diff(date, Date.utc_today())
+  defp countdown(date, today) do
+    days = Date.diff(date, today)
 
     cond do
       days <= 0 -> "today"

@@ -11,6 +11,7 @@ defmodule MossletWeb.CapsuleLive.Show do
 
   alias Mosslet.Capsules
   alias MossletWeb.CapsuleLive.Stationery
+  alias MossletWeb.Helpers.JournalHelpers
 
   @impl true
   def render(assigns) do
@@ -52,7 +53,8 @@ defmodule MossletWeb.CapsuleLive.Show do
           </div>
           <p class="mt-3 text-sm text-slate-500 dark:text-slate-400">
             You sealed this letter on {format_date(@capsule.sealed_at)}. It arrived {arrived_phrase(
-              @capsule.deliver_on
+              @capsule.deliver_on,
+              @local_today
             )}.
           </p>
         </div>
@@ -109,6 +111,7 @@ defmodule MossletWeb.CapsuleLive.Show do
   @impl true
   def mount(%{"id" => id}, _session, socket) do
     user = socket.assigns.current_scope.user
+    local_today = JournalHelpers.get_local_today(socket)
 
     case Capsules.get_capsule(id, user) do
       nil ->
@@ -118,7 +121,7 @@ defmodule MossletWeb.CapsuleLive.Show do
          |> push_navigate(to: ~p"/app/capsules")}
 
       capsule ->
-        if Capsules.delivered?(capsule) do
+        if Capsules.delivered?(capsule, local_today) do
           # Metadata-only side effect: mark as read. Never touches content.
           {:ok, capsule} =
             case Capsules.mark_opened(capsule, user) do
@@ -129,6 +132,7 @@ defmodule MossletWeb.CapsuleLive.Show do
           {:ok,
            socket
            |> assign(:page_title, "Your letter")
+           |> assign(:local_today, local_today)
            |> assign(:capsule, capsule)}
         else
           {:ok,
@@ -165,9 +169,7 @@ defmodule MossletWeb.CapsuleLive.Show do
   defp format_date(%DateTime{} = dt), do: Calendar.strftime(dt, "%B %-d, %Y")
   defp format_date(%Date{} = date), do: Calendar.strftime(date, "%B %-d, %Y")
 
-  defp arrived_phrase(%Date{} = deliver_on) do
-    today = Date.utc_today()
-
+  defp arrived_phrase(%Date{} = deliver_on, today) do
     cond do
       deliver_on == today -> "today"
       Date.diff(today, deliver_on) < 7 -> "this week"

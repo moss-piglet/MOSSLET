@@ -71,13 +71,17 @@ defmodule Mosslet.Capsules.Capsule do
   The browser encrypts title/body with the user_key via WASM and sends the
   ciphertext as `encrypted_title` / `encrypted_body`. The server stores it
   directly without ever seeing plaintext.
+
+  `today` is the reference "today" for the future-date guard. Callers pass the
+  viewer's LOCAL today (derived from their timezone) so "a future date" matches
+  the user's calendar rather than UTC. It is still only ever a date (metadata).
   """
-  def changeset_zk(capsule, attrs) do
+  def changeset_zk(capsule, attrs, today \\ Date.utc_today()) do
     capsule
     |> cast(attrs, [:deliver_on, :stationery, :word_count, :user_id])
     |> validate_required([:deliver_on])
     |> validate_stationery()
-    |> validate_deliver_on()
+    |> validate_deliver_on(today)
     |> maybe_set_sealed_at()
     |> put_encrypted_fields(attrs)
     |> validate_required([:body], message: "can't be blank")
@@ -101,13 +105,13 @@ defmodule Mosslet.Capsules.Capsule do
 
   # A capsule to your future self must be delivered in the future. Guard against
   # past/today dates so the sealing ritual is meaningful (server sees only the date).
-  defp validate_deliver_on(changeset) do
+  defp validate_deliver_on(changeset, today) do
     case get_change(changeset, :deliver_on) do
       nil ->
         changeset
 
       %Date{} = date ->
-        if Date.compare(date, Date.utc_today()) == :gt do
+        if Date.compare(date, today) == :gt do
           changeset
         else
           add_error(changeset, :deliver_on, "must be a future date")

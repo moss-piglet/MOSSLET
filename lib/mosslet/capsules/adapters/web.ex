@@ -18,9 +18,7 @@ defmodule Mosslet.Capsules.Adapters.Web do
   alias Mosslet.Repo
 
   @impl true
-  def list_sealed(user) do
-    today = Date.utc_today()
-
+  def list_sealed(user, today) do
     from(c in Capsule,
       where: c.user_id == ^user.id and c.deliver_on > ^today,
       order_by: [asc: c.deliver_on, desc: c.inserted_at]
@@ -29,9 +27,7 @@ defmodule Mosslet.Capsules.Adapters.Web do
   end
 
   @impl true
-  def list_delivered(user) do
-    today = Date.utc_today()
-
+  def list_delivered(user, today) do
     from(c in Capsule,
       where: c.user_id == ^user.id and c.deliver_on <= ^today,
       order_by: [desc: c.deliver_on, desc: c.inserted_at]
@@ -40,9 +36,7 @@ defmodule Mosslet.Capsules.Adapters.Web do
   end
 
   @impl true
-  def list_opening_today(user) do
-    today = Date.utc_today()
-
+  def list_opening_today(user, today) do
     from(c in Capsule,
       where: c.user_id == ^user.id and c.deliver_on == ^today,
       order_by: [desc: c.inserted_at]
@@ -51,9 +45,7 @@ defmodule Mosslet.Capsules.Adapters.Web do
   end
 
   @impl true
-  def count_sealed(user) do
-    today = Date.utc_today()
-
+  def count_sealed(user, today) do
     from(c in Capsule,
       where: c.user_id == ^user.id and c.deliver_on > ^today,
       select: count(c.id)
@@ -62,9 +54,7 @@ defmodule Mosslet.Capsules.Adapters.Web do
   end
 
   @impl true
-  def count_opening_today(user) do
-    today = Date.utc_today()
-
+  def count_opening_today(user, today) do
     from(c in Capsule,
       where: c.user_id == ^user.id and c.deliver_on == ^today and is_nil(c.opened_at),
       select: count(c.id)

@@ -262,6 +262,7 @@ defmodule MossletWeb.UserDashLive do
   defp assign_dashboard_stats(socket) do
     user = socket.assigns.current_scope.user
     user_group_ids = confirmed_user_group_ids(user) |> Enum.map(&elem(&1, 0))
+    local_today = MossletWeb.Helpers.JournalHelpers.get_local_today(socket)
 
     stats = %{
       connections: length(Accounts.get_all_confirmed_user_connections(user.id)),
@@ -271,7 +272,7 @@ defmodule MossletWeb.UserDashLive do
       timeline_total: Timeline.count_home_timeline(user),
       timeline_unread: Timeline.count_unread_home_timeline(user),
       journal_entries: Journal.count_entries(user),
-      capsules_opening_today: Capsules.count_opening_today(user),
+      capsules_opening_today: Capsules.count_opening_today(user, local_today),
       unread_dms: Conversations.count_unread_messages(user.id),
       unread_mentions: GroupMessages.count_unread_mentions(user_group_ids)
     }

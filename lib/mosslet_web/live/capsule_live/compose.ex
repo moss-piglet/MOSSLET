@@ -12,6 +12,7 @@ defmodule MossletWeb.CapsuleLive.Compose do
   alias Mosslet.Capsules
   alias Mosslet.Capsules.Capsule
   alias MossletWeb.CapsuleLive.Stationery
+  alias MossletWeb.Helpers.JournalHelpers
 
   @impl true
   def render(assigns) do
@@ -111,7 +112,78 @@ defmodule MossletWeb.CapsuleLive.Compose do
                 autocomplete="off"
               />
             </div>
-            <div id="capsule-body-container" phx-update="ignore" class="mt-4">
+            <%!-- Formatting toolbar. Pure client-side Markdown sugar — wraps the
+                  textarea selection with **/*/> . No content leaves the browser;
+                  encryption still happens on submit. --%>
+            <div class="mt-4 flex items-center gap-1 border-b border-slate-200/50 dark:border-slate-700/40 pb-2">
+              <div
+                id="capsule-format-toolbar"
+                phx-hook="MarkdownToolbar"
+                data-target="capsule-body"
+                class="flex items-center gap-0.5"
+              >
+                <button
+                  type="button"
+                  data-md-action="bold"
+                  phx-hook="TippyHook"
+                  id="capsule-fmt-bold"
+                  data-tippy-content="Bold"
+                  aria-label="Bold"
+                  class="flex h-8 w-8 items-center justify-center rounded-lg font-bold text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/60 dark:hover:bg-emerald-900/20 transition-colors"
+                >
+                  B
+                </button>
+                <button
+                  type="button"
+                  data-md-action="italic"
+                  phx-hook="TippyHook"
+                  id="capsule-fmt-italic"
+                  data-tippy-content="Italic"
+                  aria-label="Italic"
+                  class="flex h-8 w-8 items-center justify-center rounded-lg font-serif italic text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/60 dark:hover:bg-emerald-900/20 transition-colors"
+                >
+                  I
+                </button>
+                <button
+                  type="button"
+                  data-md-action="quote"
+                  phx-hook="TippyHook"
+                  id="capsule-fmt-quote"
+                  data-tippy-content="Quote"
+                  aria-label="Quote"
+                  class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/60 dark:hover:bg-emerald-900/20 transition-colors"
+                >
+                  <.phx_icon name="hero-chat-bubble-bottom-center-text" class="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  data-md-action="indent"
+                  phx-hook="TippyHook"
+                  id="capsule-fmt-indent"
+                  data-tippy-content="Indent paragraph"
+                  aria-label="Indent paragraph"
+                  class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/60 dark:hover:bg-emerald-900/20 transition-colors"
+                >
+                  <.phx_icon name="hero-chevron-double-right" class="h-4 w-4" />
+                </button>
+              </div>
+              <div class="ml-auto flex items-center gap-1">
+                <button
+                  type="button"
+                  id="capsule-preview-open"
+                  phx-click="open_preview"
+                  class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/60 dark:hover:bg-emerald-900/20 transition-colors"
+                >
+                  <.phx_icon name="hero-eye" class="h-4 w-4" /> Preview
+                </button>
+                <.liquid_markdown_guide_trigger
+                  id="capsule-markdown-guide-trigger"
+                  size="sm"
+                  on_click={JS.push("open_markdown_guide")}
+                />
+              </div>
+            </div>
+            <div id="capsule-body-container" phx-update="ignore" class="mt-2">
               <textarea
                 name="capsule[body]"
                 placeholder="What do you want to remember? What are you hoping for? Tell them everything…"
@@ -222,27 +294,94 @@ defmodule MossletWeb.CapsuleLive.Compose do
           </div>
         </div>
       </.liquid_modal>
+
+      <%!-- Beautiful full-letter preview. The letter content is rendered
+            client-side (ZK — plaintext never leaves the browser) by the
+            LetterPreview hook, styled exactly like the delivered reader so you
+            can see how it will look the day it opens. --%>
+      <.liquid_modal
+        :if={@show_preview}
+        id="capsule-preview-modal"
+        show={@show_preview}
+        size="lg"
+        on_cancel={
+          MossletWeb.DesignSystem.liquid_hide_modal("capsule-preview-modal")
+          |> JS.push("close_preview")
+        }
+      >
+        <:title>
+          <div class="flex items-center gap-3">
+            <div class="p-2 rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/40 dark:to-emerald-900/30">
+              <.phx_icon name="hero-eye" class="size-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <span>Preview your letter</span>
+          </div>
+        </:title>
+
+        <div class="space-y-4">
+          <p class="text-sm text-slate-500 dark:text-slate-400">
+            This is how your letter will look the day it's opened. ✨
+          </p>
+          <article
+            id="capsule-preview-letter"
+            phx-hook="LetterPreview"
+            data-source="capsule-body"
+            data-title-source="capsule-title"
+            class={[
+              "rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-lg p-6 sm:p-10 transition-colors duration-500",
+              Stationery.theme(@stationery).paper
+            ]}
+          >
+            <h1 data-preview-title class="text-2xl font-semibold mb-6 empty:hidden"></h1>
+            <div
+              data-preview-body
+              class="prose prose-slate dark:prose-invert max-w-none prose-lg prose-p:leading-relaxed"
+            >
+            </div>
+            <div class="mt-8 pt-6 border-t border-slate-300/40 dark:border-slate-600/40 text-sm italic opacity-70">
+              — with love, from a past you
+            </div>
+          </article>
+        </div>
+      </.liquid_modal>
+
+      <.liquid_markdown_guide_modal
+        id="capsule-markdown-guide-modal"
+        show={@show_markdown_guide}
+        on_cancel={JS.push("close_markdown_guide")}
+      />
     </.layout>
     """
   end
 
   @impl true
   def mount(_params, _session, socket) do
-    default_deliver_on = Date.add(Date.utc_today(), 365)
+    local_today = JournalHelpers.get_local_today(socket)
+
+    # Delivery is judged by the viewer's LOCAL today (their calendar), not UTC,
+    # so "tomorrow" means tomorrow where they are. The server still only ever
+    # sees a date. min = local tomorrow.
+    min_date = Date.add(local_today, 1)
+    default_deliver_on = Date.add(local_today, 365)
 
     changeset =
-      Capsule.changeset_zk(%Capsule{stationery: Stationery.default()}, %{
-        "deliver_on" => default_deliver_on
-      })
+      Capsule.changeset_zk(
+        %Capsule{stationery: Stationery.default()},
+        %{"deliver_on" => default_deliver_on},
+        local_today
+      )
 
     {:ok,
      socket
      |> assign(:page_title, "Write a letter")
+     |> assign(:local_today, local_today)
      |> assign(:stationery, Stationery.default())
      |> assign(:saving, false)
      |> assign(:show_confirm, false)
-     |> assign(:min_date, Date.to_iso8601(Date.add(Date.utc_today(), 1)))
-     |> assign(:deliver_on_human, humanize_until(default_deliver_on))
+     |> assign(:show_preview, false)
+     |> assign(:show_markdown_guide, false)
+     |> assign(:min_date, Date.to_iso8601(min_date))
+     |> assign(:deliver_on_human, humanize_until(default_deliver_on, local_today))
      |> assign(:deliver_on_display, format_display(default_deliver_on))
      |> assign(:form, to_form(changeset, as: :capsule))}
   end
@@ -265,7 +404,7 @@ defmodule MossletWeb.CapsuleLive.Compose do
       if deliver_on do
         socket
         |> assign(:deliver_on_display, format_display(deliver_on))
-        |> assign(:deliver_on_human, humanize_until(deliver_on))
+        |> assign(:deliver_on_human, humanize_until(deliver_on, socket.assigns.local_today))
       else
         socket
       end
@@ -276,6 +415,26 @@ defmodule MossletWeb.CapsuleLive.Compose do
   @impl true
   def handle_event("cancel_seal", _params, socket) do
     {:noreply, assign(socket, :show_confirm, false)}
+  end
+
+  @impl true
+  def handle_event("open_markdown_guide", _params, socket) do
+    {:noreply, assign(socket, :show_markdown_guide, true)}
+  end
+
+  @impl true
+  def handle_event("close_markdown_guide", _params, socket) do
+    {:noreply, assign(socket, :show_markdown_guide, false)}
+  end
+
+  @impl true
+  def handle_event("open_preview", _params, socket) do
+    {:noreply, assign(socket, :show_preview, true)}
+  end
+
+  @impl true
+  def handle_event("close_preview", _params, socket) do
+    {:noreply, assign(socket, :show_preview, false)}
   end
 
   @impl true
@@ -305,7 +464,7 @@ defmodule MossletWeb.CapsuleLive.Compose do
         "word_count" => params["word_count"] || 0
       }
 
-      case Capsules.create_capsule_zk(user, attrs) do
+      case Capsules.create_capsule_zk(user, attrs, socket.assigns.local_today) do
         {:ok, _capsule} ->
           {:noreply,
            socket
@@ -351,8 +510,8 @@ defmodule MossletWeb.CapsuleLive.Compose do
     end
   end
 
-  defp humanize_until(%Date{} = date) do
-    days = Date.diff(date, Date.utc_today())
+  defp humanize_until(%Date{} = date, today) do
+    days = Date.diff(date, today)
 
     cond do
       days <= 0 -> nil

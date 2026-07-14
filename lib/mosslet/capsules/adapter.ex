@@ -15,11 +15,11 @@ defmodule Mosslet.Capsules.Adapter do
 
   alias Mosslet.Capsules.Capsule
 
-  @callback list_sealed(user :: any()) :: [Capsule.t()]
-  @callback list_delivered(user :: any()) :: [Capsule.t()]
-  @callback list_opening_today(user :: any()) :: [Capsule.t()]
-  @callback count_sealed(user :: any()) :: non_neg_integer()
-  @callback count_opening_today(user :: any()) :: non_neg_integer()
+  @callback list_sealed(user :: any(), today :: Date.t()) :: [Capsule.t()]
+  @callback list_delivered(user :: any(), today :: Date.t()) :: [Capsule.t()]
+  @callback list_opening_today(user :: any(), today :: Date.t()) :: [Capsule.t()]
+  @callback count_sealed(user :: any(), today :: Date.t()) :: non_neg_integer()
+  @callback count_opening_today(user :: any(), today :: Date.t()) :: non_neg_integer()
   @callback get_capsule!(id :: binary(), user :: any()) :: Capsule.t()
   @callback get_capsule(id :: binary(), user :: any()) :: Capsule.t() | nil
 

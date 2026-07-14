@@ -48,7 +48,40 @@ const CapsuleLetterFormHook = {
       this._onDateChange = () => this._updateDurationPreview();
       this._dateInput.addEventListener("change", this._onDateChange);
       this._dateInput.addEventListener("input", this._onDateChange);
+      // The date input lives inside a phx-update="ignore" container, so the
+      // server's initial (UTC, connect-param-less) render would otherwise get
+      // frozen in. Re-derive min + default from the BROWSER's real local date
+      // so the picker is always correct for the user — while staying valid
+      // against the server's UTC "must be a future date" gate.
+      this._setupDates();
     }
+  },
+
+  _setupDates() {
+    const pad = (n) => String(n).padStart(2, "0");
+    const isoLocal = (d) =>
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    const now = new Date();
+
+    // Earliest selectable day is the viewer's LOCAL tomorrow — delivery is
+    // judged against their calendar (the server validates against the same
+    // local "today", passed from the LiveView).
+    const localTomorrow = new Date(now);
+    localTomorrow.setHours(0, 0, 0, 0);
+    localTomorrow.setDate(localTomorrow.getDate() + 1);
+    this._dateInput.min = isoLocal(localTomorrow);
+
+    const def = new Date(now);
+    def.setHours(0, 0, 0, 0);
+    def.setDate(def.getDate() + 365);
+    const defStr = isoLocal(def);
+
+    if (!this._dateInput.value || this._dateInput.value < this._dateInput.min) {
+      this._dateInput.value = defStr;
+    }
+
+    this._updateDurationPreview();
   },
 
   destroyed() {
