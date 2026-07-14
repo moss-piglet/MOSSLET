@@ -14,24 +14,96 @@
 
 static ErlNifResourceType *FD_RT;
 
-static int set_flag(int fd, int flags) {
-  return fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | flags);
+/* TargetPipe reads are chunked; cap one read to avoid huge NIF allocations. */
+static const int MAX_READ_BUFFER_SIZE = 64 * 1024 * 1024;
+
+typedef struct {
+  int fd;
+  /*
+   * Dirty read/write calls, enif_select callbacks, owner-process DOWN
+   * callbacks, and the resource destructor can all touch this fd. Keep them on
+   * one close-once path so the numeric fd is not closed while another path is
+   * using it or registering it with enif_select.
+   */
+  ErlNifMutex *lock;
+} FdResource;
+
+static void close_fd_value(int fd) {
+  close_fd(&fd);
+}
+
+/*
+ * Mark the resource closed and return the fd that was previously owned by it.
+ * The caller must close the returned fd or hand it to enif_select STOP.
+ */
+static int fd_resource_take_fd(FdResource *fd_r) {
+  int fd;
+
+  enif_mutex_lock(fd_r->lock);
+  fd = fd_r->fd;
+  fd_r->fd = VIX_FD_CLOSED;
+  enif_mutex_unlock(fd_r->lock);
+
+  return fd;
+}
+
+static void fd_resource_close(FdResource *fd_r) {
+  close_fd_value(fd_resource_take_fd(fd_r));
+}
+
+static ERL_NIF_TERM make_bad_fd_error(ErlNifEnv *env) {
+  return make_error(env, strerror(EBADF));
+}
+
+static void close_fd_term(ErlNifEnv *env, ERL_NIF_TERM fd_term) {
+  FdResource *fd_r;
+
+  if (enif_get_resource(env, fd_term, FD_RT, (void **)&fd_r)) {
+    fd_resource_close(fd_r);
+  }
+}
+
+static int set_cloexec(int fd) {
+  int flags = fcntl(fd, F_GETFD);
+  if (flags == -1) return -1;
+  return fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
+}
+
+static int set_nonblock(int fd) {
+  int flags = fcntl(fd, F_GETFL);
+  if (flags == -1) return -1;
+  return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
+
+static int set_cloexec_nonblock(int fd) {
+  if (set_cloexec(fd) == -1) return -1;
+  return set_nonblock(fd);
 }
 
 static void close_pipes(int pipes[2]) {
   for (int i = 0; i < 2; i++) {
-    close(pipes[i]);
+    close_fd(&pipes[i]);
   }
 }
 
 static VixResult fd_to_erl_term(ErlNifEnv *env, int fd) {
   ErlNifPid pid;
-  int *fd_r;
+  FdResource *fd_r;
   int ret;
   VixResult res;
 
-  fd_r = enif_alloc_resource(FD_RT, sizeof(int));
-  *fd_r = fd;
+  fd_r = enif_alloc_resource(FD_RT, sizeof(FdResource));
+  if (!fd_r) {
+    SET_ERROR_RESULT(env, "failed to allocate fd resource", res);
+    return res;
+  }
+
+  fd_r->fd = fd;
+  fd_r->lock = enif_mutex_create("vix_fd_resource_lock");
+  if (!fd_r->lock) {
+    SET_ERROR_RESULT(env, "failed to create fd resource lock", res);
+    goto exit;
+  }
 
   if (!enif_self(env, &pid)) {
     SET_ERROR_RESULT(env, "failed get self pid", res);
@@ -49,6 +121,10 @@ static VixResult fd_to_erl_term(ErlNifEnv *env, int fd) {
   }
 
 exit:
+  if (!res.is_success) {
+    fd_r->fd = VIX_FD_CLOSED;
+  }
+
   enif_release_resource(fd_r);
   return res;
 }
@@ -71,8 +147,8 @@ ERL_NIF_TERM nif_source_new(ErlNifEnv *env, int argc,
     goto exit;
   }
 
-  if (set_flag(fds[0], O_CLOEXEC) < 0 ||
-      set_flag(fds[1], O_CLOEXEC | O_NONBLOCK) < 0) {
+  if (set_cloexec(fds[0]) < 0 ||
+      set_cloexec_nonblock(fds[1]) < 0) {
     ret = make_error(env, "failed to set flags to fd");
     goto close_fd_exit;
   }
@@ -84,11 +160,13 @@ ERL_NIF_TERM nif_source_new(ErlNifEnv *env, int argc,
   }
 
   write_fd_term = res.result;
+  fds[1] = VIX_FD_CLOSED;
 
   source = vips_source_new_from_descriptor(fds[0]);
   if (!source) {
     error("Failed to create image from fd. error: %s", vips_error_buffer());
     vips_error_clear();
+    close_fd_term(env, write_fd_term);
     ret = make_error(env, "Failed to create VipsSource from fd ");
     goto close_fd_exit;
   }
@@ -127,8 +205,8 @@ ERL_NIF_TERM nif_target_new(ErlNifEnv *env, int argc,
     goto exit;
   }
 
-  if (set_flag(fds[0], O_CLOEXEC | O_NONBLOCK) < 0 ||
-      set_flag(fds[1], O_CLOEXEC) < 0) {
+  if (set_cloexec_nonblock(fds[0]) < 0 ||
+      set_cloexec(fds[1]) < 0) {
     ret = make_error(env, "failed to set flags to fd");
     goto close_fd_exit;
   }
@@ -140,11 +218,13 @@ ERL_NIF_TERM nif_target_new(ErlNifEnv *env, int argc,
   }
 
   read_fd_term = res.result;
+  fds[0] = VIX_FD_CLOSED;
 
   target = vips_target_new_to_descriptor(fds[1]);
   if (!target) {
     error("Failed to create VipsTarget. error: %s", vips_error_buffer());
     vips_error_clear();
+    close_fd_term(env, read_fd_term);
     ret = make_error(env, "Failed to create VipsTarget");
     goto close_fd_exit;
   }
@@ -187,8 +267,8 @@ ERL_NIF_TERM nif_pipe_open(ErlNifEnv *env, int argc,
   }
 
   if (strcmp(mode, "read") == 0) {
-    if (set_flag(fds[0], O_CLOEXEC | O_NONBLOCK) < 0 ||
-        set_flag(fds[1], O_CLOEXEC) < 0) {
+    if (set_cloexec_nonblock(fds[0]) < 0 ||
+        set_cloexec(fds[1]) < 0) {
       ret = make_error(env, "failed to set flags to fd");
       goto close_fd_exit;
     }
@@ -201,12 +281,12 @@ ERL_NIF_TERM nif_pipe_open(ErlNifEnv *env, int argc,
     }
 
     read_fd_term = res.result;
+    fds[0] = VIX_FD_CLOSED;
     write_fd_term = enif_make_int(env, fds[1]);
 
   } else {
-
-    if (set_flag(fds[0], O_CLOEXEC) < 0 ||
-        set_flag(fds[1], O_CLOEXEC | O_NONBLOCK) < 0) {
+    if (set_cloexec(fds[0]) < 0 ||
+        set_cloexec_nonblock(fds[1]) < 0) {
       ret = make_error(env, "failed to set flags to fd");
       goto close_fd_exit;
     }
@@ -219,6 +299,7 @@ ERL_NIF_TERM nif_pipe_open(ErlNifEnv *env, int argc,
     }
 
     write_fd_term = res.result;
+    fds[1] = VIX_FD_CLOSED;
     read_fd_term = enif_make_int(env, fds[0]);
   }
 
@@ -232,10 +313,11 @@ exit:
   return ret;
 }
 
-static bool select_write(ErlNifEnv *env, int *fd) {
+static bool select_write(ErlNifEnv *env, FdResource *fd_r, int fd) {
   int ret;
 
-  ret = enif_select(env, *fd, ERL_NIF_SELECT_WRITE, fd, NULL, ATOM_UNDEFINED);
+  ret = enif_select(env, (ErlNifEvent)fd, ERL_NIF_SELECT_WRITE, fd_r, NULL,
+                    ATOM_UNDEFINED);
 
   if (ret != 0) {
     error("failed to enif_select write, %d", ret);
@@ -249,15 +331,17 @@ ERL_NIF_TERM nif_write(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   ASSERT_ARGC(argc, 2);
 
   ErlNifTime start;
+  int fd;
   ssize_t size;
   ErlNifBinary bin;
   int write_errno;
-  int *fd;
+  bool select_ok = false;
+  FdResource *fd_r;
   ERL_NIF_TERM ret;
 
   start = enif_monotonic_time(ERL_NIF_USEC);
 
-  if (!enif_get_resource(env, argv[0], FD_RT, (void **)&fd)) {
+  if (!enif_get_resource(env, argv[0], FD_RT, (void **)&fd_r)) {
     ret = make_error(env, "failed to get fd");
     goto exit;
   }
@@ -272,23 +356,44 @@ ERL_NIF_TERM nif_write(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     goto exit;
   }
 
-  size = write(*fd, bin.data, bin.size);
+  /*
+   * This fd is nonblocking. The lock is here to keep close/STOP from racing
+   * with the numeric fd while write() and any following select registration use
+   * it.
+   */
+  enif_mutex_lock(fd_r->lock);
+  fd = fd_r->fd;
+  if (fd == VIX_FD_CLOSED) {
+    enif_mutex_unlock(fd_r->lock);
+    ret = make_bad_fd_error(env);
+    goto exit;
+  }
+
+  size = write(fd, bin.data, bin.size);
   write_errno = errno;
+
+  if ((size >= 0 && size < (ssize_t)bin.size) ||
+      (size < 0 && (write_errno == EAGAIN || write_errno == EWOULDBLOCK))) {
+    select_ok = select_write(env, fd_r, fd);
+  }
+  enif_mutex_unlock(fd_r->lock);
 
   if (size >= (ssize_t)bin.size) { // request completely satisfied
     ret = make_ok(env, enif_make_int(env, size));
   } else if (size >= 0) { // request partially satisfied
-    if (select_write(env, fd)) {
+    if (select_ok) {
       ret = make_ok(env, enif_make_int(env, size));
     } else {
       ret = make_error(env, "failed to enif_select write");
     }
   } else if (write_errno == EAGAIN || write_errno == EWOULDBLOCK) { // busy
-    if (select_write(env, fd)) {
+    if (select_ok) {
       ret = make_error_term(env, ATOM_EAGAIN);
     } else {
       ret = make_error(env, "failed to enif_select write");
     }
+  } else if (write_errno == EBADF) {
+    ret = make_bad_fd_error(env);
   } else {
     ret = make_error(env, strerror(write_errno));
   }
@@ -298,10 +403,11 @@ exit:
   return ret;
 }
 
-static bool select_read(ErlNifEnv *env, int *fd) {
+static bool select_read(ErlNifEnv *env, FdResource *fd_r, int fd) {
   int ret;
 
-  ret = enif_select(env, *fd, ERL_NIF_SELECT_READ, fd, NULL, ATOM_UNDEFINED);
+  ret = enif_select(env, (ErlNifEvent)fd, ERL_NIF_SELECT_READ, fd_r, NULL,
+                    ATOM_UNDEFINED);
 
   if (ret != 0) {
     error("failed to enif_select, %d", ret);
@@ -315,16 +421,19 @@ ERL_NIF_TERM nif_read(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   ASSERT_ARGC(argc, 2);
 
   ErlNifTime start;
+  int fd;
   int max_size;
-  int *fd;
+  FdResource *fd_r;
   ssize_t result;
   int read_errno;
+  bool select_ok = false;
   ERL_NIF_TERM bin_term = 0;
   ERL_NIF_TERM ret;
+  ErlNifBinary read_bin = {0};
 
   start = enif_monotonic_time(ERL_NIF_USEC);
 
-  if (!enif_get_resource(env, argv[0], FD_RT, (void **)&fd)) {
+  if (!enif_get_resource(env, argv[0], FD_RT, (void **)&fd_r)) {
     ret = make_error(env, "failed to get fd");
     goto exit;
   }
@@ -335,69 +444,139 @@ ERL_NIF_TERM nif_read(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   }
 
   if (max_size < 1) {
-    ret = make_error(env, "max_size must be >= 0");
+    ret = make_error(env, "max_size must be >= 1");
     goto exit;
   }
 
-  {
-    unsigned char buf[max_size];
+  if (max_size > MAX_READ_BUFFER_SIZE) {
+    ret = make_error(env, "max_size must be <= 64 MiB");
+    goto exit;
+  }
 
-    result = read(*fd, buf, max_size);
-    read_errno = errno;
+  if (!enif_alloc_binary((size_t)max_size, &read_bin)) {
+    ret = make_error(env, "failed to allocate read buffer");
+    goto exit;
+  }
 
-    if (result >= 0) {
-      /* no need to release this binary */
-      unsigned char *temp = enif_make_new_binary(env, result, &bin_term);
-      memcpy(temp, buf, result);
-      ret = make_ok(env, bin_term);
-    } else if (read_errno == EAGAIN || read_errno == EWOULDBLOCK) { // busy
-      if (select_read(env, fd)) {
-        ret = make_error_term(env, ATOM_EAGAIN);
-      } else {
-        ret = make_error(env, "failed to enif_select read");
-      }
+  /*
+   * This fd is nonblocking. The lock is here to keep close/STOP from racing
+   * with the numeric fd while read() and any following select registration use
+   * it.
+   */
+  enif_mutex_lock(fd_r->lock);
+  fd = fd_r->fd;
+  if (fd == VIX_FD_CLOSED) {
+    enif_mutex_unlock(fd_r->lock);
+    ret = make_bad_fd_error(env);
+    goto exit;
+  }
+
+  result = read(fd, read_bin.data, read_bin.size);
+  read_errno = errno;
+
+  if (result < 0 && (read_errno == EAGAIN || read_errno == EWOULDBLOCK)) {
+    select_ok = select_read(env, fd_r, fd);
+  }
+  enif_mutex_unlock(fd_r->lock);
+
+  if (result >= 0) {
+    size_t bytes_read = (size_t)result;
+
+    if (bytes_read == 0) {
+      enif_release_binary(&read_bin);
+      read_bin.data = NULL;
+      enif_make_new_binary(env, 0, &bin_term);
     } else {
-      ret = make_error(env, strerror(read_errno));
+      if (bytes_read < read_bin.size &&
+          !enif_realloc_binary(&read_bin, bytes_read)) {
+        ret = make_error(env, "failed to resize read buffer");
+        goto exit;
+      }
+
+      bin_term = enif_make_binary(env, &read_bin);
+      read_bin.data = NULL;
     }
+
+    ret = make_ok(env, bin_term);
+  } else if (read_errno == EAGAIN || read_errno == EWOULDBLOCK) { // busy
+    if (select_ok) {
+      ret = make_error_term(env, ATOM_EAGAIN);
+    } else {
+      ret = make_error(env, "failed to enif_select read");
+    }
+  } else if (read_errno == EBADF) {
+    ret = make_bad_fd_error(env);
+  } else {
+    ret = make_error(env, strerror(read_errno));
   }
 
 exit:
+  if (read_bin.data) {
+    enif_release_binary(&read_bin);
+  }
   notify_consumed_timeslice(env, start, enif_monotonic_time(ERL_NIF_USEC));
   return ret;
 }
 
-static bool cancel_select(ErlNifEnv *env, int *fd) {
+static void fd_resource_stop_select_or_close(ErlNifEnv *env,
+                                             FdResource *fd_r) {
+  int fd;
   int ret;
 
-  if (*fd != VIX_FD_CLOSED) {
-    ret = enif_select(env, *fd, ERL_NIF_SELECT_STOP, fd, NULL, ATOM_UNDEFINED);
+  fd = fd_resource_take_fd(fd_r);
 
-    if (ret < 0) {
-      error("failed to enif_select stop, %d", ret);
-      return false;
-    }
-
-    return true;
+  if (fd == VIX_FD_CLOSED) {
+    return;
   }
 
-  return true;
+  ret = enif_select(env, (ErlNifEvent)fd, ERL_NIF_SELECT_STOP, fd_r, NULL,
+                    ATOM_UNDEFINED);
+
+  if (ret < 0) {
+    error("failed to enif_select stop, %d", ret);
+    close_fd_value(fd);
+    return;
+  }
+
+  /*
+   * When STOP is called or scheduled, the stop callback owns the close. If
+   * there was no active select to stop, close the resource here.
+   */
+  if ((ret & ERL_NIF_SELECT_STOP_CALLED) != 0 ||
+      (ret & ERL_NIF_SELECT_STOP_SCHEDULED) != 0) {
+    return;
+  }
+
+  close_fd_value(fd);
 }
 
 static void fd_rt_dtor(ErlNifEnv *env, void *obj) {
   debug("fd_rt_dtor called");
-  int *fd = (int *)obj;
-  close_fd(fd);
+  FdResource *fd_r = (FdResource *)obj;
+  if (fd_r->lock) {
+    fd_resource_close(fd_r);
+    enif_mutex_destroy(fd_r->lock);
+    fd_r->lock = NULL;
+  } else {
+    close_fd(&fd_r->fd);
+  }
 }
 
 static void fd_rt_stop(ErlNifEnv *env, void *obj, int fd, int is_direct_call) {
   debug("fd_rt_stop called %d", fd);
+
+  /*
+   * The resource has already been marked closed before STOP is requested. The
+   * callback owns the selected event value and only needs to close that value.
+   */
+  close_fd_value(fd);
 }
 
 static void fd_rt_down(ErlNifEnv *env, void *obj, ErlNifPid *pid,
                        ErlNifMonitor *monitor) {
   debug("fd_rt_down called");
-  int *fd = (int *)obj;
-  cancel_select(env, fd);
+  FdResource *fd_r = (FdResource *)obj;
+  fd_resource_stop_select_or_close(env, fd_r);
 }
 
 int nif_pipe_init(ErlNifEnv *env) {

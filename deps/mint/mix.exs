@@ -1,21 +1,21 @@
 defmodule Mint.MixProject do
   use Mix.Project
 
-  @version "1.9.0"
+  @version "1.9.2"
   @repo_url "https://github.com/elixir-mint/mint"
 
   def project do
     [
       app: :mint,
       version: @version,
-      elixir: "~> 1.12",
+      elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps(),
 
-      # Xref
-      xref: [
-        exclude: [
+      # Suppress "undefined function" warnings for optional/runtime deps.
+      elixirc_options: [
+        no_warn_undefined: [
           {:ssl, :cipher_suites, 1},
           {:public_key, :cacerts_get, 0},
           CAStore

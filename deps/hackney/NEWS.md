@@ -1,5 +1,49 @@
 # NEWS
 
+4.5.2 - 2026-07-06
+------------------
+
+### Changed
+
+- Bump `h2` to 0.10.4. It fixes a regression from 0.10.3 where a blocking
+  send whose data had fully drained received `{error, stream_closed}` when
+  the stream closed on its END_STREAM chunk. A waiting sender is now settled
+  as `ok` once the send buffer has drained, and only gets the close-reason
+  error when data is still outstanding.
+- Bump `quic` to 1.7.0. Relevant to hackney's HTTP/3 client: the connection
+  flow-control window now slides forward with received bytes instead of
+  stalling after 8 MiB, so large HTTP/3 downloads keep flowing; the idle
+  timer restarts on received activity per RFC 9000 §10.1; an invalid peer
+  SETTINGS frame now closes the connection cleanly instead of crashing; and
+  a client recognizes a server stateless reset (RFC 9000 §10.3) and closes
+  promptly instead of waiting for the idle timeout.
+- Bump `webtransport` to 0.4.3, which aligns its transitive `h2` (0.10.4) and
+  `quic` (1.7.0) dependencies with hackney's own, so the `wt_*` API runs on
+  the same HTTP/2 and HTTP/3 stack versions.
+
+4.5.1 - 2026-07-04
+------------------
+
+### Changed
+
+- Bump `h2` to 0.10.3. It fixes an HTTP/2 upload hang: a sender blocked on
+  flow control is now released with `{error, stream_reset}` or
+  `{error, stream_closed}` when the peer cancels the stream, instead of
+  hanging for the connection's lifetime. This affects hackney's streamed
+  request bodies over HTTP/2 when the server resets the stream
+  mid-backpressure.
+
+4.5.0 - 2026-07-04
+------------------
+
+### Added
+
+- HTTP QUERY method (RFC 10008) as a first-class method: `hackney:query/1..4`
+  helpers and `hackney:request(query, ...)`. QUERY is safe and idempotent and
+  carries a request body like POST. It works over HTTP/1.1, HTTP/2, and
+  HTTP/3 with every request body mode (binary, streamed, async, connection
+  API).
+
 4.4.5 - 2026-06-18
 ------------------
 

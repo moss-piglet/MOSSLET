@@ -1,14 +1,14 @@
 defmodule HPAX.MixProject do
   use Mix.Project
 
-  @version "1.0.3"
+  @version "1.0.4"
   @repo_url "https://github.com/elixir-mint/hpax"
 
   def project do
     [
       app: :hpax,
       version: @version,
-      elixir: "~> 1.12",
+      elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
 

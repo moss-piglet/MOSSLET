@@ -115,6 +115,32 @@ by setting `phx-ignore-missing-id` or disable it globally with the `:missing_for
 
 See the module documentation or `Phoenix.LiveViewTest` for more information.
 
+## v1.2.7 (2026-07-13)
+
+### Security fixes
+- [CVE-2026-58228](https://github.com/phoenixframework/phoenix_live_view/security/advisories/GHSA-5cgh-g58j-m9cq): Fix scheme validation bypass in `Phoenix.LiveView.Utils`
+
+## v1.2.6 (2026-07-07)
+
+### Bug fixes
+
+* Fix HTMLFormatter inserting extra characters in template with multi-codepoint emojis ([#4321](https://github.com/phoenixframework/phoenix_live_view/issues/4321))
+
+## v1.2.5 (2026-06-30)
+
+### Enhancements
+
+* Ensure `Phoenix.LiveView.TagEngine`'s `EEx.Engine` deprecation warning includes file and line information
+* Ensure a failing custom UploadWriter does not crash the LiveView process ([#4320](https://github.com/phoenixframework/phoenix_live_view/pull/4320))
+
+## v1.2.4 (2026-06-29)
+
+### Bug fixes
+
+* Only warn about missing form ID when recovery actually applies ([#4315](https://github.com/phoenixframework/phoenix_live_view/pull/4315))
+* Add common img attributes to `live_img_preview/1` that were missing after cleaning the global attribute list in 1.2.0 ([#4316](https://github.com/phoenixframework/phoenix_live_view/issues/4316))
+* Fix colocated CSS attributes being dropped if using colocated JS in the same component ([#4319](https://github.com/phoenixframework/phoenix_live_view/pull/4319))
+
 ## v1.2.3 (2026-06-12)
 
 This is a followup release to v1.2.2 that fixes the TypeScript declaration files being in the wrong subfolder.

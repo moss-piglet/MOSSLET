@@ -6,6 +6,7 @@ defmodule Ecto.Repo.Schema do
   alias Ecto.Changeset
   alias Ecto.Changeset.Relation
   require Ecto.Query
+  require Logger
 
   import Ecto.Query.Planner, only: [attach_prefix: 2]
 
@@ -284,7 +285,7 @@ defmodule Ecto.Repo.Schema do
       %{^key => {idx, ^type, _, _}} ->
         {{:placeholder, idx}, placeholder_dump, counter}
 
-      %{^key => {_, type, _}} ->
+      %{^key => {_, type, _, _}} ->
         raise ArgumentError,
               "a placeholder key can only be used with columns of the same type. " <>
                 "The key #{inspect(key)} has already been dumped as a #{inspect(type)}"
@@ -452,7 +453,8 @@ defmodule Ecto.Repo.Schema do
     # changeset as changes, except the primary key if it is nil.
     changeset = put_repo_and_action(changeset, :insert, repo, tuplet)
     changeset = Relation.surface_changes(changeset, struct, keep_fields ++ assocs)
-    changeset = update_in(changeset.changes, &Map.drop(&1, drop_fields))
+    changeset = detect_unsurfaced_non_writable_data!(changeset, drop_fields, schema)
+    changeset = drop_non_writable_changes!(changeset, drop_fields, schema, :insert)
 
     wrap_in_transaction(adapter, adapter_meta, opts, changeset, assocs, embeds, prepare, fn ->
       assoc_opts = assoc_opts(assocs, opts)
@@ -521,6 +523,23 @@ defmodule Ecto.Repo.Schema do
     {:error, put_repo_and_action(changeset, :insert, repo, tuplet)}
   end
 
+  defp detect_unsurfaced_non_writable_data!(changeset, [], _schema) do
+    changeset
+  end
+
+  defp detect_unsurfaced_non_writable_data!(changeset, non_writable_fields, schema) do
+    Enum.each(non_writable_fields, fn field ->
+      case changeset.data do
+        %{^field => value} when value != nil ->
+          handle_writable_violation(field, schema, :insert)
+        %{} ->
+          :ok
+      end
+    end)
+
+    changeset
+  end
+
   @doc """
   Implementation for `Ecto.Repo.update/2`.
   """
@@ -560,7 +579,7 @@ defmodule Ecto.Repo.Schema do
     # fields into the changeset. All changes must be in the
     # changeset before hand.
     changeset = put_repo_and_action(changeset, :update, repo, tuplet)
-    changeset = update_in(changeset.changes, &Map.drop(&1, drop_fields))
+    changeset = drop_non_writable_changes!(changeset, drop_fields, schema, :update)
 
     if changeset.changes != %{} or force? do
       wrap_in_transaction(adapter, adapter_meta, opts, changeset, assocs, embeds, prepare, fn ->
@@ -622,6 +641,48 @@ defmodule Ecto.Repo.Schema do
 
   defp do_update(repo, _name, %Changeset{valid?: false} = changeset, tuplet) do
     {:error, put_repo_and_action(changeset, :update, repo, tuplet)}
+  end
+
+  defp drop_non_writable_changes!(changeset, [], _schema, _action) do
+    changeset
+  end
+
+  defp drop_non_writable_changes!(changeset, non_writable_fields, schema, action) do
+   changes = Enum.reduce(non_writable_fields, changeset.changes, fn field, changes ->
+      case changes do
+        %{^field => _change} ->
+          handle_writable_violation(field, schema, action)
+
+          Map.delete(changes, field)
+        %{} ->
+          changes
+      end
+    end)
+
+    %{changeset | changes: changes}
+  end
+
+  defp handle_writable_violation(field, schema, action) do
+    on_writable_violation = schema.__schema__(:on_writable_violation, field)
+
+    message = """
+    you are attempting to write to the field #{inspect(field)} of #{inspect(schema)} but
+    the `:writable` option of this field indicates the field should not be written to during an #{action}.
+
+    If you want to write to this field, please set the appropriate `:writable` option when defining the field.
+
+    If you want to customize the behavior of writing to a non-writable field,
+    please set the appropriate `:on_writable_violation` option when defining the field.
+    """
+
+    case on_writable_violation do
+      :raise ->
+        raise ArgumentError, message
+      :warn ->
+        Logger.warning(message)
+      _ ->
+        :ok
+    end
   end
 
   @doc """

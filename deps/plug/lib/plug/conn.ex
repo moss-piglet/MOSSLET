@@ -294,7 +294,7 @@ defmodule Plug.Conn do
   alias Plug.Conn
   @epoch {{1970, 1, 1}, {0, 0, 0}}
   @already_sent {:plug_conn, :sent}
-  @unsent [:unset, :set, :set_chunked, :set_file]
+  @unsent [:unset, :set, :set_upgrade, :set_chunked, :set_file]
 
   @doc """
   Assigns a value to a key in the connection.
@@ -1239,7 +1239,7 @@ defmodule Plug.Conn do
   defp read_part_headers(conn, data, length, boundary, adapter, state, opts) do
     case :plug_multipart.parse_headers(data, boundary) do
       {:ok, _headers, rest} when byte_size(data) - byte_size(rest) > length ->
-        {:error, :too_large, store_multipart(conn, {boundary, data}, adapter, state)}
+        {:error, :too_large, store_multipart(conn, {boundary, rest}, adapter, state)}
 
       {:ok, headers, rest} ->
         {:ok, headers, store_multipart(conn, {boundary, rest}, adapter, state)}
@@ -1471,10 +1471,11 @@ defmodule Plug.Conn do
   @spec upgrade_adapter(t, atom, term) :: t
   def upgrade_adapter(%Conn{adapter: {adapter, payload}, state: state} = conn, protocol, args)
       when state in @unsent do
+    conn = run_before_send(%{conn | status: 101}, :set_upgrade)
+
     case adapter.upgrade(payload, protocol, args) do
       {:ok, payload} ->
-        conn = run_before_send(conn, :upgraded)
-        %{conn | adapter: {adapter, payload}}
+        %{conn | state: :upgraded, adapter: {adapter, payload}}
 
       {:error, :not_supported} ->
         raise ArgumentError, "upgrade to #{protocol} not supported by #{inspect(adapter)}"
@@ -1699,7 +1700,9 @@ defmodule Plug.Conn do
     * `:secure` - if the cookie must be sent only over https. Defaults
       to true when the connection is HTTPS
     * `:extra` - string to append to cookie. Use this to take advantage of
-      non-standard cookie attributes.
+      non-standard cookie attributes. Since this option may append multiple
+      attributes, callers must not pass user input. If user input must be
+      passed, callers must validate it against semicolon (`;`).
     * `:sign` - when true, signs the cookie
     * `:encrypt` - when true, encrypts the cookie
     * `:same_site` - set the cookie SameSite attribute to a string value.

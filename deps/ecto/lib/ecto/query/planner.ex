@@ -998,7 +998,7 @@ defmodule Ecto.Query.Planner do
     # We could group them to avoid multiple keys, but since they are uncommon, we keep it simple.
     Enum.reduce(queries, cache_and_params, fn
       {name, opts, %Ecto.Query{} = query}, {cache, params} ->
-        {_, params, inner_cache} = traverse_cache(query, :all, {[], params}, adapter)
+        {_, params, inner_cache} = traverse_cache(query, opts.operation, {[], params}, adapter)
 
         {merge_cache(
            {key, name, opts[:materialized], opts[:operation], inner_cache},
@@ -1520,6 +1520,11 @@ defmodule Ecto.Query.Planner do
   defp prewalk_source({:fragment, meta, fragments}, kind, query, expr, acc, adapter) do
     {fragments, acc} = prewalk(fragments, kind, query, expr, acc, adapter)
     {{:fragment, meta, fragments}, acc}
+  end
+
+  defp prewalk_source({{:fragment, meta, fragments}, schema}, kind, query, expr, acc, adapter) do
+    {fragments, acc} = prewalk(fragments, kind, query, expr, acc, adapter)
+    {{{:fragment, meta, fragments}, schema}, acc}
   end
 
   defp prewalk_source({:values, meta, [types, num_rows]}, _kind, _query, _expr, acc, _adapter) do
