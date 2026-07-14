@@ -76,6 +76,10 @@ defmodule Mosslet.Conversations do
   end
 
   def delete_conversation(%Conversation{} = conversation) do
+    # Tear down any ZK voice-note blobs first so their opaque cloud blobs are
+    # removed (the DB rows would otherwise cascade-delete on conversation
+    # delete, orphaning the blobs). Best-effort — never block the delete.
+    _ = Mosslet.VoiceNotes.delete_all_for_conversation(conversation)
     adapter().delete_conversation(conversation)
   end
 

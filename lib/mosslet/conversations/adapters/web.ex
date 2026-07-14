@@ -284,6 +284,7 @@ defmodule Mosslet.Conversations.Adapters.Web do
            |> Ecto.Changeset.put_change(:conversation_id, attrs.conversation_id)
            |> Ecto.Changeset.put_change(:sender_id, attrs.sender_id)
            |> maybe_put_image_fields(attrs)
+           |> maybe_put_voice_note_id(attrs)
            |> Repo.insert()
          end) do
       {:ok, {:ok, message}} ->
@@ -425,6 +426,11 @@ defmodule Mosslet.Conversations.Adapters.Web do
   end
 
   defp maybe_put_image_fields(changeset, _attrs), do: changeset
+
+  defp maybe_put_voice_note_id(changeset, %{voice_note_id: id}) when is_binary(id),
+    do: Ecto.Changeset.put_change(changeset, :voice_note_id, id)
+
+  defp maybe_put_voice_note_id(changeset, _attrs), do: changeset
 
   @impl true
   def toggle_reaction(message_id, user_id, emoji) do

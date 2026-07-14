@@ -139,6 +139,7 @@ defmodule MossletWeb do
       import MossletWeb.PrivacyComponents
       import MossletWeb.ChatComponents
       import MossletWeb.MediaComponents
+      import MossletWeb.VoiceNoteComponents
       import MossletWeb.ConnectionComponents
       import MossletWeb.ProfileComponents
       import MossletWeb.FamilyComponents

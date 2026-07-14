@@ -28,6 +28,7 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
      |> assign(:org_avatars, assigns[:org_avatars] || %{})
      |> assign(:guardian_avatars, assigns[:guardian_avatars] || %{})
      |> assign(assigns)
+     |> assign_new(:voice_enabled, fn -> false end)
      |> assign(:circle_members, members)
      |> assign_form()}
   end
@@ -280,6 +281,16 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
               id="group-message-markdown-guide-trigger"
               on_click={JS.push("open_markdown_guide")}
               size="sm"
+            />
+            <.voice_note_composer
+              :if={not @public? and @voice_enabled}
+              id={"group-#{@group_id}-voice-recorder"}
+              cohort="group"
+              sealed_key={@user_group_key}
+              group_id={@group_id}
+              sender_id={@sender_id}
+              max_bytes={Mosslet.VoiceNotes.max_size_bytes()}
+              max_duration_ms={Mosslet.VoiceNotes.max_duration_ms()}
             />
             <button
               type="submit"

@@ -15,6 +15,7 @@ defmodule Mosslet.Groups.GroupMessage do
     field :content, Encrypted.Binary, redact: true
     belongs_to :group, Group
     belongs_to :sender, UserGroup
+    belongs_to :voice_note, Mosslet.VoiceNotes.VoiceNote
     has_many :mentions, GroupMessageMention
 
     timestamps()
@@ -25,7 +26,18 @@ defmodule Mosslet.Groups.GroupMessage do
     message
     |> cast(attrs, [:content, :sender_id, :group_id])
     |> validate_required([:content, :sender_id, :group_id])
+    |> maybe_put_voice_note_id(opts)
     |> encrypt_attrs(opts)
+  end
+
+  # A voice note is delivered AS a group message referencing its VoiceNote
+  # (docs/VOICE_NOTES_DESIGN.md §3.3). `voice_note_id` is set programmatically
+  # from opts (never cast from user params).
+  defp maybe_put_voice_note_id(changeset, opts) do
+    case opts[:voice_note_id] do
+      id when is_binary(id) -> put_change(changeset, :voice_note_id, id)
+      _ -> changeset
+    end
   end
 
   defp encrypt_attrs(changeset, opts) do

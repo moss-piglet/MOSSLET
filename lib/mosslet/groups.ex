@@ -860,6 +860,7 @@ defmodule Mosslet.Groups do
     # orphaning the blobs in object storage). Best-effort: never block the
     # circle delete on object-store cleanup.
     _ = Mosslet.Files.delete_all_for_group(group)
+    _ = Mosslet.VoiceNotes.delete_all_for_group(group)
 
     case adapter().delete_group(group) do
       {:ok, deleted_group} ->

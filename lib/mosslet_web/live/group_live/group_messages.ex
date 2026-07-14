@@ -231,7 +231,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       is_new_mention={@is_new_mention}
     >
       <div
-        :if={@browser_decrypt?}
+        :if={@browser_decrypt? and is_nil(@message.voice_note_id)}
         id={"decrypt-msg-#{@message.id}"}
         phx-hook="DecryptGroupMessage"
         data-encrypted-content={@encrypted_content}
@@ -249,7 +249,13 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       >
         <span class="text-slate-400 dark:text-slate-500 text-sm italic">Decrypting...</span>
       </div>
-      <div :if={not @browser_decrypt?}>
+      <.voice_note_bubble
+        :if={@message.voice_note_id}
+        id={"voice-#{@message.id}"}
+        voice_note_id={@message.voice_note_id}
+        sender?={@is_own_message}
+      />
+      <div :if={not @browser_decrypt? and is_nil(@message.voice_note_id)}>
         {@content |> Phoenix.HTML.raw()}
       </div>
     </ChatComponents.liquid_chat_message>

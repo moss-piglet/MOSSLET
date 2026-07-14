@@ -247,6 +247,7 @@ defmodule MossletWeb.ConversationLive.Show do
                       )
                     ]}>
                       <div
+                        :if={is_nil(message.voice_note_id)}
                         id={"msg-content-#{message.id}"}
                         phx-hook="DecryptMessage"
                         data-encrypted-content={encode_message_content(message.content)}
@@ -268,6 +269,12 @@ defmodule MossletWeb.ConversationLive.Show do
                           <.phx_icon name="hero-lock-closed" class="w-3 h-3" /> Decrypting...
                         </span>
                       </div>
+                      <.voice_note_bubble
+                        :if={message.voice_note_id}
+                        id={"voice-#{message.id}"}
+                        voice_note_id={message.voice_note_id}
+                        sender?={message.sender_id == @current_scope.user.id}
+                      />
                     </div>
                     <div
                       :if={message.reactions != [] && message.reactions != nil}
@@ -570,6 +577,13 @@ defmodule MossletWeb.ConversationLive.Show do
                       on_click={JS.push("open_markdown_guide")}
                       size="sm"
                     />
+                    <.voice_note_composer
+                      id="conversation-voice-recorder"
+                      cohort="conversation"
+                      sealed_key={@conversation_key_encrypted}
+                      max_bytes={@voice_max_bytes}
+                      max_duration_ms={@voice_max_duration_ms}
+                    />
                     <button
                       type="submit"
                       class="group/btn inline-flex items-center justify-center gap-1.5 h-10 px-3 sm:px-4 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white shadow-lg shadow-teal-500/25 hover:shadow-xl hover:shadow-teal-500/30 active:scale-95 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800"
@@ -838,6 +852,10 @@ defmodule MossletWeb.ConversationLive.Show do
        |> assign(:image_edit_modal_open, false)
        |> assign(:image_edit_upload, nil)
        |> assign(:image_edit_crop, %{})
+       |> assign(:blob_buffers, %{})
+       |> assign(:pending_voice_note, nil)
+       |> assign(:voice_max_bytes, Mosslet.VoiceNotes.max_size_bytes())
+       |> assign(:voice_max_duration_ms, Mosslet.VoiceNotes.max_duration_ms())
        |> assign(:user_token, session["user_token"])
        |> allow_upload(:photo,
          accept: ~w(.gif .jpg .jpeg .png .webp .heic .heif),
@@ -941,6 +959,134 @@ defmodule MossletWeb.ConversationLive.Show do
   end
 
   def handle_event("send_message_noop", _params, socket) do
+    {:noreply, socket}
+  end
+
+  # --- Voice notes (E2EE, Task #383, docs/VOICE_NOTES_DESIGN.md) ---
+
+  def handle_event("create_voice_note", params, socket) do
+    %{"upload_ref" => ref, "blob_chunks_total" => total} = params
+
+    socket =
+      socket
+      |> assign(:pending_voice_note, %{
+        ref: ref,
+        media_type: params["media_type"] || "audio",
+        mime_hint: params["mime_hint"],
+        duration_ms: params["duration_ms"],
+        size_bytes: params["size_bytes"],
+        checksum: params["checksum"],
+        total: total
+      })
+      |> put_blob_buffer(ref, [])
+
+    {:noreply, socket}
+  end
+
+  def handle_event(
+        "voice_note_chunk",
+        %{"upload_ref" => ref, "index" => index, "total" => total, "chunk_b64" => chunk},
+        socket
+      ) do
+    chunks = [{index, chunk} | Map.get(socket.assigns.blob_buffers, ref, [])]
+    socket = put_blob_buffer(socket, ref, chunks)
+
+    if length(chunks) == total do
+      {:noreply, finalize_voice_blob(socket, ref)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("finalize_voice_note", params, socket) do
+    %{"voice_note_id" => voice_note_id, "sealed_recipients" => sealed} = params
+    current_user = socket.assigns.current_scope.user
+    conversation = socket.assigns.conversation
+
+    with voice_note when not is_nil(voice_note) <-
+           Mosslet.VoiceNotes.get_voice_note(voice_note_id),
+         {:ok, _count} <- Mosslet.VoiceNotes.finalize_voice_note_zk(voice_note, sealed) do
+      caption = decode_optional_caption(params["encrypted_caption"])
+
+      attrs = %{
+        content: caption,
+        conversation_id: conversation.id,
+        sender_id: current_user.id,
+        voice_note_id: voice_note.id
+      }
+
+      case Conversations.create_message(attrs) do
+        {:ok, message} ->
+          Conversations.broadcast_new_message(conversation.id, message)
+          Conversations.mark_conversation_read(conversation.id, current_user.id)
+
+          conversation.user_conversations
+          |> Enum.each(fn uc ->
+            Conversations.broadcast_conversation_updated(uc.user_id, conversation.id)
+          end)
+
+          {:noreply, assign(socket, :pending_voice_note, nil)}
+
+        {:error, _changeset} ->
+          {:noreply,
+           socket
+           |> assign(:pending_voice_note, nil)
+           |> put_flash(:error, "Couldn't send your voice note. Please try again.")}
+      end
+    else
+      _ ->
+        {:noreply,
+         socket
+         |> assign(:pending_voice_note, nil)
+         |> put_flash(:error, "Couldn't send your voice note. Please try again.")}
+    end
+  end
+
+  def handle_event("request_voice_note", %{"voice_note_id" => id}, socket) do
+    current_user = socket.assigns.current_scope.user
+
+    with voice_note when not is_nil(voice_note) <- Mosslet.VoiceNotes.get_voice_note(id),
+         %{key: sealed_key} <- Mosslet.VoiceNotes.get_user_voice_note(voice_note, current_user),
+         {:ok, ciphertext} <- Mosslet.VoiceNotes.blob_for(voice_note, current_user) do
+      {:reply,
+       %{
+         sealed_key: sealed_key,
+         blob: Base.encode64(ciphertext),
+         checksum: encode_message_content(voice_note.checksum),
+         mime_hint: voice_note.mime_hint,
+         duration_ms: voice_note.duration_ms
+       }, socket}
+    else
+      _ -> {:reply, %{error: "unauthorized"}, socket}
+    end
+  end
+
+  def handle_event("voice_note_no_mic", _params, socket) do
+    {:noreply,
+     put_flash(
+       socket,
+       :info,
+       "We couldn't access your microphone. Voice notes need mic permission."
+     )}
+  end
+
+  def handle_event("voice_note_too_long", _params, socket) do
+    {:noreply, put_flash(socket, :error, "That voice note is too long. The limit is 5 minutes.")}
+  end
+
+  def handle_event("voice_note_upload_failed", _params, socket) do
+    {:noreply,
+     put_flash(socket, :error, "Couldn't record and send that voice note. Please try again.")}
+  end
+
+  def handle_event("voice_note_play_failed", _params, socket) do
+    {:noreply, put_flash(socket, :error, "Couldn't play that voice note. Please try again.")}
+  end
+
+  # Verify-before-seal TOFU pins emitted by guardRecipients during voice-note
+  # sealing (#294). Persist the viewer's sealed peer-key pins.
+  def handle_event("store_peer_pins", %{"pins" => pins}, socket) do
+    MossletWeb.Helpers.store_connection_peer_pins(socket.assigns.current_scope.user, pins)
     {:noreply, socket}
   end
 
@@ -1631,6 +1777,58 @@ defmodule MossletWeb.ConversationLive.Show do
         {:error, reason}
     end
   end
+
+  # --- Voice-note upload helpers (ZK, mirrors org_circle_support) ---
+
+  defp put_blob_buffer(socket, ref, chunks) do
+    assign(socket, :blob_buffers, Map.put(socket.assigns.blob_buffers, ref, chunks))
+  end
+
+  # Assemble the ordered ciphertext chunks, store the OPAQUE blob on object
+  # storage, and insert the VoiceNote (phase 1). Then hand the browser the
+  # server-authoritative recipient set (I1) so it can seal the file_key.
+  defp finalize_voice_blob(socket, ref) do
+    pending = socket.assigns.pending_voice_note
+    chunks = Map.get(socket.assigns.blob_buffers, ref, [])
+    socket = assign(socket, :blob_buffers, Map.delete(socket.assigns.blob_buffers, ref))
+
+    encrypted_binary =
+      chunks
+      |> Enum.sort_by(fn {index, _} -> index end)
+      |> Enum.map_join("", fn {_, chunk} -> chunk end)
+      |> Base.decode64!()
+
+    current_user = socket.assigns.current_scope.user
+    conversation = socket.assigns.conversation
+
+    with true <- pending != nil,
+         {:ok, storage_path} <-
+           Mosslet.FileUploads.SharedFileStorage.put_encrypted_blob(encrypted_binary),
+         {:ok, voice_note} <-
+           Mosslet.VoiceNotes.create_voice_note_zk(conversation, current_user, %{
+             storage_path: storage_path,
+             checksum: decode_optional_caption(pending.checksum),
+             media_type: pending.media_type,
+             mime_hint: pending.mime_hint,
+             duration_ms: pending.duration_ms,
+             size_bytes: pending.size_bytes
+           }) do
+      push_event(socket, "voice_note_created", %{
+        voice_note_id: voice_note.id,
+        recipients: Mosslet.VoiceNotes.recipients_for_conversation(conversation)
+      })
+    else
+      _ ->
+        socket
+        |> assign(:pending_voice_note, nil)
+        |> put_flash(:error, "Couldn't send that voice note. Please try again.")
+    end
+  end
+
+  # Browser-encrypted ciphertext arrives base64-encoded; store the raw binary
+  # (Cloak wraps it at the app layer). nil-safe for optional fields.
+  defp decode_optional_caption(nil), do: nil
+  defp decode_optional_caption(b64) when is_binary(b64), do: Base.decode64!(b64)
 
   defp write_upload_to_temp_file(binary, entry_ref) do
     temp_path =

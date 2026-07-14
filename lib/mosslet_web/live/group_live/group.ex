@@ -17,6 +17,11 @@ defmodule MossletWeb.GroupLive.Group do
   attr :org_avatars, :map, default: %{}
   attr :guardian_avatars, :map, default: %{}
 
+  # Voice notes (Task #383) are wired only in personal circles for v1 (org
+  # business/family circles come later — see design Q4). Gated so the composer
+  # only renders where the root LiveView handles the voice-note events.
+  attr :voice_enabled, :boolean, default: false
+
   def show(assigns) do
     ~H"""
     <div id={"group-#{@group.id}"} class="h-full flex flex-col">
@@ -48,6 +53,7 @@ defmodule MossletWeb.GroupLive.Group do
           org_display_names={@org_display_names}
           org_avatars={@org_avatars}
           guardian_avatars={@guardian_avatars}
+          voice_enabled={@voice_enabled}
           id={"group-#{@group.id}-message-form"}
         />
       </div>

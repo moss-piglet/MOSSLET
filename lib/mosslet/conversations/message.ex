@@ -17,6 +17,7 @@ defmodule Mosslet.Conversations.Message do
 
     belongs_to :conversation, Conversation
     belongs_to :sender, User
+    belongs_to :voice_note, Mosslet.VoiceNotes.VoiceNote
     has_many :reactions, MessageReaction
 
     timestamps()

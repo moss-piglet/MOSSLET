@@ -80,6 +80,8 @@ import ReplyEmojiPicker from "./reply-emoji-picker";
 import ReplyFormHook from "./reply-form-hook";
 import RepostFormHook from "./repost-form-hook";
 import SharedFileHook, { DecryptSharedFileName } from "./shared-file-hook";
+import VoiceNoteRecorder from "./voice-note-recorder";
+import VoiceNotePlayer from "./voice-note-player";
 import TippyHook from "./tippy-hook";
 import UnlockHook from "./unlock-hook";
 import TrixContentPostHook from "./trix-content-post-hook";
@@ -222,6 +224,8 @@ export default {
   ShareNoteFormHook,
   SharedFileHook,
   DecryptSharedFileName,
+  VoiceNoteRecorder,
+  VoiceNotePlayer,
   TippyHook,
   TrixContentPostHook,
   TrixContentReplyHook,

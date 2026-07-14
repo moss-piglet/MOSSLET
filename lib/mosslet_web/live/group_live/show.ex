@@ -37,6 +37,8 @@ defmodule MossletWeb.GroupLive.Show do
      |> assign(:slide_over_content, "")
      |> assign(:current_page, :circles)
      |> assign(:show_markdown_guide, false)
+     |> assign(:blob_buffers, %{})
+     |> assign(:pending_voice_note, nil)
      |> assign_active_group()
      |> ChatSupport.assign_scrolled_to_top()
      |> ChatSupport.assign_last_user_message(), layout: {MossletWeb.Layouts, :app}}
@@ -277,6 +279,133 @@ defmodule MossletWeb.GroupLive.Show do
     {:noreply, socket}
   end
 
+  # --- Voice notes (E2EE, Task #383, docs/VOICE_NOTES_DESIGN.md) ---
+
+  @impl true
+  def handle_event("create_voice_note", params, socket) do
+    %{"upload_ref" => ref, "blob_chunks_total" => total} = params
+
+    socket =
+      socket
+      |> assign(:pending_voice_note, %{
+        ref: ref,
+        media_type: params["media_type"] || "audio",
+        mime_hint: params["mime_hint"],
+        duration_ms: params["duration_ms"],
+        size_bytes: params["size_bytes"],
+        checksum: params["checksum"],
+        total: total
+      })
+      |> put_voice_blob_buffer(ref, [])
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event(
+        "voice_note_chunk",
+        %{"upload_ref" => ref, "index" => index, "total" => total, "chunk_b64" => chunk},
+        socket
+      ) do
+    chunks = [{index, chunk} | Map.get(socket.assigns.blob_buffers, ref, [])]
+    socket = put_voice_blob_buffer(socket, ref, chunks)
+
+    if length(chunks) == total do
+      {:noreply, finalize_voice_blob(socket, ref)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("finalize_voice_note", params, socket) do
+    %{"voice_note_id" => voice_note_id, "sealed_recipients" => sealed} = params
+    group = socket.assigns.group
+    user_group = socket.assigns.current_user_group
+
+    with voice_note when not is_nil(voice_note) <-
+           Mosslet.VoiceNotes.get_voice_note(voice_note_id),
+         {:ok, _count} <- Mosslet.VoiceNotes.finalize_voice_note_zk(voice_note, sealed),
+         caption when is_binary(caption) <- params["encrypted_caption"] do
+      case GroupMessages.create_message(
+             %{content: caption, group_id: group.id, sender_id: user_group.id},
+             encrypted_content: caption,
+             voice_note_id: voice_note.id
+           ) do
+        {:ok, message} ->
+          GroupMessages.publish_message_created({:ok, message})
+          send(self(), {:message_sent, message})
+          {:noreply, assign(socket, :pending_voice_note, nil)}
+
+        {:error, _changeset} ->
+          {:noreply,
+           socket
+           |> assign(:pending_voice_note, nil)
+           |> put_flash(:error, "Couldn't send your voice note. Please try again.")}
+      end
+    else
+      _ ->
+        {:noreply,
+         socket
+         |> assign(:pending_voice_note, nil)
+         |> put_flash(:error, "Couldn't send your voice note. Please try again.")}
+    end
+  end
+
+  @impl true
+  def handle_event("request_voice_note", %{"voice_note_id" => id}, socket) do
+    current_user = socket.assigns.current_scope.user
+
+    with voice_note when not is_nil(voice_note) <- Mosslet.VoiceNotes.get_voice_note(id),
+         %{key: sealed_key} <- Mosslet.VoiceNotes.get_user_voice_note(voice_note, current_user),
+         {:ok, ciphertext} <- Mosslet.VoiceNotes.blob_for(voice_note, current_user) do
+      {:reply,
+       %{
+         sealed_key: sealed_key,
+         blob: Base.encode64(ciphertext),
+         checksum: encode_optional_binary(voice_note.checksum),
+         mime_hint: voice_note.mime_hint,
+         duration_ms: voice_note.duration_ms
+       }, socket}
+    else
+      _ -> {:reply, %{error: "unauthorized"}, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("voice_note_no_mic", _params, socket) do
+    {:noreply,
+     put_flash(
+       socket,
+       :info,
+       "We couldn't access your microphone. Voice notes need mic permission."
+     )}
+  end
+
+  @impl true
+  def handle_event("voice_note_too_long", _params, socket) do
+    {:noreply, put_flash(socket, :error, "That voice note is too long. The limit is 5 minutes.")}
+  end
+
+  @impl true
+  def handle_event("voice_note_upload_failed", _params, socket) do
+    {:noreply,
+     put_flash(socket, :error, "Couldn't record and send that voice note. Please try again.")}
+  end
+
+  @impl true
+  def handle_event("voice_note_play_failed", _params, socket) do
+    {:noreply, put_flash(socket, :error, "Couldn't play that voice note. Please try again.")}
+  end
+
+  # Verify-before-seal TOFU pins emitted by guardRecipients during voice-note
+  # sealing (#294). Persist the viewer's sealed peer-key pins.
+  @impl true
+  def handle_event("store_peer_pins", %{"pins" => pins}, socket) do
+    MossletWeb.Helpers.store_connection_peer_pins(socket.assigns.current_scope.user, pins)
+    {:noreply, socket}
+  end
+
   @impl true
   def handle_event("unpin_scrollbar_from_top", params, socket) do
     {:halt, socket} = ChatSupport.handle_chat_event("unpin_scrollbar_from_top", params, socket)
@@ -511,4 +640,57 @@ defmodule MossletWeb.GroupLive.Show do
   defp page_title(:reply), do: "Show Group Post"
 
   defp notify_self(msg), do: send(self(), {__MODULE__, msg})
+
+  # --- Voice-note upload helpers (ZK, mirrors org_circle_support) ---
+
+  defp put_voice_blob_buffer(socket, ref, chunks) do
+    assign(socket, :blob_buffers, Map.put(socket.assigns.blob_buffers, ref, chunks))
+  end
+
+  # Assemble the ordered ciphertext chunks, store the OPAQUE blob on object
+  # storage, and insert the VoiceNote (phase 1). Then hand the browser the
+  # server-authoritative recipient set (I1) so it can seal the file_key.
+  defp finalize_voice_blob(socket, ref) do
+    pending = socket.assigns.pending_voice_note
+    chunks = Map.get(socket.assigns.blob_buffers, ref, [])
+    socket = assign(socket, :blob_buffers, Map.delete(socket.assigns.blob_buffers, ref))
+
+    encrypted_binary =
+      chunks
+      |> Enum.sort_by(fn {index, _} -> index end)
+      |> Enum.map_join("", fn {_, chunk} -> chunk end)
+      |> Base.decode64!()
+
+    current_user = socket.assigns.current_scope.user
+    group = socket.assigns.group
+
+    with true <- pending != nil,
+         {:ok, storage_path} <-
+           Mosslet.FileUploads.SharedFileStorage.put_encrypted_blob(encrypted_binary),
+         {:ok, voice_note} <-
+           Mosslet.VoiceNotes.create_voice_note_zk(group, current_user, %{
+             storage_path: storage_path,
+             checksum: decode_optional_binary(pending.checksum),
+             media_type: pending.media_type,
+             mime_hint: pending.mime_hint,
+             duration_ms: pending.duration_ms,
+             size_bytes: pending.size_bytes
+           }) do
+      push_event(socket, "voice_note_created", %{
+        voice_note_id: voice_note.id,
+        recipients: Mosslet.VoiceNotes.recipients_for_group(group)
+      })
+    else
+      _ ->
+        socket
+        |> assign(:pending_voice_note, nil)
+        |> put_flash(:error, "Couldn't send that voice note. Please try again.")
+    end
+  end
+
+  defp decode_optional_binary(nil), do: nil
+  defp decode_optional_binary(b64) when is_binary(b64), do: Base.decode64!(b64)
+
+  defp encode_optional_binary(bin) when is_binary(bin), do: Base.encode64(bin)
+  defp encode_optional_binary(_), do: nil
 end
