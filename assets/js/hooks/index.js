@@ -22,6 +22,7 @@ import KeySafetyNumber from "./key-safety-number";
 import KeyChangeBanner from "./key-change-banner";
 import PeerVerifiedBadge from "./peer-verified-badge";
 import DecryptInviterName from "./decrypt-inviter-name";
+import DecryptNudge from "./decrypt-nudge";
 import DecryptPost from "./decrypt-post";
 import DecryptProfileFields from "./decrypt-profile-fields";
 import DecryptReply from "./decrypt-reply";
@@ -159,6 +160,7 @@ export default {
   KeyChangeBanner,
   PeerVerifiedBadge,
   DecryptInviterName,
+  DecryptNudge,
   DecryptGroupMessage,
   DecryptGroupMetadata,
   DecryptJournalBook,

@@ -90,7 +90,7 @@ defmodule MossletWeb.PublicLive.Updates do
                       Shared prompts — a gentle question everyone sees at once; answer if you like and it becomes a post to your connections
                     </.changelog_item>
                     <.changelog_item icon="hero-hand-raised" color="rose">
-                      "Thinking of you" nudges — a one-tap, content-free hello, batched so it stays warm instead of noisy
+                      "Thinking of you" nudges — a one-tap, content-free hello that lands calmly on their home, rate-limited so it stays warm instead of noisy
                     </.changelog_item>
                     <.changelog_item icon="hero-microphone" color="purple">
                       Voice notes — record short, end-to-end encrypted voice messages in direct messages and circles

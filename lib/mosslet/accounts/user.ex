@@ -93,6 +93,15 @@ defmodule Mosslet.Accounts.User do
     # status the target already shares. Calm, non-secret preference.
     field :show_connections_presence, :boolean, default: false
 
+    # Content-free "thinking of you" nudge opt-out (EPIC #377, task #399) —
+    # RECIPIENT-side preference. Default true: a wordless hello is calm and
+    # welcome by default, but trivially disabled in notification settings.
+    field :nudges_enabled, :boolean, default: true
+
+    # Daily cap for the calm offline nudge-email fallback (max 1/day), mirroring
+    # last_mention_email_received_at.
+    field :last_nudge_email_received_at, :utc_datetime
+
     # Personal RSS feed (task #385) — opt-in, PUBLIC posts only.
     # The token is a plaintext, unguessable random string used to address the
     # feed at /feeds/:token.xml without leaking user enumeration. It is NOT a
@@ -1925,6 +1934,26 @@ defmodule Mosslet.Accounts.User do
   def connections_presence_changeset(user, attrs \\ %{}) do
     user
     |> cast(attrs, [:show_connections_presence])
+  end
+
+  @doc """
+  A user changeset for toggling the content-free "thinking of you" nudge opt-in
+  (EPIC #377, task #399). Recipient-side preference — whether the user receives
+  wordless nudges from their connections. Default on.
+  """
+  def nudges_changeset(user, attrs \\ %{}) do
+    user
+    |> cast(attrs, [:nudges_enabled])
+  end
+
+  @doc """
+  A user changeset for updating when the user last received a nudge email
+  notification. Used for daily email rate limiting (max 1 nudge email per day).
+  """
+  def nudge_email_received_changeset(user, attrs \\ %{}) do
+    user
+    |> cast(attrs, [:last_nudge_email_received_at])
+    |> validate_required([:last_nudge_email_received_at])
   end
 
   @doc """

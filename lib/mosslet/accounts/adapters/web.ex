@@ -1900,6 +1900,30 @@ defmodule Mosslet.Accounts.Adapters.Web do
   end
 
   @impl true
+  def update_nudges_enabled(user, enabled) when is_boolean(enabled) do
+    {:ok, result} =
+      Repo.transaction_on_primary(fn ->
+        user
+        |> User.nudges_changeset(%{nudges_enabled: enabled})
+        |> Repo.update()
+      end)
+
+    result
+  end
+
+  @impl true
+  def update_user_nudge_email_received_at(user, timestamp) do
+    case Repo.transaction_on_primary(fn ->
+           user
+           |> User.nudge_email_received_changeset(%{last_nudge_email_received_at: timestamp})
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, user}} -> {:ok, user}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+    end
+  end
+
+  @impl true
   def update_rss_feed_enabled(user, enabled) when is_boolean(enabled) do
     {:ok, result} =
       Repo.transaction_on_primary(fn ->

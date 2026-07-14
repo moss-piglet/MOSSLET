@@ -157,6 +157,49 @@ defmodule MossletWeb.UserConnectionLiveTest do
       assert Accounts.get_key_pin(user.id, reverse_user.id).pinned_fingerprint == verified
     end
 
+    test "send_nudge creates a metadata-only nudge to a confirmed connection (#399)", %{
+      conn: conn,
+      user: user,
+      key: key,
+      reverse_user: reverse_user,
+      user_connection: user_connection
+    } do
+      {:ok, lv, _html} =
+        conn
+        |> log_in_user(user, key)
+        |> live(~p"/app/users/connections")
+
+      refute Mosslet.Nudges.recently_nudged?(user.id, reverse_user.id)
+
+      render_hook(lv, "send_nudge", %{"connection-id" => user_connection.id})
+
+      assert Mosslet.Nudges.recently_nudged?(user.id, reverse_user.id)
+      assert [nudge] = Mosslet.Nudges.list_unseen_nudges(reverse_user.id)
+      assert nudge.from_user_id == user.id
+      assert nudge.to_user_id == reverse_user.id
+      assert render(lv) =~ "thinking of"
+    end
+
+    test "send_nudge is rate-limited on repeat (#399)", %{
+      conn: conn,
+      user: user,
+      key: key,
+      reverse_user: reverse_user,
+      user_connection: user_connection
+    } do
+      {:ok, lv, _html} =
+        conn
+        |> log_in_user(user, key)
+        |> live(~p"/app/users/connections")
+
+      render_hook(lv, "send_nudge", %{"connection-id" => user_connection.id})
+      html = render_hook(lv, "send_nudge", %{"connection-id" => user_connection.id})
+
+      # Still only one nudge — the repeat was collapsed by the rate limit.
+      assert length(Mosslet.Nudges.list_unseen_nudges(reverse_user.id)) == 1
+      assert html =~ "recently"
+    end
+
     test "repin_peer_key OVERWRITES an existing pin for a confirmed peer (#302)", %{
       conn: conn,
       user: user,

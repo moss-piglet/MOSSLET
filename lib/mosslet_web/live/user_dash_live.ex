@@ -128,6 +128,22 @@ defmodule MossletWeb.UserDashLive do
   end
 
   @impl true
+  def handle_event("dismiss_nudge", %{"id" => nudge_id}, socket) do
+    current_user = socket.assigns.current_scope.user
+    Mosslet.Nudges.mark_seen(nudge_id, current_user)
+
+    nudges = Enum.reject(socket.assigns[:nudges] || [], &(&1.id == nudge_id))
+    {:noreply, assign(socket, :nudges, nudges)}
+  end
+
+  @impl true
+  def handle_event("dismiss_all_nudges", _params, socket) do
+    current_user = socket.assigns.current_scope.user
+    Mosslet.Nudges.mark_all_seen(current_user)
+    {:noreply, assign(socket, :nudges, [])}
+  end
+
+  @impl true
   def handle_info({:ritual_prompt, broadcast}, socket) do
     socket =
       if socket.assigns[:has_profile?] and
@@ -135,6 +151,30 @@ defmodule MossletWeb.UserDashLive do
         socket
         |> assign(:active_ritual_prompt, broadcast)
         |> assign(:ritual_prompt_answered?, false)
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
+
+  # A connection tapped "thinking of you" (EPIC #377, task #399). Prepend the
+  # metadata-only nudge to the dashboard list; the sender's name resolves
+  # client-side via the DecryptNudge hook. Only surfaced for opted-in recipients
+  # with a profile, and only if we can resolve the sealed connection data.
+  def handle_info({:nudge_received, nudge}, socket) do
+    current_user = socket.assigns.current_scope.user
+
+    socket =
+      if socket.assigns[:has_profile?] and current_user.nudges_enabled do
+        case build_nudge_view(nudge, current_user, socket.assigns.current_scope.key) do
+          nil ->
+            socket
+
+          view ->
+            nudges = [view | socket.assigns[:nudges] || []] |> Enum.uniq_by(& &1.id)
+            assign(socket, :nudges, nudges)
+        end
       else
         socket
       end
@@ -194,6 +234,7 @@ defmodule MossletWeb.UserDashLive do
     |> assign_org_spaces()
     |> assign_dashboard_ritual_prompt(current_user)
     |> assign_connections_around()
+    |> assign_dashboard_nudges(current_user)
   end
 
   # Content-free presence hint (EPIC #377, task #381). Computes a single boolean:
@@ -257,6 +298,56 @@ defmodule MossletWeb.UserDashLive do
     socket
     |> assign(:active_ritual_prompt, prompt)
     |> assign(:ritual_prompt_answered?, answered?)
+  end
+
+  # Content-free "thinking of you" nudges (EPIC #377, task #399). Loads the
+  # recipient's recent UNSEEN nudges as metadata-only rows and resolves each
+  # sender's sealed connection data so the card can decrypt the name CLIENT-SIDE
+  # (via the DecryptNudge hook). Nudges we can't map back to a live connection
+  # (e.g. deleted connection) are skipped. Only for opted-in profiled users.
+  defp assign_dashboard_nudges(socket, current_user) do
+    nudges =
+      if current_user.nudges_enabled do
+        key = socket.assigns.current_scope.key
+
+        current_user.id
+        |> Mosslet.Nudges.list_unseen_nudges()
+        |> Enum.map(&build_nudge_view(&1, current_user, key))
+        |> Enum.reject(&is_nil/1)
+      else
+        []
+      end
+
+    assign(socket, :nudges, nudges)
+  end
+
+  # Build a render view for a single nudge by pairing the metadata-only row with
+  # the recipient's OWN sealed connection data for the sender. The name is never
+  # decrypted here — only the opaque sealed key + encrypted name blob are passed
+  # to the browser hook. Returns nil if the sender is no longer a connection.
+  defp build_nudge_view(nudge, current_user, _key) do
+    uconn =
+      current_user.id
+      |> Accounts.get_all_confirmed_user_connections()
+      |> Enum.find(fn uconn ->
+        peer_id =
+          if uconn.user_id == current_user.id, do: uconn.reverse_user_id, else: uconn.user_id
+
+        peer_id == nudge.from_user_id
+      end)
+
+    case uconn do
+      nil ->
+        nil
+
+      uconn ->
+        %{
+          id: nudge.id,
+          inserted_at: nudge.inserted_at,
+          sealed_uconn_key: uconn.key,
+          encrypted_name: uconn.connection.name
+        }
+    end
   end
 
   defp assign_dashboard_stats(socket) do
@@ -364,6 +455,7 @@ defmodule MossletWeb.UserDashLive do
           active_ritual_prompt={@active_ritual_prompt}
           ritual_prompt_answered?={@ritual_prompt_answered?}
           connections_around?={@connections_around?}
+          nudges={@nudges}
         />
       <% else %>
         <.dashboard_onboarding current_scope={@current_scope} />
@@ -385,6 +477,7 @@ defmodule MossletWeb.UserDashLive do
   attr :active_ritual_prompt, :map, default: nil
   attr :ritual_prompt_answered?, :boolean, default: false
   attr :connections_around?, :boolean, default: false
+  attr :nudges, :list, default: []
 
   defp dashboard_home(assigns) do
     ~H"""
@@ -433,6 +526,71 @@ defmodule MossletWeb.UserDashLive do
           <p class="text-sm font-medium text-emerald-800 dark:text-emerald-200">
             Some of your people are around right now.
           </p>
+        </div>
+        <%!-- Thinking-of-you nudges (EPIC #377, task #399). Content-free hellos
+              from connections. The row is pure metadata; the sender's name is
+              decrypted CLIENT-SIDE by the DecryptNudge hook from the recipient's
+              own sealed connection data. Server never sees a name or a message. --%>
+        <div :if={@nudges != []} id="dashboard-nudges" class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-rose-500 dark:text-rose-400">
+              Thinking of you
+            </h2>
+            <button
+              :if={length(@nudges) > 1}
+              type="button"
+              phx-click="dismiss_all_nudges"
+              class="text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+            >
+              Clear all
+            </button>
+          </div>
+
+          <div
+            :for={nudge <- @nudges}
+            id={"nudge-#{nudge.id}"}
+            class="group relative flex items-center gap-4 rounded-2xl border border-rose-200/70 dark:border-rose-800/50 bg-gradient-to-br from-rose-50 to-fuchsia-50 dark:from-rose-950/40 dark:to-fuchsia-950/30 px-5 py-4"
+          >
+            <%!-- DecryptNudge hook: browser-side ZK decrypt of the sender name --%>
+            <div
+              :if={nudge.sealed_uconn_key}
+              id={"decrypt-nudge-#{nudge.id}"}
+              phx-hook="DecryptNudge"
+              data-sealed-uconn-key={nudge.sealed_uconn_key}
+              data-encrypted-conn-name={nudge.encrypted_name}
+              data-target-id={"nudge-name-#{nudge.id}"}
+              class="hidden"
+            >
+            </div>
+
+            <div class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-400 to-fuchsia-500 shadow-md shadow-rose-500/30">
+              <.phx_icon name="hero-heart" class="size-5 text-white" />
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-semibold text-rose-900 dark:text-rose-100">
+                <span
+                  id={"nudge-name-#{nudge.id}"}
+                  phx-update="ignore"
+                  data-decrypt-nudge-name
+                >
+                  A connection
+                </span>
+                <span class="font-normal">was thinking of you</span>
+              </p>
+              <p class="text-xs text-rose-700/80 dark:text-rose-300/70">
+                <.local_time_ago id={"nudge-time-#{nudge.id}"} at={nudge.inserted_at} />
+              </p>
+            </div>
+            <button
+              type="button"
+              phx-click="dismiss_nudge"
+              phx-value-id={nudge.id}
+              aria-label="Dismiss this nudge"
+              class="flex size-11 shrink-0 items-center justify-center rounded-full text-rose-400 hover:text-rose-600 dark:hover:text-rose-300 hover:bg-rose-100/60 dark:hover:bg-rose-900/30 transition-all"
+            >
+              <.phx_icon name="hero-x-mark" class="size-5" />
+            </button>
+          </div>
         </div>
         <%!-- A letter to your future self has arrived. A calm return-reason,
               gated purely on the plaintext deliver_on date — content stays ZK. --%>

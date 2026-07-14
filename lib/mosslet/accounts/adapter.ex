@@ -942,6 +942,18 @@ defmodule Mosslet.Accounts.Adapter do
               {:ok, User.t()} | {:error, Ecto.Changeset.t()}
 
   @doc """
+  Toggles the content-free "thinking of you" nudge opt-in (task #399).
+  """
+  @callback update_nudges_enabled(user :: User.t(), enabled :: boolean()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Updates when the user last received a nudge email (daily rate limiting).
+  """
+  @callback update_user_nudge_email_received_at(user :: User.t(), timestamp :: DateTime.t()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
   Toggles the personal RSS feed opt-in for a user (task #385).
   """
   @callback update_rss_feed_enabled(user :: User.t(), enabled :: boolean()) ::

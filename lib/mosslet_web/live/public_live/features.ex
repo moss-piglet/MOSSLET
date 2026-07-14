@@ -718,7 +718,7 @@ defmodule MossletWeb.PublicLive.Features do
                     </div>
                   </div>
                   <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    A one-tap "thinking of you" — no words required, no pressure to respond. Batched and content-free, so it stays warm instead of noisy. Sometimes that's all it takes.
+                    A one-tap "thinking of you" — no words required, no pressure to respond. Content-free and rate-limited, it appears calmly on their home, so it stays warm instead of noisy. Sometimes that's all it takes.
                   </p>
                 </.liquid_card>
 

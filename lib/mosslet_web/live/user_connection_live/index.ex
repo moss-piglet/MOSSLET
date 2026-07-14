@@ -777,6 +777,37 @@ defmodule MossletWeb.UserConnectionLive.Index do
   end
 
   @impl true
+  def handle_event("send_nudge", %{"connection-id" => user_connection_id}, socket) do
+    current_user = socket.assigns.current_user
+    uconn = Accounts.get_user_connection!(user_connection_id)
+
+    peer_user_id =
+      if uconn.user_id == current_user.id, do: uconn.reverse_user_id, else: uconn.user_id
+
+    case Mosslet.Nudges.send_nudge(current_user, peer_user_id) do
+      {:ok, _nudge} ->
+        {:noreply, put_flash(socket, :success, "Sent — they'll know you're thinking of them 💜")}
+
+      {:error, :rate_limited} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :info,
+           "You already sent them a hello recently — give it a little time 🌿"
+         )}
+
+      {:error, :opted_out} ->
+        {:noreply, put_flash(socket, :info, "This connection isn't receiving nudges right now.")}
+
+      {:error, :not_connected} ->
+        {:noreply, put_flash(socket, :error, "You can only nudge confirmed connections.")}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Couldn't send your nudge. Please try again.")}
+    end
+  end
+
+  @impl true
   def handle_event("block_user", %{"id" => connection_id, "name" => name}, socket) do
     case Accounts.get_user_connection!(connection_id) do
       connection ->

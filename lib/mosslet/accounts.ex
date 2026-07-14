@@ -3365,6 +3365,22 @@ defmodule Mosslet.Accounts do
   end
 
   @doc """
+  Toggles the content-free "thinking of you" nudge opt-in for a user (EPIC #377,
+  task #399). Recipient-side preference — default on.
+  """
+  def update_nudges_enabled(user, enabled) when is_boolean(enabled) do
+    adapter().update_nudges_enabled(user, enabled)
+  end
+
+  @doc """
+  Updates when the user last received a nudge email notification (task #399).
+  Used for daily email rate limiting.
+  """
+  def update_user_nudge_email_received_at(user, timestamp \\ DateTime.utc_now()) do
+    adapter().update_user_nudge_email_received_at(user, timestamp)
+  end
+
+  @doc """
   Toggles the personal RSS feed opt-in for a user (task #385). Generates an
   unguessable feed token on first enable. Public posts only.
   """

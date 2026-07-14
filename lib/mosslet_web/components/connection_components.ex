@@ -936,6 +936,20 @@ defmodule MossletWeb.ConnectionComponents do
                 <.phx_icon name="hero-chat-bubble-left" class="h-3.5 w-3.5" /> Message
               </.link>
 
+              <%!-- Thinking-of-you nudge (EPIC #377, task #399): one tap sends a
+                   wordless, content-free hello. ZK-safe — no message exists. --%>
+              <.link
+                id={"nudge-button-#{@connection_id}"}
+                phx-hook="TippyHook"
+                data-tippy-content="Send a wordless 'thinking of you'"
+                phx-click="send_nudge"
+                phx-value-connection-id={@connection_id}
+                aria-label="Send a wordless thinking of you"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[44px] sm:min-h-0 text-xs font-medium text-rose-600 dark:text-rose-400 bg-rose-50/50 dark:bg-rose-900/20 hover:bg-rose-100/50 dark:hover:bg-rose-900/30 border border-rose-200/40 dark:border-rose-700/40 rounded-full transition-all duration-200 ease-out hover:scale-105 cursor-pointer"
+              >
+                <.phx_icon name="hero-heart" class="h-3.5 w-3.5" /> Thinking of you
+              </.link>
+
               <%!-- View profile button --%>
 
               <.link

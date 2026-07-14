@@ -96,6 +96,7 @@ defmodule Mosslet.Application do
       Mosslet.Timeline.Performance.TimelineCache,
       {Mosslet.Notifications.EmailNotificationsGenServer, []},
       {Mosslet.Notifications.MentionEmailNotificationsGenServer, []},
+      {Mosslet.Notifications.NudgeEmailNotificationsGenServer, []},
       {Mosslet.Notifications.ReplyNotificationsGenServer, []},
       {Mosslet.Notifications.PushNotificationsGenServer, []},
       {Mosslet.Timeline.Performance.TimelineGenServer, []},

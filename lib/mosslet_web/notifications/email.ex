@@ -128,6 +128,28 @@ defmodule Mosslet.Notifications.Email do
   end
 
   @doc """
+  A calm, content-free "a connection was thinking of you" note (EPIC #377,
+  task #399).
+
+  Deliberately GENERIC and metadata-only: it never names the sender (that would
+  break zero-knowledge — the sender's name is only ever decrypted client-side on
+  the dashboard, and an email can't run the browser hook) and never carries any
+  content, because a nudge has none. Just a warm invitation to come say hello.
+  """
+  def nudge_notification(email, dashboard_url) do
+    new()
+    |> to(email)
+    |> from({"MOSSLET", "notifications@mosslet.com"})
+    |> subject(gettext("A connection was thinking of you 💜"))
+    |> text_body(
+      gettext(
+        "Someone you're connected with was thinking of you on MOSSLET.\n\nNo message, no pressure — just a small hello. Drop by whenever you're ready:\n%{url}\n\n— MOSSLET",
+        url: dashboard_url
+      )
+    )
+  end
+
+  @doc """
   A calm, content-free "a letter is waiting" note for time-capsule delivery.
 
   Carries only the mailbox URL and a coarse count — never a title, never a

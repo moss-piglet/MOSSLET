@@ -347,6 +347,69 @@ defmodule MossletWeb.EditNotificationsLive do
             </div>
           </DesignSystem.liquid_card>
 
+          <%!-- Thinking-of-you Nudge Card (EPIC #377, task #399) --%>
+          <DesignSystem.liquid_card class="bg-gradient-to-br from-rose-50/50 to-fuchsia-50/30 dark:from-rose-900/20 dark:to-fuchsia-900/10">
+            <:title>
+              <div class="flex items-center gap-3">
+                <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-rose-100 via-fuchsia-50 to-rose-100 dark:from-rose-900/30 dark:via-fuchsia-900/25 dark:to-rose-900/30">
+                  <.phx_icon
+                    name="hero-heart"
+                    class="h-4 w-4 text-rose-600 dark:text-rose-400"
+                  />
+                </div>
+                <span>Thinking of You</span>
+                <span class={[
+                  "inline-flex px-2.5 py-0.5 text-xs rounded-lg font-medium",
+                  if(@current_scope.user.nudges_enabled,
+                    do:
+                      "bg-gradient-to-r from-emerald-100 to-teal-200 text-emerald-800 dark:from-emerald-800 dark:to-teal-700 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-600",
+                    else:
+                      "bg-gradient-to-r from-slate-100 to-slate-200 text-slate-800 dark:from-slate-700 dark:to-slate-600 dark:text-slate-200 border border-slate-300 dark:border-slate-600"
+                  )
+                ]}>
+                  {if @current_scope.user.nudges_enabled, do: "On", else: "Off"}
+                </span>
+              </div>
+            </:title>
+
+            <div class="space-y-6">
+              <p class="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                A connection can tap once to send you a wordless "thinking of you" — no message,
+                no pressure, just a small hello. When it arrives, you'll see it gently on your
+                Home. It's a quiet way for the people you care about to let you know you crossed
+                their mind. Turn it off any time.
+              </p>
+
+              <div class="bg-teal-50 dark:bg-teal-900/20 rounded-lg p-4 border border-teal-200 dark:border-teal-700">
+                <div class="flex items-start gap-2 text-sm text-teal-700 dark:text-teal-300">
+                  <.phx_icon name="hero-lock-closed" class="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span>
+                    A nudge carries no words — there's nothing for us to read. We only ever see
+                    that a hello happened, never a message, and the sender's name is revealed
+                    only on your device.
+                  </span>
+                </div>
+              </div>
+
+              <.form
+                id="update_nudges_form"
+                for={@nudges_form}
+                phx-change="toggle_nudges"
+                class="space-y-6"
+              >
+                <DesignSystem.liquid_checkbox
+                  field={@nudges_form[:nudges_enabled]}
+                  label="Let my connections send me a wordless hello"
+                  help={
+                    if @current_scope.user.nudges_enabled,
+                      do: "Turn off to stop receiving 'thinking of you' nudges.",
+                      else: "Turn on to receive calm, wordless nudges from your connections."
+                  }
+                />
+              </.form>
+            </div>
+          </DesignSystem.liquid_card>
+
           <%!-- Email Notifications Card --%>
           <DesignSystem.liquid_card class="bg-gradient-to-br from-blue-50/50 to-cyan-50/30 dark:from-blue-900/20 dark:to-cyan-900/10">
             <:title>
@@ -773,10 +836,38 @@ defmodule MossletWeb.EditNotificationsLive do
     end
   end
 
+  def handle_event("toggle_nudges", %{"user" => user_params}, socket) do
+    enabled = user_params["nudges_enabled"] == "true"
+
+    case Accounts.update_nudges_enabled(socket.assigns.current_scope.user, enabled) do
+      {:ok, current_user} ->
+        socket =
+          socket
+          |> put_flash(
+            :success,
+            gettext("Your 'thinking of you' preference has been updated.")
+          )
+          |> assign(
+            current_scope: Scope.for_user(current_user, key: socket.assigns.current_scope.key)
+          )
+          |> assign_form(current_user)
+          |> push_navigate(to: "/app/users/edit-notifications")
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, gettext("Update failed. Please try again."))
+         |> push_navigate(to: "/app/users/edit-notifications")}
+    end
+  end
+
   defp assign_form(socket, user) do
     socket
     |> assign(page_title: "Settings", form: to_form(User.notifications_changeset(user)))
     |> assign(ritual_form: to_form(User.ritual_prompts_changeset(user)))
     |> assign(connections_presence_form: to_form(User.connections_presence_changeset(user)))
+    |> assign(nudges_form: to_form(User.nudges_changeset(user)))
   end
 end
