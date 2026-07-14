@@ -558,6 +558,239 @@ defmodule MossletWeb.PublicLive.Features do
             </div>
           </.liquid_container>
 
+          <%!-- Reasons to return — Time Capsule, rituals, nudges, voice notes --%>
+          <.liquid_container
+            max_width="full"
+            id="reasons-to-return"
+            class="relative mt-24 sm:mt-32 py-16 sm:py-20"
+          >
+            <div class="absolute inset-0 bg-gradient-to-b from-amber-50/30 via-rose-50/20 to-transparent dark:from-amber-950/15 dark:via-rose-950/10 dark:to-transparent">
+            </div>
+            <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
+              <.section_eyebrow accent="emerald">Reasons to return</.section_eyebrow>
+              <h2 class="mt-4 text-center text-3xl font-bold tracking-tight sm:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+                Little moments that bring you back
+              </h2>
+              <p class="mx-auto mt-4 max-w-2xl text-center text-lg text-slate-600 dark:text-slate-400">
+                Not notifications engineered to hook you — gentle, human reasons to check in with the people you love. Every one is metadata-only or encrypted end to end. We never see the words.
+              </p>
+
+              <%!-- Time Capsule showcase --%>
+              <div class="mt-16 flex flex-col gap-10 lg:gap-16 lg:flex-row lg:items-center">
+                <div class="flex-1">
+                  <div class="flex items-center gap-3 mb-4">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl shadow-sm bg-gradient-to-br from-amber-500 to-orange-500">
+                      <.phx_icon name="hero-envelope" class="h-6 w-6 text-white" />
+                    </div>
+                    <span class="text-sm font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                      Time Capsule
+                    </span>
+                  </div>
+                  <h3 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
+                    Write a letter to your future self
+                  </h3>
+                  <p class="mt-4 text-lg leading-relaxed text-slate-600 dark:text-slate-400">
+                    Seal a letter today and choose the day it opens — a birthday, a new year, or five years from now. Your words are encrypted in your browser; we only ever see the delivery date, never the letter. When the day arrives, it quietly resurfaces for you to open.
+                  </p>
+                  <ul class="mt-6 space-y-3">
+                    <li class="flex items-start gap-3">
+                      <.phx_icon
+                        name="hero-lock-closed"
+                        class="mt-0.5 h-5 w-5 shrink-0 text-emerald-500"
+                      />
+                      <span class="text-slate-600 dark:text-slate-400">
+                        Zero-knowledge encrypted — the same protection as your journal
+                      </span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                      <.phx_icon
+                        name="hero-calendar-days"
+                        class="mt-0.5 h-5 w-5 shrink-0 text-emerald-500"
+                      />
+                      <span class="text-slate-600 dark:text-slate-400">
+                        We see only the date, never your words
+                      </span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                      <.phx_icon
+                        name="hero-sparkles"
+                        class="mt-0.5 h-5 w-5 shrink-0 text-emerald-500"
+                      />
+                      <span class="text-slate-600 dark:text-slate-400">
+                        Rich formatting, a live preview, and a calm reading experience
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+
+                <%!-- Sealed letter mockup --%>
+                <div class="flex-1">
+                  <div class="relative mx-auto max-w-md">
+                    <div class="absolute -inset-2 rounded-3xl bg-gradient-to-br from-amber-300/30 via-orange-200/20 to-rose-200/30 dark:from-amber-500/10 dark:via-orange-500/10 dark:to-rose-500/10 blur-2xl">
+                    </div>
+                    <div class="relative rounded-2xl bg-gradient-to-br from-amber-50 via-white to-orange-50/60 dark:from-slate-800 dark:via-slate-800/90 dark:to-slate-800 p-6 ring-1 ring-amber-200/60 dark:ring-amber-700/40 shadow-xl shadow-amber-500/10">
+                      <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                          <div class="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-500 shadow-sm">
+                            <.phx_icon name="hero-lock-closed" class="h-4 w-4 text-white" />
+                          </div>
+                          <span class="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                            Sealed
+                          </span>
+                        </div>
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-900/40 px-3 py-1 text-xs font-medium text-amber-700 dark:text-amber-300">
+                          <.phx_icon name="hero-clock" class="h-3.5 w-3.5" /> Opens Jan 1, 2027
+                        </span>
+                      </div>
+                      <div class="rounded-xl bg-white/70 dark:bg-slate-900/40 p-5 ring-1 ring-amber-100/80 dark:ring-slate-700/50">
+                        <h4 class="text-lg font-serif font-bold text-slate-900 dark:text-slate-100">
+                          Dear me, one year from now
+                        </h4>
+                        <div class="mt-3 space-y-2" aria-hidden="true">
+                          <div class="h-2.5 w-full rounded-full bg-gradient-to-r from-slate-200 to-slate-100 dark:from-slate-700 dark:to-slate-700/60">
+                          </div>
+                          <div class="h-2.5 w-11/12 rounded-full bg-gradient-to-r from-slate-200 to-slate-100 dark:from-slate-700 dark:to-slate-700/60">
+                          </div>
+                          <div class="h-2.5 w-4/5 rounded-full bg-gradient-to-r from-slate-200 to-slate-100 dark:from-slate-700 dark:to-slate-700/60">
+                          </div>
+                        </div>
+                        <p class="mt-4 text-xs italic text-slate-400 dark:text-slate-500">
+                          Encrypted — only you will read this.
+                        </p>
+                      </div>
+                      <div class="mt-4 flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                        <.phx_icon name="hero-shield-check" class="h-4 w-4" />
+                        Zero-knowledge encrypted
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <%!-- Rituals, nudges, voice notes --%>
+              <div class="mt-16 sm:mt-20 grid grid-cols-1 gap-8 md:grid-cols-3">
+                <.liquid_card padding="lg" class="h-full">
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 shadow-sm">
+                        <.phx_icon
+                          name="hero-chat-bubble-bottom-center-text"
+                          class="h-5 w-5 text-white"
+                        />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Shared prompts
+                      </span>
+                    </div>
+                  </:title>
+                  <div class="mb-4 rounded-xl bg-gradient-to-br from-teal-50/70 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/15 p-4 ring-1 ring-teal-200/50 dark:ring-teal-700/30">
+                    <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400 mb-2">
+                      <.phx_icon name="hero-sparkles" class="h-3.5 w-3.5" /> Today's prompt
+                    </div>
+                    <p class="text-sm font-medium text-slate-800 dark:text-slate-200">
+                      "What's something small that made you smile this week?"
+                    </p>
+                  </div>
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    A gentle question everyone sees at once. Answer if you like — your reply becomes a post to your connections. A calm nudge toward real conversation, never a streak to protect.
+                  </p>
+                </.liquid_card>
+
+                <.liquid_card padding="lg" class="h-full">
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 shadow-sm">
+                        <.phx_icon name="hero-hand-raised" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Thinking of you
+                      </span>
+                    </div>
+                  </:title>
+                  <div class="mb-4 rounded-xl bg-gradient-to-br from-rose-50/70 to-pink-50/60 dark:from-rose-900/20 dark:to-pink-900/15 p-4 ring-1 ring-rose-200/50 dark:ring-rose-700/30">
+                    <div class="flex items-center gap-3">
+                      <div class="flex h-9 w-9 items-center justify-center rounded-full bg-white/80 dark:bg-slate-800/60 shadow-sm">
+                        <.phx_icon name="hero-heart-solid" class="h-5 w-5 text-rose-500" />
+                      </div>
+                      <p class="text-sm text-slate-800 dark:text-slate-200">
+                        <span class="font-semibold">Poppy</span> was thinking of you 💜
+                      </p>
+                    </div>
+                  </div>
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    A one-tap "thinking of you" — no words required, no pressure to respond. Batched and content-free, so it stays warm instead of noisy. Sometimes that's all it takes.
+                  </p>
+                </.liquid_card>
+
+                <.liquid_card padding="lg" class="h-full">
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 shadow-sm">
+                        <.phx_icon name="hero-microphone" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Voice notes
+                      </span>
+                    </div>
+                  </:title>
+                  <div class="mb-4 rounded-xl bg-gradient-to-br from-violet-50/70 to-purple-50/60 dark:from-violet-900/20 dark:to-purple-900/15 p-4 ring-1 ring-violet-200/50 dark:ring-violet-700/30">
+                    <div class="flex items-center gap-3">
+                      <div class="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-purple-500 shadow-sm">
+                        <.phx_icon name="hero-play-solid" class="h-4 w-4 text-white" />
+                      </div>
+                      <div class="flex flex-1 items-center gap-0.5" aria-hidden="true">
+                        <span class="h-2 w-1 rounded-full bg-violet-300 dark:bg-violet-600"></span>
+                        <span class="h-4 w-1 rounded-full bg-violet-400 dark:bg-violet-500"></span>
+                        <span class="h-6 w-1 rounded-full bg-violet-500 dark:bg-violet-400"></span>
+                        <span class="h-3 w-1 rounded-full bg-violet-400 dark:bg-violet-500"></span>
+                        <span class="h-5 w-1 rounded-full bg-violet-500 dark:bg-violet-400"></span>
+                        <span class="h-2 w-1 rounded-full bg-violet-300 dark:bg-violet-600"></span>
+                        <span class="h-4 w-1 rounded-full bg-violet-400 dark:bg-violet-500"></span>
+                        <span class="h-6 w-1 rounded-full bg-violet-500 dark:bg-violet-400"></span>
+                        <span class="h-3 w-1 rounded-full bg-violet-400 dark:bg-violet-500"></span>
+                      </div>
+                      <span class="text-xs font-medium text-violet-600 dark:text-violet-400">0:12</span>
+                    </div>
+                  </div>
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Send a short voice note in a message or circle when a text just won't do. Recorded on your device and end-to-end encrypted — your voice, for their ears only.
+                  </p>
+                </.liquid_card>
+              </div>
+            </div>
+          </.liquid_container>
+
+          <%!-- Your own RSS feed --%>
+          <.liquid_container max_width="xl" class="relative mt-16 sm:mt-24">
+            <div class="mx-auto max-w-4xl">
+              <.liquid_card
+                padding="lg"
+                class="bg-gradient-to-br from-amber-50/40 via-orange-50/30 to-amber-50/40 dark:from-amber-900/15 dark:via-orange-900/10 dark:to-amber-900/15 border-amber-200/60 dark:border-amber-700/30"
+              >
+                <div class="flex flex-col lg:flex-row lg:items-center gap-8">
+                  <div class="flex-shrink-0">
+                    <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg shadow-amber-500/30">
+                      <.phx_icon name="hero-rss" class="h-8 w-8 text-white" />
+                    </div>
+                  </div>
+                  <div class="flex-1">
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+                      Your own RSS feed
+                    </h3>
+                    <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+                      Turn on a personal RSS/Atom feed of your public posts so anyone can follow you in their favorite reader — no account, no algorithm, no tracking. It's off by default and covers public posts only, so you stay in control of what leaves your circle.
+                    </p>
+                  </div>
+                  <div class="flex-shrink-0">
+                    <span class="inline-flex items-center gap-2 rounded-full bg-amber-100 dark:bg-amber-900/40 px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300">
+                      <.phx_icon name="hero-check-circle" class="h-4 w-4" /> Opt-in, public-only
+                    </span>
+                  </div>
+                </div>
+              </.liquid_card>
+            </div>
+          </.liquid_container>
+
           <%!-- Privacy-first AI — condensed --%>
           <.liquid_container
             max_width="full"

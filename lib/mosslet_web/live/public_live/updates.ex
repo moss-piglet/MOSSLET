@@ -73,10 +73,48 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.20.0"
-                  date="June 2026"
+                  version="0.21.0"
+                  date="July 2026"
                   tag="Latest"
                   tag_color="emerald"
+                >
+                  <:title>Reasons to Return, Time Capsules & Your Own Feed 💌</:title>
+                  <:description>
+                    The best reason to come back isn't a notification — it's a person. This release adds calm, human ways to stay close: seal a letter to your future self, answer a shared prompt together, send a wordless "thinking of you," or leave a quick voice note. Plus, publish your own RSS feed. Everything stays metadata-only or encrypted end to end — we never see your words.
+                  </:description>
+                  <:items>
+                    <.changelog_item icon="hero-envelope" color="amber">
+                      Time Capsule — write an encrypted letter to your future self and choose the day it opens; we see only the delivery date, never the letter
+                    </.changelog_item>
+                    <.changelog_item icon="hero-chat-bubble-bottom-center-text" color="teal">
+                      Shared prompts — a gentle question everyone sees at once; answer if you like and it becomes a post to your connections
+                    </.changelog_item>
+                    <.changelog_item icon="hero-hand-raised" color="rose">
+                      "Thinking of you" nudges — a one-tap, content-free hello, batched so it stays warm instead of noisy
+                    </.changelog_item>
+                    <.changelog_item icon="hero-microphone" color="purple">
+                      Voice notes — record short, end-to-end encrypted voice messages in direct messages and circles
+                    </.changelog_item>
+                    <.changelog_item icon="hero-rss" color="amber">
+                      Personal RSS/Atom feed — opt in to a public feed of your posts so anyone can follow you in their reader, no account needed
+                    </.changelog_item>
+                    <.changelog_item icon="hero-finger-print" color="blue">
+                      Passkey device unlock — unlock your account with a biometric passkey (WebAuthn PRF) as an added factor, without ever weakening zero-knowledge recovery
+                    </.changelog_item>
+                    <.changelog_item icon="hero-shield-check" color="emerald">
+                      Safety numbers & key verification — verify a connection's keys (including by QR code) and get honest alerts if a key ever changes
+                    </.changelog_item>
+                    <.changelog_item icon="hero-sparkles" color="cyan">
+                      Journal polish — a smoother, faster mood picker and refined encrypted autosave while you write
+                    </.changelog_item>
+                  </:items>
+                </.changelog_entry>
+
+                <.changelog_entry
+                  version="0.20.0"
+                  date="June 2026"
+                  tag="Feature"
+                  tag_color="blue"
                 >
                   <:title>Family & Business Plans, Real Dashboard & Polished Timeline 🌱</:title>
                   <:description>

@@ -96,11 +96,12 @@ config :mosslet, :billing_products, [
     most_popular: false,
     features: [
       "Unlimited Connections, Conversations, Circles, and Posts",
-      "Unlimited Journal entries & books",
-      "Unlimited new features",
-      "Streamlined settings",
-      "Own your data",
+      "Unlimited Journal entries, books & time capsules",
+      "Voice notes, shared prompts & your own RSS feed",
+      "Bluesky import & export — your data travels with you",
+      "Calm by design: no ads, no algorithms, no tracking",
       "Zero-knowledge, post-quantum encryption",
+      "All new features included",
       "Email support"
     ],
     line_items: [
@@ -127,11 +128,12 @@ config :mosslet, :billing_products, [
     most_popular: true,
     features: [
       "Unlimited Connections, Conversations, Circles, and Posts",
-      "Unlimited Journal entries & books",
-      "Unlimited new features",
-      "Streamlined settings",
-      "Own your data",
+      "Unlimited Journal entries, books & time capsules",
+      "Voice notes, shared prompts & your own RSS feed",
+      "Bluesky import & export — your data travels with you",
+      "Calm by design: no ads, no algorithms, no tracking",
       "Zero-knowledge, post-quantum encryption",
+      "All new features included",
       "Email support"
     ],
     line_items: [
@@ -158,11 +160,12 @@ config :mosslet, :billing_products, [
     most_popular: false,
     features: [
       "Unlimited Connections, Conversations, Circles, and Posts",
-      "Unlimited Journal entries & books",
-      "Unlimited new features",
-      "Streamlined settings",
-      "Own your data",
+      "Unlimited Journal entries, books & time capsules",
+      "Voice notes, shared prompts & your own RSS feed",
+      "Bluesky import & export — your data travels with you",
+      "Calm by design: no ads, no algorithms, no tracking",
       "Zero-knowledge, post-quantum encryption",
+      "All new features included",
       "Email support",
       "Supports Affirm Payment Plans"
     ],

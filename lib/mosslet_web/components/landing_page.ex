@@ -160,6 +160,74 @@ defmodule MossletWeb.Components.LandingPage do
         </div>
 
         <%!-- ============================================================ --%>
+        <%!-- WHAT PEOPLE ARE ASKING FOR: real voices, answered --%>
+        <%!-- ============================================================ --%>
+        <div class="relative mx-auto max-w-6xl px-6 lg:px-8 py-8 sm:py-12">
+          <div class="text-center mb-12 sm:mb-16 reveal-on-scroll">
+            <div class="flex items-center justify-center gap-3 mb-4">
+              <div class="h-px w-12 bg-gradient-to-r from-transparent to-emerald-400 dark:to-emerald-600">
+              </div>
+              <span class="text-sm font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                What people keep asking for
+              </span>
+              <div class="h-px w-12 bg-gradient-to-l from-transparent to-emerald-400 dark:to-emerald-600">
+              </div>
+            </div>
+            <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">
+              The social network people wish existed
+            </h2>
+            <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+              Ask people to describe their perfect social network and they all say the same things. We know — because we read the threads. Then we built it.
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-2 reveal-on-scroll">
+            <.wish_card
+              accent="teal"
+              icon="hero-signal-slash"
+              quote="Less noise, more real connections. No algorithms pushing junk — just a simple feed where you see what your friends post."
+              answer="A calm, chronological feed of the people you actually chose. No algorithm, no ranking, no engagement games."
+            />
+            <.wish_card
+              accent="emerald"
+              icon="hero-heart"
+              quote="I'd love a social media app that feels calm instead of addictive, where it's easy to keep up without scrolling for hours."
+              answer="MOSSLET tells you when you're all caught up, then gets out of your way so you can get back to real life."
+            />
+            <.wish_card
+              accent="cyan"
+              icon="hero-chat-bubble-left-right"
+              quote="Prioritize conversations instead of engagement metrics."
+              answer="No public like-counts to chase. Just posts, replies, and private messages with the people who matter."
+            />
+            <.wish_card
+              accent="violet"
+              icon="hero-user-group"
+              quote="Smaller, interest-based communities with actual human moderation — not automated systems."
+              answer="Private Circles for your people, plus a real human support team. No bots deciding what you get to say."
+            />
+            <.wish_card
+              accent="teal"
+              icon="hero-no-symbol"
+              quote="No ads, no bots, no addictive patterns, no bias, no creepy tracking."
+              answer="You're the customer, not the product. Member-funded, zero ads, and zero-knowledge encrypted end to end."
+            />
+            <.wish_card
+              accent="amber"
+              icon="hero-sparkles"
+              quote="Honestly? One where people just share pictures of their dogs."
+              answer="Share whatever you love with whoever you choose — dogs absolutely encouraged. It's your world, kept yours."
+            />
+          </div>
+
+          <div class="mt-10 sm:mt-12 text-center reveal-on-scroll">
+            <p class="text-sm text-slate-500 dark:text-slate-400 italic">
+              Paraphrased from people describing their ideal social network. MOSSLET is our answer.
+            </p>
+          </div>
+        </div>
+
+        <%!-- ============================================================ --%>
         <%!-- WHAT YOU CAN DO: alternating image + short text rows --%>
         <%!-- ============================================================ --%>
         <div class="relative mx-auto max-w-6xl px-6 lg:px-8 py-8 sm:py-12">
@@ -436,6 +504,82 @@ defmodule MossletWeb.Components.LandingPage do
             class="relative w-full h-auto hidden dark:block"
             loading="lazy"
           />
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  attr :quote, :string, required: true
+  attr :answer, :string, required: true
+  attr :icon, :string, required: true
+
+  attr :accent, :string,
+    default: "teal",
+    values: ~w(teal emerald cyan violet amber)
+
+  defp wish_card(assigns) do
+    accents = %{
+      "teal" => %{
+        icon: "from-teal-500 to-emerald-500",
+        ring: "ring-teal-200/50 dark:ring-teal-700/40"
+      },
+      "emerald" => %{
+        icon: "from-emerald-500 to-cyan-500",
+        ring: "ring-emerald-200/50 dark:ring-emerald-700/40"
+      },
+      "cyan" => %{
+        icon: "from-cyan-500 to-blue-500",
+        ring: "ring-cyan-200/50 dark:ring-cyan-700/40"
+      },
+      "violet" => %{
+        icon: "from-violet-500 to-purple-500",
+        ring: "ring-violet-200/50 dark:ring-violet-700/40"
+      },
+      "amber" => %{
+        icon: "from-amber-500 to-orange-500",
+        ring: "ring-amber-200/50 dark:ring-amber-700/40"
+      }
+    }
+
+    assigns = assign(assigns, :colors, accents[assigns.accent] || accents["teal"])
+
+    ~H"""
+    <div class={[
+      "group relative flex flex-col rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm p-6 ring-1 transition-all duration-300 ease-out hover:shadow-xl hover:shadow-slate-900/5 dark:hover:shadow-slate-900/30 transform-gpu",
+      @colors.ring
+    ]}>
+      <%!-- The wish, styled like an incoming chat bubble --%>
+      <div class="flex items-start gap-3">
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700/70">
+          <.phx_icon
+            name="hero-chat-bubble-oval-left"
+            class="h-4 w-4 text-slate-400 dark:text-slate-500"
+          />
+        </div>
+        <p class="text-base leading-relaxed text-slate-700 dark:text-slate-300 italic">
+          &ldquo;{@quote}&rdquo;
+        </p>
+      </div>
+
+      <%!-- The MOSSLET answer --%>
+      <div class="mt-5 flex items-start gap-3 rounded-xl bg-gradient-to-br from-teal-50/70 via-emerald-50/50 to-cyan-50/70 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-cyan-900/20 p-4 ring-1 ring-emerald-200/40 dark:ring-emerald-700/30">
+        <div class={[
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br shadow-lg",
+          @colors.icon
+        ]}>
+          <.phx_icon name={@icon} class="h-5 w-5 text-white" />
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5 mb-1">
+            <span class="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+              MOSSLET
+            </span>
+            <.phx_icon name="hero-check-badge-solid" class="h-4 w-4 text-emerald-500" />
+          </div>
+          <p class="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+            {@answer}
+          </p>
         </div>
       </div>
     </div>
