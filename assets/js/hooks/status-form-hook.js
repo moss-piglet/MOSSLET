@@ -69,7 +69,7 @@ const StatusFormHook = {
 
   _getStatusMessage() {
     const input = this.el.querySelector(
-      'input[name="user[status_message]"], input[name="status[status_message]"]',
+      'input[name="user[status_message]"], input[name="status[status_message]"], input[name="status_message"]',
     );
     if (!input) return null;
     return input.value;
@@ -78,11 +78,11 @@ const StatusFormHook = {
   async _encryptAndSubmit(statusMessage) {
     const status =
       this.el.querySelector(
-        'input[name="user[status]"], input[name="status[status]"]',
+        'input[name="user[status]"], input[name="status[status]"], input[name="status"]',
       )?.value || "offline";
     const autoStatus =
       this.el.querySelector(
-        'input[name="user[auto_status]"], input[name="status[auto_status]"]',
+        'input[type="checkbox"][name="user[auto_status]"], input[type="checkbox"][name="status[auto_status]"], input[type="checkbox"][name="auto_status"]',
       )?.checked || false;
 
     let encUserMessage = null;

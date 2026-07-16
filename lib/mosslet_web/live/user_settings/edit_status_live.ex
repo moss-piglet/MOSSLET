@@ -8,6 +8,7 @@ defmodule MossletWeb.EditStatusLive do
   alias Mosslet.Accounts
   alias Mosslet.Statuses
   alias MossletWeb.DesignSystem
+  alias MossletWeb.Helpers.StatusHelpers
 
   # Import connection helper functions
   import MossletWeb.ConnectionComponents,
@@ -25,7 +26,7 @@ defmodule MossletWeb.EditStatusLive do
     # Create forms for status and status visibility
     initial_status_attrs = %{
       "status" => to_string(user.status || :offline),
-      "status_message" => get_decrypted_status_message(user, key) || "",
+      "status_message" => StatusHelpers.get_own_status_message(user, key) || "",
       "auto_status" => user.auto_status || false
     }
 
@@ -79,7 +80,7 @@ defmodule MossletWeb.EditStatusLive do
        status_visibility_form: status_visibility_form,
        user_visibility_groups: visibility_groups,
        user_connections: user_connections,
-       status_message: get_decrypted_status_message(user, key) || "",
+       status_message: StatusHelpers.get_own_status_message(user, key) || "",
        auto_status: user.auto_status || false,
        show_auto_status_explanation: false
      )}
@@ -861,7 +862,7 @@ defmodule MossletWeb.EditStatusLive do
         ""
       else
         # Preserve current input from the form or fall back to existing message
-        socket.assigns.status_message || get_decrypted_status_message(user, key) || ""
+        socket.assigns.status_message || StatusHelpers.get_own_status_message(user, key) || ""
       end
 
     attrs =
@@ -1016,20 +1017,24 @@ defmodule MossletWeb.EditStatusLive do
     case Statuses.update_user_status(user, status_attrs, user: user, key: key) do
       {:ok, updated_user} ->
         updated_user = Accounts.get_user_with_preloads(updated_user.id)
+        decrypted_message = StatusHelpers.get_own_status_message(updated_user, key) || ""
 
         status_form =
-          to_form(%{
-            "status" => to_string(updated_user.status),
-            "status_message" => get_decrypted_status_message(updated_user, key) || "",
-            "auto_status" => updated_user.auto_status
-          })
+          to_form(
+            %{
+              "status" => to_string(updated_user.status),
+              "status_message" => decrypted_message,
+              "auto_status" => updated_user.auto_status
+            },
+            as: :user
+          )
 
         {:noreply,
          socket
          |> put_flash(:success, "Your status has been updated successfully!")
          |> assign(
            status_form: status_form,
-           status_message: get_decrypted_status_message(updated_user, key) || "",
+           status_message: decrypted_message,
            auto_status: updated_user.auto_status
          )}
 
@@ -1042,6 +1047,7 @@ defmodule MossletWeb.EditStatusLive do
 
   def handle_event("update_status_zk", params, socket) do
     user = socket.assigns.current_user
+    key = socket.assigns.key
 
     status_atom = String.to_existing_atom(params["status"] || "offline")
 
@@ -1055,20 +1061,24 @@ defmodule MossletWeb.EditStatusLive do
     case Statuses.update_user_status_zk(user, attrs) do
       {:ok, updated_user} ->
         updated_user = Accounts.get_user_with_preloads(updated_user.id)
+        decrypted_message = StatusHelpers.get_own_status_message(updated_user, key) || ""
 
         status_form =
-          to_form(%{
-            "status" => to_string(updated_user.status),
-            "status_message" => "",
-            "auto_status" => updated_user.auto_status
-          })
+          to_form(
+            %{
+              "status" => to_string(updated_user.status),
+              "status_message" => decrypted_message,
+              "auto_status" => updated_user.auto_status
+            },
+            as: :user
+          )
 
         {:noreply,
          socket
          |> put_flash(:success, "Your status has been updated successfully!")
          |> assign(
            status_form: status_form,
-           status_message: "",
+           status_message: decrypted_message,
            auto_status: updated_user.auto_status
          )}
 
@@ -1336,27 +1346,6 @@ defmodule MossletWeb.EditStatusLive do
       # Unknown format
       _ ->
         []
-    end
-  end
-
-  defp get_decrypted_status_message(user, key) do
-    if user.connection.status_message do
-      # Use decrypt_user_data since status_message is encrypted with user_key
-      case Mosslet.Encrypted.Users.Utils.decrypt_user_item(
-             user.connection.status_message,
-             user,
-             user.conn_key,
-             key
-           ) do
-        # Handle direct return value (no tuple wrapping)
-        decrypted_message when is_binary(decrypted_message) ->
-          decrypted_message
-
-        _ ->
-          nil
-      end
-    else
-      nil
     end
   end
 

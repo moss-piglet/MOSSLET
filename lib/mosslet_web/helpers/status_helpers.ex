@@ -56,6 +56,26 @@ defmodule MossletWeb.Helpers.StatusHelpers do
   - A string status message or fallback message based on user status
   """
   def get_current_user_status_message(user, session_key) do
+    case get_own_status_message(user, session_key) do
+      message when is_binary(message) -> message
+      _ -> get_status_fallback_message(user.status)
+    end
+  end
+
+  @doc """
+  Gets the current user's own *raw* status message, decrypted with their
+  user_key, without any status-based fallback.
+
+  Returns the decrypted message string, or `nil` when no custom message exists
+  or decryption fails. This is the canonical read used both for display
+  (via `get_current_user_status_message/2`, which layers on a fallback) and for
+  editable inputs (which must not be prefilled with a fallback).
+
+  ## Parameters
+  - `user` - The current user
+  - `session_key` - The session encryption key
+  """
+  def get_own_status_message(user, session_key) do
     # Fast path: use pre-decrypted value from pre_decrypt_user (avoids redundant unseal)
     case user do
       %{decrypted: %{status_message: msg}} when is_binary(msg) and msg != "" ->
@@ -67,11 +87,11 @@ defmodule MossletWeb.Helpers.StatusHelpers do
             decrypted_message when is_binary(decrypted_message) and decrypted_message != "" ->
               decrypted_message
 
-            :failed_verification ->
-              get_status_fallback_message(user.status)
+            _ ->
+              nil
           end
         else
-          get_status_fallback_message(user.status)
+          nil
         end
     end
   end

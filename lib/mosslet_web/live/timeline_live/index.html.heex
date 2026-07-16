@@ -300,6 +300,9 @@
                   user_avatar={post_vm.user_avatar}
                   encrypted_avatar_data={post_vm.encrypted_avatar_data}
                   user_status={get_cached_user_status(@user_statuses, post.user_id)}
+                  user_status_message={
+                    get_cached_user_status_message(@user_statuses, post.user_id)
+                  }
                   encrypted_status_data={
                     get_cached_encrypted_status_data(@user_statuses, post.user_id)
                   }
@@ -401,6 +404,9 @@
                     user_avatar={post_vm.user_avatar}
                     encrypted_avatar_data={post_vm.encrypted_avatar_data}
                     user_status={get_cached_user_status(@user_statuses, post.user_id)}
+                    user_status_message={
+                      get_cached_user_status_message(@user_statuses, post.user_id)
+                    }
                     encrypted_status_data={
                       get_cached_encrypted_status_data(@user_statuses, post.user_id)
                     }

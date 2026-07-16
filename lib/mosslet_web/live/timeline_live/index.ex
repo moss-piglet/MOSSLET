@@ -11,7 +11,8 @@ defmodule MossletWeb.TimelineLive.Index do
     only: [
       can_view_status?: 3,
       get_user_status_info: 3,
-      get_encrypted_status_data: 3
+      get_encrypted_status_data: 3,
+      get_own_status_message: 2
     ]
 
   alias Phoenix.LiveView.AsyncResult
@@ -616,7 +617,7 @@ defmodule MossletWeb.TimelineLive.Index do
        |> push_event("update_user_status", %{
          user_id: user.id,
          status: new_status,
-         status_message: user.status_message
+         status_message: get_own_status_message(user, key)
        })}
     else
       case get_uconn_for_users(user, current_user) do
@@ -6674,6 +6675,16 @@ defmodule MossletWeb.TimelineLive.Index do
   defp get_cached_encrypted_status_data(user_statuses, user_id) do
     case Map.get(user_statuses, user_id) do
       %{encrypted_status_data: data} -> data
+      _ -> nil
+    end
+  end
+
+  # Returns the server-decrypted status message only when there is no encrypted
+  # status data (i.e. the current user's own status, which is rendered
+  # server-side rather than decrypted browser-side via ZK).
+  defp get_cached_user_status_message(user_statuses, user_id) do
+    case Map.get(user_statuses, user_id) do
+      %{status_message: message, encrypted_status_data: nil} -> message
       _ -> nil
     end
   end
