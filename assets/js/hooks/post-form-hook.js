@@ -32,17 +32,28 @@ import { getPublicKey, getPqPublicKey } from "../crypto/session";
 import { guardRecipients } from "../crypto/seal_guard";
 import { moderateText, preloadTextModeration } from "../ai/text-moderation";
 
+// 512 KB of base64 per chunk keeps each WebSocket frame small so large image
+// transfers never stall the LiveView socket (critical on slow mobile uplinks).
+// Matches the chunking used by the shared-file and voice-note hooks.
+const CHUNK_BYTES = 512 * 1024;
+
 const PostFormHook = {
   mounted() {
     this._fallback = false;
     this._postKey = null;
     this._moderationBypassed = false;
+    this._imageBuffers = {};
 
     // Pre-warm the toxic-bert model for public post moderation
     preloadTextModeration();
 
+    // Downlink: the server streams the processed image to us in chunks.
     this.handleEvent("encrypt_post_image", (payload) => {
-      this._encryptImage(payload);
+      this._onImageHeader(payload);
+    });
+
+    this.handleEvent("encrypt_post_image_chunk", (payload) => {
+      this._onImageChunk(payload);
     });
 
     this.handleEvent("encrypt_post_fields", (payload) => {
@@ -63,15 +74,57 @@ const PostFormHook = {
     return this._postKey;
   },
 
+  _onImageHeader({ upload_ref, blob_chunks_total }) {
+    this._imageBuffers[upload_ref] = {
+      total: blob_chunks_total,
+      chunks: new Array(blob_chunks_total),
+      received: 0,
+    };
+  },
+
+  _onImageChunk({ upload_ref, index, total, chunk_b64 }) {
+    let buf = this._imageBuffers[upload_ref];
+    if (!buf) {
+      buf = { total, chunks: new Array(total), received: 0 };
+      this._imageBuffers[upload_ref] = buf;
+    }
+
+    if (buf.chunks[index] === undefined) {
+      buf.chunks[index] = chunk_b64;
+      buf.received += 1;
+    }
+
+    if (buf.received === buf.total) {
+      const blob_b64 = buf.chunks.join("");
+      delete this._imageBuffers[upload_ref];
+      this._encryptImage({ blob_b64, upload_ref });
+    }
+  },
+
   async _encryptImage({ blob_b64, upload_ref }) {
     try {
       const postKey = await this._getOrCreatePostKey();
       const rawBytes = Uint8Array.from(atob(blob_b64), (c) => c.charCodeAt(0));
       const encryptedBlobB64 = await encryptSecretbox(rawBytes, postKey);
+
+      // Uplink: stream the encrypted blob back in small chunks. Each pushEvent
+      // is its own WebSocket frame, so no single large frame can stall the
+      // socket on a slow mobile connection.
+      const chunks = this._chunk(encryptedBlobB64, CHUNK_BYTES);
+
       this.pushEvent("post_image_encrypted", {
-        encrypted_blob_b64: encryptedBlobB64,
         upload_ref,
+        blob_chunks_total: chunks.length,
       });
+
+      for (let i = 0; i < chunks.length; i++) {
+        this.pushEvent("post_image_encrypted_chunk", {
+          upload_ref,
+          index: i,
+          total: chunks.length,
+          chunk_b64: chunks[i],
+        });
+      }
     } catch (e) {
       console.error("PostFormHook: image encryption failed:", e);
       this.pushEvent("post_image_encrypted_failed", {
@@ -79,6 +132,14 @@ const PostFormHook = {
         reason: e.message,
       });
     }
+  },
+
+  _chunk(str, size) {
+    const out = [];
+    for (let i = 0; i < str.length; i += size) {
+      out.push(str.slice(i, i + size));
+    }
+    return out.length ? out : [""];
   },
 
   _onSubmit(e) {

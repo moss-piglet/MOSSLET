@@ -26,6 +26,11 @@ defmodule MossletWeb.TimelineLive.Index do
   @post_per_page_default 10
   @folder "uploads/trix"
 
+  # 512 KB of base64 per WebSocket frame for streaming ZK post images. Keeps
+  # each frame small so large image transfers never stall the LiveView socket
+  # on slow mobile connections.
+  @zk_chunk_bytes 512 * 1024
+
   def mount(_params, session, socket) do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
@@ -200,6 +205,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:unread_nested_replies_by_parent, %{})
       |> assign(:upload_stages, %{})
       |> assign(:completed_uploads, [])
+      |> assign(:zk_image_buffers, %{})
       |> assign(:composer_trix_key, nil)
       |> assign(:alt_text_modal_open, false)
       |> assign(:alt_text_editing_upload, nil)
@@ -524,8 +530,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
     socket =
       if is_zk_path do
-        blob_b64 = Base.encode64(binary)
-        push_event(socket, "encrypt_post_image", %{blob_b64: blob_b64, upload_ref: entry_ref})
+        push_image_blob_chunks(socket, entry_ref, binary)
       else
         socket
       end
@@ -537,6 +542,41 @@ defmodule MossletWeb.TimelineLive.Index do
     upload_stages = Map.put(socket.assigns.upload_stages, entry_ref, {stage, value})
     socket = assign(socket, :upload_stages, upload_stages)
 
+    {:noreply, socket}
+  end
+
+  # Downlink chunk pump: each chunk is delivered in its own render cycle so it
+  # becomes its own WebSocket frame, never one giant frame that could stall a
+  # slow mobile connection. See push_image_blob_chunks/3.
+  def handle_info({:push_zk_image_chunk, upload_ref, index, total, chunk}, socket) do
+    {:noreply,
+     push_event(socket, "encrypt_post_image_chunk", %{
+       upload_ref: upload_ref,
+       index: index,
+       total: total,
+       chunk_b64: chunk
+     })}
+  end
+
+  # ZK image reassembled from uplink chunks and stored on S3 asynchronously,
+  # so the LiveView process is never blocked on network I/O (keeps the composer
+  # responsive while photos are being uploaded).
+  def handle_info({:zk_image_uploaded, upload_ref, {:ok, file_path}}, socket) do
+    completed_uploads =
+      Enum.map(socket.assigns.completed_uploads, fn upload ->
+        if upload.ref == upload_ref do
+          if upload[:temp_path], do: cleanup_temp_upload(upload.temp_path)
+          upload |> Map.put(:encrypted_path, file_path) |> Map.drop([:temp_path])
+        else
+          upload
+        end
+      end)
+
+    {:noreply, assign(socket, :completed_uploads, completed_uploads)}
+  end
+
+  def handle_info({:zk_image_uploaded, upload_ref, {:error, reason}}, socket) do
+    Logger.error("Failed to upload pre-encrypted (ZK) image #{upload_ref}: #{inspect(reason)}")
     {:noreply, socket}
   end
 
@@ -3218,32 +3258,48 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  # ZK write path: browser encrypted a post image with the post_key.
-  # Upload the already-encrypted blob directly to S3 — the server never
-  # decrypts it or sees the encryption key.
+  # ZK write path: browser encrypted a post image with the post_key and streams
+  # the ciphertext back in chunks. We buffer the chunks, reassemble, and upload
+  # the already-encrypted blob to S3 asynchronously — the server never decrypts
+  # it or sees the encryption key.
   def handle_event(
         "post_image_encrypted",
-        %{"encrypted_blob_b64" => encrypted_blob_b64, "upload_ref" => upload_ref},
+        %{"upload_ref" => upload_ref, "blob_chunks_total" => total},
         socket
       ) do
-    encrypted_binary = Base.decode64!(encrypted_blob_b64)
+    buffers =
+      Map.put(socket.assigns.zk_image_buffers, upload_ref, %{total: total, chunks: %{}})
 
-    case Mosslet.FileUploads.ImageUploadWriter.upload_pre_encrypted_to_storage(encrypted_binary) do
-      {:ok, file_path} ->
-        completed_uploads =
-          Enum.map(socket.assigns.completed_uploads, fn upload ->
-            if upload.ref == upload_ref do
-              upload |> Map.put(:encrypted_path, file_path) |> Map.drop([:temp_path])
-            else
-              upload
-            end
-          end)
+    {:noreply, assign(socket, :zk_image_buffers, buffers)}
+  end
 
-        {:noreply, assign(socket, :completed_uploads, completed_uploads)}
+  def handle_event(
+        "post_image_encrypted_chunk",
+        %{
+          "upload_ref" => upload_ref,
+          "index" => index,
+          "total" => total,
+          "chunk_b64" => chunk
+        },
+        socket
+      ) do
+    buffers = socket.assigns.zk_image_buffers
+    buf = Map.get(buffers, upload_ref, %{total: total, chunks: %{}})
+    chunks = Map.put(buf.chunks, index, chunk)
 
-      {:error, reason} ->
-        Logger.error("Failed to upload pre-encrypted (ZK) image: #{inspect(reason)}")
-        {:noreply, socket}
+    if map_size(chunks) == total do
+      encrypted_blob_b64 =
+        0..(total - 1) |> Enum.map_join("", &Map.fetch!(chunks, &1))
+
+      socket =
+        socket
+        |> assign(:zk_image_buffers, Map.delete(buffers, upload_ref))
+        |> store_zk_encrypted_image(upload_ref, encrypted_blob_b64)
+
+      {:noreply, socket}
+    else
+      buf = %{buf | chunks: chunks, total: total}
+      {:noreply, assign(socket, :zk_image_buffers, Map.put(buffers, upload_ref, buf))}
     end
   end
 
@@ -5578,6 +5634,7 @@ defmodule MossletWeb.TimelineLive.Index do
           |> assign(:image_urls, [])
           |> assign(:upload_stages, %{})
           |> assign(:completed_uploads, [])
+          |> assign(:zk_image_buffers, %{})
           |> assign(:content_warning_enabled?, false)
           |> assign(:selected_visibility_groups, [])
           |> assign(:selected_visibility_users, [])
@@ -6675,8 +6732,58 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  # Helper function to process uploaded photos.
-  #
+  # Streams a processed (plaintext) image down to the browser for ZK encryption.
+  # A header event announces the chunk count, then each chunk is delivered in
+  # its own render cycle (via self-messages) so it becomes its own WebSocket
+  # frame rather than one giant frame that could stall a slow connection.
+  defp push_image_blob_chunks(socket, upload_ref, binary) do
+    blob_b64 = Base.encode64(binary)
+    chunks = chunk_string(blob_b64, @zk_chunk_bytes)
+    total = length(chunks)
+
+    socket =
+      push_event(socket, "encrypt_post_image", %{
+        upload_ref: upload_ref,
+        blob_chunks_total: total
+      })
+
+    chunks
+    |> Enum.with_index()
+    |> Enum.each(fn {chunk, index} ->
+      send(self(), {:push_zk_image_chunk, upload_ref, index, total, chunk})
+    end)
+
+    socket
+  end
+
+  # Reassembled ZK ciphertext -> S3, off the LiveView process so typing and
+  # heartbeats stay responsive while photos upload. The result comes back as a
+  # {:zk_image_uploaded, ...} message. Until it completes the upload still has
+  # its temp_path, so an early submit falls back to the server-side path.
+  defp store_zk_encrypted_image(socket, upload_ref, encrypted_blob_b64) do
+    lv_pid = self()
+    encrypted_binary = Base.decode64!(encrypted_blob_b64)
+
+    Task.Supervisor.start_child(Mosslet.StorjTask, fn ->
+      result =
+        Mosslet.FileUploads.ImageUploadWriter.upload_pre_encrypted_to_storage(encrypted_binary)
+
+      send(lv_pid, {:zk_image_uploaded, upload_ref, result})
+    end)
+
+    socket
+  end
+
+  defp chunk_string("", _size), do: [""]
+
+  defp chunk_string(str, size) when byte_size(str) <= size, do: [str]
+
+  defp chunk_string(str, size) do
+    <<chunk::binary-size(^size), rest::binary>> = str
+    [chunk | chunk_string(rest, size)]
+  end
+
+  # Helper function to process uploaded photos.  #
   # Two paths:
   #   1. ZK path (encrypted_path present, non-public visibility): Image was
   #      already encrypted by the browser and uploaded to S3 via the

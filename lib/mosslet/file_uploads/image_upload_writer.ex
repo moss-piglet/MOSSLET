@@ -75,6 +75,7 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
           file_handle: file_handle,
           total_size: 0,
           expected_size: opts[:expected_size],
+          last_progress: 0,
           lv_pid: opts[:lv_pid],
           entry_ref: entry_ref,
           user_token: opts[:user_token],
@@ -124,12 +125,23 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
 
     :ok = IO.binwrite(state.file_handle, data)
 
-    if state.lv_pid && state.expected_size && state.expected_size > 0 do
-      percent = min(40, round(new_total / state.expected_size * 40))
-      send(state.lv_pid, {:upload_progress, state.entry_ref, :receiving, percent})
-    end
+    # Only notify on a whole-percent change to avoid flooding the LiveView with
+    # progress messages (which caused heavy re-render churn / UI flicker).
+    new_last =
+      if state.lv_pid && state.expected_size && state.expected_size > 0 do
+        percent = min(40, round(new_total / state.expected_size * 40))
 
-    {:ok, %{state | total_size: new_total}}
+        if percent > state.last_progress do
+          send(state.lv_pid, {:upload_progress, state.entry_ref, :receiving, percent})
+          percent
+        else
+          state.last_progress
+        end
+      else
+        state.last_progress
+      end
+
+    {:ok, %{state | total_size: new_total, last_progress: new_last}}
   end
 
   @impl true

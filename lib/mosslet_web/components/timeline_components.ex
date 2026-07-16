@@ -726,6 +726,16 @@ defmodule MossletWeb.TimelineComponents do
   def liquid_timeline_composer_enhanced(assigns) do
     assigns = assign_scope_fields(assigns)
 
+    uploads_pending? =
+      composer_uploads_pending?(
+        assigns[:uploads],
+        assigns[:upload_stages],
+        assigns[:completed_uploads],
+        assigns[:selector]
+      )
+
+    assigns = assign(assigns, :uploads_pending?, uploads_pending?)
+
     ~H"""
     <div
       :if={!@collapsed}
@@ -1061,9 +1071,11 @@ defmodule MossletWeb.TimelineComponents do
             <.liquid_button
               size="md"
               type="submit"
+              id="timeline-composer-share-button"
               class="w-full sm:w-auto sm:flex-shrink-0"
               phx-disable-with="Sharing..."
-              disabled={true}
+              data-uploads-pending={to_string(@uploads_pending?)}
+              disabled={@uploads_pending? || composer_body_blank?(@form)}
             >
               Share thoughtfully
             </.liquid_button>
@@ -1168,7 +1180,39 @@ defmodule MossletWeb.TimelineComponents do
   # Delegate to DesignSystem.assign_scope_fields/1
   defp assign_scope_fields(assigns), do: MossletWeb.DesignSystem.assign_scope_fields(assigns)
 
-  # Format content warning category for display (also in DesignSystem)
+  defp composer_body_blank?(form) do
+    case form && form[:body] do
+      nil -> true
+      field -> String.trim(to_string(field.value || "")) == ""
+    end
+  end
+
+  # True while any selected photo is still uploading, processing, or (for the
+  # zero-knowledge path) still being encrypted and stored on S3. Drives the
+  # server-rendered disabled state of the "Share thoughtfully" button so it
+  # can't be submitted until every photo is fully ready.
+  defp composer_uploads_pending?(nil, _stages, _completed, _selector), do: false
+
+  defp composer_uploads_pending?(uploads, upload_stages, completed_uploads, selector) do
+    entries = get_in(uploads, [Access.key(:photos), Access.key(:entries)]) || []
+    upload_stages = upload_stages || %{}
+    completed_uploads = completed_uploads || []
+    zk? = selector not in ["public", :public]
+
+    completed_refs = MapSet.new(completed_uploads, & &1.ref)
+
+    any_unsettled_entry? =
+      Enum.any?(entries, fn entry ->
+        errored? = match?({:error, _}, Map.get(upload_stages, entry.ref))
+        not errored? and not MapSet.member?(completed_refs, entry.ref)
+      end)
+
+    any_zk_unfinished? =
+      zk? and Enum.any?(completed_uploads, fn upload -> is_nil(upload[:encrypted_path]) end)
+
+    any_unsettled_entry? or any_zk_unfinished?
+  end
+
   defp format_content_warning_category(category) when is_binary(category) do
     case category do
       "mental_health" -> "Mental Health"

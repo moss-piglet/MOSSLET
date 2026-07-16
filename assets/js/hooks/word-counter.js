@@ -103,21 +103,24 @@ export default {
 
     const composerContainer = this.el.closest('[class*="rounded-2xl"]');
     if (composerContainer) {
-      const postButtons = composerContainer.querySelectorAll("button");
-      const shareButton = Array.from(postButtons).find((btn) =>
-        btn.textContent.includes("Share thoughtfully")
-      );
+      const shareButton =
+        document.getElementById("timeline-composer-share-button") ||
+        Array.from(composerContainer.querySelectorAll("button")).find((btn) =>
+          btn.textContent.includes("Share thoughtfully")
+        );
 
       if (shareButton) {
+        // Never enable while photos are still uploading/processing — the server
+        // owns this via data-uploads-pending. We only relax the button once
+        // there's valid content AND no pending uploads. Rely on the button's
+        // `disabled:opacity-50` variant for styling (no manual class churn,
+        // which previously caused flicker on every LiveView patch).
+        const uploadsPending =
+          shareButton.dataset.uploadsPending === "true";
         const hasContent =
           currentWordCount > 0 && currentWordCount <= this.limit;
-        shareButton.disabled = !hasContent;
 
-        if (hasContent) {
-          shareButton.classList.remove("opacity-50");
-        } else {
-          shareButton.classList.add("opacity-50");
-        }
+        shareButton.disabled = uploadsPending || !hasContent;
       }
     }
   },
