@@ -15,13 +15,20 @@ set -euo pipefail
 # (z4PhNX...SfaPg==) and poison the template.
 sri() {
   local url="$1"
-  local body
-  body="$(curl -fsSL "$url")" || { echo "ERROR: failed to fetch $url" >&2; exit 1; }
-  if [ -z "$body" ]; then
+  local tmp
+  tmp="$(mktemp)"
+  # Download to a file so the exact bytes (including any trailing newline) are
+  # preserved. Command substitution "$(...)" strips trailing newlines, which
+  # would produce a hash that does NOT match what the browser computes over the
+  # raw response body, breaking SRI (the browser would refuse to load the file).
+  curl -fsSL "$url" -o "$tmp" || { rm -f "$tmp"; echo "ERROR: failed to fetch $url" >&2; exit 1; }
+  if [ ! -s "$tmp" ]; then
+    rm -f "$tmp"
     echo "ERROR: empty body from $url" >&2
     exit 1
   fi
-  printf 'sha512-%s\n' "$(printf '%s' "$body" | openssl dgst -sha512 -binary | openssl base64 -A)"
+  printf 'sha512-%s\n' "$(openssl dgst -sha512 -binary "$tmp" | openssl base64 -A)"
+  rm -f "$tmp"
 }
 
 echo "Generating SRI hashes for external resources..."

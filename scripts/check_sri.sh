@@ -19,13 +19,21 @@ TEMPLATE_FILE="lib/mosslet_web/components/layouts/head.html.heex"
 # report a false "changed".
 remote_hash() {
   local url="$1"
-  local body
-  body="$(curl -fsSL "$url")" || { echo "❌ Failed to fetch $url" >&2; exit 1; }
-  if [ -z "$body" ]; then
+  local tmp
+  tmp="$(mktemp)"
+  # Download to a file so the exact bytes (including any trailing newline) are
+  # preserved. Command substitution "$(...)" strips trailing newlines, which
+  # would produce a hash that does NOT match what the browser computes over the
+  # raw response body, causing false positives here (and broken SRI if used to
+  # regenerate the template).
+  curl -fsSL "$url" -o "$tmp" || { rm -f "$tmp"; echo "❌ Failed to fetch $url" >&2; exit 1; }
+  if [ ! -s "$tmp" ]; then
+    rm -f "$tmp"
     echo "❌ Empty body from $url" >&2
     exit 1
   fi
-  printf '%s' "$body" | openssl dgst -sha512 -binary | openssl base64 -A
+  openssl dgst -sha512 -binary "$tmp" | openssl base64 -A
+  rm -f "$tmp"
 }
 
 # Extract hashes using grep and sed
