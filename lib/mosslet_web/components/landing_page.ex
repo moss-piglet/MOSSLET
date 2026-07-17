@@ -4527,8 +4527,10 @@ defmodule MossletWeb.Components.LandingPage do
 
         <figcaption class="mt-8 flex items-center gap-4 border-t border-slate-200/60 dark:border-slate-700/60 pt-6">
           <div
+            id="testimonial-avatar-isabella"
             class="relative h-14 w-14 shrink-0 rounded-full ring-2 ring-white dark:ring-slate-800 shadow-lg overflow-hidden select-none"
-            oncontextmenu="return false;"
+            phx-hook="DisableContextMenu"
+            data-can-download="false"
           >
             <img
               src={~p"/images/features/isabella-avatar.jpeg"}
