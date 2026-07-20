@@ -19,8 +19,17 @@ defmodule MossletWeb.Endpoint do
 
   # We pass the `:user_agent` in the websocket for Wallaby testing
   # We also pass `:peer_data` and `:x_headers` for IP-based bot defense at socket level
+  #
+  # `max_frame_size` bounds a single WebSocket frame at 1 MB. ZK post images are
+  # streamed in ~512 KB chunks (see TimelineLive.Index), so 1 MB leaves headroom
+  # for the largest chunked frame while rejecting pathologically large frames.
+  # `timeout` closes idle sockets after 60s (default) to reclaim resources.
   socket "/live", Phoenix.LiveView.Socket,
-    websocket: [connect_info: [:peer_data, :x_headers, :user_agent, session: @session_options]],
+    websocket: [
+      connect_info: [:peer_data, :x_headers, :user_agent, session: @session_options],
+      max_frame_size: 1_048_576,
+      timeout: 60_000
+    ],
     longpoll: [connect_info: [:peer_data, :x_headers, session: @session_options]]
 
   # Serve at "/" the static files from "priv/static" directory.

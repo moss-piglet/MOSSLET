@@ -94,6 +94,11 @@ const PostFormHook = {
       buf.received += 1;
     }
 
+    // Ack this chunk so the server pushes the next one (downlink backpressure,
+    // symmetric to the uplink). This paces the transfer at one chunk per
+    // round-trip and avoids a server-side render storm.
+    this.pushEvent("post_image_downlink_ack", { upload_ref, index });
+
     if (buf.received === buf.total) {
       const blob_b64 = buf.chunks.join("");
       delete this._imageBuffers[upload_ref];
@@ -107,9 +112,10 @@ const PostFormHook = {
       const rawBytes = Uint8Array.from(atob(blob_b64), (c) => c.charCodeAt(0));
       const encryptedBlobB64 = await encryptSecretbox(rawBytes, postKey);
 
-      // Uplink: stream the encrypted blob back in small chunks. Each pushEvent
-      // is its own WebSocket frame, so no single large frame can stall the
-      // socket on a slow mobile connection.
+      // Uplink: stream the encrypted blob back in small chunks with
+      // backpressure. Each pushEvent is its own WebSocket frame, and we await
+      // the server's per-chunk ack before sending the next one so we never
+      // flood the socket in a tight loop (critical on slow mobile uplinks).
       const chunks = this._chunk(encryptedBlobB64, CHUNK_BYTES);
 
       this.pushEvent("post_image_encrypted", {
@@ -118,12 +124,7 @@ const PostFormHook = {
       });
 
       for (let i = 0; i < chunks.length; i++) {
-        this.pushEvent("post_image_encrypted_chunk", {
-          upload_ref,
-          index: i,
-          total: chunks.length,
-          chunk_b64: chunks[i],
-        });
+        await this._pushChunkAwaitAck(upload_ref, i, chunks.length, chunks[i]);
       }
     } catch (e) {
       console.error("PostFormHook: image encryption failed:", e);
@@ -132,6 +133,30 @@ const PostFormHook = {
         reason: e.message,
       });
     }
+  },
+
+  // Sends a single ciphertext chunk and resolves only once the server acks it,
+  // giving us window-of-one backpressure over the uplink.
+  _pushChunkAwaitAck(upload_ref, index, total, chunk_b64) {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        reject(new Error(`chunk ${index} ack timeout`));
+      }, 30000);
+
+      this.pushEvent(
+        "post_image_encrypted_chunk",
+        { upload_ref, index, total, chunk_b64 },
+        () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve();
+        },
+      );
+    });
   },
 
   _chunk(str, size) {

@@ -207,10 +207,15 @@ config :ex_aws, :s3,
   scheme: "https",
   host: {:system, "AWS_HOST"}
 
+# Bound each S3 request with an explicit receive timeout so a stalled upload can
+# never freeze the caller for the full retry budget. Combined with the reduced
+# attempt/backoff below this caps the worst-case wait at a few seconds.
+config :ex_aws, :req_opts, receive_timeout: 30_000
+
 config :ex_aws, :retries,
-  max_attempts: 10,
+  max_attempts: 3,
   base_backoff_in_ms: 10,
-  max_backoff_in_ms: 10_000
+  max_backoff_in_ms: 2_000
 
 # Social login providers
 # Full list of strategies: https://github.com/ueberauth/ueberauth/wiki/List-of-Strategies

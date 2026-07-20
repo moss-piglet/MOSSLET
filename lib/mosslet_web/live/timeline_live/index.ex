@@ -207,6 +207,8 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:upload_stages, %{})
       |> assign(:completed_uploads, [])
       |> assign(:zk_image_buffers, %{})
+      |> assign(:zk_downlink_buffers, %{})
+      |> assign(:pending_public_post_params, nil)
       |> assign(:composer_trix_key, nil)
       |> assign(:alt_text_modal_open, false)
       |> assign(:alt_text_editing_upload, nil)
@@ -244,6 +246,12 @@ defmodule MossletWeb.TimelineLive.Index do
   def terminate(_reason, socket) do
     Enum.each(socket.assigns[:completed_uploads] || [], fn upload ->
       if upload[:temp_path], do: cleanup_temp_upload(upload.temp_path)
+
+      # Abandoned composer: a ZK image was already encrypted and stored on S3 but
+      # never attached to a post (successful posts reset :completed_uploads to
+      # []). Delete the orphaned ciphertext so it doesn't linger on storage.
+      if upload[:encrypted_path],
+        do: Mosslet.FileUploads.ImageUploadWriter.delete_from_storage(upload.encrypted_path)
     end)
 
     :ok
@@ -546,19 +554,6 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
-  # Downlink chunk pump: each chunk is delivered in its own render cycle so it
-  # becomes its own WebSocket frame, never one giant frame that could stall a
-  # slow mobile connection. See push_image_blob_chunks/3.
-  def handle_info({:push_zk_image_chunk, upload_ref, index, total, chunk}, socket) do
-    {:noreply,
-     push_event(socket, "encrypt_post_image_chunk", %{
-       upload_ref: upload_ref,
-       index: index,
-       total: total,
-       chunk_b64: chunk
-     })}
-  end
-
   # ZK image reassembled from uplink chunks and stored on S3 asynchronously,
   # so the LiveView process is never blocked on network I/O (keeps the composer
   # responsive while photos are being uploaded).
@@ -578,7 +573,64 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_info({:zk_image_uploaded, upload_ref, {:error, reason}}, socket) do
     Logger.error("Failed to upload pre-encrypted (ZK) image #{upload_ref}: #{inspect(reason)}")
-    {:noreply, socket}
+
+    # Fail loud: drop the failed upload so the post can't finalize referencing an
+    # image that never landed on S3, mark the entry errored, and tell the user to
+    # retry (re-select the photo). No server-side downgrade ever happens.
+    completed_uploads =
+      Enum.reject(socket.assigns.completed_uploads, fn upload ->
+        if upload.ref == upload_ref do
+          if upload[:temp_path], do: cleanup_temp_upload(upload.temp_path)
+          true
+        else
+          false
+        end
+      end)
+
+    upload_stages =
+      Map.put(socket.assigns.upload_stages, upload_ref, {:error, "upload_failed"})
+
+    {:noreply,
+     socket
+     |> assign(:completed_uploads, completed_uploads)
+     |> assign(:upload_stages, upload_stages)
+     |> put_flash(
+       :error,
+       "A photo couldn't be uploaded securely. Please remove it and try adding it again."
+     )}
+  end
+
+  # Public post images finished uploading to S3 off the LiveView process. Now we
+  # can finalize the post creation on the (responsive) socket process. The raw
+  # post_params were stashed in :pending_public_post_params at submit time.
+  def handle_info({:public_images_uploaded, {:ok, {paths, alt_texts, trix_key}}}, socket) do
+    case socket.assigns[:pending_public_post_params] do
+      nil ->
+        {:noreply, socket}
+
+      post_params ->
+        socket = assign(socket, :pending_public_post_params, nil)
+
+        finalize_public_post(
+          socket,
+          post_params,
+          socket.assigns.current_user,
+          socket.assigns.key,
+          {paths, alt_texts, trix_key}
+        )
+    end
+  end
+
+  def handle_info({:public_images_uploaded, {:error, reason}}, socket) do
+    Logger.error("Failed to upload public post image(s): #{inspect(reason)}")
+
+    {:noreply,
+     socket
+     |> assign(:pending_public_post_params, nil)
+     |> put_flash(
+       :error,
+       "Your photos couldn't be uploaded. Please try sharing your post again."
+     )}
   end
 
   def handle_info({:upload_trix_key, _entry_ref, trix_key}, socket) do
@@ -2162,6 +2214,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
     Enum.each(removed, fn upload ->
       if upload[:temp_path], do: cleanup_temp_upload(upload.temp_path)
+      if upload[:encrypted_path], do: maybe_delete_orphaned_image(upload.encrypted_path)
     end)
 
     {:noreply,
@@ -2183,6 +2236,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
     Enum.each(removed, fn upload ->
       if upload[:temp_path], do: cleanup_temp_upload(upload.temp_path)
+      if upload[:encrypted_path], do: maybe_delete_orphaned_image(upload.encrypted_path)
     end)
 
     entry_exists? =
@@ -3057,135 +3111,30 @@ defmodule MossletWeb.TimelineLive.Index do
     if connected?(socket) do
       current_user = socket.assigns.current_user
       key = socket.assigns.key
-      post_shared_users = socket.assigns.post_shared_users
       visibility = socket.assigns.selector
 
       # Public posts must go through the normal save_post path (server needs
       # plaintext for moderation, SEO, and federation). If the hook
       # accidentally fires for a public post, reject gracefully.
-      if visibility == "public" do
-        {:noreply, put_flash(socket, :warning, "Please submit your post again.")}
-      else
-        {uploaded_photo_urls, uploaded_alt_texts, _trix_key} =
-          process_uploaded_photos(socket, current_user, key)
+      cond do
+        visibility == "public" ->
+          {:noreply, put_flash(socket, :warning, "Please submit your post again.")}
 
-        any_ai_generated =
-          Enum.any?(socket.assigns.completed_uploads, fn upload ->
-            Map.get(upload, :ai_generated, false)
-          end)
+        # FAIL CLOSED: if any private photo is still being encrypted/uploaded,
+        # refuse to finalize rather than downgrade to server-side encryption
+        # (which would break zero-knowledge) or reference an image that hasn't
+        # landed on S3 yet. The Share button is also disabled while pending, but
+        # this server guard is the authoritative check against the race.
+        not zk_uploads_ready?(socket.assigns.completed_uploads) ->
+          {:noreply,
+           put_flash(
+             socket,
+             :warning,
+             "Your photos are still being encrypted and uploaded securely. Please wait a moment and try again."
+           )}
 
-        body = Ecto.Changeset.get_field(socket.assigns.post_form.source, :body) || ""
-
-        # Build partial post_params — fields that don't need encryption
-        post_params =
-          %{
-            "body" => body,
-            "username" => username(current_user, key) || "",
-            "image_urls" => socket.assigns.image_urls ++ uploaded_photo_urls,
-            "image_alt_texts" => uploaded_alt_texts,
-            "image_urls_updated_at" => NaiveDateTime.utc_now(),
-            "visibility" => visibility,
-            "user_id" => current_user.id,
-            "content_warning?" => socket.assigns.content_warning_enabled?,
-            "ai_generated" => any_ai_generated,
-            "allow_replies" => socket.assigns.allow_replies,
-            "allow_shares" => socket.assigns.allow_shares,
-            "allow_bookmarks" => socket.assigns.allow_bookmarks,
-            "is_ephemeral" => socket.assigns.is_ephemeral,
-            "require_follow_to_reply" => socket.assigns.require_follow_to_reply,
-            "mature_content" => socket.assigns.mature_content,
-            "local_only" => socket.assigns.local_only,
-            "expires_at_option" => socket.assigns.expires_at_option,
-            "visibility_groups" => socket.assigns.selected_visibility_groups || [],
-            "visibility_users" => socket.assigns.selected_visibility_users || []
-          }
-          |> maybe_put_ritual_prompt_id(socket)
-          |> maybe_put_url_preview(socket)
-          |> Map.put(
-            "url_preview_fetched_at",
-            if(socket.assigns.url_preview, do: NaiveDateTime.utc_now(), else: nil)
-          )
-          |> add_shared_users_list_for_new_post(post_shared_users, %{
-            visibility_setting: visibility,
-            current_user: current_user,
-            key: key
-          })
-
-        # Gather plaintext fields that the browser must encrypt with post_key.
-        # The server provides these values but never the post_key itself.
-        plaintext_username = username(current_user, key) || ""
-
-        plaintext_avatar_url =
-          if current_user.decrypted,
-            do: current_user.decrypted[:avatar_url],
-            else: nil
-
-        plaintext_image_urls = post_params["image_urls"] || []
-        plaintext_image_alt_texts = post_params["image_alt_texts"] || []
-
-        plaintext_url_preview =
-          case post_params["url_preview"] do
-            preview when is_map(preview) and map_size(preview) > 0 ->
-              preview
-              |> Enum.map(fn {k, v} -> {to_string(k), v} end)
-              |> Enum.into(%{})
-
-            _ ->
-              nil
-          end
-
-        # Build recipient list with public keys for browser-side key sealing.
-        # The browser will seal the post_key for each recipient + the author.
-        shared_users = post_params["shared_users"] || []
-
-        recipient_keys =
-          Enum.map(shared_users, fn su ->
-            su = Map.new(su, fn {k, v} -> {to_string(k), v} end)
-            user = Accounts.get_user!(su["user_id"])
-
-            %{
-              user_id: user.id,
-              public_key: user.key_pair["public"],
-              pq_public_key: user.pq_public_key
-            }
-          end)
-
-        # Inject the viewer's sealed key-pin per recipient (#294) so the browser
-        # can verify each served key against the pin before sealing the post_key.
-        recipient_keys =
-          MossletWeb.Helpers.hydrate_sealed_pins(recipient_keys, to_string(current_user.id))
-
-        # Stash the post_params and encrypted fragments for finalize_post_encrypted.
-        # This avoids a second round of recipient resolution.
-        encrypted_opts = [encrypted_body: encrypted_body]
-
-        encrypted_opts =
-          if params["encrypted_content_warning"],
-            do:
-              encrypted_opts ++ [encrypted_content_warning: params["encrypted_content_warning"]],
-            else: encrypted_opts
-
-        encrypted_opts =
-          if params["encrypted_content_warning_category"],
-            do:
-              encrypted_opts ++
-                [encrypted_content_warning_category: params["encrypted_content_warning_category"]],
-            else: encrypted_opts
-
-        socket =
-          socket
-          |> assign(:pending_zk_post_params, post_params)
-          |> assign(:pending_zk_encrypted_opts, encrypted_opts)
-          |> push_event("encrypt_post_fields", %{
-            username: plaintext_username,
-            avatar_url: plaintext_avatar_url,
-            image_urls: plaintext_image_urls,
-            image_alt_texts: plaintext_image_alt_texts,
-            url_preview: plaintext_url_preview,
-            recipient_keys: recipient_keys
-          })
-
-        {:noreply, socket}
+        true ->
+          begin_save_post_encrypted(socket, params, encrypted_body, current_user, key, visibility)
       end
     else
       {:noreply, put_flash(socket, :warning, "Not connected. Please refresh and try again.")}
@@ -3259,6 +3208,17 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
+  # Downlink backpressure ack: the browser confirms it received chunk `index` of
+  # the processed image, so we push the next one. This paces the downlink at one
+  # chunk (and one render) per round-trip instead of flooding the process.
+  def handle_event(
+        "post_image_downlink_ack",
+        %{"upload_ref" => upload_ref, "index" => index},
+        socket
+      ) do
+    {:noreply, push_downlink_chunk(socket, upload_ref, index + 1)}
+  end
+
   # ZK write path: browser encrypted a post image with the post_key and streams
   # the ciphertext back in chunks. We buffer the chunks, reassemble, and upload
   # the already-encrypted blob to S3 asynchronously — the server never decrypts
@@ -3288,6 +3248,11 @@ defmodule MossletWeb.TimelineLive.Index do
     buf = Map.get(buffers, upload_ref, %{total: total, chunks: %{}})
     chunks = Map.put(buf.chunks, index, chunk)
 
+    # Reply with an ack for this chunk so the browser can apply backpressure and
+    # only send the next chunk once this one is buffered (no tight-loop flooding
+    # that can stall slow mobile uplinks).
+    ack = %{ack: index}
+
     if map_size(chunks) == total do
       encrypted_blob_b64 =
         0..(total - 1) |> Enum.map_join("", &Map.fetch!(chunks, &1))
@@ -3297,10 +3262,10 @@ defmodule MossletWeb.TimelineLive.Index do
         |> assign(:zk_image_buffers, Map.delete(buffers, upload_ref))
         |> store_zk_encrypted_image(upload_ref, encrypted_blob_b64)
 
-      {:noreply, socket}
+      {:reply, Map.put(ack, :done, true), socket}
     else
       buf = %{buf | chunks: chunks, total: total}
-      {:noreply, assign(socket, :zk_image_buffers, Map.put(buffers, upload_ref, buf))}
+      {:reply, ack, assign(socket, :zk_image_buffers, Map.put(buffers, upload_ref, buf))}
     end
   end
 
@@ -3310,7 +3275,32 @@ defmodule MossletWeb.TimelineLive.Index do
         socket
       ) do
     Logger.error("ZK image encryption failed for #{upload_ref}: #{reason}")
-    {:noreply, socket}
+
+    # Browser-side encryption failed. Drop the pending buffer and the upload so a
+    # private post can never finalize with a missing/plaintext image, and prompt
+    # the user to retry.
+    completed_uploads =
+      Enum.reject(socket.assigns.completed_uploads, fn upload ->
+        if upload.ref == upload_ref do
+          if upload[:temp_path], do: cleanup_temp_upload(upload.temp_path)
+          true
+        else
+          false
+        end
+      end)
+
+    upload_stages =
+      Map.put(socket.assigns.upload_stages, upload_ref, {:error, "encryption_failed"})
+
+    {:noreply,
+     socket
+     |> assign(:zk_image_buffers, Map.delete(socket.assigns.zk_image_buffers, upload_ref))
+     |> assign(:completed_uploads, completed_uploads)
+     |> assign(:upload_stages, upload_stages)
+     |> put_flash(
+       :error,
+       "A photo couldn't be encrypted on your device. Please remove it and try adding it again."
+     )}
   end
 
   def handle_event("client_moderation_blocked", %{"reason" => reason}, socket) do
@@ -3323,131 +3313,22 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_event("save_post", %{"post" => post_params}, socket) do
-    if connected?(socket) do
-      current_user = socket.assigns.current_user
-      key = socket.assigns.key
-      post_shared_users = socket.assigns.post_shared_users
-      visibility = socket.assigns.selector
-      body = post_params["body"] || ""
+    cond do
+      not connected?(socket) ->
+        {:noreply,
+         put_flash(
+           socket,
+           :warning,
+           "You are not connected to the internet. Please refresh your page and try again."
+         )}
 
-      text_moderation_result =
-        if visibility == "public" && String.trim(body) != "" do
-          AI.moderate_public_post(body)
-        else
-          {:ok, :approved}
-        end
+      # A public post with photos is already being uploaded/created off-process.
+      # Ignore the duplicate submit so we don't spawn a second upload/post.
+      not is_nil(socket.assigns[:pending_public_post_params]) ->
+        {:noreply, socket}
 
-      image_moderation_result =
-        if visibility == "public" do
-          moderate_uploads_for_public_visibility(socket.assigns.completed_uploads)
-        else
-          {:ok, :approved}
-        end
-
-      case {text_moderation_result, image_moderation_result} do
-        {{:error, reason}, _} ->
-          socket =
-            socket
-            |> put_flash(
-              :warning,
-              "This post wasn't shared because it may violate community guidelines: '#{reason}' You can edit it or change visibility to not be public."
-            )
-
-          {:noreply, socket}
-
-        {_, {:error, reason}} ->
-          socket =
-            socket
-            |> put_flash(
-              :warning,
-              "This post wasn't shared because an image may violate community guidelines: '#{reason}' You can remove the image or change visibility to not be public."
-            )
-
-          {:noreply, socket}
-
-        {{:ok, :approved}, {:ok, :approved}} ->
-          # Process uploaded photos and get their URLs with alt texts and trix_key
-          {uploaded_photo_urls, uploaded_alt_texts, trix_key} =
-            process_uploaded_photos(socket, current_user, key)
-
-          any_ai_generated =
-            Enum.any?(socket.assigns.completed_uploads, fn upload ->
-              Map.get(upload, :ai_generated, false)
-            end)
-
-          post_params =
-            post_params
-            |> Map.put("image_urls", socket.assigns.image_urls ++ uploaded_photo_urls)
-            |> Map.put("image_alt_texts", uploaded_alt_texts)
-            |> Map.put("image_urls_updated_at", NaiveDateTime.utc_now())
-            |> Map.put("visibility", socket.assigns.selector)
-            |> Map.put("user_id", current_user.id)
-            |> Map.put("content_warning?", socket.assigns.content_warning_enabled?)
-            |> Map.put("ai_generated", any_ai_generated)
-            |> maybe_put_ritual_prompt_id(socket)
-            |> maybe_put_url_preview(socket)
-            |> Map.put(
-              "url_preview_fetched_at",
-              if(socket.assigns.url_preview, do: NaiveDateTime.utc_now(), else: nil)
-            )
-            |> Map.put(
-              "allow_replies",
-              post_params["allow_replies"] || socket.assigns.allow_replies
-            )
-            |> Map.put(
-              "allow_shares",
-              post_params["allow_shares"] || socket.assigns.allow_shares
-            )
-            |> Map.put(
-              "allow_bookmarks",
-              post_params["allow_bookmarks"] || socket.assigns.allow_bookmarks
-            )
-            |> Map.put(
-              "is_ephemeral",
-              post_params["is_ephemeral"] || socket.assigns.is_ephemeral
-            )
-            |> Map.put(
-              "require_follow_to_reply",
-              post_params["require_follow_to_reply"] || socket.assigns.require_follow_to_reply
-            )
-            |> Map.put(
-              "mature_content",
-              post_params["mature_content"] || socket.assigns.mature_content
-            )
-            |> Map.put("local_only", post_params["local_only"] || socket.assigns.local_only)
-            |> Map.put(
-              "expires_at_option",
-              post_params["expires_at_option"] || socket.assigns.expires_at_option
-            )
-            |> Map.put(
-              "visibility_groups",
-              post_params["visibility_groups"] || socket.assigns.selected_visibility_groups || []
-            )
-            |> Map.put(
-              "visibility_users",
-              post_params["visibility_users"] || socket.assigns.selected_visibility_users || []
-            )
-            |> add_shared_users_list_for_new_post(post_shared_users, %{
-              visibility_setting: socket.assigns.selector,
-              current_user: current_user,
-              key: key
-            })
-
-          if post_params["user_id"] == current_user.id do
-            create_post_and_respond(socket, post_params, current_user, key, trix_key)
-          else
-            {:noreply,
-             socket
-             |> put_flash(:warning, "You do not have permission to create this post.")}
-          end
-      end
-    else
-      {:noreply,
-       socket
-       |> put_flash(
-         :warning,
-         "You are not connected to the internet. Please refresh your page and try again."
-       )}
+      true ->
+        do_save_public_post(socket, post_params)
     end
   end
 
@@ -5636,6 +5517,7 @@ defmodule MossletWeb.TimelineLive.Index do
           |> assign(:upload_stages, %{})
           |> assign(:completed_uploads, [])
           |> assign(:zk_image_buffers, %{})
+          |> assign(:zk_downlink_buffers, %{})
           |> assign(:content_warning_enabled?, false)
           |> assign(:selected_visibility_groups, [])
           |> assign(:selected_visibility_users, [])
@@ -6743,28 +6625,181 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  # Streams a processed (plaintext) image down to the browser for ZK encryption.
-  # A header event announces the chunk count, then each chunk is delivered in
-  # its own render cycle (via self-messages) so it becomes its own WebSocket
-  # frame rather than one giant frame that could stall a slow connection.
+  # ZK write path — Phase 1 continuation (extracted from the save_post_encrypted
+  # handler so its handle_event clauses stay grouped). Runs only after the
+  # fail-closed guard has confirmed every private photo is encrypted and on S3.
+  defp begin_save_post_encrypted(socket, params, encrypted_body, current_user, key, visibility) do
+    post_shared_users = socket.assigns.post_shared_users
+
+    {uploaded_photo_urls, uploaded_alt_texts, _trix_key} =
+      process_uploaded_photos(socket, current_user, key)
+
+    any_ai_generated =
+      Enum.any?(socket.assigns.completed_uploads, fn upload ->
+        Map.get(upload, :ai_generated, false)
+      end)
+
+    body = Ecto.Changeset.get_field(socket.assigns.post_form.source, :body) || ""
+
+    # Build partial post_params — fields that don't need encryption
+    post_params =
+      %{
+        "body" => body,
+        "username" => username(current_user, key) || "",
+        "image_urls" => socket.assigns.image_urls ++ uploaded_photo_urls,
+        "image_alt_texts" => uploaded_alt_texts,
+        "image_urls_updated_at" => NaiveDateTime.utc_now(),
+        "visibility" => visibility,
+        "user_id" => current_user.id,
+        "content_warning?" => socket.assigns.content_warning_enabled?,
+        "ai_generated" => any_ai_generated,
+        "allow_replies" => socket.assigns.allow_replies,
+        "allow_shares" => socket.assigns.allow_shares,
+        "allow_bookmarks" => socket.assigns.allow_bookmarks,
+        "is_ephemeral" => socket.assigns.is_ephemeral,
+        "require_follow_to_reply" => socket.assigns.require_follow_to_reply,
+        "mature_content" => socket.assigns.mature_content,
+        "local_only" => socket.assigns.local_only,
+        "expires_at_option" => socket.assigns.expires_at_option,
+        "visibility_groups" => socket.assigns.selected_visibility_groups || [],
+        "visibility_users" => socket.assigns.selected_visibility_users || []
+      }
+      |> maybe_put_ritual_prompt_id(socket)
+      |> maybe_put_url_preview(socket)
+      |> Map.put(
+        "url_preview_fetched_at",
+        if(socket.assigns.url_preview, do: NaiveDateTime.utc_now(), else: nil)
+      )
+      |> add_shared_users_list_for_new_post(post_shared_users, %{
+        visibility_setting: visibility,
+        current_user: current_user,
+        key: key
+      })
+
+    # Gather plaintext fields that the browser must encrypt with post_key.
+    # The server provides these values but never the post_key itself.
+    plaintext_username = username(current_user, key) || ""
+
+    plaintext_avatar_url =
+      if current_user.decrypted,
+        do: current_user.decrypted[:avatar_url],
+        else: nil
+
+    plaintext_image_urls = post_params["image_urls"] || []
+    plaintext_image_alt_texts = post_params["image_alt_texts"] || []
+
+    plaintext_url_preview =
+      case post_params["url_preview"] do
+        preview when is_map(preview) and map_size(preview) > 0 ->
+          preview
+          |> Enum.map(fn {k, v} -> {to_string(k), v} end)
+          |> Enum.into(%{})
+
+        _ ->
+          nil
+      end
+
+    # Build recipient list with public keys for browser-side key sealing.
+    # The browser will seal the post_key for each recipient + the author.
+    shared_users = post_params["shared_users"] || []
+
+    recipient_keys =
+      Enum.map(shared_users, fn su ->
+        su = Map.new(su, fn {k, v} -> {to_string(k), v} end)
+        user = Accounts.get_user!(su["user_id"])
+
+        %{
+          user_id: user.id,
+          public_key: user.key_pair["public"],
+          pq_public_key: user.pq_public_key
+        }
+      end)
+
+    # Inject the viewer's sealed key-pin per recipient (#294) so the browser
+    # can verify each served key against the pin before sealing the post_key.
+    recipient_keys =
+      MossletWeb.Helpers.hydrate_sealed_pins(recipient_keys, to_string(current_user.id))
+
+    # Stash the post_params and encrypted fragments for finalize_post_encrypted.
+    # This avoids a second round of recipient resolution.
+    encrypted_opts = [encrypted_body: encrypted_body]
+
+    encrypted_opts =
+      if params["encrypted_content_warning"],
+        do: encrypted_opts ++ [encrypted_content_warning: params["encrypted_content_warning"]],
+        else: encrypted_opts
+
+    encrypted_opts =
+      if params["encrypted_content_warning_category"],
+        do:
+          encrypted_opts ++
+            [encrypted_content_warning_category: params["encrypted_content_warning_category"]],
+        else: encrypted_opts
+
+    socket =
+      socket
+      |> assign(:pending_zk_post_params, post_params)
+      |> assign(:pending_zk_encrypted_opts, encrypted_opts)
+      |> push_event("encrypt_post_fields", %{
+        username: plaintext_username,
+        avatar_url: plaintext_avatar_url,
+        image_urls: plaintext_image_urls,
+        image_alt_texts: plaintext_image_alt_texts,
+        url_preview: plaintext_url_preview,
+        recipient_keys: recipient_keys
+      })
+
+    {:noreply, socket}
+  end
+
+  # Streams a processed (plaintext) image down to the browser for ZK encryption
+  # using ACK-PACED downlink (symmetric to the uplink backpressure): we push a
+  # header announcing the chunk count, then push only the FIRST chunk. The
+  # browser acks each chunk it receives ("post_image_downlink_ack"), and we push
+  # the next one in response. This means exactly one render cycle per chunk,
+  # spaced by the client round-trip — never an N-message self-send storm that
+  # forces N back-to-back full re-renders of this large LiveView.
   defp push_image_blob_chunks(socket, upload_ref, binary) do
     blob_b64 = Base.encode64(binary)
     chunks = chunk_string(blob_b64, @zk_chunk_bytes)
     total = length(chunks)
 
-    socket =
-      push_event(socket, "encrypt_post_image", %{
-        upload_ref: upload_ref,
-        blob_chunks_total: total
+    indexed_chunks =
+      chunks
+      |> Enum.with_index()
+      |> Map.new(fn {chunk, index} -> {index, chunk} end)
+
+    buffers =
+      Map.put(socket.assigns.zk_downlink_buffers, upload_ref, %{
+        chunks: indexed_chunks,
+        total: total
       })
 
-    chunks
-    |> Enum.with_index()
-    |> Enum.each(fn {chunk, index} ->
-      send(self(), {:push_zk_image_chunk, upload_ref, index, total, chunk})
-    end)
-
     socket
+    |> assign(:zk_downlink_buffers, buffers)
+    |> push_event("encrypt_post_image", %{upload_ref: upload_ref, blob_chunks_total: total})
+    |> push_downlink_chunk(upload_ref, 0)
+  end
+
+  # Pushes a single downlink chunk (by index) if it exists; otherwise the whole
+  # image has been delivered, so we drop the buffer. One push_event => one render.
+  defp push_downlink_chunk(socket, upload_ref, index) do
+    case Map.get(socket.assigns.zk_downlink_buffers, upload_ref) do
+      %{chunks: chunks, total: total} = buf when is_map_key(chunks, index) ->
+        push_event(socket, "encrypt_post_image_chunk", %{
+          upload_ref: upload_ref,
+          index: index,
+          total: total,
+          chunk_b64: Map.fetch!(buf.chunks, index)
+        })
+
+      _ ->
+        assign(
+          socket,
+          :zk_downlink_buffers,
+          Map.delete(socket.assigns.zk_downlink_buffers, upload_ref)
+        )
+    end
   end
 
   # Reassembled ZK ciphertext -> S3, off the LiveView process so typing and
@@ -6785,6 +6820,16 @@ defmodule MossletWeb.TimelineLive.Index do
     socket
   end
 
+  # Deletes a ZK image ciphertext that was uploaded to S3 but never attached to
+  # a post (user removed the photo, or abandoned the composer). Fire-and-forget
+  # off the LiveView process so removing a photo stays instant.
+  defp maybe_delete_orphaned_image(nil), do: :ok
+
+  defp maybe_delete_orphaned_image(file_path) when is_binary(file_path) do
+    Mosslet.FileUploads.ImageUploadWriter.delete_from_storage(file_path)
+    :ok
+  end
+
   defp chunk_string("", _size), do: [""]
 
   defp chunk_string(str, size) when byte_size(str) <= size, do: [str]
@@ -6794,63 +6839,219 @@ defmodule MossletWeb.TimelineLive.Index do
     [chunk | chunk_string(rest, size)]
   end
 
-  # Helper function to process uploaded photos.  #
-  # Two paths:
-  #   1. ZK path (encrypted_path present, non-public visibility): Image was
-  #      already encrypted by the browser and uploaded to S3 via the
-  #      post_image_encrypted event. Return the path directly — no server-side
-  #      encryption needed.
-  #   2. Legacy path (no encrypted_path, or public visibility): Server-side
-  #      encryption with trix_key (public posts, or ZK images that haven't
-  #      completed encryption yet).
+  # True while any selected ZK (non-public) photo has not yet finished being
+  # encrypted by the browser and stored on S3 (i.e. has no encrypted_path). Used
+  # to FAIL CLOSED before finalizing a private post so we never silently
+  # downgrade to server-side encryption or reference an image that never landed.
+  defp zk_uploads_ready?(completed_uploads) do
+    Enum.all?(completed_uploads, fn upload -> not is_nil(upload[:encrypted_path]) end)
+  end
+
+  # ZK read path for uploaded photos. By the time this runs, every photo was
+  # already encrypted browser-side and uploaded to S3 (zk_uploads_ready?/1 guards
+  # the caller), so we simply reference the ciphertext paths — the server NEVER
+  # re-encrypts and NEVER falls back to server-side encryption for a private
+  # post. Only ever called for non-public (ZK) posts via begin_save_post_encrypted.
   #
-  # Returns {upload_paths, alt_texts, trix_key} tuple for idiomatic Elixir/Phoenix
+  # Returns {upload_paths, alt_texts, trix_key} tuple.
   defp process_uploaded_photos(socket, _current_user, _key) do
     completed_uploads = socket.assigns.completed_uploads
-    is_zk_path = socket.assigns.selector not in ["public", :public]
+    trix_key = socket.assigns[:composer_trix_key]
 
     if completed_uploads == [] do
       {[], [], nil}
     else
-      trix_key = socket.assigns[:composer_trix_key]
+      paths = Enum.map(completed_uploads, & &1.encrypted_path)
+      alt_texts = Enum.map(completed_uploads, &(&1[:alt_text] || ""))
+      {paths, alt_texts, trix_key}
+    end
+  end
 
-      upload_results =
-        Enum.map(completed_uploads, fn upload ->
-          if upload.encrypted_path && is_zk_path do
-            # ZK path — already encrypted by browser, already on S3
-            {upload.encrypted_path, upload[:alt_text] || "", trix_key}
-          else
-            actual_trix_key = trix_key || upload.trix_key
+  # Public-path upload: crops (if requested) and server-encrypts each photo with
+  # the trix_key, then uploads to S3. Public posts are server-encrypted by design.
+  # This performs blocking network I/O, so it MUST be run off the LiveView
+  # process (see the Task.Supervisor call in the save_post handler).
+  #
+  # Returns {upload_paths, alt_texts, trix_key} tuple.
+  defp collect_public_uploads(completed_uploads, composer_trix_key) do
+    upload_results =
+      Enum.map(completed_uploads, fn upload ->
+        actual_trix_key = composer_trix_key || upload.trix_key
 
-            binary = File.read!(upload.temp_path)
-            binary = maybe_apply_crop(binary, upload[:crop])
+        binary =
+          upload.temp_path
+          |> File.read!()
+          |> maybe_apply_crop(upload[:crop])
 
-            case Mosslet.FileUploads.ImageUploadWriter.upload_to_storage(
-                   binary,
-                   actual_trix_key
-                 ) do
-              {:ok, file_path} ->
-                cleanup_temp_upload(upload.temp_path)
-                {file_path, upload[:alt_text] || "", actual_trix_key}
+        case Mosslet.FileUploads.ImageUploadWriter.upload_to_storage(binary, actual_trix_key) do
+          {:ok, file_path} ->
+            cleanup_temp_upload(upload.temp_path)
+            {file_path, upload[:alt_text] || "", actual_trix_key}
 
-              {:error, reason} ->
-                Logger.error("📷 PROCESS_UPLOADED_PHOTOS: Upload failed: #{inspect(reason)}")
-                nil
-            end
-          end
-        end)
+          {:error, reason} ->
+            Logger.error("📷 COLLECT_PUBLIC_UPLOADS: Upload failed: #{inspect(reason)}")
+            nil
+        end
+      end)
 
-      successful_results = Enum.filter(upload_results, &(&1 != nil))
+    successful_results = Enum.filter(upload_results, &(&1 != nil))
 
-      case successful_results do
-        [] ->
-          {[], [], trix_key}
+    case successful_results do
+      [] ->
+        {[], [], composer_trix_key}
 
-        [{_first_path, _first_alt, first_trix_key} | _] ->
-          paths = Enum.map(successful_results, fn {path, _alt, _key} -> path end)
-          alt_texts = Enum.map(successful_results, fn {_path, alt, _key} -> alt end)
-          {paths, alt_texts, first_trix_key}
+      [{_first_path, _first_alt, first_trix_key} | _] ->
+        paths = Enum.map(successful_results, fn {path, _alt, _key} -> path end)
+        alt_texts = Enum.map(successful_results, fn {_path, alt, _key} -> alt end)
+        {paths, alt_texts, first_trix_key}
+    end
+  end
+
+  # Public / server-encrypted post save. Runs moderation, then either finalizes
+  # inline (no photos) or uploads photos to S3 OFF the LiveView process so the
+  # socket stays responsive (see finalize_public_post + the {:public_images_uploaded}
+  # handle_info). Non-public (ZK) posts go through save_post_encrypted instead.
+  defp do_save_public_post(socket, post_params) do
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+    visibility = socket.assigns.selector
+    body = post_params["body"] || ""
+
+    text_moderation_result =
+      if visibility == "public" && String.trim(body) != "" do
+        AI.moderate_public_post(body)
+      else
+        {:ok, :approved}
       end
+
+    image_moderation_result =
+      if visibility == "public" do
+        moderate_uploads_for_public_visibility(socket.assigns.completed_uploads)
+      else
+        {:ok, :approved}
+      end
+
+    case {text_moderation_result, image_moderation_result} do
+      {{:error, reason}, _} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :warning,
+           "This post wasn't shared because it may violate community guidelines: '#{reason}' You can edit it or change visibility to not be public."
+         )}
+
+      {_, {:error, reason}} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :warning,
+           "This post wasn't shared because an image may violate community guidelines: '#{reason}' You can remove the image or change visibility to not be public."
+         )}
+
+      {{:ok, :approved}, {:ok, :approved}} ->
+        # Public path: if there are photos, upload them to S3 OFF the LiveView
+        # process (Task.Supervisor) so the socket — heartbeats, typing, other
+        # events — stays responsive during network I/O. We stash the raw
+        # post_params and finalize in handle_info({:public_images_uploaded,...}).
+        # With no photos there's nothing to block on, so we finalize inline.
+        if socket.assigns.completed_uploads == [] do
+          finalize_public_post(socket, post_params, current_user, key, {[], [], nil})
+        else
+          lv_pid = self()
+          uploads = socket.assigns.completed_uploads
+          trix_key = socket.assigns[:composer_trix_key]
+
+          Task.Supervisor.start_child(Mosslet.StorjTask, fn ->
+            result =
+              try do
+                {:ok, collect_public_uploads(uploads, trix_key)}
+              rescue
+                e -> {:error, Exception.message(e)}
+              end
+
+            send(lv_pid, {:public_images_uploaded, result})
+          end)
+
+          {:noreply,
+           socket
+           |> assign(:pending_public_post_params, post_params)
+           |> put_flash(:info, "Sharing your post…")}
+        end
+    end
+  end
+
+  # Builds the full public post_params from the stashed raw params + the uploaded
+  # image results, then creates the post. Called inline (no photos) or from
+  # handle_info({:public_images_uploaded, ...}) once the async S3 upload finishes.
+  defp finalize_public_post(
+         socket,
+         post_params,
+         current_user,
+         key,
+         {uploaded_photo_urls, uploaded_alt_texts, trix_key}
+       ) do
+    post_shared_users = socket.assigns.post_shared_users
+
+    any_ai_generated =
+      Enum.any?(socket.assigns.completed_uploads, fn upload ->
+        Map.get(upload, :ai_generated, false)
+      end)
+
+    post_params =
+      post_params
+      |> Map.put("image_urls", socket.assigns.image_urls ++ uploaded_photo_urls)
+      |> Map.put("image_alt_texts", uploaded_alt_texts)
+      |> Map.put("image_urls_updated_at", NaiveDateTime.utc_now())
+      |> Map.put("visibility", socket.assigns.selector)
+      |> Map.put("user_id", current_user.id)
+      |> Map.put("content_warning?", socket.assigns.content_warning_enabled?)
+      |> Map.put("ai_generated", any_ai_generated)
+      |> maybe_put_ritual_prompt_id(socket)
+      |> maybe_put_url_preview(socket)
+      |> Map.put(
+        "url_preview_fetched_at",
+        if(socket.assigns.url_preview, do: NaiveDateTime.utc_now(), else: nil)
+      )
+      |> Map.put("allow_replies", post_params["allow_replies"] || socket.assigns.allow_replies)
+      |> Map.put("allow_shares", post_params["allow_shares"] || socket.assigns.allow_shares)
+      |> Map.put(
+        "allow_bookmarks",
+        post_params["allow_bookmarks"] || socket.assigns.allow_bookmarks
+      )
+      |> Map.put("is_ephemeral", post_params["is_ephemeral"] || socket.assigns.is_ephemeral)
+      |> Map.put(
+        "require_follow_to_reply",
+        post_params["require_follow_to_reply"] || socket.assigns.require_follow_to_reply
+      )
+      |> Map.put(
+        "mature_content",
+        post_params["mature_content"] || socket.assigns.mature_content
+      )
+      |> Map.put("local_only", post_params["local_only"] || socket.assigns.local_only)
+      |> Map.put(
+        "expires_at_option",
+        post_params["expires_at_option"] || socket.assigns.expires_at_option
+      )
+      |> Map.put(
+        "visibility_groups",
+        post_params["visibility_groups"] || socket.assigns.selected_visibility_groups || []
+      )
+      |> Map.put(
+        "visibility_users",
+        post_params["visibility_users"] || socket.assigns.selected_visibility_users || []
+      )
+      |> add_shared_users_list_for_new_post(post_shared_users, %{
+        visibility_setting: socket.assigns.selector,
+        current_user: current_user,
+        key: key
+      })
+
+    if post_params["user_id"] == current_user.id do
+      create_post_and_respond(socket, post_params, current_user, key, trix_key)
+    else
+      {:noreply,
+       socket
+       |> put_flash(:warning, "You do not have permission to create this post.")}
     end
   end
 
