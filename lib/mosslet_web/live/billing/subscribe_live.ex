@@ -65,7 +65,7 @@ defmodule MossletWeb.SubscribeLive do
   # Billing interval (monthly/yearly) preserved from the pricing page through
   # sign-in, used as the default when no explicit `?billing=` is present (#215).
   defp session_plan_interval(%{"plan_interval" => b}) when b in ~w(month year), do: b
-  defp session_plan_interval(_), do: "year"
+  defp session_plan_interval(_), do: "month"
 
   defp assign_billing_status(socket) do
     source = socket.assigns.source
@@ -312,13 +312,12 @@ defmodule MossletWeb.SubscribeLive do
           <.confirm_email_banner :if={is_nil(@current_user.confirmed_at)} />
 
           <.referral_banner :if={@referral_discount} discount={@referral_discount} />
-
           <%= if @source == :user do %>
             <.plan_switcher
               families={@families}
               selected_family={@selected_family}
               selected_interval={@selected_interval}
-              show_interval={@org_onramp == nil}
+              show_interval={true}
             />
 
             <%= if @org_onramp do %>
@@ -888,7 +887,11 @@ defmodule MossletWeb.SubscribeLive do
           )
 
         assigns.has_active_billing ->
-          assigns.subscription_products
+          filter_products_by_family_interval(
+            assigns.subscription_products,
+            assigns.selected_family,
+            assigns.selected_interval
+          )
 
         assigns.selected_family ->
           filter_products_by_family_interval(
@@ -898,7 +901,11 @@ defmodule MossletWeb.SubscribeLive do
           )
 
         true ->
-          assigns.subscription_products
+          filter_products_by_family_interval(
+            assigns.subscription_products,
+            assigns.selected_family,
+            assigns.selected_interval
+          )
       end
 
     # The one-time/lifetime offer is a PERSONAL (`:user`) product only — never
