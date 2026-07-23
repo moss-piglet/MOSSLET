@@ -67,8 +67,8 @@ defmodule MossletWeb.SubscribeLiveTest do
       assert has_element?(lv, "#org-onramp-form-family")
       assert has_element?(lv, "#org-onramp-start-family")
       refute render(lv) =~ "MOSSLET (Family)"
-      # Interval toggle is hidden on org-onramp tabs.
-      refute has_element?(lv, "#interval-toggle-year")
+      # Interval toggle still shows on org-onramp tabs.
+      assert has_element?(lv, "#interval-toggle-year")
     end
 
     test "?plan=business shows the Business org on-ramp (not a :user purchase)", %{conn: conn} do
@@ -100,7 +100,7 @@ defmodule MossletWeb.SubscribeLiveTest do
 
       lv |> element("#family-tab-Family") |> render_click()
 
-      assert_patch(lv, ~p"/app/subscribe?#{%{plan: "family", billing: "year"}}")
+      assert_patch(lv, ~p"/app/subscribe?#{%{plan: "family", billing: "month"}}")
       assert has_element?(lv, "#family-tab-Family[aria-selected='true']")
       assert has_element?(lv, "#org-onramp-form-family")
     end
