@@ -1230,7 +1230,7 @@ defmodule MossletWeb.DesignSystem do
                 </td>
                 <td class="hidden sm:table-cell py-4 px-2">
                   <.liquid_tracking_indicator status="minimal">
-                    Minimal***
+                    None
                   </.liquid_tracking_indicator>
                 </td>
                 <td class="py-4 px-2 text-right">
@@ -1494,7 +1494,7 @@ defmodule MossletWeb.DesignSystem do
                 </td>
                 <td class="hidden sm:table-cell py-4 px-2">
                   <.liquid_tracking_indicator status="minimal">
-                    Minimal***
+                    None
                   </.liquid_tracking_indicator>
                 </td>
                 <td class="py-4 px-2 text-right">
@@ -1582,9 +1582,6 @@ defmodule MossletWeb.DesignSystem do
           </p>
           <p class="text-xs text-slate-500 dark:text-slate-500">
             ** Premium features available ($500/month)
-          </p>
-          <p class="text-xs text-slate-500 dark:text-slate-500">
-            *** Collects minimal operational data necessary for service functionality
           </p>
           <p class="text-sm text-slate-600 dark:text-slate-400">
             Data value estimates based on research by
