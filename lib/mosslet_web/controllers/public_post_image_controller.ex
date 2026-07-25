@@ -55,6 +55,80 @@ defmodule MossletWeb.PublicPostImageController do
     send_resp(conn, 400, "Bad request")
   end
 
+  @doc """
+  Serves the decrypted link-preview image for a public post.
+
+  The `url_preview` map stores an expiring presigned URL for the app, so RSS
+  readers get this stable endpoint instead. The image lives in storage at
+  `url_previews/:post_id/:image_hash.enc`, encrypted with the post key.
+  """
+  def preview_image(conn, %{"post_id" => post_id}) do
+    with %Timeline.Post{visibility: :public} = post <- Timeline.get_post_with_preloads(post_id),
+         {:ok, post_key} <- get_public_post_key(post),
+         {:ok, image_hash} <- get_preview_image_hash(post, post_key),
+         etag <- generate_etag(post_id, "preview", post.updated_at),
+         {:ok, conn} <- check_etag(conn, etag),
+         {:ok, image_binary, content_type} <- fetch_preview_image(post.id, image_hash, post_key) do
+      conn
+      |> put_resp_content_type(content_type)
+      |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
+      |> put_resp_header("etag", etag)
+      |> stream_response(image_binary)
+    else
+      {:not_modified, conn} ->
+        conn
+
+      nil ->
+        send_resp(conn, 404, "Post not found")
+
+      %Timeline.Post{} ->
+        send_resp(conn, 403, "Post is not public")
+
+      {:error, :no_key} ->
+        send_resp(conn, 404, "Image not available")
+
+      {:error, :no_preview_image} ->
+        send_resp(conn, 404, "Preview image not found")
+
+      {:error, :decryption_failed} ->
+        Logger.error("Failed to decrypt public post preview image for post #{post_id}")
+        send_resp(conn, 500, "Failed to process image")
+
+      {:error, :fetch_failed} ->
+        Logger.error("Failed to fetch public post preview image from storage for post #{post_id}")
+        send_resp(conn, 500, "Failed to fetch image")
+    end
+  end
+
+  defp get_preview_image_hash(post, post_key) do
+    case Mosslet.Extensions.URLPreviewServer.decrypt_preview_with_key(post.url_preview, post_key) do
+      %{"image_hash" => hash} when is_binary(hash) ->
+        # Hashes are generated server-side as sha3_512 hex; validating the shape
+        # keeps the decrypted value from ever becoming an arbitrary storage key.
+        if String.match?(hash, ~r/\A[a-f0-9]{128}\z/) do
+          {:ok, hash}
+        else
+          {:error, :no_preview_image}
+        end
+
+      _ ->
+        {:error, :no_preview_image}
+    end
+  end
+
+  defp fetch_preview_image(post_id, image_hash, post_key) do
+    memories_bucket = Encrypted.Session.memories_bucket()
+    file_path = "url_previews/#{post_id}/#{image_hash}.enc"
+
+    case get_s3_object(memories_bucket, file_path) do
+      {:ok, %{body: encrypted_obj}} ->
+        decrypt_image_data(encrypted_obj, post_key, "image/webp")
+
+      {:error, _} ->
+        {:error, :fetch_failed}
+    end
+  end
+
   defp generate_etag(post_id, index, updated_at) do
     hash_input = "#{post_id}-#{index}-#{to_unix(updated_at)}"
     hash = :crypto.hash(:md5, hash_input) |> Base.encode16(case: :lower)

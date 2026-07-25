@@ -172,7 +172,8 @@ defmodule MossletWeb.Plugs.PlugAttack do
 
   rule "throttle public post image requests", conn do
     if conn.method == "GET" and
-         match?(["feed", "public", "posts", _, "images", _], conn.path_info) and
+         (match?(["feed", "public", "posts", _, "images", _], conn.path_info) or
+            match?(["feed", "public", "posts", _, "preview-image"], conn.path_info)) and
          conn.remote_ip do
       throttle("feed_images:" <> hash_ip(@alg, convert_ip(conn.remote_ip)),
         period: @minute,

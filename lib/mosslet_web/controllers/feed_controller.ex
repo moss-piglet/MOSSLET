@@ -407,6 +407,7 @@ defmodule MossletWeb.FeedController do
     username = decrypt_content(post.username, post_key) || "MOSSLET User"
     pub_date = format_rfc822(post.inserted_at)
     item_link = link || "#{base_url}/post/#{to_string(post.id)}"
+    url_preview_card = build_url_preview_card(post, post_key, base_url)
     inline_images = build_inline_images(post, post_key, base_url)
     image_enclosures = build_image_enclosures(post, post_key, base_url)
     media_content = build_media_content(post, post_key, base_url)
@@ -427,7 +428,7 @@ defmodule MossletWeb.FeedController do
           <guid isPermaLink="false">#{escape_xml(post.id)}</guid>
           <pubDate>#{pub_date}</pubDate>
           <dc:creator>#{escape_xml(username)}</dc:creator>
-          <description><![CDATA[#{body_html}#{inline_images}]]></description>
+          <description><![CDATA[#{body_html}#{url_preview_card}#{inline_images}]]></description>
     #{image_enclosures}#{media_content}
         </item>
     """
@@ -454,6 +455,53 @@ defmodule MossletWeb.FeedController do
   defp get_post_key(post) do
     Enum.at(post.user_posts, 0).key
   end
+
+  # Renders the post's link preview as a simple HTML card so readers show the
+  # same rich preview the app does. The image goes through our stable
+  # preview-image endpoint (the app's presigned URLs expire, and readers cache
+  # items for weeks). All preview fields are external content, so everything is
+  # escaped and guarded against CDATA break-out.
+  defp build_url_preview_card(post, post_key, base_url) do
+    with preview when is_map(preview) <- decrypt_url_preview(post, post_key),
+         url when is_binary(url) and url != "" <- preview["url"] do
+      title = card_text(preview["title"])
+      description = card_text(preview["description"])
+      site_name = card_text(preview["site_name"])
+
+      image_html =
+        case preview["image_hash"] do
+          hash when is_binary(hash) and hash != "" ->
+            src = "#{base_url}/feed/public/posts/#{to_string(post.id)}/preview-image"
+            alt = title || "Link preview image"
+            ~s(<img src="#{escape_xml(src)}" alt="#{escape_xml(alt)}" />)
+
+          _ ->
+            ""
+        end
+
+      title_html = if title, do: "<strong>#{escape_xml(title)}</strong>", else: ""
+      site_html = if site_name, do: "<br/><em>#{escape_xml(site_name)}</em>", else: ""
+
+      description_html =
+        if description, do: "<br/>#{escape_xml(description)}", else: ""
+
+      "\n<p><a href=\"#{escape_xml(url)}\">#{image_html}#{title_html}</a>#{site_html}#{description_html}</p>"
+    else
+      _ -> ""
+    end
+  end
+
+  defp decrypt_url_preview(_post, nil), do: nil
+
+  defp decrypt_url_preview(post, post_key) do
+    Mosslet.Extensions.URLPreviewServer.decrypt_preview_with_key(post.url_preview, post_key)
+  end
+
+  defp card_text(value) when is_binary(value) and value != "" do
+    String.replace(value, "]]>", "]]&gt;")
+  end
+
+  defp card_text(_value), do: nil
 
   # Readers render the item's description HTML, so inlining <img> tags is the
   # most reliable way to show post images across RSS readers (enclosures are
