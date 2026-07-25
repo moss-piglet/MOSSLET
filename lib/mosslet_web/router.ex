@@ -75,6 +75,11 @@ defmodule MossletWeb.Router do
     get "/:token", FeedController, :personal
   end
 
+  # Public post permalinks (RSS item links + native-app universal-link fallback)
+  scope "/", MossletWeb do
+    get "/post/:id", PublicPostController, :show
+  end
+
   scope "/", MossletWeb do
     get "/health", HealthController, :index
     get "/api/health", HealthController, :index

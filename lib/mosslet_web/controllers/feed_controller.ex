@@ -407,16 +407,17 @@ defmodule MossletWeb.FeedController do
     username = decrypt_content(post.username, post_key) || "MOSSLET User"
     pub_date = format_rfc822(post.inserted_at)
     item_link = link || "#{base_url}/post/#{to_string(post.id)}"
+    inline_images = build_inline_images(post, post_key, base_url)
     image_enclosures = build_image_enclosures(post, post_key, base_url)
     media_content = build_media_content(post, post_key, base_url)
 
-    content_html =
+    body_html =
       if content do
-        rendered = Mosslet.MarkdownRenderer.to_html(content)
-        safe_content = String.replace(rendered, "]]>", "]]&gt;")
-        "<![CDATA[#{safe_content}]]>"
+        content
+        |> Mosslet.MarkdownRenderer.to_html()
+        |> String.replace("]]>", "]]&gt;")
       else
-        "<![CDATA[Content unavailable]]>"
+        "Content unavailable"
       end
 
     """
@@ -426,7 +427,7 @@ defmodule MossletWeb.FeedController do
           <guid isPermaLink="false">#{escape_xml(post.id)}</guid>
           <pubDate>#{pub_date}</pubDate>
           <dc:creator>#{escape_xml(username)}</dc:creator>
-          <description>#{content_html}</description>
+          <description><![CDATA[#{body_html}#{inline_images}]]></description>
     #{image_enclosures}#{media_content}
         </item>
     """
@@ -452,6 +453,46 @@ defmodule MossletWeb.FeedController do
 
   defp get_post_key(post) do
     Enum.at(post.user_posts, 0).key
+  end
+
+  # Readers render the item's description HTML, so inlining <img> tags is the
+  # most reliable way to show post images across RSS readers (enclosures are
+  # podcast-oriented and media:content support varies). Alt text is decrypted
+  # with the post key when the author provided it.
+  defp build_inline_images(post, post_key, base_url) do
+    case decrypt_image_count(post, post_key) do
+      0 ->
+        ""
+
+      count ->
+        alt_texts = decrypt_alt_texts(post, post_key)
+
+        images =
+          0..(count - 1)
+          |> Enum.map_join("\n", fn index ->
+            url = "#{base_url}/feed/public/posts/#{to_string(post.id)}/images/#{index}"
+
+            alt =
+              (Enum.at(alt_texts, index) || "Image #{index + 1} from this post")
+              |> String.replace("]]>", "]]&gt;")
+
+            ~s(<p><img src="#{escape_xml(url)}" alt="#{escape_xml(alt)}" /></p>)
+          end)
+
+        "\n" <> images
+    end
+  end
+
+  defp decrypt_alt_texts(_post, nil), do: []
+
+  defp decrypt_alt_texts(post, post_key) do
+    case post.image_alt_texts do
+      texts when is_list(texts) ->
+        Enum.map(texts, &decrypt_content(&1, post_key))
+
+      _ ->
+        []
+    end
   end
 
   defp build_image_enclosures(post, post_key, base_url) do

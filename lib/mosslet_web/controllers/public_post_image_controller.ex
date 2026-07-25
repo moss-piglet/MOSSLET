@@ -56,10 +56,17 @@ defmodule MossletWeb.PublicPostImageController do
   end
 
   defp generate_etag(post_id, index, updated_at) do
-    hash_input = "#{post_id}-#{index}-#{DateTime.to_unix(updated_at)}"
+    hash_input = "#{post_id}-#{index}-#{to_unix(updated_at)}"
     hash = :crypto.hash(:md5, hash_input) |> Base.encode16(case: :lower)
     "\"#{hash}\""
   end
+
+  # Post timestamps are naive (Ecto default); treat them as UTC.
+  defp to_unix(%NaiveDateTime{} = naive) do
+    naive |> DateTime.from_naive!("Etc/UTC") |> DateTime.to_unix()
+  end
+
+  defp to_unix(%DateTime{} = datetime), do: DateTime.to_unix(datetime)
 
   defp check_etag(conn, etag) do
     client_etag = get_req_header(conn, "if-none-match") |> List.first()
