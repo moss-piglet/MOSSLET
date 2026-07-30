@@ -13,9 +13,11 @@ import {
   ROOT,
   KEYED,
   KEYED_COUNT,
+  KEYED_MOVED,
 } from "./constants";
 
-import { isObject, logError, isCid } from "./utils";
+import { isObject, isCid } from "./utils";
+import { logError } from "./diagnostics";
 
 const VOID_TAGS = new Set([
   "area",
@@ -287,12 +289,12 @@ export default class Rendered {
 
   // keyed comprehensions
   mergeKeyed(target, source) {
-    // we need to clone the target since elements can move and otherwise
-    // it could happen that we modify an element that we'll need to refer to
-    // later
-    const clonedTarget = this.clone(target);
+    // Moves read entries from their old positions. Clone before applying any
+    // entries so an earlier mutation cannot overwrite a position needed later.
+    // Stable-position updates never read from another position.
+    const clonedTarget = source[KEYED][KEYED_MOVED] && this.clone(target);
     Object.entries(source[KEYED]).forEach(([i, entry]) => {
-      if (i === KEYED_COUNT) {
+      if (i === KEYED_COUNT || i === KEYED_MOVED) {
         return;
       }
       if (Array.isArray(entry)) {
@@ -530,45 +532,60 @@ export default class Rendered {
   }
 
   recursiveCIDToString(components, cid, onlyCids) {
-    const component =
-      components[cid] || logError(`no component for CID ${cid}`, components);
-    const attrs = { [PHX_COMPONENT]: cid, [PHX_VIEW_REF]: this.viewId };
-    const skip = onlyCids && !onlyCids.has(cid);
-    // Two optimization paths apply here:
-    //
-    //   1. The onlyCids optimization works by the server diff telling us only specific
-    //     cid's have changed. This allows us to skip rendering any component that hasn't changed,
-    //     which ultimately sets PHX_SKIP root attribute and avoids rendering the innerHTML.
-    //
-    //   2. The root PHX_SKIP optimization generalizes to all HEEx function components, and
-    //     works in the same PHX_SKIP attribute fashion as 1, but the newRender tracking is done
-    //     at the general diff merge level. If we merge a diff with new dynamics, we necessarily have
-    //     experienced a change which must be a newRender, and thus we can't skip the render.
-    //
-    // Both optimization flows apply here. newRender is set based on the onlyCids optimization, and
-    // we track a deterministic magicId based on the cid.
-    //
-    // changeTracking is about the entire tree
-    // newRender is about the current root in the tree
-    //
-    // By default changeTracking is enabled, but we special case the flow where the client is pruning
-    // cids and the server adds the component back. In such cases, we explicitly disable changeTracking
-    // with resetRender for this cid, then re-enable it after the recursive call to skip the optimization
-    // for the entire component tree.
-    component.newRender = !skip;
-    component.magicId = `c${cid}-${this.parentViewId()}`;
-    // enable change tracking as long as the component hasn't been reset
-    const changeTracking = !component.reset;
-    const { buffer: html, streams } = this.recursiveToString(
-      component,
-      components,
-      onlyCids,
-      changeTracking,
-      attrs,
-    );
-    // disable reset after we've rendered
-    delete component.reset;
+    if (components[cid]) {
+      const component = components[cid];
 
-    return { buffer: html, streams: streams };
+      const attrs = { [PHX_COMPONENT]: cid, [PHX_VIEW_REF]: this.viewId };
+      const skip = onlyCids && !onlyCids.has(cid);
+      // Two optimization paths apply here:
+      //
+      //   1. The onlyCids optimization works by the server diff telling us only specific
+      //     cid's have changed. This allows us to skip rendering any component that hasn't changed,
+      //     which ultimately sets PHX_SKIP root attribute and avoids rendering the innerHTML.
+      //
+      //   2. The root PHX_SKIP optimization generalizes to all HEEx function components, and
+      //     works in the same PHX_SKIP attribute fashion as 1, but the newRender tracking is done
+      //     at the general diff merge level. If we merge a diff with new dynamics, we necessarily have
+      //     experienced a change which must be a newRender, and thus we can't skip the render.
+      //
+      // Both optimization flows apply here. newRender is set based on the onlyCids optimization, and
+      // we track a deterministic magicId based on the cid.
+      //
+      // changeTracking is about the entire tree
+      // newRender is about the current root in the tree
+      //
+      // By default changeTracking is enabled, but we special case the flow where the client is pruning
+      // cids and the server adds the component back. In such cases, we explicitly disable changeTracking
+      // with resetRender for this cid, then re-enable it after the recursive call to skip the optimization
+      // for the entire component tree.
+      component.newRender = !skip;
+      component.magicId = `c${cid}-${this.parentViewId()}`;
+      // enable change tracking as long as the component hasn't been reset
+      const changeTracking = !component.reset;
+      const { buffer: html, streams } = this.recursiveToString(
+        component,
+        components,
+        onlyCids,
+        changeTracking,
+        attrs,
+      );
+      // disable reset after we've rendered
+      delete component.reset;
+
+      return { buffer: html, streams: streams };
+    } else {
+      logError(
+        "render.missing-component",
+        `no component for CID ${cid}`,
+        {
+          cid,
+          components,
+        },
+        { viewId: this.viewId, attribution: "internal" },
+      );
+      throw new Error(
+        "Cannot continue render due to missing component: " + cid,
+      );
+    }
   }
 }

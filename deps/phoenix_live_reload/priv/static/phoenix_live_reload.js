@@ -84,6 +84,17 @@ let pageStrategy = channel => {
   window[targetWindow].location.reload()
 }
 
+const elixirLogLevels = [
+  "emergency", 
+  "alert", 
+  "critical", 
+  "error", 
+  "warning", 
+  "notice" ,
+  "info", 
+  "debug"
+]
+
 let reloadStrategies = {
   css: reloadPageOnCssChanges ? pageStrategy : cssStrategy,
   page: pageStrategy
@@ -93,8 +104,10 @@ class LiveReloader {
   constructor(socket){
     this.socket = socket
     this.logsEnabled = false
+    this.minLogLevel = "debug"
     this.enabledOnce = false
     this.editorURL = null
+    this.editorShortcutHandlers = null
   }
   enable(){
     this.socket.onOpen(() => {
@@ -112,7 +125,7 @@ class LiveReloader {
       let reloadStrategy = reloadStrategies[msg.asset_type] || reloadStrategies.page
       setTimeout(() => reloadStrategy(this.channel), interval)
     })
-    this.channel.on("log", ({msg, level}) => this.logsEnabled && this.log(level, msg))
+    this.channel.on("log", ({msg, level, file, line, pid, metadata}) => this.logsEnabled && this.log(level, msg, { ...metadata, file, line, pid }))
     this.channel.join().receive("ok", ({editor_url}) => {
       this.editorURL = editor_url
     })
@@ -124,8 +137,56 @@ class LiveReloader {
     socket.disconnect()
   }
 
-  enableServerLogs(){ this.logsEnabled = true }
+  enableServerLogs(level = this.minLogLevel){ 
+    this.logsEnabled = true
+    this.minLogLevel = level
+  }
   disableServerLogs(){ this.logsEnabled = false }
+
+  isMinLogLevel(level){
+    return elixirLogLevels.indexOf(level) <= elixirLogLevels.indexOf(this.minLogLevel)
+  }
+
+  enableEditorShortcuts({caller, definition} = {}){
+    if(!caller || !definition){
+      throw new Error("phoenix_live_reload enableEditorShortcuts requires caller and definition keys")
+    }
+
+    this.disableEditorShortcuts()
+
+    let keysDown = new Set()
+    let keyDown = e => keysDown.add(e.key)
+    let keyUp = e => keysDown.delete(e.key)
+    let blur = () => keysDown.clear()
+    let click = e => {
+      let openEditor = keysDown.has(caller)
+        ? this.openEditorAtCaller
+        : keysDown.has(definition) ? this.openEditorAtDef : null
+
+      if(openEditor){
+        e.preventDefault()
+        e.stopImmediatePropagation()
+        openEditor.call(this, e.target)
+      }
+    }
+
+    parent.addEventListener("keydown", keyDown)
+    parent.addEventListener("keyup", keyUp)
+    parent.addEventListener("blur", blur)
+    parent.addEventListener("click", click, true)
+    this.editorShortcutHandlers = {keyDown, keyUp, blur, click}
+  }
+
+  disableEditorShortcuts(){
+    if(!this.editorShortcutHandlers){ return }
+
+    let {keyDown, keyUp, blur, click} = this.editorShortcutHandlers
+    parent.removeEventListener("keydown", keyDown)
+    parent.removeEventListener("keyup", keyUp)
+    parent.removeEventListener("blur", blur)
+    parent.removeEventListener("click", click, true)
+    this.editorShortcutHandlers = null
+  }
 
   openEditorAtCaller(targetNode){
     if(!this.editorURL){
@@ -169,10 +230,17 @@ class LiveReloader {
     parent.dispatchEvent(new CustomEvent("phx:live_reload:attached", {detail: this}))
   }
 
-  log(level, str){
+  log(level, str, metadata){
     let levelColor = level === "debug" ? "darkcyan" : "inherit"
     let consoleFunc = this.logFunc(level)
-    this.logMsg(consoleFunc, str, levelColor)
+    if (this.isMinLogLevel(level)) {
+      this.logMsg(consoleFunc, str, levelColor)
+    }
+    // We also emit a log event that can be listened to by
+    // other scripts in the parent window. Not used by phoenix_live_reload itself.
+    parent.dispatchEvent(new CustomEvent("phx:live_reload:log", {
+      detail: { level, message: str, metadata }
+    }))
   }
 
   logMsg(fun, str, color) {

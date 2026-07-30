@@ -5,6 +5,9 @@ defmodule Phoenix.LiveView.Upload do
   alias Phoenix.LiveView.{Socket, Utils, UploadConfig, UploadEntry}
 
   @refs_to_names :__phoenix_refs_to_names__
+  @upload_token_opts if String.to_integer(System.otp_release()) >= 26,
+                       do: [local: true],
+                       else: []
 
   @doc """
   Allows an upload.
@@ -187,6 +190,24 @@ defmodule Phoenix.LiveView.Upload do
     conf
     |> UploadConfig.put_error(entry_ref, reason)
     |> update_uploads(socket)
+  end
+
+  @doc """
+  Retrieves the `%UploadConfig{}` from the socket for the provided ref.
+
+  Returns `:error` when the socket has no upload allowed for the ref.
+  """
+  def fetch_upload_by_ref(%Socket{} = socket, config_ref) do
+    case socket.assigns[:uploads] do
+      nil ->
+        :error
+
+      uploads ->
+        case Map.fetch(Map.fetch!(uploads, @refs_to_names), config_ref) do
+          {:ok, name} -> {:ok, Map.fetch!(uploads, name)}
+          :error -> :error
+        end
+    end
   end
 
   @doc """
@@ -383,11 +404,15 @@ defmodule Phoenix.LiveView.Upload do
     reply_entries =
       for entry <- entries, entry.valid?, into: %{} do
         token =
-          Phoenix.LiveView.Static.sign_token(socket.endpoint, %{
-            pid: self(),
-            ref: {conf.ref, entry.ref},
-            cid: cid
-          })
+          Phoenix.LiveView.Static.sign_token(
+            socket.endpoint,
+            %{
+              pid: self(),
+              ref: {conf.ref, entry.ref},
+              cid: cid
+            },
+            @upload_token_opts
+          )
 
         {entry.ref, token}
       end

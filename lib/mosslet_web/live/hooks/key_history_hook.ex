@@ -22,6 +22,9 @@ defmodule MossletWeb.KeyHistoryHook do
       at the context layer (`on_conflict: :nothing` on `[:user_id, :seq]`), so a
       duplicate `seq` is a harmless no-op.
 
+    After local persistence, both handlers fire-and-forget a publish to the
+    mosskeys transparency log via `Mosslet.Mosskeys.publish_key/3`.
+
   Wiring: add `MossletWeb.KeyHistoryHook` to the `on_mount` list of each
   authenticated `live_session` in the router.
   """
@@ -45,13 +48,15 @@ defmodule MossletWeb.KeyHistoryHook do
        when is_binary(signing_public_key) and signing_public_key != "" and
               is_binary(encrypted_signing_private_key) and encrypted_signing_private_key != "" do
     case current_user(socket) do
-      %{} = user ->
-        _ =
+      %{id: user_id} = user ->
+        {:ok, _} =
           Accounts.set_user_signing_keys(
             user,
             signing_public_key,
             encrypted_signing_private_key
           )
+
+        publish_key_async(user_id, signing_public_key, nil)
 
       _ ->
         :ok
@@ -73,7 +78,8 @@ defmodule MossletWeb.KeyHistoryHook do
 
     case {current_user(socket), seq} do
       {%{id: user_id}, s} when is_integer(s) and s >= 0 ->
-        _ = Accounts.append_key_history_entry(user_id, s, entry, signing_public_key)
+        {:ok, _} = Accounts.append_key_history_entry(user_id, s, entry, signing_public_key)
+        publish_key_async(user_id, signing_public_key, entry)
 
       _ ->
         :ok
@@ -104,4 +110,20 @@ defmodule MossletWeb.KeyHistoryHook do
   end
 
   defp normalize_seq(_), do: nil
+
+  defp publish_key_async(user_id, signing_public_key, entry_json) do
+    Task.start(fn ->
+      case Mosslet.Mosskeys.publish_key(user_id, entry_json, signing_public_key) do
+        {:ok, _index} ->
+          :ok
+
+        {:error, reason} ->
+          require Logger
+
+          Logger.warning(
+            "[KeyHistoryHook] mosskeys publish failed for user #{user_id}: #{inspect(reason)}"
+          )
+      end
+    end)
+  end
 end

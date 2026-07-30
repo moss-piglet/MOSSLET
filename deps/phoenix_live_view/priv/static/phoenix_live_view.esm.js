@@ -76,6 +76,7 @@ var PHX_HOOK = "hook";
 var PHX_DEBOUNCE = "debounce";
 var PHX_THROTTLE = "throttle";
 var PHX_UPDATE = "update";
+var PHX_PATCH_FOCUSED = "patch-focused";
 var PHX_STREAM = "stream";
 var PHX_STREAM_REF = "data-phx-stream";
 var PHX_PORTAL = "data-phx-portal";
@@ -113,11 +114,14 @@ var ROOT = "r";
 var COMPONENTS = "c";
 var KEYED = "k";
 var KEYED_COUNT = "kc";
+var KEYED_MOVED = "km";
 var EVENTS = "e";
 var REPLY = "r";
 var TITLE = "t";
 var TEMPLATES = "p";
 var STREAM = "stream";
+var PHX_LV_DIAGNOSTIC_EVENT = "phx:live-view:diagnostic";
+var PHX_LV_DIAGNOSTIC_VERSION = 1;
 
 // js/phoenix_live_view/entry_uploader.js
 var EntryUploader = class {
@@ -165,7 +169,11 @@ var EntryUploader = class {
           e.target.result
         );
       } else {
-        return logError("Read error: " + e.target?.error);
+        return this.entry.view.logError(
+          "upload.read-failed",
+          "Read error: " + e.target?.error,
+          { entry: this.entry, offset: this.offset }
+        );
       }
     };
     reader.readAsArrayBuffer(blob);
@@ -186,8 +194,29 @@ var EntryUploader = class {
   }
 };
 
+// js/phoenix_live_view/diagnostics.ts
+var dispatchDiagnostic = (diagnostic) => {
+  window.dispatchEvent(
+    new CustomEvent(PHX_LV_DIAGNOSTIC_EVENT, {
+      detail: {
+        version: PHX_LV_DIAGNOSTIC_VERSION,
+        ...diagnostic
+      }
+    })
+  );
+};
+var logError = (code, message, metadata, context) => {
+  console.error && console.error(message, metadata);
+  dispatchDiagnostic({
+    level: "error",
+    code,
+    message,
+    metadata,
+    ...context
+  });
+};
+
 // js/phoenix_live_view/utils.ts
-var logError = (msg, obj) => console.error && console.error(msg, obj);
 var ensureSameOrigin = (href, kind) => {
   let url;
   try {
@@ -207,30 +236,41 @@ var isCid = (cid) => {
   const type = typeof cid;
   return type === "number" || type === "string" && /^(0|[1-9]\d*)$/.test(cid);
 };
-function detectDuplicateIds() {
-  const ids = /* @__PURE__ */ new Set();
+function detectDuplicateIds(reportError = logError) {
+  const ids = /* @__PURE__ */ new Map();
   const elems = document.querySelectorAll("*[id]");
   for (let i = 0, len = elems.length; i < len; i++) {
-    if (ids.has(elems[i].id)) {
-      console.error(
-        `Multiple IDs detected: ${elems[i].id}. Ensure unique element ids.`
+    const id = elems[i].id;
+    const existing = ids.get(id);
+    if (existing) {
+      reportError(
+        "dom.duplicate-id",
+        `Multiple IDs detected: ${id}. Ensure unique element ids.`,
+        { id, elements: [existing, elems[i]] },
+        { attribution: "app" }
       );
     } else {
-      ids.add(elems[i].id);
+      ids.set(id, elems[i]);
     }
   }
 }
-function detectInvalidStreamInserts(inserts) {
-  const errors = /* @__PURE__ */ new Set();
+function detectInvalidStreamInserts(inserts, reportError = logError) {
+  const invalidContainers = /* @__PURE__ */ new Set();
   Object.keys(inserts).forEach((id) => {
     const streamEl = document.getElementById(id);
     if (streamEl && streamEl.parentElement && streamEl.parentElement.getAttribute("phx-update") !== "stream") {
-      errors.add(
-        `The stream container with id "${streamEl.parentElement.id}" is missing the phx-update="stream" attribute. Ensure it is set for streams to work properly.`
-      );
+      invalidContainers.add(streamEl.parentElement);
     }
   });
-  errors.forEach((error) => console.error(error));
+  invalidContainers.forEach((container) => {
+    const id = container.id;
+    reportError(
+      "dom.invalid-stream-container",
+      `The stream container with id "${id}" is missing the phx-update="stream" attribute. Ensure it is set for streams to work properly.`,
+      { id, container },
+      { attribution: "app" }
+    );
+  });
 }
 var debug = (view, kind, msg, obj) => {
   if (view.liveSocket.isDebugEnabled()) {
@@ -369,7 +409,12 @@ var browser_default = Browser;
 // js/phoenix_live_view/dom.ts
 var DOM = {
   byId(id) {
-    return document.getElementById(id) || logError(`no id found for ${id}`);
+    return document.getElementById(id) || logError(
+      "dom.element-not-found",
+      `no id found for ${id}`,
+      { id },
+      { attribution: "internal" }
+    );
   },
   elementFromTarget(target) {
     if (!(target instanceof Node)) {
@@ -599,7 +644,12 @@ var DOM = {
         const trigger = () => throttle ? this.deletePrivate(el, THROTTLED) : callback();
         const currentCycle = this.incCycle(el, DEBOUNCE_TRIGGER, trigger);
         if (isNaN(timeout)) {
-          return logError(`invalid throttle/debounce value: ${value}`);
+          return logError(
+            "dom.invalid-debounce",
+            `invalid throttle/debounce value: ${value}`,
+            { el, value },
+            { attribution: "app" }
+          );
         }
         if (throttle) {
           let newKeyDown = false;
@@ -688,10 +738,15 @@ var DOM = {
     if (el.isConnected) {
       el.setAttribute("data-phx-hook", "");
     } else {
-      console.error(`
+      logError(
+        "hook.non-connected-element",
+        `
         hook attached to non-connected DOM element
         ensure you are calling createHook within your connectedCallback. ${el.outerHTML}
-      `);
+      `,
+        { el },
+        { attribution: "app" }
+      );
     }
     this.putPrivate(el, "custom-el-hook", hook);
   },
@@ -749,7 +804,7 @@ var DOM = {
       detail: opts.detail || {}
     };
     const event = name === "click" ? new MouseEvent("click", eventOpts) : new CustomEvent(name, eventOpts);
-    target.dispatchEvent(event);
+    return target.dispatchEvent(event);
   },
   cloneNode(node, html) {
     if (typeof html === "undefined") {
@@ -854,19 +909,22 @@ var DOM = {
   isNowTriggerFormExternal(el, phxTriggerExternal) {
     return el.getAttribute && el.getAttribute(phxTriggerExternal) !== null && document.body.contains(el);
   },
-  cleanChildNodes(container, phxUpdate) {
+  cleanChildNodes(container, phxUpdate, reportError = logError) {
     if (DOM.isPhxUpdate(container, phxUpdate, ["append", "prepend", PHX_STREAM])) {
       const toRemove = [];
       container.childNodes.forEach((childNode) => {
         if (!("id" in childNode) || !childNode.id) {
           const isEmptyTextNode = childNode.nodeType === Node.TEXT_NODE && childNode.nodeValue && childNode.nodeValue.trim() === "";
           if (!isEmptyTextNode && childNode.nodeType !== Node.COMMENT_NODE) {
-            logError(
+            reportError(
+              "dom.invalid-phx-update-child",
               `only HTML element tags with an id are allowed inside containers with phx-update.
 
 removing illegal node: "${("outerHTML" in childNode && childNode.outerHTML || childNode.nodeValue || "").trim()}"
 
-`
+`,
+              { container, childNode, phxUpdate },
+              { attribution: "app" }
             );
           }
           toRemove.push(childNode);
@@ -1055,7 +1113,11 @@ var UploadEntry = class {
   }
   uploader(uploaders) {
     if (this.meta.uploader) {
-      const callback = uploaders[this.meta.uploader] || logError(`no uploader configured for ${this.meta.uploader}`);
+      const callback = uploaders[this.meta.uploader] || this.view.logError(
+        "upload.missing-uploader",
+        `no uploader configured for ${this.meta.uploader}`,
+        { uploader: this.meta.uploader, uploaders }
+      );
       return { name: this.meta.uploader, callback };
     } else {
       return { name: "channel", callback: channelUploader };
@@ -1064,10 +1126,16 @@ var UploadEntry = class {
   zipPostFlight(resp) {
     this.meta = resp.entries[this.ref];
     if (!this.meta) {
-      logError(`no preflight upload response returned with ref ${this.ref}`, {
-        input: this.fileEl,
-        response: resp
-      });
+      this.view.logError(
+        "upload.missing-preflight-response",
+        `no preflight upload response returned with ref ${this.ref}`,
+        {
+          ref: this.ref,
+          input: this.fileEl,
+          response: resp
+        },
+        { attribution: "internal" }
+      );
     }
   }
 };
@@ -2008,6 +2076,7 @@ function morphdomFactory(morphAttrs2) {
       return parent.appendChild(child);
     };
     var childrenOnly = options.childrenOnly === true;
+    var keyedRoot = options.keyedRoot === true;
     var fromNodesLookup = /* @__PURE__ */ Object.create(null);
     var keyedRemovalList = [];
     function addKeyedRemoval(key) {
@@ -2222,6 +2291,31 @@ function morphdomFactory(morphAttrs2) {
         specialElHandler(fromEl, toEl);
       }
     }
+    function cleanupKeyedNodes() {
+      for (var i = 0, len = keyedRemovalList.length; i < len; i++) {
+        var elToRemove = fromNodesLookup[keyedRemovalList[i]];
+        if (elToRemove) {
+          removeNode(elToRemove, elToRemove.parentNode, false);
+        }
+      }
+    }
+    if (keyedRoot && !childrenOnly) {
+      var fromNodeKey = getNodeKey(fromNode);
+      var toNodeKey = getNodeKey(toNode);
+      if ((fromNodeKey || toNodeKey) && fromNodeKey !== toNodeKey) {
+        if (toNode.actualize) {
+          toNode = toNode.actualize(fromNode.ownerDocument || doc);
+        }
+        onNodeDiscarded(fromNode);
+        if (fromNode.parentNode) {
+          fromNode.parentNode.replaceChild(toNode, fromNode);
+        }
+        handleNodeAdded(toNode);
+        walkDiscardedChildNodes(fromNode, false);
+        cleanupKeyedNodes();
+        return toNode;
+      }
+    }
     var morphedNode = fromNode;
     var morphedNodeType = morphedNode.nodeType;
     var toNodeType = toNode.nodeType;
@@ -2253,14 +2347,7 @@ function morphdomFactory(morphAttrs2) {
         return;
       }
       morphEl(morphedNode, toNode, childrenOnly);
-      if (keyedRemovalList) {
-        for (var i = 0, len = keyedRemovalList.length; i < len; i++) {
-          var elToRemove = fromNodesLookup[keyedRemovalList[i]];
-          if (elToRemove) {
-            removeNode(elToRemove, elToRemove.parentNode, false);
-          }
-        }
-      }
+      cleanupKeyedNodes();
     }
     if (!childrenOnly && morphedNode !== fromNode && fromNode.parentNode) {
       if (morphedNode.actualize) {
@@ -2328,6 +2415,7 @@ var DOMPatch = class {
   }
   perform(isJoinPatch) {
     const { view, liveSocket, html, container } = this;
+    const reportError = (code, message, metadata, context) => view.logError(code, message, metadata, context);
     let targetContainer = this.targetContainer;
     if (this.targetCID) {
       const closestLock = targetContainer.closest(`[${PHX_REF_LOCK}]`);
@@ -2348,6 +2436,7 @@ var DOMPatch = class {
     const phxViewportTop = liveSocket.binding(PHX_VIEWPORT_TOP);
     const phxViewportBottom = liveSocket.binding(PHX_VIEWPORT_BOTTOM);
     const phxTriggerExternal = liveSocket.binding(PHX_TRIGGER_ACTION);
+    const phxPatchFocused = liveSocket.binding(PHX_PATCH_FOCUSED);
     const added = [];
     const updates = [];
     const appendPrependUpdates = [];
@@ -2360,6 +2449,7 @@ var DOMPatch = class {
         // when we are patching a live component, we do want to patch the root element as well;
         // another case is the recursive patch of a stream item that was kept on reset (-> onBeforeNodeAdded)
         childrenOnly: targetContainer2.getAttribute(PHX_COMPONENT) === null && !withChildren,
+        keyedRoot: targetContainer2.getAttribute(PHX_COMPONENT) != null,
         getNodeKey: (node) => {
           if (!(node instanceof Element))
             return null;
@@ -2487,11 +2577,6 @@ var DOMPatch = class {
           this.maybeReOrderStream(el, false);
         },
         onBeforeElUpdated: (fromEl, toEl) => {
-          if (fromEl.id && fromEl.isSameNode(targetContainer2) && fromEl.id !== toEl.id) {
-            morphCallbacks.onNodeDiscarded(fromEl);
-            fromEl.replaceWith(toEl);
-            return morphCallbacks.onNodeAdded(toEl);
-          }
           dom_default.syncPendingAttrs(fromEl, toEl);
           dom_default.maintainPrivateHooks(
             fromEl,
@@ -2499,7 +2584,7 @@ var DOMPatch = class {
             phxViewportTop,
             phxViewportBottom
           );
-          dom_default.cleanChildNodes(toEl, phxUpdate);
+          dom_default.cleanChildNodes(toEl, phxUpdate, reportError);
           const isFocusedFormEl = focused && fromEl.isSameNode(focused) && dom_default.isEditableInput(fromEl);
           const focusedSelectChanged = isFocusedFormEl && this.isChangedSelect(fromEl, toEl);
           if (this.skipCIDSibling(toEl)) {
@@ -2550,7 +2635,7 @@ var DOMPatch = class {
             fromEl.content.replaceChildren(toEl.content.cloneNode(true));
             return false;
           }
-          if (isFocusedFormEl && fromEl.type !== "hidden" && !focusedSelectChanged) {
+          if (isFocusedFormEl && fromEl.type !== "hidden" && !focusedSelectChanged && !toEl.hasAttribute(phxPatchFocused)) {
             this.trackBeforeUpdated(fromEl, toEl);
             dom_default.mergeFocusedInput(fromEl, toEl);
             dom_default.syncAttrsToProps(fromEl);
@@ -2628,14 +2713,15 @@ var DOMPatch = class {
       });
     });
     if (liveSocket.isDebugEnabled()) {
-      detectDuplicateIds();
-      detectInvalidStreamInserts(this.streamInserts);
+      detectDuplicateIds(reportError);
+      detectInvalidStreamInserts(this.streamInserts, reportError);
       Array.from(document.querySelectorAll("input[name=id]")).forEach(
         (node) => {
           if (node instanceof HTMLInputElement && node.form) {
-            console.error(
+            reportError(
+              "dom.form-input-name-id",
               'Detected an input with name="id" inside a form! This will cause problems when patching the DOM.\n',
-              node
+              { el: node }
             );
           }
         }
@@ -3119,9 +3205,9 @@ var Rendered = class {
   }
   // keyed comprehensions
   mergeKeyed(target, source) {
-    const clonedTarget = this.clone(target);
+    const clonedTarget = source[KEYED][KEYED_MOVED] && this.clone(target);
     Object.entries(source[KEYED]).forEach(([i, entry]) => {
-      if (i === KEYED_COUNT) {
+      if (i === KEYED_COUNT || i === KEYED_MOVED) {
         return;
       }
       if (Array.isArray(entry)) {
@@ -3313,21 +3399,36 @@ var Rendered = class {
     }
   }
   recursiveCIDToString(components, cid, onlyCids) {
-    const component = components[cid] || logError(`no component for CID ${cid}`, components);
-    const attrs = { [PHX_COMPONENT]: cid, [PHX_VIEW_REF]: this.viewId };
-    const skip = onlyCids && !onlyCids.has(cid);
-    component.newRender = !skip;
-    component.magicId = `c${cid}-${this.parentViewId()}`;
-    const changeTracking = !component.reset;
-    const { buffer: html, streams } = this.recursiveToString(
-      component,
-      components,
-      onlyCids,
-      changeTracking,
-      attrs
-    );
-    delete component.reset;
-    return { buffer: html, streams };
+    if (components[cid]) {
+      const component = components[cid];
+      const attrs = { [PHX_COMPONENT]: cid, [PHX_VIEW_REF]: this.viewId };
+      const skip = onlyCids && !onlyCids.has(cid);
+      component.newRender = !skip;
+      component.magicId = `c${cid}-${this.parentViewId()}`;
+      const changeTracking = !component.reset;
+      const { buffer: html, streams } = this.recursiveToString(
+        component,
+        components,
+        onlyCids,
+        changeTracking,
+        attrs
+      );
+      delete component.reset;
+      return { buffer: html, streams };
+    } else {
+      logError(
+        "render.missing-component",
+        `no component for CID ${cid}`,
+        {
+          cid,
+          components
+        },
+        { viewId: this.viewId, attribution: "internal" }
+      );
+      throw new Error(
+        "Cannot continue render due to missing component: " + cid
+      );
+    }
   }
 };
 
@@ -4205,7 +4306,8 @@ var View = class _View {
     this.el = el;
     const boundView = dom_default.private(this.el, "view");
     if (boundView !== void 0 && boundView.isDead !== true) {
-      logError(
+      this.logError(
+        "view.duplicate-binding",
         `The DOM element for this view has already been bound to a view.
 
         An element can only ever be associated with a single view!
@@ -4213,7 +4315,8 @@ var View = class _View {
         This could happen if you're accidentally trying to render your root layout more than once.
         Ensure that the template set on the LiveView is different than the root layout.
       `,
-        { view: boundView }
+        { view: boundView },
+        { attribution: "app" }
       );
       throw new Error("Cannot bind multiple views to the same DOM element.");
     }
@@ -4310,7 +4413,13 @@ var View = class _View {
       }
     };
     dom_default.markPhxChildDestroyed(this.el);
-    this.log("destroyed", () => ["the child has been removed from the parent"]);
+    this.log(
+      "destroyed",
+      () => ["the child has been removed from the parent"],
+      {
+        code: "view.child-destroyed"
+      }
+    );
     this.channel.leave().receive("ok", onFinished).receive("error", onFinished).receive("timeout", onFinished);
   }
   setContainerClasses(...classes) {
@@ -4352,8 +4461,14 @@ var View = class _View {
       this.viewHooks[id].__reconnected();
     }
   }
-  log(kind, msgCallback) {
-    this.liveSocket.log(this, kind, msgCallback);
+  log(kind, msgCallback, diagnostic) {
+    this.liveSocket.log(this, kind, msgCallback, diagnostic);
+  }
+  logError(code, message, metadata, context = { attribution: "unknown" }) {
+    logError(code, message, metadata, {
+      viewId: this.id ?? this.el.id,
+      ...context
+    });
   }
   transition(time, onStart, onDone = function() {
   }) {
@@ -4375,7 +4490,11 @@ var View = class _View {
     if (isCid(phxTarget)) {
       const target = dom_default.findComponent(this.id, phxTarget, dom);
       if (!target) {
-        logError(`no component found matching phx-target of ${phxTarget}`);
+        this.logError(
+          "event.missing-component-target",
+          `no component found matching phx-target of ${phxTarget}`,
+          { target: phxTarget }
+        );
       } else {
         callback(
           this,
@@ -4385,8 +4504,11 @@ var View = class _View {
     } else {
       const targets = Array.from(dom.querySelectorAll(phxTarget));
       if (targets.length === 0) {
-        logError(
-          `nothing found matching the phx-target selector "${phxTarget}"`
+        this.logError(
+          "event.missing-selector-target",
+          `nothing found matching the phx-target selector "${phxTarget}"`,
+          { target: phxTarget },
+          { attribution: "app" }
         );
       }
       targets.forEach(
@@ -4395,7 +4517,11 @@ var View = class _View {
     }
   }
   applyDiff(type, rawDiff, callback) {
-    this.log(type, () => ["", clone(rawDiff)]);
+    const clonedDiff = clone(rawDiff);
+    this.log(type, () => ["received diff", clonedDiff], {
+      code: `view.diff-${type}`,
+      metadata: () => ({ diff: clonedDiff })
+    });
     const { diff, reply, events, title } = Rendered.extract(rawDiff);
     const ev = events.reduce(
       (acc, args) => {
@@ -4849,7 +4975,12 @@ var View = class _View {
       if (ViewHook.deadHook(el)) {
         return;
       }
-      const hook = dom_default.getCustomElHook(el) || logError(`no hook found for custom element: ${el.id}`);
+      const hook = dom_default.getCustomElHook(el) || this.logError(
+        "hook.custom-element-missing-hook",
+        `no hook found for custom element: ${el.id}`,
+        { el },
+        { attribution: "app" }
+      );
       this.viewHooks[hookElId] = hook;
       hook.__attachView(this);
       return hook;
@@ -4863,9 +4994,11 @@ var View = class _View {
       const hookDefinition = this.liveSocket.getHookDefinition(hookName);
       if (hookDefinition) {
         if (!el.id) {
-          logError(
+          this.logError(
+            "hook.missing-id",
             `no DOM ID for hook "${hookName}". Hooks require a unique ID on each element.`,
-            el
+            { el, hookName },
+            { attribution: "app" }
           );
           return;
         }
@@ -4876,21 +5009,36 @@ var View = class _View {
           } else if (typeof hookDefinition === "object" && hookDefinition !== null) {
             hookInstance = new ViewHook(this, el, hookDefinition);
           } else {
-            logError(
+            this.logError(
+              "hook.invalid-definition",
               `Invalid hook definition for "${hookName}". Expected a class extending ViewHook or an object definition.`,
-              el
+              { el, hookName },
+              { attribution: "app" }
             );
             return;
           }
         } catch (e) {
           const errorMessage = e instanceof Error ? e.message : String(e);
-          logError(`Failed to create hook "${hookName}": ${errorMessage}`, el);
+          this.logError(
+            "hook.creation-failed",
+            `Failed to create hook "${hookName}": ${errorMessage}`,
+            { el, hookName, error: e },
+            { attribution: "app" }
+          );
           return;
         }
         this.viewHooks[ViewHook.elementID(hookInstance.el)] = hookInstance;
         return hookInstance;
       } else if (hookName !== null) {
-        logError(`unknown hook found for "${hookName}"`, el);
+        this.logError(
+          "hook.unknown",
+          `unknown hook found for "${hookName}"`,
+          {
+            el,
+            hookName
+          },
+          { attribution: "app" }
+        );
       }
     }
   }
@@ -5001,20 +5149,38 @@ var View = class _View {
       this.liveSocket.dispatchEvents(resp.events);
     }
     if (resp.reason === "reload") {
-      this.log("error", () => [
-        `failed mount with ${resp.status}. Falling back to page reload`,
-        resp
-      ]);
+      this.log(
+        "error",
+        () => [
+          `failed mount with ${resp.status}. Falling back to page reload`,
+          resp
+        ],
+        {
+          code: "view.mount-reload",
+          level: "error",
+          metadata: () => ({ status: resp.status }),
+          context: { attribution: "app" }
+        }
+      );
       this.onRedirect({
         to: this.liveSocket.main.href,
         reloadToken: resp.token
       });
       return;
     } else if (resp.reason === "unauthorized" || resp.reason === "stale") {
-      this.log("error", () => [
-        "unauthorized live_redirect. Falling back to page request",
-        resp
-      ]);
+      this.log(
+        "error",
+        () => [
+          "unauthorized live_redirect. Falling back to page request",
+          resp
+        ],
+        {
+          code: "view.unauthorized-live-redirect",
+          level: "error",
+          metadata: () => ({ reason: resp.reason }),
+          context: { attribution: "app" }
+        }
+      );
       this.onRedirect({ to: this.liveSocket.main.href, flash: this.flash });
       return;
     }
@@ -5028,7 +5194,18 @@ var View = class _View {
     if (resp.live_redirect) {
       return this.onLiveRedirect(resp.live_redirect);
     }
-    this.log("error", () => ["unable to join", resp]);
+    const timedOut = resp.reason === "timeout";
+    const attribution = timedOut || resp.source === "transport" ? "network" : "app";
+    this.log(
+      "error",
+      () => [timedOut ? "join timed out" : "unable to join", resp],
+      {
+        code: timedOut ? "view.join-timeout" : "view.join-failed",
+        level: "error",
+        metadata: () => timedOut ? { error: resp } : { response: resp },
+        context: { attribution }
+      }
+    );
     if (this.isMain()) {
       this.displayError(
         [PHX_LOADING_CLASS, PHX_ERROR_CLASS, PHX_SERVER_ERROR_CLASS],
@@ -5043,10 +5220,21 @@ var View = class _View {
           [PHX_LOADING_CLASS, PHX_ERROR_CLASS, PHX_SERVER_ERROR_CLASS],
           { unstructuredError: resp, errorKind: "server" }
         );
-        this.log("error", () => [
-          `giving up trying to mount after ${MAX_CHILD_JOIN_ATTEMPTS} tries`,
-          resp
-        ]);
+        this.log(
+          "error",
+          () => [
+            `giving up trying to mount after ${MAX_CHILD_JOIN_ATTEMPTS} tries`,
+            resp
+          ],
+          {
+            code: "view.mount-attempts-exhausted",
+            level: "error",
+            metadata: () => ({
+              attempts: MAX_CHILD_JOIN_ATTEMPTS,
+              response: resp
+            })
+          }
+        );
         this.destroy();
       }
       const trueChildEl = dom_default.byId(this.el.id);
@@ -5078,7 +5266,12 @@ var View = class _View {
   onError(reason) {
     this.onClose(reason);
     if (this.liveSocket.isConnected()) {
-      this.log("error", () => ["view crashed", reason]);
+      this.log("error", () => ["view crashed", reason], {
+        code: "view.crashed",
+        level: "error",
+        metadata: () => ({ reason }),
+        context: { attribution: "app" }
+      });
     }
     if (!this.liveSocket.isUnloaded()) {
       if (this.liveSocket.isConnected()) {
@@ -5127,7 +5320,11 @@ var View = class _View {
   }
   pushWithReply(refGenerator, event, payload) {
     if (!this.isConnected()) {
-      return Promise.reject(new Error("no connection"));
+      return Promise.resolve({
+        type: "error",
+        error: "no connection",
+        context: { attribution: "network" }
+      });
     }
     const [ref, [el], opts] = refGenerator ? refGenerator({ payload }) : [null, [], {}];
     const oldJoinCount = this.joinCount;
@@ -5142,7 +5339,7 @@ var View = class _View {
     if (typeof payload.cid !== "number") {
       delete payload.cid;
     }
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       this.wrapPush(() => this.channel.push(event, payload, PUSH_TIMEOUT), {
         ok: (resp) => {
           if (ref !== null) {
@@ -5159,7 +5356,7 @@ var View = class _View {
               this.onLiveRedirect(resp.live_redirect);
             }
             onLoadingDone();
-            resolve({ resp, reply: hookReply, ref });
+            resolve({ type: "ok", resp, reply: hookReply, ref });
           };
           if (resp.diff) {
             this.liveSocket.requestDOMUpdate(() => {
@@ -5178,14 +5375,34 @@ var View = class _View {
             finish(null);
           }
         },
-        error: (reason) => reject(new Error(`failed with reason: ${JSON.stringify(reason)}`)),
+        error: (reason) => {
+          resolve({
+            type: "error",
+            error: `failed with reason: ${JSON.stringify(reason)}`,
+            context: {
+              attribution: "app"
+            }
+          });
+        },
         timeout: () => {
-          reject(new Error("timeout"));
+          resolve({
+            type: "error",
+            error: "push timeout",
+            context: { attribution: "network" }
+          });
           if (this.joinCount === oldJoinCount) {
             this.liveSocket.reloadWithJitter(this, () => {
-              this.log("timeout", () => [
-                "received timeout while communicating with server. Falling back to hard refresh for recovery"
-              ]);
+              this.log(
+                "timeout",
+                () => [
+                  "received timeout while communicating with server. Falling back to hard refresh for recovery"
+                ],
+                {
+                  code: "view.push-timeout-recovery",
+                  level: "error",
+                  context: { attribution: "network" }
+                }
+              );
             });
           }
         }
@@ -5306,7 +5523,7 @@ var View = class _View {
             lockEl.setAttribute(PHX_REF_LOCK, newRef);
             lockEl.setAttribute(PHX_REF_SRC, this.refSrc());
             lockEl.addEventListener(
-              `phx:lock-stop:${newRef}`,
+              `phx:undo-lock:${newRef}`,
               () => resolve(detail),
               { once: true }
             );
@@ -5386,11 +5603,18 @@ var View = class _View {
   }
   pushHookEvent(el, targetCtx, event, payload) {
     if (!this.isConnected()) {
-      this.log("hook", () => [
-        "unable to push hook event. LiveView not connected",
-        event,
-        payload
-      ]);
+      this.log(
+        "hook",
+        () => [
+          "unable to push hook event. LiveView not connected",
+          { event, payload }
+        ],
+        {
+          code: "hook.push-disconnected",
+          metadata: () => ({ event, payload }),
+          context: { attribution: "network" }
+        }
+      );
       return Promise.reject(
         new Error("unable to push hook event. LiveView not connected")
       );
@@ -5404,9 +5628,12 @@ var View = class _View {
       event,
       value: payload,
       cid: this.closestComponentID(targetCtx)
-    }).then(
-      ({ resp: _resp, reply, ref }) => ({ reply, ref })
-    );
+    }).then((result) => {
+      if (result.type === "error") {
+        throw new Error("Failed to push hook event: " + result.error);
+      }
+      return { reply: result.reply, ref: result.ref };
+    });
   }
   extractMeta(el, meta, value) {
     const prefix = this.binding("value-");
@@ -5523,7 +5750,23 @@ var View = class _View {
         value: this.extractMeta(el, meta, opts.value),
         cid: this.targetComponentID(el, targetCtx, opts)
       }
-    ).then(({ reply }) => onReply && onReply(reply)).catch((error) => logError("Failed to push event", error));
+    ).then((result) => {
+      if (result.type === "ok") {
+        onReply && onReply(result.reply);
+      } else {
+        this.logError(
+          "event.push-failed",
+          "Failed to push event",
+          {
+            error: result.error,
+            type,
+            phxEvent,
+            el
+          },
+          result.context
+        );
+      }
+    });
   }
   pushFileProgress(fileEl, entryRef, progress, onReply = function() {
   }) {
@@ -5534,7 +5777,18 @@ var View = class _View {
         entry_ref: entryRef,
         progress,
         cid: view.targetComponentID(fileEl.form, targetCtx)
-      }).then(() => onReply()).catch((error) => logError("Failed to push file progress", error));
+      }).then((result) => {
+        if (result.type === "ok") {
+          onReply();
+        } else {
+          view.logError(
+            "upload.progress-push-failed",
+            "Failed to push file progress",
+            { error: result.error, fileEl, entryRef, progress },
+            result.context
+          );
+        }
+      });
     });
   }
   pushInput(inputEl, targetCtx, forceCid, phxEvent, opts, callback) {
@@ -5586,30 +5840,43 @@ var View = class _View {
       uploads,
       cid
     };
-    this.pushWithReply(refGenerator, "event", event).then(({ resp }) => {
-      if (dom_default.isUploadInput(inputEl) && dom_default.isAutoUpload(inputEl)) {
-        ElementRef.onUnlock(inputEl, () => {
-          if (LiveUploader.filesAwaitingPreflight(inputEl).length > 0) {
-            const [ref, _els] = refGenerator();
-            this.undoRefs(ref, phxEvent, [inputEl.form]);
-            this.uploadFiles(
-              inputEl.form,
-              phxEvent,
-              targetCtx,
-              ref,
-              cid,
-              (_uploads) => {
-                callback && callback(resp);
-                this.triggerAwaitingSubmit(inputEl.form, phxEvent);
-                this.undoRefs(ref, phxEvent);
-              }
-            );
-          }
-        });
+    this.pushWithReply(refGenerator, "event", event).then((result) => {
+      if (result.type === "ok") {
+        if (dom_default.isUploadInput(inputEl) && dom_default.isAutoUpload(inputEl)) {
+          ElementRef.onUnlock(inputEl, () => {
+            if (LiveUploader.filesAwaitingPreflight(inputEl).length > 0) {
+              const [ref, _els] = refGenerator();
+              this.undoRefs(ref, phxEvent, [inputEl.form]);
+              this.uploadFiles(
+                inputEl.form,
+                phxEvent,
+                targetCtx,
+                ref,
+                cid,
+                (_uploads) => {
+                  callback && callback(result.resp);
+                  this.triggerAwaitingSubmit(inputEl.form, phxEvent);
+                  this.undoRefs(ref, phxEvent);
+                }
+              );
+            }
+          });
+        } else {
+          callback && callback(result.resp);
+        }
       } else {
-        callback && callback(resp);
+        this.logError(
+          "event.input-push-failed",
+          "Failed to push input event",
+          {
+            error: result.error,
+            inputEl,
+            phxEvent
+          },
+          result.context
+        );
       }
-    }).catch((error) => logError("Failed to push input event", error));
+    });
   }
   triggerAwaitingSubmit(formEl, phxEvent) {
     const awaitingSubmit = this.getScheduledSubmit(formEl);
@@ -5716,7 +5983,22 @@ var View = class _View {
           value: formData,
           meta,
           cid
-        }).then(({ resp }) => onReply(resp)).catch((error) => logError("Failed to push form submit", error));
+        }).then((result) => {
+          if (result.type === "ok") {
+            onReply(result.resp);
+          } else {
+            this.logError(
+              "event.submit-push-failed",
+              "Failed to push form submit",
+              {
+                error: result.error,
+                phxEvent,
+                formEl
+              },
+              result.context
+            );
+          }
+        });
       });
     } else if (!(formEl.hasAttribute(PHX_REF_SRC) && formEl.classList.contains("phx-submit-loading"))) {
       const meta = this.extractMeta(formEl, {}, opts.value);
@@ -5727,7 +6009,22 @@ var View = class _View {
         value: formData,
         meta,
         cid
-      }).then(({ resp }) => onReply(resp)).catch((error) => logError("Failed to push form submit", error));
+      }).then((result) => {
+        if (result.type === "ok") {
+          onReply(result.resp);
+        } else {
+          this.logError(
+            "event.submit-push-failed",
+            "Failed to push form submit",
+            {
+              error: result.error,
+              phxEvent,
+              formEl
+            },
+            result.context
+          );
+        }
+      });
     }
   }
   uploadFiles(formEl, phxEvent, targetCtx, ref, cid, onComplete) {
@@ -5751,35 +6048,54 @@ var View = class _View {
         entries,
         cid: this.targetComponentID(inputEl.form, targetCtx)
       };
-      this.log("upload", () => ["sending preflight request", payload]);
-      this.pushWithReply(null, "allow_upload", payload).then(({ resp }) => {
-        this.log("upload", () => ["got preflight response", resp]);
-        uploader.entries().forEach((entry) => {
-          if (resp.entries && !resp.entries[entry.ref]) {
-            this.handleFailedEntryPreflight(
-              entry.ref,
-              "failed preflight",
-              uploader
-            );
-          }
-        });
-        if (resp.error || Object.keys(resp.entries).length === 0) {
-          this.undoRefs(ref, phxEvent);
-          const errors = resp.error || [];
-          errors.map(([entry_ref, reason]) => {
-            this.handleFailedEntryPreflight(entry_ref, reason, uploader);
+      this.log("upload", () => ["sending preflight request", payload], {
+        code: "upload.preflight-request",
+        metadata: () => ({ payload })
+      });
+      this.pushWithReply(null, "allow_upload", payload).then((result) => {
+        if (result.type === "ok") {
+          this.log("upload", () => ["got preflight response", result.resp], {
+            code: "upload.preflight-response",
+            metadata: () => ({ response: result.resp })
           });
-        } else {
-          const onError = (callback) => {
-            this.channel.onError(() => {
-              if (this.joinCount === joinCountAtUpload) {
-                callback();
-              }
+          uploader.entries().forEach((entry) => {
+            if (result.resp.entries && !result.resp.entries[entry.ref]) {
+              this.handleFailedEntryPreflight(
+                entry.ref,
+                "failed preflight",
+                uploader
+              );
+            }
+          });
+          if (result.resp.error || Object.keys(result.resp.entries).length === 0) {
+            this.undoRefs(ref, phxEvent);
+            const errors = result.resp.error || [];
+            errors.map(([entry_ref, reason]) => {
+              this.handleFailedEntryPreflight(entry_ref, reason, uploader);
             });
-          };
-          uploader.initAdapterUpload(resp, onError, this.liveSocket);
+          } else {
+            const onError = (callback) => {
+              this.channel.onError(() => {
+                if (this.joinCount === joinCountAtUpload) {
+                  callback();
+                }
+              });
+            };
+            uploader.initAdapterUpload(result.resp, onError, this.liveSocket);
+          }
+        } else {
+          this.logError(
+            "upload.push-failed",
+            "Failed to push upload",
+            {
+              error: result.error,
+              phxEvent,
+              formEl
+            },
+            result.context
+          );
         }
-      }).catch((error) => logError("Failed to push upload", error));
+      });
     });
   }
   handleFailedEntryPreflight(uploadRef, reason, uploader) {
@@ -5791,7 +6107,10 @@ var View = class _View {
     } else {
       uploader.entries().map((entry) => entry.cancel());
     }
-    this.log("upload", () => [`error for entry ${uploadRef}`, reason]);
+    this.log("upload", () => [`error for entry ${uploadRef}`, reason], {
+      code: "upload.preflight-rejected",
+      metadata: () => ({ uploadRef, reason })
+    });
   }
   dispatchUploads(targetCtx, name, filesOrBlobs) {
     const targetElement = this.targetCtxElement(targetCtx) || this.el;
@@ -5799,9 +6118,19 @@ var View = class _View {
       (el) => el.name === name
     );
     if (inputs.length === 0) {
-      logError(`no live file inputs found matching the name "${name}"`);
+      this.logError(
+        "upload.input-not-found",
+        `no live file inputs found matching the name "${name}"`,
+        { name },
+        { attribution: "app" }
+      );
     } else if (inputs.length > 1) {
-      logError(`duplicate live file inputs found matching the name "${name}"`);
+      this.logError(
+        "upload.duplicate-input",
+        `duplicate live file inputs found matching the name "${name}"`,
+        { name, inputs },
+        { attribution: "app" }
+      );
     } else {
       dom_default.dispatchEvent(inputs[0], PHX_TRACK_UPLOADS, {
         detail: { files: filesOrBlobs }
@@ -5871,12 +6200,12 @@ var View = class _View {
     ) : null;
     const fallback = () => this.liveSocket.redirect(window.location.href, null, null);
     const url = href.startsWith("/") ? `${location.protocol}//${location.host}${href}` : href;
-    this.pushWithReply(refGen, "live_patch", { url }).then(
-      ({ resp }) => {
+    this.pushWithReply(refGen, "live_patch", { url }).then((result) => {
+      if (result.type === "ok") {
         this.liveSocket.requestDOMUpdate(() => {
-          if (resp.link_redirect) {
+          if (result.resp.link_redirect) {
             this.liveSocket.replaceMain(href, null, callback, linkRef);
-          } else if (resp.redirect) {
+          } else if (result.resp.redirect) {
             return;
           } else {
             if (this.liveSocket.commitPendingLink(linkRef)) {
@@ -5886,9 +6215,10 @@ var View = class _View {
             callback && callback(linkRef);
           }
         });
-      },
-      ({ error: _error, timeout: _timeout }) => fallback()
-    );
+      } else {
+        fallback();
+      }
+    });
   }
   getFormsForRecovery() {
     if (this.joinCount === 0) {
@@ -5932,27 +6262,42 @@ var View = class _View {
     let willDestroyCIDs = destroyedCIDs.filter((cid) => {
       return dom_default.findComponent(this.id, cid) === null;
     });
-    const onError = (error) => {
+    const onError = (result, cids) => {
       if (!this.isDestroyed()) {
-        logError("Failed to push components destroyed", error);
+        this.logError(
+          "component.destroy-push-failed",
+          "Failed to push components destroyed",
+          { error: result.error, cids },
+          result.context
+        );
       }
     };
     if (willDestroyCIDs.length > 0) {
       willDestroyCIDs.forEach((cid) => this.rendered.resetRender(cid));
-      this.pushWithReply(null, "cids_will_destroy", { cids: willDestroyCIDs }).then(() => {
-        this.liveSocket.requestDOMUpdate(() => {
-          let completelyDestroyCIDs = willDestroyCIDs.filter((cid) => {
-            return dom_default.findComponent(this.id, cid) === null;
+      this.pushWithReply(null, "cids_will_destroy", {
+        cids: willDestroyCIDs
+      }).then((result) => {
+        if (result.type === "ok") {
+          this.liveSocket.requestDOMUpdate(() => {
+            let completelyDestroyCIDs = willDestroyCIDs.filter((cid) => {
+              return dom_default.findComponent(this.id, cid) === null;
+            });
+            if (completelyDestroyCIDs.length > 0) {
+              this.pushWithReply(null, "cids_destroyed", {
+                cids: completelyDestroyCIDs
+              }).then((result2) => {
+                if (result2.type === "ok") {
+                  this.rendered.pruneCIDs(result2.resp.cids);
+                } else {
+                  onError(result2, completelyDestroyCIDs);
+                }
+              });
+            }
           });
-          if (completelyDestroyCIDs.length > 0) {
-            this.pushWithReply(null, "cids_destroyed", {
-              cids: completelyDestroyCIDs
-            }).then(({ resp }) => {
-              this.rendered.pruneCIDs(resp.cids);
-            }).catch(onError);
-          }
-        });
-      }).catch(onError);
+        } else {
+          onError(result, willDestroyCIDs);
+        }
+      });
     }
   }
   ownsElement(el) {
@@ -6065,7 +6410,7 @@ var LiveSocket = class {
    * Returns the version of the LiveView client.
    */
   version() {
-    return "1.2.7";
+    return "1.2.8";
   }
   /**
    * Returns true if profiling is enabled. See {@link enableProfiling} and {@link disableProfiling}.
@@ -6150,7 +6495,8 @@ var LiveSocket = class {
    * Connects to the LiveView server.
    */
   connect() {
-    if (window.location.hostname === "localhost" && !this.isDebugDisabled()) {
+    const host = window.location.hostname.toLowerCase();
+    if ((host === "localhost" || host.endsWith(".localhost")) && !this.isDebugDisabled()) {
       this.enableDebug();
     }
     const doConnect = () => {
@@ -6215,7 +6561,9 @@ var LiveSocket = class {
       return;
     }
     if (this.main && this.isConnected()) {
-      this.log(this.main, "socket", () => ["disconnect for page nav"]);
+      this.log(this.main, "socket", () => ["disconnect for page nav"], {
+        code: "socket.page-navigation-disconnect"
+      });
     }
     this.unloaded = true;
     this.destroyAllViews();
@@ -6236,13 +6584,28 @@ var LiveSocket = class {
     return result;
   }
   /** @internal */
-  log(view, kind, msgCallback) {
+  log(view, kind, msgCallback, diagnostic) {
+    const debugEnabled = this.isDebugEnabled();
+    const level = diagnostic?.level ?? "debug";
+    const emitDiagnostic = !!diagnostic && (level !== "debug" || debugEnabled);
+    if (!this.viewLogger && !debugEnabled && !emitDiagnostic) {
+      return;
+    }
+    const [message, obj] = msgCallback();
     if (this.viewLogger) {
-      const [msg, obj] = msgCallback();
-      this.viewLogger(view, kind, msg, obj);
-    } else if (this.isDebugEnabled()) {
-      const [msg, obj] = msgCallback();
-      debug(view, kind, msg, obj);
+      this.viewLogger(view, kind, message, obj);
+    } else if (debugEnabled) {
+      debug(view, kind, message, obj);
+    }
+    if (emitDiagnostic && diagnostic) {
+      dispatchDiagnostic({
+        level,
+        code: diagnostic.code,
+        message,
+        viewId: view.id,
+        metadata: diagnostic.metadata?.(),
+        ...diagnostic.context || { attribution: "unknown" }
+      });
     }
   }
   /** @internal */
@@ -6291,13 +6654,28 @@ var LiveSocket = class {
         return;
       }
       view.destroy();
-      log ? log() : this.log(view, "join", () => [
-        `encountered ${tries} consecutive reloads`
-      ]);
+      log ? log() : this.log(
+        view,
+        "join",
+        () => [`encountered ${tries} consecutive reloads`],
+        {
+          code: "view.reload-attempts",
+          metadata: () => ({ tries })
+        }
+      );
       if (tries >= this.maxReloads) {
-        this.log(view, "join", () => [
-          `exceeded ${this.maxReloads} consecutive reloads. Entering failsafe mode`
-        ]);
+        this.log(
+          view,
+          "join",
+          () => [
+            `exceeded ${this.maxReloads} consecutive reloads. Entering failsafe mode`
+          ],
+          {
+            code: "view.reload-failsafe",
+            level: "error",
+            metadata: () => ({ tries, maxReloads: this.maxReloads })
+          }
+        );
       }
       if (this.pendingLink !== null) {
         window.location.href = this.pendingLink;
@@ -6327,7 +6705,15 @@ var LiveSocket = class {
     }
     let callbacks = window[`phx_hook_${name}`];
     if (!callbacks || typeof callbacks !== "function") {
-      logError("a runtime hook must be a function", runtimeHook);
+      logError(
+        "hook.runtime-not-function",
+        "a runtime hook must be a function",
+        {
+          runtimeHook,
+          name
+        },
+        { attribution: "app" }
+      );
       return;
     }
     const hookDefiniton = callbacks();
@@ -6335,8 +6721,10 @@ var LiveSocket = class {
       return hookDefiniton;
     }
     logError(
+      "hook.runtime-invalid-return",
       "runtime hook must return an object with hook callbacks or an instance of ViewHook",
-      runtimeHook
+      { runtimeHook, name },
+      { attribution: "app" }
     );
   }
   /** @internal */
@@ -6543,15 +6931,17 @@ var LiveSocket = class {
   }
   /** @internal */
   bindTopLevelEvents({ dead } = {}) {
+    if (this.serverCloseRef === null) {
+      this.serverCloseRef = this.socket.onClose((event) => {
+        if (event && event.code === 1e3 && this.main) {
+          return this.reloadWithJitter(this.main);
+        }
+      });
+    }
     if (this.boundTopLevelEvents) {
       return;
     }
     this.boundTopLevelEvents = true;
-    this.serverCloseRef = this.socket.onClose((event) => {
-      if (event && event.code === 1e3 && this.main) {
-        return this.reloadWithJitter(this.main);
-      }
-    });
     document.body.addEventListener("click", function() {
     });
     window.addEventListener(
@@ -6848,26 +7238,35 @@ var LiveSocket = class {
     window.addEventListener(
       "popstate",
       (event) => {
-        if (!this.registerNewLocation(window.location)) {
+        if (!this.isNewLocation(window.location)) {
           return;
         }
         const { type, backType, id, scroll, position } = event.state || {};
         const href = window.location.href;
         const isForward = position > this.currentHistoryPosition;
         const navType = isForward ? type : backType || type;
+        const direction = isForward ? "forward" : "backward";
+        const detail = {
+          href,
+          patch: navType === "patch",
+          pop: true,
+          direction
+        };
+        if (!this.dispatchBeforeNavigate(detail)) {
+          if (isForward) {
+            history.back();
+          } else {
+            history.forward();
+          }
+          return;
+        }
+        this.registerNewLocation(window.location);
         this.currentHistoryPosition = position || 0;
         this.sessionStorage.setItem(
           PHX_LV_HISTORY_POSITION,
           this.currentHistoryPosition.toString()
         );
-        dom_default.dispatchEvent(window, "phx:navigate", {
-          detail: {
-            href,
-            patch: navType === "patch",
-            pop: true,
-            direction: isForward ? "forward" : "backward"
-          }
-        });
+        dom_default.dispatchEvent(window, "phx:navigate", { detail });
         this.requestDOMUpdate(() => {
           const callback = () => {
             this.maybeScroll(scroll);
@@ -6903,25 +7302,39 @@ var LiveSocket = class {
             `expected ${PHX_LINK_STATE} to be "replace" or "push", got: ${linkState}`
           );
         }
+        if (type !== "patch" && type !== "redirect") {
+          throw new Error(
+            `expected ${PHX_LIVE_LINK} to be "patch" or "redirect", got: ${type}`
+          );
+        }
         e.preventDefault();
         e.stopImmediatePropagation();
         if (this.pendingLink === href) {
           return;
         }
-        this.requestDOMUpdate(() => {
-          if (type === "patch") {
-            this.pushHistoryPatch(e, href, linkState, target);
-          } else if (type === "redirect") {
-            this.historyRedirect(e, href, linkState, null, target);
-          } else {
-            throw new Error(
-              `expected ${PHX_LIVE_LINK} to be "patch" or "redirect", got: ${type}`
-            );
-          }
-          const phxClick = target.getAttribute(this.binding("click"));
+        const detail = {
+          href,
+          patch: type === "patch",
+          pop: false,
+          direction: "forward"
+        };
+        const phxClick = target.getAttribute(this.binding("click"));
+        const execPhxClick = () => {
           if (phxClick) {
             this.requestDOMUpdate(() => this.execJS(target, phxClick, "click"));
           }
+        };
+        if (!this.dispatchBeforeNavigate(detail)) {
+          execPhxClick();
+          return;
+        }
+        this.requestDOMUpdate(() => {
+          if (type === "patch") {
+            this.pushHistoryPatch(e, href, linkState, target);
+          } else {
+            this.historyRedirect(e, href, linkState, null, target);
+          }
+          execPhxClick();
         });
       },
       false
@@ -6948,6 +7361,10 @@ var LiveSocket = class {
     dom_default.dispatchEvent(window, "phx:page-loading-start", { detail: info });
     const done = () => dom_default.dispatchEvent(window, "phx:page-loading-stop", { detail: info });
     return callback ? callback(done) : done;
+  }
+  /** @internal */
+  dispatchBeforeNavigate(detail) {
+    return dom_default.dispatchEvent(window, "phx:before-navigate", { detail });
   }
   /** @internal */
   pushHistoryPatch(e, href, linkState, targetEl) {
@@ -7036,11 +7453,19 @@ var LiveSocket = class {
   }
   /** @internal */
   registerNewLocation(newLocation) {
+    if (!this.isNewLocation(newLocation)) {
+      return false;
+    } else {
+      this.currentLocation = clone(newLocation);
+      return true;
+    }
+  }
+  /** @internal */
+  isNewLocation(newLocation) {
     const { pathname, search } = this.currentLocation;
     if (pathname + search === newLocation.pathname + newLocation.search) {
       return false;
     } else {
-      this.currentLocation = clone(newLocation);
       return true;
     }
   }
@@ -7057,7 +7482,7 @@ var LiveSocket = class {
         externalFormSubmitted = true;
         e.preventDefault();
         this.withinOwners(e.target, (view) => {
-          view.disableForm(e.target);
+          view.disableForm(e.target, phxChange);
           window.requestAnimationFrame(() => {
             if (dom_default.isUnloadableFormSubmit(e)) {
               this.unload();
@@ -7271,8 +7696,10 @@ function createHook(el, callbacks) {
   }
   if (!el.hasAttribute("id")) {
     logError(
+      "hook.missing-id",
       "Elements passed to createHook need to have a unique id attribute",
-      el
+      { el },
+      { attribution: "app" }
     );
   }
   let hook = new ViewHook(View.closestView(el), el, callbacks);

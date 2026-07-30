@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.27.0
+
+### ✨ Features
+
+- Add AhaSend adapter @Sameer1122 (#1177)
+
 ## 1.26.3
 
 ### 🔒 Security

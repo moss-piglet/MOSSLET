@@ -116,6 +116,8 @@ if config_env() == :prod do
 
   config :mosslet, dns_cluster_query: System.get_env("DNS_CLUSTER_QUERY")
 
+  config :mosslet, mosskeys_api_url: System.get_env("MOSSKEYS_API_URL", "https://mosskeys.com")
+
   # Configure plug_attack
   config :mosslet, plug_attack_ip_secret: System.get_env("PLUG_ATTACK_IP_SECRET")
 

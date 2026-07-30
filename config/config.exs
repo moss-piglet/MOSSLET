@@ -28,6 +28,7 @@ config :mosslet,
 config :mdex_native, syntax_highlighter: :lumis
 
 config :mosslet,
+  mosskeys_api_url: System.get_env("MOSSKEYS_API_URL", "https://mosskeys.com"),
   app_name: "MOSSLET",
   business_name: "Moss Piglet Corporation",
   support_email: "support@mosslet.com",
