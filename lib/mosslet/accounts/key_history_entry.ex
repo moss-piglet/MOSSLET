@@ -38,6 +38,11 @@ defmodule Mosslet.Accounts.KeyHistoryEntry do
     field :entry, Encrypted.Binary, redact: true
     field :signing_public_key, Encrypted.Binary, redact: true
 
+    # The entry's global tree index in the mosskeys transparency log, recorded
+    # after a successful publish. NULL until anchored — pure bookkeeping (the
+    # entry content itself stays append-only), never served to clients.
+    field :mosskeys_index, :integer
+
     belongs_to :user, User
 
     timestamps(updated_at: false)
@@ -63,5 +68,18 @@ defmodule Mosslet.Accounts.KeyHistoryEntry do
     |> validate_number(:seq, greater_than_or_equal_to: 0)
     |> foreign_key_constraint(:user_id)
     |> unique_constraint([:user_id, :seq])
+  end
+
+  @doc """
+  Records the mosskeys transparency-log tree index after a successful publish.
+
+  The ONLY permitted update to an entry: anchoring bookkeeping, never content.
+  Idempotent — re-recording the same index is a no-op change.
+  """
+  def anchor_changeset(%__MODULE__{} = entry, mosskeys_index)
+      when is_integer(mosskeys_index) and mosskeys_index >= 0 do
+    entry
+    |> change(%{mosskeys_index: mosskeys_index})
+    |> validate_number(:mosskeys_index, greater_than_or_equal_to: 0)
   end
 end

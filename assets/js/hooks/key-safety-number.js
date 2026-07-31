@@ -29,6 +29,11 @@ import {
   PEER_KEY_CHANGED_EVENT,
 } from "../crypto/pin_store";
 import {
+  checkPeerKeyAnchor,
+  LOG_STATUS,
+  PEER_LOG_STATUS_EVENT,
+} from "../crypto/transparency_log";
+import {
   getPublicKey,
   getPqPublicKey,
   getUserKey,
@@ -48,6 +53,7 @@ const KeySafetyNumber = {
     this._detector = null;
     this._lazy = this.el.dataset.lazy === "true";
     this._rendered = false;
+    this._logStateApplied = false;
 
     this._onPeerKeyChanged = (e) => {
       if (e && e.detail && e.detail.peerUserId === this.el.dataset.peerUserId) {
@@ -55,6 +61,15 @@ const KeySafetyNumber = {
       }
     };
     window.addEventListener(PEER_KEY_CHANGED_EVENT, this._onPeerKeyChanged);
+
+    // Live-update the transparency-log section when a check for THIS peer
+    // completes anywhere this session (e.g. the connection card ran it first).
+    this._onPeerLogStatus = (e) => {
+      if (e && e.detail && e.detail.peerUserId === this.el.dataset.peerUserId) {
+        this._applyLogStatus(e.detail);
+      }
+    };
+    window.addEventListener(PEER_LOG_STATUS_EVENT, this._onPeerLogStatus);
 
     this._wireActions();
     this._initScanSupport();
@@ -90,6 +105,7 @@ const KeySafetyNumber = {
     if (this._onOpen) this.el.removeEventListener("verification:open", this._onOpen);
     if (this._onClose) this.el.removeEventListener("verification:close", this._onClose);
     window.removeEventListener(PEER_KEY_CHANGED_EVENT, this._onPeerKeyChanged);
+    window.removeEventListener(PEER_LOG_STATUS_EVENT, this._onPeerLogStatus);
   },
 
   _wireActions() {
@@ -148,11 +164,17 @@ const KeySafetyNumber = {
     const peerPublicKey = d.peerPublicKey;
     const peerPqPublicKey = d.peerPqPublicKey;
 
-    // Peer can't be fingerprinted (legacy peer without a PQ key yet).
+    // Peer can't be fingerprinted (legacy peer without a PQ key yet) — and
+    // cannot be anchored in the log either (a leaf binds both keys).
     if (!peerPublicKey || !peerPqPublicKey) {
       this._show("unavailable");
+      this._showLogState("unavailable");
       return true;
     }
+
+    // Kick off the transparency-log check in parallel (cached + deduped per
+    // peer, so re-renders cost nothing). Never blocks the safety number.
+    void this._renderLog();
 
     const selfPublicKey = getPublicKey();
     const selfPqPublicKey = getPqPublicKey();
@@ -246,6 +268,42 @@ const KeySafetyNumber = {
     } finally {
       this._busy = false;
     }
+  },
+
+  // --- Transparency-log anchoring status -------------------------------------
+  // Fetches the peer's public key binding straight from the mosskeys log and
+  // verifies it (inclusion proof + signed checkpoint) locally. The result is a
+  // read-only trust signal displayed beneath the safety number — TOFU + the
+  // out-of-band compare remain the first-contact backstop.
+
+  async _renderLog() {
+    const d = this.el.dataset;
+    // Avoid flickering back to "loading" on re-renders once a verdict landed.
+    if (!this._logStateApplied) this._showLogState("loading");
+    try {
+      const result = await checkPeerKeyAnchor({
+        peerUserId: d.peerUserId,
+        peerPublicKey: d.peerPublicKey,
+        peerPqPublicKey: d.peerPqPublicKey,
+      });
+      this._applyLogStatus(result);
+    } catch (e) {
+      console.error("KeySafetyNumber: log check failed:", e);
+      this._showLogState("unavailable");
+    }
+  },
+
+  _applyLogStatus({ status, index, size }) {
+    this._fill("[data-log-index]", Number.isSafeInteger(index) ? `#${index}` : "");
+    this._fill("[data-log-size]", Number.isSafeInteger(size) ? `#${size}` : "");
+    this._showLogState(Object.values(LOG_STATUS).includes(status) ? status : "unavailable");
+  },
+
+  _showLogState(state) {
+    this._logStateApplied = true;
+    this.el.querySelectorAll("[data-log-state]").forEach((el) => {
+      el.hidden = el.dataset.logState !== state;
+    });
   },
 
   _formatDate(iso) {

@@ -15,15 +15,18 @@ defmodule MossletWeb.KeyHistoryHook do
 
     * `"store_signing_keys"` → `Accounts.set_user_signing_keys/3`
       Persists the signing public key + the secret sealed under the user's
-      `user_key`.
+      `user_key`. (No log publish here: the genesis `append_key_history`
+      that follows carries the complete public leaf.)
 
     * `"append_key_history"` → `Accounts.append_key_history_entry/4`
       Appends one opaque, byte-reproducible public leaf. Append-only / idempotent
       at the context layer (`on_conflict: :nothing` on `[:user_id, :seq]`), so a
       duplicate `seq` is a harmless no-op.
 
-    After local persistence, both handlers fire-and-forget a publish to the
-    mosskeys transparency log via `Mosslet.Mosskeys.publish_key/3`.
+    After local persistence, `append_key_history` enqueues
+    `Mosslet.Workers.MosskeysPublishWorker`, which publishes the entry's public
+    key material to the mosskeys transparency log with retries (replacing the
+    old fire-and-forget publish that could silently drop anchoring).
 
   Wiring: add `MossletWeb.KeyHistoryHook` to the `on_mount` list of each
   authenticated `live_session` in the router.
@@ -32,6 +35,7 @@ defmodule MossletWeb.KeyHistoryHook do
   import Phoenix.LiveView, only: [attach_hook: 4]
 
   alias Mosslet.Accounts
+  alias Mosslet.Workers.MosskeysPublishWorker
 
   def on_mount(:default, _params, _session, socket) do
     {:cont, attach_hook(socket, :key_history_write, :handle_event, &handle_event/3)}
@@ -48,15 +52,13 @@ defmodule MossletWeb.KeyHistoryHook do
        when is_binary(signing_public_key) and signing_public_key != "" and
               is_binary(encrypted_signing_private_key) and encrypted_signing_private_key != "" do
     case current_user(socket) do
-      %{id: user_id} = user ->
+      %{} = user ->
         {:ok, _} =
           Accounts.set_user_signing_keys(
             user,
             signing_public_key,
             encrypted_signing_private_key
           )
-
-        publish_key_async(user_id, signing_public_key, nil)
 
       _ ->
         :ok
@@ -79,7 +81,7 @@ defmodule MossletWeb.KeyHistoryHook do
     case {current_user(socket), seq} do
       {%{id: user_id}, s} when is_integer(s) and s >= 0 ->
         {:ok, _} = Accounts.append_key_history_entry(user_id, s, entry, signing_public_key)
-        publish_key_async(user_id, signing_public_key, entry)
+        enqueue_publish(user_id, s)
 
       _ ->
         :ok
@@ -111,19 +113,20 @@ defmodule MossletWeb.KeyHistoryHook do
 
   defp normalize_seq(_), do: nil
 
-  defp publish_key_async(user_id, signing_public_key, entry_json) do
-    Task.start(fn ->
-      case Mosslet.Mosskeys.publish_key(user_id, entry_json, signing_public_key) do
-        {:ok, _index} ->
-          :ok
+  defp enqueue_publish(user_id, seq) do
+    %{user_id: user_id, seq: seq}
+    |> MosskeysPublishWorker.new()
+    |> Oban.insert()
+    |> case do
+      {:ok, _job} ->
+        :ok
 
-        {:error, reason} ->
-          require Logger
+      {:error, reason} ->
+        require Logger
 
-          Logger.warning(
-            "[KeyHistoryHook] mosskeys publish failed for user #{user_id}: #{inspect(reason)}"
-          )
-      end
-    end)
+        Logger.warning(
+          "[KeyHistoryHook] mosskeys publish enqueue failed for user #{user_id} seq #{seq}: #{inspect(reason)}"
+        )
+    end
   end
 end

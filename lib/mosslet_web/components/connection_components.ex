@@ -872,6 +872,33 @@ defmodule MossletWeb.ConnectionComponents do
                     >
                       <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4" />
                     </span>
+                    <%!-- Transparency-log anchored badge — toggled client-side once the
+                         peer's served key verifies against the public mosskeys log
+                         (inclusion proof + signed checkpoint, checked in-browser). --%>
+                    <span
+                      :if={@peer_user_id}
+                      id={"conn-log-#{@connection_id}"}
+                      data-conn-log-badge={@peer_user_id}
+                      hidden
+                      class="shrink-0 inline-flex items-center text-teal-600 dark:text-teal-400"
+                      data-tippy-content="Key anchored in the public transparency log"
+                      phx-hook="TippyHook"
+                    >
+                      <.phx_icon name="hero-shield-check" class="h-4 w-4" />
+                    </span>
+                    <%!-- Log-disagreement badge — the public log shows a DIFFERENT key
+                         than the one our server served for this contact. --%>
+                    <span
+                      :if={@peer_user_id}
+                      id={"conn-logwarn-#{@connection_id}"}
+                      data-conn-logwarn-badge={@peer_user_id}
+                      hidden
+                      class="shrink-0 inline-flex items-center text-amber-600 dark:text-amber-400"
+                      data-tippy-content="Public transparency log shows a different key — open Verify Contact"
+                      phx-hook="TippyHook"
+                    >
+                      <.phx_icon name="hero-shield-exclamation" class="h-4 w-4" />
+                    </span>
                   </div>
 
                   <%!-- Connection indicators (similar to timeline post indicators) --%>
@@ -2580,6 +2607,82 @@ defmodule MossletWeb.ConnectionComponents do
           class="mt-3 font-mono text-base sm:text-lg leading-relaxed tracking-wide text-slate-900 dark:text-slate-100 break-words select-all"
         >
         </p>
+      </div>
+
+      <%!-- Transparency-log anchoring status. Driven client-side by the
+           KeySafetyNumber hook via `transparency_log.js`: the browser fetches the
+           peer's public key binding straight from the mosskeys log (never through
+           our server) and verifies the inclusion proof + signed checkpoint
+           locally. Honest states, never alarmist — a pending/absent entry is
+           quiet, a disagreement is surfaced. --%>
+      <div class="mt-4 rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-slate-50/60 dark:bg-slate-900/30 p-4">
+        <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100 inline-flex items-center gap-2">
+          <.phx_icon name="hero-shield-check" class="h-4 w-4 text-teal-500 dark:text-teal-400" />
+          Transparency log
+        </h3>
+
+        <div data-log-state="loading" class="mt-2">
+          <p class="text-xs text-slate-500 dark:text-slate-400 inline-flex items-center gap-2">
+            <span class="h-1.5 w-1.5 rounded-full bg-teal-400 animate-pulse"></span>
+            Checking the public transparency log…
+          </p>
+        </div>
+
+        <div data-log-state="anchored" hidden class="mt-2">
+          <p class="text-xs text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1.5">
+            <.phx_icon name="hero-check-badge" class="h-4 w-4 shrink-0" />
+            <span>
+              Key publicly anchored — log entry <span data-log-index class="font-medium"></span>,
+              verified against signed checkpoint <span data-log-size class="font-medium"></span>.
+            </span>
+          </p>
+          <p class="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+            The key our server showed you matches the one publicly committed to an append-only
+            log — a silent key swap would be visible to everyone.
+          </p>
+        </div>
+
+        <div data-log-state="pending_checkpoint" hidden class="mt-2">
+          <p class="text-xs text-slate-600 dark:text-slate-300 inline-flex items-center gap-1.5">
+            <.phx_icon name="hero-clock" class="h-4 w-4 shrink-0" />
+            Published to the log — awaiting the next signed checkpoint (a few minutes).
+          </p>
+        </div>
+
+        <div data-log-state="not_published" hidden class="mt-2">
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            Not yet publicly anchored — this usually resolves once your contact signs in again.
+            Comparing the safety number above works either way.
+          </p>
+        </div>
+
+        <div data-log-state="key_mismatch" hidden class="mt-2">
+          <p class="text-xs text-amber-700 dark:text-amber-300 inline-flex items-start gap-1.5">
+            <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4 shrink-0 mt-0.5" />
+            <span>
+              The public log shows a different key for this contact than the one our server
+              showed you. This can happen briefly after a key change — compare the safety
+              number out-of-band before trusting this key.
+            </span>
+          </p>
+        </div>
+
+        <div data-log-state="proof_invalid" hidden class="mt-2">
+          <p class="text-xs text-amber-700 dark:text-amber-300 inline-flex items-start gap-1.5">
+            <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4 shrink-0 mt-0.5" />
+            <span>
+              The transparency log's proof did not verify. Treat this key with caution and
+              confirm the safety number out-of-band.
+            </span>
+          </p>
+        </div>
+
+        <div data-log-state="unavailable" hidden class="mt-2">
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            Transparency log check unavailable right now — comparing the safety number above
+            works either way.
+          </p>
+        </div>
       </div>
 
       <%!-- Unverified actions --%>

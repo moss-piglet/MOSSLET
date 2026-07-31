@@ -177,6 +177,7 @@ defmodule Mosslet.MixProject do
       {:lumis, "~> 0.1"},
       {:mdex, "~> 0.11"},
       {:metamorphic_crypto, "~> 0.8.2"},
+      {:metamorphic_log, "~> 0.1.10"},
       {:mimic, "~> 1.7", only: :test},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:money, "~> 1.12.4"},

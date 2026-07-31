@@ -1,5 +1,10 @@
 import { unsealContextKey, decryptWithKey, getPublicKey, unwrapKey } from "../crypto/session";
 import { monitorPeerKey, PIN_STATUS, PEER_PIN_STATUS_EVENT } from "../crypto/pin_store";
+import {
+  checkPeerKeyAnchor,
+  LOG_STATUS,
+  PEER_LOG_STATUS_EVENT,
+} from "../crypto/transparency_log";
 
 const DecryptConnectionCard = {
   async mounted() {
@@ -7,6 +12,7 @@ const DecryptConnectionCard = {
     this._cachedAttrs = null;
     this._onKeysReady = null;
     this._pinnedFor = null;
+    this._logCheckedFor = null;
 
     // Live-sync the card badges when the verdict for THIS peer changes anywhere
     // this session — e.g. the user marks the peer verified (or re-pins after a
@@ -18,6 +24,15 @@ const DecryptConnectionCard = {
       }
     };
     window.addEventListener(PEER_PIN_STATUS_EVENT, this._onPinStatus);
+
+    // Live-sync the transparency-log badges when a check for THIS peer
+    // completes anywhere this session (e.g. the verification modal ran it).
+    this._onLogStatus = (e) => {
+      if (e && e.detail && e.detail.peerUserId === this.el.dataset.peerUserId) {
+        this._applyLogBadges(e.detail);
+      }
+    };
+    window.addEventListener(PEER_LOG_STATUS_EVENT, this._onLogStatus);
 
     if (!await this._decrypt()) {
       this._onKeysReady = () => this._decrypt();
@@ -47,6 +62,7 @@ const DecryptConnectionCard = {
       this._onKeysReady = null;
     }
     window.removeEventListener(PEER_PIN_STATUS_EVENT, this._onPinStatus);
+    window.removeEventListener(PEER_LOG_STATUS_EVENT, this._onLogStatus);
   },
 
   // TOFU key pinning (EPIC #291 / #293, REVISED — unified key_pins). Compute
@@ -65,6 +81,10 @@ const DecryptConnectionCard = {
     const guard = [peerUserId, peerPublicKey, peerPqPublicKey, d.sealedPeerPin || "", d.keyHistory || ""].join("|");
     if (this._pinnedFor === guard) return;
     this._pinnedFor = guard;
+
+    // The log check rides the same freshness guard: any served-key change
+    // re-pins AND re-verifies against the public log.
+    void this._checkLog();
 
     try {
       // Signed key-history MONITOR (#315): when the peer has a chain, this
@@ -89,6 +109,45 @@ const DecryptConnectionCard = {
       this._applyVerifiedBadge(result);
     } catch (e) {
       console.error("DecryptConnectionCard: TOFU pin failed:", e);
+    }
+  },
+
+  // Transparency-log anchoring check: verifies the peer's served key against
+  // the public mosskeys log (direct browser fetch + client-side proof
+  // verification — the mosslet server is never in the read path). Read-only
+  // badges: a teal shield when anchored, an amber shield when the log
+  // disagrees with the served key. Quiet (hidden) for pending/unavailable —
+  // the full status lives in the verification modal.
+  async _checkLog() {
+    const d = this.el.dataset;
+    const peerUserId = d.peerUserId;
+    const peerPublicKey = d.peerPublicKey;
+    const peerPqPublicKey = d.peerPqPublicKey;
+    if (!peerUserId || !peerPublicKey || !peerPqPublicKey) return;
+
+    const guard = [peerUserId, peerPublicKey, peerPqPublicKey].join("|");
+    if (this._logCheckedFor === guard) return;
+    this._logCheckedFor = guard;
+
+    try {
+      const result = await checkPeerKeyAnchor({ peerUserId, peerPublicKey, peerPqPublicKey });
+      this._applyLogBadges(result);
+    } catch (e) {
+      console.error("DecryptConnectionCard: log check failed:", e);
+    }
+  },
+
+  _applyLogBadges({ status }) {
+    const peerUserId = this.el.dataset.peerUserId;
+    if (!peerUserId) return;
+
+    const anchoredBadge = document.querySelector(`[data-conn-log-badge="${peerUserId}"]`);
+    if (anchoredBadge) anchoredBadge.hidden = status !== LOG_STATUS.ANCHORED;
+
+    const warnBadge = document.querySelector(`[data-conn-logwarn-badge="${peerUserId}"]`);
+    if (warnBadge) {
+      warnBadge.hidden =
+        status !== LOG_STATUS.KEY_MISMATCH && status !== LOG_STATUS.PROOF_INVALID;
     }
   },
 

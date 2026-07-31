@@ -560,6 +560,30 @@ defmodule Mosslet.Accounts do
   end
 
   @doc """
+  Fetches a single key-history entry by (user_id, seq), or nil. Used by the
+  mosskeys publish worker to load the leaf to publish.
+  """
+  def get_key_history_entry(user_id, seq) do
+    adapter().get_key_history_entry(user_id, seq)
+  end
+
+  @doc """
+  Records the mosskeys transparency-log tree index on an entry after a
+  successful publish. Anchoring bookkeeping only — entry content is append-only.
+  """
+  def mark_key_history_entry_anchored(entry, mosskeys_index) do
+    adapter().mark_key_history_entry_anchored(entry, mosskeys_index)
+  end
+
+  @doc """
+  Lists up to `limit` key-history entries not yet anchored in the mosskeys
+  transparency log, oldest first. The backfill worker's scan.
+  """
+  def list_unanchored_key_history_entries(limit \\ 500) do
+    adapter().list_unanchored_key_history_entries(limit)
+  end
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for tracking user changes.
 
   ## Examples

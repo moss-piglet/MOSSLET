@@ -1,10 +1,20 @@
 defmodule Mosslet.Mosskeys do
   @moduledoc """
-  Client for the mosskeys write API.
+  Client for the mosskeys transparency-log API of the configured namespace
+  (`:mosskeys_namespace_slug`, default `"mosslet"`).
 
-  Publishes key rotation events and signed checkpoints to the configured
-  mosskeys namespace via the POST API. All requests authenticate with a
-  namespace-scoped bearer token (`MOSSKEYS_NAMESPACE_TOKEN`).
+  WRITE (owner-scoped, bearer-authenticated with `MOSSKEYS_NAMESPACE_TOKEN`):
+
+    * `publish_key/3` — appends a user's public key material as a leaf
+      (`POST /api/:slug/log/entries`). Idempotent server-side on the content
+      `dedup_key`, so retries never duplicate a leaf.
+    * `request_checkpoint_head/0` + `publish_checkpoint/1` — the two-phase
+      client-signing checkpoint handshake (`POST /api/:slug/log/checkpoints`).
+
+  READ (public, unauthenticated — the log's verifier-facing surface):
+
+    * `fetch_latest_checkpoint/0` — the latest signed checkpoint (tree head),
+      used by the checkpoint worker to sign only when the tree has advanced.
   """
 
   require Logger
@@ -49,7 +59,13 @@ defmodule Mosslet.Mosskeys do
          {:ok, resp} <- post("/log/checkpoints", token) do
       case resp do
         %{status: 200, body: body} when is_map(body) ->
-          {:ok, %{origin: body["origin"], size: body["size"], root: body["root"]}}
+          {:ok,
+           %{
+             origin: body["origin"],
+             name: body["name"] || body["origin"],
+             size: body["size"],
+             root: body["root"]
+           }}
 
         resp ->
           {:error, resp.status}
@@ -72,8 +88,47 @@ defmodule Mosslet.Mosskeys do
     end
   end
 
+  @doc """
+  Fetches the latest signed checkpoint from the namespace's PUBLIC read API
+  (no bearer token — this is the log's verifier-facing surface).
+
+  Returns `{:ok, %{origin, size, root, note, cosigners}}`, `{:error, :not_found}`
+  when no checkpoint has been published yet, or `{:error, reason}`.
+  """
+  def fetch_latest_checkpoint do
+    case get("/checkpoint") do
+      {:ok, %{status: 200, body: body}} when is_map(body) ->
+        {:ok,
+         %{
+           origin: body["origin"],
+           size: body["size"],
+           root: body["root"],
+           note: body["note"],
+           cosigners: body["cosigners"] || []
+         }}
+
+      {:ok, %{status: 404}} ->
+        {:error, :not_found}
+
+      {:ok, resp} ->
+        {:error, resp.status}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  The fully-qualified API URL for a namespace path. Exposed for tests and for
+  the checkpoint worker's logging.
+  """
+  def api_url(path \\ "") do
+    Application.fetch_env!(:mosslet, :mosskeys_api_url) <>
+      @base_path <> "/" <> namespace_slug() <> path
+  end
+
   defp post(path, token, opts \\ []) do
-    url = api_url() <> @base_path <> path
+    url = api_url(path)
 
     base_opts = [
       method: :post,
@@ -82,7 +137,7 @@ defmodule Mosslet.Mosskeys do
       receive_timeout: 10_000
     ]
 
-    case Req.request(base_opts ++ Keyword.take(opts, [:json])) do
+    case Req.request(base_opts ++ Keyword.take(opts, [:json]) ++ req_test_options()) do
       {:ok, response} ->
         Logger.debug("[Mosskeys] POST #{url} -> #{response.status}")
         {:ok, response}
@@ -93,8 +148,28 @@ defmodule Mosslet.Mosskeys do
     end
   end
 
-  defp api_url do
-    Application.fetch_env!(:mosslet, :mosskeys_api_url)
+  defp get(path) do
+    url = api_url(path)
+
+    case Req.get(url, [receive_timeout: 10_000] ++ req_test_options()) do
+      {:ok, response} ->
+        Logger.debug("[Mosskeys] GET #{url} -> #{response.status}")
+        {:ok, response}
+
+      {:error, reason} ->
+        Logger.warning("[Mosskeys] GET #{url} failed: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  # Test seam: extra Req options (e.g. a `plug:` stub) injected only in the
+  # test environment via Application env. Empty everywhere else.
+  defp req_test_options do
+    Application.get_env(:mosslet, :mosskeys_req_options, [])
+  end
+
+  defp namespace_slug do
+    Application.get_env(:mosslet, :mosskeys_namespace_slug, "mosslet")
   end
 
   defp namespace_token do

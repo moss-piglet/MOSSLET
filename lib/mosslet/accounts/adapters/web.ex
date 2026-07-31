@@ -747,6 +747,31 @@ defmodule Mosslet.Accounts.Adapters.Web do
   end
 
   @impl true
+  def get_key_history_entry(user_id, seq) do
+    Repo.one(
+      from khe in KeyHistoryEntry,
+        where: khe.user_id == ^user_id and khe.seq == ^seq
+    )
+  end
+
+  @impl true
+  def mark_key_history_entry_anchored(entry, mosskeys_index) do
+    entry
+    |> KeyHistoryEntry.anchor_changeset(mosskeys_index)
+    |> Repo.update()
+  end
+
+  @impl true
+  def list_unanchored_key_history_entries(limit) do
+    Repo.all(
+      from khe in KeyHistoryEntry,
+        where: is_nil(khe.mosskeys_index),
+        order_by: [asc: khe.inserted_at],
+        limit: ^limit
+    )
+  end
+
+  @impl true
   def update_user_profile(_user, _conn, changeset) do
     case Ecto.Multi.new()
          |> Ecto.Multi.update(:update_connection, fn _ -> changeset end)

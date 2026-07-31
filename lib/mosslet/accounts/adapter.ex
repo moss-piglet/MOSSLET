@@ -368,6 +368,30 @@ defmodule Mosslet.Accounts.Adapter do
   @callback list_key_history_entries(user_id :: String.t()) :: [binary()]
 
   @doc """
+  Fetches a single key-history entry by (user_id, seq). Returns nil when absent.
+  Used by the mosskeys publish worker to load the leaf to publish.
+  """
+  @callback get_key_history_entry(user_id :: String.t(), seq :: non_neg_integer()) ::
+              Mosslet.Accounts.KeyHistoryEntry.t() | nil
+
+  @doc """
+  Records the mosskeys transparency-log tree index on an entry after a
+  successful publish (anchoring bookkeeping; content stays append-only).
+  """
+  @callback mark_key_history_entry_anchored(
+              entry :: Mosslet.Accounts.KeyHistoryEntry.t(),
+              mosskeys_index :: non_neg_integer()
+            ) :: {:ok, Mosslet.Accounts.KeyHistoryEntry.t()} | {:error, term()}
+
+  @doc """
+  Lists up to `limit` key-history entries not yet anchored in the mosskeys
+  transparency log (`mosskeys_index IS NULL`), oldest first. The backfill
+  worker's scan.
+  """
+  @callback list_unanchored_key_history_entries(limit :: pos_integer()) ::
+              [Mosslet.Accounts.KeyHistoryEntry.t()]
+
+  @doc """
   Updates user profile on their connection.
   Thin wrapper - only handles Repo transaction, business logic stays in context.
   """

@@ -29,6 +29,7 @@ config :mdex_native, syntax_highlighter: :lumis
 
 config :mosslet,
   mosskeys_api_url: System.get_env("MOSSKEYS_API_URL", "https://mosskeys.com"),
+  mosskeys_namespace_slug: System.get_env("MOSSKEYS_NAMESPACE_SLUG", "mosslet"),
   app_name: "MOSSLET",
   business_name: "Moss Piglet Corporation",
   support_email: "support@mosslet.com",
@@ -178,7 +179,16 @@ config :mosslet, Oban,
        # announce letters whose chosen delivery date has arrived. Rides purely
        # on the plaintext deliver_on metadata — the worker never reads content.
        # Calm: one quiet email per user, suppressed when they're already active.
-       {"0 13 * * *", Mosslet.Capsules.Jobs.DeliveryWorker, args: %{"action" => "deliver_due"}}
+       {"0 13 * * *", Mosslet.Capsules.Jobs.DeliveryWorker, args: %{"action" => "deliver_due"}},
+       # Transparency-log checkpoint signing every 5 minutes: anchors newly
+       # published key-history entries under a signed tree head, which is what
+       # makes browser-side inclusion-proof verification possible. Skips when
+       # the tree hasn't advanced (a cheap public read).
+       {"*/5 * * * *", Mosslet.Workers.MosskeysCheckpointWorker},
+       # Transparency-log publish backstop: daily off-peak sweep for key-history
+       # entries whose publish never anchored (retries exhausted / outage),
+       # self-heals the log's coverage.
+       {"23 4 * * *", Mosslet.Workers.MosskeysBackfillWorker}
      ]}
   ],
   queues: [
@@ -192,7 +202,8 @@ config :mosslet, Oban,
     security: 3,
     key_rotation: 5,
     backups: 1,
-    bluesky_sync: 3
+    bluesky_sync: 3,
+    mosskeys: 2
   ],
   peer: Oban.Peers.Global
 
