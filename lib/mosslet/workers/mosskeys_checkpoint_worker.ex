@@ -7,7 +7,7 @@ defmodule Mosslet.Workers.MosskeysCheckpointWorker do
     2. Sign it locally with the checkpoint signing key
     3. Publish the signed note (`POST /log/checkpoints`)
 
-  The signing step requires `MOSSLET_CHECKPOINT_SK` to be configured and a
+  The signing step requires `MOSSKEYS_CHECKPOINT_SK` to be configured and a
   checkpoint-signing module (e.g. `MetamorphicLog.Checkpoint.sign_dual`) to be
   available — until then, the worker logs the head data and skips gracefully.
 
@@ -49,13 +49,13 @@ defmodule Mosslet.Workers.MosskeysCheckpointWorker do
   end
 
   defp maybe_log_head(head) do
-    if System.get_env("MOSSLET_CHECKPOINT_SK") do
+    if System.get_env("MOSSKEYS_CHECKPOINT_SK") do
       Logger.info(
-        "[MosskeysCheckpointWorker] MOSSLET_CHECKPOINT_SK set — " <>
+        "[MosskeysCheckpointWorker] MOSSKEYS_CHECKPOINT_SK set — " <>
           "would sign checkpoint at size #{head.size}, origin=#{head.origin}"
       )
     else
-      Logger.debug("[MosskeysCheckpointWorker] MOSSLET_CHECKPOINT_SK not set, skipping signing")
+      Logger.debug("[MosskeysCheckpointWorker] MOSSKEYS_CHECKPOINT_SK not set, skipping signing")
     end
   end
 end
