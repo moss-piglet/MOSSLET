@@ -22,22 +22,40 @@
  *   4. CHECKPOINT — the C2SP signed-note checkpoint is verified against the
  *      PINNED namespace Ed25519 verifier key (WebCrypto), and the note body
  *      is confirmed to match the served origin/size/root.
- *   5. INCLUSION — the RFC 6962 audit path is walked from the leaf hash to
+ *   5. WITNESS COSIGNATURES (additive) — every signature line on the same
+ *      note is parsed, and lines whose name matches a PINNED witness vkey
+ *      are verified as C2SP tlog-cosignature v1 (Ed25519) signatures. Only
+ *      cryptographically valid cosignatures are counted; invalid or unknown
+ *      ones are ignored, never a downgrade.
+ *   6. INCLUSION — the RFC 6962 audit path is walked from the leaf hash to
  *      the verified checkpoint root.
  *
- * The trust root is the PINNED namespace checkpoint public key below — public
- * material shipped in the bundle (the same model as CT log keys pinned in
- * browsers), NOT served by the mosslet server (which is the adversary in this
- * threat model). If the checkpoint key rotates, update the constant with the
- * new public key (fetchable from the public `/api/witness/logs` discovery
- * feed, out-of-band verified).
+ * The trust roots are the PINNED public keys below — the namespace checkpoint
+ * key and the witness cosignature roster — public material shipped in the
+ * bundle (the same model as CT log keys pinned in browsers), NOT served by
+ * the mosslet server (which is the adversary in this threat model) and NOT
+ * fetched at runtime from mosskeys either: the JSON `cosigners` array and
+ * the `/api/witnesses` roster are reflection surfaces, useful for release-
+ * time updates but never consulted for the verdict. If the checkpoint key
+ * rotates, update the constant with the new public key (fetchable from the
+ * public `/api/witness/logs` discovery feed, out-of-band verified); witness
+ * roster updates follow the same release-time model (see below).
  *
  * HONEST LIMITS (keep copy accurate):
  *   - Anchoring proves PUBLIC COMMITMENT, not key authenticity: TOFU +
  *     out-of-band safety numbers remain the first-contact backstop, and the
  *     signed per-user chain proves rotation continuity.
- *   - A checkpoint sig is verified against a single pinned key; split-view
- *     (equivocation) detection belongs to the witness network, not this file.
+ *   - The checkpoint note is verified against the pinned namespace key, and
+ *     any pinned-witness cosignatures riding in that same note are verified
+ *     too: a verified cosignature means an independent operator attested the
+ *     SAME tree head we were served, so a split-view would have to fool (or
+ *     compromise) both the log and that witness. Counting is strictly
+ *     additive — unknown names, bad key ids, and failed signatures are
+ *     excluded silently and never downgrade the verdict. What this file
+ *     still does NOT do: cross-checkpoint equivocation detection (comparing
+ *     heads over time, or against other observers' views) — that belongs to
+ *     monitors and the witness network's consistency proofs, not to a
+ *     single-point-in-time verifier.
  *
  * The module fetches only PUBLIC material and runs entirely client-side.
  */
@@ -52,6 +70,44 @@ const LOG_ORIGIN = "mosskeys.com/mosslet";
 // (the classical line every `sign_dual` checkpoint carries). Base64.
 const LOG_CHECKPOINT_ED25519_VK = "1Ltcg/D0+UxGBe5e/ADMMFIfQplIiIkSQDZaARCPxjc=";
 
+// Independent C2SP witness cosignature verifier keys, pinned at release time:
+// witness name → raw 32-byte Ed25519 public key (base64). Same trust model as
+// LOG_CHECKPOINT_ED25519_VK — the roster is PUBLIC material shipped in the
+// bundle and is NEVER fetched at runtime (mosskeys is inside the threat model
+// for split-view; a served roster could name attacker keys).
+//
+// Sourced from the approved roster at `GET https://mosskeys.com/api/witnesses`
+// (also mirrored on the public `/witnesses` directory page). Each entry's
+// `vkeys.ed25519` is a C2SP vkey string `<name>+<8-hex key id>+<base64(0x04
+// || pubkey)>`; pin the 32-byte public half under the entry's `name`. Update
+// one-liner (prints this map's entries; verify out-of-band before merging):
+//
+//   node --input-type=module -e '
+//     const { witnesses } = await (await fetch("https://mosskeys.com/api/witnesses")).json();
+//     for (const w of witnesses) {
+//       const v = w.vkeys?.ed25519;
+//       if (!v) continue;
+//       // `<name>+<8-hex key id>+<base64(0x04 || pubkey)>` — split on the
+//       // first two "+" only: the base64 segment itself may contain "+".
+//       const i = v.indexOf("+"), j = v.indexOf("+", i + 1);
+//       const raw = Buffer.from(v.slice(j + 1), "base64");
+//       if (raw.length !== 33 || raw[0] !== 0x04) continue;
+//       console.log(`  ${JSON.stringify(w.name)}: ${JSON.stringify(raw.subarray(1).toString("base64"))},`);
+//     }'
+//
+// Wire format verified here (C2SP tlog-cosignature v1, Ed25519 type 0x04):
+// each witness line on a checkpoint note is
+// `— <name> <base64(keyID[4] || u64be timestamp || ed25519_sig[64])>` with
+// keyID = SHA-256(name || 0x0A || 0x04 || pubkey)[0:4], and the signed
+// message is `cosignature/v1\ntime <timestamp>\n<checkpoint body>`. (ML-DSA-44
+// 0x06 cosignature lines are ignored — WebCrypto cannot verify them yet; every
+// dual-signing witness also emits the classical 0x04 line.)
+export const WITNESS_ED25519_VKEYS = {
+  // The production witness network is still forming — no approved witnesses
+  // at pin time. Add entries here as witnesses are approved, e.g.:
+  // "witness.example.com/mosskeys": "base64 raw 32-byte Ed25519 public key",
+};
+
 export const LOG_STATUS = {
   ANCHORED: "anchored", // all proofs verify; log key == served key
   PENDING_CHECKPOINT: "pending_checkpoint", // in the log, not yet under a signed checkpoint
@@ -62,7 +118,8 @@ export const LOG_STATUS = {
 };
 
 // Fired on every completed check so any surface (connection-card badge,
-// verification modal) can live-update. detail: {peerUserId, status, index, size}.
+// verification modal) can live-update. detail: {peerUserId, status, index,
+// size, witnesses, witnessNames}.
 export const PEER_LOG_STATUS_EVENT = "mosslet:peer-log-status";
 
 const CACHE_TTL_MS = 60_000;
@@ -81,7 +138,11 @@ const _queue = [];
  * @param {string} args.peerUserId - the log label (the peer's user id)
  * @param {string} args.peerPublicKey - served X25519 public key (base64)
  * @param {string} args.peerPqPublicKey - served ML-KEM public key (base64)
- * @returns {Promise<{status: string, index?: number, size?: number, checkpointVerified?: boolean}>}
+ * @returns {Promise<{status: string, index?: number, size?: number, checkpointVerified?: boolean, witnesses?: number, witnessNames?: string[]}>}
+ *
+ * On ANCHORED, `witnesses` is the count of pinned-witness cosignatures that
+ * verified on the checkpoint note (0 when the witness network is empty) and
+ * `witnessNames` carries those witnesses' names (public roster identities).
  */
 export async function checkPeerKeyAnchor({ peerUserId, peerPublicKey, peerPqPublicKey }) {
   if (!peerUserId || !peerPublicKey || !peerPqPublicKey) {
@@ -202,11 +263,14 @@ async function _verifyBundle(bundle, { peerPublicKey, peerPqPublicKey }) {
   );
   if (!included) return { status: LOG_STATUS.PROOF_INVALID, index };
 
+  const witnessNames = noteResult.witnesses || [];
   return {
     status: LOG_STATUS.ANCHORED,
     index,
     size: checkpoint.size,
     checkpointVerified: true,
+    witnesses: witnessNames.length,
+    witnessNames,
   };
 }
 
@@ -281,8 +345,12 @@ export function parseLeaf(bytes) {
  *     (C2SP signed-note). The line matching the PINNED key's ID is selected —
  *     a dual note also carries a (much larger) hybrid line under the same name,
  *     which is ignored here.
+ *   - Witness cosignature lines (any name present in WITNESS_ED25519_VKEYS)
+ *     are additionally verified as C2SP tlog-cosignature v1 Ed25519 (0x04)
+ *     signatures — see _verifyWitnessCosignatures. The verified witness names
+ *     ride back on `witnesses`; they never affect `ok`.
  *
- * @returns {Promise<{ok: boolean, origin?: string, size?: number, root?: string, unsupported?: boolean}>}
+ * @returns {Promise<{ok: boolean, origin?: string, size?: number, root?: string, unsupported?: boolean, witnesses?: string[]}>}
  */
 export async function verifyCheckpointNote(noteText) {
   if (typeof noteText !== "string" || !noteText) return { ok: false };
@@ -339,13 +407,107 @@ export async function verifyCheckpointNote(noteText) {
         sigBytes.subarray(4),
         messageBytes,
       );
-      if (ok) return { ok: true, origin, size, root };
+      if (ok) {
+        // The note is authentic. Additively verify any pinned-witness
+        // cosignatures riding on the same note (never affects `ok`).
+        const witnesses = await _verifyWitnessCosignatures(sigLines, message);
+        return { ok: true, origin, size, root, witnesses };
+      }
     } catch {
       return { ok: false, unsupported: true };
     }
   }
 
   return { ok: false };
+}
+
+// ---------------------------------------------------------------------------
+// Witness cosignature verification (C2SP tlog-cosignature v1, Ed25519 0x04)
+// ---------------------------------------------------------------------------
+
+// Byte length of a 0x04 cosignature line's decoded blob:
+// keyID[4] || timestamp[8] || ed25519 signature[64].
+const COSIG_V1_ED25519_BLOB_LEN = 4 + 8 + 64;
+
+/**
+ * Verify the witness cosignature lines of an already-authentic checkpoint
+ * note against the PINNED witness roster, returning the sorted names of the
+ * unique witnesses whose cosignature cryptographically verified.
+ *
+ * Each candidate line is `— <name> <base64(keyID[4] || u64be timestamp ||
+ * sig[64])>`; the signed message is the domain-separated
+ * `cosignature/v1\ntime <timestamp>\n<checkpoint body>`, and the key id is
+ * SHA-256(name || 0x0A || 0x04 || pubkey)[0:4] — locked against
+ * `metamorphic_log`'s `CosignatureV1Ed25519` (what stock C2SP witnesses emit
+ * and what mosskeys merges into the served note).
+ *
+ * Strictly additive by contract: unknown names, wrong-length blobs (e.g. the
+ * ML-DSA-44 0x06 line a dual-signing witness also emits), key-id mismatches,
+ * and failed signatures are all excluded with at most a console.debug — a
+ * cosignature can only ever ADD confidence, never downgrade the note's own
+ * verdict. Each witness counts at most once (duplicate lines don't inflate).
+ */
+async function _verifyWitnessCosignatures(sigLines, message) {
+  const roster = Object.keys(WITNESS_ED25519_VKEYS);
+  if (roster.length === 0) return [];
+
+  const verified = new Set();
+
+  for (const line of sigLines) {
+    const parsed = _parseSigLine(line);
+    if (!parsed) continue;
+    const [name, blob] = parsed;
+    if (verified.has(name)) continue;
+    if (!Object.prototype.hasOwnProperty.call(WITNESS_ED25519_VKEYS, name)) continue;
+
+    const pubBytes = b64DecodeBytes(WITNESS_ED25519_VKEYS[name]);
+    if (pubBytes.length !== 32 || blob.length !== COSIG_V1_ED25519_BLOB_LEN) {
+      console.debug(`transparency_log: ignoring malformed cosignature line from ${name}`);
+      continue;
+    }
+
+    // The line's declared key id must match the pinned key's 0x04 id.
+    const nameBytes = new TextEncoder().encode(name);
+    const kidInput = new Uint8Array(nameBytes.length + 2 + pubBytes.length);
+    kidInput.set(nameBytes, 0);
+    kidInput[nameBytes.length] = 0x0a;
+    kidInput[nameBytes.length + 1] = 0x04;
+    kidInput.set(pubBytes, nameBytes.length + 2);
+    const expectedKid = (await _sha256(kidInput)).subarray(0, 4);
+    if (!_bytesEqual(blob.subarray(0, 4), expectedKid)) {
+      console.debug(`transparency_log: cosignature key-id mismatch from ${name}`);
+      continue;
+    }
+
+    const view = new DataView(blob.buffer, blob.byteOffset, blob.byteLength);
+    const timestamp = view.getUint32(4, false) * 0x100000000 + view.getUint32(8, false);
+    const cosigned = new TextEncoder().encode(`cosignature/v1\ntime ${timestamp}\n${message}`);
+
+    try {
+      const key = await crypto.subtle.importKey(
+        "raw",
+        pubBytes,
+        { name: "Ed25519" },
+        false,
+        ["verify"],
+      );
+      const ok = await crypto.subtle.verify(
+        { name: "Ed25519" },
+        key,
+        blob.subarray(12),
+        cosigned,
+      );
+      if (ok) {
+        verified.add(name);
+      } else {
+        console.debug(`transparency_log: cosignature failed verification from ${name}`);
+      }
+    } catch (e) {
+      console.debug(`transparency_log: cosignature verify error from ${name}:`, e);
+    }
+  }
+
+  return [...verified].sort();
 }
 
 function _parseSigLine(line) {
@@ -488,6 +650,8 @@ function _dispatch(peerUserId, result) {
           status: result.status,
           index: result.index ?? null,
           size: result.size ?? null,
+          witnesses: result.witnesses ?? 0,
+          witnessNames: result.witnessNames ?? [],
         },
       }),
     );

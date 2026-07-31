@@ -98,6 +98,8 @@ const KeySafetyNumber = {
 
   destroyed() {
     this._stopScan();
+    const witnessLine = this.el.querySelector("[data-log-witnesses]");
+    if (witnessLine && witnessLine._tippy) witnessLine._tippy.destroy();
     if (this._onKeysReady) {
       window.removeEventListener("mosslet:keys-ready", this._onKeysReady);
       this._onKeysReady = null;
@@ -293,10 +295,57 @@ const KeySafetyNumber = {
     }
   },
 
-  _applyLogStatus({ status, index, size }) {
+  _applyLogStatus({ status, index, size, witnesses, witnessNames }) {
     this._fill("[data-log-index]", Number.isSafeInteger(index) ? `#${index}` : "");
     this._fill("[data-log-size]", Number.isSafeInteger(size) ? `#${size}` : "");
+    this._applyLogWitnesses(status, witnesses, witnessNames);
     this._showLogState(Object.values(LOG_STATUS).includes(status) ? status : "unavailable");
+  },
+
+  // Witness cosignature line (lives inside the anchored block): filled and
+  // unhidden ONLY when at least one pinned-witness cosignature verified on
+  // the checkpoint note. In every other case — empty witness network, no
+  // cosigner lines, all failed verification, any non-anchored state — it
+  // stays hidden, rendering exactly the plain anchored UI (no badge, no
+  // layout shift). Verified witness names (public roster identities) are
+  // shown on hover/focus via a tippy managed here (the content is only known
+  // after the client-side check, so TippyHook's mount-time lifecycle doesn't
+  // fit); config mirrors TippyHook's.
+  _applyLogWitnesses(status, count, names) {
+    const line = this.el.querySelector("[data-log-witnesses]");
+    if (!line) return;
+
+    const list = Array.isArray(names) ? names.filter((n) => typeof n === "string" && n) : [];
+    const n = Number.isSafeInteger(count) ? count : list.length;
+
+    if (status !== LOG_STATUS.ANCHORED || n < 1) {
+      line.hidden = true;
+      return;
+    }
+
+    this._fill(
+      "[data-log-witnesses-text]",
+      `Also cosigned by ${n} independent witness${n === 1 ? "" : "es"}.`,
+    );
+    const tip = list.length
+      ? `Verified cosignatures from: ${list.join(", ")}`
+      : "Independently cosigned checkpoint";
+
+    if (typeof window.tippy === "function") {
+      if (line._tippy) {
+        line._tippy.setContent(tip);
+      } else {
+        window.tippy(line, {
+          content: tip,
+          touch: ["hold", 500],
+          hideOnClick: true,
+          trigger: "mouseenter focus",
+        });
+      }
+    } else {
+      line.setAttribute("title", tip);
+    }
+    line.hidden = false;
   },
 
   _showLogState(state) {

@@ -2645,6 +2645,22 @@ defmodule MossletWeb.ConnectionComponents do
               verified against signed checkpoint <span data-log-size class="font-medium"></span>.
             </span>
           </p>
+          <%!-- Witness cosignatures: filled + unhidden by the KeySafetyNumber
+               hook ONLY when >= 1 pinned-witness cosignature verified on the
+               checkpoint note (see transparency_log.js). Hidden by default, so
+               an empty witness network (or any failed cosignature) renders
+               exactly the plain anchored UI. Verified witness names are public
+               roster identities, shown on hover/focus via a hook-managed
+               tippy (created client-side only when the line is shown). --%>
+          <p
+            data-log-witnesses
+            hidden
+            tabindex="0"
+            class="mt-1.5 inline-flex cursor-help items-center gap-1.5 text-xs text-emerald-700 underline decoration-dotted decoration-emerald-600/50 underline-offset-2 dark:text-emerald-300 dark:decoration-emerald-400/50"
+          >
+            <.phx_icon name="hero-user-group" class="h-3.5 w-3.5 shrink-0" />
+            <span data-log-witnesses-text></span>
+          </p>
           <p class="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
             The key our server showed you matches the one publicly committed to an append-only
             log — a silent key swap would be visible to everyone.
