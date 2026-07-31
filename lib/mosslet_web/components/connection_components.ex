@@ -767,7 +767,7 @@ defmodule MossletWeb.ConnectionComponents do
     ~H"""
     <div class="relative">
       <article class={[
-        "group/card relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
+        "@container group/card relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
         "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
         "border border-slate-200/60 dark:border-slate-700/60",
         "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
@@ -948,19 +948,24 @@ defmodule MossletWeb.ConnectionComponents do
             </div>
           </div>
 
-          <%!-- Quick actions --%>
-          <div class="flex items-center justify-between pt-4 border-t border-slate-200/60 dark:border-slate-600/60">
+          <%!-- Quick actions. Container queries (Tailwind v4, card width — not
+               viewport) collapse the pill labels to icon-only on narrow cards, so
+               the row never crowds out the menu trigger; tooltips + aria-labels
+               carry the meaning, and touch targets stay 44px on mobile. --%>
+          <div class="flex items-center justify-between gap-2 pt-4 border-t border-slate-200/60 dark:border-slate-600/60">
             <%!-- Action buttons --%>
-            <div :if={@show_interactions?} class="flex items-center gap-2">
+            <div :if={@show_interactions?} class="flex min-w-0 flex-1 items-center gap-2">
               <.link
                 id={"message-button-#{@connection_id}"}
                 phx-hook="TippyHook"
                 data-tippy-content="Send encrypted message"
                 phx-click="start_conversation"
                 phx-value-connection-id={@connection_id}
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-900/20 hover:bg-teal-100/50 dark:hover:bg-teal-900/30 border border-teal-200/40 dark:border-teal-700/40 rounded-full transition-all duration-200 ease-out hover:scale-105 cursor-pointer"
+                aria-label="Send encrypted message"
+                class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 min-h-[44px] sm:min-h-0 text-xs font-medium text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-900/20 hover:bg-teal-100/50 dark:hover:bg-teal-900/30 border border-teal-200/40 dark:border-teal-700/40 rounded-full transition-all duration-200 ease-out hover:scale-105 cursor-pointer"
               >
-                <.phx_icon name="hero-chat-bubble-left" class="h-3.5 w-3.5" /> Message
+                <.phx_icon name="hero-chat-bubble-left" class="h-3.5 w-3.5 shrink-0" />
+                <span class="hidden @xs:inline">Message</span>
               </.link>
 
               <%!-- Thinking-of-you nudge (EPIC #377, task #399): one tap sends a
@@ -972,9 +977,10 @@ defmodule MossletWeb.ConnectionComponents do
                 phx-click="send_nudge"
                 phx-value-connection-id={@connection_id}
                 aria-label="Send a wordless thinking of you"
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[44px] sm:min-h-0 text-xs font-medium text-rose-600 dark:text-rose-400 bg-rose-50/50 dark:bg-rose-900/20 hover:bg-rose-100/50 dark:hover:bg-rose-900/30 border border-rose-200/40 dark:border-rose-700/40 rounded-full transition-all duration-200 ease-out hover:scale-105 cursor-pointer"
+                class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 min-h-[44px] sm:min-h-0 text-xs font-medium text-rose-600 dark:text-rose-400 bg-rose-50/50 dark:bg-rose-900/20 hover:bg-rose-100/50 dark:hover:bg-rose-900/30 border border-rose-200/40 dark:border-rose-700/40 rounded-full transition-all duration-200 ease-out hover:scale-105 cursor-pointer"
               >
-                <.phx_icon name="hero-heart" class="h-3.5 w-3.5" /> Thinking of you
+                <.phx_icon name="hero-heart" class="h-3.5 w-3.5 shrink-0" />
+                <span class="hidden @md:inline">Thinking of you</span>
               </.link>
 
               <%!-- View profile button --%>
@@ -986,14 +992,16 @@ defmodule MossletWeb.ConnectionComponents do
                 navigate={~p"/app/profile/#{@profile_slug}"}
                 data-tippy-content="View profile"
                 type="button"
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-700/20 hover:bg-slate-100/50 dark:hover:bg-slate-600/30 border border-slate-200/40 dark:border-slate-600/40 rounded-full transition-all duration-200 ease-out hover:scale-105"
+                aria-label="View profile"
+                class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 min-h-[44px] sm:min-h-0 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-700/20 hover:bg-slate-100/50 dark:hover:bg-slate-600/30 border border-slate-200/40 dark:border-slate-600/40 rounded-full transition-all duration-200 ease-out hover:scale-105"
               >
-                <.phx_icon name="hero-user" class="h-3.5 w-3.5" /> Profile
+                <.phx_icon name="hero-user" class="h-3.5 w-3.5 shrink-0" />
+                <span class="hidden @xs:inline">Profile</span>
               </.link>
             </div>
 
             <%!-- Placeholder when interactions are hidden (to maintain layout) --%>
-            <div :if={!@show_interactions?} class="flex items-center gap-2">
+            <div :if={!@show_interactions?} class="flex min-w-0 flex-1 items-center gap-2">
               <div class="text-xs text-slate-400 dark:text-slate-500 italic">
                 Profile not available
               </div>
@@ -1003,7 +1011,8 @@ defmodule MossletWeb.ConnectionComponents do
             <button
               type="button"
               phx-click={JS.toggle(to: "#connection-menu-#{@connection_id}-menu")}
-              class="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400 rounded-full hover:bg-slate-100/50 dark:hover:bg-slate-700/30 transition-all duration-200 ease-out"
+              aria-label="More options"
+              class="shrink-0 p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400 rounded-full hover:bg-slate-100/50 dark:hover:bg-slate-700/30 transition-all duration-200 ease-out"
               title="More options"
             >
               <.phx_icon
