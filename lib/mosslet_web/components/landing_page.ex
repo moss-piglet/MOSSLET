@@ -4479,8 +4479,6 @@ defmodule MossletWeb.Components.LandingPage do
           </p>
         </div>
 
-        <.featured_testimonial />
-
         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 mt-10">
           <%= for {testimonial, index} <- Enum.with_index(@testimonials) do %>
             <.testimonial_card testimonial={testimonial} index={index} />
@@ -4488,68 +4486,6 @@ defmodule MossletWeb.Components.LandingPage do
         </div>
       </div>
     </section>
-    """
-  end
-
-  defp featured_testimonial(assigns) do
-    ~H"""
-    <figure class="relative mx-auto max-w-4xl">
-      <div class="absolute -inset-4 rounded-3xl bg-gradient-to-r from-teal-500/20 via-emerald-500/20 to-cyan-500/20 dark:from-teal-500/10 dark:via-emerald-500/10 dark:to-cyan-500/10 blur-xl">
-      </div>
-
-      <div class="relative rounded-2xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm p-8 sm:p-10 ring-1 ring-emerald-200/60 dark:ring-emerald-700/40 shadow-2xl shadow-emerald-900/10 dark:shadow-emerald-900/30">
-        <div class="absolute -top-4 left-8 sm:left-10">
-          <div class="flex h-10 w-10 items-center justify-center rounded-full shadow-lg bg-gradient-to-br from-teal-500 to-emerald-500 ring-4 ring-white dark:ring-slate-800">
-            <svg class="h-5 w-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
-            </svg>
-          </div>
-        </div>
-
-        <blockquote class="pt-4">
-          <p class="text-lg sm:text-xl leading-8 text-slate-700 dark:text-slate-300">
-            <span class="font-semibold text-teal-700 dark:text-teal-300">
-              I didn't realize how tired I was of the big social apps until I tried Mosslet.
-            </span>
-            It feels… smaller, in a good way. There's no sense that I'm being watched or pushed to post for likes. I can just share little bits of my life and chat with people without all the noise.
-          </p>
-          <p class="mt-4 text-lg sm:text-xl leading-8 text-slate-700 dark:text-slate-300">
-            My favorite part is
-            <span class="font-semibold bg-gradient-to-r from-violet-500 to-purple-500 bg-clip-text text-transparent">
-              Journal.
-            </span>
-            It's this private, encrypted space that's just for me. I use it to brain-dump, track my mood, and sometimes turn on the AI reflections when I'm curious about patterns in how I've been feeling. It feels more like a personal notebook than a “feature.”
-          </p>
-          <p class="mt-4 text-lg sm:text-xl leading-8 text-slate-700 dark:text-slate-300">
-            Mosslet is quiet, kind of cozy, and very intentional. It's privacy-first and built by my partner, but honestly, that's not why I stay. I stay because it already feels more human than any mainstream social app I've used in years.
-          </p>
-        </blockquote>
-
-        <figcaption class="mt-8 flex items-center gap-4 border-t border-slate-200/60 dark:border-slate-700/60 pt-6">
-          <div
-            id="testimonial-avatar-isabella"
-            class="relative h-14 w-14 shrink-0 rounded-full ring-2 ring-white dark:ring-slate-800 shadow-lg overflow-hidden select-none"
-            phx-hook="DisableContextMenu"
-            data-can-download="false"
-          >
-            <img
-              src={~p"/images/features/isabella-avatar.jpeg"}
-              alt=""
-              class="h-full w-full object-cover pointer-events-none"
-              draggable="false"
-            />
-          </div>
-          <div>
-            <div class="font-semibold text-lg text-slate-900 dark:text-slate-100">
-              @justagirl
-            </div>
-            <div class="text-slate-500 dark:text-slate-400">
-              Isabella · Early Member
-            </div>
-          </div>
-        </figcaption>
-      </div>
-    </figure>
     """
   end
 
