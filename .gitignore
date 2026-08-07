@@ -39,8 +39,13 @@ IOS_APP_PLAN.md
 Mosslet-*.tar
 
 # Ignore assets that are produced by build tools.
-/priv/static/
+/priv/static/*
 /priv/static/assets/
+/priv/static/cache_manifest.json
+
+# ...except vendored wasm shipped with the app.
+!/priv/static/wasm/
+/priv/static/wasm/metamorphic_crypto_bg.wasm
 
 # Ignore digested assets cache.
 /priv/static/cache_manifest.json

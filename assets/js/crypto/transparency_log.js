@@ -24,9 +24,11 @@
  *      is confirmed to match the served origin/size/root.
  *   5. WITNESS COSIGNATURES (additive) — every signature line on the same
  *      note is parsed, and lines whose name matches a PINNED witness vkey
- *      are verified as C2SP tlog-cosignature v1 (Ed25519) signatures. Only
- *      cryptographically valid cosignatures are counted; invalid or unknown
- *      ones are ignored, never a downgrade.
+ *      are verified: C2SP tlog-cosignature v1 Ed25519 (0x04) signatures via
+ *      WebCrypto, and ML-DSA-44 (0x06) signatures via the vendored
+ *      metamorphic-log WASM (the same `verifySignedNote` the mosskeys web
+ *      client uses). Only cryptographically valid cosignatures are counted;
+ *      invalid or unknown ones are ignored, never a downgrade.
  *   6. INCLUSION — the RFC 6962 audit path is walked from the leaf hash to
  *      the verified checkpoint root.
  *
@@ -60,6 +62,39 @@
  * The module fetches only PUBLIC material and runs entirely client-side.
  */
 
+import wasmInit, {
+  verifySignedNote as _verifySignedNote,
+} from "../../vendor/metamorphic-log/metamorphic_log.js";
+
+// --- WASM initialization (metamorphic-log) -------------------------------
+
+let _ready = null;
+let _wasmSource = "/wasm/metamorphic_log_bg.wasm";
+
+/**
+ * Override where the metamorphic-log WASM binary is loaded from before first
+ * use. Same contract as nacl.js's setWasmSource: in the browser the default
+ * Phoenix static path ("/wasm/...") is correct and this never needs to be
+ * called; non-browser environments (tests, SDK harnesses) call it with bytes
+ * before the first verification.
+ *
+ * @param {string|URL|BufferSource|Response|WebAssembly.Module} input
+ */
+export function setWasmSource(input) {
+  if (_ready) throw new Error("setWasmSource must be called before the transparency log is verified");
+  _wasmSource = input;
+}
+
+async function ensureReady() {
+  if (_ready) return _ready;
+  _ready = wasmInit({ module_or_path: _wasmSource }).catch((e) => {
+    _ready = null;
+    throw e;
+  });
+  await _ready;
+  return _ready;
+}
+
 // --- Pinned log parameters (PUBLIC material) --------------------------------
 // Production mosslet namespace on mosskeys.com. To verify against a local or
 // staging log in development, point these three at that deployment (the vkey
@@ -68,7 +103,8 @@ const LOG_BASE_URL = "https://mosskeys.com/api/mosslet";
 const LOG_ORIGIN = "mosskeys.com/mosslet";
 // Raw 32-byte Ed25519 public half of the namespace's checkpoint signing key
 // (the classical line every `sign_dual` checkpoint carries). Base64.
-const LOG_CHECKPOINT_ED25519_VK = "1Ltcg/D0+UxGBe5e/ADMMFIfQplIiIkSQDZaARCPxjc=";
+const LOG_CHECKPOINT_ED25519_VK =
+  "1Ltcg/D0+UxGBe5e/ADMMFIfQplIiIkSQDZaARCPxjc=";
 
 // Independent C2SP witness cosignature verifier keys, pinned at release time:
 // witness name → raw 32-byte Ed25519 public key (base64). Same trust model as
@@ -99,13 +135,29 @@ const LOG_CHECKPOINT_ED25519_VK = "1Ltcg/D0+UxGBe5e/ADMMFIfQplIiIkSQDZaARCPxjc="
 // each witness line on a checkpoint note is
 // `— <name> <base64(keyID[4] || u64be timestamp || ed25519_sig[64])>` with
 // keyID = SHA-256(name || 0x0A || 0x04 || pubkey)[0:4], and the signed
-// message is `cosignature/v1\ntime <timestamp>\n<checkpoint body>`. (ML-DSA-44
-// 0x06 cosignature lines are ignored — WebCrypto cannot verify them yet; every
-// dual-signing witness also emits the classical 0x04 line.)
+// message is `cosignature/v1\ntime <timestamp>\n<checkpoint body>`.
 export const WITNESS_ED25519_VKEYS = {
-  // The production witness network is still forming — no approved witnesses
-  // at pin time. Add entries here as witnesses are approved, e.g.:
-  // "witness.example.com/mosskeys": "base64 raw 32-byte Ed25519 public key",
+  "witness.coretheorystudios.com/mosskeys":
+    "m/tB0pZhoWOPateuf5YT+DIxQniA8suFjhQGaFdZ9fA=",
+};
+
+// ML-DSA-44 (0x06) witness cosignature verifier keys, pinned at release time:
+// witness name → the entry's full C2SP vkey string `<name>+<8-hex key id>+
+// <base64(0x06 || ML-DSA-44 public key)>`, consumed verbatim by the vendored
+// metamorphic-log WASM (`verifySignedNote` parses and recomputes the key id
+// itself — we never hand-decode the key). Same public/never-fetched trust
+// model as the Ed25519 roster above.
+//
+// Wire format verified via the WASM (C2SP tlog-cosignature v1, ML-DSA-44 type
+// 0x06): each witness line is `— <name> <base64(keyID[4] || u64be timestamp
+// || ml_dsa_44_signature[2420])>` with keyID =
+// SHA-256(name || 0x0A || 0x06 || pubkey)[0:4], and the signed message is the
+// domain-separated `subtree/v1\n\0` blob (the classical 0x04 message and the
+// 0x06 message are different — both are handled by the same `verifySignedNote`
+// call on a line-isolated mini-note).
+export const WITNESS_MLDSA44_VKEYS = {
+  "witness.coretheorystudios.com/mosskeys":
+    "witness.coretheorystudios.com/mosskeys+d44dd49a+Br9D34th39PD77N8mz++Ocz5+47+8as9xh7abVHZYUUwzpGi+e+FyANO1G6gUaMDo9TTbYbsTTK33XbI7MbTkwVh30ptq1GGqLiGnEC9/0KEvTrewnfVfAI2GaHnI1SWKXLJE3JZE1cpWrXTlTecGSwYR/gG5L0cCqmLxCkmowdRLYfAvqfF5taQoFnsid/dJ3cP8q8JBmhc64Fd5tIMNxu0YUp+IYnqzt5RICJ3JcI5XR5Dqh++RS2+UInB5xhMOvaaMeXxfUZRvAPYP10EtXDoFkeUvXXKqZN09dkgISyNw4ZaKmLunYaBiTB0uCTKOMQW3tHLbERTnX7LhW+djNWMV8v+pUa0vaowX1+SPTU5lvTWTAq4AlA41iHxcVzDF5glL8pdFv2YQHR/IQ8rZCgb19XTID34m9k8Qrgj964QMpekLj3V/QCwWZZ3kuoGrfgeMp5ASDetikKfpkOt3mk5lCPE+Y1adqfzc9/KAmNU5+r1eAyxY+ADbTgRf5UEmtvFdp0Ym7By5kEJKNdgp9lA2/etdgf+rW0ru8Uz41zXaCCSg872t5mm2aV1by0TPBX65LadtvryldoI6ou2dnH+gxeuQXdadOcC9/yqm7rae6LCpDXc9sBlIH0JDVmX98kF+ZqpG6s2w6h5Tjl6iI0l/uIHcgIhLWyo6ZWg/hikSovf41KxiBsV5x+4m06Ym24r48YMn06KxAU1LCgfGHW1jalUZc+WsJZ2BLTzwK1JQjeAM0USRib95fjUD5Scx79ro66ElFV+qDpror0Yz9PYbQ3RtZcyuG60dwvpxrO1HWZDvsJUkiImpsG1jhXRZDAIOlK5p//XQ+uwfl/VYrTpGkIQjEK08Q0DhnqEqQvXYHx0MK4Tr0CkatFL+kNPNQNGL0QL819Fp9LkJTeuvUVICpb++YnOIqV/W42ZuMDYKyePkLjT1zfUh9n4LZF/Mu49L9UB2eJirGG3zlPufY8kteFu1cZzupK4KIFuQLZJ27UBE2zf2E58cP8aSYRMFS1Qtzs4SISHag5lmSc+N/szeIVQ+VPvnViH4+pZU42PGWnrdE4NvgOP+pXpVIg1cWCh663XXMO3W/gryp7zMQsBGUYRvLhXj0L35NYsabigOqbyPzbRaukDtVaM4qF35pXt9lZRjj2QJ4u4MbS+0hbwWwpXF9pRr0X3Ap/ZcdcMGEH9rZkVbQjK2k480Np6Ps49+eR4mjrWEQn4UCN4jyNbv0Bng9O9amCeWV/WlTl/yJQkEemc267yp/so/NW0YeSAIDzRX9fN8kW0EhIhAQjmFjDjaBInJ0VKm6WxJhGowezYMkaU1PVHCzT9TJ/7DmKYUhZspImqetg4rsZUh5J6zisCmQVsG+RBR86vJ5Ry28bg2OCa0t9nhhxOp/0pXUzjNHAin/R1vDaamBgeM9cKtjv2HKxN35oVuff7SweWWI0FlydOU2IH47xxsH+K8vlMTjEajjrCEWuXodxSa/2aP/3AS4HrMf3KvEgwxg+jtyDnJzR4lzft2F2VZPfcWkGgjg8UoZ03r1M23CeuzT3tfJgKr7DlTsZOMBATCImlFOgJ9AXeJvdwNfSR1Jl1To+flnlRrfFyBtsPPo6NlXM1IGu6Qf26Yy4c17Jvto/YPf/VMFuFwpooxw0dNHRxxscLLfCyxbNnYvdqQ0qb9q0bcc8z8aDCqkF7anGb4+K9UTkbm9+iv2uCG9IFwqF7VR+NCOTfcpMAX1GpXOqKyjI=",
 };
 
 export const LOG_STATUS = {
@@ -144,7 +196,11 @@ const _queue = [];
  * verified on the checkpoint note (0 when the witness network is empty) and
  * `witnessNames` carries those witnesses' names (public roster identities).
  */
-export async function checkPeerKeyAnchor({ peerUserId, peerPublicKey, peerPqPublicKey }) {
+export async function checkPeerKeyAnchor({
+  peerUserId,
+  peerPublicKey,
+  peerPqPublicKey,
+}) {
   if (!peerUserId || !peerPublicKey || !peerPqPublicKey) {
     return { status: LOG_STATUS.UNAVAILABLE };
   }
@@ -295,9 +351,11 @@ export function parseLeaf(bytes) {
     if (version !== 1) return null;
 
     // u64 seq/ts are read as two u32 halves (values stay < 2^53).
-    const seq = view.getUint32(off, false) * 0x100000000 + view.getUint32(off + 4, false);
+    const seq =
+      view.getUint32(off, false) * 0x100000000 + view.getUint32(off + 4, false);
     off += 8;
-    const ts = view.getUint32(off, false) * 0x100000000 + view.getUint32(off + 4, false);
+    const ts =
+      view.getUint32(off, false) * 0x100000000 + view.getUint32(off + 4, false);
     off += 8;
 
     const readLp = () => {
@@ -345,10 +403,11 @@ export function parseLeaf(bytes) {
  *     (C2SP signed-note). The line matching the PINNED key's ID is selected —
  *     a dual note also carries a (much larger) hybrid line under the same name,
  *     which is ignored here.
- *   - Witness cosignature lines (any name present in WITNESS_ED25519_VKEYS)
- *     are additionally verified as C2SP tlog-cosignature v1 Ed25519 (0x04)
- *     signatures — see _verifyWitnessCosignatures. The verified witness names
- *     ride back on `witnesses`; they never affect `ok`.
+ *   - Witness cosignature lines (any name present in WITNESS_ED25519_VKEYS or
+ *     WITNESS_MLDSA44_VKEYS) are additionally verified — Ed25519 (0x04) via
+ *     WebCrypto and ML-DSA-44 (0x06) via the vendored metamorphic-log WASM —
+ *     see _verifyWitnessCosignatures. The verified witness names ride back on
+ *     `witnesses`; they never affect `ok`.
  *
  * @returns {Promise<{ok: boolean, origin?: string, size?: number, root?: string, unsupported?: boolean, witnesses?: string[]}>}
  */
@@ -387,7 +446,13 @@ export async function verifyCheckpointNote(noteText) {
 
   let key;
   try {
-    key = await crypto.subtle.importKey("raw", pubBytes, { name: "Ed25519" }, false, ["verify"]);
+    key = await crypto.subtle.importKey(
+      "raw",
+      pubBytes,
+      { name: "Ed25519" },
+      false,
+      ["verify"],
+    );
   } catch {
     return { ok: false, unsupported: true };
   }
@@ -422,88 +487,182 @@ export async function verifyCheckpointNote(noteText) {
 }
 
 // ---------------------------------------------------------------------------
-// Witness cosignature verification (C2SP tlog-cosignature v1, Ed25519 0x04)
+// Witness cosignature verification (C2SP tlog-cosignature v1: Ed25519 0x04 +
+// ML-DSA-44 0x06)
 // ---------------------------------------------------------------------------
 
 // Byte length of a 0x04 cosignature line's decoded blob:
 // keyID[4] || timestamp[8] || ed25519 signature[64].
 const COSIG_V1_ED25519_BLOB_LEN = 4 + 8 + 64;
+// Byte length of a 0x06 cosignature line's decoded blob:
+// keyID[4] || timestamp[8] || ml_dsa_44 signature[2420].
+const COSIG_V1_MLDSA44_BLOB_LEN = 4 + 8 + 2420;
 
 /**
  * Verify the witness cosignature lines of an already-authentic checkpoint
  * note against the PINNED witness roster, returning the sorted names of the
  * unique witnesses whose cosignature cryptographically verified.
  *
- * Each candidate line is `— <name> <base64(keyID[4] || u64be timestamp ||
- * sig[64])>`; the signed message is the domain-separated
- * `cosignature/v1\ntime <timestamp>\n<checkpoint body>`, and the key id is
- * SHA-256(name || 0x0A || 0x04 || pubkey)[0:4] — locked against
- * `metamorphic_log`'s `CosignatureV1Ed25519` (what stock C2SP witnesses emit
- * and what mosskeys merges into the served note).
+ * Two cosignature flavors are understood, both C2SP tlog-cosignature v1:
  *
- * Strictly additive by contract: unknown names, wrong-length blobs (e.g. the
- * ML-DSA-44 0x06 line a dual-signing witness also emits), key-id mismatches,
- * and failed signatures are all excluded with at most a console.debug — a
- * cosignature can only ever ADD confidence, never downgrade the note's own
- * verdict. Each witness counts at most once (duplicate lines don't inflate).
+ *   - 0x04 (Ed25519): `— <name> <base64(keyID[4] || u64be timestamp ||
+ *     sig[64])>`, message `cosignature/v1\ntime <timestamp>\n<checkpoint
+ *     body>`, verified with WebCrypto against WITNESS_ED25519_VKEYS.
+ *   - 0x06 (ML-DSA-44): `— <name> <base64(keyID[4] || u64be timestamp ||
+ *     ml_dsa_44_signature[2420])>`, message `subtree/v1\n\0` domain-separated
+ *     blob, verified with the vendored metamorphic-log WASM
+ *     (`verifySignedNote`) against WITNESS_MLDSA44_VKEYS.
+ *
+ * Lines are verified one at a time against a mini-note
+ * (`<checkpoint body>\n\n<line>\n`) so the WASM's strict behavior — it throws
+ * if a known key's line fails — stays contained to that one line and can never
+ * take down the note's own verdict or another witness.
+ *
+ * Strictly additive by contract: unknown names, wrong-length blobs, key-id
+ * mismatches, failed signatures, and WASM-load failures are all excluded with
+ * at most a console.debug — a cosignature can only ever ADD confidence, never
+ * downgrade the note's own verdict. Each witness counts at most once
+ * (duplicate lines don't inflate, and a witness that verifies on either
+ * flavor counts once).
  */
 async function _verifyWitnessCosignatures(sigLines, message) {
-  const roster = Object.keys(WITNESS_ED25519_VKEYS);
-  if (roster.length === 0) return [];
+  const edRoster = Object.keys(WITNESS_ED25519_VKEYS);
+  const mldsaRoster = Object.keys(WITNESS_MLDSA44_VKEYS);
+  if (edRoster.length === 0 && mldsaRoster.length === 0) return [];
 
   const verified = new Set();
+
+  // Load the metamorphic-log WASM once (lazily, only when a 0x06 candidate
+  // actually appears) — a load failure only disables 0x06 cosignatures, never
+  // the rest of the verdict.
+  let wasmReady = false;
+  let wasmError = null;
+  const ensureMldsa = async () => {
+    if (wasmReady || wasmError) return;
+    try {
+      await ensureReady();
+      wasmReady = true;
+    } catch (e) {
+      wasmError = e;
+      console.debug(
+        "transparency_log: metamorphic-log WASM unavailable, ML-DSA-44 cosignatures will not be verified:",
+        e,
+      );
+    }
+  };
 
   for (const line of sigLines) {
     const parsed = _parseSigLine(line);
     if (!parsed) continue;
     const [name, blob] = parsed;
     if (verified.has(name)) continue;
-    if (!Object.prototype.hasOwnProperty.call(WITNESS_ED25519_VKEYS, name)) continue;
 
-    const pubBytes = b64DecodeBytes(WITNESS_ED25519_VKEYS[name]);
-    if (pubBytes.length !== 32 || blob.length !== COSIG_V1_ED25519_BLOB_LEN) {
-      console.debug(`transparency_log: ignoring malformed cosignature line from ${name}`);
-      continue;
-    }
+    const pinnedEd =
+      edRoster.length > 0 &&
+      Object.prototype.hasOwnProperty.call(WITNESS_ED25519_VKEYS, name);
+    const pinnedMldsa =
+      mldsaRoster.length > 0 &&
+      Object.prototype.hasOwnProperty.call(WITNESS_MLDSA44_VKEYS, name);
+    if (!pinnedEd && !pinnedMldsa) continue;
 
-    // The line's declared key id must match the pinned key's 0x04 id.
-    const nameBytes = new TextEncoder().encode(name);
-    const kidInput = new Uint8Array(nameBytes.length + 2 + pubBytes.length);
-    kidInput.set(nameBytes, 0);
-    kidInput[nameBytes.length] = 0x0a;
-    kidInput[nameBytes.length + 1] = 0x04;
-    kidInput.set(pubBytes, nameBytes.length + 2);
-    const expectedKid = (await _sha256(kidInput)).subarray(0, 4);
-    if (!_bytesEqual(blob.subarray(0, 4), expectedKid)) {
-      console.debug(`transparency_log: cosignature key-id mismatch from ${name}`);
-      continue;
-    }
+    const blobLen = blob.length;
+    let attempted = false;
 
-    const view = new DataView(blob.buffer, blob.byteOffset, blob.byteLength);
-    const timestamp = view.getUint32(4, false) * 0x100000000 + view.getUint32(8, false);
-    const cosigned = new TextEncoder().encode(`cosignature/v1\ntime ${timestamp}\n${message}`);
+    // --- 0x04 (Ed25519, WebCrypto) ---
+    if (pinnedEd && blobLen === COSIG_V1_ED25519_BLOB_LEN) {
+      attempted = true;
+      const pubBytes = b64DecodeBytes(WITNESS_ED25519_VKEYS[name]);
 
-    try {
-      const key = await crypto.subtle.importKey(
-        "raw",
-        pubBytes,
-        { name: "Ed25519" },
-        false,
-        ["verify"],
-      );
-      const ok = await crypto.subtle.verify(
-        { name: "Ed25519" },
-        key,
-        blob.subarray(12),
-        cosigned,
-      );
-      if (ok) {
-        verified.add(name);
+      // The line's declared key id must match the pinned key's 0x04 id.
+      const nameBytes = new TextEncoder().encode(name);
+      const kidInput = new Uint8Array(nameBytes.length + 2 + pubBytes.length);
+      kidInput.set(nameBytes, 0);
+      kidInput[nameBytes.length] = 0x0a;
+      kidInput[nameBytes.length + 1] = 0x04;
+      kidInput.set(pubBytes, nameBytes.length + 2);
+      const expectedKid = (await _sha256(kidInput)).subarray(0, 4);
+      if (!_bytesEqual(blob.subarray(0, 4), expectedKid)) {
+        console.debug(
+          `transparency_log: cosignature key-id mismatch from ${name}`,
+        );
       } else {
-        console.debug(`transparency_log: cosignature failed verification from ${name}`);
+        const view = new DataView(blob.buffer, blob.byteOffset, blob.byteLength);
+        const timestamp =
+          view.getUint32(4, false) * 0x100000000 + view.getUint32(8, false);
+        const cosigned = new TextEncoder().encode(
+          `cosignature/v1\ntime ${timestamp}\n${message}`,
+        );
+
+        try {
+          const key = await crypto.subtle.importKey(
+            "raw",
+            pubBytes,
+            { name: "Ed25519" },
+            false,
+            ["verify"],
+          );
+          const ok = await crypto.subtle.verify(
+            { name: "Ed25519" },
+            key,
+            blob.subarray(12),
+            cosigned,
+          );
+          if (ok) {
+            verified.add(name);
+          } else {
+            console.debug(
+              `transparency_log: cosignature failed verification from ${name}`,
+            );
+          }
+        } catch (e) {
+          console.debug(
+            `transparency_log: cosignature verify error from ${name}:`,
+            e,
+          );
+        }
       }
-    } catch (e) {
-      console.debug(`transparency_log: cosignature verify error from ${name}:`, e);
+    }
+
+    // --- 0x06 (ML-DSA-44, vendored metamorphic-log WASM) ---
+    if (pinnedMldsa && blobLen === COSIG_V1_MLDSA44_BLOB_LEN) {
+      attempted = true;
+      await ensureMldsa();
+      if (wasmReady) {
+        // Isolate this one line: `<checkpoint body>\n\n<line>\n`. The 0x06
+        // cosigned message is built from the canonical body (origin/size/root
+        // without its trailing newline — unlike the 0x04 `cosignature/v1`
+        // message, which includes it), so the mini-note's body must not end
+        // with a newline. verifySignedNote throws (e.g. InvalidSignature for a
+        // forged known-key line, NoTrustedSignature on a key-id mismatch) —
+        // catch and treat as "not verified".
+        try {
+          const bodyText = message.endsWith("\n")
+            ? message.slice(0, -1)
+            : message;
+          const miniNote = `${bodyText}\n\n${line}\n`;
+          const count = _verifySignedNote(miniNote, [
+            WITNESS_MLDSA44_VKEYS[name],
+          ]);
+          if (count >= 1) {
+            verified.add(name);
+          } else {
+            console.debug(
+              `transparency_log: ML-DSA-44 cosignature failed verification from ${name}`,
+            );
+          }
+        } catch (e) {
+          console.debug(
+            `transparency_log: ML-DSA-44 cosignature verify error from ${name}:`,
+            e,
+          );
+        }
+      }
+    }
+
+    if (!attempted) {
+      console.debug(
+        `transparency_log: ignoring malformed cosignature line from ${name}`,
+      );
     }
   }
 
@@ -551,7 +710,13 @@ function _nodeHash(left, right) {
  * @param {Uint8Array} expectedRoot
  * @returns {Promise<boolean>}
  */
-export async function verifyInclusionProof(leafHash, leafIndex, treeSize, path, expectedRoot) {
+export async function verifyInclusionProof(
+  leafHash,
+  leafIndex,
+  treeSize,
+  path,
+  expectedRoot,
+) {
   if (
     !(leafHash instanceof Uint8Array) ||
     !(expectedRoot instanceof Uint8Array) ||
