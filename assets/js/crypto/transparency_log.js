@@ -81,7 +81,10 @@ let _wasmSource = "/wasm/metamorphic_log_bg.wasm";
  * @param {string|URL|BufferSource|Response|WebAssembly.Module} input
  */
 export function setWasmSource(input) {
-  if (_ready) throw new Error("setWasmSource must be called before the transparency log is verified");
+  if (_ready)
+    throw new Error(
+      "setWasmSource must be called before the transparency log is verified",
+    );
   _wasmSource = input;
 }
 
@@ -107,16 +110,19 @@ const LOG_CHECKPOINT_ED25519_VK =
   "1Ltcg/D0+UxGBe5e/ADMMFIfQplIiIkSQDZaARCPxjc=";
 
 // Independent C2SP witness cosignature verifier keys, pinned at release time:
-// witness name → raw 32-byte Ed25519 public key (base64). Same trust model as
+// witness name → the entry's full C2SP vkey string `<name>+<8-hex key id>+
+// <base64(0x04 || Ed25519 public key)>`, copy-pasted verbatim from the
+// approved roster at `GET https://mosskeys.com/api/witnesses` (also mirrored
+// on the public `/witnesses` directory page — the `vkeys.ed25519` value),
+// exactly like the ML-DSA-44 roster below. The 0x04 path parses the string
+// and recomputes the key id itself (see _parseEd25519Vkey), so the pin stays
+// a copy-paste of the public directory. Same trust model as
 // LOG_CHECKPOINT_ED25519_VK — the roster is PUBLIC material shipped in the
 // bundle and is NEVER fetched at runtime (mosskeys is inside the threat model
 // for split-view; a served roster could name attacker keys).
 //
-// Sourced from the approved roster at `GET https://mosskeys.com/api/witnesses`
-// (also mirrored on the public `/witnesses` directory page). Each entry's
-// `vkeys.ed25519` is a C2SP vkey string `<name>+<8-hex key id>+<base64(0x04
-// || pubkey)>`; pin the 32-byte public half under the entry's `name`. Update
-// one-liner (prints this map's entries; verify out-of-band before merging):
+// Update one-liner (prints this map's entries; verify out-of-band before
+// merging):
 //
 //   node --input-type=module -e '
 //     const { witnesses } = await (await fetch("https://mosskeys.com/api/witnesses")).json();
@@ -128,7 +134,7 @@ const LOG_CHECKPOINT_ED25519_VK =
 //       const i = v.indexOf("+"), j = v.indexOf("+", i + 1);
 //       const raw = Buffer.from(v.slice(j + 1), "base64");
 //       if (raw.length !== 33 || raw[0] !== 0x04) continue;
-//       console.log(`  ${JSON.stringify(w.name)}: ${JSON.stringify(raw.subarray(1).toString("base64"))},`);
+//       console.log(`  ${JSON.stringify(w.name)}:\n    ${JSON.stringify(v)},`);
 //     }'
 //
 // Wire format verified here (C2SP tlog-cosignature v1, Ed25519 type 0x04):
@@ -138,7 +144,7 @@ const LOG_CHECKPOINT_ED25519_VK =
 // message is `cosignature/v1\ntime <timestamp>\n<checkpoint body>`.
 export const WITNESS_ED25519_VKEYS = {
   "witness.coretheorystudios.com/mosskeys":
-    "m/tB0pZhoWOPateuf5YT+DIxQniA8suFjhQGaFdZ9fA=",
+    "witness.coretheorystudios.com/mosskeys+62258d4e+BJv7QdKWYaFjj2rXrn+WE/gyMUJ4gPLLhY4UBmhXWfXw",
 };
 
 // ML-DSA-44 (0x06) witness cosignature verifier keys, pinned at release time:
@@ -571,54 +577,71 @@ async function _verifyWitnessCosignatures(sigLines, message) {
     // --- 0x04 (Ed25519, WebCrypto) ---
     if (pinnedEd && blobLen === COSIG_V1_ED25519_BLOB_LEN) {
       attempted = true;
-      const pubBytes = b64DecodeBytes(WITNESS_ED25519_VKEYS[name]);
-
-      // The line's declared key id must match the pinned key's 0x04 id.
-      const nameBytes = new TextEncoder().encode(name);
-      const kidInput = new Uint8Array(nameBytes.length + 2 + pubBytes.length);
-      kidInput.set(nameBytes, 0);
-      kidInput[nameBytes.length] = 0x0a;
-      kidInput[nameBytes.length + 1] = 0x04;
-      kidInput.set(pubBytes, nameBytes.length + 2);
-      const expectedKid = (await _sha256(kidInput)).subarray(0, 4);
-      if (!_bytesEqual(blob.subarray(0, 4), expectedKid)) {
+      const vkey = _parseEd25519Vkey(WITNESS_ED25519_VKEYS[name]);
+      if (!vkey || vkey.name !== name) {
         console.debug(
-          `transparency_log: cosignature key-id mismatch from ${name}`,
+          `transparency_log: malformed pinned Ed25519 vkey for ${name}`,
         );
       } else {
-        const view = new DataView(blob.buffer, blob.byteOffset, blob.byteLength);
-        const timestamp =
-          view.getUint32(4, false) * 0x100000000 + view.getUint32(8, false);
-        const cosigned = new TextEncoder().encode(
-          `cosignature/v1\ntime ${timestamp}\n${message}`,
-        );
+        const { pubBytes, keyIdBytes } = vkey;
 
-        try {
-          const key = await crypto.subtle.importKey(
-            "raw",
-            pubBytes,
-            { name: "Ed25519" },
-            false,
-            ["verify"],
+        // The line's declared key id must match the pinned key's 0x04 id.
+        const nameBytes = new TextEncoder().encode(name);
+        const kidInput = new Uint8Array(nameBytes.length + 2 + pubBytes.length);
+        kidInput.set(nameBytes, 0);
+        kidInput[nameBytes.length] = 0x0a;
+        kidInput[nameBytes.length + 1] = 0x04;
+        kidInput.set(pubBytes, nameBytes.length + 2);
+        const expectedKid = (await _sha256(kidInput)).subarray(0, 4);
+        if (!_bytesEqual(keyIdBytes, expectedKid)) {
+          // The pinned string itself is inconsistent — its embedded key id
+          // doesn't recompute from its own key, so never trust it.
+          console.debug(
+            `transparency_log: pinned Ed25519 vkey key-id mismatch for ${name}`,
           );
-          const ok = await crypto.subtle.verify(
-            { name: "Ed25519" },
-            key,
-            blob.subarray(12),
-            cosigned,
+        } else if (!_bytesEqual(blob.subarray(0, 4), expectedKid)) {
+          console.debug(
+            `transparency_log: cosignature key-id mismatch from ${name}`,
           );
-          if (ok) {
-            verified.add(name);
-          } else {
+        } else {
+          const view = new DataView(
+            blob.buffer,
+            blob.byteOffset,
+            blob.byteLength,
+          );
+          const timestamp =
+            view.getUint32(4, false) * 0x100000000 + view.getUint32(8, false);
+          const cosigned = new TextEncoder().encode(
+            `cosignature/v1\ntime ${timestamp}\n${message}`,
+          );
+
+          try {
+            const key = await crypto.subtle.importKey(
+              "raw",
+              pubBytes,
+              { name: "Ed25519" },
+              false,
+              ["verify"],
+            );
+            const ok = await crypto.subtle.verify(
+              { name: "Ed25519" },
+              key,
+              blob.subarray(12),
+              cosigned,
+            );
+            if (ok) {
+              verified.add(name);
+            } else {
+              console.debug(
+                `transparency_log: cosignature failed verification from ${name}`,
+              );
+            }
+          } catch (e) {
             console.debug(
-              `transparency_log: cosignature failed verification from ${name}`,
+              `transparency_log: cosignature verify error from ${name}:`,
+              e,
             );
           }
-        } catch (e) {
-          console.debug(
-            `transparency_log: cosignature verify error from ${name}:`,
-            e,
-          );
         }
       }
     }
@@ -667,6 +690,35 @@ async function _verifyWitnessCosignatures(sigLines, message) {
   }
 
   return [...verified].sort();
+}
+
+/**
+ * Parse a pinned C2SP Ed25519 (0x04) verifier-key string
+ * (`<name>+<8-hex key id>+<base64(0x04 || pubkey)>`) into its parts.
+ * Splits on the FIRST two "+" only — the base64 tail may itself contain
+ * "+" (the reference note.NewVerifier does the same). Returns
+ * `{ name, keyIdBytes, pubBytes }`, where pubBytes is the raw 32-byte
+ * Ed25519 public key WebCrypto wants, or null on any malformed input.
+ */
+function _parseEd25519Vkey(vkey) {
+  if (typeof vkey !== "string") return null;
+  const i = vkey.indexOf("+");
+  const j = i < 0 ? -1 : vkey.indexOf("+", i + 1);
+  if (i <= 0 || j < 0) return null;
+  const keyIdHex = vkey.slice(i + 1, j);
+  if (!/^[0-9a-f]{8}$/.test(keyIdHex)) return null;
+  let raw;
+  try {
+    raw = b64DecodeBytes(vkey.slice(j + 1));
+  } catch {
+    return null;
+  }
+  if (raw.length !== 33 || raw[0] !== 0x04) return null;
+  const keyIdBytes = new Uint8Array(4);
+  for (let k = 0; k < 4; k++) {
+    keyIdBytes[k] = Number.parseInt(keyIdHex.slice(k * 2, k * 2 + 2), 16);
+  }
+  return { name: vkey.slice(0, i), keyIdBytes, pubBytes: raw.subarray(1) };
 }
 
 function _parseSigLine(line) {
