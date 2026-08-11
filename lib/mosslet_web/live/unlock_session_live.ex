@@ -59,8 +59,15 @@ defmodule MossletWeb.UnlockSessionLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-teal-50/30 to-emerald-50/20 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 px-4 sm:px-6 lg:px-8">
-      <div class="w-full max-w-md">
+    <%!-- min-h tracks the VISUAL viewport via --unlock-vh (set by UnlockHook)
+          so the page stays scrollable when the iOS keyboard shrinks the visual
+          viewport — without it the card exactly fits, there's no scroll range,
+          and the unlock button gets trapped under the keyboard. Safe-area
+          padding keeps the card clear of the PWA status bar / home indicator
+          (viewport-fit=cover), and `m-auto` on the child centers the card when
+          it fits yet lets it flow from the top (natural scroll) when it doesn't. --%>
+    <div class="min-h-[var(--unlock-vh,100dvh)] flex flex-col bg-gradient-to-br from-slate-50 via-teal-50/30 to-emerald-50/20 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 px-4 sm:px-6 lg:px-8 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <div class="m-auto w-full max-w-md">
         <div class="bg-white/70 dark:bg-slate-800/70 backdrop-blur-xl rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 border border-white/50 dark:border-slate-700/50 p-8 sm:p-10">
           <%!-- Header --%>
           <div class="text-center mb-8">
@@ -296,7 +303,7 @@ defmodule MossletWeb.UnlockSessionLive do
               <.link
                 href={~p"/auth/sign_out"}
                 method="delete"
-                class="font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors duration-200"
+                class="inline-block px-2 -mx-2 py-3 -my-3 font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors duration-200"
               >
                 Sign out
               </.link>

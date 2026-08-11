@@ -184,7 +184,11 @@ defmodule MossletWeb.PublicLayout do
           </div>
         </div>
 
-        <%!-- Mobile menu --%>
+        <%!-- Mobile menu. max-h uses dvh so it shrinks clear of mobile Safari's
+             dynamic toolbar, and the inner bottom padding lifts the last links
+             (Unlock Session / Sign out) above the iPhone home indicator in the
+             PWA (viewport-fit=cover) — otherwise they sit beneath the screen
+             edge and can't be tapped. --%>
         <div
           x-show="isOpen"
           x-transition:enter="transition ease-out duration-200"
@@ -193,10 +197,10 @@ defmodule MossletWeb.PublicLayout do
           x-transition:leave="transition ease-in duration-150"
           x-transition:leave-start="opacity-100 transform translate-y-0"
           x-transition:leave-end="opacity-0 transform -translate-y-2"
-          class="lg:hidden max-h-[calc(100vh-4rem)] overflow-y-auto overscroll-contain"
+          class="lg:hidden max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain"
           x-cloak
         >
-          <div class="px-2 pt-2 pb-3 space-y-1 border-t border-slate-200/60 dark:border-slate-700/60">
+          <div class="px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-1 border-t border-slate-200/60 dark:border-slate-700/60">
             <%!-- Mobile navigation items with enhanced liquid effects --%>
             <.link
               :for={item <- @public_menu_footer_items}

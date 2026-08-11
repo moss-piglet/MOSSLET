@@ -52,6 +52,29 @@ const UnlockHook = {
 
     sessionStorage.removeItem(REDIRECT_FLAG);
 
+    // iOS PWA keyboard fix: opening the virtual keyboard shrinks the VISUAL
+    // viewport but not the layout viewport (100dvh is unchanged), so a card
+    // that exactly fits the screen leaves the page with no scroll range and
+    // the submit button gets trapped under the keyboard. Mirroring the visual
+    // viewport height into --unlock-vh (consumed by the page container's
+    // min-h) shrinks the container while the keyboard is open, the card
+    // overflows, and the button can be scrolled into view.
+    this._onViewportResize = () => {
+      const height = window.visualViewport
+        ? window.visualViewport.height
+        : window.innerHeight;
+      document.documentElement.style.setProperty(
+        "--unlock-vh",
+        `${Math.round(height)}px`,
+      );
+    };
+    this._onViewportResize();
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", this._onViewportResize);
+    } else {
+      window.addEventListener("resize", this._onViewportResize);
+    }
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
 
@@ -143,6 +166,18 @@ const UnlockHook = {
       // SessionKeyDeriver to pick up after the redirect.
       form.submit();
     });
+  },
+
+  destroyed() {
+    if (window.visualViewport) {
+      window.visualViewport.removeEventListener(
+        "resize",
+        this._onViewportResize,
+      );
+    } else {
+      window.removeEventListener("resize", this._onViewportResize);
+    }
+    document.documentElement.style.removeProperty("--unlock-vh");
   },
 };
 
