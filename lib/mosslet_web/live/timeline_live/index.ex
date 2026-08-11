@@ -332,6 +332,10 @@ defmodule MossletWeb.TimelineLive.Index do
       # straight into an open composer via `?compose=1`.
       |> maybe_open_composer(params)
       |> maybe_assign_ritual_prompt(params)
+      # Deep link from the dashboard "New replies" card:
+      # /app/timeline?post_id=<id>&reply_id=<id> expands the thread and
+      # scrolls to the reply once the feed has loaded.
+      |> maybe_assign_reply_deep_link(params)
 
     # Start async operation to load timeline data (posts and counts together)
     # This ensures data synchronization while providing loading UI
@@ -408,6 +412,105 @@ defmodule MossletWeb.TimelineLive.Index do
     do: assign(socket, :composer_collapsed, false)
 
   defp maybe_open_composer(socket, _params), do: socket
+
+  # Reply deep link params (dashboard "New replies" card). The assign is
+  # consumed once the async timeline load completes (one-shot) — see
+  # maybe_handle_reply_deep_link/2.
+  defp maybe_assign_reply_deep_link(socket, %{"post_id" => post_id} = params)
+       when is_binary(post_id) and post_id != "" do
+    reply_id = params["reply_id"]
+
+    assign(socket, :reply_deep_link, %{
+      post_id: post_id,
+      reply_id: if(is_binary(reply_id) and reply_id != "", do: reply_id)
+    })
+  end
+
+  defp maybe_assign_reply_deep_link(socket, _params),
+    do: assign(socket, :reply_deep_link, nil)
+
+  # Consumes the one-shot :reply_deep_link assign once the feed has rendered.
+  # When the target post is already on the page we just hand off to the
+  # browser; otherwise we inject a fully-prepared copy at the top of the feed
+  # first (it may sit behind the read divider or on a later page), dropping it
+  # from the read cache so it can't render twice. The browser then expands the
+  # thread and scrolls to the reply ("phx:reply-deep-link" in app.js).
+  defp maybe_handle_reply_deep_link(socket, rendered_posts) do
+    case socket.assigns[:reply_deep_link] do
+      %{post_id: post_id} = deep_link ->
+        socket = assign(socket, :reply_deep_link, nil)
+
+        if Enum.any?(rendered_posts, &(&1.id == post_id)) do
+          push_reply_deep_link(socket, deep_link)
+        else
+          inject_deep_link_post(socket, deep_link)
+        end
+
+      _ ->
+        socket
+    end
+  end
+
+  defp inject_deep_link_post(socket, %{post_id: post_id} = deep_link) do
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+
+    with %Post{} = post <- Timeline.get_post(post_id),
+         true <- deep_link_post_visible?(post, current_user) do
+      options = %{current_user_id: current_user.id, limit: 5}
+
+      post =
+        post
+        |> Map.put(:replies, Timeline.get_nested_replies_for_post(post.id, options))
+        |> Map.put(:total_reply_count, Timeline.count_replies_for_post(post.id, options))
+
+      [prepared] = prepare_posts_for_stream([post], current_user, key)
+
+      socket
+      |> assign(
+        :cached_read_posts,
+        Enum.reject(socket.assigns.cached_read_posts, &(&1.id == post_id))
+      )
+      |> stream_insert(:posts, prepared, at: 0)
+      |> push_reply_deep_link(deep_link)
+    else
+      _ -> socket
+    end
+  end
+
+  # Same gate the feed relies on: the viewer is the author or already holds a
+  # sealed key for the post (a UserPost recipient). Anything else is a no-op.
+  defp deep_link_post_visible?(post, current_user) do
+    post.user_id == current_user.id or not is_nil(Timeline.get_user_post(post, current_user))
+  end
+
+  defp push_reply_deep_link(socket, %{post_id: post_id, reply_id: reply_id}) do
+    push_event(socket, "reply-deep-link", %{
+      post_id: post_id,
+      reply_id: reply_id,
+      ancestors: reply_ancestor_ids(reply_id)
+    })
+  end
+
+  # The chain of parent reply ids (top-most first) whose nested-children
+  # containers must be expanded to reveal the target reply. Empty for a
+  # top-level reply. Bounded walk — threads render at most a few levels deep.
+  defp reply_ancestor_ids(nil), do: []
+  defp reply_ancestor_ids(reply_id), do: reply_ancestor_ids(reply_id, 5, [])
+  defp reply_ancestor_ids(_reply_id, 0, acc), do: acc
+
+  defp reply_ancestor_ids(reply_id, hops_left, acc) do
+    case Timeline.get_reply(reply_id) do
+      %{parent_reply_id: nil} ->
+        acc
+
+      %{parent_reply_id: parent_id} ->
+        reply_ancestor_ids(parent_id, hops_left - 1, [parent_id | acc])
+
+      nil ->
+        acc
+    end
+  end
 
   # Shared ritual prompt (EPIC #377, task #378). When arriving via
   # `?ritual=<broadcast_id>` (from tapping the prompt card), load the non-secret
@@ -5181,7 +5284,8 @@ defmodule MossletWeb.TimelineLive.Index do
      |> assign(:cached_read_posts, read_posts_with_dates)
      |> assign(:cached_unread_posts, unread_posts_with_dates)
      |> assign(:user_statuses, Map.merge(socket.assigns.user_statuses, user_statuses))
-     |> stream(:posts, unread_posts_with_dates, reset: true)}
+     |> stream(:posts, unread_posts_with_dates, reset: true)
+     |> maybe_handle_reply_deep_link(unread_posts)}
   end
 
   def handle_async(:load_timeline_data, {:exit, reason}, socket) do

@@ -23,6 +23,7 @@ import KeyChangeBanner from "./key-change-banner";
 import PeerVerifiedBadge from "./peer-verified-badge";
 import DecryptInviterName from "./decrypt-inviter-name";
 import DecryptNudge from "./decrypt-nudge";
+import DecryptReplyAuthor from "./decrypt-reply-author";
 import DecryptPost from "./decrypt-post";
 import DecryptProfileFields from "./decrypt-profile-fields";
 import DecryptReply from "./decrypt-reply";
@@ -88,6 +89,7 @@ import UnlockHook from "./unlock-hook";
 import TrixContentPostHook from "./trix-content-post-hook";
 import TrixContentReplyHook from "./trix-content-reply-hook";
 import ScrollDown from "./scroll";
+import ScrollToReply from "./scroll-to-reply";
 import RestoreBodyScroll from "./restore-body-scroll";
 import ImageDownloadHook from "./image-download-hook";
 import DisableContextMenu from "./disable-context-menu";
@@ -170,6 +172,7 @@ export default {
   DecryptPost,
   DecryptProfileFields,
   DecryptReply,
+  DecryptReplyAuthor,
   DecryptStatusMessage,
   DecryptUserFields,
   EncryptUpload,
@@ -225,6 +228,7 @@ export default {
   RestoreBodyScroll,
   ScrollableTabs,
   ScrollDown,
+  ScrollToReply,
   SessionKeyDeriver,
   ShareNoteFormHook,
   SharedFileHook,

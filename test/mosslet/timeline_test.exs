@@ -355,4 +355,191 @@ defmodule Mosslet.TimelineTest do
       assert length(Timeline.list_public_posts_by_user(user.id, 2)) == 2
     end
   end
+
+  describe "list_unread_replies_for_user/2" do
+    import Mosslet.TimelineFixtures
+
+    @valid_password "hello world hello world"
+
+    setup do
+      user =
+        Mosslet.AccountsFixtures.user_fixture(%{
+          username: "replyowner",
+          email: "replyowner@example.com",
+          password: @valid_password
+        })
+
+      key = get_session_key(user, @valid_password)
+
+      {:ok, user} =
+        Mosslet.Accounts.update_user_onboarding_profile(user, %{name: "Reply Owner"},
+          change_name: true,
+          key: key,
+          user: user
+        )
+
+      replier =
+        Mosslet.AccountsFixtures.user_fixture(%{
+          username: "replier",
+          email: "replier@example.com",
+          password: @valid_password
+        })
+
+      r_key = get_session_key(replier, @valid_password)
+
+      # The replier must be discoverable by username for the connection request
+      {:ok, replier} =
+        Mosslet.Accounts.update_user_visibility(replier, %{visibility: :connections}, key: r_key)
+
+      {:ok, replier} =
+        Mosslet.Accounts.update_user_onboarding_profile(replier, %{name: "Replier"},
+          change_name: true,
+          key: r_key,
+          user: replier
+        )
+
+      uconn_attrs = %{
+        "color" => "emerald",
+        "temp_label" => "friend",
+        "connection_id" => user.connection.id,
+        "reverse_user_id" => user.id,
+        "selector" => "username",
+        "username" => "replier"
+      }
+
+      _user_connection =
+        Mosslet.UserConnectionFixtures.user_connection_fixture(uconn_attrs,
+          user: user,
+          reverse_user: replier,
+          key: key,
+          r_key: r_key,
+          confirm?: true
+        )
+
+      post = post_fixture(%{username: "replyowner"}, user: user, key: key)
+
+      # Mirror production's create_shared_user_posts (legacy server path): seal
+      # the post key for the replier so they hold a UserPost for the post —
+      # exactly what the composer does when sharing with connections.
+      author_user_post = Timeline.get_user_post(post, user)
+
+      {:ok, raw_post_key} =
+        Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(
+          author_user_post.key,
+          user,
+          key
+        )
+
+      %Mosslet.Timeline.UserPost{}
+      |> Mosslet.Timeline.UserPost.sharing_changeset(
+        %{key: raw_post_key, post_id: post.id, user_id: replier.id},
+        user: replier,
+        visibility: "connections"
+      )
+      |> Repo.insert!()
+
+      %{user: user, key: key, replier: replier, r_key: r_key, post: post}
+    end
+
+    test "returns unread replies to the user's own posts, newest first", %{
+      user: user,
+      replier: replier,
+      r_key: r_key,
+      post: post
+    } do
+      reply = reply_to_post(post, replier, r_key, "first reply")
+
+      assert [found] = Timeline.list_unread_replies_for_user(user)
+      assert found.id == reply.id
+      assert found.post_id == post.id
+      assert is_nil(found.parent_reply_id)
+      # post: :user_posts is preloaded for sealed-key resolution (ZK)
+      assert Ecto.assoc_loaded?(found.post)
+      assert Ecto.assoc_loaded?(found.post.user_posts)
+
+      # The replier's own dashboard shows nothing for their own reply
+      assert Timeline.list_unread_replies_for_user(replier) == []
+    end
+
+    test "includes unread replies to the user's own replies (nested)", %{
+      user: user,
+      key: key,
+      replier: replier,
+      r_key: r_key,
+      post: post
+    } do
+      parent = reply_to_post(post, user, key, "owner's own reply")
+      nested = reply_to_post(post, replier, r_key, "reply to your reply", parent.id)
+
+      assert [found] = Timeline.list_unread_replies_for_user(user)
+      assert found.id == nested.id
+      assert found.parent_reply_id == parent.id
+    end
+
+    test "excludes already-read replies", %{
+      user: user,
+      replier: replier,
+      r_key: r_key,
+      post: post
+    } do
+      _reply = reply_to_post(post, replier, r_key, "seen it")
+
+      assert [_] = Timeline.list_unread_replies_for_user(user)
+
+      Timeline.mark_replies_read_for_post(post.id, user.id)
+
+      assert Timeline.list_unread_replies_for_user(user) == []
+    end
+
+    test "respects the limit across direct and nested replies", %{
+      user: user,
+      key: key,
+      replier: replier,
+      r_key: r_key,
+      post: post
+    } do
+      parent = reply_to_post(post, user, key, "owner's own reply")
+
+      for n <- 1..3 do
+        reply_to_post(post, replier, r_key, "direct #{n}")
+      end
+
+      for n <- 1..3 do
+        reply_to_post(post, replier, r_key, "nested #{n}", parent.id)
+      end
+
+      result = Timeline.list_unread_replies_for_user(user, %{limit: 4})
+      assert length(result) == 4
+
+      # newest first
+      assert Enum.chunk_every(result, 2, 1, :discard)
+             |> Enum.all?(fn [a, b] ->
+               NaiveDateTime.compare(a.inserted_at, b.inserted_at) in [:gt, :eq]
+             end)
+    end
+
+    defp reply_to_post(post, replier, r_key, body, parent_reply_id \\ nil) do
+      user_post = Timeline.get_user_post(post, replier)
+
+      attrs = %{
+        "user_id" => replier.id,
+        "post_id" => post.id,
+        "parent_reply_id" => parent_reply_id,
+        "visibility" => "connections",
+        "body" => body,
+        "username" => "replier"
+      }
+
+      {:ok, reply} =
+        Timeline.create_reply(attrs,
+          user: replier,
+          key: r_key,
+          post: post,
+          post_key: user_post.key,
+          visibility: :connections
+        )
+
+      reply
+    end
+  end
 end

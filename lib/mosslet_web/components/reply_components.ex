@@ -393,8 +393,9 @@ defmodule MossletWeb.ReplyComponents do
 
     ~H"""
     <div
+      id={"reply-#{@reply.id}"}
       class={[
-        "relative rounded-xl transition-all duration-200 ease-out",
+        "relative rounded-xl transition-all duration-200 ease-out scroll-mt-28",
         reply_background_classes(@depth),
         reply_border_classes(@depth),
         reply_hover_classes(@depth),

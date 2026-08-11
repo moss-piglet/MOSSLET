@@ -59,6 +59,14 @@ defmodule MossletWeb.PostLive.Show do
     post = socket.assigns.post
     _key = socket.assigns.key
 
+    # Viewing a post's page shows its replies, so clear the viewer's unread
+    # reply state for it (replies to their own post + replies to their own
+    # replies). Scoped server-side — a no-op for anyone else. This keeps the
+    # dashboard "New replies" card honest after a deep link is followed.
+    if connected?(socket) do
+      Timeline.mark_replies_read_for_post(post.id, current_user.id)
+    end
+
     sort_by = valid_sort_by(params)
     sort_order = valid_sort_order(params)
 
@@ -114,6 +122,7 @@ defmodule MossletWeb.PostLive.Show do
       |> assign(:finished_loading_list, socket.assigns[:finished_loading_list] || [])
       |> assign(:filter, filter)
       |> assign(:page_title, page_title(socket.assigns.live_action))
+      |> assign(:target_reply_id, params["reply"])
       |> stream(:replies, replies, reset: true)
 
     {:noreply,
@@ -211,6 +220,11 @@ defmodule MossletWeb.PostLive.Show do
       Accounts.get_user_connection_for_reply_shared_users(reply.user_id, current_user.id)
 
     if post.id == socket.assigns.post.id && (user_connection || reply.user_id == current_user.id) do
+      # The viewer is looking at this thread right now — the new reply is
+      # being rendered, so it's read by definition (scoped: only clears the
+      # viewer's own unread state).
+      Timeline.mark_replies_read_for_post(post.id, current_user.id)
+
       reply_count = socket.assigns.reply_count + 1
 
       {:noreply,

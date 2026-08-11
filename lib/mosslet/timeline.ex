@@ -317,6 +317,57 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
+  Lists the user's most recent unread reply activity, newest first:
+
+    * direct replies to the user's OWN posts
+    * nested replies to the user's OWN replies (reply-to-reply, on any post)
+
+  Powers the "New replies" card on the personal dashboard (`/app`). Each
+  `Reply` is returned with `post: :user_posts` preloaded so the caller can
+  resolve the viewer's sealed post key and hand ciphertext to the browser
+  for zero-knowledge decryption — no plaintext is read server-side here.
+
+  Implemented directly (not via the platform adapter) because the dashboard
+  is a web-only surface — mirrors `mark_top_level_replies_read_for_post/2`.
+
+  ## Options
+
+    * `:limit` — max replies returned (default 5). Each scoped query is
+      individually limited before merging, keeping the read bounded.
+  """
+  def list_unread_replies_for_user(user, opts \\ %{}) do
+    limit = Map.get(opts, :limit, 5)
+
+    direct =
+      Reply
+      |> join(:inner, [r], p in Post, on: r.post_id == p.id)
+      |> where([r, p], p.user_id == ^user.id)
+      |> where([r, p], r.user_id != ^user.id)
+      |> where([r, p], is_nil(r.read_at))
+      |> where([r, p], is_nil(r.parent_reply_id))
+      |> order_by([r, p], desc: r.inserted_at)
+      |> limit(^limit)
+      |> preload([r, p], post: :user_posts)
+      |> Repo.all()
+
+    nested =
+      Reply
+      |> join(:inner, [r], parent in Reply, on: r.parent_reply_id == parent.id)
+      |> where([r, parent], parent.user_id == ^user.id)
+      |> where([r, parent], r.user_id != ^user.id)
+      |> where([r, parent], is_nil(r.read_at))
+      |> order_by([r, parent], desc: r.inserted_at)
+      |> limit(^limit)
+      |> preload([r, parent], post: :user_posts)
+      |> Repo.all()
+
+    (direct ++ nested)
+    |> Enum.uniq_by(& &1.id)
+    |> Enum.sort_by(& &1.inserted_at, {:desc, NaiveDateTime})
+    |> Enum.take(limit)
+  end
+
+  @doc """
   Returns a map of post_id => unread_reply_count for posts owned by the user.
   Only counts replies from other users that have not been read yet.
   Also includes replies to the user's own replies (nested replies) on any post.

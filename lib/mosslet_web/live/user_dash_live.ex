@@ -50,6 +50,16 @@ defmodule MossletWeb.UserDashLive do
       Timeline.private_subscribe(current_user)
       Timeline.connections_subscribe(current_user)
 
+      # Surface unread replies on the dashboard ("New replies" card). The
+      # user-scoped topics carry connection/private reply activity; the public
+      # "replies" topic covers replies to the viewer's PUBLIC posts. Reply
+      # events are filtered for relevance in handle_info/2 before refreshing —
+      # irrelevant global chatter never touches the DB. ZK-safe: payloads
+      # carry only UUIDs + ciphertext.
+      Timeline.private_reply_subscribe(current_user)
+      Timeline.connections_reply_subscribe(current_user)
+      Timeline.reply_subscribe()
+
       # Surface unread DMs + circle @mentions on the dashboard pulse. Subscribe to
       # the viewer's conversation topic (new/read DMs) and to each confirmed
       # circle's `group:` topic (new mentions or reads elsewhere), mirroring the
@@ -199,6 +209,37 @@ defmodule MossletWeb.UserDashLive do
     {:noreply, socket}
   end
 
+  # Reply activity (create/delete) refreshes the "New replies" card + count,
+  # but ONLY when the reply actually concerns the viewer — a reply on their
+  # post or a reply to their reply. The public "replies" topic is global, so
+  # this filter keeps unrelated platform chatter from hitting the DB: direct
+  # replies are filtered on the broadcast struct alone; nested replies need a
+  # cheap primary-key check on the parent reply.
+  def handle_info({event, post, reply}, socket)
+      when event in [:reply_created, :reply_deleted] do
+    current_user = socket.assigns.current_scope.user
+
+    socket =
+      if socket.assigns[:has_profile?] &&
+           reply_activity_relevant?(post, reply, current_user) do
+        socket
+        |> assign_dashboard_stats()
+        |> assign_reply_activity()
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
+
+  # Other reply broadcasts (:reply_updated, :reply_updated_fav) don't change
+  # the unread set, so there's nothing to recompute — and they must NOT fall
+  # through to the catch-all stat refresh.
+  def handle_info({event, _post, _reply}, socket)
+      when event in [:reply_updated, :reply_updated_fav] do
+    {:noreply, socket}
+  end
+
   def handle_info(_msg, socket) do
     # Our mount subscriptions are scoped to this user's connections, circles, and
     # timeline. Any of those events can change the at-a-glance counts, so refresh
@@ -215,6 +256,25 @@ defmodule MossletWeb.UserDashLive do
 
   # ── Assigns ────────────────────────────────────────────────────────────────
 
+  # Cheap-first relevance filter for reply broadcasts: a reply matters to the
+  # dashboard when it's on the viewer's own post (struct check, no DB) or when
+  # it's nested under one of the viewer's own replies (one PK lookup).
+  defp reply_activity_relevant?(post, reply, current_user) do
+    cond do
+      post.user_id == current_user.id ->
+        true
+
+      is_nil(reply.parent_reply_id) ->
+        false
+
+      true ->
+        case Timeline.get_reply(reply.parent_reply_id) do
+          nil -> false
+          parent -> parent.user_id == current_user.id
+        end
+    end
+  end
+
   defp maybe_assign_dashboard(socket, false), do: socket
 
   defp maybe_assign_dashboard(socket, true) do
@@ -230,7 +290,9 @@ defmodule MossletWeb.UserDashLive do
     |> assign(:profile_user, current_user)
     |> assign(:profile_slug, current_user.connection.profile.slug)
     |> maybe_load_custom_banner(current_user)
+    |> assign(:local_today, MossletWeb.Helpers.JournalHelpers.get_local_today(socket))
     |> assign_dashboard_stats()
+    |> assign_reply_activity()
     |> assign_org_spaces()
     |> assign_dashboard_ritual_prompt(current_user)
     |> assign_connections_around()
@@ -353,7 +415,11 @@ defmodule MossletWeb.UserDashLive do
   defp assign_dashboard_stats(socket) do
     user = socket.assigns.current_scope.user
     user_group_ids = confirmed_user_group_ids(user) |> Enum.map(&elem(&1, 0))
-    local_today = MossletWeb.Helpers.JournalHelpers.get_local_today(socket)
+
+    # The viewer's local "today" is captured at mount (connect_params carries
+    # the timezone and is only readable while mounting); handle_info refreshes
+    # reuse the assign instead of reading connect_params again, which raises.
+    local_today = socket.assigns[:local_today] || Date.utc_today()
 
     stats = %{
       connections: length(Accounts.get_all_confirmed_user_connections(user.id)),
@@ -365,10 +431,91 @@ defmodule MossletWeb.UserDashLive do
       journal_entries: Journal.count_entries(user),
       capsules_opening_today: Capsules.count_opening_today(user, local_today),
       unread_dms: Conversations.count_unread_messages(user.id),
-      unread_mentions: GroupMessages.count_unread_mentions(user_group_ids)
+      unread_mentions: GroupMessages.count_unread_mentions(user_group_ids),
+      unread_replies: Timeline.count_unread_replies_for_user(user)
     }
 
     assign(socket, :stats, stats)
+  end
+
+  # Unread reply activity for the "New replies" dashboard card: replies to the
+  # viewer's posts AND replies to the viewer's own replies, GROUPED BY POST so
+  # a busy thread collapses into one calm row ("…and 2 others") instead of
+  # flooding the card. Each row is a lightweight view-model keyed by the
+  # group's newest reply (also the deep-link scroll target) — author names are
+  # decrypted CLIENT-SIDE by the DecryptReplyAuthor hook (ZK), exactly like the
+  # nudge cards. Public posts are the exception: the server already holds that
+  # key, so the name is decrypted server-side (same as the feed's fast-path).
+  defp assign_reply_activity(socket) do
+    current_user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    reply_activity =
+      current_user
+      |> Timeline.list_unread_replies_for_user(%{limit: 25})
+      |> Enum.group_by(& &1.post_id)
+      |> Enum.map(fn {_post_id, replies} ->
+        replies
+        |> Enum.sort_by(& &1.inserted_at, {:desc, NaiveDateTime})
+        |> build_reply_group_view(current_user, key)
+      end)
+      |> Enum.sort_by(& &1.latest_at, {:desc, NaiveDateTime})
+      |> Enum.take(5)
+
+    assign(socket, :reply_activity, reply_activity)
+  end
+
+  defp build_reply_group_view([newest | _] = replies, current_user, key) do
+    post = newest.post
+    browser_decrypt? = post.visibility != :public
+
+    %{
+      id: newest.id,
+      post_id: post.id,
+      count: length(replies),
+      kind: if(is_nil(newest.parent_reply_id), do: :post, else: :reply),
+      direct?: Enum.any?(replies, &is_nil(&1.parent_reply_id)),
+      nested?: Enum.any?(replies, &(not is_nil(&1.parent_reply_id))),
+      latest_at: newest.inserted_at,
+      browser_decrypt?: browser_decrypt?,
+      sealed_post_key: if(browser_decrypt?, do: sealed_post_key_for(post, current_user)),
+      encrypted_username: if(browser_decrypt?, do: newest.username),
+      author_name:
+        if(browser_decrypt?,
+          do: nil,
+          else: get_safe_reply_author_name(newest, current_user, key)
+        )
+    }
+  end
+
+  # Total unread replies across the shown groups — the "View all" link appears
+  # only when the card is truncated (more unread than shown).
+  defp reply_activity_count(groups), do: Enum.sum(Enum.map(groups, & &1.count))
+
+  defp reply_group_action_text(group) do
+    cond do
+      group.count == 1 and group.kind == :post -> "replied to your post"
+      group.count == 1 -> "replied to your reply"
+      group.direct? and group.nested? -> "replied to your post and replies"
+      group.nested? -> "replied to your replies"
+      true -> "replied to your post"
+    end
+  end
+
+  # Resolves the viewer's sealed post key from the preloaded user_posts so the
+  # browser can unseal the post_key and decrypt the reply author name locally
+  # (ZK). Group posts carry a single shared UserPost row; everything else is
+  # keyed per-recipient. Returns nil when the viewer has no key — the row then
+  # keeps its "Someone" placeholder (graceful, no server-side decryption).
+  defp sealed_post_key_for(post, current_user) do
+    if post.group_id do
+      case List.first(post.user_posts) do
+        nil -> nil
+        user_post -> user_post.key
+      end
+    else
+      Enum.find_value(post.user_posts, &(&1.user_id == current_user.id && &1.key))
+    end
   end
 
   # The viewer's CONFIRMED circle memberships as `{user_group_id, group_id}`
@@ -456,6 +603,7 @@ defmodule MossletWeb.UserDashLive do
           ritual_prompt_answered?={@ritual_prompt_answered?}
           connections_around?={@connections_around?}
           nudges={@nudges}
+          reply_activity={@reply_activity}
         />
       <% else %>
         <.dashboard_onboarding current_scope={@current_scope} />
@@ -478,6 +626,7 @@ defmodule MossletWeb.UserDashLive do
   attr :ritual_prompt_answered?, :boolean, default: false
   attr :connections_around?, :boolean, default: false
   attr :nudges, :list, default: []
+  attr :reply_activity, :list, default: []
 
   defp dashboard_home(assigns) do
     ~H"""
@@ -592,6 +741,95 @@ defmodule MossletWeb.UserDashLive do
             </button>
           </div>
         </div>
+        <%!-- New replies (replies to your posts + replies to your replies),
+              grouped by post so busy threads collapse into one calm row.
+              Rows are metadata + ciphertext only: author names are decrypted
+              CLIENT-SIDE by the DecryptReplyAuthor hook with the viewer's
+              sealed post key (ZK) — the same pattern as the nudge cards.
+              Each row deep-links into the timeline at the group's newest
+              reply, which expands the thread, scrolls to it, and marks it
+              read — the thread itself is the "fan out". --%>
+        <div :if={@reply_activity != []} id="dashboard-replies" class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+              New replies
+            </h2>
+            <.link
+              :if={@stats.unread_replies > reply_activity_count(@reply_activity)}
+              navigate={~p"/app/timeline"}
+              id="dashboard-replies-view-all"
+              class="text-xs font-medium text-emerald-700/80 dark:text-emerald-300/70 hover:text-emerald-800 dark:hover:text-emerald-200 transition-colors"
+            >
+              View all {@stats.unread_replies} in timeline
+            </.link>
+          </div>
+
+          <.link
+            :for={reply <- @reply_activity}
+            navigate={~p"/app/timeline?#{%{post_id: reply.post_id, reply_id: reply.id}}"}
+            id={"dash-reply-#{reply.id}"}
+            class="group relative flex items-center gap-4 rounded-2xl border border-emerald-200/70 dark:border-emerald-800/50 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 px-5 py-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-emerald-500/10"
+          >
+            <div
+              :if={reply.browser_decrypt?}
+              id={"decrypt-reply-author-#{reply.id}"}
+              phx-hook="DecryptReplyAuthor"
+              phx-update="ignore"
+              data-post-id={reply.post_id}
+              data-sealed-post-key={reply.sealed_post_key}
+              data-encrypted-username={reply.encrypted_username}
+              data-target-id={"dash-reply-author-#{reply.id}"}
+              class="hidden"
+            >
+            </div>
+
+            <div class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 shadow-md shadow-emerald-500/30">
+              <.phx_icon
+                name={
+                  cond do
+                    reply.count > 1 -> "hero-chat-bubble-left-ellipsis"
+                    reply.kind == :reply -> "hero-arrow-uturn-left"
+                    true -> "hero-chat-bubble-left-right"
+                  end
+                }
+                class="size-5 text-white"
+              />
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                <span
+                  :if={reply.browser_decrypt?}
+                  id={"dash-reply-author-#{reply.id}"}
+                  phx-update="ignore"
+                >
+                  Someone
+                </span>
+                <span :if={!reply.browser_decrypt?}>{reply.author_name}</span>
+                <span :if={reply.count > 1} class="font-normal">
+                  and {reply.count - 1} {if reply.count == 2, do: "other", else: "others"}
+                </span>
+                <span class="font-normal">
+                  {reply_group_action_text(reply)}
+                </span>
+              </p>
+              <p class="text-xs text-emerald-700/80 dark:text-emerald-300/70">
+                <.local_time_ago id={"dash-reply-time-#{reply.id}"} at={reply.latest_at} />
+              </p>
+            </div>
+            <span
+              :if={reply.count > 1}
+              id={"dash-reply-count-#{reply.post_id}"}
+              class="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 px-1.5 text-[11px] font-bold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
+            >
+              {if reply.count > 9, do: "9+", else: reply.count}
+            </span>
+            <.phx_icon
+              name="hero-chevron-right"
+              class="size-5 shrink-0 text-emerald-500 transition-transform duration-300 group-hover:translate-x-0.5"
+            />
+          </.link>
+        </div>
+
         <%!-- A letter to your future self has arrived. A calm return-reason,
               gated purely on the plaintext deliver_on date — content stays ZK. --%>
         <.link

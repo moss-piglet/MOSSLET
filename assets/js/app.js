@@ -200,6 +200,54 @@ window.addEventListener("phx:show-reply-thread", (event) => {
   }
 });
 
+// Deep-link to a reply in the feed (from the dashboard "New replies" card):
+// expand the post's reply thread plus any nested ancestors, then scroll to the
+// reply and highlight it briefly. We drive the existing toggle buttons so all
+// the usual behavior stays consistent (aria/expanded state, unread badges,
+// and the server-side mark-as-read events baked into those toggles).
+window.addEventListener("phx:reply-deep-link", (event) => {
+  const { post_id, reply_id, ancestors } = event.detail;
+
+  requestAnimationFrame(() => {
+    const thread = document.getElementById(`reply-thread-${post_id}`);
+    const replyButton = document.getElementById(`reply-button-${post_id}`);
+
+    if (thread && thread.classList.contains("hidden") && replyButton) {
+      replyButton.click();
+    }
+
+    (ancestors || []).forEach((ancestorId) => {
+      const children = document.getElementById(`nested-children-${ancestorId}`);
+      const toggle = document.getElementById(`nested-toggle-${ancestorId}`);
+
+      if (children && children.classList.contains("hidden") && toggle) {
+        toggle.click();
+      }
+    });
+
+    const target =
+      (reply_id && document.getElementById(`reply-${reply_id}`)) ||
+      document.getElementById(`timeline-card-${post_id}`);
+
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      target.classList.add(
+        "ring-2",
+        "ring-emerald-300",
+        "dark:ring-emerald-400"
+      );
+
+      setTimeout(() => {
+        target.classList.remove(
+          "ring-2",
+          "ring-emerald-300",
+          "dark:ring-emerald-400"
+        );
+      }, 2600);
+    }
+  });
+});
+
 // Hide nested reply composer after successful submission
 window.addEventListener("phx:hide-nested-reply-composer", (event) => {
   const { reply_id } = event.detail;

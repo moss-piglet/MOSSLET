@@ -656,7 +656,14 @@ defmodule MossletWeb.PostLive.Components do
     default: "",
     doc: "the index of the reply in the list of replies (typically the associated post's id)"
 
+  attr :target_reply_id, :string,
+    default: nil,
+    doc: "a reply id to scroll to and highlight (deep link from the dashboard)"
+
   def single_post(assigns) do
+    # The show page passes current_scope; derive current_user/key from it.
+    assigns = MossletWeb.DesignSystem.assign_scope_fields(assigns)
+
     assigns =
       assign(
         assigns,
@@ -982,7 +989,13 @@ defmodule MossletWeb.PostLive.Components do
         </div>
       </div>
     </div>
-    <div id="replies" phx-update="stream" class="flex flex-col justify-center px-4 pt-6">
+    <div
+      id="replies"
+      phx-update="stream"
+      phx-hook="ScrollToReply"
+      data-target-reply-id={@target_reply_id}
+      class="flex flex-col justify-center px-4 pt-6"
+    >
       <div
         :for={{id, item} <- @stream}
         :if={item}
