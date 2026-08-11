@@ -126,6 +126,12 @@ defmodule MossletWeb.UserDashLiveTest do
       first = create_reply(post, replier, r_key, "first reply")
       second = create_reply(post, replier, r_key, "second reply")
 
+      # inserted_at is second-truncated, so backdate the first reply to make
+      # the group's "newest" deterministic
+      first
+      |> Ecto.Changeset.change(inserted_at: NaiveDateTime.add(second.inserted_at, -60, :second))
+      |> Mosslet.Repo.update!()
+
       {:ok, lv, _html} = visit_dashboard(conn, user, key)
 
       # One row per post, keyed by (and deep-linking to) the newest reply
