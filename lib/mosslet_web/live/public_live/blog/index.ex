@@ -29,6 +29,13 @@ defmodule MossletWeb.PublicLive.Blog.Index do
             <%!-- Blog entries --%>
             <div class="space-y-8">
               <.blog_entry
+                id="blog_20"
+                date="August 12, 2026"
+                title="The Network Jaron Lanier Hoped Someone Would Build"
+                preview={"Jaron Lanier, the computer scientist who helped popularize the term \"virtual reality,\" wrote a small, sharp book called Ten Arguments for Deleting Your Social Media Accounts Right Now. People assume it's a rant against connection. It isn't. Lanier is a tech optimist. He loves what networks could be. What he can't stand is the machine most of them are built on."}
+                link={~p"/blog/articles/20"}
+              />
+              <.blog_entry
                 id="blog_19"
                 date="June 24, 2026"
                 title="Make Sure It's Really Them: Closing an Authenticity Gap"
