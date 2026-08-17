@@ -201,7 +201,7 @@ defmodule Mosslet.MixProject do
       {:premailex, "~> 0.3.0"},
       {:query_builder, "~> 1.0"},
       {:remote_ip, "~> 1.0"},
-      {:req, "~> 0.5.0"},
+      {:req, "~> 0.7.2"},
       {:req_llm, "~> 1.3"},
       {:safeurl, "~> 1.0"},
       {:sizeable, "~> 1.0"},

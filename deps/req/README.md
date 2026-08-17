@@ -18,7 +18,7 @@ Req.get!("https://api.github.com/repos/wojtekmach/req").body["description"]
 #=> "Req is a batteries-included HTTP client for Elixir."
 ```
 
-we get automatic response body decompression & decoding, following redirects, retrying on errors,
+we get automatic response body decoding, following redirects, retrying on errors,
 and much more. Virtually all of the features are broken down into individual functions called
 _steps_. You can easily re-use and re-arrange built-in steps (see [`Req.Steps`] module) and
 write new ones.
@@ -31,7 +31,7 @@ write new ones.
 
   * Request body compression (via [`compress_body`] step)
 
-  * Automatic response body decompression (via [`compressed`] and [`decompress_body`] steps). Supports gzip, brotli, and zstd.
+  * Opt-in response body decompression (via [`compressed`] and [`decompress_body`] steps). Supports gzip, brotli, and zstd.
 
   * Request body encoding. Supports urlencoded and multipart forms, and JSON. See [`encode_body`].
 
@@ -39,7 +39,7 @@ write new ones.
 
   * Encode params as query string (via [`put_params`] step.)
 
-  * Setting base URL (via [`put_base_url`] step.)
+  * Setting base URL (via [`put_base_url`] step.
 
   * Templated request paths (via [`put_path_params`] step.)
 
@@ -61,13 +61,11 @@ write new ones.
 
   * Verify response body against a checksum (via [`checksum`] step.)
 
-  * Basic HTTP caching (via [`cache`] step.)
-
   * Easily create test stubs (see [`Req.Test`].)
 
-  * Running against a plug (via [`run_plug`] step.)
+  * Running against a plug (via [`Req.Plug`] adapter.)
 
-  * Pluggable adapters. By default, Req uses [Finch] (via [`run_finch`] step.)
+  * Pluggable adapters. By default, Req uses [Finch] (via [`Req.Finch`] adapter.)
 
 ## Usage
 
@@ -206,7 +204,7 @@ See [`Req.Request`] module documentation for more information on low-level API, 
 
 Req supports many configuration options, see [`Req.new/1`] for a full list and see each step for
 more details. In particular, if you are looking for slightly lower level HTTP options such as
-timeouts, pool sizes, and certificates, see the [`run_finch`] documentation.
+timeouts, pool sizes, and certificates, see the [`Req.Finch`] documentation.
 
 ## Related Packages
 
@@ -223,8 +221,8 @@ There are many packages that extend the Req library. To get yours listed here, s
 
 ## Presentations
 
-  * [Req: A batteries-included HTTP client for Elixir - ElixirConf 2023, 2023-09-08](https://www.youtube.com/watch?v=owz2QacFuoQ "ElixirConf 2023 - Wojtek Mach - Req - a batteries-included HTTP client for Elixir")
-  * [Req: A batteries included HTTP client for Elixir - Elixir Kenya, 2022-08-26](https://www.youtube.com/watch?v=NxWgvHRN6mI "Req: A batteries included HTTP client for Elixir")
+  * [Building API Clients with Req -- ElixirConf EU 2024](https://www.youtube.com/watch?v=AexE5JKpNvA)
+  * [Req: A batteries-included HTTP client for Elixir -- ElixirConf 2023](https://www.youtube.com/watch?v=owz2QacFuoQ)
 
 ## Development
 
@@ -258,11 +256,12 @@ limitations under the License.
 [`Req.post!/2`]:         https://hexdocs.pm/req/Req.html#post!/2
 [`Req`]:                 https://hexdocs.pm/req
 [`Req.Request`]:         https://hexdocs.pm/req/Req.Request.html
+[`Req.Finch`]:           https://hexdocs.pm/req/Req.Finch.html
+[`Req.Plug`]:            https://hexdocs.pm/req/Req.Plug.html
 [`Req.Steps`]:           https://hexdocs.pm/req/Req.Steps.html
 [`Req.Test`]:            https://hexdocs.pm/req/Req.Test.html
 
 [`auth`]:               https://hexdocs.pm/req/Req.Steps.html#auth/1
-[`cache`]:              https://hexdocs.pm/req/Req.Steps.html#cache/1
 [`compress_body`]:      https://hexdocs.pm/req/Req.Steps.html#compress_body/1
 [`compressed`]:         https://hexdocs.pm/req/Req.Steps.html#compressed/1
 [`decode_body`]:        https://hexdocs.pm/req/Req.Steps.html#decode_body/1
@@ -270,15 +269,12 @@ limitations under the License.
 [`encode_body`]:        https://hexdocs.pm/req/Req.Steps.html#encode_body/1
 [`redirect`]:           https://hexdocs.pm/req/Req.Steps.html#redirect/1
 [`handle_http_errors`]: https://hexdocs.pm/req/Req.Steps.html#handle_http_errors/1
-[`output`]:             https://hexdocs.pm/req/Req.Steps.html#output/1
 [`put_base_url`]:       https://hexdocs.pm/req/Req.Steps.html#put_base_url/1
 [`put_params`]:         https://hexdocs.pm/req/Req.Steps.html#put_params/1
 [`put_path_params`]:    https://hexdocs.pm/req/Req.Steps.html#put_path_params/1
-[`run_plug`]:           https://hexdocs.pm/req/Req.Steps.html#run_plug/1
 [`put_range`]:          https://hexdocs.pm/req/Req.Steps.html#put_range/1
 [`put_user_agent`]:     https://hexdocs.pm/req/Req.Steps.html#put_user_agent/1
 [`retry`]:              https://hexdocs.pm/req/Req.Steps.html#retry/1
-[`run_finch`]:          https://hexdocs.pm/req/Req.Steps.html#run_finch/1
 [`checksum`]:           https://hexdocs.pm/req/Req.Steps.html#checksum/1
 [`put_aws_sigv4`]:       https://hexdocs.pm/req/Req.Steps.html#put_aws_sigv4/1
 
