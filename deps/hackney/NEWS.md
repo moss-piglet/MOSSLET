@@ -1,5 +1,143 @@
 # NEWS
 
+4.7.4 - 2026-08-12
+------------------
+
+### Fixed
+
+- A connection attempt that outlives its timeout no longer terminates the pool,
+  and with it every caller of that pool. The dial is made with the request's
+  `connect_timeout`, and a call that times out, like a connection process that
+  dies while dialing, comes back as a checkout error (#927, #928, thanks
+  @aboroska).
+- Handing a pooled connection to a new owner, and the prewarm dial, are guarded
+  like the other calls the pool makes into a connection process. A connection
+  that is gone or wedged is dropped instead of taking the pool down (#929).
+- Stopping a connection from inside the pool is bounded to 100ms, after which
+  the connection is killed. A connection wedged in a transport call, which a
+  failed dial makes likely, used to hold every caller of the pool for as long
+  as the transport took to return (#929).
+- The health probes the pool runs on a connection (`is_ready`, `checkin_info`,
+  `set_owner`, `get_state`) take an explicit timeout, and the pool passes
+  250ms. `h2_conn_usable/1` used the 5s default, so one wedged HTTP/2
+  connection stalled the pool for 5 seconds on every checkout for that host
+  (#929).
+
+### Added
+
+- Fault injection test harness for the pool: a transport which can be told to
+  misbehave, a sentinel which makes a dead pool visible, fault and chaos
+  suites, and a structural test which fails if the pool calls a connection
+  process outside a `try`. `DEVELOPMENT.md` explains how to use it (#929).
+
+### Changed
+
+- Update dependencies to their latest releases: `h2` 0.12.0 and `webtransport`
+  0.4.5 (#930).
+
+4.7.3 - 2026-08-11
+------------------
+
+### Fixed
+
+- Reusing a pooled HTTP/2 or HTTP/3 connection no longer crashes the caller of
+  `hackney:connect/4` when the pooled connection terminates during the checkout
+  liveness probe. The `get_state` probe is guarded so a terminating connection
+  falls through to a fresh one (#914).
+- `hackney_url:normalize/2` now rejects a host that reaches an IP literal only
+  after IDNA folds the Unicode full-stop variants (U+3002/U+FF0E/U+FF61) to
+  ASCII dots (for example `127。0。0。1` becoming `127.0.0.1`), closing a bypass
+  of the percent-encoded-IP check.
+- The CONNECT proxy handshake rejects CR/LF/NUL in the target host instead of
+  concatenating it into the request line and `Host` header.
+- The pooled HTTPS upgrade bounds the TLS handshake with `connect_timeout`
+  (`ssl:connect/3`), so a server that stalls the handshake no longer pins the
+  connection process and its pool slot (#916).
+- The streaming request path sanitizes header values (CR/LF) like the buffered
+  path, and the request method is validated (CR/LF/NUL) at every entry point,
+  not just the request target.
+- A response body cut short by the peer closing mid-transfer no longer leaks
+  the connection process. `read_full_body/2` hands back `socket = undefined`,
+  so the connection went straight to `closed` and never reached the reuse
+  check added for #902. An unpooled connection arms no grace timer there and,
+  when started under `hackney_conn_sup`, has the supervisor as its `owner`, so
+  the owner-DOWN clause never fired either: the process parked forever holding
+  every refc binary it had read. Callers could not clean up, since a
+  synchronous request returns the body directly and the truncated read still
+  reports `{ok, Body}` (#918). The same applies to a failed body read and to
+  bodyless (204/304) responses.
+- `hackney_conn:get_location/1` and `set_location/2` no longer exit with
+  `noproc` when the connection has already stopped, which would otherwise
+  propagate out of `hackney:request/5` on the redirect path.
+
+### Changed
+
+- Like curl, an empty body on a body-bearing method (POST/PUT/PATCH) now sends
+  `Content-Length: 0`; bodyless methods (GET/HEAD/DELETE) are unchanged (#917).
+- Update dependencies to their latest releases: `quic` 1.8.0, `webtransport`
+  0.4.4, `mimerl` 1.5.0, and `cowboy` 2.18.0 for the test suite.
+
+4.7.2 - 2026-07-17
+------------------
+
+### Changed
+
+- Bump `quic` to 1.7.1. A clean QUIC connection close (idle pooled HTTP/3
+  connections, orderly shutdown) no longer emits ERROR and CRASH reports from
+  `quic_h3_connection` nor propagates an abnormal exit to the connection
+  owner. This also removes the intermittent eunit group cancellation in the
+  h3/wt test suites.
+
+4.7.1 - 2026-07-17
+------------------
+
+### Fixed
+
+- Chunked decoding no longer fails with `{error, invalid_chunk_size}` when
+  the CRLF terminating a chunk-size line is split across two socket reads
+  (buffer ending on a lone `\r`). The parser now waits for the `\n` (#901).
+- A malformed chunk-size line or chunk terminator now fails cleanly with
+  `{error, invalid_chunk_size}` or `{error, poorly_formatted_chunked_size}`
+  instead of crashing the parser with a `case_clause` error.
+
+4.7.0 - 2026-07-17
+------------------
+
+### Fixed
+
+- HTTP/2 request bodies larger than the peer's flow control window no longer
+  fail with `{error, send_buffer_full}`. Body sends now block until the
+  server opens the window with WINDOW_UPDATE frames, bounded by the new
+  `send_timeout` request option (default 30000 ms, `infinity` allowed). If
+  the window never opens the request fails with `{error, timeout}` instead
+  of hanging, and the abandoned stream is reset (RST_STREAM) so its buffered
+  body does not linger on a shared connection. Pass `{send_timeout, nonblock}`
+  to restore the previous non-blocking behavior. Applies to whole-body and
+  streamed HTTP/2 request bodies; HTTP/1.1 and HTTP/3 are unchanged.
+- HTTP/2 async requests now deliver their response messages. The stream
+  entry stored the internal call reference where the delivery code expected
+  the `stream_to` pid, so every async HTTP/2 response was silently dropped
+  and the caller never received `{hackney_response, Ref, ...}` messages.
+- HTTP/2 `{async, once}` now honors `stream_next/1` with the same contract
+  as HTTP/1.1: status and headers are delivered eagerly, then each
+  `stream_next/1` delivers exactly one message (a body chunk or `done`).
+  Previously every frame was pushed eagerly, identical to `{async, true}`.
+  once-mode streams run h2 manual flow control, so a slow consumer keeps the
+  peer's window closed and in-flight data stays bounded to one window.
+- Connections created with `hackney:connect/4` and `{pool, false}` honor a
+  `{send_timeout, T}` connect option again (`hackney:send_request/2` has no
+  per-request options channel). Pooled connections keep the constant default
+  and take the per-request option instead.
+
+4.6.1 - 2026-07-15
+------------------
+
+### Changed
+
+- Bump `h2` to 0.11.0. It adds `h2:peername/1`, which returns the peer's
+  `{IpAddress, Port}` for a live connection. Additive only; no behavior
+  change for hackney.
+
 4.6.0 - 2026-07-15
 ------------------
 

@@ -722,7 +722,7 @@ defmodule Phoenix.Socket do
     case socket.handler.__channel__(topic) do
       {channel, opts} ->
         if map_size(state.channels) >= state.max_channels_per_transport do
-          Logger.warning(
+          Logger.error(
             "Reached max channels per transport limit of #{state.max_channels_per_transport} for socket #{inspect(socket.id)}"
           )
 
@@ -863,7 +863,14 @@ defmodule Phoenix.Socket do
   end
 
   defp encode_on_exit(socket, topic, ref, _reason) do
-    message = %Message{join_ref: ref, ref: ref, topic: topic, event: "phx_error", payload: %{}}
+    message = %Message{
+      join_ref: ref,
+      ref: ref,
+      topic: topic,
+      event: "phx_error",
+      payload: %{reason: "channel_crash"}
+    }
+
     encode_reply(socket, message)
   end
 

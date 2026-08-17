@@ -140,6 +140,11 @@ connect_direct(Transport, Host, Port, Options) ->
     transport => Transport,
     connect_timeout => proplists:get_value(connect_timeout, Options, 8000),
     recv_timeout => proplists:get_value(recv_timeout, Options, 5000),
+    %% Single-owner connection: seed the conn-level send_timeout so
+    %% hackney:send_request/2 (which has no options channel) honors it.
+    %% Pooled connections deliberately skip this (shared conns keep the
+    %% constant default; per-request ReqOpts override there).
+    send_timeout => proplists:get_value(send_timeout, Options, 30000),
     connect_options => ConnectOpts,
     ssl_options => proplists:get_value(ssl_options, Options, [])
   },
@@ -191,8 +196,15 @@ connect_pool(Transport, Host, Port, Options) ->
           case PoolHandler:checkout_h2(Host, Port, Transport, Options2) of
             {ok, H2Pid} ->
               %% Verify connection is actually in connected state
-              %% (OTP 28 on FreeBSD may have timing issues with SSL connections)
-              case hackney_conn:get_state(H2Pid) of
+              %% (OTP 28 on FreeBSD may have timing issues with SSL connections).
+              %% The probe is a gen_statem:call, which exits if the pooled
+              %% connection is terminating (idle teardown, GOAWAY, keepalive
+              %% close) at checkout time; treat that as unusable and fall
+              %% through to a fresh connection instead of crashing the caller.
+              %% Mirrors maybe_register_h2/maybe_upgrade_ssl.
+              GetState = try hackney_conn:get_state(H2Pid)
+                         catch exit:_ -> {error, terminated} end,
+              case GetState of
                 {ok, connected} ->
                           {ok, H2Pid};
                 _ ->
@@ -242,8 +254,13 @@ try_h3_connection(Host, Port, Transport, Options, PoolHandler) ->
       %% Check if we have an existing HTTP/3 connection
       case PoolHandler:checkout_h3(Host, Port, Transport, Options2) of
         {ok, H3Pid} ->
-          %% Verify connection is actually in connected state
-          case hackney_conn:get_state(H3Pid) of
+          %% Verify connection is actually in connected state. The probe is a
+          %% gen_statem:call, which exits if the pooled connection is
+          %% terminating at checkout time; treat that as unusable and fall
+          %% through to a fresh connection instead of crashing the caller.
+          GetState = try hackney_conn:get_state(H3Pid)
+                     catch exit:_ -> {error, terminated} end,
+          case GetState of
             {ok, connected} ->
               {ok, H3Pid};
             _ ->
@@ -499,6 +516,8 @@ start_conn_with_socket_internal(Host, Port, Transport, Socket, Options) ->
     socket => Socket,
     connect_timeout => proplists:get_value(connect_timeout, Options, 8000),
     recv_timeout => proplists:get_value(recv_timeout, Options, 5000),
+    %% Single-owner tunneled connection: same seeding as connect_direct.
+    send_timeout => proplists:get_value(send_timeout, Options, 30000),
     connect_options => ConnectOpts,
     ssl_options => proplists:get_value(ssl_options, Options, []),
     no_reuse => NoReuse
@@ -1336,8 +1355,14 @@ sync_request_with_redirect(ConnPid, Method, Path, Headers, Body, WithBody, Optio
   %% Check if this is a streaming body request
   case FinalBody of
     stream ->
-      %% For streaming body, just send headers and return immediately
-      case hackney_conn:send_request_headers(ConnPid, Method, Path, HeadersList) of
+      %% For streaming body, send headers and return immediately. Forward
+      %% send_timeout so the body chunks use the caller's deadline even on a
+      %% reused pooled connection.
+      ReqOpts = case proplists:get_value(send_timeout, Options) of
+        undefined -> [];
+        SendTimeout -> [{send_timeout, SendTimeout}]
+      end,
+      case hackney_conn:send_request_headers(ConnPid, Method, Path, HeadersList, ReqOpts) of
         ok -> {ok, ConnPid};
         {error, Reason} -> {error, Reason}
       end;
@@ -1358,9 +1383,15 @@ sync_request_with_redirect_body(ConnPid, Method, Path, HeadersList, FinalBody,
     false -> ReqOpts0
   end,
   %% Pass recv_timeout through to the connection so it's applied per-request
-  ReqOpts = case proplists:get_value(recv_timeout, Options) of
+  ReqOpts2 = case proplists:get_value(recv_timeout, Options) of
     undefined -> ReqOpts1;
     RecvTimeout -> [{recv_timeout, RecvTimeout} | ReqOpts1]
+  end,
+  %% Pass send_timeout through so HTTP/2 body sends blocked on flow control
+  %% use the caller's deadline
+  ReqOpts = case proplists:get_value(send_timeout, Options) of
+    undefined -> ReqOpts2;
+    SendTimeout -> [{send_timeout, SendTimeout} | ReqOpts2]
   end,
   case hackney_conn:request(ConnPid, Method, Path, HeadersList, FinalBody, infinity, ReqOpts) of
     %% HTTP/2 returns body directly - handle 4-tuple first
@@ -1458,12 +1489,13 @@ follow_redirect(ConnPid, Method, Body, WithBody, Options, CurrentURL, RespHeader
                    [{follow_redirect, true}, {max_redirect, MaxRedirect},
                     {redirect_count, RedirectCount + 1}, {with_body, WithBody} | Options2]) of
         {ok, Status2, Headers2, Body2} ->
-          %% Store the final location in the connection
-          hackney_conn:set_location(ConnPid, FinalLocation),
+          %% Store the final location in the connection (the conn may already
+          %% be gone, so set_location can return {error, closed}).
+          _ = hackney_conn:set_location(ConnPid, FinalLocation),
           {ok, Status2, Headers2, Body2};
         {ok, Status2, Headers2} ->
           %% Store the final location in the connection
-          hackney_conn:set_location(ConnPid, FinalLocation),
+          _ = hackney_conn:set_location(ConnPid, FinalLocation),
           {ok, Status2, Headers2};
         Error ->
           Error
@@ -1568,9 +1600,13 @@ async_request(ConnPid, Method, Path, Headers, Body, AsyncMode, StreamTo, FollowR
   {FinalHeaders, FinalBody} = encode_body(Headers, Body, []),
   HeadersList = hackney_headers:to_list(FinalHeaders),
   %% Build ReqOpts for recv_timeout (fix for issue #832)
-  ReqOpts = case proplists:get_value(recv_timeout, Options) of
+  ReqOpts0 = case proplists:get_value(recv_timeout, Options) of
     undefined -> [];
     RecvTimeout -> [{recv_timeout, RecvTimeout}]
+  end,
+  ReqOpts = case proplists:get_value(send_timeout, Options) of
+    undefined -> ReqOpts0;
+    SendTimeout -> [{send_timeout, SendTimeout} | ReqOpts0]
   end,
   %% Note: Issue #646 - ownership transfer to StreamTo (when different from caller)
   %% is handled atomically inside hackney_conn:do_request_async

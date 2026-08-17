@@ -581,6 +581,8 @@ defmodule Ecto.Changeset do
     end
   end
 
+  defp relation_changed?(:one, nil), do: true
+
   defp relation_changed?(:one, changeset) do
     changeset.action != :update or changeset.changes != %{}
   end
@@ -1385,7 +1387,7 @@ defmodule Ecto.Changeset do
       end
 
     relation = relation!(:cast, type, key, Map.get(types, key))
-    on_cast = Keyword.get(opts, :with)
+    on_cast = Keyword.get_lazy(opts, :with, fn -> Relation.on_cast_default(relation) end)
     sort = opts_key_from_params(:sort_param, opts, params)
     drop = opts_key_from_params(:drop_param, opts, params)
 
@@ -1547,6 +1549,8 @@ defmodule Ecto.Changeset do
     * `required` - required fields are merged; all the fields that appear
       in the required list of both changesets are moved to the required
       list of the resulting changeset.
+    * `prepare` - prepare callbacks are concatenated in the order of the
+      changesets being merged.
 
   ## Examples
 
@@ -1572,6 +1576,7 @@ defmodule Ecto.Changeset do
     new_filters = Map.merge(cs1.filters, cs2.filters)
     new_validations = cs1.validations ++ cs2.validations
     new_constraints = cs1.constraints ++ cs2.constraints
+    new_prepare = cs2.prepare ++ cs1.prepare
 
     # They are always set, so they should never be nil
     _ = merge_identical(cs1.empty_values, cs2.empty_values, "empty values")
@@ -1584,7 +1589,8 @@ defmodule Ecto.Changeset do
           filters: new_filters,
           action: new_action,
           validations: new_validations,
-          constraints: new_constraints
+          constraints: new_constraints,
+          prepare: new_prepare
       },
       cs2
     )
@@ -4323,11 +4329,13 @@ defmodule Ecto.Changeset do
 
     acc = Map.put(acc, key, relation_changed)
 
-    with %Ecto.Association.BelongsTo{related_key: related_key} <- relation,
-         %{^related_key => id} <- relation_changed do
-      Map.put(acc, relation.owner_key, id)
-    else
-      _ -> acc
+    case relation do
+      %Ecto.Association.BelongsTo{related_key: related_key, owner_key: owner_key} ->
+        id = relation_changed && Map.fetch!(relation_changed, related_key)
+        Map.put(acc, owner_key, id)
+
+      _ ->
+        acc
     end
   end
 

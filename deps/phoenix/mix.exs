@@ -8,7 +8,7 @@ defmodule Phoenix.MixProject do
     end
   end
 
-  @version "1.8.9"
+  @version "1.8.11"
   @scm_url "https://github.com/phoenixframework/phoenix"
 
   # If the elixir requirement is updated, we need to make the installer
@@ -80,7 +80,7 @@ defmodule Phoenix.MixProject do
   defp deps do
     [
       {:plug, "~> 1.14"},
-      {:plug_crypto, "~> 1.2 or ~> 2.0"},
+      {:plug_crypto, "~> 2.2"},
       {:telemetry, "~> 0.4 or ~> 1.0"},
       {:phoenix_pubsub, "~> 2.1"},
       {:phoenix_template, "~> 1.0"},
