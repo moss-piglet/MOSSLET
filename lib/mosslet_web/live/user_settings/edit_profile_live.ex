@@ -664,11 +664,14 @@ defmodule MossletWeb.EditProfileLive do
       <MediaComponents.liquid_image_edit_modal
         show={@banner_edit_modal_open}
         upload={
-          build_upload_map(
-            List.first(@uploads.banner.entries),
-            @banner_alt_text,
-            @banner_preview_data_url
-          )
+          case build_upload_map(
+                 List.first(@uploads.banner.entries),
+                 @banner_alt_text,
+                 @banner_preview_data_url
+               ) do
+            nil -> nil
+            map -> Map.put(map, :original_preview_data_url, @banner_original_preview_data_url)
+          end
         }
         crop={@banner_crop || %{}}
         id="banner-image-edit-modal"
@@ -1167,6 +1170,7 @@ defmodule MossletWeb.EditProfileLive do
      |> assign(:banner_alt_text, nil)
      |> assign(:banner_crop, nil)
      |> assign(:banner_preview_data_url, nil)
+     |> assign(:banner_original_preview_data_url, nil)
      |> assign(:banner_temp_path, nil)
      |> assign(:nsfw_check_result, nil)}
   end
@@ -1464,7 +1468,7 @@ defmodule MossletWeb.EditProfileLive do
              send(lv_pid, {:banner_upload_stage, {:converting, 30}}),
              {:ok, image} <- maybe_apply_crop(image, crop),
              send(lv_pid, {:banner_upload_stage, {:resizing, 60}}),
-             {:ok, resized_image} <- resize_banner_image(image),
+             {:ok, resized_image} <- resize_banner_image(image, crop),
              {:ok, blob} <-
                Image.write(resized_image, :memory,
                  suffix: ".webp",
@@ -1591,16 +1595,28 @@ defmodule MossletWeb.EditProfileLive do
   defp is_valid_banner_url?(url) when is_binary(url), do: String.starts_with?(url, "uploads/")
   defp is_valid_banner_url?(_), do: false
 
-  defp resize_banner_image(image) do
+  # Resizes to banner dimensions. When the user picked a crop region it has
+  # already been applied by `maybe_apply_crop/2` — resize that exact region
+  # without re-cropping so the result matches the preview. Without a crop,
+  # smart-crop the full image on the most salient area.
+  defp resize_banner_image(image, crop) when crop in [nil, %{}] do
+    do_resize_banner_image(image, :attention)
+  end
+
+  defp resize_banner_image(image, _crop) do
+    do_resize_banner_image(image, :none)
+  end
+
+  defp do_resize_banner_image(image, crop_mode) do
     {width, height, _bands} = Image.shape(image)
 
     cond do
       width >= 1500 && height >= 500 ->
-        Image.thumbnail(image, 1500, height: 500, crop: :attention)
+        Image.thumbnail(image, 1500, height: 500, crop: crop_mode)
 
       width >= 1200 ->
         target_height = round(width / 3)
-        Image.thumbnail(image, width, height: target_height, crop: :attention)
+        Image.thumbnail(image, width, height: target_height, crop: crop_mode)
 
       true ->
         {:ok, image}

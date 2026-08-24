@@ -296,7 +296,7 @@ defmodule Mosslet.FileUploads.BannerUploadWriter do
   defp generate_banner_preview(binary) do
     case Image.from_binary(binary) do
       {:ok, image} ->
-        case Image.thumbnail(image, "600x200", crop: :attention) do
+        case Image.thumbnail(image, "600x200", crop: :none) do
           {:ok, thumb} ->
             case Image.write(thumb, :memory, suffix: ".webp", quality: 75) do
               {:ok, thumb_binary} ->
