@@ -233,13 +233,17 @@ defmodule MossletWeb.EditDetailsLive do
       <MediaComponents.liquid_image_edit_modal
         show={@avatar_edit_modal_open}
         upload={
-          build_upload_map(
-            List.first(@uploads.avatar.entries),
-            @avatar_alt_text,
-            @avatar_preview_data_url
-          )
+          case build_upload_map(
+                 List.first(@uploads.avatar.entries),
+                 @avatar_alt_text,
+                 @avatar_preview_data_url
+               ) do
+            nil -> nil
+            map -> Map.put(map, :original_preview_data_url, @avatar_original_preview_data_url)
+          end
         }
         crop={@avatar_crop || %{}}
+        aspect="square"
         id="avatar-image-edit-modal"
       />
     </.layout>
@@ -952,12 +956,7 @@ defmodule MossletWeb.EditDetailsLive do
              send(lv_pid, {:avatar_upload_stage, {:converting, 30}}),
              {:ok, image} <- maybe_apply_crop(image, crop),
              send(lv_pid, {:avatar_upload_stage, {:resizing, 60}}),
-             {:ok, vix_image} <-
-               Image.avatar(image,
-                 crop: :attention,
-                 shape: :square,
-                 size: 360
-               ),
+             {:ok, vix_image} <- resize_avatar(image, crop),
              {:ok, blob} <-
                Image.write(vix_image, :memory,
                  suffix: ".webp",
@@ -982,6 +981,18 @@ defmodule MossletWeb.EditDetailsLive do
     end)
 
     {:noreply, socket}
+  end
+
+  # Resizes to the 360×360 square avatar. When the user picked a crop region
+  # it has already been applied by `maybe_apply_crop/2` — resize that exact
+  # region without re-cropping so the result matches the preview. Without a
+  # crop, smart-crop the full image on the most salient area.
+  defp resize_avatar(image, crop) when crop in [nil, %{}] do
+    Image.avatar(image, crop: :attention, shape: :square, size: 360)
+  end
+
+  defp resize_avatar(image, _crop) do
+    Image.thumbnail(image, 360, height: 360, crop: :center)
   end
 
   defp assign_avatar_form(socket, user) do

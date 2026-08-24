@@ -292,10 +292,13 @@ defmodule Mosslet.FileUploads.AvatarUploadWriter do
     end
   end
 
+  # Fit the whole image inside 400×400 without cropping (`crop: :none` pads
+  # the short side) so the crop editor always shows the full photo — the user
+  # picks the region themselves in the crop modal.
   defp generate_thumbnail_preview(binary) do
     case Image.from_binary(binary) do
       {:ok, image} ->
-        case Image.thumbnail(image, "400x400", crop: :attention) do
+        case Image.thumbnail(image, 400, height: 400, crop: :none) do
           {:ok, thumb} ->
             case Image.write(thumb, :memory, suffix: ".webp", quality: 75) do
               {:ok, thumb_binary} ->

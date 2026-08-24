@@ -594,6 +594,11 @@ defmodule MossletWeb.MediaComponents do
   attr :on_close, JS, default: %JS{}
   attr :id, :string, default: "image-edit-modal"
 
+  attr :aspect, :string,
+    default: nil,
+    values: [nil, "square"],
+    doc: "locks the crop box to a 1:1 ratio (avatars); free-form when nil"
+
   def liquid_image_edit_modal(assigns) do
     ~H"""
     <div
@@ -641,6 +646,7 @@ defmodule MossletWeb.MediaComponents do
               phx-hook="ImageCropHook"
               data-ref={@upload[:ref]}
               data-crop={Jason.encode!(@crop || %{})}
+              data-aspect={@aspect}
             >
               <%= cond do %>
                 <% @upload[:original_preview_data_url] || @upload[:preview_data_url] -> %>
