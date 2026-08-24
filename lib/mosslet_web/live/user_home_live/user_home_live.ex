@@ -149,6 +149,23 @@ defmodule MossletWeb.UserHomeLive do
 
     socket =
       if connected?(socket) do
+        # Warm the ETS avatar cache for the profile owner and post authors so
+        # the ZK `DecryptAvatar` hook has encrypted blobs to decrypt on first
+        # render. Display (`get_encrypted_avatar_data/2`) is read-only and
+        # never fetches. Cache hits / avatar-less users short-circuit.
+        profile_subject =
+          if profile_owner?,
+            do: current_user,
+            else: user_connection && %{user_connection | user: current_user}
+
+        if profile_subject do
+          ensure_avatar_cached(
+            profile_subject,
+            key,
+            {"get_user_avatar", :profile, profile_user.id}
+          )
+        end
+
         socket
         |> maybe_fetch_website_preview(profile_user, current_user, user_connection)
         |> load_profile_posts(profile_user, current_user, user_connection)
@@ -190,6 +207,13 @@ defmodule MossletWeb.UserHomeLive do
       end
 
     session_key = socket.assigns.current_scope.key
+
+    # Warm the ETS avatar cache for each post author so the ZK DecryptAvatar
+    # hook has an encrypted blob to decrypt on first render (same pattern as
+    # timeline_live). Cache hits / avatar-less authors short-circuit.
+    Enum.each(unread_posts ++ read_posts, fn post ->
+      ensure_post_author_avatar_cached(post, current_user, session_key)
+    end)
 
     unread_posts_with_dates =
       unread_posts
@@ -332,6 +356,18 @@ defmodule MossletWeb.UserHomeLive do
     user = Accounts.get_user_with_preloads(user_id)
     current_scope = %{socket.assigns.current_scope | user: user}
     {:noreply, assign(socket, :current_scope, current_scope)}
+  end
+
+  # A cold profile-owner avatar finished caching in ETS — rebuild the profile
+  # view-model (same data, new reference) so the ZK read path picks up the blob.
+  def handle_info({_ref, {"get_user_avatar", :profile, _user_id}}, socket) do
+    {:noreply, update(socket, :profile, fn profile -> profile end)}
+  end
+
+  # A cold post-author avatar finished caching — re-stream just that post so the
+  # read path picks up the blob (mirrors timeline_live's callback).
+  def handle_info({_ref, {"get_user_avatar", :post, post_id}}, socket) do
+    {:noreply, restream_profile_post_for_avatar(socket, post_id)}
   end
 
   def handle_info({:status_updated, user}, socket) do
@@ -4523,6 +4559,22 @@ defmodule MossletWeb.UserHomeLive do
 
   defp find_post_with_date(cached_posts, post_id) do
     Enum.find(cached_posts, &(&1.id == post_id))
+  end
+
+  # Re-streams a single profile post after its author avatar finished warming
+  # in ETS (ZK cold-cache callback). Uses `update_only: true` so position,
+  # ordering, and counts are untouched. No-op if the post is off-screen.
+  defp restream_profile_post_for_avatar(socket, post_id) do
+    cond do
+      post = find_post_with_date(socket.assigns[:cached_profile_posts] || [], post_id) ->
+        stream_insert(socket, :profile_posts, post, update_only: true)
+
+      post = find_post_with_date(socket.assigns[:cached_read_posts] || [], post_id) ->
+        stream_insert(socket, :read_posts, post, update_only: true)
+
+      true ->
+        socket
+    end
   end
 
   defp post_visible_on_profile?(post, profile_user, current_user) do

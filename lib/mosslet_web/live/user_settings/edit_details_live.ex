@@ -290,6 +290,18 @@ defmodule MossletWeb.EditDetailsLive do
         end
       )
 
+    # Warm the ETS avatar cache for the current user so the ZK `DecryptAvatar`
+    # hook has an encrypted blob to decrypt on first render. Display
+    # (`get_encrypted_avatar_data/2`) is read-only and never fetches; the
+    # `handle_info` callback below re-renders once a cold blob lands.
+    if connected?(socket) do
+      ensure_avatar_cached(
+        current_user,
+        socket.assigns.current_scope.key,
+        {"get_user_avatar", :edit_details, current_user.id}
+      )
+    end
+
     {:ok, socket}
   end
 
@@ -389,6 +401,13 @@ defmodule MossletWeb.EditDetailsLive do
       |> push_event("encrypt_upload", %{blob_b64: blob_b64, upload_id: "avatar"})
 
     {:noreply, socket}
+  end
+
+  # A cold avatar finished caching in ETS — force a re-render so the read path
+  # picks up the now-available encrypted blob for the ZK `DecryptAvatar` hook.
+  @impl true
+  def handle_info({_ref, {"get_user_avatar", :edit_details, _user_id}}, socket) do
+    {:noreply, update(socket, :current_user, fn user -> user end)}
   end
 
   @impl true

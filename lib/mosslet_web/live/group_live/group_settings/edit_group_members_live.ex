@@ -437,6 +437,12 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
             socket.assigns.current_scope.key
           )
 
+        # Warm the ETS avatar cache for every member so the ZK `DecryptAvatar`
+        # hook has a blob to decrypt on first render. Display is read-only.
+        if connected?(socket) do
+          warm_member_avatars(group, socket.assigns.current_scope)
+        end
+
         {:ok,
          socket
          |> assign(:group, group)
@@ -469,6 +475,10 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
             socket.assigns.current_scope.user,
             socket.assigns.current_scope.key
           )
+
+        if connected?(socket) do
+          warm_member_avatars(group, socket.assigns.current_scope)
+        end
 
         {:ok,
          socket
@@ -526,9 +536,45 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
     |> assign(:group, Mosslet.Groups.get_group!(id))
   end
 
+  # Warms the ETS avatar cache for each circle member so the ZK `DecryptAvatar`
+  # read path (`phx_avatar` + `get_encrypted_avatar_data/2`) has a blob to
+  # decrypt on first render. Resolves each member's connection to the current
+  # user; own avatar is already warmed by `mount_current_scope`. Cache hits
+  # and avatar-less members short-circuit (no task, no re-render).
+  defp warm_member_avatars(group, current_scope) do
+    current_user = current_scope.user
+    key = current_scope.key
+
+    Enum.each(group.user_groups, fn user_group ->
+      unless user_group.user_id == current_user.id do
+        user_group.id
+        |> get_user_from_user_group_id()
+        |> get_uconn_for_users(current_user)
+        |> case do
+          %Mosslet.Accounts.UserConnection{} = uconn ->
+            ensure_avatar_cached(
+              %{uconn | user: current_user},
+              key,
+              {"get_user_avatar", :group_member, uconn.id}
+            )
+
+          _ ->
+            :ok
+        end
+      end
+    end)
+  end
+
   @impl true
   def handle_event("restore-body-scroll", _params, socket) do
     {:noreply, socket}
+  end
+
+  # A cold member avatar finished caching in ETS — force a re-render so the
+  # ZK read path picks up the now-available encrypted blob.
+  @impl true
+  def handle_info({_ref, {"get_user_avatar", :group_member, _uconn_id}}, socket) do
+    {:noreply, update(socket, :group, fn group -> group end)}
   end
 
   @impl true
